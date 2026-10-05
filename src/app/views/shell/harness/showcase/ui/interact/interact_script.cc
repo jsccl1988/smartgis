@@ -124,7 +124,9 @@ bool try_apply_interact_script(Browser& browser) {
   }
   std::fwprintf(stderr, L"interact-script: %ls\n", path.c_str());
   if (is_interact_path(path)) {
-    return run_interact_script(browser, path, L"ui-showcase-mark.txt");
+    // Keep china-seed / panel marks for crash triage (do not clear).
+    return run_interact_script(browser, path, L"ui-showcase-mark.txt",
+                               /*clear_marks=*/false);
   }
   return detail::apply_ui_interact_json(browser, path);
 }

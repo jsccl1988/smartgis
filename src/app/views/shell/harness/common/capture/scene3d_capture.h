@@ -38,6 +38,9 @@ struct Scene3dHwndCaptureOpts {
   bool use_grid_lit_policy = false;
   bool retry_dark_frame = false;
   bool require_color_diversity = true;
+  // Shell DrawHost FlyCube Device is Display-thread only. Do not call
+  // present_gpu / Scene3dPresenter::paint from the UI thread.
+  bool skip_ui_thread_present = false;
 
   ShowcaseMarkFn mark = nullptr;
   const char* mark_skip_null = "bmp-skip-null";

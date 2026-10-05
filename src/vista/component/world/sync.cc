@@ -39,12 +39,7 @@ void copy_world_instances(const vista::World& world,
     inst.model = node->model;
     inst.tileset = node->tileset;
     inst.visible_uris = node->visible_uris;
-    inst.terrain_positions = node->terrain_positions;
-    inst.terrain_indices = node->terrain_indices;
-    inst.terrain_uvs = node->terrain_uvs;
-    inst.terrain_rgba = node->terrain_rgba;
-    inst.terrain_tex_w = node->terrain_tex_w;
-    inst.terrain_tex_h = node->terrain_tex_h;
+    inst.terrain = node->terrain;
     inst.point_positions = node->point_positions;
     inst.point_rgba = node->point_rgba;
     inst.point_chunks = node->point_chunks;

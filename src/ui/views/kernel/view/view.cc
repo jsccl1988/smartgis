@@ -102,20 +102,24 @@ void View::set_bounds(const Rect& bounds) {
   // Move (not only resize) must reflow children: TabStrip pages / ScrollView
   // content are placed from this view's origin. Skipping layout on a pure move
   // left MapViewport HWND at the old Y covering the tab headers — clicks never
-  // reached Map|Data|3D (双击壳里切不了 3D).
+  // reached Map|Data|3D.
   if (moved) {
-    mark_needs_layout();
-    // Eager layout when a direct child owns an HWND so native bounds track
-    // before the next WM_PAINT (mouse can hit the stale HWND first).
-    // Also reflow when growing out of a zero-area box: LayerTree / tab pages
-    // hide children on the collapsed pass and would stay blank until a later
-    // full widget layout (empty Catalog TOC under ui-showcase).
+    // LayoutManager set_bounds must not dirty the host: that would remake
+    // needs_layout on every child placement and force a redundant second pass.
     // Skip while this view or any ancestor is already laying out — otherwise
     // LayerTree::layout → row set_bounds → View::layout notes once per row.
     bool ancestor_in_layout = in_layout_;
     for (View* p = parent_; p && !ancestor_in_layout; p = p->parent_) {
       ancestor_in_layout = p->in_layout_;
     }
+    if (!ancestor_in_layout) {
+      mark_needs_layout();
+    }
+    // Eager layout when a direct child owns an HWND so native bounds track
+    // before the next WM_PAINT (mouse can hit the stale HWND first).
+    // Also reflow when growing out of a zero-area box: LayerTree / tab pages
+    // hide children on the collapsed pass and would stay blank until a later
+    // full widget layout (empty Catalog TOC under ui-showcase).
     if (!ancestor_in_layout) {
       bool hwnd_child = native_hwnd_ != nullptr;
       if (!hwnd_child) {
@@ -280,9 +284,6 @@ void View::invalidate_commands() {
 }
 
 void View::mark_needs_layout() {
-  if (in_layout_) {
-    return;
-  }
   if (needs_layout_) {
     return;
   }
@@ -309,6 +310,9 @@ void View::layout() {
   }
   for (auto& child : children_) {
     if (!child->visible_) {
+      // Invisible native hosts (inactive Map/Scene3d) must still hide HWND;
+      // skipping left embed/DXGI covering chrome after tab switch + resize.
+      child->sync_native_bounds();
       continue;
     }
     child->layout();

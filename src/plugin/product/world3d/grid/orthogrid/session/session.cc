@@ -10,14 +10,19 @@
 #include <vector>
 
 #include "plugin/product/world3d/commands.h"
+#include "plugin/product/world3d/grid/orthogrid/present/mesh.h"
 #include "plugin/runtime/host/processing/operation_result.h"
+#include "content/public/plugin_host.h"
+
+#include <rapidjson/document.h>
 
 namespace plugin {
 namespace {
 
-OrthogridMeshWriter g_mesh_writer;
+content::PluginHost* g_present_host = nullptr;
 int g_elliptic_iters = 0;
 constexpr int kAutoMaxNodes = 64 * 64;
+detail::BoundarySolve g_last_solved;
 
 struct StoredEdge {
   int flag = 0;
@@ -51,18 +56,54 @@ int estimate_nodes() {
   return nx * ny;
 }
 
-bool commit_solved(const detail::BoundarySolve& solved) {
-  if (!solved.ok) {
+bool parse_args(std::string_view json, rapidjson::Document* out) {
+  if (!out) {
     return false;
   }
-  if (!g_mesh_writer) {
-    return true;
+  out->Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
+  return !out->HasParseError() && out->IsObject();
+}
+
+bool json_get_int(const rapidjson::Value& obj, const char* key, int* out) {
+  if (!out || !key || !obj.IsObject()) {
+    return false;
   }
+  const auto it = obj.FindMember(key);
+  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
+    return false;
+  }
+  *out = it->value.GetInt();
+  return true;
+}
+
+OrthogridMeshCommit commit_at_frame(const detail::BoundarySolve& solved,
+                                    int frame_index) {
   OrthogridMeshCommit commit;
   commit.nx = solved.nx;
   commit.ny = solved.ny;
-  commit.xs = solved.xs.data();
-  commit.ys = solved.ys.data();
+  const int playback_frames =
+      solved.frame_xs.empty()
+          ? 1
+          : static_cast<int>(solved.frame_xs.size());
+  int index =
+      frame_index < 0 ? playback_frames - 1 : frame_index;
+  if (index < 0) {
+    index = 0;
+  }
+  if (index >= playback_frames) {
+    index = playback_frames - 1;
+  }
+  if (!solved.frame_xs.empty() && index < playback_frames &&
+      solved.frame_xs[static_cast<size_t>(index)].size() ==
+          static_cast<size_t>(solved.nx * solved.ny) &&
+      solved.frame_ys[static_cast<size_t>(index)].size() ==
+          static_cast<size_t>(solved.nx * solved.ny)) {
+    commit.xs = solved.frame_xs[static_cast<size_t>(index)].data();
+    commit.ys = solved.frame_ys[static_cast<size_t>(index)].data();
+  } else {
+    commit.xs = solved.xs.data();
+    commit.ys = solved.ys.data();
+  }
   if (!solved.cell_orth.empty() &&
       solved.cell_orth.size() ==
           static_cast<size_t>((solved.nx - 1) * (solved.ny - 1))) {
@@ -80,10 +121,43 @@ bool commit_solved(const detail::BoundarySolve& solved) {
     commit.raster_max_y = solved.raster_max_y;
     commit.raster_orth = solved.raster_orth.data();
   }
-  commit.frame_count = static_cast<int>(solved.frame_xs.size());
-  commit.frame_xs = solved.frame_xs.empty() ? nullptr : solved.frame_xs.data();
-  commit.frame_ys = solved.frame_ys.empty() ? nullptr : solved.frame_ys.data();
-  return g_mesh_writer(commit);
+  commit.frame_count = playback_frames;
+  return commit;
+}
+
+void fill_playback(content::PluginHost* host, int frame_count) {
+  if (!host) {
+    return;
+  }
+  if (content::PluginHost::Playback* pb = host->playback()) {
+    pb->clear();
+    for (int i = 0; i < frame_count; ++i) {
+      pb->push_frame("{\"index\":" + std::to_string(i) + "}");
+    }
+    pb->set_index(static_cast<size_t>(frame_count > 0 ? frame_count - 1 : 0));
+  }
+}
+
+bool commit_solved(const detail::BoundarySolve& solved) {
+  if (!solved.ok) {
+    return false;
+  }
+  g_last_solved = solved;
+  const OrthogridMeshCommit commit = commit_at_frame(solved, /*frame_index=*/-1);
+  const int playback_frames = commit.frame_count > 0 ? commit.frame_count : 1;
+  if (g_present_host) {
+    content::GisDocument* gis = g_present_host->gis_document();
+    if (!gis) {
+      return false;
+    }
+    if (!present_orthogrid_mesh(gis, commit)) {
+      return false;
+    }
+    fill_playback(g_present_host, playback_frames);
+    (void)g_present_host->present_dataset("smartgis.world3d", "", 0);
+    return true;
+  }
+  return true;
 }
 
 detail::BoundarySolve solve_session() {
@@ -170,15 +244,50 @@ bool write_gridbnd(const std::string& path) {
 
 }  // namespace
 
-void set_orthogrid_mesh_writer(OrthogridMeshWriter writer) {
-  g_mesh_writer = std::move(writer);
+void bind_orthogrid_present_host(content::PluginHost* host) {
+  g_present_host = host;
 }
 
 bool publish_orthogrid_mesh(const OrthogridMeshCommit& commit) {
-  if (!g_mesh_writer) {
+  if (!g_present_host || !g_present_host->gis_document()) {
     return false;
   }
-  return g_mesh_writer(commit);
+  if (!present_orthogrid_mesh(g_present_host->gis_document(), commit)) {
+    return false;
+  }
+  (void)g_present_host->present_dataset("smartgis.world3d", "", 0);
+  return true;
+}
+
+bool orthogrid_present_frame(content::PluginHost* host,
+                             std::string_view args_json) {
+  if (!host || !g_last_solved.ok) {
+    set_operation_result(
+        "{\"error\":\"no_orthogrid_session\",\"op\":\"orthogrid.present_frame\"}");
+    return false;
+  }
+  content::GisDocument* gis = host->gis_document();
+  if (!gis) {
+    set_operation_result(
+        "{\"error\":\"no_orthogrid_seam\",\"op\":\"orthogrid.present_frame\"}");
+    return false;
+  }
+  int index = 0;
+  rapidjson::Document args;
+  if (parse_args(args_json, &args)) {
+    json_get_int(args, "index", &index);
+  }
+  const OrthogridMeshCommit commit = commit_at_frame(g_last_solved, index);
+  if (!present_orthogrid_mesh(gis, commit)) {
+    set_operation_result(
+        "{\"error\":\"present_failed\",\"op\":\"orthogrid.present_frame\"}");
+    return false;
+  }
+  if (content::PluginHost::Playback* pb = host->playback()) {
+    pb->set_index(static_cast<size_t>(index < 0 ? 0 : index));
+  }
+  set_operation_result("{\"ok\":true,\"op\":\"orthogrid.present_frame\"}");
+  return true;
 }
 
 void set_orthogrid_elliptic_iters(int n) { g_elliptic_iters = std::max(0, n); }

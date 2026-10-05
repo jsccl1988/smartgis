@@ -6,19 +6,20 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <string>
+#include <string_view>
 
-#include "app/views/shell/browser/browser_ui_delegate.h"
-#include "app/views/shell/browser/plugin/analysis_writers.h"
+#include "app/views/shell/browser/ui_delegate.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
-#include "app/views/shell/harness/common/io/sample.h"
 #include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
 #include "content/browser/camera/map_host_extent.h"
+#include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/public/map_contents.h"
+#include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "ui/views/map/viewport/map_viewport.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -27,11 +28,11 @@
 
 namespace app {
 
-Browser::Browser() = default;
+Browser::Browser() : session_(content::BrowserSession::create()) {}
 
 Browser::~Browser() {
   prepare_close();
-  session_.clear_map_contents_observer();
+  session_->clear_map_contents_observer();
   if (plugins_) {
     plugins_->shutdown();
     plugins_.reset();
@@ -59,6 +60,22 @@ bool Browser::enable_oop_render() const {
   return enable_oop_render_;
 }
 
+content::Scene3dPresenter* Browser::scene3d() {
+  return &session_->scene3d();
+}
+
+const content::Scene3dPresenter* Browser::scene3d() const {
+  return &session_->scene3d();
+}
+
+PluginShell* Browser::plugins() {
+  return plugins_.get();
+}
+
+const PluginShell* Browser::plugins() const {
+  return plugins_.get();
+}
+
 content::EventBus::Connection* Browser::selection_sub() {
   return &selection_sub_;
 }
@@ -71,14 +88,18 @@ content::EventBus::Connection* Browser::extent_sub() {
   return &extent_sub_;
 }
 
+content::EventBus::Connection* Browser::layers_sub() {
+  return &layers_sub_;
+}
+
 bool Browser::init() {
   BASE_TRACE_EVENT("Browser.init.body", "startup");
   {
     BASE_TRACE_EVENT("Session.init_hosts", "startup");
     LOGGING(LOG_INFO, "startup: session.init_hosts");
-    session_.init_hosts();
+    session_->init_hosts();
     if (enable_oop_render_) {
-      if (!session_.ensure_oop_render_process()) {
+      if (!session_->ensure_oop_render_process()) {
         LOGGING(LOG_WARNING,
                 "startup: enable_oop_render requested but StartRenderProcess "
                 "failed — continuing in-process");
@@ -91,8 +112,8 @@ bool Browser::init() {
     LOGGING(LOG_INFO, "startup: PluginShell.init");
     plugins_ = std::make_unique<PluginShell>();
     plugins_->set_plugins_dir(plugins_dir_);
-    if (!session_.edit_host() ||
-        !plugins_->init(session_.edit_host()->events())) {
+    if (!session_->edit_host() ||
+        !plugins_->init(session_->edit_host()->events())) {
       LOGGING(LOG_ERROR, "startup: PluginShell.init failed");
       if (plugins_) {
         plugins_->shutdown();
@@ -115,7 +136,10 @@ bool Browser::init() {
     }
   }
 
-  wire_plugin_analysis_writers(this);
+  if (plugins_ && plugins_->host()) {
+    wire_plugin_present_dataset();
+    install_plugin_host_bridges();
+  }
 
   BASE_TRACE_EVENT("InitShell", "startup");
   LOGGING(LOG_INFO, "startup: init_shell");
@@ -172,161 +196,13 @@ void Browser::show() {
       map2d->note_surface_reset();
       map2d->invalidate_frame_cache();
     }
-    if (ui::views::MapViewport* map = map_viewport()) {
-      // invalidate_native → request_frame (public export); do not call
-      // request_frame directly — older ui_views_d.dll still exports it private.
-      map->invalidate_native();
+    if (ui_) {
+      ui_->invalidate_native_map();
     }
   }
   navigation_baselined_ = true;
   refresh_scale();
-
-  // P1-2: open China/DEM after first interactive show (product path only).
-  // SeedDocument already skipped bootstrap when defer_china_seed_ is set.
-  // SKIP_AMBOX_CATALOG also skips this timer: china city land-clip on the
-  // UI thread can run tens of seconds and makes WM_CLOSE look hung.
-  const bool skip_deferred_china = []() {
-    const char* skip = base::switch_cstr("skip-ambox-catalog");
-    return skip && skip[0] != '\0' && skip[0] != '0';
-  }();
-  if (defer_china_seed_ && !skip_deferred_china && document() &&
-      !document()->has_china_extent()) {
-    HWND shell = hwnd();
-    if (shell && IsWindow(shell)) {
-      SetPropW(shell, L"DeferChinaBrowser", reinterpret_cast<HANDLE>(this));
-      constexpr UINT_PTR kDeferChina = 0x43484E41u;  // 'CHNA'
-      SetTimer(shell, kDeferChina, 1, [](HWND timer_hwnd, UINT, UINT_PTR id,
-                                         DWORD) {
-        KillTimer(timer_hwnd, id);
-        auto* self = reinterpret_cast<Browser*>(
-            GetPropW(timer_hwnd, L"DeferChinaBrowser"));
-        RemovePropW(timer_hwnd, L"DeferChinaBrowser");
-        if (!self || self->is_close_prepared() || !self->document() ||
-            self->document()->has_china_extent()) {
-          return;
-        }
-        BASE_TRACE_EVENT("try_open_china", "startup");
-        LOGGING(LOG_INFO, "startup: deferred China seed begin");
-        // GDAL/OGR land-clip can throw; an uncaught exception on this timer
-        // becomes std::terminate → ExitProcess(-1) with no second-chance AV.
-        // Skip O(n×m) land-clip on this path so the UI thread returns quickly;
-        // sync / showcase seeds keep the full clip for ocean cleanup.
-        // Use CRT _putenv_s — MSVC getenv() does not see SetEnvironmentVariableA.
-#if defined(_MSC_VER)
-        base::set_switch("skip-china-land-clip", "1");
-#else
-        setenv("skip-china-land-clip", "1", 1);
-#endif
-        LOGGING(LOG_INFO, "startup: SKIP_CHINA_LAND_CLIP=%s",
-                base::switch_cstr("skip-china-land-clip")
-                    ? base::switch_cstr("skip-china-land-clip")
-                    : "(null)");
-        // Pause Present before LayerStore replace — concurrent FlyCube present
-        // + GDAL open/replace_layers hung the UI thread (seed begin, no done)
-        // and left product HWNDs blank: KillTimer without resume meant Map
-        // Edit/Data/3D never presented again. Drain queued WM_TIMER too.
-        auto pause_present = [](ui::views::MapViewport* pane) {
-          if (pane) {
-            pane->pause_present();
-          }
-        };
-        pause_present(self->map_viewport());
-        pause_present(self->map_data_viewport());
-        pause_present(self->map_scene_viewport());
-        struct ResumePresents {
-          Browser* browser = nullptr;
-          ~ResumePresents() {
-            if (!browser || browser->is_close_prepared()) {
-              return;
-            }
-            ui::views::MapViewport* active =
-                browser->ui() ? browser->ui()->active_map()
-                              : browser->map_viewport();
-            auto resume = [active](ui::views::MapViewport* pane) {
-              if (!pane) {
-                return;
-              }
-              pane->set_flycube_present_visible(pane == active);
-              if (pane->attach_mode() ==
-                  ui::views::MapViewport::AttachMode::kNone) {
-                return;
-              }
-              pane->resume_present_timer();
-              pane->invalidate_native();
-            };
-            resume(browser->map_viewport());
-            resume(browser->map_data_viewport());
-            resume(browser->map_scene_viewport());
-          }
-        } resume_presents{self};
-        try {
-          // Replace demo layer with china_city / PLP (same paths as sync seed).
-          self->document()->seed_default(/*allow_china_bootstrap=*/true);
-          if (self->is_close_prepared()) {
-            return;
-          }
-          if (!self->document()->has_china_extent()) {
-            (void)detail::try_open_china_sample(
-                *self, /*write_stub_if_missing=*/false);
-          }
-          if (self->is_close_prepared()) {
-            return;
-          }
-          if (!seh_fit_map_extent(self)) {
-            LOGGING(LOG_WARNING, "startup: deferred China fit_map_extent SEH");
-          }
-          self->push_shared_extent();
-          // Drop any hollow FlyCube StaticReuse latch from the demo-only first
-          // present so china carto is re-recorded after LayerStore replace.
-          if (content::Map2dPresenter* map2d = self->map2d()) {
-            map2d->note_surface_reset();
-            map2d->invalidate_frame_cache();
-          }
-          self->refresh_inspectors();
-          self->sync_catalog_from_scene();
-          if (self->ui()) {
-            self->ui()->invalidate_map_overlays();
-          }
-          if (ui::views::MapViewport* map = self->map_viewport()) {
-            map->invalidate_native();
-          }
-          // Do not call select_map_tab here — VIEWS_START_MAP_TAB may
-          // already be inside switch_map_tab's PeekMessage wait; nested select
-          // deadlocks the China-seed timer. Post a one-shot re-select after.
-          if (const char* tab = base::switch_cstr("views-start-map-tab")) {
-            int idx = -1;
-            if (std::strcmp(tab, "scene3d") == 0 ||
-                std::strcmp(tab, "2") == 0) {
-              idx = 2;
-            } else if (std::strcmp(tab, "data") == 0 ||
-                       std::strcmp(tab, "1") == 0) {
-              idx = 1;
-            } else if (tab[0] == '0' && tab[1] == '\0') {
-              idx = 0;
-            }
-            if (idx >= 0 && timer_hwnd && IsWindow(timer_hwnd)) {
-              constexpr UINT kReselectTab = WM_APP + 0x5354;  // 'ST'
-              PostMessageW(timer_hwnd, kReselectTab, static_cast<WPARAM>(idx),
-                           0);
-            }
-          }
-        } catch (const std::exception& ex) {
-          LOGGING(LOG_ERROR, "startup: deferred China seed exception: %s",
-                  ex.what());
-        } catch (...) {
-          LOGGING(LOG_ERROR, "startup: deferred China seed unknown exception");
-        }
-#if defined(_MSC_VER)
-        base::set_switch("skip-china-land-clip", "");
-#else
-        unsetenv("skip-china-land-clip");
-#endif
-        LOGGING(LOG_INFO, "startup: deferred China seed done china=%d",
-                self->document() && self->document()->has_china_extent() ? 1
-                                                                         : 0);
-      });
-    }
-  }
+  schedule_deferred_china_seed();
 }
 
 void Browser::finish_deferred_shell_wiring() {
@@ -353,14 +229,15 @@ void Browser::prepare_close() {
       RemovePropW(shell, L"DeferChinaBrowser");
     }
   }
-  // Detach MapViewport / join Display before abandon_mesh. Reversing that
+  // Detach DrawHost / join Display before abandon_mesh. Reversing that
   // order lets Scene3d present hold present_mu_ while the UI thread blocks in
   // abandon, and release_rhi_device waits forever for a destroy ack the Display
   // thread cannot process (close hang).
+  plugin_preview_.close();
   if (ui_) {
     ui_->prepare_shell_close();
   }
-  session_.prepare_close();
+  session_->prepare_close();
 }
 
 HWND Browser::hwnd() const {
@@ -401,20 +278,20 @@ ui::views::ProcessingPanel* Browser::processing_panel() const {
   return ui_ ? ui_->processing_panel() : nullptr;
 }
 
-ui::views::MapViewport* Browser::map_viewport() const {
-  return ui_ ? ui_->map_viewport() : nullptr;
+ui::views::DrawHost* Browser::draw_host() const {
+  return ui_ ? ui_->draw_host() : nullptr;
 }
 
-ui::views::MapViewport* Browser::map_data_viewport() const {
-  return ui_ ? ui_->map_data_viewport() : nullptr;
+ui::views::DrawHost* Browser::data_draw_host() const {
+  return ui_ ? ui_->data_draw_host() : nullptr;
 }
 
-ui::views::MapViewport* Browser::map_scene_viewport() const {
-  return ui_ ? ui_->map_scene_viewport() : nullptr;
+ui::views::DrawHost* Browser::scene_draw_host() const {
+  return ui_ ? ui_->scene_draw_host() : nullptr;
 }
 
 content::ViewHost* Browser::edit_view_host() const {
-  return session_.edit_host();
+  return session_->edit_host();
 }
 
 void Browser::refit_active_view() {
@@ -434,9 +311,17 @@ void Browser::sync_catalog_from_scene() {
 }
 
 void Browser::select_map_tab(int index) {
-  if (ui_) {
-    ui_->select_map_tab(index);
+  if (!ui_) {
+    return;
   }
+  // Product chrome is Map=0, 3D=1. Legacy Scene index 2 still selects 3D.
+  if (index >= 2) {
+    index = 1;
+  }
+  if (index < 0) {
+    index = 0;
+  }
+  ui_->select_map_tab(index);
 }
 
 void Browser::OnExtentChanged(uint32_t /*view_id*/, const content::Extent2& e) {
@@ -471,7 +356,7 @@ void Browser::apply_extent_changed_on_ui(const content::Extent2& e) {
     return;
   }
   syncing_extent_ = true;
-  session_.orbit_frame().apply_world_extent(e);
+  session_->orbit_frame().apply_world_extent(e);
   syncing_extent_ = false;
   if (ui_) {
     refresh_scale();

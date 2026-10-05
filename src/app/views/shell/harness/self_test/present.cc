@@ -5,7 +5,7 @@
 
 #include "app/views/shell/browser/browser.h"
 #include "render/rhi/rhi.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 #include <cmath>
 #include <cstdio>
@@ -15,7 +15,7 @@ namespace detail {
 
 int self_test_present(Browser& browser) {
   // FlyCube orbit camera matrices must track shell yaw/pitch.
-  ui::views::MapViewport* scene = browser.map_scene_viewport();
+  ui::views::DrawHost* scene = browser.scene_draw_host();
   const float yaw_after = browser.orbit_frame()->yaw();
   const render::rhi::CameraMatrices cam =
       browser.orbit_frame()->camera_matrices(1.333f);
@@ -38,7 +38,7 @@ int self_test_present(Browser& browser) {
     return 28;
   }
   if (scene &&
-      scene->attach_mode() == ui::views::MapViewport::AttachMode::kFlyCube &&
+      scene->attach_mode() == ui::views::DrawHost::AttachMode::kGpuPresent &&
       scene->rhi_device()) {
     // Optional atmosphere exercise: demo on for self-test only; normal
     // launches leave ocean/cloud disabled.

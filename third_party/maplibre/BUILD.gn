@@ -23,7 +23,7 @@ copy("maplibre_example_style") {
 }
 
 copy("maplibre_example_china_geojson") {
-  sources = [ "//testing/data/china_city.geojson" ]
+  sources = [ "//testing/data/china/china_city.geojson" ]
   outputs = [ "$root_out_dir/maplibre/example/china_city.geojson" ]
 }
 

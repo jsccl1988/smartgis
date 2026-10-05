@@ -285,8 +285,13 @@ FloodFillResult run_flood_fill(std::string_view dem_path,
     return out;
   }
 
+  const double z0 = static_cast<double>(seed_z);
+  // Seed on a basin/channel raster edge can sample ~48m while the IL stage
+  // is 45. Run at least at the seed cell instead of water_below_seed.
+  const double z1 = water_level < z0 ? z0 : water_level;
+
   if (frame_count <= 1) {
-    out = flood_at_level(elev, width, height, seed_col, seed_row, water_level);
+    out = flood_at_level(elev, width, height, seed_col, seed_row, z1);
     for (int i = 0; i < 6; ++i) {
       out.geotransform[i] = gt[i];
     }
@@ -294,18 +299,12 @@ FloodFillResult run_flood_fill(std::string_view dem_path,
   }
 
   // Animate rising water from seed elev toward target water_level.
-  const double z0 = static_cast<double>(seed_z);
-  const double z1 = water_level;
-  if (!(z1 >= z0)) {
-    out.error = "water_below_seed";
-    return out;
-  }
   out.width = width;
   out.height = height;
   for (int i = 0; i < 6; ++i) {
     out.geotransform[i] = gt[i];
   }
-  out.water_level = water_level;
+  out.water_level = z1;
   out.frame_masks.reserve(static_cast<size_t>(frame_count));
   for (int f = 0; f < frame_count; ++f) {
     const double t =

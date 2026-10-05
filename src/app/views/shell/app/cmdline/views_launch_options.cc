@@ -6,6 +6,7 @@
 #include <CLI/CLI.hpp>
 
 #include <string>
+#include <string_view>
 
 namespace app {
 namespace {
@@ -58,37 +59,6 @@ Map2dShowcaseMode map2d_showcase_from_string(const std::string& value) {
   return Map2dShowcaseMode::kNone;
 }
 
-PluginShowcaseMode plugin_showcase_from_string(const std::string& value) {
-  if (value == "world3d" || value == "dem") {
-    return PluginShowcaseMode::kWorld3d;
-  }
-  if (value == "print") {
-    return PluginShowcaseMode::kPrint;
-  }
-  if (value == "orthogrid" || value == "baogrid") {
-    return PluginShowcaseMode::kOrthogrid;
-  }
-  if (value == "orthogrid3d" || value == "hexgrid") {
-    return PluginShowcaseMode::kOrthogrid3d;
-  }
-  if (value == "traffic") {
-    return PluginShowcaseMode::kTraffic;
-  }
-  if (value == "flood") {
-    return PluginShowcaseMode::kFlood;
-  }
-  if (value == "stormsurge") {
-    return PluginShowcaseMode::kStormSurge;
-  }
-  if (value == "mine") {
-    return PluginShowcaseMode::kMine;
-  }
-  if (value == "geochem") {
-    return PluginShowcaseMode::kGeochem;
-  }
-  return PluginShowcaseMode::kNone;
-}
-
 UiShowcaseMode ui_showcase_from_string(const std::string& value) {
   if (value == "shell") {
     return UiShowcaseMode::kShell;
@@ -109,6 +79,22 @@ UiShowcaseMode ui_showcase_from_string(const std::string& value) {
 }
 
 }  // namespace
+
+std::string normalize_plugin_showcase_id(std::string_view value) {
+  if (value.empty()) {
+    return {};
+  }
+  if (value == "dem") {
+    return "world3d";
+  }
+  if (value == "baogrid") {
+    return "orthogrid";
+  }
+  if (value == "hexgrid") {
+    return "orthogrid3d";
+  }
+  return std::string(value);
+}
 
 const char* atmosphere_showcase_name(AtmosphereShowcaseMode mode) {
   switch (mode) {
@@ -139,32 +125,6 @@ const char* map2d_showcase_name(Map2dShowcaseMode mode) {
     case Map2dShowcaseMode::kOrthogrid:
       return "orthogrid";
     case Map2dShowcaseMode::kNone:
-    default:
-      return "none";
-  }
-}
-
-const char* plugin_showcase_name(PluginShowcaseMode mode) {
-  switch (mode) {
-    case PluginShowcaseMode::kWorld3d:
-      return "world3d";
-    case PluginShowcaseMode::kPrint:
-      return "print";
-    case PluginShowcaseMode::kOrthogrid:
-      return "orthogrid";
-    case PluginShowcaseMode::kOrthogrid3d:
-      return "orthogrid3d";
-    case PluginShowcaseMode::kTraffic:
-      return "traffic";
-    case PluginShowcaseMode::kFlood:
-      return "flood";
-    case PluginShowcaseMode::kStormSurge:
-      return "stormsurge";
-    case PluginShowcaseMode::kMine:
-      return "mine";
-    case PluginShowcaseMode::kGeochem:
-      return "geochem";
-    case PluginShowcaseMode::kNone:
     default:
       return "none";
   }
@@ -214,7 +174,13 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   app.add_option("--map2d-showcase", map2d_showcase,
                  "2D map demo: china|align|orthogrid");
   app.add_option("--plugin-showcase", plugin_showcase,
-                 "Product plugin sample+viz: world3d|print|orthogrid|orthogrid3d|traffic|flood|stormsurge|mine");
+                 "Product plugin sample+viz id "
+                 "(world3d|world_preview|print|orthogrid|orthogrid3d|traffic|flood|"
+                 "stormsurge|mine|geochem|report; aliases dem/baogrid/hexgrid)");
+  std::string plugin_present;
+  app.add_option("--plugin-present", plugin_present,
+                 "Plugin present surface: main|preview "
+                 "(preview → MapPreview / WorldPreview by face)");
   app.add_option("--ui-showcase", ui_showcase,
                  "UI chrome demo: shell|data|scene|catalog|interact");
   app.add_option("--atmosphere-fields", out.atmosphere_fields,
@@ -246,7 +212,15 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
     out.map2d_showcase = map2d_showcase_from_string(map2d_showcase);
   }
   if (!plugin_showcase.empty()) {
-    out.plugin_showcase = plugin_showcase_from_string(plugin_showcase);
+    out.plugin_showcase = normalize_plugin_showcase_id(plugin_showcase);
+  }
+  if (!plugin_present.empty()) {
+    if (plugin_present == "preview" || plugin_present == "map_preview" ||
+        plugin_present == "world_preview") {
+      out.plugin_present = "preview";
+    } else {
+      out.plugin_present = "main";
+    }
   }
   if (!ui_showcase.empty()) {
     out.ui_showcase = ui_showcase_from_string(ui_showcase);

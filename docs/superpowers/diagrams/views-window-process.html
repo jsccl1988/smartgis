@@ -607,7 +607,7 @@ content::content_main(params, ViewsContentHost)
 
   <h3>4.3 关闭（顺序敏感）</h3>
   <p class="muted">
-    必须先拆地图 HWND / FlyCube，再 DestroyWindow，避免 userdata / present 悬空。
+    必须先拆地图 HWND / Vista，再 DestroyWindow，避免 userdata / present 悬空。
   </p>
   <ol class="steps">
     <li>用户关窗 → <code>WM_CLOSE</code> → <code>Widget::fire_will_close</code>。</li>
@@ -677,7 +677,7 @@ content::content_main(params, ViewsContentHost)
       </tr>
       <tr>
         <td><code>BrowserUiDelegate</code></td>
-        <td class="file">src/app/views/shell/browser/browser_ui_delegate.h</td>
+        <td class="file">src/app/views/shell/browser/ui_delegate.h</td>
         <td>chrome 抽象面</td>
       </tr>
       <tr>

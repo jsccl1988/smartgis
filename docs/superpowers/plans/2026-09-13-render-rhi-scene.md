@@ -7,11 +7,11 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Land a FlyCube-shaped `render::rhi` (DX12 + Vulkan create paths), move logical models/scenes into `sdb`, and sync a GPU scene that records 2D and 3D into one command list.
+**Goal:** Land a Vista-shaped `render::rhi` (DX12 + Vulkan create paths), move logical models/scenes into `sdb`, and sync a GPU scene that records 2D and 3D into one command list.
 
-**Architecture:** Public Facade in `src/render/rhi` (FlyCube private). CPU assets and World in `src/sdb/{model,scene}`. `src/render/scene` is the GPU cache. Leftover GDI/GL/`RenderDevice2d` keep HWND present.
+**Architecture:** Public Facade in `src/render/rhi` (Vista private). CPU assets and World in `src/sdb/{model,scene}`. `src/render/scene` is the GPU cache. Leftover GDI/GL/`RenderDevice2d` keep HWND present.
 
-**Tech Stack:** C++20, GN/Ninja (`build.bat`), FlyCube (optional), Assimp, tinygltf, existing `Map` / `SmtLog` leftover.
+**Tech Stack:** C++20, GN/Ninja (`build.bat`), Vista (optional), Assimp, tinygltf, existing `Map` / `SmtLog` leftover.
 
 ## Global Constraints
 
@@ -22,7 +22,7 @@ All rights reserved.
 - New functions `snake_case`. Types PascalCase.
 - Comments in English. Class purpose in one or two sentences.
 - No Qt. No D3D9/D3DX. No Cesium Native / OSG / Filament.
-- No FlyCube / Assimp / tinygltf includes in public `src/` headers.
+- No Vista / Assimp / tinygltf includes in public `src/` headers.
 - Product C++20. Do not force `cc_std` onto third_party CMake.
 - Output only under repo-root `out/`. Tests use `testing/test.gni` `test()` + `expect`/`main` like `sde_gdal_test`.
 - `RenderDevice2d::Init` + `BindRhiPresent` must keep compiling.
@@ -37,7 +37,7 @@ All rights reserved.
 | `src/render/rhi/null_rhi.cc` | Null device + stub lists |
 | `src/render/rhi/gdi_rhi.cc` | Leftover HWND present |
 | `src/render/rhi/gl_rhi.cc` | Leftover HWND present |
-| `src/render/rhi/flycube_rhi.cc` | DX12/Vulkan stub (real FlyCube when `has_flycube`) |
+| `src/render/rhi/flycube_rhi.cc` | DX12/Vulkan stub (real Vista when `has_flycube`) |
 | `src/render/rhi/rhi_test.cc` | Null + backend identity |
 | `src/sdb/model/model.h` `.cc` | CPU mesh + cube + `load_file` |
 | `src/sdb/model/tileset.h` `.cc` | tileset.json + `select_tiles` |
@@ -54,7 +54,7 @@ Tasks 1–3 have **no shared files** and may run in parallel. Task 4 depends on 
 
 ---
 
-### Task 1: RHI Facade + null / leftover / FlyCube stub
+### Task 1: RHI Facade + null / leftover / Vista stub
 
 **Files:**
 - Modify: `src/render/rhi/rhi.h`
@@ -89,7 +89,7 @@ class StubCommandList : public CommandList {
 };
 ```
 
-- [ ] **Step 2: Null / GDI / GL / FlyCube devices all implement `create_command_list` / `destroy_command_list` / `execute`**. `execute` on stub lists returns `list != nullptr && static_cast<StubCommandList*>(list)->closed`. FlyCube stub: `initialize` returns false; `backend()` returns the requested `kDx12` or `kVulkan`. `preferred_gpu_backend()` returns `kDx12` on `_WIN32`.
+- [ ] **Step 2: Null / GDI / GL / Vista devices all implement `create_command_list` / `destroy_command_list` / `execute`**. `execute` on stub lists returns `list != nullptr && static_cast<StubCommandList*>(list)->closed`. Vista stub: `initialize` returns false; `backend()` returns the requested `kDx12` or `kVulkan`. `preferred_gpu_backend()` returns `kDx12` on `_WIN32`.
 
 - [ ] **Step 3: `rhi_test.cc`** — `expect` helpers like `sde_gdal_test`. Cases: null init; draw_indexed count 1 after record/execute; preferred is kDx12; kDx12 and kVulkan pointers non-null.
 
@@ -188,19 +188,19 @@ Original Task 3 (`sdb::scene::World`) is landed. Remaining product gap under `sr
 
 ---
 
-### Task 7: FlyCube present pin + 2D style/camera + model/tileset record (2026-09-13 GIS loop)
+### Task 7: Vista present pin + 2D style/camera + model/tileset record (2026-09-13 GIS loop)
 
 **Progress (landed):**
 
 - [x] `LeftoverRecorder::ensure_device` prefers `preferred_gpu_backend()` **when HWND is set** (DX12), else null; `set_native_window` + GDI/GDI-simple/thread pass `m_hWnd`.
 - [x] `bind_rhi_present` creates preferred GPU first, GDI leftover fallback.
-- [x] RHI `CommandList::set_solid_color` + FlyCube `ColorCB` solid PS; default brush cyan via `GpuScene::set_solid_color_from_colorref`.
+- [x] RHI `CommandList::set_solid_color` + Vista `ColorCB` solid PS; default brush cyan via `GpuScene::set_solid_color_from_colorref`.
 - [x] `GpuScene::set_view_ortho` / map envelope from `Map::get_envelope` in `record_map` (zoom/camera seam).
 - [x] `GpuInstance` syncs `model` / `tileset`; `rebuild_meshes` uploads `ModelAsset` via `flatten_meshes`; tileset draws AABB bridge (`tessellate_aabb`) until content decode feeds meshes.
 - [x] **MapViewport**: `try_flycube_device()` before LoadLibrary GDI; `PREFER_GDI_DEVICE=1` opt-out for leftover DLL.
 - [x] **Layer style brush**: `record_map` resolves first `MapLayer::style_name` via `SmtStyleManager` into GpuScene default solid (cyan fallback). Per-layer Node brush + per-feature `Feature::style()` during tessellate still TODO (avoided style DLL in sdb/scene).
 - [x] **Tileset content**: `visible_uris` → `decode_content_file` → flatten into GpuScene mesh; AABB fallback; `scene_gpu_test` fixture (null backend).
-- [x] **FlyCube test stability**: `rhi_test` null path green; skips HWND GPU unless `RUN_FLYCUBE_GPU=1`; ColorCB BindingSet cached; `NullDevice` destroy_* leaks stubs (FlyCube-linked CRT hang); `scene_gpu_test` / `leftover_record_test` / `unified_draw_test` default null-only.
+- [x] **Vista test stability**: `rhi_test` null path green; skips HWND GPU unless `RUN_FLYCUBE_GPU=1`; ColorCB BindingSet cached; `NullDevice` destroy_* leaks stubs (Vista-linked CRT hang); `scene_gpu_test` / `leftover_record_test` / `unified_draw_test` default null-only.
 
 Depth/blend Facade growth deferred.
 
@@ -212,7 +212,7 @@ Depth/blend Facade growth deferred.
 - Assimp seam + cube + 3D Tiles → Task 2
 - World + AABB + attach_map → Task 3
 - Dual scene GPU → Task 4
-- FlyCube not leaked → Task 1 stub + Task 5 pin
+- Vista not leaked → Task 1 stub + Task 5 pin
 - Leftover BindRhiPresent → Task 1 / Task 7 preferred present
 - Docs → Task 5
 - No placeholders left in APIs

@@ -6,6 +6,7 @@ import("//testing/test.gni")
 
 copy("flood_resources") {
   sources = [
+    "resources/flood.style.json",
     "resources/inundate.ui.css",
     "resources/inundate.ui.xml",
   ]
@@ -16,6 +17,8 @@ source_set("flood_views") {
   sources = [
     "commands.cc",
     "commands.h",
+    "present/present.cc",
+    "present/present.h",
     "views/inundate_dialog.cc",
     "views/inundate_dialog.h",
   ]
@@ -28,6 +31,7 @@ source_set("flood_views") {
     "//src/gis:gis",
     "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/widgets:widgets",
+    "//src/tool:dispatch",
     "//src/ui/views:views",
     "//third_party:gdal",
     "//third_party:rapidjson",

@@ -59,6 +59,14 @@ void FlycubeDevice::replay_draws(::CommandList* fc_list, const Pass& segment,
   }
 }
 
+void FlycubeDevice::barrier_depth(::CommandList* fc_list, ResourceState after) {
+  if (!fc_list || !depth_texture_ || depth_state_ == after) {
+    return;
+  }
+  fc_list->ResourceBarrier({{depth_texture_, depth_state_, after}});
+  depth_state_ = after;
+}
+
 void FlycubeDevice::replay_dispatches(::CommandList* fc_list,
                                       const Dispatch* dispatches, size_t count) {
   if (!fc_list || !dispatches || count == 0) {
@@ -188,6 +196,9 @@ bool FlycubeDevice::execute_recorded(FlycubeCommandList* recorded) {
         // RENDER_PASS_LOCAL_DEPTH_STENCIL_ERROR under the DX12 debug layer.
         pass.stencil.load_op = RenderPassLoadOp::kDontCare;
         pass.stencil.store_op = RenderPassStoreOp::kDontCare;
+        // CreateTexture leaves D32 in COMMON; BeginRenderPass requires
+        // DEPTH_WRITE (debug layer INVALID_SUBRESOURCE_STATE).
+        barrier_depth(fc_list.get(), ResourceState::kDepthStencilWrite);
       }
 
       fc_list->BeginRenderPass(pass);
@@ -286,6 +297,7 @@ bool FlycubeDevice::execute_to_imported(FlycubeCommandList* recorded) {
         }
         pass.stencil.load_op = RenderPassLoadOp::kDontCare;
         pass.stencil.store_op = RenderPassStoreOp::kDontCare;
+        barrier_depth(fc_list.get(), ResourceState::kDepthStencilWrite);
       }
 
       fc_list->BeginRenderPass(pass);

@@ -71,7 +71,7 @@ All rights reserved.
     <h1>content/browser — 责任层与子目录</h1>
     <p>Chromium-style content 层：嵌入方只含 <code>public/</code>。C10 已按职责拆目录；
       <strong>C11 收紧</strong>薄同级（并入 <code>contents/</code> + <code>session/</code>，拍平 <code>document/</code>）。
-      <code>content.dll</code> 不含重 present/GDI；Views 另链 <code>:map_session</code>。</p>
+      <code>content.dll</code> 不含重 present/GDI；Views 另链 <code>:browser_session</code>。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Content sink</a>
       · 收紧：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Content browser subdirectory tighten</a>
@@ -92,7 +92,7 @@ All rights reserved.
         <h3>public/（锁定嵌入面）</h3>
         <ul>
           <li>9 个头：MapContents / observer / types / EventBus / ViewHost / PluginHost / catalog / attrs / bootstrap</li>
-          <li>不拥有：present、GDI、MapSession</li>
+          <li>不拥有：present、GDI、BrowserSession</li>
           <li>物理路径不随 browser 子目录移动</li>
         </ul>
       </div>
@@ -105,7 +105,7 @@ All rights reserved.
         </ul>
       </div>
       <div class="lane sess">
-        <h3>:map_session（Views/exe）</h3>
+        <h3>:browser_session（Views/exe）</h3>
         <ul>
           <li><code>session/</code> 拥有 document/camera/present + 手势 + MapContents*</li>
           <li><code>document/</code> MapScene（C11：helpers 平铺，无 store/ingest/… 子目录）</li>
@@ -125,7 +125,7 @@ All rights reserved.
   </section>
 
   <section class="panel">
-    <h2>2. 原理流（chrome → MapSession → present；OOP 管道旁路）</h2>
+    <h2>2. 原理流（chrome → BrowserSession → present；OOP 管道旁路）</h2>
     <svg class="diagram" viewBox="0 0 1040 360" role="img" aria-label="content browser 原理流">
       <defs>
         <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
@@ -137,11 +137,11 @@ All rights reserved.
       <text class="lane-label" x="16" y="22" fill="#2563a8">app/views chrome</text>
       <rect x="16" y="32" width="220" height="78" rx="7" fill="#e8f1fa" stroke="#2563a8"/>
       <text class="box-title" x="28" y="54">Browser / BrowserView</text>
-      <text class="box-sub" x="28" y="74">#include session/map_session.h</text>
+      <text class="box-sub" x="28" y="74">#include session/browser_session.h</text>
 
-      <text class="lane-label" x="268" y="22" fill="#b06a1a">:map_session</text>
+      <text class="lane-label" x="268" y="22" fill="#b06a1a">:browser_session</text>
       <rect x="268" y="32" width="250" height="78" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
-      <text class="box-title" x="280" y="54">session/MapSession</text>
+      <text class="box-title" x="280" y="54">session/BrowserSession</text>
       <text class="box-sub" x="280" y="74">owns document + camera + present</text>
 
       <rect x="268" y="128" width="120" height="70" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
@@ -179,11 +179,11 @@ All rights reserved.
       <line x1="913" y1="110" x2="913" y2="128" stroke="#8a96a8" stroke-width="1.4" marker-end="url(#ah)"/>
 
       <text class="box-sub" x="16" y="250">硬墙：present ↛ shell；render ↛ content；产品 ↛ leftover。C11：public 实现只在 contents/，手势在 session/。</text>
-      <text class="box-sub" x="16" y="272">动画：chrome 等 MapSession 组合；GPU 子进程永不并入 :map_present。</text>
-      <text class="box-sub" x="16" y="294">C5：MapSession 不折进 MapContentsImpl。C6：重 GDI/GPU 留在 present。C3：present 嵌套不拍平。</text>
-      <text class="box-sub" x="16" y="328">include：content/browser/session/map_session.h · content/public/map_contents.h</text>
+      <text class="box-sub" x="16" y="272">动画：chrome 等 BrowserSession 组合；GPU 子进程永不并入 :map_present。</text>
+      <text class="box-sub" x="16" y="294">C5：BrowserSession 不折进 MapContentsImpl。C6：重 GDI/GPU 留在 present。C3：present 嵌套不拍平。</text>
+      <text class="box-sub" x="16" y="328">include：content/browser/session/browser_session.h · content/public/map_contents.h</text>
     </svg>
-    <p class="note">无转发头。旧路径 <code>content/browser/map_session.h</code> 等已删除。</p>
+    <p class="note">无转发头。会话头只在 <code>session/browser_session.h</code>。</p>
   </section>
 
   <section class="panel">
@@ -194,7 +194,7 @@ All rights reserved.
       </thead>
       <tbody>
         <tr><td><code>contents/</code>（C11 含 bootstrap/catalog/attrs/plugin 文件）</td><td><code>:content</code></td><td>是</td></tr>
-        <tr><td><code>session/</code>（含 map_hwnd_gestures）</td><td><code>:map_session</code> ± <code>:map_hwnd_gestures</code></td><td>否</td></tr>
+        <tr><td><code>session/</code>（含 map_hwnd_gestures）</td><td><code>:browser_session</code> ± <code>:map_hwnd_gestures</code></td><td>否</td></tr>
         <tr><td><code>document/</code>（平铺）· <code>camera/</code></td><td><code>:map_scene</code> / <code>:map_camera</code></td><td>否</td></tr>
         <tr><td><code>present/**</code>（除 rhi_session SoT）</td><td><code>:map_present</code> / <code>:scene3d_present</code></td><td>否</td></tr>
         <tr><td><code>capability/ debug/</code></td><td><code>:capability</code> / <code>:debug_agent</code></td><td>否</td></tr>

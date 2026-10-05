@@ -19,7 +19,7 @@ Progressive disclosure for the skill. Read when parsing logs, diagnosing a red c
         │     metric: execute_ms (IR replay)
         │
         ├─ vista (SmartGIS.exe --map2d-showcase=china)
-        │     software export_bmp + FlyCube present_gpu
+        │     software export_bmp + Vista present_gpu
         │     metrics: export_ms, paint_ms, present_gpu_{cold,warm}_ms, phase_*
         │
         └─ Scenic Map2dEngine (MAP2D_ENGINE=scenic)
@@ -71,7 +71,7 @@ Parsed from showcase logs by `run_parallel_port_matrix.py`:
 | `software_paint_ms` | CPU paint into bitmap |
 | `paint_ms` | Prefer paint-only (may match software_paint when reuse) |
 | `bmp_io_ms` | BMP write |
-| `gpu_upload_ms` | Upload to FlyCube resources |
+| `gpu_upload_ms` | Upload to Vista resources |
 | `gpu_present_ms` | GPU present slice |
 | `phase_gate_export_ok` | phase sum ≈ `export_ms` within ±15% |
 | `phase_gate_cold_ok` | phase sum ≈ cold present within ±15% |

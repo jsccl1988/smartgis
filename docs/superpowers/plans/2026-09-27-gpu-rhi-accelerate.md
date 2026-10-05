@@ -23,7 +23,7 @@ All rights reserved.
 
 **Architecture:** Raster (or later IPC) still produces `DrawQuad`s. `GpuDeviceHub` pins each `OutputSurface` to an `AdapterId`. `display` selects a `FrameComposer` for that adapter. Software path preserves today's CPU blend + `upload_bgra` as a **per-device** fallback inside gpu. RHI path grows from shared-surface blit → GPU compose → optional Frame Graph / `GpuScene` underlay on the same adapter. L0–L2 parallel semantics shared with §vista; L3 remaps under Topology B. Namespaces: `gpu` / `gpu::detail`, `render::rhi`, `render::graph` (two public levels).
 
-**Tech Stack:** C++23, GN/`build.bat`, DXGI adapters + shared `OutputSurface`, FlyCube behind `render::rhi`, Null RHI for tests.
+**Tech Stack:** C++23, GN/`build.bat`, DXGI adapters + shared `OutputSurface`, Vista behind `render::rhi`, Null RHI for tests.
 
 **Living §:** [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) §GPU-process accelerate
 
@@ -47,7 +47,7 @@ All rights reserved.
 
 - ~~Default compose backend remains `kSoftware` until explicitly opted in (`GPU_COMPOSE=rhi` or test override). Fallback is **per adapter**.~~ **Superseded** by **Follow-up: default RHI + monitor LUID (A+C)** below — default is now `kRhi`; `GPU_COMPOSE=software` is the escape; sticky fallback remains **per adapter**.
 
-- Wire command `view.backend.rhi` still means `ContentSource::kDirect` — do not overload it to mean FlyCube in this plan.
+- Wire command `view.backend.rhi` still means `ContentSource::kDirect` — do not overload it to mean Vista in this plan.
 
 - No Qt; no second compositor IR; no commit unless the user asks.
 
@@ -201,7 +201,7 @@ Expected: all existing cases PASS; default path still software; compose still on
 
 
 
-- [x] **Step 4:** Expose narrow accessors for RHI import: `void* shared_texture_d3d11()`, `HANDLE share_handle()`, `bool import_ready() const` — **no** FlyCube types in this header.
+- [x] **Step 4:** Expose narrow accessors for RHI import: `void* shared_texture_d3d11()`, `HANDLE share_handle()`, `bool import_ready() const` — **no** Vista types in this header.
 
 
 
@@ -243,7 +243,7 @@ Expected: all existing cases PASS; default path still software; compose still on
 
 
 
-- [x] **Step 1:** Spike: import existing NT shared handle into FlyCube DX12 — **landed** via `OpenSharedHandle` + `WrapSwapchainBackBuffer` + RTV; NT handle `READ\|WRITE`. Compose-direct = `execute_to_imported`.
+- [x] **Step 1:** Spike: import existing NT shared handle into Vista DX12 — **landed** via `OpenSharedHandle` + `WrapSwapchainBackBuffer` + RTV; NT handle `READ\|WRITE`. Compose-direct = `execute_to_imported`.
 
 
 
@@ -291,7 +291,7 @@ out\render_backend_test.exe
 
 
 
-Expected: default suite green; with `GPU_COMPOSE=rhi`, RhiComposer path runs (present still upload_bgra until FlyCube import).
+Expected: default suite green; with `GPU_COMPOSE=rhi`, RhiComposer path runs (present still upload_bgra until Vista import).
 
 
 
@@ -556,6 +556,6 @@ Plan complete when saved. Implementation continues on `master` under the multi-G
 - [ ] Views multiproc: Map2d/Scene3d cold path submits DrawRequest / underlay to gpu process (not local final blend)
 - [ ] Underlay: finish BGRA readback / blit into shared surface before overlay quads (`underlay_bridge` + `RhiComposer`)
 - [ ] effect::map color-target → compositor on same `AdapterId` (Task 6 Step 3)
-- [x] Assert: no Skia Ganesh map; no dual HWND FlyCube + shared-surface present; `view.backend.rhi` still = `ContentSource::kDirect`（locked in living § Non-goals / Env）
+- [x] Assert: no Skia Ganesh map; no dual HWND Vista + shared-surface present; `view.backend.rhi` still = `ContentSource::kDirect`（locked in living § Non-goals / Env）
 - [ ] Human smoke: browser present-only SharedHandle; kill `--type=gpu` → recover; dual-adapter sticky software
 

@@ -15,6 +15,10 @@ namespace render::rhi {
 class Device;
 }  // namespace render::rhi
 
+namespace ui::views {
+class DrawHost;
+}  // namespace ui::views
+
 namespace app {
 
 class Browser;
@@ -63,6 +67,10 @@ struct RhiPresentSessionOpts {
   bool warm_swapchain = false;
   // Stormsurge Null path: skip borrowed HWND (writers + orbit only).
   bool allow_null_without_hwnd = false;
+  // Product 3D: present into Browser DrawHost Role::kScene3d (tab 1),
+  // reusing the pane's FlyCube Device / DXGI popup. Do not CreateWindow a
+  // sticky "Plugin Showcase" / "Atmosphere Showcase" HWND.
+  bool borrow_shell_scene3d = false;
 
   uint32_t present_w = 640;
   uint32_t present_h = 480;
@@ -78,7 +86,17 @@ struct RhiPresentSession {
   HWND present_hwnd = nullptr;
   HWND owned_present_hwnd = nullptr;
   bool want_gpu = false;
+  // When true, device/HWND belong to DrawHost — never shutdown/Destroy.
+  bool borrowed_shell = false;
 };
+
+// FlyCube DXGI popup over the 3D pane, else the embed native_view().
+HWND shell_scene3d_capture_hwnd(ui::views::DrawHost* scene);
+
+// Kick the shell Display mailbox / present timer; wait until presented
+// advances (do not call Device methods on the UI thread).
+bool present_shell_scene3d_frame(ui::views::DrawHost* scene,
+                                 DWORD wait_ms = 2000);
 
 bool resolve_rhi_want_gpu(const RhiPresentSessionOpts& opts);
 

@@ -94,6 +94,10 @@ AnalyzeDialog::AnalyzeDialog(content::PluginHost* host) : host_(host) {
   if (output_path_ && output_path_->text().empty()) {
     output_path_->set_text(base + "/geochem_idw.tif");
   }
+
+  if (host_) {
+    host_->present_dataset("smartgis.geochem", "", 0);
+  }
 }
 
 void AnalyzeDialog::on_pick_input() {

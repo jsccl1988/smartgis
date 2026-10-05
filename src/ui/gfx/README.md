@@ -5,13 +5,13 @@ All rights reserved.
 
 # `src/ui/gfx` — 壳画布（GDI stub → 可选真 Skia）
 
-Skia 是 Views 壳的 **canvas / paint** 后端，不是 GIS GPU，也不是 widget kit。公开命名空间：`ui::gfx`（两层；内部可用 `detail`）。Include：`"ui/gfx/<area>/...."`；**无**根转发 shim。
+Skia 是 Views 壳的 **canvas / paint** 后端，不是 GIS GPU，也不是 widget kit。公开命名空间：`ui::gfx`（两层；内部可用 `detail`）。Include：`"ui/gfx/<area>/...."`；**无**根转发 shim（不要 `#include "ui/gfx/skia.h"`）。
 
 **运行时默认是 GDI**（`canvas_gdi.cc`）；`has_skia` 链入真 Skia 后可用 CLI/env 切换。不整树 vendor 上游 Views 工具包或上游 Skia；不要 drive-by `git clone` 进 `third_party/`。
 
-合成不在本目录。`Canvas` / `DisplayList` 只记录并栅格化壳层。`Widget::shell_raster()` 交出 BGRA8，`gpu::DrawRequest::shell`（`ui::gfx::ShellRaster`）在 `draw_and_swap` 里作为一张 `DrawQuad` 叠到地图 pass 上。本模块不 `#include` `gpu/compositor/`。
+合成不在本目录。`Canvas` / `DisplayList` 只记录并栅格化壳层。`Widget::shell_raster()` 交出 BGRA8，`gpu::DrawRequest::shell`（`ui::gfx::ShellRaster`）在 `draw_and_swap` 里作为一张 `DrawQuad` 叠到地图 pass 上。本模块不 `#include` `gpu/compositor/`。地图 viewport 像素走 **content / RHI**，不要对 map 保留 DIB 包一层 `ui::gfx::Canvas`。
 
-最小公开 API 与阶段边界：[`docs/superpowers/specs/2026-09-14-render-skia-canvas-design.md`](../../../docs/superpowers/specs/2026-09-14-render-skia-canvas-design.md)。实现计划：[`docs/superpowers/plans/2026-09-14-render-skia-canvas.md`](../../../docs/superpowers/plans/2026-09-14-render-skia-canvas.md)。架构 as-built：[`docs/superpowers/ui-views-skia.md`](../../../docs/superpowers/ui-views-skia.md)。
+最小公开 API 与阶段边界：[`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md)（Skia canvas）、[`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../../../docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md)（Views 壳）。架构 as-built：[`docs/superpowers/ui-views-skia.md`](../../../docs/superpowers/ui-views-skia.md)。
 
 ## 目录（职责分区）
 
@@ -19,21 +19,20 @@ Skia 是 Views 壳的 **canvas / paint** 后端，不是 GIS GPU，也不是 wid
 src/ui/gfx/
   geometry/      Point Size Rect Insets
   color/         Color (ARGB uint32)
-  canvas/        Canvas dispatch + GDI + optional Skia + shell_canvas_backend
+  canvas/        Canvas + CanvasBackend (GDI / optional Skia) + shell_canvas_backend
+  display/       VblankClock (DXGI WaitForVBlank)
   display_list/  DisplayList record / replay
   raster/        ShellRaster + PaintCounters
-  image/         thin BGRA8 Image
   font/          Font + measure_text_with_font
-  animation/     linear Animation skeleton
 ```
 
-Geometry is owned here; `ui::views` re-exports `Point` / `Size` / `Rect` via `using`. Out of scope: Transform, range, gpu-in-gfx, Chromium vendor trees.
+Geometry is owned here; `ui::views` re-exports `Point` / `Size` / `Rect` via `using`. Out of scope: Transform, range, gpu-in-gfx, Chromium vendor trees, ImageSkia, AnimationContainer.
 
 ## GN
 
 | 项 | 约定 |
 | --- | --- |
-| 目标 | `//src/ui/gfx:gfx`（单 source_set） |
+| 目标 | `//src/ui/gfx:gfx_sources`（编进 `ui_views.dll`）；`//src/ui/gfx:gfx` 转发到 `//src/ui/views:ui_views` |
 | 入口 | 仅经 `//:ui_views` / `build.bat views` |
 | **禁止** | 进 `//src:src_all`、`//src/render:render_all`、根 `group("all")` 默认图 |
 | 开关 | `has_skia`（`skia.gni`），**默认 `false`** — 是否**链入**真 Skia TU |
@@ -43,20 +42,21 @@ Geometry is owned here; `ui::views` re-exports `Point` / `Size` / `Rect` via `us
 
 ```bat
 REM 日常 / CI：不要开真 Skia（仅 GDI + stub）
-build.bat views
+build.bat debug ui_views
+build.bat debug views_unittests
 
 REM 本机已建 pin + 匹配 Windows skia.lib：链入双后端后运行时切换
-REM 在 out\args.gn 增加 has_skia = true 后：
-gn gen out --root=./
-ninja -C out views_unittests SmartGisViews
-out\views_unittests.exe --self-test
-out\SmartGIS.exe --shell-canvas=skia
+REM 在 out\Debug\args.gn 增加 has_skia = true 后：
+gn gen out/Debug --root=./ --args="is_debug=true is_build_third_party=false has_skia=true"
+ninja -C out/Debug views_unittests SmartGisViews
+out\Debug\views_unittests.exe --self-test
+out\Debug\SmartGIS.exe --shell-canvas=skia
 REM 或: set SHELL_CANVAS=skia
 ```
 
 缺 pin 时 GN `assert` 明确失败；缺匹配 `skia.lib` 时 gen 会 WARNING，链接阶段失败。**默认 `has_skia=false` 不受影响。** 请求 skia 但未链入 → 回落 gdi + stderr。
 
-## 本机 pin（与 FlyCube 同纪律）
+## 本机 pin（与 Vista 同纪律）
 
 ### 权威源（本机）
 
@@ -120,7 +120,7 @@ mklink /H third_party\.src\skia_out\skia\skia.lib third_party\.src\skia_out\skia
 4. 实现 / CI **不得**靠 GitHub clone 救编译。
 5. 开启失败必须 fallback GDI（保持默认 `has_skia=false`）；不得让无 pin 机器上的 `build.bat views` 硬挂。
 
-### 本机现状（2026-09-14）
+### 本机现状（2026-10-05）
 
 | 项 | 状态 |
 | --- | --- |
@@ -136,12 +136,12 @@ mklink /H third_party\.src\skia_out\skia\skia.lib third_party\.src\skia_out\skia
 
 ## 真 Skia 准入条件（全部满足才允许默认切）
 
-与 design 一致；任一条不满足 → **保持 GDI stub 为默认实现**。
+任一条不满足 → **保持 GDI stub 为默认实现**。
 
 1. **本机 pin**：仓库内仅 junction / symlink / `args` 路径指向本机 Skia 检出；禁止整树提交进 `third_party/`。
 2. **GN 显式开启**：`has_skia=true`；默认 `false`；CI / 日常 `build.bat` 不依赖 Skia 源树。
 3. **不进 `src_all`**：`//src/ui/gfx:gfx` 仍只经 `//:ui_views`；真 Skia 目标不得被 `group("all")` 默认拉起。
-4. **公开 API 不变**：Views 只 `#include "ui/gfx/canvas/canvas.h"`（或经 `skia.h` 伞）；无 `#ifdef` 泄漏到 `paint_self`。
+4. **公开 API 不变**：Views 只 `#include "ui/gfx/canvas/canvas.h"`；无 `#ifdef` 泄漏到 `paint_self`。
 5. **测试**：GDI stub 与真 Skia（若本机开启且能链接）均能跑通同一套 canvas 行为测试（像素容差可放宽到非空 / 尺寸正确；不做位图黄金图）。
 6. **许可证 / 构建**：Skia 构建脚本与依赖清单写在本 README；失败时 fallback GDI，不硬 fail 整仓。
 
@@ -154,4 +154,4 @@ mklink /H third_party\.src\skia_out\skia\skia.lib third_party\.src\skia_out\skia
 
 ---
 
-**最后更新：** 2026-09-28（职责子目录 + geometry / image / font / animation）
+**最后更新：** 2026-10-05（去掉根 `skia.h` / 未用 Image·Animation；Canvas 后端 unique_ptr；GDI 不再缓存错误笔刷）

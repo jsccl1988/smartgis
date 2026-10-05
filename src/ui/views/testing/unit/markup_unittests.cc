@@ -182,8 +182,8 @@ void test_load_markup_basename_resolves_ui_dir() {
 }
 
 void test_main_app_markup_no_sibling_overlap() {
-  // SmartGisViews shell chrome (§Shell chrome layout): tool bar above
-  // Catalog|Map, inspector on the right, diagnostic strip below.
+  // SmartGisViews shell chrome: tool bar above Catalog|Map, inspector
+  // on the right, diagnostic strip below.
   ui::views::MarkupRoot root =
       ui::views::load_markup("shell/main_app.ui.xml", {});
   expect(root.ok(), "load main_app");

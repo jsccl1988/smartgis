@@ -1,0 +1,166 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista terrain 数据并行 bake</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 14px 16px 16px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .meta a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 12px; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  table.own { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .own th, .own td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .own th { background: #e8edf3; color: var(--muted); font-weight: 650; }
+  .note { margin: 10px 0 0; color: var(--muted); font-size: 0.82rem; }
+  .stage { opacity: 0.34; }
+  .stage.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Vista terrain 数据并行 bake</h1>
+    <p>同一套栅格核：CPU <code>parallel_for</code> 为正确性底线；CUDA/Thrust 为可选加速；<code>base/math</code> 只管标量/SIMD 辅助，不进 Vista bake。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Terrain data-parallel bake</a>
+      · 记账：<a href="./hillshade-bake-profile.html">hillshade-bake-profile</a>
+      · SIMD 层：<a href="./base-math-layers.html">base-math-layers</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 分层所有权</h2>
+    <svg class="diagram" viewBox="0 0 1060 470" role="img" aria-label="terrain 数据并行四层">
+      <rect x="0" y="0" width="1060" height="88" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="22" fill="#2563a8">gis · golden kernel</text>
+      <text class="box-sub" x="16" y="42">horn_lambert_shade(_grid) · fill_ring_mask — 标量 + base::execution::parallel_for</text>
+      <text class="box-sub" x="16" y="62">SoA float 栅格；禁止用 Vector3 重写逐像素核。SIMD 只走 float 宽向量（可选）</text>
+
+      <rect x="0" y="100" width="1060" height="100" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="122" fill="#1d6b4f">vista/terrain · bake orchestration</text>
+      <text class="box-sub" x="16" y="142">shade_dem_rgba / fill_lonlat_mask / bake_hypsometric_rgba / bake_elevation_overlay_rgba / build_mesh_window</text>
+      <text class="box-sub" x="16" y="160">BAKE_BACKEND=auto|cpu|cuda · 磁盘/内存 cache 命中则整核跳过</text>
+      <text class="box-sub" x="16" y="178">assert_no_deps：terrain ↛ //src/render（不把 Vista Device 拉进 bake）</text>
+
+      <rect x="0" y="212" width="1060" height="100" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="234" fill="#8a5a12">CUDA lane（可选）</text>
+      <text class="box-sub" x="16" y="254">thrust_gis.cu：FillMaskOp · ShadeOp ·（目标）HypsoOp · JetFillOp · 常驻 heights/land</text>
+      <text class="box-sub" x="16" y="272">H2D 一次高度场；D2H 只下最终 RGBA/mask。无 Toolkit → stub false → CPU</text>
+      <text class="box-sub" x="16" y="290">UI 线程不 join；cuda 强制失败记 skip，不得把 CPU 结果标成 GPU</text>
+
+      <rect x="0" y="324" width="1060" height="88" rx="8" fill="#eef2f6" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="346" fill="#3d4d5c">base/math · 非栅格加速轴</text>
+      <text class="box-sub" x="16" y="366">deg_to_rad · 可选 SIMD：normalize_batch / 宽 float（SoA），不是 Mesh 顶点 Vector3 热路径</text>
+      <text class="box-sub" x="16" y="384">Mesh xyz 可用 Vector3 表达；裁剪用 Aabb/Frustum。与 Horn/PIP 无关</text>
+
+      <rect x="0" y="424" width="1060" height="40" rx="8" fill="#f7e8e8" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="448" fill="#8b3a3a">present（另一条 GPU）</text>
+      <text class="box-sub" x="200" y="448">Vista 只消费已 bake 的纹理/VB；不在 terrain TU 里 record CommandList</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. 冷 bake 流水（谁等待 / 谁永不 join）</h2>
+    <svg class="diagram" viewBox="0 0 1060 250" role="img" aria-label="驻留高度场后多核同设备">
+      <rect x="12" y="28" width="140" height="70" rx="8" fill="#e8f1fa" stroke="#d8dee6" class="stage" id="t0"/>
+      <text class="box-title" x="24" y="56">0 cache</text>
+      <text class="box-sub" x="24" y="76">mem / disk</text>
+      <rect x="168" y="28" width="140" height="70" rx="8" fill="#e6f5ef" stroke="#d8dee6" class="stage" id="t1"/>
+      <text class="box-title" x="180" y="56">1 H2D</text>
+      <text class="box-sub" x="180" y="76">heights+land</text>
+      <rect x="324" y="8" width="420" height="110" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="box-title" x="336" y="28">2 device kernels（同 buffer）</text>
+      <rect x="336" y="40" width="90" height="64" rx="6" fill="#fff" stroke="#d8dee6" class="stage" id="t2"/>
+      <text class="box-sub" x="344" y="66">PIP</text>
+      <text class="box-sub" x="344" y="84">mask</text>
+      <rect x="438" y="40" width="90" height="64" rx="6" fill="#fff" stroke="#d8dee6" class="stage" id="t3"/>
+      <text class="box-sub" x="446" y="66">Horn</text>
+      <text class="box-sub" x="446" y="84">shade</text>
+      <rect x="540" y="40" width="90" height="64" rx="6" fill="#fff" stroke="#d8dee6" class="stage" id="t4"/>
+      <text class="box-sub" x="548" y="66">hypso</text>
+      <text class="box-sub" x="548" y="84">+ dilate</text>
+      <rect x="642" y="40" width="90" height="64" rx="6" fill="#fff" stroke="#d8dee6" class="stage" id="t5"/>
+      <text class="box-sub" x="650" y="66">jet fill</text>
+      <text class="box-sub" x="650" y="84">reduce z</text>
+      <rect x="760" y="28" width="140" height="70" rx="8" fill="#eef2f6" stroke="#d8dee6" class="stage" id="t6"/>
+      <text class="box-title" x="772" y="56">3 D2H</text>
+      <text class="box-sub" x="772" y="76">RGBA only</text>
+      <rect x="916" y="28" width="130" height="70" rx="8" fill="#f7e8e8" stroke="#d8dee6" class="stage" id="t7"/>
+      <text class="box-title" x="928" y="56">4 present</text>
+      <text class="box-sub" x="928" y="76">Vista tex</text>
+      <text class="box-sub" x="12" y="148" id="cap">命中 cache 则跳过 1–3。UI 永不 join CUDA / parallel_for。</text>
+      <text class="box-sub" x="12" y="176">等值线描边与带洞 mesh compact 留在 CPU：段提取可按 cell 并行，光栅化串行。</text>
+      <text class="box-sub" x="12" y="204">backend=cpu 禁止创建 device_vector。warm 帧只读 cache，不重复 H2D。</text>
+      <text class="box-sub" x="12" y="232">isolines / mesh 不进入阶段 2 的 Thrust for_each。</text>
+      <defs><marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#5a6a7e"/></marker></defs>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>3. 核分类（并行模型）</h2>
+    <table class="own">
+      <thead>
+        <tr><th>类</th><th>算法</th><th>并行模型</th><th>本方案</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>A 逐像素</td><td>Horn shade · jet 填色 · hypso 材质</td><td>1 thread/pixel，无写冲突</td><td>CPU 行粒 + Thrust for_each</td></tr>
+        <tr><td>B 先归约</td><td>jet 的 zmin/zmax</td><td>reduce 再 map</td><td>CPU parallel 分块 min/max；CUDA thrust::minmax</td></tr>
+        <tr><td>C 多 pass</td><td>hypso 海岸 dilate ×3</td><td>每 pass 读旧写新</td><td>双缓冲；不原地邻接写</td></tr>
+        <tr><td>D compact</td><td>build_mesh_window 陆地洞</td><td>mark → exclusive scan → scatter</td><td>CPU 两遍；GPU 仅 max_edge 很大时</td></tr>
+        <tr><td>E 描边</td><td>等值线 Bresenham</td><td>写冲突</td><td>cell 抽段并行；stroke 串行</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Equal-profile 仍用 <code>china_dem</code> + <code>BAKE_BACKEND</code>。像素门：CPU vs CUDA max |Δ| ≤ 1 per channel（Horn 已对齐 <code>gis::detail</code>）。</p>
+  </section>
+</div>
+<script>
+(function () {
+  const ids = ["t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7"];
+  const caps = [
+    "0 cache：mem/disk 命中则整条流水结束",
+    "1 H2D：高度场 + land mask 常驻，禁止每核重复上传",
+    "2 PIP：even-odd，与 fill_ring_mask 同语义",
+    "2 Horn：ShadeOp，已落地",
+    "2 hypso：坡度+材质+ dilate（待接 Thrust / parallel_for）",
+    "2 jet：reduce z 后填色；isolines 不在此核",
+    "3 D2H：只下最终 RGBA/mask",
+    "4 present：Vista 上传纹理；terrain 不 record CL"
+  ];
+  let i = 0;
+  function tick() {
+    ids.forEach((id, n) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle("on", n === i);
+    });
+    const cap = document.getElementById("cap");
+    if (cap) cap.textContent = caps[i];
+    i = (i + 1) % ids.length;
+  }
+  tick();
+  setInterval(tick, 1100);
+})();
+</script>
+</body>
+</html>

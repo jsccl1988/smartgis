@@ -9,6 +9,7 @@
 #include "content/public/plugin_host.h"
 #include "plugin/product/world3d/commands.h"
 #include "plugin/product/world3d/detail/contribute.h"
+#include "plugin/product/world3d/grid/hexgrid/present/mesh.h"
 #include "plugin/product/world3d/grid/hexgrid/solve/boundary_solve.h"
 #include "plugin/product/world3d/grid/hexgrid/sample/sample_volume.h"
 #include "plugin/product/world3d/grid/hexgrid/io/vtk_structured.h"
@@ -23,7 +24,8 @@ namespace {
 
 constexpr const char* kMenuId = "tools.orthogrid3d";
 
-HexGridWriter g_hex_writer;
+content::PluginHost* g_present_host = nullptr;
+detail::HexCornerSolve g_last_hex;
 
 int json_get_int(std::string_view json, const char* key, int fallback) {
   if (!key || json.empty()) {
@@ -83,7 +85,8 @@ bool parse_corners(std::string_view json, detail::Xyz corners[8]) {
   return true;
 }
 
-bool commit_solved(const detail::HexCornerSolve& solved,
+bool commit_solved(content::PluginHost* host,
+                   const detail::HexCornerSolve& solved,
                    const std::string& vts_path) {
   if (!solved.ok) {
     return false;
@@ -104,17 +107,63 @@ bool commit_solved(const detail::HexCornerSolve& solved,
   commit.cell_orth =
       solved.cell_orth.empty() ? nullptr : solved.cell_orth.data();
   commit.cell_orth_count = static_cast<int>(solved.cell_orth.size());
-  if (g_hex_writer) {
-    if (!g_hex_writer(commit)) {
+  g_last_hex = solved;
+  if (host) {
+    content::GisDocument* gis = host->gis_document();
+    if (!gis) {
+      set_operation_result("{\"error\":\"no_hexgrid_seam\"}");
+      return false;
+    }
+    if (!present_hex_grid_mesh(gis, host->scene3d_sink(), nullptr, commit)) {
       set_operation_result("{\"error\":\"mesh_commit_failed\"}");
       return false;
     }
+    if (content::PluginHost::Playback* pb = host->playback()) {
+      pb->clear();
+      pb->push_frame("{\"index\":0}");
+      pb->set_index(0);
+    }
+    (void)host->present_dataset("smartgis.world3d", "", 1);
   }
   set_operation_result(solved.message);
   return true;
 }
 
-bool create_hex_grid_processing(content::PluginHost*,
+bool orthogrid3d_present_frame(content::PluginHost* host,
+                               std::string_view args_json) {
+  (void)args_json;
+  if (!host || !g_last_hex.ok) {
+    set_operation_result(
+        "{\"error\":\"no_hexgrid_session\",\"op\":\"orthogrid3d.present_frame\"}");
+    return false;
+  }
+  content::GisDocument* gis = host->gis_document();
+  if (!gis) {
+    set_operation_result(
+        "{\"error\":\"no_hexgrid_seam\",\"op\":\"orthogrid3d.present_frame\"}");
+    return false;
+  }
+  HexGridCommit commit;
+  commit.nodes = &g_last_hex.grid.nodes;
+  commit.nx = g_last_hex.grid.nx;
+  commit.ny = g_last_hex.grid.ny;
+  commit.nz = g_last_hex.grid.nz;
+  commit.cell_orth =
+      g_last_hex.cell_orth.empty() ? nullptr : g_last_hex.cell_orth.data();
+  commit.cell_orth_count = static_cast<int>(g_last_hex.cell_orth.size());
+  if (!present_hex_grid_mesh(gis, host->scene3d_sink(), nullptr, commit)) {
+    set_operation_result(
+        "{\"error\":\"present_failed\",\"op\":\"orthogrid3d.present_frame\"}");
+    return false;
+  }
+  if (content::PluginHost::Playback* pb = host->playback()) {
+    pb->set_index(0);
+  }
+  set_operation_result("{\"ok\":true,\"op\":\"orthogrid3d.present_frame\"}");
+  return true;
+}
+
+bool create_hex_grid_processing(content::PluginHost* host,
                                 std::string_view args_json) {
   const int nx = json_get_int(args_json, "nx", detail::k_demo_nx);
   const int ny = json_get_int(args_json, "ny", detail::k_demo_ny);
@@ -139,7 +188,7 @@ bool create_hex_grid_processing(content::PluginHost*,
     set_operation_result(solved.message);
     return false;
   }
-  return commit_solved(solved, vts_path);
+  return commit_solved(host, solved, vts_path);
 }
 
 bool handle_generate(content::PluginHost* host, const tool::CommandArgs&) {
@@ -165,15 +214,13 @@ bool handle_export_vts(content::PluginHost* host, const tool::CommandArgs&) {
 
 }  // namespace
 
-void set_hex_grid_writer(HexGridWriter writer) {
-  g_hex_writer = std::move(writer);
-}
-
 bool publish_hex_grid(const HexGridCommit& commit) {
-  if (!g_hex_writer) {
+  if (!g_present_host || !g_present_host->gis_document()) {
     return false;
   }
-  return g_hex_writer(commit);
+  return present_hex_grid_mesh(g_present_host->gis_document(),
+                               g_present_host->scene3d_sink(), nullptr,
+                               commit);
 }
 
 namespace detail {
@@ -182,6 +229,7 @@ bool register_world3d_hexgrid(content::PluginHost* host) {
   if (!host) {
     return false;
   }
+  g_present_host = host;
   if (!contribute_command_aliases(
           host, {{"orthogrid3d.generate", "Generate 3D orth grid"}}, kMenuId,
           [host](const tool::CommandArgs& args) {
@@ -196,9 +244,15 @@ bool register_world3d_hexgrid(content::PluginHost* host) {
           })) {
     return false;
   }
-  return contribute_processing_aliases(
-      host, {{"orthogrid3d.create_hex_grid", "Create 3D orth hex grid"}},
-      create_hex_grid_processing);
+  if (!contribute_processing_aliases(
+          host, {{"orthogrid3d.create_hex_grid", "Create 3D orth hex grid"}},
+          create_hex_grid_processing)) {
+    return false;
+  }
+  return host->contribute_processing(
+      detail::kWorld3dPluginId,
+      {"orthogrid3d.present_frame", "Re-present hex grid frame"},
+      orthogrid3d_present_frame);
 }
 
 }  // namespace detail

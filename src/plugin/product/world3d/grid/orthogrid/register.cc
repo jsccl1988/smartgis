@@ -9,10 +9,9 @@
 #include <utility>
 
 #include "content/public/plugin_host.h"
-#include "plugin/product/world3d/commands.h"
 #include "plugin/product/world3d/detail/contribute.h"
-#include "plugin/product/world3d/grid/orthogrid/solve/boundary_solve.h"
 #include "plugin/product/world3d/grid/orthogrid/session/session.h"
+#include "plugin/product/world3d/grid/orthogrid/solve/boundary_solve.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "tool/command/command.h"
 #include "ui/views/dialogs/file_picker.h"
@@ -167,7 +166,7 @@ bool handle_generate(content::PluginHost*, const tool::CommandArgs&) {
   return true;
 }
 
-bool create_orth_grid_processing(content::PluginHost*,
+bool create_orth_grid_processing(content::PluginHost* host,
                                  std::string_view args_json) {
   const int iters =
       json_get_int(args_json, "elliptic_iters", detail::session_elliptic_iters());
@@ -192,6 +191,10 @@ bool create_orth_grid_processing(content::PluginHost*,
     set_operation_result(solved.message);
     return false;
   }
+  if (!host) {
+    set_operation_result(solved.message);
+    return true;
+  }
   if (!detail::commit_orthogrid_solved(solved)) {
     set_operation_result("{\"error\":\"mesh_commit_failed\"}");
     return false;
@@ -208,6 +211,7 @@ bool register_world3d_orthogrid(content::PluginHost* host) {
   if (!host) {
     return false;
   }
+  bind_orthogrid_present_host(host);
 
   auto prefixes = {kIdPrefixes[0], kIdPrefixes[1]};
   for (int flag = 0; flag < 4; ++flag) {
@@ -242,9 +246,15 @@ bool register_world3d_orthogrid(content::PluginHost* host) {
           })) {
     return false;
   }
-  return contribute_prefixed_processing(
-      host, prefixes, "create_orth_grid", "Create orth grid",
-      create_orth_grid_processing);
+  if (!contribute_prefixed_processing(
+          host, prefixes, "create_orth_grid", "Create orth grid",
+          create_orth_grid_processing)) {
+    return false;
+  }
+  return host->contribute_processing(
+      detail::kWorld3dPluginId,
+      {"orthogrid.present_frame", "Re-present orthogrid frame"},
+      orthogrid_present_frame);
 }
 
 }  // namespace detail

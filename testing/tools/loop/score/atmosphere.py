@@ -191,15 +191,18 @@ def score_atmosphere_globe(path: Path) -> dict:
     star_f = starish / max(1, len(top_rows))
     land_f = landish / max(1, len(all_rows))
     cloud_f = cloudish / max(1, len(center))
-    space_or_sky = sky_f > 0.08 or (space_f > 0.45 and star_f > 0.00005)
+    space_or_sky = space_f > 0.12 or (sky_f > 0.10 and space_f > 0.08)
+    size_ok = w >= 320 and h >= 240
 
     # China DEM is a regional patch on the unit globe — land fraction is small.
+    # Plugin world3d captures the full shell HWND (often 2120×1006), not 640².
     ok = (
         pink_f < 0.12
         and space_or_sky
         and land_f > 0.008
         and limb_contrast > 40.0
         and not flat_clear
+        and size_ok
     )
     return {
         "bmp": str(path),
@@ -219,6 +222,7 @@ def score_atmosphere_globe(path: Path) -> dict:
             "landish_frac>0.008": land_f > 0.008,
             "limb_contrast>40": limb_contrast > 40.0,
             "not_flat_clear": not flat_clear,
+            "min_size_320x240": size_ok,
         },
     }
 

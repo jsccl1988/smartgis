@@ -51,39 +51,47 @@ int run_map2d_orthogrid(Browser& browser) {
 }
 
 int run_plugin_world3d(Browser& browser) {
-  return run_plugin_showcase(browser, PluginShowcaseMode::kWorld3d);
+  return run_plugin_showcase(browser, "world3d");
+}
+
+int run_plugin_world_preview(Browser& browser) {
+  return run_plugin_showcase(browser, "world_preview");
 }
 
 int run_plugin_print(Browser& browser) {
-  return run_plugin_showcase(browser, PluginShowcaseMode::kPrint);
+  return run_plugin_showcase(browser, "print");
 }
 
 int run_plugin_orthogrid(Browser& browser) {
-  return run_plugin_showcase(browser, PluginShowcaseMode::kOrthogrid);
+  return run_plugin_showcase(browser, "orthogrid");
 }
 
 int run_plugin_orthogrid3d(Browser& browser) {
-  return run_plugin_showcase(browser, PluginShowcaseMode::kOrthogrid3d);
+  return run_plugin_showcase(browser, "orthogrid3d");
 }
 
 int run_plugin_traffic(Browser& browser) {
-  return run_plugin_showcase(browser, PluginShowcaseMode::kTraffic);
+  return run_plugin_showcase(browser, "traffic");
 }
 
 int run_plugin_flood(Browser& browser) {
-  return run_plugin_showcase(browser, PluginShowcaseMode::kFlood);
+  return run_plugin_showcase(browser, "flood");
 }
 
 int run_plugin_stormsurge(Browser& browser) {
-  return run_plugin_showcase(browser, PluginShowcaseMode::kStormSurge);
+  return run_plugin_showcase(browser, "stormsurge");
 }
 
 int run_plugin_mine(Browser& browser) {
-  return run_plugin_showcase(browser, PluginShowcaseMode::kMine);
+  return run_plugin_showcase(browser, "mine");
 }
 
 int run_plugin_geochem(Browser& browser) {
-  return run_plugin_showcase(browser, PluginShowcaseMode::kGeochem);
+  return run_plugin_showcase(browser, "geochem");
+}
+
+int run_plugin_report(Browser& browser) {
+  return run_plugin_showcase(browser, "report");
 }
 
 int run_atmosphere_land(Browser& browser) {
@@ -201,6 +209,12 @@ void ensure_builtin_scenarios() {
         &run_plugin_world3d,
     });
     register_scenario(Scenario{
+        "plugin.world_preview",
+        ScenarioKind::kShowcase,
+        detail::kPluginShowcaseMarkLeaf,
+        &run_plugin_world_preview,
+    });
+    register_scenario(Scenario{
         "plugin.print",
         ScenarioKind::kShowcase,
         detail::kPluginShowcaseMarkLeaf,
@@ -247,6 +261,12 @@ void ensure_builtin_scenarios() {
         ScenarioKind::kShowcase,
         detail::kPluginShowcaseMarkLeaf,
         &run_plugin_geochem,
+    });
+    register_scenario(Scenario{
+        "plugin.report",
+        ScenarioKind::kShowcase,
+        detail::kPluginShowcaseMarkLeaf,
+        &run_plugin_report,
     });
     register_scenario(Scenario{
         "atmosphere.land",

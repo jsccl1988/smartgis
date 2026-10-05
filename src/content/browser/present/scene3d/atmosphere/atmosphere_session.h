@@ -59,6 +59,23 @@ class AtmosphereSession {
   bool globe_enabled() const { return globe_enabled_; }
   bool sat_cloud_enabled() const { return sat_cloud_enabled_; }
 
+  // Origin-style jet surface + isolines on the China DEM globe window.
+  void set_elevation_overlay(bool surface, bool curves);
+  bool elevation_surface_overlay() const;
+  bool elevation_curve_overlay() const;
+
+  // Enable ContourSheet (curves + TIN + side color scale), rebuild from
+  // WaveHs, and push a stacked overlay TIN (planar) / elevation overlay
+  // (globe). Default face for world3d.open_earth / China Scene3D seed.
+  bool apply_contour_suite_defaults();
+
+  // Orbit distance in globe radii (1 = surface). Loads china_dem as a
+  // blended overlay below ~3.2 R and reaches full mix by ~1.65 R. When
+  // |look_lon_deg|/|look_lat_deg| sit over open water, enables OceanPass.
+  void update_globe_detail_lod(float orbit_distance);
+  void update_globe_detail_lod(float orbit_distance, double look_lon_deg,
+                               double look_lat_deg);
+
   void set_time_sec(double t);
   double time_sec() const;
 
@@ -113,6 +130,8 @@ class AtmosphereSession {
   bool prepare_fog();
   bool prepare_globe();
   bool prepare_sat_clouds();
+  bool load_china_globe_detail();
+  void apply_globe_sea_ocean(double lon_deg, double lat_deg, bool on);
 
   const MapScene* scene_ = nullptr;
   Scene3dGpuPresent* gpu_ = nullptr;
@@ -122,12 +141,15 @@ class AtmosphereSession {
   bool wind_overlay_enabled_ = false;
   bool globe_enabled_ = false;
   bool sat_cloud_enabled_ = false;
+  bool elevation_surface_overlay_ = false;
+  bool elevation_curve_overlay_ = false;
   bool globe_surface_loaded_ = false;
+  bool china_globe_detail_loaded_ = false;
   bool sat_cloud_cover_loaded_ = false;
   // QPC tick of the last advance_sim_time(); 0 = not primed.
   std::uint64_t last_sim_qpc_ = 0;
 
-  std::unique_ptr<vista::atmosphere::Environment> atmosphere_;
+  vista::atmosphere::EnvironmentPtr atmosphere_;
   vista::OceanPass ocean_pass_;
   vista::CloudPass cloud_pass_;
   vista::SkyPass sky_pass_;

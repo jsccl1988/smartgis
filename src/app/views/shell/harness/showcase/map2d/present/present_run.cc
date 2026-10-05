@@ -10,7 +10,7 @@
 #include "app/views/shell/harness/showcase/map2d/present/gpu_present.h"
 #include "app/views/shell/harness/showcase/map2d/common/progress.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 #include "base/process/switches.h"
 
@@ -43,7 +43,7 @@ int run_map2d_present(Browser& browser,
   // paint through the HWND has AVd in Map2dSoftwarePainter / ContentMapView
   // under parallel harness (mark stops at bmp-path). Async InvalidateRect is
   // enough so the live HWND may refresh; BMP does not depend on it.
-  if (ui::views::MapViewport* pane = browser.map_viewport()) {
+  if (ui::views::DrawHost* pane = browser.draw_host()) {
     if (pane->native_view() && IsWindow(pane->native_view())) {
       InvalidateRect(pane->native_view(), nullptr, FALSE);
     }

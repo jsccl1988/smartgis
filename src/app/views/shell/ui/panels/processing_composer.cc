@@ -40,7 +40,7 @@
 #include "ui/gis/analysis/processing_panel.h"
 #include "ui/gis/analysis/result_playback_panel.h"
 #include "ui/gis/analysis/spatial_analysis_panel.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "base/process/switches.h"
 
@@ -107,14 +107,14 @@ void ProcessingComposer::wire_result_playback_panel() {
     return;
   }
   host_->result_playback_panel_->set_frame_change([this](int index) {
-    host_->browser_->analysis_playback().set_playing(false);
+    host_->browser_->plugin_playback().set_playing(false);
     host_->result_playback_panel_->set_playing(false);
     host_->sync_result_playback_timer();
-    (void)host_->browser_->apply_analysis_frame(index);
+    (void)host_->browser_->apply_plugin_frame(index);
     host_->invalidate_map_overlays();
   });
   host_->result_playback_panel_->set_play_change([this](bool on) {
-    auto& session = host_->browser_->analysis_playback();
+    auto& session = host_->browser_->plugin_playback();
     session.set_playing(on);
     if (on && session.frame_count() <= 0) {
       session.set_playing(false);
@@ -124,9 +124,9 @@ void ProcessingComposer::wire_result_playback_panel() {
     host_->sync_result_playback_timer();
   });
   host_->result_playback_panel_->set_loop_change([this](bool on) {
-    host_->browser_->analysis_playback().set_looping(on);
+    host_->browser_->plugin_playback().set_looping(on);
   });
-  host_->result_playback_panel_->set_looping(host_->browser_->analysis_playback().looping());
+  host_->result_playback_panel_->set_looping(host_->browser_->plugin_playback().looping());
   host_->result_playback_panel_->set_status_text("(no session)");
 }
 
@@ -205,7 +205,7 @@ void ProcessingComposer::sync_result_playback_timer() {
   constexpr UINT_PTR kPlayback = 0x504C424Bu;  // 'PLBK'
   SetPropW(h, L"PlaybackBrowser", reinterpret_cast<HANDLE>(host_));
   KillTimer(h, kPlayback);
-  auto& session = host_->browser_->analysis_playback();
+  auto& session = host_->browser_->plugin_playback();
   if (!session.playing() || session.frame_count() <= 0) {
     return;
   }
@@ -218,7 +218,7 @@ void ProcessingComposer::sync_result_playback_timer() {
     if (!self || !self->browser_ || !self->result_playback_panel_) {
       return;
     }
-    auto& session = self->browser_->analysis_playback();
+    auto& session = self->browser_->plugin_playback();
     if (!session.playing() || session.frame_count() <= 0) {
       self->sync_result_playback_timer();
       return;
@@ -234,7 +234,7 @@ void ProcessingComposer::sync_result_playback_timer() {
         return;
       }
     }
-    if (self->browser_->apply_analysis_frame(next)) {
+    if (self->browser_->apply_plugin_frame(next)) {
       self->result_playback_panel_->set_frame_index(next);
       self->invalidate_map_overlays();
     }
@@ -364,7 +364,10 @@ void ProcessingComposer::run_processing_operator(const std::string& processing_i
 
 
 void ProcessingComposer::bind_gis_python_bridge() {
-  if (!host_->browser_ || !host_->browser_->plugins()) {
+  // Out-of-line BrowserView::browser() keeps browser_ offsetof in browser_view
+  // .obj (not inlined into a skewed ProcessingComposer TU).
+  Browser* browser = host_ ? host_->browser() : nullptr;
+  if (!browser || !browser->plugins()) {
     return;
   }
   plugin::GisConsoleBridge bridge;
@@ -450,11 +453,8 @@ void ProcessingComposer::bind_gis_python_bridge() {
     if (!host_->map_tabs_) {
       return std::string("map2d");
     }
-    const int a = host_->map_tabs_->active();
-    if (a == 1) {
-      return std::string("data");
-    }
-    if (a == 2) {
+    // Shell map tabs are Map=0, 3D=1 (no separate data map tab).
+    if (host_->map_tabs_->active() == 1) {
       return std::string("scene3d");
     }
     return std::string("map2d");
@@ -464,10 +464,10 @@ void ProcessingComposer::bind_gis_python_bridge() {
       return false;
     }
     int idx = 0;
-    if (mode == "data") {
+    if (mode == "scene3d") {
       idx = 1;
-    } else if (mode == "scene3d") {
-      idx = 2;
+    } else if (mode == "data") {
+      idx = 0;
     } else if (mode != "map2d") {
       return false;
     }
@@ -513,7 +513,7 @@ void ProcessingComposer::bind_gis_python_bridge() {
     }
     uint32_t vid = view_id;
     if (vid == 0) {
-      if (ui::views::MapViewport* pane = host_->active_map()) {
+      if (ui::views::DrawHost* pane = host_->active_map()) {
         vid = pane->view_id();
       }
     }

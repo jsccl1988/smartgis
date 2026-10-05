@@ -47,9 +47,9 @@
 #include "ui/views/dialogs/message_box.h"
 #include "ui/views/dialogs/select_one_dialog.h"
 
-// Map hang
-#include "ui/views/map/map_viewport.h"
-#include "ui/views/map/touch_multitouch.h"
+// Primary draw host (HWND canvas for GIS presenters below UI).
+#include "ui/views/map/viewport/draw_host.h"
+#include "ui/views/map/input/touch_multitouch.h"
 
 namespace ui {
 namespace views {

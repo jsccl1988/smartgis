@@ -207,8 +207,8 @@ int run_map2d_presenter_tests() {
         "out\\data\\china_city.geojson",
         "china_city.gpkg",
         "china_city.geojson",
-        "testing\\data\\china_city.gpkg",
-        "testing\\data\\china_city.geojson",
+        "testing\\data\\china\\china_city.gpkg",
+        "testing\\data\\china\\china_city.geojson",
     };
     for (const char* cand : city_candidates) {
       content::MapScene scene;

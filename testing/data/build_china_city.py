@@ -50,7 +50,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 CACHE = REPO / "out" / "data" / "cache" / "china_city_src"
-DEFAULT_OUT = Path(__file__).resolve().parent / "china_city.gpkg"
+DATA_DIR = Path(__file__).resolve().parent / "china"
+DEFAULT_OUT = DATA_DIR / "china_city.gpkg"
 
 # Natural Earth 10m — same suite / same datum for every theme.
 NE_ADMIN_URLS = (
@@ -62,8 +63,7 @@ NE_PLACES_URLS = (
     "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_populated_places.zip",
 )
 
-# China network extracts (committed). Not the global NE hydro/roads zips.
-DATA_DIR = Path(__file__).resolve().parent
+# China network extracts (committed under testing/data/china/).
 CHINA_HYDRO_SRC = DATA_DIR / "china_hydro.src.geojson"
 CHINA_ROADS_SRC = DATA_DIR / "china_roads.src.geojson"
 
@@ -892,12 +892,12 @@ def main() -> int:
     ap.add_argument(
         "--with-dem",
         action="store_true",
-        help="also build testing/data/china_dem.tif (EPSG:4326, NE land cutline)",
+        help="also build testing/data/china/china_dem.tif (EPSG:4326, NE land cutline)",
     )
     ap.add_argument(
         "--dem-out",
         type=Path,
-        default=Path(__file__).resolve().parent / "china_dem.tif",
+        default=DATA_DIR / "china_dem.tif",
         help="DEM output path when --with-dem is set",
     )
     ap.add_argument(
@@ -919,7 +919,7 @@ def main() -> int:
 
     # Land outline for DEM cutline (same polygons as area layer).
     outline_cache = args.cache / "china_outline.geojson"
-    outline_data = Path(__file__).resolve().parent / "_china_ne_outline.geojson"
+    outline_data = DATA_DIR / "_china_ne_outline.geojson"
     write_land_outline(areas, outline_cache)
     write_land_outline(areas, outline_data)
 
@@ -1051,7 +1051,7 @@ def main() -> int:
     )
     print(f"Wrote {geojson_path} ({geojson_path.stat().st_size} bytes)", flush=True)
 
-    pin_path = Path(__file__).resolve().parent / "china_city.PIN.txt"
+    pin_path = DATA_DIR / "china_city.PIN.txt"
     pin_path.write_text(
         f"file=china_city.gpkg\n"
         f"sha256={digest}\n"
@@ -1066,8 +1066,8 @@ def main() -> int:
 
     if args.also_out_dir:
         args.also_out_dir.mkdir(parents=True, exist_ok=True)
-        style_src = Path(__file__).resolve().parent / "china_city.style.json"
-        license_src = Path(__file__).resolve().parent / "china_city.LICENSE.txt"
+        style_src = DATA_DIR / "china_city.style.json"
+        license_src = DATA_DIR / "china_city.LICENSE.txt"
         for src in (out, geojson_path, style_src, license_src):
             if not src.is_file():
                 continue

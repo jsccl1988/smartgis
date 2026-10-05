@@ -50,6 +50,9 @@ class Scene3dSoftwarePainter {
                        int* sx, int* sy) const;
   void paint_wind_arrows(HDC hdc, int width_px, int height_px) const;
   void paint_wireframe_edges(HDC hdc, int width_px, int height_px) const;
+  // HUD / city labels. Caller must hold gpu_->mutex().
+  void paint_hud_on_locked(HDC hdc, int width_px, int height_px) const;
+  void draw_legacy_place_labels(HDC hdc, int width_px, int height_px) const;
   void sync_engine_logo_overlay(HWND parent, int width_px,
                                 int height_px) const;
   void hide_engine_logo_overlay() const;

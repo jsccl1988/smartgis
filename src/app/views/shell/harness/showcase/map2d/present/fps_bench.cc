@@ -9,7 +9,7 @@
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "content/browser/present/map2d/gpu/map2d_gpu_present.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 #include "vista/component/map/detail/hillshade_bake.h"
 
@@ -32,7 +32,7 @@ void run_optional_map2d_fps_bench(Browser& browser,
     return;
   }
   map2d_showcase_mark("fps-bench");
-  ui::views::MapViewport* pane = browser.map_viewport();
+  ui::views::DrawHost* pane = browser.draw_host();
   float sum = 0.f;
   float peak = 0.f;
   int samples = 0;

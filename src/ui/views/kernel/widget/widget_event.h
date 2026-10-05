@@ -35,6 +35,14 @@ UI_EXPORT KeyEvent make_key_event(KeyEvent::Type type,
                                   WPARAM wparam,
                                   LPARAM lparam);
 
+// GCS_RESULTSTR / GCS_COMPSTR → View::on_ime_composition. kIgnore means the
+// host should fall through to DefWindowProc.
+enum class ImeDispatch { kIgnore, kHandled, kUnhandled };
+
+UI_EXPORT ImeDispatch dispatch_ime_composition(View* focused,
+                                               HWND hwnd,
+                                               LPARAM lparam);
+
 }  // namespace views
 }  // namespace ui
 

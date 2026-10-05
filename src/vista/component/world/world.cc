@@ -7,7 +7,7 @@
 #include <cstring>
 
 #include "vista/component/world/pointcloud/chunk.h"
-#include "vista/component/world/pointcloud/lod.h"
+#include "vista/component/world/pointcloud/point_lod.h"
 
 #include "gis/geo/ops/geometry_traits.h"
 #include "ogrsf_frmts.h"
@@ -296,19 +296,17 @@ bool World::set_terrain_mesh(uint64_t id, const float* positions,
   }
   if (!positions || !indices || position_count < 9 ||
       (position_count % 3) != 0 || index_count < 3 || (index_count % 3) != 0) {
-    node->terrain_positions.clear();
-    node->terrain_indices.clear();
-    node->terrain_uvs.clear();
+    node->terrain.clear_mesh();
     ++generation_;
     node->generation = generation_;
     return false;
   }
-  node->terrain_positions.assign(positions, positions + position_count);
-  node->terrain_indices.assign(indices, indices + index_count);
-  // Keep terrain_uvs when vert count still matches; clear on mismatch.
+  node->terrain.positions.assign(positions, positions + position_count);
+  node->terrain.indices.assign(indices, indices + index_count);
+  // Keep uvs when vert count still matches; clear on mismatch.
   const size_t verts = position_count / 3;
-  if (node->terrain_uvs.size() != verts * 2u) {
-    node->terrain_uvs.clear();
+  if (node->terrain.uvs.size() != verts * 2u) {
+    node->terrain.uvs.clear();
   }
   ++generation_;
   node->generation = generation_;
@@ -320,14 +318,14 @@ bool World::set_terrain_uvs(uint64_t id, const float* uvs, size_t float_count) {
   if (!node || node->kind != NodeKind::kTerrain) {
     return false;
   }
-  const size_t verts = node->terrain_positions.size() / 3;
+  const size_t verts = node->terrain.positions.size() / 3;
   if (!uvs || verts == 0 || float_count != verts * 2u) {
-    node->terrain_uvs.clear();
+    node->terrain.uvs.clear();
     ++generation_;
     node->generation = generation_;
     return false;
   }
-  node->terrain_uvs.assign(uvs, uvs + float_count);
+  node->terrain.uvs.assign(uvs, uvs + float_count);
   ++generation_;
   node->generation = generation_;
   return true;
@@ -343,16 +341,14 @@ bool World::set_terrain_texture(uint64_t id, const uint8_t* rgba,
   const size_t need =
       static_cast<size_t>(width) * static_cast<size_t>(height) * 4u;
   if (!rgba || width == 0 || height == 0 || byte_count < need) {
-    node->terrain_rgba.clear();
-    node->terrain_tex_w = 0;
-    node->terrain_tex_h = 0;
+    node->terrain.clear_texture();
     ++generation_;
     node->generation = generation_;
     return false;
   }
-  node->terrain_rgba.assign(rgba, rgba + need);
-  node->terrain_tex_w = width;
-  node->terrain_tex_h = height;
+  node->terrain.rgba.assign(rgba, rgba + need);
+  node->terrain.tex_w = width;
+  node->terrain.tex_h = height;
   ++generation_;
   node->generation = generation_;
   return true;

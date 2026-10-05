@@ -105,6 +105,8 @@ class MotionGate:
 
     min_unique_frac: float = 0.25
     min_unique_frames: int = 12
+    # Optional: require at least N distinct frame sizes (window resize phases).
+    min_unique_sizes: int = 0
 
 
 @dataclass(frozen=True)
@@ -363,6 +365,7 @@ def load_suite(suite_id: str) -> Suite:
         motion_gate = MotionGate(
             min_unique_frac=float(mg_raw.get("min_unique_frac", 0.25)),
             min_unique_frames=int(mg_raw.get("min_unique_frames", 12)),
+            min_unique_sizes=int(mg_raw.get("min_unique_sizes", 0)),
         )
 
     fps_gate: FpsGate | None = None

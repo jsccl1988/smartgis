@@ -11,7 +11,8 @@ namespace ui {
 namespace views {
 
 // Clips a single child to this view's bounds and offsets it by a vertical
-// scroll position. Mouse wheel moves the offset.
+// scroll position. Wheel (including over content, via Widget bubble) and
+// the right-edge track seek the offset.
 class UI_EXPORT ScrollView : public View {
  public:
   ScrollView();
@@ -29,10 +30,14 @@ class UI_EXPORT ScrollView : public View {
   void paint_self(ui::gfx::Canvas* canvas) override;
 
  private:
+  class Track;
+
   View* content() const;
+  int content_height() const;
   void clamp_scroll();
   void apply_content_bounds();
   void update_track();
+  void seek_scroll_from_y(int y);
   Rect viewport_rect() const;
   void post_scroll_dirty(const Rect& dirty);
 

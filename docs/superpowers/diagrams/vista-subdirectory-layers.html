@@ -84,6 +84,7 @@ All rights reserved.
       · 模块：<a href="../../../src/vista/README.md">src/vista/README.md</a>
     </div>
     <div class="rel">相关图：
+      <a href="./world-lod-terrain.html">World LOD terrain</a>
       <a href="./legacy-render-architecture.html">上一代 Scenic</a>
       <a href="./render-accelerate-topology.html">A×B 并行</a>
       <a href="./content-present-accelerate.html">content present</a>
@@ -107,7 +108,8 @@ All rights reserved.
         <ul>
           <li><code>component/map/</code> <code>Layout</code> → <code>MapIR</code></li>
           <li><code>component/world/</code> <code>World</code> + <code>Instance</code>；sync / tess / cull / index</li>
-          <li><code>mesh</code>（<code>fill/</code>·<code>line/</code>·<code>detail/</code>）CPU 三角化；<code>terrain</code> DEM（头文件无 World）</li>
+          <li><code>component/world/terrain/</code> <code>TerrainPayload</code> + LOD seed（raster / TIN / surface）</li>
+          <li><code>mesh</code>（<code>fill/</code>·<code>line/</code>·<code>detail/</code>）CPU 三角化；<code>terrain</code> DEM bake（头文件无 World）</li>
           <li><code>assets</code> 模型 / 3D Tiles / 点云文件</li>
           <li><code>component/atmosphere</code> 场；<code>domain</code> 缝</li>
           <li>Emit 走 <code>base::execution</code>；工人只写自己的槽</li>
@@ -118,6 +120,7 @@ All rights reserved.
         <ul>
           <li><code>pass/map/</code> <code>MapPass</code> 上传并编码</li>
           <li><code>pass/world/</code> <code>WorldPass</code>：<code>sync_from</code> 再 <code>record_draws</code></li>
+          <li><code>pass/world/terrain/</code> <code>TerrainPass</code>（由 WorldPass 组合）</li>
           <li><code>pass/atmosphere/</code> pass + 海洋 FFT Compute</li>
           <li>顺序：Upload → Compute → Record，一条 CommandList</li>
           <li>这一侧不进入 <code>parallel_for</code>。无 <code>vista::pass</code> 命名空间</li>
@@ -126,7 +129,7 @@ All rights reserved.
       <div class="lane rhi">
         <h3>设备与上屏</h3>
         <ul>
-          <li><code>src/render</code> FlyCube DX12 / Vulkan</li>
+          <li><code>src/render</code> Vista DX12 / Vulkan</li>
           <li><code>content</code> <code>stage_frame</code>：UI 返回，不 join</li>
           <li><code>graph::present</code> 消费已录好的列表</li>
           <li>Scenic <code>scenic.dll</code> 不编进本 DLL</li>
@@ -185,7 +188,7 @@ All rights reserved.
 
       <rect x="816" y="152" width="208" height="64" rx="7" fill="#eee8f6" stroke="#6b5ea8"/>
       <text class="box-title" x="828" y="176">graph::present</text>
-      <text class="box-sub" x="828" y="196">FlyCube · 1 CL</text>
+      <text class="box-sub" x="828" y="196">Vista · 1 CL</text>
 
       <path class="pulse" d="M166 72 H186" stroke="#2f7d62" stroke-width="2" fill="none" marker-end="url(#ah)"/>
       <path class="pulse" d="M386 72 H406" stroke="#2f7d62" stroke-width="2" fill="none" marker-end="url(#ah)"/>
@@ -265,7 +268,7 @@ All rights reserved.
       <tbody>
         <tr><td>Component / Pass</td><td><code>component/map</code>→<code>pass/map</code>，<code>component/world</code>→<code>pass/world</code>，<code>component/atmosphere</code>→<code>pass/atmosphere</code></td><td><code>MapPainter</code>、<code>scene3d/Scene</code> 各持有图又直接画</td></tr>
         <tr><td>CPU 并行</td><td>Emit ×N，工人无 Device；Resolve 再串行</td><td>rhi2d Raster×N 私有 HDC；rhi3d Prep×N 不做 Draw</td></tr>
-        <tr><td>GPU</td><td>FlyCube：Upload、FFT Compute、一条 CommandList</td><td>仅 rhi3d 的 GL Draw / D3D11 deferred。2D 是 CPU 光栅后 BitBlt</td></tr>
+        <tr><td>GPU</td><td>Vista：Upload、FFT Compute、一条 CommandList</td><td>仅 rhi3d 的 GL Draw / D3D11 deferred。2D 是 CPU 光栅后 BitBlt</td></tr>
         <tr><td>设备与上屏</td><td><code>src/render</code> + content present</td><td>引擎内 rhi2d/rhi3d 与 <code>Device2dPresent</code></td></tr>
         <tr><td>「frame」一词</td><td><code>pass/map</code> 是 <code>MapPass</code> 录制。content <code>present/map2d</code> 目录名不动</td><td><code>cc/</code> 帧拍与 <code>Device2dFrame::schedule_redraw</code></td></tr>
       </tbody>
@@ -282,7 +285,7 @@ All rights reserved.
       <tbody>
         <tr>
           <td>加速落在哪</td>
-          <td>CPU：Emit×N 写 <code>MapIR</code> / <code>Instance</code>，工人不碰 Device。GPU：FlyCube 上 Upload、海洋 FFT、一条 CommandList</td>
+          <td>CPU：Emit×N 写 <code>MapIR</code> / <code>Instance</code>，工人不碰 Device。GPU：Vista 上 Upload、海洋 FFT、一条 CommandList</td>
           <td>2D：Raster×N，每人一块私有 HDC，汇合后 BitBlt。3D：Prep×N 只做视锥，然后 GL Draw 或 D3D11 deferred</td>
         </tr>
         <tr>
@@ -293,7 +296,7 @@ All rights reserved.
         <tr>
           <td>缺点</td>
           <td>冷帧先做完 CPU IR 再上传。热帧靠 DrawCache / 静帧复用。GPU 录制仍是一条 CommandList。<code>prep</code> 并行默认关。<code>WorldPass</code> 仍同时提供 <code>sync_from</code> 与 <code>record_draws</code>（CPU 翻译单元在 <code>world/</code>，不把同步拆成返回值）</td>
-          <td>逻辑和录制在 <code>MapPainter</code>、<code>Scene::Render</code> 里绑死。2D 与 3D 是两套设备。工人持有 HDC，和 HWND 绑在一起。D3D11 deferred 的线程局部上下文不能带到 FlyCube。上屏在引擎内部</td>
+          <td>逻辑和录制在 <code>MapPainter</code>、<code>Scene::Render</code> 里绑死。2D 与 3D 是两套设备。工人持有 HDC，和 HWND 绑在一起。D3D11 deferred 的线程局部上下文不能带到 Vista。上屏在引擎内部</td>
         </tr>
       </tbody>
     </table>

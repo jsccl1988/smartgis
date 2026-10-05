@@ -277,6 +277,30 @@ void test_table_paints_viewport_rows_only() {
   expect(few > 0 && few <= 5, "viewport draws a handful of rows");
   expect(many == few, "row draw count stable for fixed viewport");
   expect(many < 200, "draw count does not follow row_count");
+
+  TableView scrolled;
+  scrolled.set_columns({"n"});
+  for (int i = 0; i < 200; ++i) {
+    scrolled.add_row({std::to_string(i)});
+  }
+  const int rh = scrolled.row_height();
+  const int hh = scrolled.header_height();
+  const int view_h = hh + 4 * rh;
+  const int full_h = hh + 200 * rh;
+  scrolled.set_bounds({0, 0, 180, full_h});
+  const int y_scroll = hh + 50 * rh;
+  scrolled.set_exposed_rect({0, y_scroll, 180, view_h});
+  scrolled.invalidate_commands();
+  ui::gfx::DisplayList cmds;
+  scrolled.append_commands_to(&cmds);
+  expect(scrolled.last_painted_row_count() > 0 &&
+             scrolled.last_painted_row_count() <= 5,
+         "scrolled expose still paints a handful of rows");
+  expect(cmds.cmd_count() < 400, "commit list skips offscreen row recording");
+  expect(scrolled.on_mouse_event(mouse_up(10, y_scroll + rh / 2)),
+         "hit-test on scrolled strip");
+  expect(scrolled.selected_row() == 50,
+         "selection uses row geometry, not the paint cache");
 }
 
 void test_table_row_cache_hit_on_rerecord() {
@@ -306,5 +330,89 @@ void test_table_row_cache_hit_on_rerecord() {
              table.last_painted_row_count() <= 12,
          "cache hit keeps viewport row count");
   expect(!second.empty(), "rerecord still emits commands");
+
+  const int rh = table.row_height();
+  const Rect next_strip{0, rh, 180, view_h};
+  table.set_exposed_rect(next_strip);
+  table.invalidate_commands();
+  ui::gfx::DisplayList scrolled;
+  table.append_commands_to(&scrolled);
+  expect(!table.last_cache_hit(), "exposed strip change rebuilds row cache");
+  expect(table.last_painted_row_count() > 0 &&
+             table.last_painted_row_count() <= 12,
+         "scrolled strip still viewport-sized");
+
+  ui::gfx::DisplayList scrolled_again;
+  table.invalidate_commands();
+  table.append_commands_to(&scrolled_again);
+  expect(table.last_cache_hit(), "same strip rerecord hits row cache");
+}
+
+void test_tree_view_send_mouse_hits_rows() {
+  Widget widget;
+  auto root = std::make_unique<View>();
+  root->set_bounds({0, 0, 240, 120});
+  auto tree = std::make_unique<TreeView>();
+  TreeView* t = tree.get();
+  t->set_bounds({0, 0, 240, 120});
+  t->add_node("", "root", "Root", true);
+  t->layout();
+  root->add_child(std::move(tree));
+  widget.set_contents_view(std::move(root));
+  expect(widget.send_mouse(mouse_up(80, 6)), "tree send_mouse");
+  expect(t->selected_id() == "root", "tree selected via widget hit");
+}
+
+void test_scroll_wheel_over_content_via_widget() {
+  Widget widget;
+  auto root = std::make_unique<View>();
+  root->set_bounds({0, 0, 100, 40});
+  auto sc = std::make_unique<ScrollView>();
+  ScrollView* s = sc.get();
+  s->set_bounds({0, 0, 100, 40});
+  auto c = std::make_unique<View>();
+  c->set_preferred_size({100, 200});
+  s->add_child(std::move(c));
+  s->layout();
+  root->add_child(std::move(sc));
+  widget.set_contents_view(std::move(root));
+  MouseEvent wheel;
+  wheel.type = MouseEvent::Type::kWheel;
+  wheel.x = 10;
+  wheel.y = 10;
+  wheel.wheel_delta = -120;
+  expect(widget.send_mouse(wheel), "wheel bubbled from content");
+  expect(s->scroll_offset() == 40, "widget wheel scrolled");
+}
+
+void test_scroll_track_seek() {
+  Widget widget;
+  auto root = std::make_unique<View>();
+  root->set_bounds({0, 0, 120, 40});
+  auto sc = std::make_unique<ScrollView>();
+  ScrollView* s = sc.get();
+  s->set_bounds({0, 0, 120, 40});
+  auto c = std::make_unique<View>();
+  c->set_preferred_size({100, 400});
+  s->add_child(std::move(c));
+  root->add_child(std::move(sc));
+  widget.set_contents_view(std::move(root));
+  s->layout();
+  expect(s->scroll_offset() == 0, "track start");
+  View* track = nullptr;
+  for (size_t i = 0; i < s->child_count(); ++i) {
+    View* ch = s->child_at(i);
+    if (ch && ch->bounds().width == 12) {
+      track = ch;
+      break;
+    }
+  }
+  expect(track != nullptr, "scroll track child");
+  if (track) {
+    expect(track->on_mouse_event(mouse_down(track->bounds().x + 2,
+                                            track->bounds().bottom() - 2)),
+           "track press");
+  }
+  expect(s->scroll_offset() > 0, "track seek moved content");
 }
 

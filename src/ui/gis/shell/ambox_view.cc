@@ -562,8 +562,8 @@ int AmboxView::measure_content_width(float scale) const {
       int btn_w = icon + dip_to_px(12, scale);
       if (!icon_only && button) {
         const Size ink = measure_text_utf8(button->text(), scale);
-        btn_w = icon + dip_to_px(10, scale) + ink.width + dip_to_px(8, scale);
-        btn_w = std::clamp(btn_w, dip_to_px(48, scale), dip_to_px(120, scale));
+        btn_w = icon + dip_to_px(10, scale) + ink.width + dip_to_px(10, scale);
+        btn_w = std::clamp(btn_w, dip_to_px(56, scale), dip_to_px(140, scale));
       } else {
         btn_w = std::max(dip_to_px(28, scale), icon + dip_to_px(12, scale));
       }
@@ -656,8 +656,8 @@ void AmboxView::layout_horizontal(float scale) {
       int btn_w = icon + dip_to_px(12, scale);
       if (!icon_only && button) {
         const Size ink = measure_text_utf8(button->text(), scale);
-        btn_w = icon + dip_to_px(10, scale) + ink.width + dip_to_px(8, scale);
-        btn_w = std::clamp(btn_w, dip_to_px(48, scale), dip_to_px(120, scale));
+        btn_w = icon + dip_to_px(10, scale) + ink.width + dip_to_px(10, scale);
+        btn_w = std::clamp(btn_w, dip_to_px(56, scale), dip_to_px(140, scale));
       } else {
         btn_w = std::max(dip_to_px(28, scale), icon + dip_to_px(12, scale));
       }
@@ -696,9 +696,22 @@ void AmboxView::paint_self(ui::gfx::Canvas* canvas) {
   }
   const Theme& t = Theme::current();
   const Rect& b = bounds();
-  canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
-
   const float scale = scale_factor();
+  if (orientation_ == Orientation::kHorizontal) {
+    // Pack chip chrome to content width; leftover rail is not panel_bg
+    // (that empty dark strip failed map_nav_toolbar / dark_chrome gates).
+    const int packed = std::min(b.width, measure_content_width(scale));
+    if (packed > 0) {
+      canvas->fill_rect(b.x, b.y, packed, b.height, t.panel_bg);
+    }
+    if (b.width > packed) {
+      canvas->fill_rect(b.x + packed, b.y, b.width - packed, b.height,
+                        t.map_placeholder);
+    }
+  } else {
+    canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
+  }
+
   const int hair = std::max(1, dip_to_px(1, scale));
   std::vector<ToolButton*> tools;
   collect_tool_buttons(&tools);

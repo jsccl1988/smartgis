@@ -56,7 +56,7 @@
       "patterns": [
         {
           "name": "entity.name.function.interact",
-          "match": "\\b(?:pump|select_map_tab|catalog_tab|inspector_tab|mark|wait_ready|wait_map_ready|load_sample|load_china_sample|detach_maps|stop_map_timers|clear_marks|require_hwnd|require_edit_host|expect_host|tool|run_tool|expect_tool|expect_geom|browse_stress|expect_wheel_cursor|map2d_run|atmosphere_run|plugin_run|run_processing|console_run|resolve_data|capture_path|sidecar_path|require_var|doc_clear|fit_extent|export_bmp|suppress_dialogs|require_plugins|apply_style_file|invalidate_map2d|analysis_set_frame|analysis_export_frames|window|key|click|rclick|dblclick|drag|wheel|path|pan_burst|wheel_burst)\\b"
+          "match": "\\b(?:pump|select_map_tab|catalog_tab|inspector_tab|mark|wait_ready|wait_map_ready|load_sample|load_china_sample|detach_maps|stop_map_timers|clear_marks|require_hwnd|require_edit_host|expect_host|tool|run_tool|expect_tool|expect_geom|browse_stress|expect_wheel_cursor|map2d_run|atmosphere_run|run_processing|console_run|resolve_data|capture_path|sidecar_path|require_var|doc_clear|fit_extent|export_bmp|suppress_dialogs|require_plugins|apply_style_file|invalidate_map2d|analysis_set_frame|analysis_export_frames|window|key|click|rclick|dblclick|drag|wheel|path|pan_burst|wheel_burst)\\b"
         }
       ]
     },

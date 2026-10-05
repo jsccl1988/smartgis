@@ -15,12 +15,17 @@
 #include <vector>
 
 #include "app/views/shell/browser/browser.h"
-#include "app/views/shell/harness/showcase/plugin/common/common.h"
+#include "app/views/shell/harness/showcase/atmosphere/fly/globe_fly.h"
+#include "app/views/shell/harness/showcase/plugin/common/plugin_io.h"
 #include "content/browser/camera/map_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "base/process/switches.h"
+#include "plugin/product/world3d/scene/present/contour.h"
 #include "vista/terrain/dem/dem_raster.h"
+
+#include <algorithm>
+#include <cmath>
 
 namespace app {
 namespace detail {
@@ -64,6 +69,10 @@ void seed_world3d_earth_atmosphere(Browser& browser,
   cam->atmosphere_session().set_fog_enabled(!bare);
   cam->atmosphere_session().set_globe_enabled(false);
   cam->atmosphere_session().set_sat_cloud_enabled(false);
+  if (!bare) {
+    (void)plugin::present_world3d_contour_suite(cam);
+    plugin_showcase_mark("seed-contour");
+  }
   plugin_showcase_mark("seed-china-flags");
   if (content::OrbitFrame* orbit = browser.orbit_frame()) {
     orbit->reset();
@@ -83,6 +92,46 @@ void seed_world3d_earth_atmosphere(Browser& browser,
     plugin_showcase_mark("earth-atmo");
   }
   plugin_showcase_mark("orbit-china");
+}
+
+void seed_world3d_true_earth_globe(Browser& browser,
+                                   content::Scene3dPresenter* cam) {
+  if (!cam) {
+    return;
+  }
+  plugin_showcase_mark("seed-globe-begin");
+  cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
+  cam->atmosphere_session().seed_procedural(/*with_land_rings=*/false);
+  // Globe owns land/ocean; planar ocean/cloud fight the sphere.
+  cam->atmosphere_session().set_globe_enabled(true);
+  cam->atmosphere_session().set_sat_cloud_enabled(true);
+  cam->atmosphere_session().set_sky_enabled(true);
+  cam->atmosphere_session().set_fog_enabled(false);
+  cam->atmosphere_session().set_ocean_enabled(false);
+  cam->atmosphere_session().set_cloud_enabled(false);
+  (void)plugin::present_world3d_contour_suite(cam);
+  plugin_showcase_mark("seed-contour");
+  plugin_showcase_mark("seed-globe-flags");
+  if (content::OrbitFrame* orbit = browser.orbit_frame()) {
+    orbit->reset();
+    constexpr float kLon = 105.f * 3.14159265f / 180.f;
+    constexpr float kLat = 35.f * 3.14159265f / 180.f;
+    const float cl = std::cos(kLat);
+    const float x = cl * std::sin(kLon);
+    const float y = std::sin(kLat);
+    const float z = cl * std::cos(kLon);
+    const float china_yaw = std::atan2(x, z);
+    const float china_pitch =
+        std::asin((std::max)(-1.f, (std::min)(1.f, y)));
+    // Seed at high-orbit China (t≈0.42). Full-materials world3d then runs
+    // space→clouds→DEM→ocean fly and parks at t=0.48 for the score BMP.
+    // t=0 (deep space) alone fails landish gates on the suite HWND.
+    apply_globe_flythrough(orbit, 0.42f, china_yaw, china_pitch,
+                           &cam->atmosphere_session().globe_pass(),
+                           &cam->atmosphere_session());
+  }
+  plugin_showcase_mark("earth-atmo");
+  plugin_showcase_mark("orbit-globe");
 }
 
 void try_attach_world3d_city_tiles(content::Scene3dPresenter* cam) {

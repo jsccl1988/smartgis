@@ -23,6 +23,8 @@ class Scene3dOverlays {
   void set_tin(const float* xyz_lon_lat_elev, int point_count,
                const unsigned* indices, int index_count,
                const uint8_t* albedo_rgba);
+  void set_tin_drape(const uint8_t* rgba, uint32_t width, uint32_t height,
+                     const float* uv, int uv_float_count);
   void clear_tin();
 
   void attach_pointcloud(vista::World* world, const OrbitGeoFrame& geo,
@@ -37,6 +39,14 @@ class Scene3dOverlays {
   const std::vector<uint8_t>& rgba() const { return rgba_; }
   bool tin_has_albedo() const { return tin_has_albedo_; }
   const uint8_t* tin_albedo() const { return tin_albedo_; }
+  bool tin_has_drape() const {
+    return tin_tex_w_ >= 8 && tin_tex_h_ >= 8 && !tin_tex_.empty() &&
+           !tin_uv_.empty();
+  }
+  const std::vector<float>& tin_uv() const { return tin_uv_; }
+  const std::vector<uint8_t>& tin_tex() const { return tin_tex_; }
+  uint32_t tin_tex_w() const { return tin_tex_w_; }
+  uint32_t tin_tex_h() const { return tin_tex_h_; }
   bool pointcloud_dirty() const { return pointcloud_dirty_; }
   bool tin_dirty() const { return tin_dirty_; }
 
@@ -45,6 +55,10 @@ class Scene3dOverlays {
   std::vector<uint8_t> rgba_;
   std::vector<float> tin_xyz_geo_;
   std::vector<unsigned> tin_idx_;
+  std::vector<float> tin_uv_;
+  std::vector<uint8_t> tin_tex_;
+  uint32_t tin_tex_w_ = 0;
+  uint32_t tin_tex_h_ = 0;
   uint8_t tin_albedo_[4] = {46, 170, 220, 230};
   bool tin_has_albedo_ = false;
   bool pointcloud_dirty_ = false;

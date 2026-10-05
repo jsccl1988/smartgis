@@ -25,7 +25,7 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 #include <cstdio>
 
@@ -66,7 +66,7 @@ void browse_mark(const wchar_t* leaf, const char* step) {
   detail::write_mark(leaf, step, /*truncate=*/true);
 }
 
-void browse_viewport_size(ui::views::MapViewport* pane, int* vw, int* vh) {
+void browse_viewport_size(ui::views::DrawHost* pane, int* vw, int* vh) {
   *vw = 800;
   *vh = 600;
   if (!pane) {
@@ -126,6 +126,20 @@ bool ensure_browse_china_map(Browser& browser, const wchar_t* mark_leaf) {
   ensure_china_maplibre_carto(browser);
   // init/show skipped fit under SKIP_AMBOX_CATALOG.
   browser.fit_map_extent();
+  // Warm the first china GDI fill off the critical pan path. Cold fill_us has
+  // been ~0.5–0.9s; a single UpdateWindow here caches brushes/mesh so export
+  // + browse_stress do not hitch the first gesture.
+  if (ui::views::DrawHost* pane = browser.draw_host()) {
+    pane->sync_native_bounds();
+    pane->resume_present_timer();
+    pane->invalidate_native();
+    if (HWND hwnd = pane->native_view()) {
+      if (IsWindow(hwnd)) {
+        UpdateWindow(hwnd);
+      }
+    }
+  }
+  detail::pump_messages(50);
   browse_mark(mark_leaf, "china-seed-ok");
   std::fprintf(stderr, "browse-showcase: china seeded features=%zu\n",
                browser.document()->feature_count());
@@ -205,14 +219,14 @@ bool capture_browse_2d_export(Browser& browser, int vw, int vh,
 // Kick FlyCube presents until last_gpu_present_ok or budget expires. A second
 // select_map_tab(2) after browse.3d.il remounts DXGI on navy clear; linger
 // must wait for DEM/atmosphere present_gpu before BitBlt.
-void linger_flycube_presents(ui::views::MapViewport* pane, DWORD budget_ms) {
+void linger_flycube_presents(ui::views::DrawHost* pane, DWORD budget_ms) {
   if (!pane) {
     return;
   }
   const DWORD t0 = GetTickCount();
   int kicks = 0;
   while (GetTickCount() - t0 < budget_ms) {
-    pane->set_flycube_present_visible(true);
+    pane->set_gpu_present_visible(true);
     pane->resume_present_timer();
     pane->invalidate_native();
     detail::pump_messages(80);
@@ -330,7 +344,7 @@ bool capture_browse_3d_export(Browser& browser) {
 }
 
 bool capture_browse_hwnd_bmp(Browser& browser,
-                             ui::views::MapViewport* pane,
+                             ui::views::DrawHost* pane,
                              bool is_3d) {
   HWND hwnd = nullptr;
   if (pane) {
@@ -375,8 +389,8 @@ bool capture_browse_hwnd_bmp(Browser& browser,
 // WS_EX_NOREDIRECTIONBITMAP DXGI flip contents (hollow navy / sheared chrome).
 // 2D prefers Map2dPresenter::export_bmp (same SoT as map2d.china).
 void capture_browse_shell_bmp(Browser& browser, bool is_3d) {
-  ui::views::MapViewport* pane =
-      is_3d ? browser.map_scene_viewport() : browser.map_viewport();
+  ui::views::DrawHost* pane =
+      is_3d ? browser.scene_draw_host() : browser.draw_host();
 
   int vw = 800;
   int vh = 600;
@@ -398,7 +412,7 @@ void capture_browse_shell_bmp(Browser& browser, bool is_3d) {
     }
     browse_mark(detail::kBrowse3dMarkLeaf, "bmp3d-export-fail");
     if (pane) {
-      pane->set_flycube_present_visible(true);
+      pane->set_gpu_present_visible(true);
       pane->invalidate_native();
     }
     linger_flycube_presents(pane, 4500);
@@ -455,9 +469,9 @@ int run_browse_showcase(Browser& browser) {
     // motion_gate see ContentMapView + FORCE_GDI carto (not a dead dark hole).
     detail::resume_map_present_timers(browser);
     detail::pump_messages(100);
-    // Soft stutter guard: MAP2D_FPS_BENCH_MS writes map2d-fps-bench.txt
-    // for suite fps_gate (mean FPS during InvalidateRect settle).
-    detail::run_optional_map2d_fps_bench(browser, browser.map2d());
+    // Do NOT run MAP2D_FPS_BENCH here: InvalidateRect×1.2s before browse.il
+    // stress has ExitProcess(-1) / hung marks at bmp-ok (suite HARNESS_RECORD).
+    // Bench runs after pan/browse/wheel marks land (see below).
   } else {
     browse_mark(mark_leaf, "suite-browse3d");
     detail::pump_messages(200);
@@ -474,6 +488,10 @@ int run_browse_showcase(Browser& browser) {
       // first yields a hollow navy FlyCube frame (ui_shell_dark accent=0).
       detail::pump_messages(150);
       capture_browse_shell_bmp(browser, true);
+    } else {
+      // Soft stutter guard after gestures: writes map2d-fps-bench.txt for
+      // suite fps_gate without racing browse_stress.
+      detail::run_optional_map2d_fps_bench(browser, browser.map2d());
     }
     // After browse.il: do NOT pump the UI queue. DispatchMessage can re-enter
     // china MapIR / ContentMapView paint and hang past harness timeout
@@ -502,6 +520,9 @@ int run_browse_showcase(Browser& browser) {
     constexpr int kExportW = 1280;
     constexpr int kExportH = 720;
     (void)capture_browse_2d_export(browser, kExportW, kExportH, mark_leaf);
+  }
+  if (rc == 0) {
+    detail::run_optional_map2d_fps_bench(browser, browser.map2d());
   }
   detail::stop_map_present_timers(browser);
   return rc;

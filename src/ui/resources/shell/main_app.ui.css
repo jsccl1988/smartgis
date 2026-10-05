@@ -41,11 +41,10 @@
   gap: 0px;
 }
 
-/* Prefer min-height + Yoga measure(preferred_size) over height:40px.
-   Fixed CSS px stayed physical under high DPI while Catalog used DIP glyphs,
-   so layer rows painted through the tool strip (ui.shell overlap). */
+/* Compact chip row above Catalog|Map. Do not pin width:100% — unused
+   chrome was a full-column dark strip (ui.shell toolbar gate). Packed
+   chips paint only content width; leftover is map_placeholder. */
 .tool_bar {
-  width: 100%;
   min-height: 48px;
   flex-grow: 0;
   flex-shrink: 0;

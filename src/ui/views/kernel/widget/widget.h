@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <vector>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -72,10 +73,16 @@ class UI_EXPORT Widget {
   FrameKind frame_kind() const { return frame_kind_; }
   HWND hwnd() const { return hwnd_; }
 
-  // Latest published shell raster (BGRA8, top-down). Valid until the next
-  // published generation or destroy. Hosts copy this into
-  // gpu::DrawRequest::shell. This widget does not blend.
+  // Latest published shell raster (BGRA8, top-down). Borrowed bits are only
+  // stable until the next Commit/raster/release — prefer copy_shell_raster
+  // when cropping overlays or uploading GPU shell quads.
   ui::gfx::ShellRaster shell_raster() const;
+
+  // Copies published front BGRA under the compositor lock into |out_bgra|.
+  // |out_meta->bgra| points into |out_bgra| on success. Optional generation.
+  bool copy_shell_raster(std::vector<std::uint8_t>* out_bgra,
+                         ui::gfx::ShellRaster* out_meta,
+                         std::uint64_t* out_generation) const;
 
   // Monotonic generation of the last published shell raster (0 = none).
   // GPU hosts can skip upload when this is unchanged.
@@ -101,7 +108,7 @@ class UI_EXPORT Widget {
 
   // UI thread: after a shell generation is published and BitBlt'd (may be a
   // wake paint after async raster). |dirty| is the client rect rastered for
-  // that generation. Hosts may copy shell_raster() into
+  // that generation. Hosts should copy_shell_raster() into
   // MapViewport::commit_shell_overlay / DrawRequest.shell — prefer skipping
   // when |dirty| does not intersect map panes (chrome hover).
   // Cleared automatically in fire_will_close before host teardown.
@@ -109,6 +116,10 @@ class UI_EXPORT Widget {
   void set_on_shell_published(OnShellPublished fn);
 
   void layout_contents();
+  // Pump the UI queue until a compositor generation is published, or
+  // |timeout_ms| elapses. First ShowWindow otherwise BitBlts an empty front
+  // (near-black chrome + map hole) until the worker's first raster.
+  void pump_until_shell_published(unsigned timeout_ms);
   // Full-client invalidate (resize / theme). Prefer schedule_paint_rect for
   // hover / local control updates so mouse-move does not dirty the whole HWND.
   void schedule_paint();

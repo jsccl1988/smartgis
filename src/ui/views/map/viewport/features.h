@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_MAP_VIEWPORT_FEATURES_H_
 #define UI_VIEWS_MAP_VIEWPORT_FEATURES_H_
 
-// Optional product includes for MapViewport translation units. Keep the
+// Optional product includes for DrawHost translation units. Keep the
 // __has_include probes in one place so sibling .cc files stay in sync.
 
 #if defined(__has_include)

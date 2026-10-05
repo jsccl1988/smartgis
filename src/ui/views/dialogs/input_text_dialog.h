@@ -12,7 +12,7 @@
 namespace ui {
 namespace views {
 
-// Modal prompt that replaces leftover SmtInputTextDlg. Strings only; no GIS
+// Modal prompt that replaces leftover InputTextDlg. Strings only; no GIS
 // types. Writes the accepted text to |out|.
 class UI_EXPORT InputTextDialog {
  public:

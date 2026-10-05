@@ -3,6 +3,9 @@
 //
 // mogu-style table load: produce (serial GetNextFeature) → decode (N) →
 // ordered sink. Same OGRLayer must not be read from multiple workers.
+// Produce clones each feature and DestroyFeature's the layer-owned pointer
+// on that same thread; decode workers only see the clone (GDAL layer
+// cursors are not safe to destroy off the GetNextFeature thread).
 //
 // When FeatureLoadOptions::ordered_window > 0, sink(Out&&) runs inside the
 // pipeline sink stage as soon as consecutive indices are ready, so in-flight
@@ -171,6 +174,12 @@ bool load_ogr_layer_pipeline(OGRLayer* layer, Decode decode, Sink sink,
          if (!feat) {
            return Status::COMPLETE;
          }
+         // Detach from the layer cursor before decode workers run.
+         OGRFeature* owned = feat->Clone();
+         OGRFeature::DestroyFeature(feat);
+         if (!owned) {
+           return Status::SUCCESS;
+         }
          size_t index = 0;
          {
            std::unique_lock<std::mutex> lock(slots_mu);
@@ -185,7 +194,7 @@ bool load_ogr_layer_pipeline(OGRLayer* layer, Decode decode, Sink sink,
          }
          produced.fetch_add(1, std::memory_order_relaxed);
          ctx.index = index;
-         ctx.feat = feat;
+         ctx.feat = owned;
          ctx.out = Out{};
          ctx.ok = false;
          return Status::SUCCESS;

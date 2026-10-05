@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -56,6 +57,8 @@ class ScenicScene3dHost {
 
   mutable std::mutex mu_;
   std::unique_ptr<scenic::Engine> engine_;
+  std::vector<scenic::Vertex2> xy_;
+  std::vector<scenic::DrawItem> items_;
 };
 
 }  // namespace detail

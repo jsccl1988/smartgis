@@ -24,7 +24,15 @@ from .win32 import (
 
 def window_rect(hwnd: int) -> tuple[int, int, int, int]:
     rc = wintypes.RECT()
-    if not user32.GetWindowRect(hwnd, ctypes.byref(rc)):
+    if not hwnd or not user32.GetWindowRect(hwnd, ctypes.byref(rc)):
+        return 0, 0, 0, 0
+    return int(rc.left), int(rc.top), int(rc.right), int(rc.bottom)
+
+
+def client_rect(hwnd: int) -> tuple[int, int, int, int]:
+    """Client area in client coordinates (0,0,width,height). Live query."""
+    rc = wintypes.RECT()
+    if not hwnd or not user32.GetClientRect(int(hwnd), ctypes.byref(rc)):
         return 0, 0, 0, 0
     return int(rc.left), int(rc.top), int(rc.right), int(rc.bottom)
 
@@ -233,12 +241,42 @@ def find_child_hwnd_by_class(root: int, class_substr: str) -> int:
     return found[0]
 
 
+# Map client / DXGI present must be a real viewport, not title+menu chrome.
+_MIN_MAP_RECORD_W = 400
+_MIN_MAP_RECORD_H = 280
+_MIN_MAP_RECORD_AREA = 80_000
+
+
+def is_usable_map_record_hwnd(hwnd: int) -> bool:
+    """Reject dead, invisible, or tiny chrome crops (title/File/Edit/View)."""
+    if not hwnd or not user32.IsWindow(int(hwnd)):
+        return False
+    if not user32.IsWindowVisible(int(hwnd)):
+        return False
+    left, top, right, bottom = window_rect(int(hwnd))
+    width = max(0, right - left)
+    height = max(0, bottom - top)
+    if width < _MIN_MAP_RECORD_W or height < _MIN_MAP_RECORD_H:
+        return False
+    if width * height < _MIN_MAP_RECORD_AREA:
+        return False
+    title = _window_title(int(hwnd)).lower()
+    cls = class_name(int(hwnd)).lower()
+    if "diagnostic tools" in title and "mapviewport" not in cls:
+        return False
+    for skip in ("toolbarwindow32", "rebarwindow32", "msctls_statusbar32"):
+        if skip in cls:
+            return False
+    return True
+
+
 def resolve_map_record_hwnd(shell_hwnd: int) -> tuple[int, str]:
     """Prefer FlyCube Present / MapViewport client over shell for BitBlt.
 
     Shell BitBlt under WS_CLIPCHILDREN yields a near-black map hole while the
     child ContentMapView / DXGI present still paints carto. Motion gates must
-    sample the map client, not the chrome frame.
+    sample the map client, not the chrome frame. Never bind a tiny title-bar
+    crop after process death or a collapsed child.
     """
     if not shell_hwnd or not user32.IsWindow(int(shell_hwnd)):
         return 0, ""
@@ -248,12 +286,17 @@ def resolve_map_record_hwnd(shell_hwnd: int) -> tuple[int, str]:
         present, title = find_window_by_title_substr(
             "FlyCube Present", timeout_sec=0.05, pid=pid
         )
-        if present and user32.IsWindowVisible(present) and window_area(present) > 10_000:
+        if present and is_usable_map_record_hwnd(present):
             return present, title or "SmartGIS FlyCube Present"
     child = find_child_hwnd_by_class(int(shell_hwnd), "SmartGisMapViewport")
-    if child and window_area(child) > 10_000:
+    if child and is_usable_map_record_hwnd(child):
         return child, "SmartGisMapViewport"
-    return int(shell_hwnd), _window_title(int(shell_hwnd))
+    if is_usable_map_record_hwnd(int(shell_hwnd)):
+        return int(shell_hwnd), _window_title(int(shell_hwnd))
+    # Prefer last large shell over a collapsed chrome sliver.
+    if window_area(int(shell_hwnd)) >= _MIN_MAP_RECORD_AREA:
+        return int(shell_hwnd), _window_title(int(shell_hwnd))
+    return 0, ""
 
 
 def find_window_by_title_substr(

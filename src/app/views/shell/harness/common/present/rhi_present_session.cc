@@ -9,10 +9,11 @@
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "render/rhi/rhi.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 #include "base/process/switches.h"
 
+#include <cstdio>
 #include <cstdlib>
 
 namespace app {
@@ -23,6 +24,75 @@ void mark_step(const RhiPresentSessionOpts& opts, const char* step) {
   if (opts.mark && step) {
     opts.mark(step);
   }
+}
+
+void log_scene3d_hwnd(HWND hwnd, const char* tag) {
+  wchar_t cls[64] = {};
+  wchar_t title[96] = {};
+  if (hwnd && IsWindow(hwnd)) {
+    GetClassNameW(hwnd, cls, 64);
+    GetWindowTextW(hwnd, title, 96);
+  }
+  std::fprintf(stderr, "rhi-present: %s hwnd=%p class=%ls title=%ls\n",
+               tag ? tag : "scene3d", static_cast<void*>(hwnd), cls, title);
+}
+
+int borrow_shell_scene3d(Browser& browser,
+                         const RhiPresentSessionOpts& opts,
+                         RhiPresentSession* out) {
+  browser.select_map_tab(1);
+  const DWORD pump_ms =
+      opts.detach_pump_ms > 0 ? opts.detach_pump_ms : 200;
+  pump_messages(pump_ms);
+
+  ui::views::DrawHost* scene = browser.scene_draw_host();
+  if (!scene) {
+    mark_step(opts, opts.marks.scene_hwnd_missing);
+    return 50;
+  }
+  if (!scene->native_view()) {
+    scene->realize_native();
+  }
+  scene->sync_native_bounds();
+  if (HWND hwnd = scene->native_view()) {
+    if (IsWindow(hwnd)) {
+      ShowWindow(hwnd, SW_SHOW);
+      SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+  }
+  if (scene->attach_mode() == ui::views::DrawHost::AttachMode::kNone) {
+    scene->attach();
+    scene->sync_native_bounds();
+  }
+  scene->set_gpu_present_visible(true);
+  scene->resume_present_timer();
+  (void)scene->wait_ready(2500);
+  const DWORD wait0 = GetTickCount();
+  while (!scene->rhi_device() && (GetTickCount() - wait0) < 4000u) {
+    pump_messages(50);
+  }
+
+  if (content::Scene3dPresenter* cam = browser.scene3d()) {
+    cam->bind_contents(browser.map_session(), scene->view_id());
+  }
+
+  out->borrowed_shell = true;
+  out->owned_present_hwnd = nullptr;
+  out->present_hwnd = shell_scene3d_capture_hwnd(scene);
+  out->device = static_cast<render::rhi::Device*>(scene->rhi_device());
+  if (!out->present_hwnd && !opts.allow_null_without_hwnd) {
+    mark_step(opts, opts.marks.hwnd_missing);
+    return 50;
+  }
+  log_scene3d_hwnd(scene->native_view(), "shell-native");
+  log_scene3d_hwnd(scene->present_hwnd(), "shell-flycube-present");
+  log_scene3d_hwnd(out->present_hwnd, "shell-capture");
+  mark_step(opts, "shell-scene3d-borrow");
+  mark_step(opts, opts.marks.present_hwnd_ok);
+  mark_step(opts, out->device ? opts.marks.device_init_gpu
+                              : opts.marks.device_init_null);
+  return 0;
 }
 
 void warm_swapchain_once(render::rhi::Device* device, uint32_t width,
@@ -74,6 +144,46 @@ bool resolve_rhi_want_gpu(const RhiPresentSessionOpts& opts) {
   return true;
 }
 
+HWND shell_scene3d_capture_hwnd(ui::views::DrawHost* scene) {
+  if (!scene) {
+    return nullptr;
+  }
+  HWND hwnd = scene->present_hwnd();
+  if (hwnd && IsWindow(hwnd)) {
+    return hwnd;
+  }
+  hwnd = scene->input_hwnd();
+  if (hwnd && IsWindow(hwnd)) {
+    return hwnd;
+  }
+  hwnd = scene->native_view();
+  if (hwnd && IsWindow(hwnd)) {
+    return hwnd;
+  }
+  return nullptr;
+}
+
+bool present_shell_scene3d_frame(ui::views::DrawHost* scene, DWORD wait_ms) {
+  if (!scene) {
+    return false;
+  }
+  scene->set_gpu_present_visible(true);
+  scene->resume_present_timer();
+  const uint32_t before = scene->frame_presented();
+  scene->request_frame();
+  const DWORD t0 = GetTickCount();
+  const DWORD budget = wait_ms > 0 ? wait_ms : 2000;
+  while (scene->frame_presented() <= before) {
+    if ((GetTickCount() - t0) >= budget) {
+      break;
+    }
+    scene->request_frame();
+    pump_messages(16);
+  }
+  // HWND-only success hid Fps 0 navy clears (present_gpu never advanced).
+  return scene->frame_presented() > before && scene->last_gpu_present_ok();
+}
+
 int prepare_rhi_present_session(Browser& browser,
                                 const RhiPresentSessionOpts& opts,
                                 RhiPresentSession* out) {
@@ -83,7 +193,11 @@ int prepare_rhi_present_session(Browser& browser,
   *out = RhiPresentSession{};
   out->want_gpu = resolve_rhi_want_gpu(opts);
 
-  ui::views::MapViewport* scene = browser.map_scene_viewport();
+  if (opts.borrow_shell_scene3d) {
+    return borrow_shell_scene3d(browser, opts, out);
+  }
+
+  ui::views::DrawHost* scene = browser.scene_draw_host();
   if (opts.require_scene_hwnd) {
     if (opts.realize_scene_hwnd && scene && !scene->native_view()) {
       scene->realize_native();
@@ -96,8 +210,8 @@ int prepare_rhi_present_session(Browser& browser,
 
   if (opts.detach_flycube && scene &&
       (scene->attach_mode() ==
-           ui::views::MapViewport::AttachMode::kContentMapView ||
-       scene->attach_mode() == ui::views::MapViewport::AttachMode::kFlyCube)) {
+           ui::views::DrawHost::AttachMode::kContentMapView ||
+       scene->attach_mode() == ui::views::DrawHost::AttachMode::kGpuPresent)) {
     scene->detach();
     mark_step(opts, opts.marks.detached);
     if (opts.detach_pump_ms > 0) {
@@ -190,14 +304,18 @@ void teardown_rhi_present_session(Browser* browser,
     }
   }
   if (session) {
-    if (opts.shutdown_device && session->device) {
-      session->device->shutdown();
-      // Intentionally leak Device* after shutdown — FlyCube operator delete
-      // after a live DX12 session can corrupt heaps.
-      session->device = nullptr;
-    }
-    if (opts.destroy_hwnd) {
-      destroy_rhi_owned_present_hwnd(session);
+    if (session->borrowed_shell) {
+      session->owned_present_hwnd = nullptr;
+    } else {
+      if (opts.shutdown_device && session->device) {
+        session->device->shutdown();
+        // Intentionally leak Device* after shutdown — FlyCube operator delete
+        // after a live DX12 session can corrupt heaps.
+        session->device = nullptr;
+      }
+      if (opts.destroy_hwnd) {
+        destroy_rhi_owned_present_hwnd(session);
+      }
     }
   }
   if (opts.detach_maps && browser) {

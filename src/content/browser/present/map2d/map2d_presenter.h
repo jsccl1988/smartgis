@@ -38,6 +38,15 @@ CONTENT_EXPORT bool prefer_map2d_scenic();
 
 class Map2dPresenter {
  public:
+  // Same heap-owning factory as Scene3dPresenter::create — do not embed
+  // Map2dPresenter by value in BrowserSession (frame cache / scenic mutex
+  // sizeof drift smashed the CRT heap).
+  struct Deleter {
+    void operator()(Map2dPresenter* p) const;
+  };
+  using Ptr = std::unique_ptr<Map2dPresenter, Deleter>;
+  static Ptr create();
+
   Map2dPresenter();
   ~Map2dPresenter();
 

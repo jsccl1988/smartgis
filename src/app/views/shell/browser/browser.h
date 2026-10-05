@@ -13,10 +13,11 @@
 #endif
 #include <windows.h>
 
-#include "app/views/shell/browser/browser_ui_delegate.h"
-#include "app/views/shell/runtime/analysis/playback.h"
+#include "app/views/shell/browser/ui_delegate.h"
+#include "app/views/shell/runtime/plugin_playback.h"
+#include "app/views/shell/runtime/plugin_preview_host.h"
 #include "content/browser/camera/map_host_extent.h"
-#include "content/browser/session/map_session.h"
+#include "content/browser/session/browser_session.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "content/public/event_bus.h"
 #include "content/public/map_contents_observer.h"
@@ -25,6 +26,7 @@
 
 namespace content {
 class MapContents;
+class MapSceneGisDocument;
 class ViewHost;
 }  // namespace content
 
@@ -34,7 +36,7 @@ class AmboxView;
 class AttributeTable;
 class CatalogView;
 class FeatureInfo;
-class MapViewport;
+class DrawHost;
 class ProcessingPanel;
 class StatusBar;
 class View;
@@ -68,7 +70,7 @@ using content::extent_looks_like_china;
 class PluginShell;
 
 // Shell controller: owns PluginShell + BrowserUiDelegate. Map document /
-// camera / present / gestures live on content::MapSession (WebContents-ish).
+// camera / present / gestures live on content::BrowserSession (WebContents-ish).
 class Browser : public content::MapContentsObserver {
  public:
   Browser();
@@ -100,8 +102,8 @@ class Browser : public content::MapContentsObserver {
   BrowserUiDelegate* ui() { return ui_.get(); }
   const BrowserUiDelegate* ui() const { return ui_.get(); }
 
-  content::MapSession& session() { return session_; }
-  const content::MapSession& session() const { return session_; }
+  content::BrowserSession& session() { return *session_; }
+  const content::BrowserSession& session() const { return *session_; }
 
   // UI forwards (self-test / showcase).
   HWND hwnd() const;
@@ -113,56 +115,61 @@ class Browser : public content::MapContentsObserver {
   ui::views::FeatureInfo* feature_info() const;
   ui::views::AttributeTable* attribute_table() const;
   ui::views::ProcessingPanel* processing_panel() const;
-  ui::views::MapViewport* map_viewport() const;
-  ui::views::MapViewport* map_data_viewport() const;
-  ui::views::MapViewport* map_scene_viewport() const;
+  ui::views::DrawHost* draw_host() const;
+  ui::views::DrawHost* data_draw_host() const;
+  ui::views::DrawHost* scene_draw_host() const;
   content::ViewHost* edit_view_host() const;
 
-  content::MapScene* document() { return &session_.document(); }
-  const content::MapScene* document() const { return &session_.document(); }
-  content::Scene3dPresenter* scene3d() { return &session_.scene3d(); }
-  const content::Scene3dPresenter* scene3d() const {
-    return &session_.scene3d();
-  }
-  content::ViewFrame* view_frame() { return &session_.view_frame(); }
+  content::MapScene* document() { return &session_->document(); }
+  const content::MapScene* document() const { return &session_->document(); }
+  // Out-of-line: parallel ninja + stale shell .obj still import scene3d().
+  content::Scene3dPresenter* scene3d();
+  const content::Scene3dPresenter* scene3d() const;
+  content::ViewFrame* view_frame() { return &session_->view_frame(); }
   const content::ViewFrame* view_frame() const {
-    return &session_.view_frame();
+    return &session_->view_frame();
   }
-  content::OrbitFrame* orbit_frame() { return &session_.orbit_frame(); }
+  content::OrbitFrame* orbit_frame() { return &session_->orbit_frame(); }
   const content::OrbitFrame* orbit_frame() const {
-    return &session_.orbit_frame();
+    return &session_->orbit_frame();
   }
-  content::Map2dPresenter* map2d() { return &session_.map2d(); }
-  const content::Map2dPresenter* map2d() const { return &session_.map2d(); }
+  content::Map2dPresenter* map2d() { return &session_->map2d(); }
+  const content::Map2dPresenter* map2d() const { return &session_->map2d(); }
   content::Scene3dStereoSession* scene3d_stereo() {
-    return &session_.scene3d_stereo();
+    return &session_->scene3d_stereo();
   }
-  content::BlitFrameCache* blit() { return &session_.blit(); }
-  content::ViewNavigation* navigation() { return &session_.navigation(); }
+  content::BlitFrameCache* blit() { return &session_->blit(); }
+  content::ViewNavigation* navigation() { return &session_->navigation(); }
   const content::ViewNavigation* navigation() const {
-    return &session_.navigation();
+    return &session_->navigation();
   }
-  content::MapContents* map_session() { return session_.map_contents(); }
-  PluginShell* plugins() { return plugins_.get(); }
-  AnalysisPlayback& analysis_playback() { return analysis_playback_; }
-  const AnalysisPlayback& analysis_playback() const { return analysis_playback_; }
+  content::MapContents* map_session() { return session_->map_contents(); }
+  // Out-of-line: parallel ninja + stale shell_ui .obj must not inline
+  // plugins_ offsetof (0xCD / freefill → AV in unique_ptr::get during
+  // bind_gis_python_bridge / wire_debug_console).
+  PluginShell* plugins();
+  const PluginShell* plugins() const;
+  PluginPlayback& plugin_playback() { return plugin_playback_; }
+  const PluginPlayback& plugin_playback() const { return plugin_playback_; }
+  PluginPreviewHost& plugin_preview() { return plugin_preview_; }
+  const PluginPreviewHost& plugin_preview() const { return plugin_preview_; }
 
-  // ResultPlayback: show frame |index| on map2d (+ scene stand-in).
-  bool apply_analysis_frame(int index);
+  // ResultPlayback: re-present frame |index| via "*.present_frame".
+  bool apply_plugin_frame(int index);
   // Writes captures/<dir>/frame_XXXX.bmp + playback.json. Returns frame count.
-  int export_analysis_frames(const std::string& dir_leaf);
+  int export_plugin_frames(const std::string& dir_leaf);
 
-  content::ViewHost* edit_host() { return session_.edit_host(); }
-  content::ViewHost* data_host() { return session_.data_host(); }
-  content::ViewHost* scene_host() { return session_.scene_host(); }
+  content::ViewHost* edit_host() { return session_->edit_host(); }
+  content::ViewHost* data_host() { return session_->data_host(); }
+  content::ViewHost* scene_host() { return session_->scene_host(); }
   content::MapHwndGestures* edit_gestures() {
-    return &session_.edit_gestures();
+    return &session_->edit_gestures();
   }
   content::MapHwndGestures* data_gestures() {
-    return &session_.data_gestures();
+    return &session_->data_gestures();
   }
   content::MapHwndGestures* scene_gestures() {
-    return &session_.scene_gestures();
+    return &session_->scene_gestures();
   }
 
   bool syncing_extent() const { return syncing_extent_; }
@@ -177,6 +184,7 @@ class Browser : public content::MapContentsObserver {
   content::EventBus::Connection* selection_sub();
   content::EventBus::Connection* edit_sub();
   content::EventBus::Connection* extent_sub();
+  content::EventBus::Connection* layers_sub();
 
   bool run_tool_command(std::string_view command_id);
   void refit_active_view();
@@ -222,14 +230,22 @@ class Browser : public content::MapContentsObserver {
   void OnExtentChanged(uint32_t view_id, const content::Extent2& e) override;
 
  private:
-  content::MapSession session_;
-  AnalysisPlayback analysis_playback_;
+  void install_plugin_host_bridges();
+  void wire_plugin_present_dataset();
+  void schedule_deferred_china_seed();
+
+  std::unique_ptr<content::BrowserSession> session_;
+  // Wraps session_->document(); must outlive PluginHost (plugins_) uses.
+  std::unique_ptr<content::MapSceneGisDocument> gis_document_;
+  PluginPlayback plugin_playback_;
+  PluginPreviewHost plugin_preview_;
   std::unique_ptr<PluginShell> plugins_;
   std::string plugins_dir_;
 
   content::EventBus::Connection selection_sub_;
   content::EventBus::Connection edit_sub_;
   content::EventBus::Connection extent_sub_;
+  content::EventBus::Connection layers_sub_;
 
   content::Extent2 extent_watch_{};
   bool navigation_baselined_ = false;

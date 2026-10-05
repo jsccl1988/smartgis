@@ -3,8 +3,10 @@
 
 #include "ui/views/kernel/widget/widget_event.h"
 
+#include <string>
 #include <vector>
 
+#include <imm.h>
 #include <windowsx.h>
 
 #include "ui/views/kernel/widget/widget.h"
@@ -57,6 +59,45 @@ KeyEvent make_key_event(KeyEvent::Type type, WPARAM wparam, LPARAM lparam) {
   return e;
 }
 
+namespace {
+
+bool read_ime_string(HIMC imc, DWORD index, std::wstring* out) {
+  if (!imc || !out) {
+    return false;
+  }
+  const LONG bytes = ImmGetCompositionStringW(imc, index, nullptr, 0);
+  if (bytes <= 0) {
+    out->clear();
+    return true;
+  }
+  out->assign(static_cast<size_t>(bytes / sizeof(wchar_t)), L'\0');
+  ImmGetCompositionStringW(imc, index, out->data(), static_cast<DWORD>(bytes));
+  return true;
+}
+
+}  // namespace
+
+ImeDispatch dispatch_ime_composition(View* focused, HWND hwnd, LPARAM lparam) {
+  if (!focused || !hwnd) {
+    return ImeDispatch::kIgnore;
+  }
+  HIMC imc = ImmGetContext(hwnd);
+  if (!imc) {
+    return ImeDispatch::kIgnore;
+  }
+  bool handled = false;
+  std::wstring text;
+  if (lparam & GCS_RESULTSTR) {
+    read_ime_string(imc, GCS_RESULTSTR, &text);
+    handled = focused->on_ime_composition(text, true);
+  } else if (lparam & GCS_COMPSTR) {
+    read_ime_string(imc, GCS_COMPSTR, &text);
+    handled = focused->on_ime_composition(text, false);
+  }
+  ImmReleaseContext(hwnd, imc);
+  return handled ? ImeDispatch::kHandled : ImeDispatch::kUnhandled;
+}
+
 void Widget::set_focused_view(View* view) {
   if (focused_ == view) {
     return;
@@ -71,7 +112,18 @@ void Widget::set_focused_view(View* view) {
     focused_->on_focus();
     focused_->invalidate_commands();
   }
-  schedule_paint();
+  if (previous && previous->bounds().width > 0 &&
+      previous->bounds().height > 0) {
+    schedule_paint_rect(previous->bounds());
+  }
+  if (focused_ && focused_->bounds().width > 0 &&
+      focused_->bounds().height > 0) {
+    schedule_paint_rect(focused_->bounds());
+  }
+  if ((!previous || previous->bounds().width <= 0) &&
+      (!focused_ || focused_->bounds().width <= 0)) {
+    schedule_paint();
+  }
 }
 
 void Widget::clear_view_refs(View* view) {
@@ -134,13 +186,27 @@ bool Widget::send_mouse(const MouseEvent& event) {
     }
   }
   bool handled = false;
-  // Keep move/up on the press target so Splitter drag survives leaving the bar.
+  // Capture: keep move/up on the press target so Splitter drag survives
+  // leaving the bar. Down / wheel / right-button go to the hit leaf — same
+  // as View::on_mouse_event's get_view_at jump, without a second walk from
+  // the root.
+  View* target = nullptr;
   if (pressed_ &&
       (event.type == MouseEvent::Type::kMove ||
        (event.type == MouseEvent::Type::kUp && event.button == 1))) {
-    handled = pressed_->on_mouse_event(event);
+    target = pressed_;
   } else {
-    handled = contents_->on_mouse_event(event);
+    target = hit;
+  }
+  if (target) {
+    handled = target->on_mouse_event(event);
+  }
+  // Wheel hits the deepest child (ScrollView content). Leaves often ignore
+  // it; walk parents so ScrollView can scroll.
+  if (!handled && event.type == MouseEvent::Type::kWheel && hit) {
+    for (View* p = hit->parent(); p && !handled; p = p->parent()) {
+      handled = p->on_mouse_event(event);
+    }
   }
   if (event.type == MouseEvent::Type::kUp && event.button == 1) {
     if (pressed_) {

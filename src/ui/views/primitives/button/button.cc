@@ -6,7 +6,8 @@
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
-#include "ui/views/kernel/widget/widget.h"
+#include "ui/views/primitives/detail/control_paint.h"
+#include "ui/views/primitives/detail/primary_input.h"
 
 namespace ui {
 namespace views {
@@ -17,13 +18,6 @@ constexpr int kPadX = 16;
 constexpr int kPadY = 8;
 constexpr int kMinHeight = 24;
 
-float scale_for(const View* view) {
-  if (view && view->widget()) {
-    return view->widget()->device_scale_factor();
-  }
-  return 1.f;
-}
-
 }  // namespace
 
 Button::Button(std::string text) : text_(std::move(text)) {
@@ -32,7 +26,7 @@ Button::Button(std::string text) : text_(std::move(text)) {
 }
 
 void Button::rebuild_text_cache() {
-  const float scale = scale_for(this);
+  const float scale = detail::device_scale_for(this);
   wide_ = utf8_to_wide(text_);
   const Size ink = text_.empty() ? Size{} : measure_text_utf8(text_, scale);
   const int pad_x = dip_to_px(kPadX, scale);
@@ -83,25 +77,12 @@ void Button::activate() {
 }
 
 bool Button::on_mouse_event(const MouseEvent& e) {
-  if (!is_enabled()) {
-    return false;
-  }
-  if (e.type == MouseEvent::Type::kUp && e.button == 1) {
-    activate();
-    return true;
-  }
-  return e.type == MouseEvent::Type::kDown && e.button == 1;
+  return detail::handle_primary_click(e, is_enabled(), [this] { activate(); });
 }
 
 bool Button::on_key_event(const KeyEvent& e) {
-  if (!is_enabled() || e.type != KeyEvent::Type::kDown) {
-    return false;
-  }
-  if (e.vk == VK_SPACE || e.vk == VK_RETURN) {
-    activate();
-    return true;
-  }
-  return false;
+  return detail::handle_activate_key(e, is_enabled(), true,
+                                     [this] { activate(); });
 }
 
 void Button::paint_self(ui::gfx::Canvas* canvas) {
@@ -149,14 +130,11 @@ void Button::paint_self(ui::gfx::Canvas* canvas) {
   canvas->fill_rect(b.x, b.y, b.width, b.height, fill);
   canvas->stroke_rect(b.x, b.y, b.width, b.height, edge, 1);
   if (!wide_.empty()) {
-    const float scale = scale_for(this);
+    const float scale = detail::device_scale_for(this);
     const int pad_x = dip_to_px(kPadX / 2, scale);  // 8dip at 96dpi
     const Size ink = measure_text_utf8(text_, scale);
-    int text_y = b.y + (b.height - ink.height) / 2;
-    if (text_y < b.y) {
-      text_y = b.y;
-    }
-    canvas->draw_text(b.x + pad_x, text_y, wide_.c_str(), fg);
+    const int text_y = detail::centered_text_y(b, ink.height);
+    detail::draw_clipped_text(canvas, b, b.x + pad_x, text_y, wide_.c_str(), fg);
   }
   if (is_focused()) {
     draw_focus_ring(canvas, b);

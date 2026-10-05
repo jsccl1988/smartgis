@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <mutex>
 #include <thread>
 
@@ -53,6 +54,15 @@ void start_always_on_diagnostics() {
   std::lock_guard<std::mutex> lock(bootstrap_mu());
   if (started_flag().load(std::memory_order_relaxed)) {
     return;
+  }
+  // Harness / cdb A-B: the 500ms sampler calls tls HybridOptimized arena +
+  // process_trace while BrowserSession/Workspace still CRT-allocates. Under
+  // a duplicated debug CRT (cwd=out/Debug plugin scans) that race is
+  // STATUS_HEAP_CORRUPTION in register_builtins. Opt out via env.
+  if (const char* skip = std::getenv("SMARTGIS_NO_ALWAYS_ON_DIAG")) {
+    if (skip[0] == '1' && skip[1] == '\0') {
+      return;
+    }
   }
 
   AllocationTracker::enable();

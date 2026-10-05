@@ -11,7 +11,7 @@
 
 #include "vista/component/world/pointcloud/chunk.h"
 #include "vista/assets/pointcloud/load.h"
-#include "vista/component/world/pointcloud/lod.h"
+#include "vista/component/world/pointcloud/point_lod.h"
 #include "vista/mesh/tessellate.h"
 #include "vista/component/world/world.h"
 

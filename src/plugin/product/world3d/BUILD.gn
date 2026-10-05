@@ -12,6 +12,8 @@ copy("world3d_resources") {
     "grid/dem/dialog/heightmap_loader.ui.xml",
     "grid/dem/dialog/trimesh_loader.ui.css",
     "grid/dem/dialog/trimesh_loader.ui.xml",
+    "resources/orthogrid.style.json",
+    "resources/world3d.style.json",
   ]
   outputs = [ "$root_out_dir/../plugins/world3d/{{source_file_part}}" ]
 }
@@ -55,6 +57,8 @@ source_set("world3d_hexgrid") {
     "grid/hexgrid/register.cc",
     "grid/hexgrid/register.h",
     "detail/contribute.h",
+    "grid/hexgrid/present/mesh.cc",
+    "grid/hexgrid/present/mesh.h",
     "grid/hexgrid/solve/boundary_solve.cc",
     "grid/hexgrid/solve/boundary_solve.h",
     "grid/hexgrid/lattice/hex_lattice.cc",
@@ -70,12 +74,14 @@ source_set("world3d_hexgrid") {
   ]
   deps = [
     "//src/content:content",
+    "//src/content:scene3d_present",
     "//src/gis:gis",
     "//src/gis/geo:geo",
     "//src/gis/geo:tin",
     "//src/base:core",
     "//src/base/math:math",
     "//src/plugin/runtime/host:host",
+    "//src/tool:tool",
     "//src/ui/views:views",
     "//third_party:rapidjson",
   ]
@@ -99,6 +105,8 @@ source_set("world3d_orthogrid") {
   sources = [
     "grid/orthogrid/register.cc",
     "grid/orthogrid/register.h",
+    "grid/orthogrid/present/mesh.cc",
+    "grid/orthogrid/present/mesh.h",
     "grid/orthogrid/session/session.cc",
     "grid/orthogrid/session/session.h",
     "detail/contribute.h",
@@ -116,6 +124,7 @@ source_set("world3d_orthogrid") {
     "//src/gis/geo:geo",
     "//src/base:core",
     "//src/plugin/runtime/host:host",
+    "//src/tool:tool",
     "//src/ui/views:views",
     "//third_party:rapidjson",
   ]
@@ -172,6 +181,16 @@ source_set("world3d_views") {
     "commands.cc",
     "commands.h",
     "detail/contribute.h",
+    "grid/dem/present/surface.cc",
+    "grid/dem/present/surface.h",
+    "scene/present/contour.cc",
+    "scene/present/contour.h",
+    "scene/present/pointcloud.cc",
+    "scene/present/pointcloud.h",
+    "scene/present/standin.cc",
+    "scene/present/standin.h",
+    "scene/present/style.cc",
+    "scene/present/style.h",
     "scene/register.cc",
     "scene/register.h",
   ]
@@ -193,6 +212,7 @@ source_set("world3d_views") {
     "//src/content:content",
     "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/widgets:widgets",
+    "//src/tool:tool",
     "//src/ui/views:views",
     "//third_party:gdal",
     "//third_party:rapidjson",
@@ -230,6 +250,7 @@ test("world3d_scene_writer_test") {
   deps = [
     ":world3d_views",
     "//src/content:content",
+    "//src/content:scene3d_present",
     "//src/plugin/runtime/host:host",
   ]
 }

@@ -235,9 +235,9 @@ class StrokeInteraction final : public Interaction {
   bool rbutton_stroke_ = false;
 };
 
-// 2D view.pan: MapLibre-like browse — LMB drag pans; wheel (always-on) zooms
-// at the cursor. RMB is not consumed so the shell / MFC can show the context
-// menu. Two-finger midpoint pan emits kRect drafts with draft_flags::kTouchPan.
+// 2D view.pan: MapLibre-like browse — LMB drag pans 1:1 (incremental deltas);
+// wheel (always-on) zooms at the cursor. RMB is not consumed so the shell can
+// show the context menu. Two-finger midpoint pan emits kTouchPan drafts.
 class ViewPanInteraction final : public Interaction {
  public:
   ViewPanInteraction(DraftCallback cb, uint32_t default_flags)
@@ -321,16 +321,18 @@ class ViewPanInteraction final : public Interaction {
     } else {
       pts_.back() = {x, y};
     }
-    // Keep pts_[0] as the press origin for the whole stroke. apply_pan_by_points
-    // (legacy GDI) reapplies origin→end on a frozen wp0 + cumulative
-    // SetCurDrawingOrg; advancing the origin each emit left only the last
-    // fragment as the visual slide and made path/pan feel dead.
+    // Emit incremental press→current fragments. ViewFrame::apply_pan and
+    // BlitFrameCache::begin_pan both accumulate — absolute origin→end on every
+    // move made pan accelerate away from the cursor (not MapLibre 1:1 follow).
     if (pts_.size() >= 2 && pts_[0].x_px == pts_[1].x_px &&
         pts_[0].y_px == pts_[1].y_px) {
       // Click / no-op up: do not emit a zero pan (avoids china redraw flash).
       return;
     }
     emit_keep(touch, gesture_end);
+    if (pts_.size() >= 2 && !gesture_end) {
+      pts_[0] = pts_[1];
+    }
   }
 
   void emit_keep(bool touch, bool gesture_end) {

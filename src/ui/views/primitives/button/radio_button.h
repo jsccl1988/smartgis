@@ -13,17 +13,23 @@
 namespace ui {
 namespace views {
 
-// Exclusive radio option within a group_id among sibling RadioButtons.
+// Exclusive radio option. group_id is unique among RadioButtons in the same
+// widget tree (not only immediate siblings — markup often wraps each option
+// in a row).
 class UI_EXPORT RadioButton : public View {
  public:
   RadioButton(std::string label, int group_id);
   void set_selected(bool on);
   bool is_selected() const;
   int group_id() const;
+  void set_label(std::string label);
   const std::string& label() const;
   void set_change(std::function<void()> fn);
   bool on_mouse_event(const MouseEvent& e) override;
   bool on_key_event(const KeyEvent& e) override;
+  void layout() override;
+  void on_device_scale_factor_changed(float old_scale,
+                                     float new_scale) override;
   std::string_view paint_role() const override;
 
  protected:
@@ -31,6 +37,8 @@ class UI_EXPORT RadioButton : public View {
 
  private:
   void select_from_user();
+  void rebuild_preferred_size();
+  void exclusive_unselect_peers();
 
   std::string label_;
   int group_id_ = 0;

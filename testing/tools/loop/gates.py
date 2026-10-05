@@ -137,6 +137,7 @@ def _score_motion_gate(
 
     # Hash map-center crop so static chrome does not hide pan/path motion.
     hashes: set[str] = set()
+    sizes: set[tuple[int, int]] = set()
     total = 0
     try:
         from PIL import Image  # type: ignore[import-untyped]
@@ -148,6 +149,7 @@ def _score_motion_gate(
             if Image is not None:
                 with Image.open(bmp) as im:
                     w, h = im.size
+                    sizes.add((int(w), int(h)))
                     crop = im.crop(
                         (int(w * 0.28), int(h * 0.12), int(w * 0.78), int(h * 0.55))
                     ).resize((96, 54))
@@ -161,11 +163,23 @@ def _score_motion_gate(
     out["frame_count"] = total
     out["unique_frames"] = unique
     out["unique_frac"] = round(frac, 4)
-    out["ok"] = unique >= int(mg.min_unique_frames) and frac >= float(
-        mg.min_unique_frac
+    out["unique_sizes"] = len(sizes)
+    out["unique_wh"] = sorted(list(sizes))
+    size_ok = True
+    min_sizes = int(getattr(mg, "min_unique_sizes", 0) or 0)
+    if min_sizes > 0:
+        size_ok = len(sizes) >= min_sizes
+        out["min_unique_sizes"] = min_sizes
+    out["ok"] = (
+        unique >= int(mg.min_unique_frames)
+        and frac >= float(mg.min_unique_frac)
+        and size_ok
     )
     if not out["ok"]:
-        out["error"] = "motion_too_static"
+        if not size_ok:
+            out["error"] = "resize_sizes_missing"
+        else:
+            out["error"] = "motion_too_static"
     return out
 
 

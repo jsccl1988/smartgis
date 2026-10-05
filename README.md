@@ -32,7 +32,7 @@ mogu 对齐 foundation 真源仅在 [`src/base/`](src/base/)（`//src/base:found
 | 运行 | `out\Debug\SmartGIS.exe`；`--self-test` / `--map2d-showcase=china` / `--plugin-showcase=world3d` |
 | UI | `ui_views` + `plugin_host`（Views builtin） |
 
-共用车道：`gis`（模型 / OGR / style / tile）、`content`（MapSession / ViewHost / present）、`render`（FlyCube RHI）、`vista`（MapFrame / GpuScene）、`plugin` 产品包、`scenic`（探索性引擎，不在 `src_all`）、`gpu`（`--type=gpu` 同 PE）。地图仍是 HWND 视口，不是 Qt / WinUI / WebView2。
+共用车道：`gis`（模型 / OGR / style / tile）、`content`（MapSession / ViewHost / present）、`render`（Vista RHI）、`vista`（MapFrame / GpuScene）、`plugin` 产品包、`scenic`（探索性引擎，不在 `src_all`）、`gpu`（`--type=gpu` 同 PE）。地图仍是 HWND 视口，不是 Qt / WinUI / WebView2。
 
 品牌对外仍可称 **SmartGIS Horizon**；窗口标题可以是 `SmartGIS Views`，与 PE 名 `SmartGIS.exe` 分开。Win32 类名 `SmartGisViewsWidget` 未随映像改名。
 

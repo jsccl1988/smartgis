@@ -4,6 +4,7 @@
 #include "app/views/shell/harness/self_test/probe.h"
 
 #include "app/views/shell/browser/browser.h"
+#include "app/views/shell/harness/common/io/maps.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include <windows.h>
 #include <shellapi.h>
@@ -31,7 +32,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "base/trace/event/process_trace.h"
 #include "ui/views/kernel/layout/layout_check.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/view/view.h"
 
@@ -128,7 +129,11 @@ int self_test_milestones(Browser& browser) {
 }
 
 self_test_mark("pass");
-self_test_detach_maps(browser);
+// Do not stop timers or detach here. stop_map_present_timers drains WM_TIMER
+// via PeekMessage and can re-enter ContentMapView present under Debug CRT;
+// that races exit_after_scenario's TerminateProcess and surfaces as
+// exit 0xFFFFFFFF after green marks (same class as browse.3d / ui_showcase).
+// TerminateProcess skips orderly HWND teardown — leave timers alone.
 self_test_mark("detached");
 return 0;
 }

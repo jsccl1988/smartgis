@@ -5,7 +5,7 @@ All rights reserved.
 
 # `src/scenic` — Scenic engine (product DLL)
 
-Previous-generation map/scene engine. Peer of `src/vista`. **Not** a FlyCube `render::rhi::Device` port. **Not** merged into `vista.dll`.
+Previous-generation map/scene engine. Peer of `src/vista`. **Not** a Vista `render::rhi::Device` port. **Not** merged into `vista.dll`.
 
 | Layer | Role |
 | --- | --- |
@@ -39,7 +39,7 @@ Living lock: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](..
 | --- | --- |
 | `render/rhi2d/.../paint/{map,carto}/` | `map/` (Vista peer is product GPU Pass; Scenic map paint stays under rhi2d) |
 | `scene3d/` | `scene/` |
-| `render/{rhi2d,rhi3d}` | (FlyCube lives in `src/render`; vista GPU consumes it) |
+| `render/{rhi2d,rhi3d}` | (Vista lives in `src/render`; vista GPU consumes it) |
 | façade `Engine` | `Pass` / `GpuScene` public types |
 
 ## GN

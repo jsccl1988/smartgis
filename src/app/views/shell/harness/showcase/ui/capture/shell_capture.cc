@@ -54,7 +54,7 @@ bool blit_client_to_dib(HWND hwnd, HDC wnd_dc, HDC mem, int w, int h) {
   return BitBlt(mem, 0, 0, w, h, wnd_dc, 0, 0, SRCCOPY) != FALSE;
 }
 
-// PrintWindow of the shell often leaves the child MapViewport HWND as a dark
+// PrintWindow of the shell often leaves the child DrawHost HWND as a dark
 // hole. Blit the map client into the shell DIB at its client-relative origin.
 bool composite_map_hwnd_into_shell(HWND shell,
                                    HWND map,
@@ -100,11 +100,90 @@ bool composite_map_hwnd_into_shell(HWND shell,
   const int src_y = dst_y < 0 ? -dst_y : 0;
   const int blit_x = std::max(0, dst_x);
   const int blit_y = std::max(0, dst_y);
-  const BOOL ok =
+  const BOOL gdi_ok =
       BitBlt(mem, blit_x, blit_y, copy_w, copy_h, map_dc, src_x, src_y,
              SRCCOPY);
   ReleaseDC(map, map_dc);
+  BOOL ok = gdi_ok;
+  const bool dxgi_flip =
+      (GetWindowLongPtrW(map, GWL_EXSTYLE) & WS_EX_NOREDIRECTIONBITMAP) != 0;
+  // Flip-model DXGI has no GDI redirection bitmap. Copy DWM screen pixels of
+  // the present client while the shell is TOPMOST (caller). Do not blit the
+  // whole desktop — only this client rect.
+  if (dxgi_flip) {
+    HDC screen = GetDC(nullptr);
+    if (screen) {
+      ok = BitBlt(mem, blit_x, blit_y, copy_w, copy_h, screen,
+                  origin.x + src_x, origin.y + src_y, SRCCOPY | CAPTUREBLT);
+      ReleaseDC(nullptr, screen);
+    }
+  }
   return ok != FALSE;
+}
+
+bool composite_hud_hwnd_into_shell(HWND shell,
+                                   HWND hud,
+                                   HDC mem,
+                                   int shell_w,
+                                   int shell_h) {
+  if (!shell || !hud || !mem || !IsWindow(hud)) {
+    return false;
+  }
+  RECT hud_rc = {};
+  if (!GetClientRect(hud, &hud_rc)) {
+    return false;
+  }
+  const int hw = hud_rc.right - hud_rc.left;
+  const int hh = hud_rc.bottom - hud_rc.top;
+  if (hw < 8 || hh < 4) {
+    return false;
+  }
+  POINT origin = {0, 0};
+  POINT shell_origin = {0, 0};
+  if (!ClientToScreen(hud, &origin) || !ClientToScreen(shell, &shell_origin)) {
+    return false;
+  }
+  const int dst_x = origin.x - shell_origin.x;
+  const int dst_y = origin.y - shell_origin.y;
+  if (dst_x >= shell_w || dst_y >= shell_h) {
+    return false;
+  }
+  const int copy_w = std::min(hw, shell_w - std::max(0, dst_x));
+  const int copy_h = std::min(hh, shell_h - std::max(0, dst_y));
+  if (copy_w < 8 || copy_h < 4) {
+    return false;
+  }
+  HDC tmp = CreateCompatibleDC(mem);
+  HBITMAP tmp_bmp = tmp ? CreateCompatibleBitmap(mem, hw, hh) : nullptr;
+  HGDIOBJ old = tmp_bmp ? SelectObject(tmp, tmp_bmp) : nullptr;
+  BOOL printed = FALSE;
+  if (tmp && tmp_bmp) {
+    printed = PrintWindow(hud, tmp, PW_CLIENTONLY);
+    if (!printed) {
+      printed = PrintWindow(hud, tmp, PW_RENDERFULLCONTENT);
+    }
+    if (!printed) {
+      HDC hdc = GetDC(hud);
+      if (hdc) {
+        printed = BitBlt(tmp, 0, 0, hw, hh, hdc, 0, 0, SRCCOPY);
+        ReleaseDC(hud, hdc);
+      }
+    }
+    if (printed) {
+      BitBlt(mem, std::max(0, dst_x), std::max(0, dst_y), copy_w, copy_h, tmp,
+             dst_x < 0 ? -dst_x : 0, dst_y < 0 ? -dst_y : 0, SRCCOPY);
+    }
+  }
+  if (tmp && old) {
+    SelectObject(tmp, old);
+  }
+  if (tmp_bmp) {
+    DeleteObject(tmp_bmp);
+  }
+  if (tmp) {
+    DeleteDC(tmp);
+  }
+  return printed != FALSE;
 }
 
 bool bmp_has_shell_diversity(const unsigned char* pixels,
@@ -156,7 +235,10 @@ const wchar_t* ui_showcase_bmp_leaf(UiShowcaseMode mode) {
   }
 }
 
-bool capture_ui_shell_bmp(HWND hwnd, const wchar_t* filename, HWND map_hwnd) {
+bool capture_ui_shell_bmp(HWND hwnd,
+                          const wchar_t* filename,
+                          HWND map_hwnd,
+                          HWND hud_hwnd) {
   if (!hwnd || !IsWindow(hwnd) || !filename) {
     return false;
   }
@@ -201,6 +283,21 @@ bool capture_ui_shell_bmp(HWND hwnd, const wchar_t* filename, HWND map_hwnd) {
   bool diverse = false;
   bool have_signal = false;
   std::vector<unsigned char> best_signal;
+  auto pin_topmost = [](HWND h, bool on) {
+    if (h && IsWindow(h)) {
+      SetWindowPos(h, on ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE);
+    }
+  };
+  const bool interact_leaf =
+      filename && wcsstr(filename, L"ui-showcase-interact") != nullptr;
+  pin_topmost(hwnd, true);
+  // Do not TOPMOST the map child for interact: it covers Skia chrome and
+  // PrintWindow then writes a hollow shell (ui.interact inspect).
+  if (!interact_leaf) {
+    pin_topmost(map_hwnd, true);
+  }
+  pin_topmost(hud_hwnd, true);
   for (int attempt = 0; attempt < 8 && !diverse; ++attempt) {
     RedrawWindow(hwnd, nullptr, nullptr,
                  RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN | RDW_ERASE);
@@ -213,6 +310,7 @@ bool capture_ui_shell_bmp(HWND hwnd, const wchar_t* filename, HWND map_hwnd) {
     }
     if (printed) {
       (void)composite_map_hwnd_into_shell(hwnd, map_hwnd, mem, w, h);
+      (void)composite_hud_hwnd_into_shell(hwnd, hud_hwnd, mem, w, h);
     }
     got = GetDIBits(mem, bmp, 0, h, pixels.data(),
                     reinterpret_cast<BITMAPINFO*>(&bi), DIB_RGB_COLORS);
@@ -234,6 +332,7 @@ bool capture_ui_shell_bmp(HWND hwnd, const wchar_t* filename, HWND map_hwnd) {
     // Never fall back to the desktop DC (overlapping windows polluted BMPs).
     if (!signal && blit_client_to_dib(hwnd, wnd_dc, mem, w, h)) {
       (void)composite_map_hwnd_into_shell(hwnd, map_hwnd, mem, w, h);
+      (void)composite_hud_hwnd_into_shell(hwnd, hud_hwnd, mem, w, h);
       got = GetDIBits(mem, bmp, 0, h, pixels.data(),
                       reinterpret_cast<BITMAPINFO*>(&bi), DIB_RGB_COLORS);
       if (got == h &&
@@ -247,6 +346,9 @@ bool capture_ui_shell_bmp(HWND hwnd, const wchar_t* filename, HWND map_hwnd) {
                 bmp_has_shell_diversity(pixels.data(), stride, w, h);
     }
   }
+  pin_topmost(hud_hwnd, false);
+  pin_topmost(map_hwnd, false);
+  pin_topmost(hwnd, false);
   if (!diverse && have_signal) {
     pixels = std::move(best_signal);
     got = h;
@@ -258,9 +360,10 @@ bool capture_ui_shell_bmp(HWND hwnd, const wchar_t* filename, HWND map_hwnd) {
   ReleaseDC(hwnd, wnd_dc);
   // Reject flat fills (e.g. scene PrintWindow under DXGI present) — writing
   // them as bmp-ok hid a blank ui.scene capture from the harness.
+  const bool diverse_ok = bmp_has_shell_diversity(pixels.data(), stride, w, h);
   if (got != h ||
       !pixels_have_visible_signal(pixels.data(), stride, w, h) ||
-      !bmp_has_shell_diversity(pixels.data(), stride, w, h)) {
+      !diverse_ok) {
     return false;
   }
 

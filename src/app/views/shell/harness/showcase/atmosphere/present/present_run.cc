@@ -47,7 +47,8 @@ void on_atmosphere_warmup_fail(int /*failed_frame*/, void* user) {
   if (f->timed && f->want_gpu && f->early_bmp_ok && !*f->early_bmp_ok) {
     *f->early_bmp_ok = capture_atmosphere_showcase_bmp(
         f->mode, f->name, f->cam, f->session->device, f->present_hwnd,
-        f->owned_present_hwnd, f->want_gpu, f->globe_flythrough);
+        f->owned_present_hwnd, f->want_gpu, f->globe_flythrough,
+        f->session->scene);
   }
   f->cam->abandon_mesh();
   finish_atmosphere_device_session(*f->browser, f->session,
@@ -76,8 +77,10 @@ int run_atmosphere_present(Browser& browser,
   const float globe_china_yaw = seed.globe_china_yaw;
   const float globe_china_pitch = seed.globe_china_pitch;
 
-  const uint32_t kW = kAtmosphereShowcaseW;
-  const uint32_t kH = kAtmosphereShowcaseH;
+  HWND size_hwnd = owned_present_hwnd ? owned_present_hwnd : present_hwnd;
+  uint32_t kW = kAtmosphereShowcaseW;
+  uint32_t kH = kAtmosphereShowcaseH;
+  atmosphere_hwnd_present_size(size_hwnd, &kW, &kH);
   // Default 3 warmup frames; raise via ATMOSPHERE_SHOWCASE_PRESENT_COUNT
   // for equal-profile benches vs leftover scene3d (same 640x480 HWND).
   int present_count = 3;
@@ -132,15 +135,15 @@ int run_atmosphere_present(Browser& browser,
   // capture_hwnd_bmp path as the showcase BMP when HARNESS_RECORD=1.
   if (want_gpu && globe_flythrough) {
     const AtmosphereGlobeFlyResult fly = run_atmosphere_globe_fly_presents(
-        mode, name, cam, orbit, device, owned_present_hwnd, globe_china_yaw,
-        globe_china_pitch);
+        mode, name, cam, orbit, device, present_hwnd, owned_present_hwnd,
+        session->scene, globe_china_yaw, globe_china_pitch);
     presents += fly.presents_added;
     early_bmp_ok = fly.early_bmp_ok;
     dumped_globe_frames = fly.dumped_frames;
   } else if (want_gpu) {
     early_bmp_ok = capture_atmosphere_showcase_bmp(
         mode, name, cam, device, present_hwnd, owned_present_hwnd, want_gpu,
-        globe_flythrough);
+        globe_flythrough, session->scene);
   }
   LARGE_INTEGER qpf = {};
   LARGE_INTEGER t0 = {};
@@ -225,7 +228,7 @@ int run_atmosphere_present(Browser& browser,
   } else if (want_gpu && !bmp_signal_ok) {
     bmp_signal_ok = capture_atmosphere_showcase_bmp(
         mode, name, cam, device, present_hwnd, owned_present_hwnd, want_gpu,
-        globe_flythrough);
+        globe_flythrough, session->scene);
   }
 
   // Skip abandon_mesh after live FlyCube present — peer world3d/stormsurge:
@@ -235,7 +238,7 @@ int run_atmosphere_present(Browser& browser,
   }
   // Intentionally skip device->shutdown() — FlyCube DX12 teardown after a live
   // present has heap-corrupted ExitProcess (peer stormsurge / world3d). Leak
-  // the Device* the same way MapViewport does after a live session.
+  // the Device* the same way DrawHost does after a live session.
   finish_atmosphere_device_session(browser, session, /*shutdown_device=*/false);
   if (want_gpu && !bmp_signal_ok) {
     atmosphere_showcase_mark("bmp-fail");

@@ -16,10 +16,12 @@ enum class Scene3dLookPreset {
 };
 
 // Screen-space / orbit place-name for leftover-style stereo labels.
+// |priority| matches MapLabelBatch: lower wins occupancy (0 = municipality).
 struct Scene3dLegacyLabel {
   std::string text;
   double lon = 0;
   double lat = 0;
+  int priority = 2;
 };
 
 // Best-effort China place-names (UTF-8). Idempotent append if |out| is empty.

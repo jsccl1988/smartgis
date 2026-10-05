@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
-"""Build testing/data/pointcloud_public_sample.txt from public china_dem.tif.
+"""Build testing/data/china/pointcloud_public_sample.txt from public china_dem.tif.
 
 Source: china_dem.tif (Mapzen/Nextzen terrain stack — SRTM/GMTED/NED/ETOPO
 derivatives; see china_city.LICENSE.txt). Not a survey product.
@@ -29,8 +29,9 @@ import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-DEFAULT_DEM = Path(__file__).resolve().parent / "china_dem.tif"
-DEFAULT_OUT = Path(__file__).resolve().parent / "pointcloud_public_sample.txt"
+CHINA_DIR = Path(__file__).resolve().parent / "china"
+DEFAULT_DEM = CHINA_DIR / "china_dem.tif"
+DEFAULT_OUT = CHINA_DIR / "pointcloud_public_sample.txt"
 
 
 def find_gdal_bin() -> Path:

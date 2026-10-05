@@ -56,7 +56,7 @@
 #include "ui/gis/catalog/layer_tree.h"
 #include "ui/gis/analysis/processing_panel.h"
 #include "ui/views/kernel/layout/layout.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/menu/context_menu.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/layout/splitter.h"
@@ -111,7 +111,7 @@ std::string path_stem(const std::string& path) {
 void Browser::on_catalog_command(const std::string& command_id) {
   const HWND hwnd = ui_->hwnd();
   content::MapContents* session =
-      ui_->active_map() ? ui_->active_map()->map_contents() : session_.map_contents();
+      ui_->active_map() ? ui_->active_map()->map_contents() : session_->map_contents();
   auto refresh = [this]() {
     if (content::ViewHost* host = ui_->active_view_host()) {
       const uint32_t view_id = ui_->active_map() ? ui_->active_map()->view_id() : 0;
@@ -127,7 +127,7 @@ void Browser::on_catalog_command(const std::string& command_id) {
   if (command_id == "catalog.layer.create") {
     ui::views::CreateLayerDialog::Result out;
     if (ui::views::CreateLayerDialog::run(hwnd, &out)) {
-      if (session_.document().create_layer(out.name, out.geometry_type)) {
+      if (session_->document().create_layer(out.name, out.geometry_type)) {
         ui_->sync_catalog_from_scene();
         ui_->sync_inspectors_from_scene();
         ui_->invalidate_map_overlays();
@@ -165,8 +165,8 @@ void Browser::on_catalog_command(const std::string& command_id) {
     }
     const std::string name =
         out.name.empty() ? std::string("Basemap") : out.name;
-    session_.document().create_layer(name, out.kind);
-    session_.document().set_basemap_provider(std::move(provider));
+    session_->document().create_layer(name, out.kind);
+    session_->document().set_basemap_provider(std::move(provider));
     ui_->sync_catalog_from_scene();
     ui_->sync_inspectors_from_scene();
     ui_->invalidate_map_overlays();
@@ -219,7 +219,7 @@ void Browser::on_catalog_command(const std::string& command_id) {
     if (ui::views::InputTextDialog::run(hwnd, L"Input", "Name", &text) &&
         !text.empty()) {
       if (command_id == "catalog.layer.append") {
-        session_.document().create_layer(text, "point");
+        session_->document().create_layer(text, "point");
         ui_->sync_catalog_from_scene();
         ui_->sync_inspectors_from_scene();
         ui_->invalidate_map_overlays();
@@ -240,15 +240,15 @@ void Browser::on_catalog_command(const std::string& command_id) {
       detail::catalog_call(
           session, std::string("{\"op\":\"open\",\"path\":\"") +
                        detail::json_escape(file.path) + "\"}");
-      const bool ogr_ok = session_.document().open_path(file.path);
+      const bool ogr_ok = session_->document().open_path(file.path);
       ui_->sync_catalog_from_scene();
       ui_->sync_inspectors_from_scene();
       fit_map_extent();
       refresh();
       if (ogr_ok) {
         status("OGR opened " + file.path + " (" +
-               std::to_string(session_.document().layer_count()) + " layers, " +
-               std::to_string(session_.document().feature_count()) + " features)");
+               std::to_string(session_->document().layer_count()) + " layers, " +
+               std::to_string(session_->document().feature_count()) + " features)");
       } else {
         status("Opened (sample fallback) " + file.path);
       }
@@ -265,7 +265,7 @@ void Browser::on_catalog_command(const std::string& command_id) {
         ui_->catalog_view() && ui_->catalog_view()->layer_tree()
             ? ui_->catalog_view()->layer_tree()->selected_id()
             : std::string();
-    if (!id.empty() && session_.document().remove_layer(id)) {
+    if (!id.empty() && session_->document().remove_layer(id)) {
       ui_->sync_catalog_from_scene();
       ui_->sync_inspectors_from_scene();
       ui_->invalidate_map_overlays();
@@ -284,7 +284,7 @@ void Browser::on_catalog_command(const std::string& command_id) {
             ? ui_->catalog_view()->layer_tree()->selected_id()
             : std::string();
     const int delta = (command_id == "catalog.layer.move_up") ? -1 : 1;
-    if (!id.empty() && session_.document().move_layer(id, delta)) {
+    if (!id.empty() && session_->document().move_layer(id, delta)) {
       ui_->sync_catalog_from_scene();
       ui_->invalidate_map_overlays();
       status(delta < 0 ? "Layer moved up" : "Layer moved down");
@@ -296,7 +296,7 @@ void Browser::on_catalog_command(const std::string& command_id) {
         ui_->catalog_view() && ui_->catalog_view()->layer_tree()
             ? ui_->catalog_view()->layer_tree()->selected_id()
             : std::string();
-    if (!id.empty() && session_.document().select_layer(id)) {
+    if (!id.empty() && session_->document().select_layer(id)) {
       ui_->sync_catalog_from_scene();
       status("Active layer: " + id);
     }

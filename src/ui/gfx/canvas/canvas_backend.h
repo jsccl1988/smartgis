@@ -7,6 +7,7 @@
 // Internal Canvas raster backends. Not for Views paint_self.
 // Symbols stay inside ui_views.dll (no UI_EXPORT).
 
+#include <memory>
 #include <windows.h>
 
 #include "ui/gfx/color/color.h"
@@ -35,9 +36,11 @@ class CanvasBackend {
   virtual void present_if_owned() {}
 };
 
-CanvasBackend* create_gdi_canvas_backend(HDC hdc, int width, int height);
+std::unique_ptr<CanvasBackend> create_gdi_canvas_backend(HDC hdc, int width,
+                                                         int height);
 // Returns nullptr when Skia is not linked or surface setup fails.
-CanvasBackend* create_skia_canvas_backend(HDC hdc, int width, int height);
+std::unique_ptr<CanvasBackend> create_skia_canvas_backend(HDC hdc, int width,
+                                                          int height);
 bool skia_canvas_backend_linked();
 void discard_skia_retained_surface();
 

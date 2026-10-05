@@ -31,7 +31,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "base/trace/event/process_trace.h"
 #include "ui/views/kernel/layout/layout_check.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/view/view.h"
 

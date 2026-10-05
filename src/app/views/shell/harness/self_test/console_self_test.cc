@@ -17,7 +17,7 @@
 #include "tool/interaction/interaction.h"
 #include "tool/workspace/workspace.h"
 #include "ui/views/kernel/view/view.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 #include <algorithm>
 #include <cmath>
@@ -246,10 +246,10 @@ int console_self_test_body(Browser& browser) {
   }
   console_mark("hwnd-ok");
 
-  ui::views::MapViewport* map = browser.map_viewport();
+  ui::views::DrawHost* map = browser.draw_host();
   if (map &&
       map->attach_mode() ==
-          ui::views::MapViewport::AttachMode::kContentMapView) {
+          ui::views::DrawHost::AttachMode::kContentMapView) {
     if (!map->wait_ready(20000)) {
       std::fprintf(stderr, "console self-test: map wait_ready failed\n");
       console_detach_maps(browser);
@@ -258,14 +258,16 @@ int console_self_test_body(Browser& browser) {
   }
   console_mark("map-ready");
 
-  auto stop_present = [](ui::views::MapViewport* pane) {
-    if (pane && pane->native_view() && IsWindow(pane->native_view())) {
-      KillTimer(pane->native_view(), 1);
-    }
-  };
-  stop_present(map);
-  stop_present(browser.map_data_viewport());
-  stop_present(browser.map_scene_viewport());
+  // KillTimer alone leaves queued WM_TIMER; pause_present drains them.
+  if (map) {
+    map->pause_present();
+  }
+  if (ui::views::DrawHost* data = browser.data_draw_host()) {
+    data->pause_present();
+  }
+  if (ui::views::DrawHost* scene = browser.scene_draw_host()) {
+    scene->pause_present();
+  }
 
   wire_debug_agent_host(browser);
   if (!content::debug_agent().is_running()) {

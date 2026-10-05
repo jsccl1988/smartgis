@@ -57,7 +57,6 @@ class UI_EXPORT Combobox : public View {
 
   std::vector<std::string> items_;
   int selected_ = -1;
-  int hover_index_ = -1;
   std::string empty_;
   bool open_ = false;
   std::function<void(int)> change_;

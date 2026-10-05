@@ -18,7 +18,7 @@ SmartGIS.exe --map2d-showcase=china
         ├─ software export_bmp (optional)
         │     software_paint_ms · bmp_io_ms · paint_ms
         │
-        ├─ FlyCube present_gpu
+        ├─ Vista present_gpu
         │     cold: upload + present
         │     warm StaticReuse: present_gpu_warm_ms · gpu_skip vs gpu_full
         │
@@ -33,7 +33,7 @@ Owned by `content::Map2dPhaseSample` (`map2d_phase_profile.*`). Showcase logs:
 | Tag | Meaning |
 | --- | --- |
 | `phase_export` | After software export |
-| `phase_cold_present` | First FlyCube present after reset |
+| `phase_cold_present` | First Vista present after reset |
 | `phase_warm_present` | Second present (StaticReuse expected) |
 
 Gate idea (matrix): phase sum ≈ export / cold present within ±15%.
@@ -54,7 +54,7 @@ Warm past dual-speed settle (~200–350 ms pump) before timed samples — alread
 | Env | Role |
 | --- | --- |
 | `MAP2D_SHOWCASE_W/H` | `1280` / `720` (locked) |
-| `MAP2D_SHOWCASE_GPU` | `1` = FlyCube present |
+| `MAP2D_SHOWCASE_GPU` | `1` = Vista present |
 | `MAP2D_FPS_BENCH_MS` | >0 enables FPS sample loop |
 | `MAP2D_EXPORT_REUSE` | `1` = bench-only warm paint/blit |
 | `TRACE` / `BAKE_PROFILE` | Chrome-trace / RenderTrace; bake spans use **`cat=bake`** (not `startup`) |

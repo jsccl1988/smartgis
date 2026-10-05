@@ -21,7 +21,7 @@ All rights reserved.
               <label id="catalog_label" text="Catalog"/>
             </panel>
             <panel id="map_tabs_host" class="map_tabs">
-              <label id="map_tabs_label" text="Map | Data | 3D"/>
+              <label id="map_tabs_label" text="Map | 3D"/>
             </panel>
           </splitter>
         </vbox>

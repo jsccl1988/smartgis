@@ -428,6 +428,30 @@ void test_box_layout_preferred_size_from_children() {
   expect(pref.height == 30 + 50 + 2 + 8, "main = sum + spacing + insets");
 }
 
+void test_add_child_during_layout_keeps_dirty() {
+  class AddOnceLayout : public LayoutManager {
+   public:
+    void layout(View* host) override {
+      if (!host || host->child_count() != 1) {
+        return;
+      }
+      auto extra = std::make_unique<View>();
+      extra->set_preferred_size({10, 10});
+      host->add_child(std::move(extra));
+    }
+  };
+
+  View host;
+  host.set_bounds({0, 0, 100, 80});
+  host.set_layout_manager(std::make_unique<AddOnceLayout>());
+  host.add_child(std::make_unique<View>());
+  host.layout();
+  expect(host.child_count() == 2, "layout can add a child");
+  expect(host.needs_layout(), "add_child during layout stays dirty");
+  host.layout();
+  expect(!host.needs_layout(), "second layout pass clears dirty");
+}
+
 void test_layout_center_helper() {
   Rect outer = {0, 0, 400, 300};
   Rect inner = {100, 75, 200, 150};

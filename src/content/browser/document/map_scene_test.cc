@@ -189,8 +189,8 @@ int main() {
         "..\\data\\china_city.geojson",
         "out\\data\\china_city.gpkg",
         "out\\data\\china_city.geojson",
-        "testing\\data\\china_city.gpkg",
-        "testing\\data\\china_city.geojson",
+        "testing\\data\\china\\china_city.gpkg",
+        "testing\\data\\china\\china_city.geojson",
         "china_city.gpkg",
         "china_city.geojson",
     };
@@ -299,7 +299,7 @@ int main() {
         "..\\data\\china_city.style.json",
         "out\\data\\china_city.style.json",
         "china_city.style.json",
-        "testing\\data\\china_city.style.json",
+        "testing\\data\\china\\china_city.style.json",
     };
     for (const char* cand : style_cands) {
       content::MapScene styled;

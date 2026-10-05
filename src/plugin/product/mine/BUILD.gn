@@ -8,6 +8,7 @@ copy("mine_resources") {
   sources = [
     "resources/interpolate.ui.css",
     "resources/interpolate.ui.xml",
+    "resources/mine.style.json",
   ]
   outputs = [ "$root_out_dir/../plugins/mine/{{source_file_part}}" ]
 }
@@ -16,6 +17,8 @@ source_set("mine_views") {
   sources = [
     "commands.cc",
     "commands.h",
+    "present/stratum.cc",
+    "present/stratum.h",
     "views/interpolate_dialog.cc",
     "views/interpolate_dialog.h",
   ]
@@ -25,9 +28,11 @@ source_set("mine_views") {
   ]
   deps = [
     "//src/content:content",
+    "//src/content:scene3d_present",
     "//src/gis:gis",
     "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/widgets:widgets",
+    "//src/tool:tool",
     "//src/ui/views:views",
     "//third_party:rapidjson",
   ]

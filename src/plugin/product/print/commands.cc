@@ -8,6 +8,7 @@
 #include "content/public/plugin_host.h"
 #include "plugin/product/print/views/print_preview_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
+#include "plugin/runtime/widgets/present_surface_picker.h"
 #include "tool/command/command.h"
 
 namespace plugin {
@@ -31,7 +32,8 @@ bool register_print(content::PluginHost* host) {
             if (!h) {
               return;
             }
-            auto body = std::make_unique<PrintPreviewDialog>();
+            auto body = wrap_with_present_surface(
+                h, std::make_unique<PrintPreviewDialog>(h));
             const int width = body->preferred_size().width;
             const int height = body->preferred_size().height;
             show_owned_dialog(L"地图打印", width, height, std::move(body));

@@ -19,7 +19,8 @@ Namespace stays `vista` / `vista::detail`. Do not add `vista::pass`.
 
 | Path | Owns | RHI |
 | --- | --- | --- |
-| `pass.h` / `pass.cc` | `WorldPass` facade: sync, pipelines, view/tint setters | yes |
+| `pass.h` / `pass.cc` | `WorldPass` facade: sync, pipelines, view/tint setters; composes `TerrainPass` | yes |
+| `terrain/pass.*` | `TerrainPass`: DEM/TIN upload, solid gate, `kTerrain` record | yes |
 | `gpu_mesh.h` | `GpuMesh` POD + `as_cull_item` | yes |
 | `opaque_effect.*` | frame-graph `kOpaque` adapter | yes |
 | `detail/upload.*` | VB/IB/texture upload | yes |
@@ -30,7 +31,8 @@ Namespace stays `vista` / `vista::detail`. Do not add `vista::pass`.
 | `cull/frustum_camera.*` | `CameraMatrices` → frustum planes | camera header only |
 
 `WorldPass::sync_from(const World&)` and `record_draws` stay on this object.
-Content holds one long-lived `WorldPass`. Paint RGBA mapping lives in
+Content holds one long-lived `WorldPass`. Terrain upload / solid gate / `kTerrain`
+record live in `terrain/TerrainPass` (composed internally). Paint RGBA mapping lives in
 `"vista/component/world/paint.h"` (`rgba_from_resolved_paint`), not on the GPU facade.
 
 GN: `world_pass_sources` depends on `//src/vista/component/world:world_sources` and
@@ -48,8 +50,9 @@ The env string `GPUSCENE_PREP_PARALLEL` is unchanged so harness switches keep wo
 
 CPU index `vista/component/world/index/aabb_octree.*` wraps unibn. With cull on, `prep_cull_meshes` builds a frame-local octree (not stored on `WorldPass`).
 
-Tests: `//src/vista/pass/world:scene_gpu_test` (`scene_gpu_test`), `unified_draw_test`.
+Tests: `//src/vista/pass/world:scene_gpu_test` (`scene_gpu_test`), `unified_draw_test`,
+`terrain_pass_test`.
 
 ---
 
-**最后更新：** 2026-10-05
+**最后更新：** 2026-10-06

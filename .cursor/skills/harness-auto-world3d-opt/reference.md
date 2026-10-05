@@ -10,7 +10,7 @@ All rights reserved.
 ```
 同等渲染物料  (all rows: SmartGIS.exe --plugin-showcase=world3d)
         │
-        ├─ FlyCube/DX12
+        ├─ Vista/DX12
         │     PLUGIN_WORLD3D_PERF_BARE=1
         │     parallel ∈ {prep_default, prep_0, prep_on}
         │     role = perf
@@ -49,8 +49,8 @@ Product app: **View → Engine** wires the same stack (`view.engine.scenic_gl` /
 
 | Claim | OK? |
 | --- | --- |
-| Compare FlyCube prep on vs off on **ms_per_present** / phases | Yes |
-| Rank Scenic GL/D3D vs FlyCube by process `wall_ms` | **No** — use `ms_per_present` |
+| Compare Vista prep on vs off on **ms_per_present** / phases | Yes |
+| Rank Scenic GL/D3D vs Vista by process `wall_ms` | **No** — use `ms_per_present` |
 | Require BMP for gl_scenic / d3d_scenic (not N/A) | Yes |
 | Put `null` / `gdi` / `scenic` (software) in the GPU performance table | **No** |
 | Launch leftover SmartGis / leftover_render for GL/D3D | **No** — frozen |
@@ -60,7 +60,7 @@ Product app: **View → Engine** wires the same stack (`view.engine.scenic_gl` /
 
 | Row family | Leaf | Fields |
 | --- | --- | --- |
-| All Views world3d | `captures/plugin/plugin-showcase-world3d-perf.json` | Primary: warm `ms_per_present`. FlyCube adds `cold_phase`. |
+| All Views world3d | `captures/plugin/plugin-showcase-world3d-perf.json` | Primary: warm `ms_per_present`. Vista adds `cold_phase`. |
 
 ## SCENE3D_ENGINE
 
@@ -72,7 +72,7 @@ Product app: **View → Engine** wires the same stack (`view.engine.scenic_gl` /
 | `gdi` | `kGdi` | not a GPU peer |
 | `scenic` | `kScenic` | scenic.dll software (not a GPU peer) |
 
-`--plugin-showcase=world3d` honors env (does not re-pin FlyCube).
+`--plugin-showcase=world3d` honors env (does not re-pin Vista).
 
 ## Artifact layout
 

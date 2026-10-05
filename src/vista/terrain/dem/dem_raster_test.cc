@@ -21,7 +21,7 @@
 #include "vista/component/map/detail/hillshade_bake.h"
 #include "vista/terrain/dem/dem_frame.h"
 #include "vista/terrain/dem/dem_raster.h"
-#include "vista/component/world/dem_seed.h"
+#include "vista/component/world/terrain/seed.h"
 #include "vista/terrain/process/bake_backend.h"
 #include "vista/terrain/process/dem_hillshade.h"
 #include "vista/terrain/process/land_mask.h"
@@ -150,7 +150,7 @@ int main() {
         vista::seed_china_dem_into_world(&cut, &tiny, 1, "skip_cutline", 48);
     expect(n != nullptr && n->has_terrain_mesh(), "china_dem seed with rings");
     bool found_tibet_elev = false;
-    const std::vector<float>& pos = n->terrain_positions;
+    const std::vector<float>& pos = n->terrain.positions;
     for (size_t i = 0; i + 2 < pos.size(); i += 3) {
       if (pos[i] > -95.f && pos[i] < -85.f && pos[i + 2] > 28.f &&
           pos[i + 2] < 36.f && pos[i + 1] > 0.05f) {
@@ -211,7 +211,7 @@ int main() {
     for (size_t i = 0; i < tile_world.node_count(); ++i) {
       const vista::Node* n = tile_world.node_at(i);
       if (n && n->has_terrain_mesh()) {
-        far_verts += n->terrain_positions.size() / 3;
+        far_verts += n->terrain.positions.size() / 3;
       }
     }
     expect(far_verts > 0 && far_verts <= 65536u, "far verts under budget");
@@ -224,7 +224,7 @@ int main() {
     for (size_t i = 0; i < near_world.node_count(); ++i) {
       const vista::Node* n = near_world.node_at(i);
       if (n && n->has_terrain_mesh()) {
-        near_verts += n->terrain_positions.size() / 3;
+        near_verts += n->terrain.positions.size() / 3;
       }
     }
     expect(near_verts > 0 && near_verts <= 65536u, "near verts under budget");

@@ -132,6 +132,9 @@ void OceanPass::set_params(const OceanDrawParams& params) {
       params.patch_half_x != params_.patch_half_x ||
       params.patch_half_z != params_.patch_half_z ||
       params.patch_half_extent != params_.patch_half_extent ||
+      params.sphere_radius != params_.sphere_radius ||
+      params.sphere_lon_deg != params_.sphere_lon_deg ||
+      params.sphere_lat_deg != params_.sphere_lat_deg ||
       params.sea_mask_threshold != params_.sea_mask_threshold;
   params_ = params;
   if (params_.mesh_resolution < 2) {
@@ -201,7 +204,7 @@ float OceanPass::sample_sea_mask(float u, float v) const {
 }
 
 void OceanPass::rebuild_mesh_grid() {
-  const int mesh_n = params_.mesh_resolution;
+  const int mesh_n = (std::max)(2, params_.mesh_resolution);
   vertex_count_ = static_cast<uint32_t>(mesh_n * mesh_n);
   positions_.assign(static_cast<std::size_t>(vertex_count_ * 5u), 0.0f);
   const float hx = params_.patch_half_x > 0.f ? params_.patch_half_x
@@ -210,20 +213,68 @@ void OceanPass::rebuild_mesh_grid() {
                                               : params_.patch_half_extent;
   const float step_x = (hx * 2.0f) / static_cast<float>(mesh_n - 1);
   const float step_z = (hz * 2.0f) / static_cast<float>(mesh_n - 1);
+  const bool sphere = params_.sphere_radius > 0.05f;
+  float cx = 0.f;
+  float cy = 0.f;
+  float cz = 0.f;
+  float ex = 1.f;
+  float ey = 0.f;
+  float ez = 0.f;
+  float nx = 0.f;
+  float ny = 0.f;
+  float nz = 1.f;
+  if (sphere) {
+    constexpr float kPi = 3.14159265358979323846f;
+    const float lon = params_.sphere_lon_deg * kPi / 180.f;
+    const float lat = params_.sphere_lat_deg * kPi / 180.f;
+    const float cl = std::cos(lat);
+    cx = params_.sphere_radius * cl * std::sin(lon);
+    cy = params_.sphere_radius * std::sin(lat);
+    cz = params_.sphere_radius * cl * std::cos(lon);
+    const float ux = cl * std::sin(lon);
+    const float uy = std::sin(lat);
+    const float uz = cl * std::cos(lon);
+    // east = normalize(cross((0,1,0), up))
+    ex = -uz;
+    ey = 0.f;
+    ez = ux;
+    const float elen = std::sqrt(ex * ex + ez * ez);
+    if (elen > 1e-5f) {
+      ex /= elen;
+      ez /= elen;
+    } else {
+      ex = 1.f;
+      ez = 0.f;
+    }
+    nx = uy * ez - uz * ey;
+    ny = uz * ex - ux * ez;
+    nz = ux * ey - uy * ex;
+  }
   for (int jz = 0; jz < mesh_n; ++jz) {
     for (int ix = 0; ix < mesh_n; ++ix) {
       const std::size_t vi =
           static_cast<std::size_t>(jz * mesh_n + ix);
-      // X increases westward (X=-lon). Field masks store west at u=0, so flip U.
-      const float x =
-          params_.patch_center_x - hx + static_cast<float>(ix) * step_x;
-      const float z =
-          params_.patch_center_z - hz + static_cast<float>(jz) * step_z;
+      const float dx =
+          -hx + static_cast<float>(ix) * step_x;
+      const float dz =
+          -hz + static_cast<float>(jz) * step_z;
       const float u =
           1.0f - static_cast<float>(ix) / static_cast<float>(mesh_n - 1);
       const float v = static_cast<float>(jz) / static_cast<float>(mesh_n - 1);
+      float x = 0.f;
+      float y = 0.f;
+      float z = 0.f;
+      if (sphere) {
+        x = cx + ex * dx + nx * dz;
+        y = cy + ey * dx + ny * dz;
+        z = cz + ez * dx + nz * dz;
+      } else {
+        x = params_.patch_center_x + dx;
+        y = params_.patch_y;
+        z = params_.patch_center_z + dz;
+      }
       positions_[vi * 5 + 0] = x;
-      positions_[vi * 5 + 1] = params_.patch_y;
+      positions_[vi * 5 + 1] = y;
       positions_[vi * 5 + 2] = z;
       positions_[vi * 5 + 3] = u;
       positions_[vi * 5 + 4] = v;
@@ -235,6 +286,9 @@ void OceanPass::rebuild_mesh_grid() {
   cached_patch_y_ = params_.patch_y;
   cached_patch_hx_ = hx;
   cached_patch_hz_ = hz;
+  cached_sphere_r_ = params_.sphere_radius;
+  cached_sphere_lon_ = params_.sphere_lon_deg;
+  cached_sphere_lat_ = params_.sphere_lat_deg;
 }
 
 bool OceanPass::mesh_topology_matches_params() const {
@@ -250,7 +304,10 @@ bool OceanPass::mesh_topology_matches_params() const {
          cached_patch_cx_ == params_.patch_center_x &&
          cached_patch_cz_ == params_.patch_center_z &&
          cached_patch_y_ == params_.patch_y &&
-         cached_patch_hx_ == hx && cached_patch_hz_ == hz;
+         cached_patch_hx_ == hx && cached_patch_hz_ == hz &&
+         cached_sphere_r_ == params_.sphere_radius &&
+         cached_sphere_lon_ == params_.sphere_lon_deg &&
+         cached_sphere_lat_ == params_.sphere_lat_deg;
 }
 
 void OceanPass::rebuild_displacement() {
@@ -584,6 +641,9 @@ void OceanPass::release() {
   cached_patch_y_ = 0.f;
   cached_patch_hx_ = 0.f;
   cached_patch_hz_ = 0.f;
+  cached_sphere_r_ = 0.f;
+  cached_sphere_lon_ = 0.f;
+  cached_sphere_lat_ = 0.f;
   cached_mask_cols_ = -1;
   cached_mask_rows_ = -1;
 }

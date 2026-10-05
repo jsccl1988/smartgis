@@ -5,10 +5,12 @@
 #define VISTA_COMPONENT_ATMOSPHERE_ENVIRONMENT_H_
 
 #include <cstddef>
+#include <memory>
 #include <vector>
 
 #include "vista/component/atmosphere/atmosphere_params.h"
 #include "vista/component/atmosphere/cloud/cloud_system.h"
+#include "vista/component/atmosphere/contour/contour_sheet.h"
 #include "vista/component/atmosphere/field/field_channel.h"
 #include "vista/component/atmosphere/field/field_ingest.h"
 #include "vista/component/atmosphere/field/field_store.h"
@@ -47,6 +49,9 @@ class VISTA_EXPORT Environment {
   CloudSystem& cloud_system() { return cloud_system_; }
   const CloudSystem& cloud_system() const { return cloud_system_; }
 
+  ContourSheet& contour_sheet() { return contour_sheet_; }
+  const ContourSheet& contour_sheet() const { return contour_sheet_; }
+
   // Simulation / animation clock (seconds). Hosts advance this each frame.
   void set_time_sec(double t) { time_sec_ = t; }
   double time_sec() const { return time_sec_; }
@@ -55,10 +60,17 @@ class VISTA_EXPORT Environment {
   void set_cloud_enabled(bool on) { params_.cloud_enabled = on; }
   void set_sky_enabled(bool on);
   void set_fog_enabled(bool on);
+  void set_contour_enabled(bool on) { params_.contour_enabled = on; }
   bool ocean_enabled() const { return params_.ocean_enabled; }
   bool cloud_enabled() const { return params_.cloud_enabled; }
   bool sky_enabled() const;
   bool fog_enabled() const;
+  bool contour_enabled() const { return params_.contour_enabled; }
+
+  // Rebuild ContourSheet from FieldStore |channel| using params_ contour knobs.
+  // |dem_meters| optional same-size DEM (nullptr = flat base + dem_offset).
+  bool rebuild_contour_sheet(FieldChannel channel, const FieldGrid& grid,
+                             const float* dem_meters = nullptr);
 
   // Sync OceanSystem quality from AtmosphereParams::quality.
   void sync_systems_from_params();
@@ -97,8 +109,18 @@ class VISTA_EXPORT Environment {
   FieldStore field_store_;
   OceanSystem ocean_system_;
   CloudSystem cloud_system_;
+  ContourSheet contour_sheet_;
   double time_sec_ = 0.0;
 };
+
+// Allocate/free Environment inside vista.dll so ContourColorScale STL members
+// are not new'd in a consumer EXE and deleted across the DLL boundary.
+VISTA_EXPORT void destroy_environment(Environment* p);
+struct EnvironmentDeleter {
+  void operator()(Environment* p) const { destroy_environment(p); }
+};
+using EnvironmentPtr = std::unique_ptr<Environment, EnvironmentDeleter>;
+VISTA_EXPORT EnvironmentPtr create_environment();
 
 }  // namespace atmosphere
 }  // namespace vista

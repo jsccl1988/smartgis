@@ -40,8 +40,6 @@ Canvas::Canvas(HDC hdc, int width, int height)
 Canvas::~Canvas() {
   if (backend_) {
     backend_->present_if_owned();
-    delete backend_;
-    backend_ = nullptr;
   }
 }
 

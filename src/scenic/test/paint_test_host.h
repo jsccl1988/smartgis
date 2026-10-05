@@ -31,6 +31,8 @@ inline std::string exe_dir_with_slash() {
 }
 
 // Resolves a China vector sample next to the exe or under testing/data.
+// Order mirrors content::sample_map_relative_paths() (china_city before
+// china_plp). Scenic must not GN-dep content; keep this list aligned.
 inline std::string find_china_vector_sample() {
   const std::string dir = exe_dir_with_slash();
   if (dir.empty()) {
@@ -39,20 +41,22 @@ inline std::string find_china_vector_sample() {
   static constexpr const char* kRel[] = {
       "..\\data\\china_city.gpkg",
       "..\\data\\china_city.geojson",
-      "..\\data\\china_plp.geojson",
       "data\\china_city.gpkg",
       "data\\china_city.geojson",
-      "data\\china_plp.geojson",
       "china_city.gpkg",
       "china_city.geojson",
+      "testing\\data\\china\\china_city.gpkg",
+      "testing\\data\\china\\china_city.geojson",
+      "..\\testing\\data\\china\\china_city.gpkg",
+      "..\\testing\\data\\china\\china_city.geojson",
+      "..\\..\\testing\\data\\china\\china_city.gpkg",
+      "..\\..\\testing\\data\\china\\china_city.geojson",
+      "..\\data\\china_plp.geojson",
+      "data\\china_plp.geojson",
       "china_plp.geojson",
-      "testing\\data\\china_city.gpkg",
-      "testing\\data\\china_city.geojson",
-      "testing\\data\\china_plp.geojson",
-      "..\\testing\\data\\china_city.gpkg",
-      "..\\testing\\data\\china_plp.geojson",
-      "..\\..\\testing\\data\\china_city.gpkg",
-      "..\\..\\testing\\data\\china_plp.geojson",
+      "testing\\data\\china\\china_plp.geojson",
+      "..\\testing\\data\\china\\china_plp.geojson",
+      "..\\..\\testing\\data\\china\\china_plp.geojson",
   };
   for (const char* r : kRel) {
     const std::string cand = dir + r;

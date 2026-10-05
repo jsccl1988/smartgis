@@ -1,31 +1,35 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Schematic China map samples under shared out/data/ (sibling of Debug/Release).
-# Prefers china_city.gpkg (China pack + china_dem.tif); china_plp fallback.
+# Sample packs live under china/ plugin/ fixtures/ rs/ — see README.md.
+# GN still flattens product copies to shared out/data/ (sibling of Debug/Release)
+# so runtime seed paths (../data/china_city.gpkg) stay stable.
+#
+# Prefers china_city.gpkg (aligned pack + china_dem.tif); china_plp fallback.
 # Rebuild vectors: py -3 testing/data/build_china_city.py
-# Hydro/roads: testing/data/china_hydro.src.geojson + china_roads.src.geojson
+# Hydro/roads: testing/data/china/china_hydro.src.geojson + china_roads.src.geojson
 # Rebuild vectors+DEM: py -3 testing/data/build_china_city.py --with-dem
-# Rebuild DEM only (AWS Mapzen z7 → 1536×960): 
+# Rebuild DEM only (AWS Mapzen z7 → 1536×960):
 #   py -3 testing/data/build_china_dem.py --jobs 16
-# PIN: testing/data/china_city.PIN.txt
+# PIN: testing/data/china/china_city.PIN.txt
 
 copy("china_map_samples") {
   sources = [
-    "china_city.gpkg",
-    "china_city.geojson",
-    "china_city.style.json",
-    "china_city.LICENSE.txt",
-    "china_dem.tif",
-    "china_plp.geojson",
-    "m3_city_tileset.json",
-    "pointcloud_public_sample.txt",
-    "views_ogr_sample.geojson",
+    "china/china_city.gpkg",
+    "china/china_city.geojson",
+    "china/china_city.style.json",
+    "china/china_city.LICENSE.txt",
+    "china/china_dem.tif",
+    "china/china_plp.geojson",
+    "china/pointcloud_public_sample.txt",
+    "fixtures/m3_city_tileset.json",
+    "fixtures/views_ogr_sample.geojson",
   ]
   outputs = [ "$root_out_dir/../data/{{source_file_part}}" ]
 }
 
 # Plugin product sample+viz fixtures → out/data/plugin/
+# These are schematic/tiny smokes, not the china pack (see plugin/README.md).
 copy("plugin_product_samples") {
   sources = [
     "plugin/world3d_trimesh_sample.xyz",
@@ -66,7 +70,7 @@ copy("am_terrain_samples") {
 # Globe splash DEM + terrain albedo (optional; not copied — generated):
 #   py -3 testing/data/build_globe_terrain.py
 #   py -3 testing/data/build_globe_terrain.py --download-blue-marble
-# PIN: testing/data/china_city.PIN.txt
+# PIN: testing/data/china/china_city.PIN.txt
 group("china_city_data") {
   data_deps = [
     ":china_map_samples",

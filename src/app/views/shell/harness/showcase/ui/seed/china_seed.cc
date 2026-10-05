@@ -14,7 +14,7 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "ui/gis/catalog/catalog_view.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 
 #include <cstdlib>
@@ -82,6 +82,30 @@ bool seh_apply_china_extent(Browser* browser, int view_w, int view_h) {
   }
 }
 
+bool seh_ensure_china_maplibre_carto(Browser* browser) {
+  if (!browser) {
+    return false;
+  }
+  __try {
+    ensure_china_maplibre_carto(*browser);
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return false;
+  }
+}
+
+bool seh_sync_catalog(Browser* browser) {
+  if (!browser) {
+    return false;
+  }
+  __try {
+    browser->sync_catalog_from_scene();
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return false;
+  }
+}
+
 }  // namespace
 
 void ensure_ui_showcase_china_map(Browser& browser, UiShowcaseMode mode) {
@@ -125,7 +149,9 @@ void ensure_ui_showcase_china_map(Browser& browser, UiShowcaseMode mode) {
   // Skip product-defaults fit (AV under carto churn). Frame via POD China
   // extent so the Map HWND is not a hollow dark ocean for PrintWindow.
   base::set_switch("skip-china-map2d-defaults", "1");
-  ensure_china_maplibre_carto(browser);
+  if (!seh_ensure_china_maplibre_carto(&browser)) {
+    showcase_mark("china-carto-seh");
+  }
   int view_w = 1280;
   int view_h = 720;
   client_size(&browser, &view_w, &view_h);
@@ -137,7 +163,11 @@ void ensure_ui_showcase_china_map(Browser& browser, UiShowcaseMode mode) {
     showcase_mark("china-fit-seh");
   }
   showcase_mark("china-catalog-pre");
-  browser.sync_catalog_from_scene();
+  if (!seh_sync_catalog(&browser)) {
+    showcase_mark("china-catalog-seh");
+    showcase_mark("china-ready");
+    return;
+  }
   showcase_mark("china-catalog-synced");
   if (ui::views::CatalogView* cat = browser.catalog_view()) {
     showcase_mark("china-catalog-view");
@@ -151,7 +181,7 @@ void ensure_ui_showcase_china_map(Browser& browser, UiShowcaseMode mode) {
     }
     // Second sync after Maps/Sources seed + forced TabStrip/LayerTree layout
     // so rows are not stuck invisible from a zero-height first pass (#2).
-    browser.sync_catalog_from_scene();
+    (void)seh_sync_catalog(&browser);
     if (ui::views::TabStrip* tabs = cat->source_tabs()) {
       tabs->layout();
     }
@@ -172,7 +202,7 @@ void ensure_ui_showcase_china_map(Browser& browser, UiShowcaseMode mode) {
   if (HWND hwnd = browser.hwnd()) {
     InvalidateRect(hwnd, nullptr, TRUE);
   }
-  if (ui::views::MapViewport* map = browser.map_viewport()) {
+  if (ui::views::DrawHost* map = browser.draw_host()) {
     map->invalidate_native();
   }
   // FORCE_GDI overlay needs a few paint ticks before PrintWindow.

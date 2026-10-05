@@ -1,0 +1,53 @@
+{
+  "version": 8,
+  "name": "china_city",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#aad3df",
+        "background-opacity": 1
+      }
+    },
+    {
+      "id": "area-fill",
+      "type": "fill",
+      "source-layer": "area",
+      "paint": {
+        "fill-color": "#f5f3e9",
+        "fill-opacity": 1
+      }
+    },
+    {
+      "id": "line-water",
+      "type": "line",
+      "source-layer": "line",
+      "filter": ["any", ["in", "kind", "river", "lake"], ["in", "line_kind", "river", "lake"]],
+      "paint": {
+        "line-color": "#1565c0",
+        "line-width": 2
+      }
+    },
+    {
+      "id": "line-road",
+      "type": "line",
+      "source-layer": "line",
+      "filter": ["any", ["==", "kind", "road"], ["==", "line_kind", "road"]],
+      "paint": {
+        "line-color": "#8d6e63",
+        "line-width": 1.25
+      }
+    },
+    {
+      "id": "point-circle",
+      "type": "circle",
+      "source-layer": "point",
+      "paint": {
+        "circle-color": "#e65100",
+        "circle-radius": 3
+      }
+    }
+  ]
+}
+

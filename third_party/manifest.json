@@ -87,10 +87,11 @@
       "git_url": "http://localhost:3000/ccl/geos.git",
       "git_ref": "4fc2ba184c9ba5e2b46a0291e97311f95b06c2da",
       "build_system": "cmake",
-      "note": "Reused existing Gitea import; not re-uploaded. LGPL — WKT display only.",
+      "note": "Reused existing Gitea import; not re-uploaded. LGPL — WKT display only. CMAKE_DEBUG_POSTFIX=d so Debug geosd.dll/geos_cd.dll can sit next to Release geos.dll/geos_c.dll in the same .install prefix (same coexistence as gdald.dll).",
       "cmake_args": [
         "-DBUILD_SHARED_LIBS=ON",
-        "-DUSE_UNSTABLE_GEOS_CPP_API=1"
+        "-DUSE_UNSTABLE_GEOS_CPP_API=1",
+        "-DCMAKE_DEBUG_POSTFIX=d"
       ]
     },
     {
@@ -466,10 +467,11 @@
         "-DBUILD_SHARED_LIBS=ON",
         "-DWITH_UTILITIES=OFF",
         "-DBUILD_TESTING=OFF",
+        "-DCMAKE_DEBUG_POSTFIX=d",
         "-DTIFF_INCLUDE_DIR=@PREFIX@/include",
-        "-DTIFF_LIBRARY=@PREFIX@/lib/tiffd.lib"
+        "-DTIFF_LIBRARY=@PREFIX@/lib/tiff@D@.lib"
       ],
-      "note": "OSGeo libgeotiff 1.7.3 (X/MIT). PDAL requires standalone GeoTIFF (GDAL internal libgeotiff is not installed). TIFF_INCLUDE_DIR forced — FindTIFF CONFIG often leaves TIFF_INCLUDE_DIR empty so libxtiff fails to see tiffio.h."
+      "note": "OSGeo libgeotiff 1.7.3 (X/MIT). PDAL requires standalone GeoTIFF. FindTIFF CONFIG yields TIFF::tiff whose VS include can resolve to lib/cmake/tiff/include (install.py junctions that to prefix/include after libtiff). TIFF_LIBRARY uses @D@ (tiffd.lib Debug / tiff.lib Release)."
     },
     {
       "name": "pdal",
@@ -510,12 +512,13 @@
         "-DWITH_LZMA=OFF",
         "-DWITH_LIBXML2=OFF",
         "-DWITH_OPENSSL=OFF",
+        "-DCMAKE_DEBUG_POSTFIX=d",
         "-DGEOTIFF_INCLUDE_DIR=@PREFIX@/include",
-        "-DGEOTIFF_LIBRARY=@PREFIX@/lib/geotiff_d_i.lib",
+        "-DGEOTIFF_LIBRARY=@PREFIX@/lib/geotiff@D@_i.lib",
         "-DCURL_INCLUDE_DIR=@PREFIX@/include",
-        "-DCURL_LIBRARY=@PREFIX@/lib/libcurl-d_imp.lib"
+        "-DCURL_LIBRARY=@PREFIX@/lib/libcurl@DASH_D@_imp.lib"
       ],
-      "note": "PDAL 2.8.3 (BSD). Point-cloud processing only (world3d.pdal_*). Default load_point_cloud stays LASzip. Needs zlib+libtiff+libgeotiff+curl (arbiter always links CURL). Debug MSVC: geotiff_d_i.lib + libcurl-d_imp.lib — pass GEOTIFF_LIBRARY/CURL_LIBRARY explicitly. Install: build.bat t pdal → .install; GN smt_has_pdal when include/pdal/PipelineManager.hpp exists. Gitea ccl/PDAL is 404 — GitHub fallback."
+      "note": "PDAL 2.8.3 (BSD). Point-cloud processing only (world3d.pdal_*). Default load_point_cloud stays LASzip. Needs zlib+libtiff+libgeotiff+curl (arbiter always links CURL). GEOTIFF/CURL libs use @D@ / @DASH_D@ (Debug: geotiff_d_i.lib + libcurl-d_imp.lib; Release: geotiff_i.lib + libcurl_imp.lib). CMAKE_DEBUG_POSTFIX=d so pdalcppd.dll can sit next to Release pdalcpp.dll. Install: build.bat release t pdal → .install; GN smt_has_pdal when include/pdal/PipelineManager.hpp exists. Gitea ccl/PDAL is 404 — GitHub fallback."
     }
   ]
 }

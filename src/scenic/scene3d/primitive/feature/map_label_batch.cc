@@ -406,9 +406,10 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
   std::vector<int> sy;
   sx.reserve(labels_.size());
   sy.reserve(labels_.size());
-  // Pad collision boxes: CJK glyphs are ~px wide; halo expands the footprint.
-  const int cell = kLabelPx + 2;
-  const int box_h = kLabelPx + kHaloPx * 2 + 8;
+  // Pad collision boxes to the drawn quad (GDI+ MeasureString + halo), not a
+  // tight utf8*px estimate — short boxes let Huabei/Huadong glyphs overlap.
+  const int cell = kLabelPx + 4;
+  const int box_h = kLabelPx + kHaloPx * 2 + 16;
   for (const MapLabel& lab : labels_) {
     lPoint pt = {};
     if (p3DRenderDevice->Transform3DTo2D(Vector3(lab.x, lab.y, lab.z), pt) !=
@@ -436,12 +437,19 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
     }
     sx.push_back(x);
     sy.push_back(y);
-    const int w = utf8_units(lab.text) * cell + kHaloPx * 2 + 16;
+    int w = utf8_units(lab.text) * cell + kHaloPx * 2 + 20;
+    int h = box_h;
+    const std::string cache_key =
+        lab.text + "|" + std::to_string(lab.priority);
+    if (const RasterCache* cached = find_raster(cache_key)) {
+      w = cached->w + 4;
+      h = cached->h + 4;
+    }
     MapLabelBox box;
     box.left = x - w / 2;
-    box.top = y - box_h / 2;
+    box.top = y - h / 2;
     box.right = box.left + w;
-    box.bottom = box.top + box_h;
+    box.bottom = box.top + h;
     box.priority = lab.priority;
     boxes.push_back(box);
   }

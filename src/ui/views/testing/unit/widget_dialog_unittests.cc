@@ -15,8 +15,8 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/kernel/widget/widget.h"
-#include "ui/views/map/map_viewport.h"
-#include "ui/views/map/touch_multitouch.h"
+#include "ui/views/map/viewport/draw_host.h"
+#include "ui/views/map/input/touch_multitouch.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/input/combobox.h"
 #include "ui/views/primitives/text/label.h"
@@ -54,17 +54,17 @@ void test_dialog_host_geometry() {
   expect(placed.outer_height >= outer_h - 2, "place uses outer height");
 }
 
-void test_widget_hwnd_and_map_viewport() {
+void test_widget_hwnd_and_draw_host() {
   // Peers do not CreateWindow in this console test; skip Widget::init.
-  // MapViewport::attach needs a parent HWND / GPU; do not call it here.
+  // DrawHost::attach needs a parent HWND / GPU; do not call it here.
   Widget widget;
   expect(widget.hwnd() == nullptr, "widget hwnd before init");
   expect(widget.contents_view() == nullptr, "widget empty contents");
   expect(widget.device_scale_factor() == 1.f, "widget default scale 1");
   expect(widget.dpi() == kDefaultDpi, "widget default dpi 96");
 
-  MapViewport viewport;
-  expect(viewport.attach_mode() == MapViewport::AttachMode::kNone,
+  DrawHost viewport;
+  expect(viewport.attach_mode() == DrawHost::AttachMode::kNone,
          "map_viewport not attached");
 }
 

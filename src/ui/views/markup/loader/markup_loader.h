@@ -22,14 +22,27 @@ struct UI_EXPORT MarkupOptions {
   const ControlFactory* factory = nullptr;
 };
 
-// Owns the loaded root View and id map.
-struct UI_EXPORT MarkupRoot {
+// Owns the loaded root View and id map. Special members are out-of-line in
+// the toolkit DLL so SmartGIS.exe does not inline a second unordered_map
+// layout (NRVO into a mismatched caller slot → heap 0xC0000374). Export
+// those members only — class-level UI_EXPORT duplicates them across every
+// UI_EXPORTS TU (LNK2005 inside ui_views.dll).
+struct MarkupRoot {
+  UI_EXPORT MarkupRoot();
+  UI_EXPORT MarkupRoot(MarkupRoot&&) noexcept;
+  UI_EXPORT MarkupRoot& operator=(MarkupRoot&&) noexcept;
+  UI_EXPORT ~MarkupRoot();
+  MarkupRoot(const MarkupRoot&) = delete;
+  MarkupRoot& operator=(const MarkupRoot&) = delete;
+
   std::unique_ptr<View> root;
   NamedViewMap ids;
   std::string name;
   std::string error;
 
-  bool ok() const { return root != nullptr; }
+  // Out-of-line: an inline ok() was emitted into consumer .obj while
+  // ui_views.dll also exported it (LNK2005 vs trimesh_loader_dialog).
+  UI_EXPORT bool ok() const;
 };
 
 // Build a View tree from a MarkupDocument.

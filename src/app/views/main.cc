@@ -10,6 +10,7 @@
 
 #pragma comment(lib, "imm32.lib")
 
+#include <string>
 #include <utility>
 
 #include "app/views/shell/app/views_content_host.h"
@@ -32,7 +33,7 @@ bool is_harness_launch(const app::ViewsLaunchOptions& o) {
          o.browse_showcase ||
          o.atmosphere_showcase != app::AtmosphereShowcaseMode::kNone ||
          o.map2d_showcase != app::Map2dShowcaseMode::kNone ||
-         o.plugin_showcase != app::PluginShowcaseMode::kNone ||
+         !o.plugin_showcase.empty() ||
          o.ui_showcase != app::UiShowcaseMode::kNone;
 }
 
@@ -57,6 +58,21 @@ void disable_ime_for_harness() {
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
   int argc = 0;
   wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+  // Before any GDALAllRegister: stop AutoLoadDrivers from LoadLibrary'ing
+  // every DLL in the process cwd (harness uses out/Debug).
+  if (::GetEnvironmentVariableW(L"GDAL_DRIVER_PATH", nullptr, 0) == 0) {
+    wchar_t module[MAX_PATH] = {};
+    const DWORD n = ::GetModuleFileNameW(nullptr, module, MAX_PATH);
+    if (n > 0 && n < MAX_PATH) {
+      std::wstring path(module, n);
+      const auto slash = path.find_last_of(L"\\/");
+      if (slash != std::wstring::npos) {
+        path.resize(slash);
+        path += L"\\gdalplugins";
+        ::SetEnvironmentVariableW(L"GDAL_DRIVER_PATH", path.c_str());
+      }
+    }
+  }
   base::init_switches_from_argv(argc, argv);
   base::trace::maybe_init_tracing_from_env();
   base::trace::maybe_init_startup_profile_from_env();

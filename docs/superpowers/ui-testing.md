@@ -31,7 +31,7 @@ GN / 跑法总入口：[`testing/README.md`](../../testing/README.md)。
 
 1. **Views 为主、MFC 为辅** — 新用例只加在 `ui::views` / `app/views`；`SmartGIS-Legacy.exe` 仅 `exe_smoke`。
 2. **白盒优先于 UIA** — 合成 `MouseEvent` / `KeyEvent`、直接查 View 树与命令状态；不靠屏幕坐标点图。
-3. **地图断言走语义** — `MapViewport::wait_ready`、`ViewHost`、`EditSession`、图层/状态栏文案；不断言地图像素。
+3. **地图断言走语义** — `DrawHost::wait_ready`、`ViewHost`、`EditSession`、图层/状态栏文案；不断言地图像素。
 4. **像素（若做）只测壳** — MenuBar / Tab / StatusBar / 对话框；固定 DIP、关动画；不测 GPU 地图帧。
 5. **禁止** — Qt / Squish-for-Qt；不以 WinAppDriver 为主轨；不对 leftover MFC 写大规模 FlaUI。
 
@@ -67,7 +67,7 @@ out\views_interactive_tests.exe
 ### L1b — `views_bench`（perf，已有；非默认 te）
 
 - **GN：** `//src/ui/views:views_bench` → `out\views_bench.exe`；源码 `src/ui/views/testing/bench/views_bench.cc`。
-- **用途：** `EventGenerator.click`、`OverlayScene.commit`（1/4/16 层）、`ShellCompositor.commit+wait` 微基准；CI 可选采集 stdout 时序。
+- **用途：** `EventGenerator.click`、`OverlayScene.commit`（1/4/16 层）、`ShellCompositor.commit+wait`，以及 primitives / GIS 面板 `BM_*_paint` 微基准。CI 可选采集 stdout 时序。
 - **Shell perf（U0+）：** DiagnosticTools Trace filter `UI` / category `ui.views` — spans `record_commit` / `present` / compositor `raster`。Debug scenario counters（`PaintCounters`）：`hover_commit_qpc` / `table_scroll_qpc` / `overlay_copy_bytes` / `overlay_commit_qpc`。Bench filters：`--benchmark_filter=BM_hover` / `BM_table` / `BM_overlay`。Soft baseline：machine-local only；no Chromium SLA.
 
 ```bat
@@ -76,6 +76,15 @@ out\views_bench.exe
 out\views_bench.exe --benchmark_filter=BM_hover
 out\views_bench.exe --benchmark_filter=BM_table
 out\views_bench.exe --benchmark_filter=BM_overlay
+out\views_bench.exe --benchmark_filter=BM_.*_paint
+```
+
+**Equal-profile matrix（`harness-auto-ui-opt`）：** product `--ui-showcase` + `views_bench` → `out/Debug/captures/analysis/ui_opt/matrix/`（`MATRIX.md` / `RECOMMEND.md`）。展示路径在 BMP 前写出 `captures/ui/ui-showcase-<mode>-perf.json`（`PaintCounters` → ms）。**不要**用 `hud_fps` 给壳层排名。
+
+```bat
+build.bat debug src/app/views:views
+build.bat debug src/ui/views:views_bench
+py -3 testing/tools/harness/ui/run_ui_profile_matrix.py
 ```
 
 ### L1c — UI visual forensics（Scheme 1 A+C；已落地）
@@ -129,7 +138,7 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
   - Wave2 显式 checklist：`legacy.browse.*`、`ui.{shell,catalog,data,scene,interact,interact.os}`、`atmosphere.legacy`、`legacy.map2d/scene3d.*`、`map2d.orthogrid`（外加 Wave1 plugin/atmosphere.full/map2d.china）。Wave2 实跑优先：`legacy.browse.2d`、`map2d.china`。
   - Skill：`.cursor/skills/harness-visual-review/SKILL.md`。**不**进默认 `te`。
   - Living：[`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) §Visual review closed-loop。
-  - **Plain argv=[] 2D/3D browse：** `py -3 testing/tools/loop/plain_browse_capture.py`。壳 PrintWindow 用 `views_shell_chrome`（青蓝 map hole 允许）；DXGI 金样优先 FlyCube Present BitBlt + `views_present_dxgi`（拒 TabStrip accent bleed / 壳 ocean clear；可裁顶栏 underline）。Flip/NOREDIRECTION 下 BitBlt 常读不到 swapchain 时，以产品日志为金样（2D：`frame_items=`；3D：`scene3d.present dem` + `lazy attach tab=2`）。3D 用 env `VIEWS_START_MAP_TAB=scene3d`（仍无 argv），不靠 OS 点 TabStrip。
+  - **Plain argv=[] 2D/3D browse：** `py -3 testing/tools/loop/plain_browse_capture.py`。壳 PrintWindow 用 `views_shell_chrome`（青蓝 map hole 允许）；DXGI 金样优先 Vista Present BitBlt + `views_present_dxgi`（拒 TabStrip accent bleed / 壳 ocean clear；可裁顶栏 underline）。Flip/NOREDIRECTION 下 BitBlt 常读不到 swapchain 时，以产品日志为金样（2D：`frame_items=`；3D：`scene3d.present dem` + `lazy attach tab=2`）。3D 用 env `VIEWS_START_MAP_TAB=scene3d`（仍无 argv），不靠 OS 点 TabStrip。
 - Console 短路径：`py -3 testing/tools/loop_runner.py --suite console`（`--self-test-console`；`console.il`；marks：`console-ok` / `console-bench-ok`）。
   - 产品合同：`SmartGIS.exe --input-showcase` → `out/Debug/input-self-test-mark.txt`
   - 闸门 marks：`input-point-ok` / `input-line-ok` / `input-poly-ok` / `input-ok`（β `FeatureMutation.geom`）
@@ -144,10 +153,11 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 | 2 | 顶层 HWND 无效 |
 | 3 / 8 / 10 | Map / Data / Scene `wait_ready` 超时 |
 | 4–6 | 内容树 / Catalog 结构异常 |
-| 7 / 9 | Data / Scene native HWND 无效 |
+| 7 | (retired) Data tab removed — Map(0)+3D(1) only |
+| 9 | Scene native HWND 无效 |
 | 11–20 | ViewHost / 工具 / 状态栏语义失败 |
 | 21–25 | 3D trackball / 输入分发 / 相机未动 |
-| 26–29 | OGR 进层失败 / 轨道相机矩阵 / FlyCube present |
+| 26–29 | OGR 进层失败 / 轨道相机矩阵 / Vista present |
 | 30–35 | 布局不变量或地图 HWND 几何失败 |
 | 36–38 | 图层 / Catalog 空或 HWND 显隐 |
 | 39 | China PLP 包络不在中国经纬度范围 |
@@ -177,7 +187,7 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 
 独立于完整 `--self-test`：切到 3D 页，按模式配置大气，连续 `present_gpu` 三帧后退出。
 默认 **Null RHI**（确定性 exit 0）。`ATMOSPHERE_SHOWCASE_GPU=1` 时在**独立**
-640×480 展示窗上拉 FlyCube/DX12（启动期勿设 `PREFER_FLYCUBE_3D=1`）。
+640×480 展示窗上拉 Vista/DX12（启动期勿设 `PREFER_FLYCUBE_3D=1`）。
 GPU **永远显示直到关掉展示窗**（忽略残留正数 `LINGER_MS`）。自动化用
 `ATMOSPHERE_SHOWCASE_TIMED_MS=1500`，或 `LINGER_MS=0` 跳过。
 旁路产物：`out/Debug/captures/atmosphere/atmosphere-showcase-mark.txt`、`atmosphere/atmosphere-showcase-<mode>.bmp`、
@@ -298,7 +308,7 @@ map2d china：`py -3 testing/tools/loop_runner.py --suite map2d.china`。
 
 - 路径：`src/ui/views/testing/views_pixel_tests.cc`（GN：`//src/ui/views:views_pixel_tests`）；离屏 GDI 捕获 + PNG 基线（WIC 读写）。
 - 脚手架：`src/ui/views/testing/pixel_harness.{h,cc}`、`pixel_png_wic.cc`。
-- 基线目录：`src/ui/views/testing/testdata/*.png`（壳控件 only：Label+Button、TabStrip、StatusBar、Ambox 默认条；不含 MapViewport 像素）。
+- 基线目录：`src/ui/views/testing/testdata/*.png`（壳控件 only：Label+Button、TabStrip、StatusBar、Ambox 默认条；不含 DrawHost 像素）。
 - 环境：96 DIP（`device_scale_factor = 1`）、Segoe UI 12px 与 `Theme::measure_text_utf8` 对齐；比较时默认每通道 ±2、坏点比例 ≤ 0.5%。
 - 更新基线（仓库根目录 cwd，与 `build.bat te` 一致）：
 
@@ -405,4 +415,4 @@ build.bat e2e
 
 ---
 
-**最后更新：** 2026-10-01
+**最后更新：** 2026-10-05

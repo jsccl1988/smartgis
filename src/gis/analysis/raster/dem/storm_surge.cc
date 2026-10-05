@@ -396,7 +396,7 @@ StormSurgeResult run_storm_surge(std::string_view dem_path,
   std::vector<double> levels = surge_levels;
   const int frame_count = std::max(1, frames);
   if (levels.size() == 1 && frame_count > 1) {
-    const double z1 = levels[0];
+    const double z1 = (std::max)(levels[0], seed_min_z + 0.5);
     levels.clear();
     levels.reserve(static_cast<size_t>(frame_count));
     for (int f = 0; f < frame_count; ++f) {
@@ -422,16 +422,25 @@ StormSurgeResult run_storm_surge(std::string_view dem_path,
 
   out.frame_masks.reserve(levels.size());
   out.frame_depths.reserve(levels.size());
-  out.surge_levels = levels;
+  out.surge_levels.clear();
   for (double level : levels) {
     StormSurgeResult frame =
         surge_at_level(elev, width, height, seeds, level);
     if (!frame.ok) {
+      // Early interpolated frames can sit below every seed; skip until wet.
+      if (frame.error == "empty_inundation") {
+        continue;
+      }
       out.error = frame.error.empty() ? "frame_failed" : frame.error;
       return out;
     }
     out.frame_masks.push_back(std::move(frame.mask));
     out.frame_depths.push_back(std::move(frame.depth));
+    out.surge_levels.push_back(level);
+  }
+  if (out.frame_masks.empty()) {
+    out.error = "empty_inundation";
+    return out;
   }
   out.mask = out.frame_masks.back();
   out.depth = out.frame_depths.back();

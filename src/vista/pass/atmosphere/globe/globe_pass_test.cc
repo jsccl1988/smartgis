@@ -62,6 +62,24 @@ int main() {
   expect(globe.has_surface(), "globe has china surface");
   expect(!globe.dem_is_global(), "china window is not global");
 
+  GlobePass overlay;
+  overlay.set_params(gp);
+  std::vector<float> globe_h(static_cast<size_t>(kCols * kRows), 200.f);
+  overlay.set_dem_surface(-180.0, -90.0, 180.0, 90.0, kCols, kRows,
+                          globe_h.data(), globe_h.size(), nullptr, 0, 0);
+  expect(overlay.dem_is_global(), "full-sphere DEM is global");
+  overlay.set_detail_dem_surface(73.0, 18.0, 135.0, 54.0, kCols, kRows,
+                                 heights.data(), heights.size(), nullptr, 0, 0);
+  overlay.set_detail_blend(1.f);
+  overlay.set_elevation_overlay(true, true);
+  expect(overlay.has_detail_surface(), "china overlay attached");
+  expect(overlay.has_elevation_overlay(), "jet+isoline overlay baked");
+  expect(overlay.height_meters(90.0, 32.0) > 400.f, "overlay raises Tibet");
+  overlay.set_detail_blend(0.f);
+  expect(overlay.height_meters(90.0, 32.0) < 250.f, "blend 0 is global only");
+  overlay.prewarm_mesh_lods();
+  expect(overlay.has_surface(), "prewarm keeps global surface");
+
   SatCloudPass clouds;
   clouds.seed_procedural_cover(64, 32, 3);
   expect(clouds.has_cover(), "sat cloud procedural cover");

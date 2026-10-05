@@ -31,15 +31,16 @@ std::string default_carto_style_json() {
          "\"paint\":{\"fill-color\":\"#a3ccff\",\"fill-opacity\":1}"
          "},"
          "{"
-         // DEM shade after land/water so cream land still receives tint when
-         // the host binds china_dem (under vectors = before river/roads).
+         // DEM second surface after land/water: jet + isolines over carto
+         // (stacked Origin look). Ocean cells stay transparent.
          "\"id\":\"hillshade\","
          "\"type\":\"hillshade\","
          "\"paint\":{"
          "\"hillshade-illumination-direction\":335,"
+         "\"hillshade-illumination-altitude\":28,"
          "\"hillshade-exaggeration\":3.4,"
-         // Deep umber umbra for crisp national-frame relief; stay warm so
-         // multiply does not read as a grey cast rim on cream land.
+         "\"hillshade-color-ramp\":\"jet\","
+         // Deep umber umbra for grayscale fallback / jet lighting reconstruction.
          "\"hillshade-shadow-color\":\"#1c1810\","
          "\"hillshade-highlight-color\":\"#c8c0b0\","
          "\"hillshade-accent-color\":\"#12100c\""
@@ -165,9 +166,10 @@ std::string default_carto_style_json() {
 }
 
 std::string print_carto_style_json() {
-  // Same land / water / hillshade / river / road face as default carto, but
-  // without label / river-label / road-label symbol layers. Print pages list
-  // Cities in the legend; map-panel glyph twins were a carto label artifact.
+  // Same land / water / river / road face as default carto, but without
+  // hillshade (dark ridges twin-trigger the print harness) and without
+  // label / river-label / road-label symbol layers. Print pages list Cities
+  // in the legend.
   return "{"
          "\"version\":8,"
          "\"name\":\"carto-print\","
@@ -188,17 +190,6 @@ std::string print_carto_style_json() {
          "\"type\":\"fill\","
          "\"source-layer\":\"water\","
          "\"paint\":{\"fill-color\":\"#a3ccff\",\"fill-opacity\":1}"
-         "},"
-         "{"
-         "\"id\":\"hillshade\","
-         "\"type\":\"hillshade\","
-         "\"paint\":{"
-         "\"hillshade-illumination-direction\":335,"
-         "\"hillshade-exaggeration\":3.4,"
-         "\"hillshade-shadow-color\":\"#1c1810\","
-         "\"hillshade-highlight-color\":\"#c8c0b0\","
-         "\"hillshade-accent-color\":\"#12100c\""
-         "}"
          "},"
          "{"
          "\"id\":\"river\","

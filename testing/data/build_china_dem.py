@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
-"""Build testing/data/china_dem.tif aligned with china_city vectors.
+"""Build testing/data/china/china_dem.tif aligned with china_city vectors.
 
 Default source: AWS Open Data / Mapzen Terrain GeoTIFF tiles
   https://s3.amazonaws.com/elevation-tiles-prod/geotiff/{z}/{x}/{y}.tif
@@ -45,7 +45,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = Path(__file__).resolve().parent / "china_dem.tif"
+CHINA_DIR = Path(__file__).resolve().parent / "china"
+DEFAULT_OUT = CHINA_DIR / "china_dem.tif"
 CACHE = REPO / "out" / "data" / "cache" / "china_dem_src"
 # Match build_china_city.CHINA_BBOX / content::kChinaLonLatExtent.
 CHINA_BBOX = (73.0, 18.0, 135.0, 54.0)  # minx, miny, maxx, maxy
@@ -281,7 +282,7 @@ def build_real(out: Path, zoom: int, cols: int, rows: int,
         # Prefer Natural Earth land outline (same CRS as china_city vectors).
         # Do not use Aliyun DataV china_full.json (GCJ-02) — misaligns DEM.
         outline_candidates = [
-            Path(__file__).resolve().parent / "_china_ne_outline.geojson",
+            CHINA_DIR / "_china_ne_outline.geojson",
             REPO / "out" / "data" / "cache" / "china_city_src" / "china_outline.geojson",
             CACHE / "china_outline.geojson",
         ]

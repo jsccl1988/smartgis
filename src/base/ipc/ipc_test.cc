@@ -41,7 +41,7 @@ void test_frame_abi() {
   expect(sizeof(base::ipc::Frame) == 24, "frame 24");
   expect(sizeof(base::ipc::FrameWire) == 24, "frame wire 24");
   expect(sizeof(content::FrameHeader) == 24, "host header 24");
-  expect(base::ipc::k_frame_magic == content::kHostMagic, "magic SMT1");
+  expect(base::ipc::k_frame_magic == content::kHostMagic, "magic GIS1");
   expect(base::ipc::k_frame_version == content::kHostProtocolVersion,
          "protocol 3");
 }

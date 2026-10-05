@@ -18,6 +18,14 @@ bool prefer_map2d_scenic() {
   return raw && raw[0] && _stricmp(raw, "scenic") == 0;
 }
 
+void Map2dPresenter::Deleter::operator()(Map2dPresenter* p) const {
+  delete p;
+}
+
+Map2dPresenter::Ptr Map2dPresenter::create() {
+  return Ptr(new Map2dPresenter);
+}
+
 Map2dPresenter::Map2dPresenter() {
   ensure_scenic();
 }
@@ -43,7 +51,7 @@ void Map2dPresenter::ensure_scenic() const {
 
 bool Map2dPresenter::hosts_scenic_present() const {
   // Product path never enables scenic; skip scenic_mu_ so a skewed
-  // MapSession layout cannot unlock a non-mutex blob during WM_PAINT.
+  // BrowserSession layout cannot unlock a non-mutex blob during WM_PAINT.
   if (!prefer_map2d_scenic()) {
     return false;
   }

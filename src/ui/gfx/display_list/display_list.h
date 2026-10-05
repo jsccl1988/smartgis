@@ -6,6 +6,7 @@
 
 #include "ui/ui_export.h"
 #include <cstdint>
+#include <cwchar>
 #include <string>
 #include <vector>
 
@@ -23,7 +24,6 @@ UI_EXPORT void display_list_end();
 UI_EXPORT DisplayList* display_list_recorder();
 // A view records when its paint inputs change; a later dirty rect replays
 // only commands that intersect that rect. This is not a second widget tree.
-// The command list stays in the header so it is not a separate container type.
 class UI_EXPORT DisplayList {
  public:
   void clear() {
@@ -89,7 +89,7 @@ class UI_EXPORT DisplayList {
     cmd.op = Op::kText;
     cmd.x = x;
     cmd.y = y;
-    const int chars = lstrlenW(text);
+    const int chars = static_cast<int>(std::wcslen(text));
     cmd.w = chars * 32 + 4;
     cmd.h = 48;
     cmd.color = color;
@@ -145,7 +145,6 @@ class UI_EXPORT DisplayList {
     for (const Cmd& cmd : cmds_) {
       if (cmd.op == Op::kSave || cmd.op == Op::kRestore ||
           cmd.op == Op::kClip) {
-        // Keep clip stack balanced even when draw ops are culled.
         replay_cmd(canvas, cmd);
         continue;
       }
@@ -234,4 +233,3 @@ class UI_EXPORT DisplayList {
 }  // namespace ui
 
 #endif  // UI_GFX_DISPLAY_LIST_DISPLAY_LIST_H_
-

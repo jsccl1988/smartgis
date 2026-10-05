@@ -12,7 +12,7 @@
 #include "ui/views/kernel/layout/layout_check.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/kernel/widget/widget.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 
 #include <chrono>
@@ -34,6 +34,47 @@ void showcase_mark(const char* token) {
   write_mark(kUiShowcaseMarkLeaf, token, /*truncate=*/false);
 }
 
+void hide_inactive_map_hwnds(Browser& browser, ui::views::DrawHost* active) {
+  auto hide = [active](ui::views::DrawHost* pane) {
+    if (!pane || pane == active) {
+      return;
+    }
+    if (pane->role() != ui::views::DrawHost::Role::kScene3d) {
+      return;
+    }
+    // Do not pause_present here — joining Display while layout runs deadlocks.
+    pane->set_gpu_present_visible(false);
+    if (HWND present = pane->present_hwnd()) {
+      if (IsWindow(present)) {
+        ShowWindow(present, SW_HIDE);
+      }
+    }
+    pane->sync_native_bounds();
+  };
+  hide(browser.draw_host());
+  hide(browser.data_draw_host());
+  hide(browser.scene_draw_host());
+}
+
+ui::views::DrawHost* active_for_mode(Browser& browser, UiShowcaseMode mode) {
+  if (mode == UiShowcaseMode::kData) {
+    return browser.data_draw_host();
+  }
+  if (mode == UiShowcaseMode::kScene) {
+    return browser.scene_draw_host();
+  }
+  return browser.draw_host();
+}
+
+ui::views::TabStrip* map_tab_strip(ui::views::DrawHost* map) {
+  for (ui::views::View* v = map; v; v = v->parent()) {
+    if (auto* tabs = dynamic_cast<ui::views::TabStrip*>(v)) {
+      return tabs;
+    }
+  }
+  return nullptr;
+}
+
 }  // namespace
 
 int run_ui_layout_gate(Browser& browser, UiShowcaseMode mode) {
@@ -44,29 +85,25 @@ int run_ui_layout_gate(Browser& browser, UiShowcaseMode mode) {
   }
   showcase_mark("root-ok");
 
-  // Force Widget layout before violation checks — Invalidate alone does not
-  // resize create-time zero bounds (child-outside-parent / status-clipped).
+  // Hide Scene3d DXGI before Widget layout — remeasure with the present
+  // popup up deadlocks the UI thread (~90s, loop timeout 124). Do not
+  // pause_present() (Display join); ShowWindow(SW_HIDE) on the popup.
+  hide_inactive_map_hwnds(browser, active_for_mode(browser, mode));
   if (ui::views::Widget* w = root->widget()) {
     w->layout_contents();
   } else {
     root->layout();
   }
+  root->sync_native_tree();
+  ui::views::DrawHost* active = active_for_mode(browser, mode);
+  hide_inactive_map_hwnds(browser, active);
   if (HWND hwnd = browser.hwnd()) {
-    InvalidateRect(hwnd, nullptr, TRUE);
-    UpdateWindow(hwnd);
+    InvalidateRect(hwnd, nullptr, FALSE);
   }
-  pump_views_messages(200);
+  pump_views_messages(80);
+  hide_inactive_map_hwnds(browser, active);
 
-  ui::views::MapViewport* active = browser.map_viewport();
-  if (mode == UiShowcaseMode::kData) {
-    active = browser.map_data_viewport();
-  } else if (mode == UiShowcaseMode::kScene) {
-    active = browser.map_scene_viewport();
-  }
-  ui::views::TabStrip* map_tabs =
-      browser.map_viewport()
-          ? dynamic_cast<ui::views::TabStrip*>(browser.map_viewport()->parent())
-          : nullptr;
+  ui::views::TabStrip* map_tabs = map_tab_strip(browser.draw_host());
   ui::views::TabStrip* catalog_tabs =
       browser.catalog_view() ? browser.catalog_view()->source_tabs() : nullptr;
 
@@ -79,7 +116,7 @@ int run_ui_layout_gate(Browser& browser, UiShowcaseMode mode) {
   std::vector<std::string> shell_issues;
   const int shell_fails = ui::views::collect_shell_layout_anomalies(
       root, map_tabs, catalog_tabs, browser.status_bar(), active,
-      browser.map_data_viewport(), browser.map_scene_viewport(), &shell_issues);
+      browser.data_draw_host(), browser.scene_draw_host(), &shell_issues);
   showcase_mark("layout-checked");
 
   const int total_fails = layout_fails + overlap_fails + shell_fails;

@@ -6,7 +6,7 @@
 
 // Process-wide shell Canvas backend preference (GDI vs optional Skia).
 // Applied once at process start from CLI / env. See
-// docs/superpowers/specs/2026-09-14-render-skia-canvas-design.md § runtime.
+// docs/superpowers/ui-views-skia.md.
 
 #include "ui/ui_export.h"
 namespace ui {

@@ -13,7 +13,7 @@ All rights reserved.
 
 **Architecture:** GPU passes stay in `render::atmosphere` (POD in → CommandList out). Session toggles / sun / fog knobs live in `gis::atmosphere::AtmosphereParams`; Views projects POD. DEM LOD policy and mesh generation stay in `gis::DemRaster`; GpuScene draws `kTerrain` as today (`kLitSolid` / textured). No second RHI backend; no render→legacy.
 
-**Tech Stack:** C++23, FlyCube/Null RHI Facade, existing `DemRaster::build_mesh(max_edge)`, `AtmosphereFrame` pre/post opaque hooks.
+**Tech Stack:** C++23, Vista/Null RHI Facade, existing `DemRaster::build_mesh(max_edge)`, `AtmosphereFrame` pre/post opaque hooks.
 
 **Related specs:**  
 [`2026-09-27-atmosphere-subdirectory-layout-design.md`](../archive/specs/2026-09-27-atmosphere-subdirectory-layout-design.md) (layout, landed) ·  

@@ -56,8 +56,8 @@ config("geos_cfg") {
   defines = []
   defines += [ "USE_UNSTABLE_GEOS_CPP_API" ]
   libs += [
-    "$_tp/lib/geos.lib",
-    "$_tp/lib/geos_c.lib",
+    "$_tp/lib/geos$_d.lib",
+    "$_tp/lib/geos_c$_d.lib",
   ]
 }
 
@@ -68,7 +68,7 @@ config("proj_cfg") {
 config("gdal_cfg") {
   libs += [
     "$_tp/lib/gdal$_d.lib",
-    "$_tp/lib/geos_c.lib",
+    "$_tp/lib/geos_c$_d.lib",
     "$_tp/lib/proj$_proj_d.lib",
   ]
   defines = []
@@ -83,7 +83,7 @@ config("pdal_cfg") {
   }
   # PDAL endian helpers pull Winsock htonl/htons/ntohl/ntohs.
   libs += [ "ws2_32.lib" ]
-  defines += [ "SMT_HAS_PDAL=1" ]
+  defines += [ "has_PDAL=1" ]
 }
 
 config("spatialindex_cfg") {
@@ -117,8 +117,7 @@ config("cpp_httplib_cfg") {
 # Official/synced Windows builds are /MD only. Linking libssl-4-x64.dll into a
 # /MDd net_d.dll loads VCRUNTIME140 beside VCRUNTIME140D and has caused
 # STATUS_HEAP_CORRUPTION (0xC0000374) on ordinary SmartGisViews launch.
-# libssld.lib in .install is a release import-lib rename, not a /MDd build â€”
-# keep OpenSSL for Release only until a real debug CRT OpenSSL is pinned.
+# libssld.lib in .install is a release import-lib rename, not a /MDd build â€?# keep OpenSSL for Release only until a real debug CRT OpenSSL is pinned.
 config("openssl_cfg") {
   include_dirs += [ "$_tp/include" ]
   lib_dirs = [ "$_tp/lib" ]
@@ -256,15 +255,15 @@ copy("gdal_runtime_dlls") {
   if (is_debug) {
     sources = [
       "$_tp/bin/gdald.dll",
-      "$_tp/bin/geos.dll",
-      "$_tp/bin/geos_c.dll",
+      "$_tp/bin/geos$_d.dll",
+      "$_tp/bin/geos_c$_d.dll",
       "$_tp/bin/proj_9_4_d.dll",
     ]
   } else {
     sources = [
       "$_tp/bin/gdal.dll",
-      "$_tp/bin/geos.dll",
-      "$_tp/bin/geos_c.dll",
+      "$_tp/bin/geos$_d.dll",
+      "$_tp/bin/geos_c$_d.dll",
       "$_tp/bin/proj_9_4.dll",
     ]
   }
@@ -282,7 +281,7 @@ group("gdal") {
   ]
 }
 
-if (smt_has_pdal) {
+if (has_pdal) {
   copy("pdal_runtime_dlls") {
     if (is_debug) {
       sources = [ "$_tp/bin/pdalcppd.dll" ]
@@ -375,19 +374,19 @@ group("ed25519") {
 }
 
 group("flycube") {
-  if (smt_has_flycube) {
+  if (has_flycube) {
     public_deps = [ "//third_party/flycube:flycube" ]
   }
 }
 
 group("assimp") {
-  if (smt_has_assimp) {
+  if (has_assimp) {
     public_deps = [ "//third_party/assimp:assimp" ]
   }
 }
 
 group("tinygltf") {
-  if (smt_has_tinygltf) {
+  if (has_tinygltf) {
     public_deps = [ "//third_party/tinygltf:tinygltf" ]
   }
 }
@@ -417,7 +416,7 @@ group("yoga") {
 }
 
 group("protobuf") {
-  if (smt_has_protobuf) {
+  if (has_protobuf) {
     public_deps = [ "//third_party/protobuf:protobuf" ]
   }
 }

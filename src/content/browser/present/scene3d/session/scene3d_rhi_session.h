@@ -10,26 +10,27 @@
 
 namespace content {
 
-// Product Scene3d present engine. Selected at runtime (View menu / API), or
-// via harness env SCENE3D_ENGINE (see apply_scene3d_engine_from_env).
+// Product Scene3d present engine. Selected at runtime (View menu / API),
+// `--scene3d-engine`, or harness env SCENE3D_ENGINE (switch wins if both set).
 // Leftover GL vs D3D11 under kStereoGl is STEREO_API / SCENE3D_SHOWCASE_D3D.
 enum class Scene3dEngine : uint32_t {
   kFlyCube = 0,   // DX12 RHI (default product SoT)
   kStereoGl = 1,  // Leftover stereo (OpenGL or D3D11 via STEREO_API)
-  kGdi = 2,       // Software DEM paint (ContentMapView / placeholder)
+  kGdi = 2,       // Software DEM paint (product HWND / Scene3dPresenter)
   kScenic = 3,    // Content-hosted scenic::Engine (scenic.dll)
 };
 
 CONTENT_EXPORT void set_scene3d_engine(Scene3dEngine engine);
 CONTENT_EXPORT Scene3dEngine scene3d_engine();
 
-// Apply SCENE3D_ENGINE when set. Values (case-insensitive):
+// Apply `--scene3d-engine` or SCENE3D_ENGINE when set. Values (case-insensitive):
 //   flycube | dx12
 //   stereo_gl | opengl | gl   → kStereoGl + force STEREO_API=OpenGL
 //   stereo_d3d | d3d | direct3d → kStereoGl + force STEREO_API=Direct3D
 //   gdi
 //   scenic
-// Returns true when the env selected an engine (callers should not override).
+// Returns true when the switch or env selected an engine (callers should not
+// override). Empty/unset switch falls through to SCENE3D_ENGINE.
 CONTENT_EXPORT bool apply_scene3d_engine_from_env();
 
 // True when the selected engine is FlyCube RHI.
@@ -50,7 +51,8 @@ CONTENT_EXPORT bool prefer_scene3d_gdi();
 // True when SCENE3D_ENGINE=scenic / kScenic. Does not load scenic.dll.
 CONTENT_EXPORT bool prefer_scene3d_scenic();
 
-// Legacy name: any non-FlyCube selection (skip FlyCube attach first).
+// True only for leftover stereo (ContentMapView HWND). Scenic/GDI use the
+// product HWND + Scene3dPresenter — not a SharedSurface fallback.
 CONTENT_EXPORT bool force_content_mapview_3d();
 
 }  // namespace content

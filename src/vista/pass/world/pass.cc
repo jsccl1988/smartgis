@@ -43,9 +43,9 @@ WorldPass::~WorldPass() {
 }
 
 void WorldPass::destroy_pipelines() {
-  // Abandon only — never virtual-call through pipeline_device_. FlyCube may
+  // Abandon only â never virtual-call through pipeline_device_. FlyCube may
   // already be shut down, and a recycled/corrupt Device* AVs on the vtable
-  // load (atmosphere-showcase full: ensure_pipelines → destroy_pipelines).
+  // load (atmosphere-showcase full: ensure_pipelines â destroy_pipelines).
   // Matches abandon(); Device map entries are reclaimed on Device teardown.
   solid_pipeline_ = nullptr;
   textured_pipeline_ = nullptr;
@@ -63,7 +63,7 @@ bool WorldPass::ensure_pipelines(render::rhi::Device* device) {
     return false;
   }
   // Bare DEM (hypsometric) only needs solid + textured. Lit PSOs are cold-
-  // expensive under FlyCube/DX12 — create them lazily when a lit kind is live.
+  // expensive under FlyCube/DX12 â create them lazily when a lit kind is live.
   const bool want_lit = detail::want_lit_terrain();
   const bool need_model_lit = detail::want_model_lit(instances_);
   const bool need_lit = want_lit || need_model_lit;
@@ -72,7 +72,7 @@ bool WorldPass::ensure_pipelines(render::rhi::Device* device) {
     return true;
   }
   if (pipeline_device_ != device) {
-    // Stale or garbage device pointer — drop handles without virtual destroy.
+    // Stale or garbage device pointer â drop handles without virtual destroy.
     destroy_pipelines();
   }
   pipeline_device_ = device;
@@ -119,7 +119,7 @@ void WorldPass::abandon() {
   lit_textured_pipeline_ = nullptr;
   pipeline_device_ = nullptr;
   meshes_.clear();
-  // Drop CPU instances too — leaving Debug-iterator proxies across a Device
+  // Drop CPU instances too â leaving Debug-iterator proxies across a Device
   // swap made the next sync_from push_back AV in _Orphan_range (world3d
   // present after abandon_mesh + new FlyCube HWND).
   instances_.clear();
@@ -177,7 +177,7 @@ void WorldPass::clear_view_camera() {
 void WorldPass::set_solid_color(float r, float g, float b, float a) {
   // Color is a draw-time constant (ColorCB), not baked into vertex buffers.
   // Marking meshes_dirty_ here forced full GPU re-upload every Scene3d present
-  // (caller sets white each frame) — that dominated FPS.
+  // (caller sets white each frame) â that dominated FPS.
   if (solid_r_ == r && solid_g_ == g && solid_b_ == b && solid_a_ == a) {
     return;
   }
@@ -207,93 +207,22 @@ void WorldPass::set_solid_color(float r, float g, float b, float a) {
 }
 
 void WorldPass::clear_solid_terrain_cache() {
-  solid_terrain_forced_ = false;
-  solid_terrain_cached_ = false;
-  solid_terrain_cache_gen_ = 0;
+  terrain_.clear_solid_terrain_cache();
 }
 
 void WorldPass::update_solid_terrain(uint64_t generation, bool gate) {
+  terrain_.update_solid_terrain(instances_, generation, gate);
   if (!gate) {
-    clear_solid_terrain_cache();
     return;
   }
-  if (solid_terrain_cached_ && solid_terrain_cache_gen_ == generation) {
-    if (solid_terrain_forced_) {
-      set_solid_color(solid_terrain_rgb_[0], solid_terrain_rgb_[1],
-                      solid_terrain_rgb_[2], 1.f);
-    }
-    return;
+  if (terrain_.solid_terrain_forced()) {
+    float r = 0.f;
+    float g = 0.f;
+    float b = 0.f;
+    terrain_.forced_solid_rgb(&r, &g, &b);
+    set_solid_color(r, g, b, 1.f);
   }
-
-  float ar = 0.28f;
-  float ag = 0.52f;
-  float ab = 0.22f;
-  float amin = 1.f;
-  float amax = 0.f;
-  size_t count = 0;
-  // Prefer the largest DEM bake (china_dem), not a 2x2 overlay_tin slab.
-  size_t best_texels = 0;
-  for (const Instance& inst : instances_) {
-    if (inst.kind != vista::NodeKind::kTerrain || inst.terrain_rgba.size() < 4) {
-      continue;
-    }
-    const size_t texels = inst.terrain_rgba.size() / 4;
-    if (texels < best_texels) {
-      continue;
-    }
-    uint64_t sr = 0;
-    uint64_t sg = 0;
-    uint64_t sb = 0;
-    float local_amin = 1.f;
-    float local_amax = 0.f;
-    size_t local_count = 0;
-    for (size_t p = 0; p + 3 < inst.terrain_rgba.size(); p += 4) {
-      const float lum = (inst.terrain_rgba[p + 0] * 0.3f +
-                         inst.terrain_rgba[p + 1] * 0.59f +
-                         inst.terrain_rgba[p + 2] * 0.11f) /
-                        255.f;
-      local_amin = (std::min)(local_amin, lum);
-      local_amax = (std::max)(local_amax, lum);
-      sr += inst.terrain_rgba[p + 0];
-      sg += inst.terrain_rgba[p + 1];
-      sb += inst.terrain_rgba[p + 2];
-      ++local_count;
-    }
-    if (local_count == 0) {
-      continue;
-    }
-    best_texels = texels;
-    count = local_count;
-    amin = local_amin;
-    amax = local_amax;
-    ar = static_cast<float>(sr / count) / 255.f;
-    ag = static_cast<float>(sg / count) / 255.f;
-    ab = static_cast<float>(sb / count) / 255.f;
-  }
-  // Sky-on / stereo gate: FlyCube textured DEM samples still read near-black
-  // (21,0,0) after ocean/sky SRV alloc even when the CPU hypso bake is healthy.
-  // Always force the solid tint path under this gate — luma alone was too weak
-  // (world3d full_materials / plugin.world3d black China silhouette).
-  solid_terrain_forced_ = true;
-  // Product / score face: china lowland olive (g>r+8). Rock-mean hypso bake is
-  // brown and fails plugin_scene3d green_land_frac under solid force.
-  (void)count;
-  (void)amin;
-  (void)amax;
-  (void)ar;
-  (void)ag;
-  (void)ab;
-  ar = 0.34f;
-  ag = 0.58f;
-  ab = 0.24f;
-  solid_terrain_rgb_[0] = ar;
-  solid_terrain_rgb_[1] = ag;
-  solid_terrain_rgb_[2] = ab;
-  set_solid_color(ar, ag, ab, 1.f);
-  solid_terrain_cached_ = true;
-  solid_terrain_cache_gen_ = generation;
 }
-
 void WorldPass::set_solid_color_from_colorref(long colorref) {
   const float r = static_cast<float>((colorref >> 0) & 0xff) / 255.f;
   const float g = static_cast<float>((colorref >> 8) & 0xff) / 255.f;
@@ -359,7 +288,7 @@ void WorldPass::sync_from(const vista::World& world) {
       !(instances_.empty() && world.node_count() > 0)) {
     return;
   }
-  // Build into a fresh vector then swap — avoids Debug STL orphan-proxy AV when
+  // Build into a fresh vector then swap â avoids Debug STL orphan-proxy AV when
   // instances_ was cleared/reused after abandon across Device boundaries.
   detail::copy_world_instances(world, &instances_);
   synced_generation_ = world.generation();

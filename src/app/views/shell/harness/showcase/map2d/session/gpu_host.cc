@@ -6,7 +6,7 @@
 #include "app/views/shell/browser/browser.h"
 #include "app/views/shell/harness/showcase/map2d/common/progress.h"
 #include "render/rhi/rhi.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 #include <cstdlib>
 #include "base/process/switches.h"
@@ -51,9 +51,9 @@ render::rhi::Device* acquire_map2d_showcase_gpu_device(Browser& browser,
                                                        int showcase_h,
                                                        bool* out_owned) {
   *out_owned = false;
-  // Reuse MapViewport FlyCube device only when already warm at matching size.
-  if (ui::views::MapViewport* pane = browser.map_viewport()) {
-    if (pane->attach_mode() == ui::views::MapViewport::AttachMode::kFlyCube &&
+  // Reuse DrawHost FlyCube device only when already warm at matching size.
+  if (ui::views::DrawHost* pane = browser.draw_host()) {
+    if (pane->attach_mode() == ui::views::DrawHost::AttachMode::kGpuPresent &&
         pane->rhi_device()) {
       auto* device = static_cast<render::rhi::Device*>(pane->rhi_device());
       // Prefer dedicated device when viewport size != showcase export size.

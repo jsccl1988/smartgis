@@ -4,6 +4,7 @@
 #ifndef APP_VIEWS_SHELL_UI_BROWSER_VIEW_H_
 #define APP_VIEWS_SHELL_UI_BROWSER_VIEW_H_
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -14,7 +15,7 @@
 #endif
 #include <windows.h>
 
-#include "app/views/shell/browser/browser_ui_delegate.h"
+#include "app/views/shell/browser/ui_delegate.h"
 #include "ui/views/kernel/widget/widget.h"
 
 namespace content {
@@ -31,7 +32,7 @@ class CatalogView;
 class FeatureInfo;
 class LayerPropertiesPanel;
 class LegendPanel;
-class MapViewport;
+class DrawHost;
 class MeasurePanel;
 class MenuBar;
 class ProcessingPanel;
@@ -83,7 +84,8 @@ class BrowserView : public BrowserUiDelegate {
   BrowserView(const BrowserView&) = delete;
   BrowserView& operator=(const BrowserView&) = delete;
 
-  Browser* browser() const { return browser_; }
+  // Out-of-line: stale shell_ui .obj must not inline browser_ offsetof.
+  Browser* browser() const;
 
   // BrowserUiDelegate
   bool init_shell() override;
@@ -113,15 +115,15 @@ class BrowserView : public BrowserUiDelegate {
   ui::views::TabStrip* inspector_tabs() const override {
     return inspector_tabs_;
   }
-  ui::views::MapViewport* map_viewport() const override { return map_edit_; }
-  ui::views::MapViewport* map_data_viewport() const override {
+  ui::views::DrawHost* draw_host() const override { return map_edit_; }
+  ui::views::DrawHost* data_draw_host() const override {
     return map_data_;
   }
-  ui::views::MapViewport* map_scene_viewport() const override {
+  ui::views::DrawHost* scene_draw_host() const override {
     return map_scene_;
   }
 
-  ui::views::MapViewport* active_map() const override;
+  ui::views::DrawHost* active_map() const override;
   content::ViewHost* active_view_host() const override;
   void active_view_size(int* w, int* h) const override;
   bool scene3d_tab_active() const override;
@@ -134,12 +136,22 @@ class BrowserView : public BrowserUiDelegate {
   void schedule_menu_rebuild() override;
   void schedule_overlay_full_redraw() override;
   void select_map_tab(int index) override;
+  void activate_inspector_tab(int index) override;
   void show_feature_info_tab() override;
   void sync_status() override;
   void populate_ambox() override;
-  void for_each_map_viewport(
-      const std::function<void(ui::views::MapViewport*)>& fn) const override;
+  void for_each_draw_host(
+      const std::function<void(ui::views::DrawHost*)>& fn) const override;
   bool try_consume_measure_draft(const tool::Draft& draft) override;
+
+  void invalidate_native_map() override;
+  void invalidate_native_data() override;
+  void invalidate_native_scene() override;
+  void pause_all_presents() override;
+  void resume_all_presents() override;
+  void reattach_scene_draw_host() override;
+  HWND scene_native_hwnd() const override;
+  uint32_t scene_view_id() const override;
 
  private:
   void build_contents();
@@ -224,11 +236,11 @@ class BrowserView : public BrowserUiDelegate {
   ui::views::TabStrip* inspector_tabs_ = nullptr;
   // Keep map_* contiguous and stable near the historical offset: inserting
   // playback/report fields above them skews stale map_pages.obj (parallel
-  // ninja) so wire_map_scene calls set_overlay_paint on a garbage MapViewport*
+  // ninja) so wire_map_scene calls set_overlay_paint on a garbage DrawHost*
   // → STATUS_HEAP_CORRUPTION / AV during Browser::init.
-  ui::views::MapViewport* map_edit_ = nullptr;
-  ui::views::MapViewport* map_data_ = nullptr;
-  ui::views::MapViewport* map_scene_ = nullptr;
+  ui::views::DrawHost* map_edit_ = nullptr;
+  ui::views::DrawHost* map_data_ = nullptr;
+  ui::views::DrawHost* map_scene_ = nullptr;
   ui::views::TabStrip* map_tabs_ = nullptr;
   ui::views::MenuBar* menu_bar_ = nullptr;
   ui::views::StatusBar* status_bar_ = nullptr;
@@ -244,9 +256,21 @@ class BrowserView : public BrowserUiDelegate {
   ReportPanel* report_panel_ = nullptr;
   int report_tab_ = -1;
 
-  // Last widget shell_generation() successfully pushed to map panes (0 = never).
-  // Unchanged gen skips commit_widget_shell_to_maps (U3 coalesce).
+  // Last widget shell_generation() copied into a visible map overlay
+  // (0 = never / cleared on map tab switch). U3 global gen-skip keys off this.
   std::uint64_t last_shell_overlay_gen_ = 0;
+
+  // Per-pane crop cache (U3). Used to skip same-gen same-size memcpy; hidden
+  // panes are not updated. Append-only — do not insert above map_*.
+  struct LastShellOverlayCrop {
+    ui::views::DrawHost* pane = nullptr;
+    std::uint64_t gen = 0;
+    int x0 = 0;
+    int y0 = 0;
+    int width = 0;
+    int height = 0;
+  };
+  LastShellOverlayCrop last_shell_overlay_crops_[3]{};
 
   // Shell HWND subclass for wheel→map forward (append-only; do not insert
   // above map_* — parallel ninja stale .obj layout AV).

@@ -19,7 +19,7 @@ namespace ui {
 namespace views {
 
 // Bar + polyline series chart: title chrome via markup, plot via Skia paint.
-// Replaces leftover SmtChart / CDlg2DXChartView (SmtStaDiagram).
+// Replaces leftover Chart / CDlg2DXChartView (StaDiagram).
 class UI_EXPORT ChartView : public View {
  public:
   struct SeriesPoint {

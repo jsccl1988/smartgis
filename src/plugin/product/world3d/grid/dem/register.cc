@@ -15,6 +15,7 @@
 #include "gis/geo/ops/indexed_tin.h"
 #include "plugin/product/world3d/commands.h"
 #include "plugin/product/world3d/detail/contribute.h"
+#include "plugin/product/world3d/grid/dem/present/surface.h"
 #include "plugin/product/world3d/grid/dem/loader/heightmap_loader.h"
 #include "plugin/product/world3d/grid/dem/loader/trimesh_loader.h"
 #include "plugin/product/world3d/grid/dem/dialog/heightmap_loader_dialog.h"
@@ -22,6 +23,7 @@
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
+#include "plugin/runtime/widgets/present_surface_picker.h"
 #include "tool/command/command.h"
 
 #include <rapidjson/document.h>
@@ -29,12 +31,11 @@
 namespace plugin {
 namespace {
 
-World3dSurfaceWriter g_surface_writer;
-
-bool commit_surface(const OGRTriangulatedSurface& surface, const char* op) {
+bool commit_surface(content::PluginHost* host, const OGRTriangulatedSurface& surface,
+                    const char* op) {
   const int triangle_count =
       const_cast<OGRTriangulatedSurface&>(surface).getNumGeometries();
-  if (!g_surface_writer || triangle_count < 1) {
+  if (triangle_count < 1) {
     return false;
   }
   std::vector<double> xyz(static_cast<size_t>(triangle_count) * 9);
@@ -65,7 +66,19 @@ bool commit_surface(const OGRTriangulatedSurface& surface, const char* op) {
   if (live < 1) {
     return false;
   }
-  return g_surface_writer(xyz.data(), live * 3, triangles.data(), live, op);
+  if (!host) {
+    return true;
+  }
+  if (!host->gis_document()) {
+    return false;
+  }
+  if (!present_world3d_surface(host->gis_document(), host->scene3d_sink(),
+                               xyz.data(), live * 3, triangles.data(), live,
+                               op)) {
+    return false;
+  }
+  (void)host->present_dataset("smartgis.world3d", "", 1);
+  return true;
 }
 
 bool parse_args(std::string_view json, rapidjson::Document* out) {
@@ -124,7 +137,7 @@ int separator_from_name(std::string_view name) {
   return ST_SPACE;
 }
 
-bool trimesh_from_xyz(content::PluginHost*, std::string_view args_json) {
+bool trimesh_from_xyz(content::PluginHost* host, std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_args(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"world3d.trimesh_from_xyz\"}");
@@ -181,7 +194,7 @@ bool trimesh_from_xyz(content::PluginHost*, std::string_view args_json) {
     set_operation_result("{\"error\":\"load_failed\",\"op\":\"world3d.trimesh_from_xyz\"}");
     return false;
   }
-  if (!commit_surface(surface, "world3d.trimesh_from_xyz")) {
+  if (!commit_surface(host, surface, "world3d.trimesh_from_xyz")) {
     set_operation_result(
         std::string("{\"error\":\"no_map_seam\",\"op\":\"world3d.trimesh_from_xyz\",\"points\":") +
         std::to_string(n_patch * 3) + "}");
@@ -193,7 +206,7 @@ bool trimesh_from_xyz(content::PluginHost*, std::string_view args_json) {
   return true;
 }
 
-bool heightmap_from_raster(content::PluginHost*, std::string_view args_json) {
+bool heightmap_from_raster(content::PluginHost* host, std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_args(args_json, &args)) {
     set_operation_result(
@@ -237,7 +250,7 @@ bool heightmap_from_raster(content::PluginHost*, std::string_view args_json) {
         "{\"error\":\"load_failed\",\"op\":\"world3d.heightmap_from_raster\"}");
     return false;
   }
-  if (!commit_surface(surface, "world3d.heightmap_from_raster")) {
+  if (!commit_surface(host, surface, "world3d.heightmap_from_raster")) {
     set_operation_result(
         std::string(
             "{\"error\":\"no_map_seam\",\"op\":\"world3d.heightmap_from_raster\",\"points\":") +
@@ -260,10 +273,6 @@ void show_dialog(const wchar_t* title, std::unique_ptr<ui::views::View> body) {
 }
 
 }  // namespace
-
-void set_world3d_surface_writer(World3dSurfaceWriter writer) {
-  g_surface_writer = std::move(writer);
-}
 
 namespace detail {
 
@@ -298,7 +307,8 @@ bool register_world3d_dem(content::PluginHost* host) {
           kWorld3dPluginId, {"world3d.trimesh_loader", "离散点生成DEM"},
           [host](content::PluginHost*) {
             show_dialog(L"离散点生成DEM",
-                        std::make_unique<TrimeshLoaderDialog>(host));
+                        wrap_with_present_surface(
+                            host, std::make_unique<TrimeshLoaderDialog>(host)));
           })) {
     return false;
   }
@@ -306,7 +316,9 @@ bool register_world3d_dem(content::PluginHost* host) {
           kWorld3dPluginId, {"world3d.heightmap_loader", "高度图生成DEM"},
           [host](content::PluginHost*) {
             show_dialog(L"高度图生成DEM",
-                        std::make_unique<HeightmapLoaderDialog>(host));
+                        wrap_with_present_surface(
+                            host,
+                            std::make_unique<HeightmapLoaderDialog>(host)));
           })) {
     return false;
   }

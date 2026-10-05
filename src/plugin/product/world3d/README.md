@@ -28,7 +28,7 @@ Shell includes only `plugin/product/world3d/commands.h`.
 
 | Command / processing | Role |
 | --- | --- |
-| `world3d.open_earth` | Scene3D tab + China DEM framing + atmosphere (sky/ocean/cloud/fog) |
+| `world3d.open_earth` | Scene3D tab + China DEM framing + atmosphere + **contour suite** (stacked WaveHs TIN / isolines / side color scale) |
 | `world3d.load_global_dem` | JSON `{path?}` — custom/global DEM GeoTIFF; empty → resolve defaults then China stand-in |
 | `world3d.set_satellite_cloud` | JSON `{path?,enabled?}` — satellite cloud cover field or procedural deck |
 | `world3d.set_atmosphere` | JSON `{sky?,ocean?,cloud?,fog?}` — explicit atmosphere pass toggles |
@@ -38,6 +38,10 @@ Shell includes only `plugin/product/world3d/commands.h`.
 | `world3d.trimesh_from_xyz` / `heightmap_from_raster` | DEM surface → MapScene triangles |
 | `baogrid.*` / `orthogrid.*` | Same 2D handlers; `detail::contribute_prefixed_commands` |
 | `orthogrid3d.*` | 3D hex lattice + `.vts` (`register_world3d_hexgrid`) |
+
+Contour suite entry: `scene/present/contour.*` →
+`AtmosphereSession::apply_contour_suite_defaults()` (also on China Scene3D
+product seed / plugin-showcase world3d).
 
 Resources copy to `out/plugins/world3d/`. Shell `--plugins-dir` defaults to
 `<exe>/../plugins`.
@@ -60,12 +64,14 @@ DEM override seam: `gis::set_sample_dem_path_override` (cleared when falling
 back to China stand-in). Scene3d terrain rebuild honors the override so
 non-China extents are not forced back to the China box.
 
-## Viz seams (Browser installs in `Browser::init`)
+## Viz seams (shell host bridges)
 
-`set_world3d_surface_writer` + `set_world3d_scene_writer` including
+`Browser::install_plugin_host_bridges` sets `PluginHost::gis_document()` and
+`Scene3dSink` (`set_bridges` + `set_earth_bridges` for
 `open_earth` / `load_global_dem` / `set_satellite_cloud` / `set_atmosphere` /
-`fly_to` / `attach_tileset`. Unset → `no_scene_device`. 2D mesh:
-`set_orthogrid_mesh_writer`. 3D hex: `set_hex_grid_writer`.
+`fly_to` / `attach_tileset`). Unset → `no_scene_device`. Orthogrid / hexgrid
+commit through `gis_document()` + `orthogrid.present_frame` /
+`orthogrid3d.present_frame`.
 
 Satellite cloud with a path calls
 `AtmosphereSession::load_fields("<path>:cloud_cover")`.

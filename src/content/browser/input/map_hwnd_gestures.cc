@@ -118,7 +118,7 @@ void MapHwndGestures::end_extent_sample() {
 
 void MapHwndGestures::attach(HWND hwnd, PinchFn on_pinch, PanFn on_pan) {
   // Skip detach when never wired — avoids tidy on unconstructed poison when
-  // MapSession layout skew leaves has_callbacks_ non-zero garbage.
+  // BrowserSession layout skew leaves has_callbacks_ non-zero garbage.
   if (hwnd_ || subclassed_ || has_callbacks_) {
     detach();
   }

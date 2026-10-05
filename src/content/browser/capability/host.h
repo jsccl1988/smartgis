@@ -62,9 +62,8 @@ struct CapabilityHost {
   std::function<bool(const std::string& mode)> map2d_run;
   // |mode|: "land" | "ocean" | "full" | "coast"
   std::function<bool(const std::string& mode)> atmosphere_run;
-  // |mode|: "world3d" | "print" | "orthogrid" | …
-  std::function<bool(const std::string& mode)> plugin_run;
   // Plugin ProcessingPool: id + JSON args (empty object ok).
+  // Product showcases use run_processing(id) — not a chrome product switch.
   std::function<bool(const std::string& id, const std::string& args_json)>
       run_processing;
   // Short DebugAgent console self-test body.
@@ -84,8 +83,8 @@ struct CapabilityHost {
       sidecar_path;
   std::function<bool()> doc_clear;
   std::function<bool()> fit_extent;
-  // |frame|: china_product | unit_square | document_extent | traffic_beijing |
-  // flood_wuhan | world3d_tin
+  // |frame|: shell china_product | unit_square | document_extent, or a
+  // PluginHost contribute_export_frame id (product extents are not chrome).
   std::function<bool(const std::string& leaf, const std::string& frame)>
       export_bmp;
   std::function<bool(bool on)> suppress_dialogs;
@@ -94,7 +93,7 @@ struct CapabilityHost {
   std::function<bool(const std::string& path_utf8)> apply_style_file;
   std::function<bool()> invalidate_map2d;
 
-  // AnalysisPlayback ResultPlayback (traffic/flood/orthogrid).
+  // Plugin ResultPlayback (ticks "*.present_frame" processing).
   std::function<bool(int index)> analysis_set_frame;
   std::function<int(const std::string& dir_leaf)> analysis_export_frames;
 

@@ -21,6 +21,9 @@ struct TestWidgetRoot {
 // Builds a Widget with an empty root View sized to |width| x |height| (DIPs).
 void make_test_widget(TestWidgetRoot* out, int width, int height);
 
+// Offscreen GDI paint of |root| (unit tests + views_bench).
+void paint_offscreen(View* root, int width, int height);
+
 // Hit-test in |root|'s coordinate space (same as Widget client coords when
 // |root| is the contents view with origin at 0,0).
 View* find_child_at(View* root, int x, int y);

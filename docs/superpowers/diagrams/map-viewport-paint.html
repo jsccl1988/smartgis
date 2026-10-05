@@ -1,0 +1,127 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DrawHost paint — 分层与 SoT</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #6b5ea8; --cpu: #2f7d62; --gpu: #b06a1a; --code: #243447;
+    --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; }
+  h1 { margin: 0 0 6px; font-size: 1.25rem; }
+  .hero p, .note { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+  .lane { border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: var(--panel2); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; }
+  .lane.ui { background: #f3f0fa; }
+  .lane.cpu { background: #eef6f2; }
+  .lane.gpu { background: #f8efe4; }
+  .lane.shell { background: #e8f1fa; }
+  .lane p { margin: 0; font-size: 0.8rem; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #e8edf3; color: var(--muted); }
+  .flow { width: 100%; height: auto; display: block; }
+  .pulse { stroke-dasharray: 7 5; animation: dash 1s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  @media (max-width: 800px) { .lanes { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>DrawHost paint — 分层与 SoT</h1>
+    <p>
+      2D 制图 SoT 是 <code>Map2dPresenter</code> overlay，不是 leftover GPU
+      <code>SharedSurface</code> 演示网格。DXGI GPU present 仍走 Display 邮箱线程。
+    </p>
+    <p class="note" style="margin-top:8px">
+      Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§DrawHost paint composition</a>
+      · 代码：<code>src/ui/views/map/viewport/</code>
+    </p>
+  </header>
+
+  <section class="panel">
+    <h2>1. 责任分层</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>UI · wnd_proc</h3>
+        <p>Timer / WM_PAINT / size / capture。不直接调 GPU Present。</p>
+      </div>
+      <div class="lane cpu">
+        <h3>CPU · present + overlay</h3>
+        <p>3D 才 blit SharedSurface。2D 只跑 Map2dPresenter / Scene3dPresenter。</p>
+      </div>
+      <div class="lane gpu">
+        <h3>GPU · display / gpu_present</h3>
+        <p>Display 线程独占 rhi::Device。Scenic 2D 禁止这条 DXGI 路径。</p>
+      </div>
+      <div class="lane shell">
+        <h3>Shell · HUD / overlay</h3>
+        <p>Identity HUD + DrawRequest.shell。Chrome 像素不得盖住地图。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原则流（2D ContentMapView / Vista）</h2>
+    <svg class="flow" viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="20" y="40" width="160" height="64" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text x="100" y="68" text-anchor="middle" font-size="12" font-weight="650" fill="#1a2330">WM_TIMER</text>
+      <text x="100" y="86" text-anchor="middle" font-size="11" fill="#5a6a7e">InvalidateRect</text>
+      <rect x="220" y="40" width="180" height="64" rx="8" fill="#f3f0fa" stroke="#d8dee6"/>
+      <text x="310" y="68" text-anchor="middle" font-size="12" font-weight="650" fill="#1a2330">WM_PAINT</text>
+      <text x="310" y="86" text-anchor="middle" font-size="11" fill="#5a6a7e">ensure_backbuffer</text>
+      <rect x="440" y="16" width="200" height="52" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text x="540" y="36" text-anchor="middle" font-size="12" font-weight="650" fill="#b06a1a">跳过 2D SharedSurface</text>
+      <text x="540" y="54" text-anchor="middle" font-size="11" fill="#5a6a7e">leftover 演示网格</text>
+      <rect x="440" y="84" width="200" height="52" rx="8" fill="#eef6f2" stroke="#d8dee6"/>
+      <text x="540" y="104" text-anchor="middle" font-size="12" font-weight="650" fill="#2f7d62">overlay Map2dPresenter</text>
+      <text x="540" y="122" text-anchor="middle" font-size="11" fill="#5a6a7e">Vista GDI / Scenic MemFrame</text>
+      <rect x="680" y="40" width="160" height="64" rx="8" fill="#fff" stroke="#d8dee6"/>
+      <text x="760" y="68" text-anchor="middle" font-size="12" font-weight="650" fill="#1a2330">BitBlt embed</text>
+      <text x="760" y="86" text-anchor="middle" font-size="11" fill="#5a6a7e">单次 compose</text>
+      <line class="pulse" x1="180" y1="72" x2="220" y2="72" stroke="#8a96a8" stroke-width="2" marker-end="url(#arr)"/>
+      <line class="pulse" x1="400" y1="72" x2="440" y2="72" stroke="#8a96a8" stroke-width="2" marker-end="url(#arr)"/>
+      <line class="pulse" x1="640" y1="110" x2="680" y2="78" stroke="#8a96a8" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="20" y="190" font-size="12" fill="#5a6a7e">旧路径：StretchDIBits leftover GPU → 橙网格盖住 / 抢在 overlay 之前成为 SoT。新路径：2D 永不 blit 该 DIB。</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>3. Attach × 引擎</h2>
+    <table>
+      <thead>
+        <tr><th>条件</th><th>AttachMode</th><th>WM_PAINT SoT</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>GPU present 2D/3D</td><td><code>kGpuPresent</code></td><td>Display 线程 DXGI；embed 只填不透明色</td></tr>
+        <tr><td>Scenic 2D，无 force-content</td><td><code>kPlaceholder</code></td><td>Map2dPresenter overlay</td></tr>
+        <tr><td>Vista + force-content-mapview-2d</td><td><code>kContentMapView</code></td><td>仍 overlay；<strong>不</strong> blit SharedSurface</td></tr>
+        <tr><td>Scenic/GDI Scene3d</td><td><code>kPlaceholder</code></td><td>Scene3dPresenter overlay</td></tr>
+        <tr><td>Scene3d ContentMapView</td><td><code>kContentMapView</code></td><td>SharedSurface blit + HUD overlay</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

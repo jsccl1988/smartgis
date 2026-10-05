@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Shared dialog / map-preview helpers compiled into plugin_host.dll.
+# Shared dialog / map + world preview helpers compiled into plugin_host.dll.
 # Stable :widgets label forwards to that DLL (import-link consumers).
 
 import("//build/smartgis.gni")
@@ -14,6 +14,10 @@ source_set("widgets_sources") {
     "map_preview.h",
     "owned_dialog.cc",
     "owned_dialog.h",
+    "present_surface_picker.cc",
+    "present_surface_picker.h",
+    "world_preview.cc",
+    "world_preview.h",
   ]
   include_dirs += [ "//src" ]
   defines = [ "PLUGIN_HOST_EXPORTS" ]

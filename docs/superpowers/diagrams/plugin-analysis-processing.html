@@ -1,0 +1,145 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>插件分析：compute / present 处理步骤</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #e8f0f8; --sched: #f3eef8; --cpu: #eaf4ee; --gpu: #eef3ea;
+    --code: #243447; --code-bg: #eef2f6; --warn: #f8f0e8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes {
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px;
+  }
+  @media (max-width: 900px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    min-height: 150px;
+  }
+  .lane.ui { background: var(--ui); }
+  .lane.sched { background: var(--sched); }
+  .lane.cpu { background: var(--cpu); }
+  .lane.gpu { background: var(--gpu); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; }
+  .lane p, .lane li { margin: 0 0 4px; font-size: 0.8rem; color: var(--muted); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    font-size: 0.82rem;
+  }
+  .step {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; min-width: 128px;
+  }
+  .step strong { display: block; color: var(--accent); font-size: 0.75rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+  .step.active { animation: pulse 2.4s ease-in-out infinite; border-color: var(--accent); }
+  .bad { background: var(--warn); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>产品分析：从 chrome writer 到插件 processing</h1>
+    <p class="meta">Living：<code>specs/2026-09-13-plugin-host-design.md</code> §Analysis present in plugin · §Chrome runtime: execution only。Chrome 只调度；图层/网格/命名导出帧由插件 <code>contribute_*</code>。</p>
+  </header>
+
+  <section class="panel">
+    <h2>分层（谁拥有什么）</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>UI / Shell runtime</h3>
+        <p><code>PluginShell</code> · Registry 生命周期</p>
+        <p>Interact 解析 / seq·repeat · <code>run_processing(id)</code></p>
+        <p><code>PluginPlayback</code> 只拨帧索引</p>
+        <p>无 <code>plugin_run</code> / 产品 extent 表</p>
+      </div>
+      <div class="lane sched">
+        <h3>Host 缝</h3>
+        <p><code>PluginHost::run_processing</code></p>
+        <p><code>gis_document()</code> · <code>scene3d_sink()</code></p>
+        <p><code>playback()</code> · <code>contribute_export_frame</code></p>
+        <p><code>EventBus</code> <code>document.layers_changed</code></p>
+      </div>
+      <div class="lane cpu">
+        <h3>CPU compute</h3>
+        <p><code>ProcessingPool</code> worker</p>
+        <p><code>gis/analysis</code> / <code>algorithm/</code></p>
+        <p>产物文件 + <code>operation_result</code> JSON</p>
+        <p>禁止 <code>MapScene</code> / Views</p>
+      </div>
+      <div class="lane gpu">
+        <h3>Present（插件）</h3>
+        <p><code>product/&lt;id&gt;/present/</code></p>
+        <p>UI 线程 done 回调</p>
+        <p>图层 · style JSON · mesh</p>
+        <p>然后 <code>present_dataset</code></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原则流（同一 processing id）</h2>
+    <div class="flow" id="flow">
+      <div class="step" data-i="0"><strong>1 调用</strong>showcase / 对话框<br><code>run_processing(id)</code></div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="1"><strong>2 Compute</strong>worker 线程<br>内核 + 产物 JSON</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="2"><strong>3 Present</strong>UI 线程 done<br>插件提交图层/网格</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="3"><strong>4 主视图</strong><code>present_dataset</code><br>catalog 经 EventBus</div>
+    </div>
+    <p class="meta" style="margin-top:10px">调用方不串两个 id。删除 <code>set_*_writer</code> 与 <code>analysis_writer_*</code>。</p>
+  </section>
+
+  <section class="panel">
+    <h2>当前债（禁止再扩大）</h2>
+    <p class="meta"><code>Browser::init</code> → <code>wire_plugin_analysis_writers</code> → 全局 writer。chrome 认识淹没掩膜与矿体网格。双轨期 shim 可暂留，不得新增 writer 类型。</p>
+    <div class="step bad" style="margin-top:8px"><strong>反模式</strong>产品 compute 结束调用 <code>g_mask_writer</code>，shell 再画 <code>MapScene</code>。</div>
+  </section>
+</div>
+<script>
+(function () {
+  var steps = document.querySelectorAll("#flow .step");
+  var i = 0;
+  function tick() {
+    steps.forEach(function (el) { el.classList.remove("active"); });
+    if (steps[i]) steps[i].classList.add("active");
+    i = (i + 1) % steps.length;
+  }
+  tick();
+  setInterval(tick, 1600);
+})();
+</script>
+</body>
+</html>

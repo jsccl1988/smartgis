@@ -68,7 +68,7 @@
 #include "ui/views/kernel/layout/splitter.h"
 #include "ui/views/kernel/shell/theme_service.h"
 #include "ui/views/kernel/view/view.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/dialogs/select_one_dialog.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "ui/views/primitives/menu/context_menu.h"
@@ -100,7 +100,7 @@ void catalog_call(content::MapContents* session, const std::string& json);
 
 namespace {
 
-// Copy bookmark labels with a hard cap. A corrupted MapSession layout can
+// Copy bookmark labels with a hard cap. A corrupted BrowserSession layout can
 // make bookmarks().size() look huge; vector::reserve then throws length_error
 // and CRT abort() 闁?seen at BrowserView::rebuild_menus during init_shell.
 void collect_bookmark_labels(Browser* browser,
@@ -173,6 +173,10 @@ std::vector<ui::views::AmboxView::Group> enabled_plugin_groups(
 
 std::unique_ptr<BrowserUiDelegate> create_browser_ui(Browser* browser) {
   return std::make_unique<BrowserView>(browser);
+}
+
+Browser* BrowserView::browser() const {
+  return browser_;
 }
 
 BrowserView::BrowserView(Browser* browser)
@@ -260,7 +264,7 @@ LRESULT CALLBACK BrowserView::shell_wheel_subclass_proc(HWND hwnd, UINT msg,
     // FlyCube present uses SW_SHOWNOACTIVATE; focus stays on chrome so wheel
     // arrives here. Forward when the cursor is over Map / Data / 3D input.
     const POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
-    for (ui::views::MapViewport* pane :
+    for (ui::views::DrawHost* pane :
          {self->map_edit_, self->map_data_, self->map_scene_}) {
       if (!pane) {
         continue;
@@ -544,12 +548,15 @@ void BrowserView::show_shell() {
       InvalidateRect(shell, nullptr, FALSE);
     }
   }
-  if (ui::views::MapViewport* pane = active_map()) {
+  // SKIP_AMBOX skips the 15s WaitFirstMapPresent; HWND record otherwise
+  // captures empty compositor front (near-black chrome) + black map hole.
+  widget_.pump_until_shell_published(400);
+  if (ui::views::DrawHost* pane = active_map()) {
     pane->sync_native_bounds();
     // Init may have finished while the shell was still hidden; lift the DXGI
     // popup now that chrome is shown (inactive tabs stay hidden below).
     // Also bumps request_frame for the first china present.
-    pane->set_flycube_present_visible(true);
+    pane->set_gpu_present_visible(true);
     // Do NOT fit_map_extent / invalidate_frame_cache here: Display may hold
     // the map2d cache mutex on the first china present (~8s Debug). Fit's
     // overlay invalidate can also re-enter while this pump waits. Browser::show
@@ -558,6 +565,26 @@ void BrowserView::show_shell() {
     if (HWND map = pane->native_view()) {
       if (IsWindow(map)) {
         InvalidateRect(map, nullptr, FALSE);
+      }
+    }
+    // Always drain a short first map paint so HWND capture is not a black
+    // hole (SKIP_AMBOX still skips the 15s WaitFirstMapPresent below).
+    {
+      HWND shell_hwnd = widget_.hwnd();
+      const DWORD t_short = GetTickCount();
+      while (shell_hwnd && IsWindow(shell_hwnd) &&
+             GetTickCount() - t_short < 250u) {
+        if (pane->last_content_present_ok() ||
+            (browser_->map2d() &&
+             browser_->map2d()->layout_build_count() > 0)) {
+          break;
+        }
+        MSG msg = {};
+        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+          TranslateMessage(&msg);
+          DispatchMessageW(&msg);
+        }
+        Sleep(10);
       }
     }
     // Product path: do not block shell interactivity on a full first map
@@ -576,7 +603,7 @@ void BrowserView::show_shell() {
       const char* sync = base::switch_cstr("sync-first-map-present");
       const bool want_sync = sync && sync[0] == '1' && sync[1] == '\0';
       return !want_sync;
-    }() || pane->attach_mode() == ui::views::MapViewport::AttachMode::kNone;
+    }() || pane->attach_mode() == ui::views::DrawHost::AttachMode::kNone;
     if (!skip_wait) {
       BASE_TRACE_EVENT("WaitFirstMapPresent", "startup");
       uint32_t want = pane->frame_request();
@@ -584,7 +611,7 @@ void BrowserView::show_shell() {
       const DWORD t0 = GetTickCount();
       const bool content_sot =
           pane->attach_mode() ==
-          ui::views::MapViewport::AttachMode::kContentMapView;
+          ui::views::DrawHost::AttachMode::kContentMapView;
       while (shell_hwnd && IsWindow(shell_hwnd) &&
              GetTickCount() - t0 < 15000u) {
         if (content_sot) {
@@ -621,10 +648,10 @@ void BrowserView::show_shell() {
     }
   }
   if (map_data_ && map_data_ != active_map()) {
-    map_data_->set_flycube_present_visible(false);
+    map_data_->set_gpu_present_visible(false);
   }
   if (map_scene_ && map_scene_ != active_map()) {
-    map_scene_->set_flycube_present_visible(false);
+    map_scene_->set_gpu_present_visible(false);
   }
 }
 
@@ -655,8 +682,16 @@ void BrowserView::wire_catalog() {
     return;
   }
   sync_catalog_from_scene();
-  catalog_->set_source_names({"Memory"});
-  catalog_->set_map_docs({{"map.untitled", "", "Untitled map", false}});
+  // Bare launch seeds china_city (same pack as harness). Label Sources/Maps
+  // to match --ui-showcase=shell so interactive fix loops see china_city.
+  if (browser_ && browser_->document() &&
+      browser_->document()->has_china_extent()) {
+    catalog_->set_source_names({"china_city"});
+    catalog_->set_map_docs({{"china_city", "", "China", false}});
+  } else {
+    catalog_->set_source_names({"Memory"});
+    catalog_->set_map_docs({{"map.untitled", "", "Untitled map", false}});
+  }
   catalog_->set_command(
       [this](const std::string& id) { browser_->on_catalog_command(id); });
   catalog_->layer_tree()->set_visible_changed(
@@ -746,7 +781,7 @@ void BrowserView::sync_catalog_from_scene() {
 }
 
 bool BrowserView::scene3d_tab_active() const {
-  return map_tabs_ && map_tabs_->active() == 2;
+  return map_tabs_ && map_tabs_->active() == 1;
 }
 
 void BrowserView::on_map_right_click(HWND map_hwnd, int view_x, int view_y) {
@@ -894,13 +929,14 @@ void BrowserView::populate_ambox() {
     return;
   }
   // Soft-skip catalog walk when parallel rebuilds leave CommandCatalog maps
-  // unreadable (AV in tool::CommandCatalog::for_each). FPS bench and map2d /
-  // plugin showcases set these env gates from BrowserMain.
-  if (const char* bench = base::switch_cstr("map2d-fps-bench-ms")) {
-    if (bench[0] != '\0' && std::atoi(bench) > 0) {
-      return;
-    }
-  }
+  // unreadable (AV in tool::CommandCatalog::for_each). FPS bench used to
+  // skip the whole populate — that left clear/point/polygon sharing the
+  // default cursor glyph. Keep workspace chips; still avoid plugin registry
+  // walks when benching (freefill AV under Debug rebuilds).
+  const bool fps_benching = [] {
+    const char* bench = base::switch_cstr("map2d-fps-bench-ms");
+    return bench && bench[0] != '\0' && std::atoi(bench) > 0;
+  }();
   // Match wire_report_panel / wire_edit_feedback: any non-empty non-"0" skip.
   if (const char* skip = base::switch_cstr("skip-ambox-catalog");
       skip && skip[0] != '\0' && skip[0] != '0') {
@@ -914,7 +950,7 @@ void BrowserView::populate_ambox() {
   // Debug links have AVd catalog_.get() on freefill (0xCD) while plugins()
   // still looks live. Workspace catalog is enough until on_plugins refreshes.
   std::vector<ui::views::AmboxView::Group> plugin_groups;
-  if (ambox_include_plugins_ && browser_->plugins()) {
+  if (!fps_benching && ambox_include_plugins_ && browser_->plugins()) {
     PluginShell* shell = browser_->plugins();
     const auto shell_addr = reinterpret_cast<uintptr_t>(shell);
     // MSVC Debug freefill / freed-heap markers (populate_ambox AV dumps).
@@ -989,6 +1025,10 @@ void BrowserView::ensure_processing_panel() {
   ensure_inspector_tab(processing_tab_);
 }
 
+void BrowserView::activate_inspector_tab(int index) {
+  show_inspector_tab_index(index);
+}
+
 void BrowserView::show_inspector_tab_index(int index) {
   ensure_inspector_tab(index);
   if (inspector_tabs_ && index >= 0) {
@@ -1050,7 +1090,7 @@ void BrowserView::ensure_inspector_tab(int index) {
 }
 
 void BrowserView::sync_status() {
-  ui::views::MapViewport* pane = active_map();
+  ui::views::DrawHost* pane = active_map();
   if (!status_bar_ || !pane) {
     return;
   }
@@ -1067,7 +1107,7 @@ void BrowserView::show_feature_info_tab() {
 
 void BrowserView::schedule_overlay_full_redraw() {
   HWND h = nullptr;
-  if (ui::views::MapViewport* pane = active_map()) {
+  if (ui::views::DrawHost* pane = active_map()) {
     h = pane->native_view();
   }
   if (!h) {
@@ -1119,12 +1159,69 @@ void BrowserView::wire_tool_seams() {
   map_pages_->wire_tool_seams();
 }
 
-void BrowserView::for_each_map_viewport(const std::function<void(ui::views::MapViewport*)>& fn) const {
-  map_pages_->for_each_map_viewport(fn);
+void BrowserView::for_each_draw_host(const std::function<void(ui::views::DrawHost*)>& fn) const {
+  map_pages_->for_each_draw_host(fn);
 }
 
 void BrowserView::invalidate_map_overlays() {
   map_pages_->invalidate_map_overlays();
+}
+
+void BrowserView::invalidate_native_map() {
+  if (map_edit_) {
+    map_edit_->invalidate_native();
+  }
+}
+
+void BrowserView::invalidate_native_data() {
+  if (map_data_) {
+    map_data_->invalidate_native();
+  }
+}
+
+void BrowserView::invalidate_native_scene() {
+  if (map_scene_) {
+    map_scene_->invalidate_native();
+  }
+}
+
+void BrowserView::pause_all_presents() {
+  for_each_draw_host([](ui::views::DrawHost* pane) {
+    if (pane) {
+      pane->pause_present();
+    }
+  });
+}
+
+void BrowserView::resume_all_presents() {
+  ui::views::DrawHost* active = active_map();
+  for_each_draw_host([active](ui::views::DrawHost* pane) {
+    if (!pane) {
+      return;
+    }
+    pane->set_gpu_present_visible(pane == active);
+    if (pane->attach_mode() == ui::views::DrawHost::AttachMode::kNone) {
+      return;
+    }
+    pane->resume_present_timer();
+    pane->invalidate_native();
+  });
+}
+
+void BrowserView::reattach_scene_draw_host() {
+  if (!map_scene_) {
+    return;
+  }
+  map_scene_->detach();
+  (void)map_scene_->attach();
+}
+
+HWND BrowserView::scene_native_hwnd() const {
+  return map_scene_ ? map_scene_->native_view() : nullptr;
+}
+
+uint32_t BrowserView::scene_view_id() const {
+  return map_scene_ ? map_scene_->view_id() : 0;
 }
 
 void BrowserView::attach_hwnd_gestures() {
@@ -1143,7 +1240,7 @@ void BrowserView::switch_map_tab(int i) {
   map_pages_->switch_map_tab(i);
 }
 
-ui::views::MapViewport* BrowserView::active_map() const {
+ui::views::DrawHost* BrowserView::active_map() const {
   return map_pages_->active_map();
 }
 

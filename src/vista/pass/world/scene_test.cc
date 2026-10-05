@@ -137,7 +137,7 @@ int main() {
            "set terrain mesh");
     expect(terrain->has_terrain_mesh(), "node has terrain mesh");
     terrain_gpu.sync_from(terrain_world);
-    expect(terrain_gpu.instance_at(0)->terrain_indices.size() == 6,
+    expect(terrain_gpu.instance_at(0)->terrain.indices.size() == 6,
            "synced terrain indices");
     render::rhi::CommandList* mesh_list = device->create_command_list();
     expect(terrain_gpu.record(device.get(), mesh_list, 64, 64),
@@ -239,7 +239,7 @@ int main() {
   render::rhi::CommandList* list2 = device->create_command_list();
   expect(!gpu.record(device.get(), list2, 0, 64), "zero width");
 
-  // Tileset content → mesh: missing URI keeps AABB (36 indices). With tinygltf
+  // Tileset content â mesh: missing URI keeps AABB (36 indices). With tinygltf
   // and a temp GLB, decoded triangle (3 indices) replaces the AABB bridge.
   {
     const char* ts_json =
@@ -338,7 +338,7 @@ int main() {
     }
   }
 
-  // Style ResolvedPaint → per-mesh solid colors (not one global set_solid_color).
+  // Style ResolvedPaint â per-mesh solid colors (not one global set_solid_color).
   {
     vista::ModelAsset cube_a;
     vista::ModelAsset cube_b;
@@ -399,7 +399,7 @@ int main() {
                paint_color.a < 0.51f,
            "last solid is line green");
 
-    // Re-record with circle paint on instance 0 → different solid than fill.
+    // Re-record with circle paint on instance 0 â different solid than fill.
     gis::style::ResolvedPaint circle_paint;
     circle_paint.type = gis::style::LayerType::kCircle;
     circle_paint.circle_color = 0xFF0000FF;  // blue
@@ -465,7 +465,7 @@ int main() {
     expect(static_cast<render::rhi::StubCommandList*>(bg_list)->closed,
            "bg list closed");
 
-    // Symbol with in-memory RGBA bytes → textured draw (bind_texture).
+    // Symbol with in-memory RGBA bytes â textured draw (bind_texture).
     gis::style::ResolvedPaint symbol_paint;
     symbol_paint.type = gis::style::LayerType::kSymbol;
     symbol_paint.has_symbol = true;
@@ -506,7 +506,7 @@ int main() {
            "missing symbol path stays lit");
   }
 
-  // Paint line_width → LineTessOptions::pixel_width changes ribbon half-width
+  // Paint line_width â LineTessOptions::pixel_width changes ribbon half-width
   // in world units (same topology for butt; observable via vertex Y extent).
   // Round caps also bump index count vs butt for the same width.
   {
@@ -520,7 +520,7 @@ int main() {
 
     vista::WorldPass line_gpu;
     line_gpu.sync_from(line_world);
-    // Envelope width 100 world / 100 px → world_units_per_pixel = 1.
+    // Envelope width 100 world / 100 px â world_units_per_pixel = 1.
     line_gpu.set_view_ortho(0, -50, 100, 50);
 
     gis::style::ResolvedPaint thin;
@@ -547,7 +547,7 @@ int main() {
            "thin ribbon height ~2 world");
 
     gis::style::ResolvedPaint thick = thin;
-    thick.line_width = 8.f;  // half_world = 4 → full height 8
+    thick.line_width = 8.f;  // half_world = 4 â full height 8
     expect(line_gpu.set_instance_paint(0, thick), "set thick line paint");
     render::rhi::CommandList* thick_list = device->create_command_list();
     expect(line_gpu.record(device.get(), thick_list, 100, 100),
@@ -708,7 +708,7 @@ int main() {
     }
   }
 
-  // P0 Task 4: CPU frustum vs AABB (pure + WorldPass ≥64 instances).
+  // P0 Task 4: CPU frustum vs AABB (pure + WorldPass â¥64 instances).
   {
     float identity[16];
     render::rhi::set_identity4(identity);
@@ -816,7 +816,7 @@ int main() {
     base::set_switch("gpuscene-prep-parallel", "1");
     expect(vista::detail::prep_parallel_effective_workers(true) ==
                vista::detail::prep_parallel_requested_workers(),
-           "prep_par + cull → effective == requested");
+           "prep_par + cull â effective == requested");
     render::rhi::CommandList* prep_list = device->create_command_list();
     expect(cull_gpu.record(device.get(), prep_list, 64, 64),
            "record with prep_par + cull");
@@ -841,14 +841,14 @@ int main() {
     base::set_switch("scene3d-frustum-cull", "");
     base::set_switch("gpuscene-prep-parallel", "");
     expect(vista::detail::prep_parallel_requested_workers() == 1,
-           "default prep_par off → N=1");
+           "default prep_par off â N=1");
     expect(vista::detail::prep_parallel_effective_workers(false) == 1,
-           "cull off → effective N=1");
+           "cull off â effective N=1");
     base::set_switch("gpuscene-prep-parallel", "1");
     expect(vista::detail::prep_parallel_requested_workers() >= 1,
            "prep_par=1 requests >= 1");
     expect(vista::detail::prep_parallel_effective_workers(false) == 1,
-           "prep_par=1 without cull → still N=1");
+           "prep_par=1 without cull â still N=1");
     std::vector<vista::MeshCullItem> empty_meshes(4);
     std::vector<uint8_t> visible;
     vista::detail::prep_cull_meshes(empty_meshes, nullptr, &visible);

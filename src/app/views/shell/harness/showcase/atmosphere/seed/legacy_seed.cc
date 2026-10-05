@@ -82,7 +82,7 @@ int seed_atmosphere_legacy_mode(Browser& browser,
   }
   // CPU label list only (no GPU attach). Must run before the count gate —
   // apply_china may skip overlays under ATMOSPHERE_SHOWCASE_GPU=1.
-  (void)cam->gpu().ensure_legacy_overlays();
+  (void)cam->ensure_legacy_overlays();
   if (cam->gpu().legacy_label_count() < 8) {
     std::fprintf(stderr, "atmosphere-showcase: legacy labels missing\n");
     return 53;

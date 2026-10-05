@@ -12,14 +12,15 @@
 #include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/harness/common/pump/pump.h"
 #include "app/views/shell/harness/showcase/plugin/capture/capture.h"
-#include "app/views/shell/harness/showcase/plugin/common/common.h"
-#include "app/views/shell/harness/showcase/plugin/present/present_warmup.h"
+#include "app/views/shell/harness/showcase/plugin/session/device_session.h"
 #include "app/views/shell/harness/showcase/plugin/seed/mine_seed.h"
 #include "app/views/shell/harness/showcase/plugin/seed/orbit_seed.h"
-#include "app/views/shell/harness/showcase/plugin/session/device_session.h"
-#include "app/views/shell/harness/showcase/plugin/session/session_finish.h"
+#include "app/views/shell/harness/showcase/plugin/common/plugin_io.h"
+#include "app/views/shell/harness/showcase/plugin/present/present_warmup.h"
+#include "app/views/shell/harness/common/present/rhi_present_session.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
+#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 
 namespace app {
 namespace detail {
@@ -39,9 +40,12 @@ int run_mine_scene3d(Browser& browser) {
   }
   plugin_showcase_mark("sample-ok");
 
-  // Owned present HWND is the Scene3D capture target (peer world3d). Skip
-  // select_map_tab(2): switch_map_tab stereo release AVs when leftover GL
-  // destroy_ is stale under FlyCube-default sessions.
+  // GPU Scene3D on the main App 3D pane (FlyCube/RHI). Never GDI software 3D.
+  if (!content::apply_scene3d_engine_from_env() ||
+      content::prefer_scene3d_gdi()) {
+    content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
+  }
+
   plugin_showcase_mark("tab3d");
   pump_messages(200);
 
@@ -76,27 +80,21 @@ int run_mine_scene3d(Browser& browser) {
     return 1;
   }
 
-  cam->gpu().set_wireframe_enabled(true);
+  cam->gpu().set_wireframe_enabled(false);
 
   PluginPresentFailPolicy warm_fail;
-  warm_fail.clear_tin = false;  // keep purple stratum through warmup + capture
-  warm_fail.clear_pointcloud = false;  // keep amber borehole sticks
+  warm_fail.clear_tin = false;  // keep layered stratum through warmup + capture
+  warm_fail.clear_pointcloud = true;
   warm_fail.abandon_mesh = false;
   warm_fail.shutdown_device = true;
   if (const int rc = present_plugin_warmup_frames(
-          cam, &session, browser, "mine", warm_fail)) {
+          cam, &session, browser, "mine", warm_fail, 3)) {
     return rc;
   }
 
-  // Re-commit overlay after DEM rebuild so GDI capture sees purple + amber.
-  if (!seed_mine_processing(browser, csv_path)) {
-    plugin_showcase_mark("mine-recommit-fail");
-  }
   frame_mine_orbit(orbit);
-  for (int i = 0; i < 2; ++i) {
-    (void)cam->present_gpu(session.device, kPluginShowcasePresentW,
-                           kPluginShowcasePresentH);
-    pump_messages(30);
+  if (present_shell_scene3d_frame(browser.scene_draw_host(), 400)) {
+    plugin_showcase_mark("present-gpu-ok");
   }
 
   PluginCaptureOpts capture;
@@ -108,14 +106,14 @@ int run_mine_scene3d(Browser& browser) {
       PluginTeardownOpts{.clear_pointcloud = true,
                          .clear_tin = true,
                          .abandon_mesh = true,
-                         .shutdown_device = true});
+                         .shutdown_device = false});
 
   if (!bmp_ok && session.want_gpu) {
-    detach_maps(browser);
+    finish_scene3d_showcase(browser, session.borrowed_shell);
     return 54;
   }
   plugin_showcase_mark("pass");
-  detach_maps(browser);
+  finish_scene3d_showcase(browser, session.borrowed_shell);
   std::fprintf(stderr, "plugin-showcase: PASS mode=mine (Scene3D)\n");
   return 0;
 }

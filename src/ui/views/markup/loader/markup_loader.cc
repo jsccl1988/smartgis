@@ -26,6 +26,16 @@
 
 namespace ui {
 namespace views {
+
+MarkupRoot::MarkupRoot() = default;
+MarkupRoot::MarkupRoot(MarkupRoot&&) noexcept = default;
+MarkupRoot& MarkupRoot::operator=(MarkupRoot&&) noexcept = default;
+MarkupRoot::~MarkupRoot() = default;
+
+bool MarkupRoot::ok() const {
+  return root != nullptr;
+}
+
 namespace {
 
 std::string to_lower(std::string_view s) {

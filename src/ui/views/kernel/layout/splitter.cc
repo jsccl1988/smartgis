@@ -231,9 +231,28 @@ void Splitter::adjust_for_host_resize() {
       primary_extent_ = inner * primary_extent_ / last_inner;
     }
   } else if (resize_policy_ == ResizePolicy::kSecondaryFixed) {
-    primary_extent_ = inner - fixed_secondary_px_;
+    // Match seed_split_if_needed: keep primary ≥2/3 of inner. A raw
+    // fixed_secondary_px_ (Diagnostic ~500) after window(resize) to 960x640
+    // used to leave Map/3D at ~40x93 and FlyCube Init a stub swapchain
+    // (ui.interact Phase A2→B).
+    if (fixed_secondary_px_ <= 0) {
+      primary_extent_ = inner;
+    } else {
+      const int min_primary = std::max(kMinPanePx, (inner * 2) / 3);
+      const int max_secondary = std::max(0, inner - min_primary);
+      primary_extent_ = inner - std::min(fixed_secondary_px_, max_secondary);
+    }
+  } else if (resize_policy_ == ResizePolicy::kPrimaryFixed) {
+    // Catalog|Map: keep catalog preferred, but never leave Map at kMinPanePx
+    // after a large-window seed (catalog_w≈750) + window(resize) to 960 —
+    // secondary used to absorb the entire shrink (FlyCube client 40x93).
+    const int min_secondary = std::max(kMinPanePx, inner / 3);
+    const int max_primary = std::max(0, inner - min_secondary);
+    if (primary_extent_ > max_primary) {
+      primary_extent_ = max_primary;
+    }
   }
-  // kPrimaryFixed: keep primary_extent_; secondary absorbs growth.
+  // kPrimaryFixed growth: primary_extent_ stays; secondary absorbs (above).
   last_main_ = main;
 }
 
@@ -251,6 +270,22 @@ void Splitter::clamp_primary() {
     primary_extent_ = std::max(0, main - kBarPx);
     return;
   }
+  const int inner = std::max(0, main - kBarPx);
+  if (resize_policy_ == ResizePolicy::kSecondaryFixed &&
+      fixed_secondary_px_ > 0) {
+    const int min_primary = std::max(kMinPanePx, (inner * 2) / 3);
+    const int max_secondary = std::max(0, inner - min_primary);
+    const int secondary = std::min(fixed_secondary_px_, max_secondary);
+    primary_extent_ = std::max(min_primary, inner - secondary);
+    return;
+  }
+  if (resize_policy_ == ResizePolicy::kPrimaryFixed) {
+    const int min_secondary = std::max(kMinPanePx, inner / 3);
+    const int max_primary = std::max(0, inner - min_secondary);
+    primary_extent_ =
+        std::max(kMinPanePx, std::min(primary_extent_, max_primary));
+    return;
+  }
   const int max_primary = main - kBarPx - kMinPanePx;
   if (main < kMinPanePx * 2 + kBarPx) {
     primary_extent_ = std::max(0, std::min(primary_extent_, main - kBarPx));
@@ -263,10 +298,17 @@ void Splitter::apply_child_bounds() {
   const Rect& b = bounds();
   View* a = child_count() > 0 ? child_at(0) : nullptr;
   View* sec = child_count() > 1 ? child_at(1) : nullptr;
-  if (is_horizontal()) {
-    place_panes<Axis::kHorizontal>(a, sec, b, primary_extent_, kBarPx);
+  const int main = is_horizontal() ? b.width : b.height;
+  int primary = primary_extent_;
+  if (main > kBarPx) {
+    primary = std::max(0, std::min(primary, main - kBarPx));
   } else {
-    place_panes<Axis::kVertical>(a, sec, b, primary_extent_, kBarPx);
+    primary = 0;
+  }
+  if (is_horizontal()) {
+    place_panes<Axis::kHorizontal>(a, sec, b, primary, kBarPx);
+  } else {
+    place_panes<Axis::kVertical>(a, sec, b, primary, kBarPx);
   }
 }
 
@@ -277,10 +319,13 @@ void Splitter::layout() {
   apply_child_bounds();
   for (size_t i = 0; i < child_count(); ++i) {
     View* child = child_at(i);
-    if (child && child->is_visible()) {
-      child->layout();
-      child->sync_native_bounds();
+    if (!child) {
+      continue;
     }
+    if (child->is_visible()) {
+      child->layout();
+    }
+    child->sync_native_bounds();
   }
 }
 

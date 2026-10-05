@@ -11,9 +11,9 @@ class Browser;
 // Atmosphere toggles after apply_china_scene3d_* (for UI sync).
 struct ChinaScene3dAtmoFlags {
   bool ocean = true;
-  bool cloud = true;
-  bool sky = true;
-  bool fog = true;
+  bool cloud = false;
+  bool sky = false;
+  bool fog = false;
 };
 
 // Shared China product defaults for interactive shell and showcase gates.

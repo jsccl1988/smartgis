@@ -168,7 +168,9 @@ class UI_EXPORT View {
   virtual bool on_ime_composition(std::wstring_view text, bool is_result);
 
  protected:
-  // Clears needs_layout and suppresses ancestor marks for this pass.
+  // Clears this node's needs_layout at the start of a pass. Marks that fire
+  // during the pass (add_child / set_visible) bubble so Widget can drain
+  // another layout() instead of dropping the dirty bit.
   class LayoutScope {
    public:
     explicit LayoutScope(View* view) : view_(view) {

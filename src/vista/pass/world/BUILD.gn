@@ -7,6 +7,26 @@ import("//testing/test.gni")
 # GPU: GpuMesh upload / pipelines / record. Facade WorldPass.
 # CPU sync, tess, cull, and index live in //src/vista/component/world:world_sources.
 # Public root: pass / gpu_mesh / opaque_effect. Internals under detail/.
+# Separate set: terrain/pass.cc and pass.cc both map to pass.obj (MSVC basename).
+source_set("world_pass_terrain") {
+  sources = [
+    "terrain/pass.cc",
+    "terrain/pass.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  public_deps = [
+    "//src/render:render",
+    "//src/vista/component/world:world_sources",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/gis:gis",
+  ]
+}
+
 source_set("world_pass_sources") {
   sources = [
     "cull/frustum_camera.cc",
@@ -30,6 +50,7 @@ source_set("world_pass_sources") {
   public_configs = [ "//build:legacy" ]
   defines = [ "VISTA_EXPORTS" ]
   public_deps = [
+    ":world_pass_terrain",
     "//src/render:render",
     "//src/vista/component/world:world_sources",
     "//third_party:gdal",
@@ -62,4 +83,12 @@ test("unified_draw_test") {
   if (has_flycube) {
     defines = [ "HAS_FLYCUBE" ]
   }
+}
+
+test("terrain_pass_test") {
+  output_name = "terrain_pass_test"
+  sources = [ "terrain/pass_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [ "//src/vista:vista" ]
 }

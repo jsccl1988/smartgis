@@ -8,15 +8,19 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "content/public/plugin_host.h"
 #include "gis/analysis/raster/dem/storm_surge.h"
 #include "gis/analysis/raster/dem/storm_surge_stats.h"
+#include "plugin/product/stormsurge/present/mask.h"
+#include "plugin/product/stormsurge/present/water_mesh.h"
 #include "plugin/product/stormsurge/views/run_dialog.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
+#include "plugin/runtime/widgets/present_surface_picker.h"
 #include "tool/command/command.h"
 
 #include <rapidjson/document.h>
@@ -28,11 +32,10 @@ namespace {
 
 constexpr const char* kPluginId = "smartgis.stormsurge";
 
-StormSurgeMaskWriter g_mask_writer;
-StormSurgeWaterMeshWriter g_water_mesh_writer;
 std::string g_last_output;
 std::string g_last_depth_output;
 std::string g_coast_path;
+gis::detail::StormSurgeResult g_last_surge;
 
 bool parse_args(std::string_view json, rapidjson::Document* out) {
   if (!out) {
@@ -87,7 +90,151 @@ double result_water_level(const gis::detail::StormSurgeResult& result) {
   return 0.0;
 }
 
-bool stormsurge_run(content::PluginHost*, std::string_view args_json) {
+bool stormsurge_present(content::PluginHost* host) {
+  if (!host || !g_last_surge.ok) {
+    set_operation_result(
+        "{\"error\":\"stormsurge_failed\",\"op\":\"stormsurge.run\"}");
+    return false;
+  }
+  const gis::detail::StormSurgeResult& result = g_last_surge;
+  const double water_level = result_water_level(result);
+  content::GisDocument* gis = host->gis_document();
+  content::PluginHost::Scene3dSink* sink = host->scene3d_sink();
+  const int frame_count =
+      result.frame_masks.empty()
+          ? 1
+          : static_cast<int>(result.frame_masks.size());
+  if (!gis) {
+    set_operation_result(
+        "{\"error\":\"no_stormsurge_seam\",\"op\":\"stormsurge.run\"}");
+    return false;
+  }
+  for (int i = 0; i < frame_count; ++i) {
+    const unsigned char* mask =
+        result.frame_masks.empty()
+            ? result.mask.data()
+            : result.frame_masks[static_cast<size_t>(i)].data();
+    const double frame_level =
+        (i < static_cast<int>(result.surge_levels.size()))
+            ? result.surge_levels[static_cast<size_t>(i)]
+            : water_level;
+    if (!present_stormsurge_mask(gis, sink, nullptr, mask, result.width,
+                                 result.height, result.geotransform, i == 0,
+                                 frame_level)) {
+      set_operation_result(
+          "{\"error\":\"no_stormsurge_seam\",\"op\":\"stormsurge.run\"}");
+      return false;
+    }
+  }
+  int pushed = 0;
+  for (int i = 0; i < frame_count; ++i) {
+    const gis::detail::StormSurgeWaterMesh mesh =
+        gis::detail::build_storm_surge_water_mesh(result, i, /*max_dim=*/160);
+    const int point_count = static_cast<int>(mesh.xyz.size() / 3);
+    const int triangle_count = static_cast<int>(mesh.indices.size() / 3);
+    if (point_count < 3 || triangle_count < 1) {
+      continue;
+    }
+    if (!present_stormsurge_water_mesh(gis, sink, nullptr, mesh.xyz.data(),
+                                       point_count, mesh.indices.data(),
+                                       triangle_count)) {
+      set_operation_result(
+          "{\"error\":\"no_stormsurge_water_mesh\",\"op\":\"stormsurge.run\"}");
+      return false;
+    }
+    ++pushed;
+  }
+  if (pushed == 0) {
+    set_operation_result(
+        "{\"error\":\"empty_water_mesh\",\"op\":\"stormsurge.run\"}");
+    return false;
+  }
+  if (content::PluginHost::Playback* pb = host->playback()) {
+    pb->clear();
+    for (int i = 0; i < frame_count; ++i) {
+      pb->push_frame("{\"index\":" + std::to_string(i) + "}");
+    }
+    pb->set_index(static_cast<size_t>(frame_count > 0 ? frame_count - 1 : 0));
+  }
+  (void)host->present_dataset(kPluginId, "", 1);
+  set_operation_result(
+      std::string("{\"ok\":true,\"op\":\"stormsurge.run\",\"width\":") +
+      std::to_string(result.width) + ",\"height\":" +
+      std::to_string(result.height) +
+      ",\"kernel\":\"native.storm_surge\",\"water_mesh\":true}");
+  return true;
+}
+
+bool stormsurge_present_frame(content::PluginHost* host,
+                              std::string_view args_json) {
+  if (!host || !g_last_surge.ok) {
+    set_operation_result(
+        "{\"error\":\"no_stormsurge_session\",\"op\":\"stormsurge.present_frame\"}");
+    return false;
+  }
+  content::GisDocument* gis = host->gis_document();
+  if (!gis) {
+    set_operation_result(
+        "{\"error\":\"no_stormsurge_seam\",\"op\":\"stormsurge.present_frame\"}");
+    return false;
+  }
+  int index = 0;
+  rapidjson::Document args;
+  if (parse_args(args_json, &args)) {
+    json_get_int(args, "index", &index);
+  }
+  const gis::detail::StormSurgeResult& result = g_last_surge;
+  const int frame_count =
+      result.frame_masks.empty()
+          ? 1
+          : static_cast<int>(result.frame_masks.size());
+  if (index < 0) {
+    index = 0;
+  }
+  if (index >= frame_count) {
+    index = frame_count - 1;
+  }
+  const double water_level = result_water_level(result);
+  const double frame_level =
+      (index < static_cast<int>(result.surge_levels.size()))
+          ? result.surge_levels[static_cast<size_t>(index)]
+          : water_level;
+  const unsigned char* mask =
+      result.frame_masks.empty()
+          ? result.mask.data()
+          : result.frame_masks[static_cast<size_t>(index)].data();
+  content::PluginHost::Scene3dSink* sink = host->scene3d_sink();
+  if (!present_stormsurge_mask(gis, sink, nullptr, mask, result.width,
+                               result.height, result.geotransform,
+                               /*begin_session=*/false, frame_level)) {
+    set_operation_result(
+        "{\"error\":\"present_failed\",\"op\":\"stormsurge.present_frame\"}");
+    return false;
+  }
+  const gis::detail::StormSurgeWaterMesh mesh =
+      gis::detail::build_storm_surge_water_mesh(result, index, /*max_dim=*/160);
+  const int point_count = static_cast<int>(mesh.xyz.size() / 3);
+  const int triangle_count = static_cast<int>(mesh.indices.size() / 3);
+  if (point_count >= 3 && triangle_count >= 1) {
+    if (!present_stormsurge_water_mesh(gis, sink, nullptr, mesh.xyz.data(),
+                                       point_count, mesh.indices.data(),
+                                       triangle_count)) {
+      set_operation_result(
+          "{\"error\":\"present_failed\",\"op\":\"stormsurge.present_frame\"}");
+      return false;
+    }
+  }
+  if (content::PluginHost::Playback* pb = host->playback()) {
+    pb->set_index(static_cast<size_t>(index));
+  }
+  set_operation_result("{\"ok\":true,\"op\":\"stormsurge.present_frame\"}");
+  return true;
+}
+
+bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
+  if (host) {
+    return stormsurge_present(host);
+  }
   rapidjson::Document args;
   if (!parse_args(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"stormsurge.run\"}");
@@ -247,69 +394,12 @@ bool stormsurge_run(content::PluginHost*, std::string_view args_json) {
     }
   }
 
-  const double water_level = result_water_level(result);
-  if (g_mask_writer) {
-    const int frame_count =
-        result.frame_masks.empty()
-            ? 1
-            : static_cast<int>(result.frame_masks.size());
-    for (int i = 0; i < frame_count; ++i) {
-      const unsigned char* mask =
-          result.frame_masks.empty()
-              ? result.mask.data()
-              : result.frame_masks[static_cast<size_t>(i)].data();
-      const double frame_level =
-          (i < static_cast<int>(result.surge_levels.size()))
-              ? result.surge_levels[static_cast<size_t>(i)]
-              : water_level;
-      if (!g_mask_writer(mask, result.width, result.height, result.geotransform,
-                         i, frame_count, frame_level)) {
-        set_operation_result(
-            "{\"error\":\"no_stormsurge_seam\",\"op\":\"stormsurge.run\"}");
-        return false;
-      }
-    }
-  }
-
-  const int frame_count =
-      result.frame_masks.empty()
-          ? 1
-          : static_cast<int>(result.frame_masks.size());
-  if (g_water_mesh_writer) {
-    int pushed = 0;
-    for (int i = 0; i < frame_count; ++i) {
-      // Denser free-surface (160) so mid inundation reads as a water TIN, not
-      // a single highlight body on a coarse DEM.
-      const gis::detail::StormSurgeWaterMesh mesh =
-          gis::detail::build_storm_surge_water_mesh(result, i, /*max_dim=*/160);
-      const int point_count = static_cast<int>(mesh.xyz.size() / 3);
-      const int triangle_count = static_cast<int>(mesh.indices.size() / 3);
-      if (point_count < 3 || triangle_count < 1) {
-        // Empty wet mask on an early tide frame is OK; skip store/push.
-        continue;
-      }
-      if (!g_water_mesh_writer(mesh.xyz.data(), point_count, mesh.indices.data(),
-                               triangle_count, i, frame_count)) {
-        set_operation_result(
-            "{\"error\":\"no_stormsurge_water_mesh\",\"op\":\"stormsurge.run\"}");
-        return false;
-      }
-      ++pushed;
-    }
-    if (pushed == 0) {
-      set_operation_result(
-          "{\"error\":\"empty_water_mesh\",\"op\":\"stormsurge.run\"}");
-      return false;
-    }
-  }
-
+  g_last_surge = std::move(result);
   set_operation_result(
       std::string("{\"ok\":true,\"op\":\"stormsurge.run\",\"width\":") +
-      std::to_string(result.width) + ",\"height\":" +
-      std::to_string(result.height) +
-      ",\"kernel\":\"native.storm_surge\"" +
-      (g_mask_writer ? "" : ",\"viz\":\"file_only\"") +
-      (g_water_mesh_writer ? ",\"water_mesh\":true" : "") + "}");
+      std::to_string(g_last_surge.width) + ",\"height\":" +
+      std::to_string(g_last_surge.height) +
+      ",\"kernel\":\"native.storm_surge\"}");
   return true;
 }
 
@@ -488,14 +578,6 @@ void show_dialog(const wchar_t* title, std::unique_ptr<ui::views::View> body) {
 
 }  // namespace
 
-void set_stormsurge_mask_writer(StormSurgeMaskWriter writer) {
-  g_mask_writer = std::move(writer);
-}
-
-void set_stormsurge_water_mesh_writer(StormSurgeWaterMeshWriter writer) {
-  g_water_mesh_writer = std::move(writer);
-}
-
 bool register_stormsurge(content::PluginHost* host) {
   if (!host) {
     return false;
@@ -532,7 +614,8 @@ bool register_stormsurge(content::PluginHost* host) {
           kPluginId, {"stormsurge.run", "风暴潮淹没分析"},
           [host](content::PluginHost*) {
             show_dialog(L"风暴潮淹没分析",
-                        std::make_unique<StormSurgeRunDialog>(host));
+                        wrap_with_present_surface(
+                            host, std::make_unique<StormSurgeRunDialog>(host)));
           })) {
     return false;
   }
@@ -560,6 +643,11 @@ bool register_stormsurge(content::PluginHost* host) {
          host->contribute_processing(
              kPluginId, {"stormsurge.stats", "Storm-surge disaster stats"},
              stormsurge_stats) &&
+         host->contribute_processing(
+             kPluginId, {"stormsurge.present_frame", "Re-present storm-surge frame"},
+             stormsurge_present_frame) &&
+         host->contribute_export_frame(
+             kPluginId, {"stormsurge_coast", 114.15, 30.45, 114.45, 30.65}) &&
          host->contribute_command(
              kPluginId, "stormsurge.export", "导出淹没掩膜", "tools",
              [host](const tool::CommandArgs&) {

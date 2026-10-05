@@ -31,7 +31,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "base/trace/event/process_trace.h"
 #include "ui/views/kernel/layout/layout_check.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/view/view.h"
 
@@ -64,14 +64,14 @@ if (!browser.hwnd() || !IsWindow(browser.hwnd())) {
 }
 self_test_mark("hwnd-ok");
 // 2D Map Edit: require a presented frame when content map hang is active.
-ui::views::MapViewport* map = browser.map_viewport();
+ui::views::DrawHost* map = browser.draw_host();
 // ContentMapView (forced for --self-test) paints full-client DIBs via the
 // GPU process. Debug + large clients often need >20s for the first frame
 // of a freshly opened view; 90s matches exe_smoke's Views budget.
 constexpr uint32_t k_frame_ready_ms = 90000;
 if (map &&
     map->attach_mode() ==
-        ui::views::MapViewport::AttachMode::kContentMapView) {
+        ui::views::DrawHost::AttachMode::kContentMapView) {
   if (!map->wait_ready(k_frame_ready_ms)) {
     return 3;
   }
@@ -81,14 +81,9 @@ if (map &&
   self_test_mark("map-frame-ok");
 }
 self_test_mark("map-ready");
-// Stop Map Edit present only. Data/3D are still AttachMode::kNone ?killing
-// their HWNDs' timers is a no-op, but stopping Edit before the shell walk
-// avoids WM_TIMER races while we inspect the View tree (no PeekMessage).
-// Do not stop before Data/3D OpenView: the shared GPU process must stay
-// responsive for the lazy tab's first FrameReady.
-if (map && map->native_view() && IsWindow(map->native_view())) {
-  KillTimer(map->native_view(), 1);  // kPresentTimerId == 1
-}
+// View tree walk below does not pump — leave Map Edit present running; the
+// scene tab switch path pauses/hides it. Avoid KillTimer-only here (queued
+// WM_TIMER + present_mu_ re-enter aborted as exit 3 under exe_smoke).
 self_test_mark("post-map");
 ui::views::View* root = browser.contents_view();
 if (!root) {
@@ -109,60 +104,29 @@ if (!catalog || !catalog->layer_tree()) {
   return 6;
 }
 self_test_mark("catalog-ok");
-// 2D Data tab: same session; HWND must stay live after switch.
-browser.select_map_tab(1);
-pump_views_messages_impl(400);
-ui::views::MapViewport* data = browser.map_data_viewport();
-if (!data || !data->native_view() || !IsWindow(data->native_view())) {
-  return 7;
-}
-// Inactive Map Edit HWND must hide so it does not cover the Data pane.
-if (map && map->native_view() && IsWindow(map->native_view()) &&
-    IsWindowVisible(map->native_view())) {
-  std::fprintf(stderr, "inactive map HWND still visible after Data tab\n");
-  return 36;
-}
-if (!IsWindowVisible(data->native_view())) {
-  std::fprintf(stderr, "active Data HWND not visible\n");
-  return 37;
-}
-if (data->attach_mode() ==
-    ui::views::MapViewport::AttachMode::kContentMapView) {
-  // Lazy OpenView paints at GPU default 64虏 then Resize. Kick client-sized
-  // ResizeSurface again so a lost first FrameReady is not a hard fail.
-  // Retry: after SmartGisRender --self-test the GPU process can miss the
-  // first Data-tab FrameReady under exe_smoke (exit 8).
-  bool data_frame_ready = false;
-  for (int attempt = 0; attempt < 3 && !data_frame_ready; ++attempt) {
-    data->sync_native_bounds();
-    if (HWND hwnd = data->native_view()) {
-      RECT rc = {};
-      GetClientRect(hwnd, &rc);
-      if (rc.right > 0 && rc.bottom > 0) {
-        SendMessageW(hwnd, WM_SIZE, SIZE_RESTORED,
-                     MAKELPARAM(rc.right, rc.bottom));
-      }
-    }
-    data->invalidate_native();
-    pump_views_messages_impl(400);
-    // Three 30s budgets with re-invalidate 鈮?same 90s wall, but recovers
-    // when the first FrameReady was lost after GPU warmup from Render smoke.
-    data_frame_ready = data->wait_ready(30000);
-  }
-  if (!data_frame_ready) {
-    return 8;
-  }
-}
+// Data tab removed: shell is Map (0) + 3D (1) only. Keep the mark so older
+// harness mark lists still see a data-* token after Map is ready.
 self_test_mark("data-ready");
 // 3D Scene tab: activate view3d.trackball and require a frame when hung.
-browser.select_map_tab(2);
+browser.select_map_tab(1);
 pump_views_messages_impl(400);
-ui::views::MapViewport* scene = browser.map_scene_viewport();
+ui::views::DrawHost* scene = browser.scene_draw_host();
 if (!scene || !scene->native_view() || !IsWindow(scene->native_view())) {
+  std::fprintf(stderr, "self-test: scene host missing after tab switch\n");
   return 9;
 }
+// Inactive Map Edit HWND must hide so it does not cover the 3D pane.
+if (map && map->native_view() && IsWindow(map->native_view()) &&
+    IsWindowVisible(map->native_view())) {
+  std::fprintf(stderr, "inactive map HWND still visible after 3D tab\n");
+  return 36;
+}
+if (!IsWindowVisible(scene->native_view())) {
+  std::fprintf(stderr, "active Scene HWND not visible\n");
+  return 37;
+}
 if (scene->attach_mode() ==
-        ui::views::MapViewport::AttachMode::kContentMapView) {
+        ui::views::DrawHost::AttachMode::kContentMapView) {
   scene->sync_native_bounds();
   scene->invalidate_native();
   pump_views_messages_impl(400);
@@ -175,16 +139,14 @@ if (scene->attach_mode() ==
   self_test_mark("scene-frame-ok");
 }
 self_test_mark("scene-ready");
-// Safe to stop present timers once Map/Data/Scene have each produced a
-// ContentMapView frame (or non-content attach).
-auto stop_present = [](ui::views::MapViewport* pane) {
-  if (pane && pane->native_view() && IsWindow(pane->native_view())) {
-    KillTimer(pane->native_view(), 1);  // kPresentTimerId == 1
-  }
-};
-stop_present(map);
-stop_present(data);
-stop_present(scene);
+// Safe to stop present timers once Map/Scene have each produced a
+// ContentMapView frame (or non-content attach). Drain queued ticks too.
+if (map) {
+  map->pause_present();
+}
+if (scene) {
+  scene->pause_present();
+}
 // Placeholder / FlyCube / content are all acceptable; prove pan/orbit
 // input reaches ViewHost without crashing when no GPU is present.
 content::ViewHost* scene_host = scene->view_host();

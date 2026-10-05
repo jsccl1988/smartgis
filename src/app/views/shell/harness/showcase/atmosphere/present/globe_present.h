@@ -17,6 +17,10 @@ namespace render::rhi {
 class Device;
 }  // namespace render::rhi
 
+namespace ui::views {
+class DrawHost;
+}  // namespace ui::views
+
 namespace app {
 namespace detail {
 
@@ -35,7 +39,9 @@ AtmosphereGlobeFlyResult run_atmosphere_globe_fly_presents(
     content::Scene3dPresenter* cam,
     content::OrbitFrame* orbit,
     render::rhi::Device* device,
+    HWND present_hwnd,
     HWND owned_present_hwnd,
+    ui::views::DrawHost* scene,
     float china_yaw,
     float china_pitch);
 

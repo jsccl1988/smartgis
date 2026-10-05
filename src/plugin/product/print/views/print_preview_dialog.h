@@ -6,17 +6,17 @@
 
 #include "ui/views/kernel/view/view.h"
 
+namespace content {
+class PluginHost;
+}
+
 namespace plugin {
 
-class MapPreviewView;
-
-// Views-only print preview shell (MapPreviewView + Save). Not a leftover CDlg.
+// Print chrome: Save exports a composed page. The map face is the main Views
+// Map tab (PluginHost::present_dataset), not a nested MapPreviewView.
 class PrintPreviewDialog : public ui::views::View {
  public:
-  PrintPreviewDialog();
-
- private:
-  MapPreviewView* preview_ = nullptr;
+  explicit PrintPreviewDialog(content::PluginHost* host);
 };
 
 }  // namespace plugin

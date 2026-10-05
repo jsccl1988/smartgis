@@ -14,7 +14,7 @@
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 namespace app {
 namespace detail {
@@ -74,7 +74,7 @@ bool try_export_map2d_bmp(Browser& browser, const char* leaf_utf8,
     return false;
   }
   DeleteFileW(bmp_w);
-  if (ui::views::MapViewport* pane = browser.map_viewport()) {
+  if (ui::views::DrawHost* pane = browser.draw_host()) {
     if (pane->native_view() && IsWindow(pane->native_view())) {
       InvalidateRect(pane->native_view(), nullptr, FALSE);
       UpdateWindow(pane->native_view());

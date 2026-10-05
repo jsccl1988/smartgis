@@ -10,20 +10,20 @@ DEM + coast/ocean seeds + surge levels → inundation mask / depth via
 triangle mesh** that also installs into **scene3d** (`Scene3dPresenter` overlay
 TIN — same seam as mine stratum).
 
-## Viz seams (Browser installs in `Browser::init`)
+## Viz seams (product present on `PluginHost`)
 
-| Writer | Payload |
+| Present | Payload |
 | --- | --- |
-| `set_stormsurge_mask_writer` | Byte mask frames + geotransform + water_level → map2d polygons; clears stale scene3d water TIN on frame 0; levels stored per frame on `AnalysisPlayback` |
-| `set_stormsurge_water_mesh_writer` | Per-frame interleaved xyz + triangle indices → map2d `add_triangle_layer` **and** `scene3d->set_overlay_tin_mesh` (lon/lat/elev, no map Y flip); meshes stored for ResultPlayback scrub |
+| `present_stormsurge_mask` | Byte mask frames + geotransform + water_level → map2d polygons; frame 0 clears stale scene3d water TIN |
+| `present_stormsurge_water_mesh` | Per-frame interleaved xyz + triangle indices → map2d `add_triangle_layer` **and** scene3d overlay TIN (lon/lat/elev) |
+| `stormsurge.present_frame` | ResultPlayback re-present for scrub index |
 
-Unset writers → structured `no_stormsurge_seam` / `no_stormsurge_water_mesh` JSON.
+Missing `gis_document()` → structured `no_stormsurge_seam` JSON.
 
-**Playback:** `Browser::apply_analysis_frame` re-paints the mask and re-pushes the
-stored water TIN for the scrub index (not mask-only).
+**Playback:** `Browser::apply_plugin_frame` runs `stormsurge.present_frame`.
 
 **Scene3D tab:** Chrome `select_map_tab(2)` seeds atmosphere **before** lazy
-FlyCube attach and `abandon()`s leftover stereo (no `destroy_` under FlyCube) so
+Vista attach and `abandon()`s leftover stereo (no `destroy_` under Vista) so
 overlay TIN sessions do not AV / heap-corrupt on tab switch.
 
 Mesh builder: `gis::detail::build_storm_surge_water_mesh` (shared-vertex grid,

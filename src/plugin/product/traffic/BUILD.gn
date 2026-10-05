@@ -8,6 +8,7 @@ copy("traffic_resources") {
   sources = [
     "resources/shortest_path.ui.css",
     "resources/shortest_path.ui.xml",
+    "resources/traffic.style.json",
   ]
   outputs = [ "$root_out_dir/../plugins/traffic/{{source_file_part}}" ]
 }
@@ -16,6 +17,8 @@ source_set("traffic_views") {
   sources = [
     "commands.cc",
     "commands.h",
+    "present/present.cc",
+    "present/present.h",
     "views/shortest_path_dialog.cc",
     "views/shortest_path_dialog.h",
   ]
@@ -28,6 +31,7 @@ source_set("traffic_views") {
     "//src/gis:gis",
     "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/widgets:widgets",
+    "//src/tool:dispatch",
     "//src/ui/views:views",
     "//third_party:gdal",
     "//third_party:rapidjson",

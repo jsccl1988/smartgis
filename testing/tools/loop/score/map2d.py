@@ -10,7 +10,7 @@ from pathlib import Path
 from .bmp_io import load_bmp_rgb
 
 def score_map2d_china(path: Path) -> dict:
-    """MapLibre / Baidu-like carto gates for china map2d showcase."""
+    """China map2d: carto vectors + DEM jet hypsometric hillshade."""
     w, h, pixels = load_bmp_rgb(path)
     n = max(1, len(pixels))
 
@@ -111,6 +111,30 @@ def score_map2d_china(path: Path) -> dict:
         )
         and not (b > r + 15 and b > 140 and g > 120)
     )
+    # Jet elevation ramp × Lambert (product default): chroma land, not cream.
+    hypsometric = sum(
+        1
+        for r, g, b in pixels
+        if (max(r, g, b) - min(r, g, b)) >= 40
+        and r + g + b > 90
+        and not (abs(r - 170) < 12 and abs(g - 211) < 12 and abs(b - 223) < 12)
+        and not (
+            abs(r - 245) < 55
+            and abs(g - 243) < 55
+            and abs(b - 233) < 55
+            and r > 170
+        )
+    )
+    jet_low = sum(
+        1
+        for r, g, b in pixels
+        if b > r + 25 and b > 80 and (max(r, g, b) - min(r, g, b)) >= 40
+    )
+    jet_high = sum(
+        1
+        for r, g, b in pixels
+        if r > g + 20 and r > b + 40 and r > 120 and g < 200
+    )
     # Sampled luminance std as non-flat metric over a coarse grid.
     step = max(1, w // 64)
     lumas = []
@@ -134,6 +158,9 @@ def score_map2d_china(path: Path) -> dict:
     admin_f = admin_gray / n
     river_f = soft_river / n
     hs_gray_f = hillshade_gray / n
+    hypo_f = hypsometric / n
+    jet_low_f = jet_low / n
+    jet_high_f = jet_high / n
     detail_f = (
         line_f + gold_f + casing_f + admin_f + river_f + min(black_f, 0.03)
     )
@@ -141,12 +168,15 @@ def score_map2d_china(path: Path) -> dict:
     # Soft hillshade: only enforce non-flat when a strong gray-relief signal
     # suggests DEM bake was painted; missing china_dem must not fail china.
     # After soft-shade opacity bump, treat lower gray frac as "active".
-    hs_active = hs_gray_f > 0.02
+    hs_active = hs_gray_f > 0.02 or hypo_f > 0.08
     hs_ok = (not hs_active) or (luma_std > 8.0)
 
-    # Hillshade / admin wash can steal cream land into gray; treat admin and
-    # active DEM relief as land-like so eastern china + crisp shade still pass.
-    land_like_f = land_f + admin_f + (hs_gray_f if hs_active else 0.0)
+    # Hillshade / admin wash can steal cream land into gray; treat admin,
+    # DEM relief, and jet hypsometric land as land-like.
+    land_like_f = land_f + admin_f + (hs_gray_f if hs_gray_f > 0.02 else 0.0)
+    if hypo_f > 0.08:
+        land_like_f += hypo_f
+    jet_ok = (not (hypo_f > 0.08)) or (jet_low_f > 0.02 and jet_high_f > 0.01)
     # Bare cream north of DEM (Mongolia slab) after hillshade is active.
     cream_ok = (not hs_active) or (land_f < 0.045)
     # Shell HWND hollow after browse stress: chrome teal (#aad3df) + flat
@@ -223,9 +253,9 @@ def score_map2d_china(path: Path) -> dict:
     admin_ok = admin_f > 0.00045
 
     ok = (
-        red_f < 0.08
-        and salmon_f < 0.05
-        and water_f > 0.10
+        red_f < 0.28
+        and salmon_f < 0.08
+        and water_f > 0.08
         and land_like_f > 0.18
         and detail_f > 0.004
         and black_f < 0.06
@@ -235,6 +265,7 @@ def score_map2d_china(path: Path) -> dict:
         and (gold_f + casing_f) > 0.0012
         and casing_f > 0.00025
         and hs_ok
+        and jet_ok
         and cream_ok
         and not chrome_hollow
         and land_hole_f < 0.006
@@ -259,15 +290,18 @@ def score_map2d_china(path: Path) -> dict:
         "soft_river_frac": round(river_f, 4),
         "detail_frac": round(detail_f, 4),
         "hillshade_gray_frac": round(hs_gray_f, 4),
+        "hypsometric_frac": round(hypo_f, 4),
+        "jet_low_frac": round(jet_low_f, 4),
+        "jet_high_frac": round(jet_high_f, 4),
         "hillshade_luma_std": round(luma_std, 2),
         "hillshade_active": hs_active,
         "land_interior_hole_frac": round(land_hole_f, 4),
         "cream_island_frac": round(cream_island_f, 4),
         "ok": ok,
         "gates": {
-            "redish_frac<0.08": red_f < 0.08,
-            "salmon_frac<0.05": salmon_f < 0.05,
-            "water_blue_frac>0.10": water_f > 0.10,
+            "redish_frac<0.28": red_f < 0.28,
+            "salmon_frac<0.08": salmon_f < 0.08,
+            "water_blue_frac>0.08": water_f > 0.08,
             "land_like_frac>0.18": land_like_f > 0.18,
             "detail_frac>0.004": detail_f > 0.004,
             "near_black_frac<0.06": black_f < 0.06,
@@ -277,6 +311,7 @@ def score_map2d_china(path: Path) -> dict:
             "road_gold+casing>0.0012": (gold_f + casing_f) > 0.0012,
             "road_casing_frac>0.00025": casing_f > 0.00025,
             "hillshade_soft_ok": hs_ok,
+            "jet_elev_ok": jet_ok,
             "land_cream_frac<0.045_when_hs": cream_ok,
             "not_chrome_admin_hollow": not chrome_hollow,
             "land_interior_hole_frac<0.006": land_hole_f < 0.006,

@@ -4,7 +4,7 @@
 #include "app/views/shell/harness/common/io/maps.h"
 
 #include "app/views/shell/browser/browser.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -20,23 +20,34 @@ void detach_maps(Browser& browser) {
   // Do NOT abandon_mesh here — under FlyCube Scene3D that remaps heap and
   // yields showcase_rc 0xFFFFFFFF (browse.3d) after in-proc IL marks land.
   stop_map_present_timers(browser);
-  if (ui::views::MapViewport* m = browser.map_viewport()) {
+  if (ui::views::DrawHost* m = browser.draw_host()) {
     m->detach();
   }
-  if (ui::views::MapViewport* m = browser.map_data_viewport()) {
+  if (ui::views::DrawHost* m = browser.data_draw_host()) {
     m->detach();
   }
-  if (ui::views::MapViewport* m = browser.map_scene_viewport()) {
+  if (ui::views::DrawHost* m = browser.scene_draw_host()) {
     m->detach();
   }
 }
 
+void finish_scene3d_showcase(Browser& browser, bool borrowed_shell) {
+  if (!borrowed_shell) {
+    detach_maps(browser);
+    return;
+  }
+  stop_map_present_timers(browser);
+  if (ui::views::DrawHost* scene = browser.scene_draw_host()) {
+    scene->pause_present();
+  }
+}
+
 void stop_map_present_timers(Browser& browser) {
-  // Must match MapViewport::kPresentTimerId (1). KillTimer alone leaves any
+  // Must match DrawHost::kPresentTimerId (1). KillTimer alone leaves any
   // already-queued WM_TIMER in the message queue — drain those so browse /
   // navigate stress does not race a late present tick with synthetic input.
   constexpr UINT_PTR k_present_timer_id = 1;
-  auto stop = [](ui::views::MapViewport* pane) {
+  auto stop = [](ui::views::DrawHost* pane) {
     if (!pane) {
       return;
     }
@@ -53,23 +64,23 @@ void stop_map_present_timers(Browser& browser) {
       }
     }
   };
-  stop(browser.map_viewport());
-  stop(browser.map_data_viewport());
-  stop(browser.map_scene_viewport());
+  stop(browser.draw_host());
+  stop(browser.data_draw_host());
+  stop(browser.scene_draw_host());
 }
 
 void resume_map_present_timers(Browser& browser) {
-  auto resume = [](ui::views::MapViewport* pane) {
+  auto resume = [](ui::views::DrawHost* pane) {
     if (!pane) {
       return;
     }
-    pane->set_flycube_present_visible(true);
+    pane->set_gpu_present_visible(true);
     pane->resume_present_timer();
     pane->invalidate_native();
   };
-  resume(browser.map_viewport());
-  resume(browser.map_data_viewport());
-  resume(browser.map_scene_viewport());
+  resume(browser.draw_host());
+  resume(browser.data_draw_host());
+  resume(browser.scene_draw_host());
 }
 
 }  // namespace detail

@@ -22,7 +22,9 @@ inline constexpr size_t kPrepChunk = 48;
 
 // Run prepare_at(i) for i in [0, job_count). Lock-free chunk steal: no
 // Pipeline queues, no mutex freelist, no heap Context*. Caller thread is a
-// worker. Debug and Release use the same path.
+// worker. Debug and Release use the same path. The callable must capture
+// any job list by reference (automatic storage) — not a block-scope
+// thread_local, which re-resolves empty TLS on each worker.
 template <typename PrepareAt>
 void run_chunked_prep_pipeline(size_t job_count, PrepareAt&& prepare_at) {
   if (job_count == 0) {

@@ -38,6 +38,11 @@ void append_quad_indices(TessMesh& out, uint32_t base) {
   append_triangle(out, base + 1, base + 3, base + 2);
 }
 
+void append_ring_quad_indices(TessMesh& out, uint32_t base) {
+  append_triangle(out, base, base + 1, base + 2);
+  append_triangle(out, base, base + 2, base + 3);
+}
+
 void append_quad(double min_x, double min_y, double max_x, double max_y,
                  TessMesh& out) {
   const uint32_t base = vert_count(out);
@@ -45,7 +50,7 @@ void append_quad(double min_x, double min_y, double max_x, double max_y,
   append_xyz(out, static_cast<float>(max_x), static_cast<float>(min_y), 0);
   append_xyz(out, static_cast<float>(max_x), static_cast<float>(max_y), 0);
   append_xyz(out, static_cast<float>(min_x), static_cast<float>(max_y), 0);
-  append_quad_indices(out, base);
+  append_ring_quad_indices(out, base);
 }
 
 bool rect_has_area(double min_x, double min_y, double max_x, double max_y) {

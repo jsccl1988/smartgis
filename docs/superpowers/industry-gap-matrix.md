@@ -218,7 +218,7 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 
 | ID | 优先级 | 缺口 | 现状证据（路径 / 口令） | 建议动作 | 验收判据 | 挂靠 |
 | --- | --- | --- | --- | --- | --- | --- |
-| P0-1 | **P0** | MVT / 矢量瓦片不可读 | **已关闭：** `src/gis/tile/provider/mvt.{h,cc}` protobuf 线解码 + gzip；`decode_mvt_to_map_frame`；fixture `testing/data/mvt/roads_fixture.mvt(.gz)`；`tile_test` PASS。Style vector URL bind 仍 `kVectorUnsupported` | — | 本地 `.mvt` → MapFrame ≥1 矢量 draw item；unit 绿 | gap-pin P0-1 |
+| P0-1 | **P0** | MVT / 矢量瓦片不可读 | **已关闭：** `src/gis/tile/provider/mvt.{h,cc}` protobuf 线解码 + gzip；`decode_mvt_to_map_frame`；fixture `testing/data/fixtures/mvt/roads_fixture.mvt(.gz)`；`tile_test` PASS。Style vector URL bind 仍 `kVectorUnsupported` | — | 本地 `.mvt` → MapFrame ≥1 矢量 draw item；unit 绿 | gap-pin P0-1 |
 | P0-2 | **P0** | China 产品环未钉死 | **已关闭：** `testing/data` → GN `//testing/data:china_map_samples` 同步 `out/data/china_city.*` + `china_dem.tif`（PIN 对齐）；`py -3 testing/tools/loop_runner.py --suite map2d.china --no-build` exit 0；BMP `road_casing_frac`/`road_gold+casing` + `hillshade_soft_ok` | — | `map2d.china` loop exit 0；BMP casing / soft hillshade | gap-pin P0-2 |
 | P0-3 | **P0** | 无页布局出图 | **已关闭：** `PrintComposer`（地图+比例尺+图例）→ BMP；`PrintPreviewDialog` Save 走页布局；`print_composer_test` PASS；self-test `m1-layout-ok` | — | mark + 一页可读 | gap-pin P0-3 |
 | P0-4 | **P0** | 新栈无顶点/边捕捉 | **已关闭：** `feature_edit` `snap_to_features` / `snap_point`（vertex 优先 + edge 投影）；`move_selected_vertex` 吸附他要素；`feature_edit_test` | — | 命中误差 ≤ 容差 | gap-pin P0-4 |

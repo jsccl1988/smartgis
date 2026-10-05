@@ -12,7 +12,7 @@ script "plugin.flood" {
     doc_clear();
     run_processing(
       id="flood.inundate",
-      args="{\"dem\":\"$dem\",\"output\":\"$out\",\"seed_x\":114.28,\"seed_y\":30.52,\"water_level\":52.0,\"frames\":8}"
+      args="{\"dem\":\"$dem\",\"output\":\"$out\",\"seed_x\":114.30,\"seed_y\":30.55,\"water_level\":45.0,\"frames\":8}"
     );
     mark("flood-ok");
     fit_extent();

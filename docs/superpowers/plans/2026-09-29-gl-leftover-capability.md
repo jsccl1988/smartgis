@@ -7,16 +7,16 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Align leftover **OpenGL** `SmtGLRenderDevice` under `rhi3d/impl/gl/` with D3D/GDI directory seams (`host/` · `resource/` · `paint/`), keep **GL `SwapBuffers`** as present owner, and verify texture/FBO/font/frustum — not a FlyCube strangler.
+**Goal:** Align leftover **OpenGL** `SmtGLRenderDevice` under `rhi3d/impl/gl/` with D3D/GDI directory seams (`host/` · `resource/` · `paint/`), keep **GL `SwapBuffers`** as present owner, and verify texture/FBO/font/frustum — not a Vista strangler.
 
-**Architecture:** Spec §GL leftover capability in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) (sibling of §D3D leftover capability). **`Smt3DRenderDevice` + `"OpenGL"` factory unchanged.** Distinct from `src/render/rhi` FlyCube. Do **not** edit `impl/d3d/`.
+**Architecture:** Spec §GL leftover capability in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) (sibling of §D3D leftover capability). **`Smt3DRenderDevice` + `"OpenGL"` factory unchanged.** Distinct from `src/render/rhi` Vista. Do **not** edit `impl/d3d/`.
 
 **Tech Stack:** C++23, WGL/OpenGL + GLU, `legacy_render` GN, hidden-HWND unit tests, `legacy_scene3d_shot_loop.py` (GL default).
 
 ## Global Constraints
 
 - Work on **`master`** only; scope **`src/legacy/render/rhi3d/impl/gl/`** (+ GN/tests + living docs that mention both).
-- **`Init(HWND)`:** `bind_rhi_present` for Null recording only; **no FlyCube** on this HWND.
+- **`Init(HWND)`:** `bind_rhi_present` for Null recording only; **no Vista** on this HWND.
 - Enrich only where clearly broken or thinner than public ABI; prefer mechanical layout move.
 - New comments English; new-tree helpers **`snake_case`** where touched.
 - No commit unless the user asks.

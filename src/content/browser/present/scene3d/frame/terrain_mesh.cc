@@ -6,7 +6,7 @@
 #include "content/browser/document/map_scene.h"
 #include "vista/terrain/dem/dem_bake_cache.h"
 #include "vista/terrain/dem/dem_raster.h"
-#include "vista/component/world/dem_seed.h"
+#include "vista/component/world/terrain/seed.h"
 #include "vista/terrain/process/land_mask.h"
 
 #include <algorithm>
@@ -190,7 +190,7 @@ void rebuild_terrain_mesh(vista::World* world,
   {
     vista::Node* first = world->find(ids[0]);
     if (first) {
-      geo->capture_elev_center(first->terrain_positions);
+      geo->capture_elev_center(first->terrain.positions);
     }
   }
   size_t total_verts = 0;
@@ -200,8 +200,8 @@ void rebuild_terrain_mesh(vista::World* world,
     if (!n || !n->has_terrain_mesh()) {
       continue;
     }
-    total_verts += n->terrain_positions.size() / 3;
-    total_idx += n->terrain_indices.size();
+    total_verts += n->terrain.positions.size() / 3;
+    total_idx += n->terrain.indices.size();
   }
   xyz->reserve(total_verts * 3);
   idx->reserve(total_idx);
@@ -210,21 +210,21 @@ void rebuild_terrain_mesh(vista::World* world,
     if (!n || !n->has_terrain_mesh()) {
       continue;
     }
-    geo->normalize_xyz(&n->terrain_positions);
-    if (n->terrain_positions.size() >= 3) {
-      float mn_x = n->terrain_positions[0];
-      float mn_y = n->terrain_positions[1];
-      float mn_z = n->terrain_positions[2];
+    geo->normalize_xyz(&n->terrain.positions);
+    if (n->terrain.positions.size() >= 3) {
+      float mn_x = n->terrain.positions[0];
+      float mn_y = n->terrain.positions[1];
+      float mn_z = n->terrain.positions[2];
       float mx_x = mn_x;
       float mx_y = mn_y;
       float mx_z = mn_z;
-      for (size_t i = 0; i + 2 < n->terrain_positions.size(); i += 3) {
-        mn_x = (std::min)(mn_x, n->terrain_positions[i]);
-        mn_y = (std::min)(mn_y, n->terrain_positions[i + 1]);
-        mn_z = (std::min)(mn_z, n->terrain_positions[i + 2]);
-        mx_x = (std::max)(mx_x, n->terrain_positions[i]);
-        mx_y = (std::max)(mx_y, n->terrain_positions[i + 1]);
-        mx_z = (std::max)(mx_z, n->terrain_positions[i + 2]);
+      for (size_t i = 0; i + 2 < n->terrain.positions.size(); i += 3) {
+        mn_x = (std::min)(mn_x, n->terrain.positions[i]);
+        mn_y = (std::min)(mn_y, n->terrain.positions[i + 1]);
+        mn_z = (std::min)(mn_z, n->terrain.positions[i + 2]);
+        mx_x = (std::max)(mx_x, n->terrain.positions[i]);
+        mx_y = (std::max)(mx_y, n->terrain.positions[i + 1]);
+        mx_z = (std::max)(mx_z, n->terrain.positions[i + 2]);
       }
       n->min_x = mn_x;
       n->min_y = mn_y;
@@ -234,9 +234,9 @@ void rebuild_terrain_mesh(vista::World* world,
       n->max_z = mx_z;
     }
     const size_t base = xyz->size() / 3;
-    xyz->insert(xyz->end(), n->terrain_positions.begin(),
-                n->terrain_positions.end());
-    for (uint32_t tri : n->terrain_indices) {
+    xyz->insert(xyz->end(), n->terrain.positions.begin(),
+                n->terrain.positions.end());
+    for (uint32_t tri : n->terrain.indices) {
       idx->push_back(static_cast<unsigned>(base + tri));
     }
   }
@@ -253,12 +253,12 @@ void rebuild_terrain_mesh(vista::World* world,
         seed.max_x = static_cast<float>(n->max_x);
         seed.max_y = static_cast<float>(n->max_y);
         seed.max_z = static_cast<float>(n->max_z);
-        seed.tex_w = n->terrain_tex_w;
-        seed.tex_h = n->terrain_tex_h;
-        seed.xyz = n->terrain_positions;
-        seed.indices = n->terrain_indices;
-        seed.uvs = n->terrain_uvs;
-        seed.rgba = n->terrain_rgba;
+        seed.tex_w = n->terrain.tex_w;
+        seed.tex_h = n->terrain.tex_h;
+        seed.xyz = n->terrain.positions;
+        seed.indices = n->terrain.indices;
+        seed.uvs = n->terrain.uvs;
+        seed.rgba = n->terrain.rgba;
         vista::dem_view_seed_cache_put(dem_path.c_str(), cache_key, frame.xmin,
                                      frame.ymin, frame.xmax, frame.ymax, seed);
       }

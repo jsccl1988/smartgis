@@ -14,14 +14,14 @@ namespace detail {
 // BMP leaf under captures/ui/ for --ui-showcase=<mode>.
 const wchar_t* ui_showcase_bmp_leaf(UiShowcaseMode mode);
 
-// Capture shell HWND client for chrome visual gates. Uses window-DC blit only
-// (never desktop DC). When |map_hwnd| is a live child map surface, composites
-// that client into the shell DIB so PrintWindow holes are not false-green.
-// Rejects flat / non-diverse frames so blank scene PrintWindow fills are not
-// written as bmp-ok.
+// Capture shell HWND client for chrome visual gates. Window-DC / PrintWindow
+// for chrome. When |map_hwnd| is a FlyCube DXGI present surface, composites
+// that client via screen BitBlt (CAPTUREBLT) so WS_EX_NOREDIRECTIONBITMAP
+// holes are not written as the map. Never desktop-blits the whole shell.
 bool capture_ui_shell_bmp(HWND hwnd,
                           const wchar_t* filename,
-                          HWND map_hwnd = nullptr);
+                          HWND map_hwnd = nullptr,
+                          HWND hud_hwnd = nullptr);
 
 }  // namespace detail
 }  // namespace app

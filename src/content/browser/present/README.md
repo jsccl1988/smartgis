@@ -5,7 +5,7 @@ All rights reserved.
 
 # `src/content/browser/present` — Chromium-style present stack
 
-Facade (`map2d_presenter` / `scene3d_presenter`) presents Vista/FlyCube and leftover
+Facade (`map2d_presenter` / `scene3d_presenter`) presents Vista/Vista and leftover
 stereo/GDI session flags. `src/scenic` is exploratory and is **not** linked from
 this stack; `MAP2D_ENGINE=scenic` / `SCENE3D_ENGINE=scenic` do not compile
 or load `scenic.dll` on the default product graph.
@@ -39,7 +39,7 @@ present/
 | `gpu/` | GPU present + cache / mesh | Facade or direct for hosts that only present |
 | `software/` | Software (GDI) paint | Facade or direct for HUD / export |
 | `atmosphere/` | Atmosphere session prep | `atmosphere_session()` (not Presenter forwards) |
-| `session/` | FlyCube / Stereo / GDI SoT + leftover stereo LoadLibrary | Shell / MapSession (`scene3d_rhi_session` is `CONTENT_EXPORT` in `content.dll`) |
+| `session/` | Vista / Stereo / GDI SoT + leftover stereo LoadLibrary | Shell / MapSession (`scene3d_rhi_session` is `CONTENT_EXPORT` in `content.dll`) |
 | `host/` | Surface / preview cache | Shell gesture preview |
 
 Namespaces stay `content` (internals in `content::detail`). Input bridging stays

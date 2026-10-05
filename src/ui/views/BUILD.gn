@@ -21,7 +21,7 @@
 #   views_markup           — XML/CSS/Yoga + layout/GIS placeholder registration
 #   views_dialogs          — Dialog shell + MessageBox/FilePicker/InputText/
 #                            SelectOne (toolkit only; GIS dialogs → //src/ui/gis)
-#   views_map              — MapViewport + TouchMultitouch
+#   views_map              — DrawHost + TouchMultitouch
 # Aggregate :views_sources (+ make_default TU) + //src/ui/gis:gis_sources
 # → :ui_views → group :views. GIS TUs stay under ui/gis/; same PE / UI_EXPORT.
 #
@@ -30,8 +30,8 @@
 # markup/ nests style|document|layout|factory|loader (+ testdata/).
 # Product .ui.xml/.ui.css live in //src/ui/resources/<area>/ (copied to
 # out/ui/<area>/; relative path preserved).
-# map/ nests viewport|input|chrome|device; root keeps public forward headers
-# (map_viewport.h, touch_multitouch.h). testing/ is test-only
+# map/ nests viewport|input|frame|device; root keeps public forward headers
+# (draw_host.h, map_viewport.h legacy, touch_multitouch.h). testing/ is test-only
 # (not linked into :ui_views): testing/unit and testing/pixel.
 # Goldens stay at testing/testdata/.
 # Stable labels :views and //src/ui/gfx:gfx forward to :ui_views.
@@ -93,6 +93,8 @@ source_set("views_kernel") {
     "kernel/frame/frame_view.h",
     "kernel/view/view.cc",
     "kernel/view/view.h",
+    "kernel/widget/paint_schedule.cc",
+    "kernel/widget/paint_schedule.h",
     "kernel/widget/widget.cc",
     "kernel/widget/widget.h",
     "kernel/widget/widget_event.cc",
@@ -142,6 +144,9 @@ source_set("views_primitives") {
     "primitives/collection/table_view.h",
     "primitives/collection/tree_view.cc",
     "primitives/collection/tree_view.h",
+    "primitives/detail/control_paint.h",
+    "primitives/detail/csv_attrs.h",
+    "primitives/detail/primary_input.h",
     "primitives/input/combobox.cc",
     "primitives/input/combobox.h",
     "primitives/input/slider.cc",
@@ -230,15 +235,16 @@ source_set("views_map") {
     "map/input/touch_multitouch.h",
     "map/input/viewport_input.cc",
     "map/input/viewport_input.h",
-    "map/map_viewport.h",
-    "map/touch_multitouch.h",
+    "map/viewport/backbuffer.cc",
     "map/viewport/display.cc",
+    "map/viewport/draw_host.cc",
+    "map/viewport/draw_host.h",
     "map/viewport/features.h",
-    "map/viewport/flycube.cc",
-    "map/viewport/map_viewport.cc",
-    "map/viewport/map_viewport.h",
-    "map/viewport/paint.cc",
+    "map/viewport/gpu_present.cc",
+    "map/viewport/paint_policy.h",
+    "map/viewport/present.cc",
     "map/viewport/shell.cc",
+    "map/viewport/wnd_proc.cc",
   ]
   defines = _views_layer_defines
   public_deps = [
@@ -459,8 +465,10 @@ test("views_interactive_tests") {
   output_name = "views_interactive_tests"
   sources = [ "testing/interactive/views_interactive_tests.cc" ]
   deps = [
+    ":markup_resources",
     ":views",
     ":views_test_harness",
+    "//src/ui/gis:gis",
   ]
 }
 
@@ -470,8 +478,10 @@ benchmark("views_bench") {
   sources = [ "testing/bench/views_bench.cc" ]
   use_benchmark_main = false
   deps = [
+    ":markup_resources",
     ":views",
     ":views_test_harness",
+    "//src/ui/gis:gis",
   ]
 }
 
@@ -482,6 +492,7 @@ test("views_unittests") {
   sources = [
     "testing/unit/collections_unittests.cc",
     "testing/unit/controls_unittests.cc",
+    "testing/unit/gis_panels_unittests.cc",
     "testing/unit/gis_shell_unittests.cc",
     "testing/unit/kernel_theme_unittests.cc",
     "testing/unit/layout_unittests.cc",

@@ -5,7 +5,7 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # DEM domain (raster, hillshade, land mask). No World type in these headers.
-# Seed-into-World lives in //src/vista/component/world:world_sources (dem_seed).
+# Seed-into-World lives in //src/vista/component/world:world_sources (terrain/seed).
 
 _thrust_gis_obj = "$root_out_dir/obj/vista_thrust_gis.cu.obj"
 if (has_cuda) {
@@ -14,6 +14,7 @@ if (has_cuda) {
     sources = [ "process/nv/thrust_gis.cu" ]
     inputs = [
       "process/nv/thrust_gis.h",
+      "process/nv/bake_pixel.h",
       "//build/nvcc_obj.py",
     ]
     outputs = [ _thrust_gis_obj ]
@@ -61,12 +62,15 @@ source_set("terrain_sources") {
   sources = [
     "dem/dem_bake_cache.cc",
     "dem/dem_bake_cache.h",
+    "dem/dem_contour.cc",
+    "dem/dem_contour.h",
     "dem/dem_frame.h",
     "dem/dem_height_field.cc",
     "dem/dem_height_field.h",
     "dem/dem_raster.cc",
     "dem/dem_raster.h",
     "process/bake_backend.h",
+    "process/bake_parallel.h",
     "process/dem_hillshade.cc",
     "process/dem_hillshade.h",
   ]

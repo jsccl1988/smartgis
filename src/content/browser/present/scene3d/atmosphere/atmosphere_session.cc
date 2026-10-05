@@ -9,13 +9,15 @@
 #include "content/browser/document/map_scene.h"
 #include "vista/component/atmosphere/atmosphere_params.h"
 #include "vista/component/atmosphere/cloud/cloud_system.h"
+#include "vista/component/atmosphere/contour/contour_sheet.h"
 #include "vista/component/atmosphere/field/field_channel.h"
 #include "vista/component/atmosphere/field/field_ingest.h"
 #include "vista/component/atmosphere/ocean/ocean_system.h"
+#include "vista/terrain/dem/dem_contour.h"
 #include "vista/assets/tileset/tileset.h"
 #include "vista/terrain/dem/dem_frame.h"
 #include "vista/terrain/dem/dem_raster.h"
-#include "vista/component/world/dem_seed.h"
+#include "vista/component/world/terrain/seed.h"
 #include "vista/component/world/world.h"
 #include "vista/pass/atmosphere/cloud/cloud_pass.h"
 #include "vista/pass/atmosphere/fog/fog_pass.h"
@@ -172,7 +174,7 @@ void AtmosphereSession::release_passes() {
 
 vista::atmosphere::Environment& AtmosphereSession::ensure() {
   if (!atmosphere_) {
-    atmosphere_ = std::make_unique<vista::atmosphere::Environment>();
+    atmosphere_ = vista::atmosphere::create_environment();
   }
   return *atmosphere_;
 }
@@ -207,6 +209,194 @@ void AtmosphereSession::set_globe_enabled(bool on) {
 void AtmosphereSession::set_sat_cloud_enabled(bool on) {
   sat_cloud_enabled_ = on;
   atmosphere_frame_.set_sat_cloud_enabled(on);
+}
+
+void AtmosphereSession::set_elevation_overlay(bool surface, bool curves) {
+  elevation_surface_overlay_ = surface;
+  elevation_curve_overlay_ = curves;
+  globe_pass_.set_elevation_overlay(surface, curves);
+}
+
+bool AtmosphereSession::elevation_surface_overlay() const {
+  return elevation_surface_overlay_;
+}
+
+bool AtmosphereSession::elevation_curve_overlay() const {
+  return elevation_curve_overlay_;
+}
+
+bool AtmosphereSession::apply_contour_suite_defaults() {
+  vista::atmosphere::Environment& env = ensure();
+  env.set_contour_enabled(true);
+  vista::atmosphere::AtmosphereParams& p = env.params();
+  p.contour_curves = true;
+  p.contour_surface = true;
+  p.contour_color_scale = true;
+  p.contour_dem_offset_m = 800.f;
+  p.contour_value_to_meters = 400.f;
+  p.contour_surface_alpha = 0.55f;
+
+  vista::atmosphere::FieldGrid grid = field_grid();
+  // Denser than the 32^2 ocean/cloud sample grid so the stacked sheet reads.
+  grid.cols = (std::max)(grid.cols, 64);
+  grid.rows = (std::max)(grid.rows, 48);
+  if (!env.rebuild_contour_sheet(vista::atmosphere::FieldChannel::kWaveHs, grid,
+                                 nullptr)) {
+    return false;
+  }
+
+  // Globe DEM window: Origin jet + isolines on the sphere albedo.
+  set_elevation_overlay(true, true);
+
+  if (globe_enabled_ || !gpu_) {
+    return env.contour_sheet().has_color_scale() ||
+           env.contour_sheet().has_surface();
+  }
+
+  const vista::atmosphere::ContourSheet& sheet = env.contour_sheet();
+  if (!sheet.has_surface()) {
+    return sheet.has_color_scale();
+  }
+  const vista::atmosphere::ContourSheetMesh& mesh = sheet.surface();
+  const size_t nverts = mesh.xyz.size() / 3u;
+  if (nverts < 3u || mesh.indices.size() < 3u) {
+    return false;
+  }
+  std::vector<float> geo(nverts * 3u);
+  for (size_t i = 0; i < nverts; ++i) {
+    const float* vert = mesh.xyz.data() + i * 3u;
+    geo[i * 3u + 0] = static_cast<float>(vista::dem_x_to_lon(vert[0]));
+    geo[i * 3u + 1] = vert[2];
+    geo[i * 3u + 2] = vert[1];
+  }
+  std::vector<unsigned> idx(mesh.indices.begin(), mesh.indices.end());
+  // Do not clobber product overlay TINs (hex amber / mine lithology / cyan
+  // stormsurge). Contour sheet is a diagnostic drape for bare China frames.
+  if (gpu_->overlay_tin_has_albedo()) {
+    const uint8_t* a = gpu_->overlay_tin_albedo();
+    const bool hex_like =
+        a[0] >= 160 && a[1] >= 100 && a[2] < 140 && a[0] > a[2] + 40;
+    const bool water_like =
+        a[2] >= 140 && a[1] >= 100 && a[0] < 90 && a[2] > a[0] + 40;
+    const bool mine_like =
+        a[0] >= 80 && a[1] >= 40 && a[2] >= 40 &&
+        !(a[0] == 210 && a[1] == 220 && a[2] == 255);
+    if (hex_like || water_like || mine_like) {
+      return sheet.has_color_scale() || sheet.has_surface();
+    }
+  }
+  constexpr uint8_t kAlbedo[4] = {210, 220, 255, 160};
+  gpu_->set_overlay_tin_mesh(geo.data(), static_cast<int>(nverts), idx.data(),
+                             static_cast<int>(idx.size()), kAlbedo);
+
+  if (mesh.rgba.size() >= nverts * 4u && mesh.uvs.size() >= nverts * 2u &&
+      grid.cols >= 8 && grid.rows >= 8 &&
+      nverts == static_cast<size_t>(grid.cols) * static_cast<size_t>(grid.rows)) {
+    std::vector<uint8_t> atlas(
+        static_cast<size_t>(grid.cols) * static_cast<size_t>(grid.rows) * 4u);
+    for (size_t i = 0; i < nverts; ++i) {
+      const float* c = mesh.rgba.data() + i * 4u;
+      atlas[i * 4u + 0] = static_cast<uint8_t>(
+          (std::max)(0, (std::min)(255, static_cast<int>(c[0] * 255.f + 0.5f))));
+      atlas[i * 4u + 1] = static_cast<uint8_t>(
+          (std::max)(0, (std::min)(255, static_cast<int>(c[1] * 255.f + 0.5f))));
+      atlas[i * 4u + 2] = static_cast<uint8_t>(
+          (std::max)(0, (std::min)(255, static_cast<int>(c[2] * 255.f + 0.5f))));
+      atlas[i * 4u + 3] = static_cast<uint8_t>(
+          (std::max)(0, (std::min)(255, static_cast<int>(c[3] * 255.f + 0.5f))));
+    }
+    std::vector<float> display_h(nverts, 0.f);
+    for (size_t i = 0; i < nverts; ++i) {
+      display_h[i] = mesh.xyz[i * 3u + 1];
+    }
+    std::vector<uint8_t> overlay;
+    if (vista::bake_elevation_overlay_rgba(display_h.data(), grid.cols,
+                                           grid.rows, /*surface=*/false,
+                                           /*curves=*/true, 0.f, &overlay) &&
+        overlay.size() == atlas.size()) {
+      for (size_t i = 0; i + 3 < overlay.size(); i += 4) {
+        if (overlay[i + 3] < 200) {
+          continue;
+        }
+        atlas[i + 0] = overlay[i + 0];
+        atlas[i + 1] = overlay[i + 1];
+        atlas[i + 2] = overlay[i + 2];
+        atlas[i + 3] = 255;
+      }
+    }
+    gpu_->set_overlay_tin_drape(atlas.data(),
+                                static_cast<uint32_t>(grid.cols),
+                                static_cast<uint32_t>(grid.rows),
+                                mesh.uvs.data(),
+                                static_cast<int>(mesh.uvs.size()));
+  } else if (sheet.has_color_scale()) {
+    const auto& scale = sheet.color_scale();
+    gpu_->set_overlay_tin_drape(scale.ramp_rgba.data(),
+                                static_cast<uint32_t>(scale.ramp_w),
+                                static_cast<uint32_t>(scale.ramp_h),
+                                mesh.uvs.data(),
+                                static_cast<int>(mesh.uvs.size()));
+  }
+  return true;
+}
+
+void AtmosphereSession::update_globe_detail_lod(float orbit_distance) {
+  update_globe_detail_lod(orbit_distance, 0.0, 0.0);
+}
+
+void AtmosphereSession::update_globe_detail_lod(float orbit_distance,
+                                               double look_lon_deg,
+                                               double look_lat_deg) {
+  if (!globe_enabled_ || !globe_surface_loaded_) {
+    return;
+  }
+  // Match DemRaster::lod_max_edge overview (~3.2) and dem_seed_cache_key
+  // near bucket (<2.4). Full china_dem mix by skim (~1.65 R).
+  constexpr float kChinaLoadDist = 3.2f;
+  constexpr float kChinaFullDist = 1.65f;
+  float blend = 0.f;
+  if (orbit_distance <= kChinaFullDist) {
+    blend = 1.f;
+  } else if (orbit_distance < kChinaLoadDist) {
+    const float t = (kChinaLoadDist - orbit_distance) /
+                    (kChinaLoadDist - kChinaFullDist);
+    const float u = (std::max)(0.f, (std::min)(1.f, t));
+    blend = u * u * (3.f - 2.f * u);
+  }
+  if (blend > 0.05f) {
+    (void)load_china_globe_detail();
+  }
+  const float applied =
+      globe_pass_.has_detail_surface() ? blend : 0.f;
+  globe_pass_.set_detail_blend(applied);
+  vista::GlobeDrawParams gp = globe_pass_.params();
+  if (applied >= 0.55f) {
+    gp.lon_slices = 512;
+    gp.lat_slices = 256;
+  } else if (applied >= 0.15f || globe_pass_.dem_is_global()) {
+    gp.lon_slices = 448;
+    gp.lat_slices = 224;
+  } else {
+    gp.lon_slices = 320;
+    gp.lat_slices = 160;
+  }
+  globe_pass_.set_params(gp);
+
+  if (look_lon_deg != 0.0 || look_lat_deg != 0.0) {
+    apply_globe_sea_ocean(look_lon_deg, look_lat_deg, /*on=*/true);
+  }
+}
+
+void AtmosphereSession::apply_globe_sea_ocean(double lon_deg, double lat_deg,
+                                              bool on) {
+  if (!on || !globe_enabled_) {
+    return;
+  }
+  // Open water: DEM height near sea level (East China Sea skim).
+  const float h = globe_pass_.height_meters(lon_deg, lat_deg);
+  if (h < 8.f) {
+    ensure().set_ocean_enabled(true);
+  }
 }
 
 void AtmosphereSession::set_wind_overlay_enabled(bool on) {
@@ -584,7 +774,7 @@ bool AtmosphereSession::run_m3_self_test_hooks(std::string* err) {
       return m3_fail(err, "m3-dem-ok");
     }
     bool height_signal = false;
-    const std::vector<float>& pos = dem->terrain_positions;
+    const std::vector<float>& pos = dem->terrain.positions;
     for (size_t i = 1; i + 1 < pos.size(); i += 3) {
       if (std::fabs(pos[i]) > 1e-5f) {
         height_signal = true;
@@ -1010,6 +1200,74 @@ std::string find_sample_sat_cloud_path() {
 }
 
 }  // namespace
+
+bool AtmosphereSession::load_china_globe_detail() {
+  if (china_globe_detail_loaded_) {
+    return globe_pass_.has_detail_surface();
+  }
+  china_globe_detail_loaded_ = true;
+  if (!globe_pass_.dem_is_global()) {
+    // Base surface is already the China window — no second overlay.
+    return false;
+  }
+  vista::DemRaster dem;
+  const std::string path = vista::find_sample_dem_path();
+  if (path.empty() || !dem.load_gdal_raster(path.c_str()) || dem.empty()) {
+    return false;
+  }
+  double minx = 73.0;
+  double miny = 18.0;
+  double maxx = 135.0;
+  double maxy = 54.0;
+  dem.envelope(&minx, &miny, &maxx, &maxy);
+  const bool looks_global =
+      (minx <= -170.0 && maxx >= 170.0 && miny <= -80.0 && maxy >= 80.0);
+  if (looks_global) {
+    return false;
+  }
+  if (maxx <= minx || maxy <= miny) {
+    minx = 73.0;
+    miny = 18.0;
+    maxx = 135.0;
+    maxy = 54.0;
+  }
+  dem.fit_vertical_exaggeration();
+  std::string imagery_path = vista::find_sample_imagery_path();
+  if (!imagery_path.empty()) {
+    const bool img_is_global =
+        imagery_path.find("global_terrain") != std::string::npos ||
+        imagery_path.find("global_imagery") != std::string::npos ||
+        imagery_path.find("blue_marble") != std::string::npos;
+    if (img_is_global) {
+      imagery_path.clear();
+    }
+  }
+  std::vector<float> heights;
+  std::vector<uint8_t> rgba;
+  int cols = 0;
+  int rows = 0;
+  int tw = 0;
+  int th = 0;
+  bool imagery_loaded = false;
+  if (!dem.sample_globe_surface(minx, miny, maxx, maxy, false,
+                                imagery_path.empty() ? nullptr
+                                                     : imagery_path.c_str(),
+                                &heights, &cols, &rows, &rgba, &tw, &th,
+                                &imagery_loaded)) {
+    return false;
+  }
+  globe_pass_.set_detail_dem_surface(
+      minx, miny, maxx, maxy, cols, rows,
+      heights.empty() ? nullptr : heights.data(), heights.size(),
+      rgba.empty() ? nullptr : rgba.data(), tw, th);
+  std::fprintf(stderr,
+               "atmosphere.globe: china_detail=%s envelope=[%.1f,%.1f]-"
+               "[%.1f,%.1f] albedo=%s\n",
+               path.c_str(), minx, miny, maxx, maxy,
+               imagery_loaded ? imagery_path.c_str() : "(hypsometric)");
+  std::fflush(stderr);
+  return globe_pass_.has_detail_surface();
+}
 
 bool AtmosphereSession::prepare_globe() {
   atmosphere_frame_.set_globe_enabled(globe_enabled_);

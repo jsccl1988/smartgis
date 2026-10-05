@@ -19,7 +19,7 @@ All rights reserved.
 - Work on **`master`** only.
 - Freeze Create/Destroy exports and `RenderDevice2d` virtuals.
 - No per-job `PostTask` storm; resident workers + pull queue.
-- No shared HDC across threads; no FlyCube on leftover HWND this plan.
+- No shared HDC across threads; no Vista on leftover HWND this plan.
 - Comments English; helpers `snake_case`; types `PascalCase` in `render::detail`.
 - **Do not** `git commit` unless the user asks.
 

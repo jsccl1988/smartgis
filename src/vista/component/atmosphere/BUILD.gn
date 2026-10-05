@@ -24,6 +24,10 @@ source_set("session_sources") {
     "atmosphere_params.h",
     "cloud/cloud_system.cc",
     "cloud/cloud_system.h",
+    "contour/contour_color_scale.cc",
+    "contour/contour_color_scale.h",
+    "contour/contour_sheet.cc",
+    "contour/contour_sheet.h",
     "environment.cc",
     "environment.h",
     "field/field_channel.h",
@@ -54,6 +58,8 @@ source_set("session_sources") {
   ]
   deps = [
     "//src/base:base",
+    # ContourSheet uses dem_contour (compiled into vista.dll terrain_sources).
+    "//src/vista/terrain:terrain_sources",
   ]
 }
 
@@ -129,22 +135,46 @@ test("ocean_system_test") {
   deps = [ "//src/base:base" ]
 }
 
-test("environment_test") {
-  output_name = "environment_test"
+test("contour_sheet_test") {
+  output_name = "contour_sheet_test"
   sources = [
-    "cloud/cloud_system.cc",
-    "environment.cc",
-    "environment_test.cc",
-    "field/field_ingest.cc",
+    "contour/contour_color_scale.cc",
+    "contour/contour_sheet.cc",
+    "contour/contour_sheet_test.cc",
     "field/field_store.cc",
-    "ocean/ocean_system.cc",
-    "field/procedural.cc",
+    # In-process dem_contour (avoid linking vista_d.dll / LNK1168).
+    "//src/vista/terrain/dem/dem_contour.cc",
   ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
   defines = [ "VISTA_EXPORTS" ]
   deps = [
     "//src/base:base",
+    "//src/base/execution:execution",
+    "//src/vista/terrain:land_mask",
+  ]
+}
+
+test("environment_test") {
+  output_name = "environment_test"
+  sources = [
+    "cloud/cloud_system.cc",
+    "contour/contour_color_scale.cc",
+    "contour/contour_sheet.cc",
+    "environment.cc",
+    "environment_test.cc",
+    "field/field_ingest.cc",
+    "field/field_store.cc",
+    "ocean/ocean_system.cc",
+    "field/procedural.cc",
+    "//src/vista/terrain/dem/dem_contour.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [
+    "//src/base:base",
+    "//src/base/execution:execution",
     "//src/vista/domain:domain_sources",
     "//src/vista/terrain:land_mask",
     "//third_party:gdal",

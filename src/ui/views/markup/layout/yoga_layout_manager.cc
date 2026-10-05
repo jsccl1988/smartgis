@@ -219,19 +219,109 @@ void build_tree(const View* host,
 YogaLayoutManager::YogaLayoutManager() = default;
 YogaLayoutManager::~YogaLayoutManager() = default;
 
+bool YogaLayoutManager::flex_layout_equal(const FlexStyle& a,
+                                          const FlexStyle& b) const {
+  return a.display == b.display && a.flex_direction == b.flex_direction &&
+         a.justify_content == b.justify_content &&
+         a.align_items == b.align_items && a.flex == b.flex &&
+         a.flex_grow == b.flex_grow && a.flex_shrink == b.flex_shrink &&
+         a.gap == b.gap && a.padding == b.padding &&
+         a.padding_left == b.padding_left && a.padding_top == b.padding_top &&
+         a.padding_right == b.padding_right &&
+         a.padding_bottom == b.padding_bottom && a.margin == b.margin &&
+         a.margin_left == b.margin_left && a.margin_top == b.margin_top &&
+         a.margin_right == b.margin_right &&
+         a.margin_bottom == b.margin_bottom && a.width == b.width &&
+         a.height == b.height && a.min_width == b.min_width &&
+         a.min_height == b.min_height && a.max_width == b.max_width &&
+         a.max_height == b.max_height;
+}
+
+void YogaLayoutManager::invalidate_yoga_cache() {
+  layout_valid_ = false;
+  pref_valid_ = false;
+}
+
+std::vector<YogaLayoutManager::ChildSnap>
+YogaLayoutManager::capture_child_snaps(const View* host) const {
+  std::vector<ChildSnap> snaps;
+  if (!host) {
+    return snaps;
+  }
+  const size_t n = host->child_count();
+  snaps.reserve(n);
+  for (size_t i = 0; i < n; ++i) {
+    View* child = host->child_at(i);
+    ChildSnap snap;
+    snap.child = child;
+    if (!child) {
+      snaps.push_back(snap);
+      continue;
+    }
+    snap.visible = child->is_locally_visible();
+    if (snap.visible) {
+      const FlexStyle* cs = find_child_style(child_styles_, child);
+      FlexStyle style = cs ? *cs : FlexStyle{};
+      const bool has_fixed_w = style.width.has_value();
+      const bool has_fixed_h = style.height.has_value();
+      const bool has_grow =
+          (style.flex_grow.has_value() && *style.flex_grow > 0.f) ||
+          (style.flex.has_value() && *style.flex > 0.f);
+      // Match build_tree: only measured children feed Yoga; grow/fixed boxes
+      // are sized by the host, so their preferred size is not a skip key.
+      if ((!has_fixed_w || !has_fixed_h) && !has_grow) {
+        const Size pref = child->get_preferred_size();
+        snap.pref_w = pref.width;
+        snap.pref_h = pref.height;
+      }
+    }
+    snaps.push_back(snap);
+  }
+  return snaps;
+}
+
+bool YogaLayoutManager::child_snaps_equal(
+    const std::vector<ChildSnap>& a,
+    const std::vector<ChildSnap>& b) const {
+  if (a.size() != b.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < a.size(); ++i) {
+    if (a[i].child != b[i].child || a[i].visible != b[i].visible ||
+        a[i].pref_w != b[i].pref_w || a[i].pref_h != b[i].pref_h) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void YogaLayoutManager::set_host_style(const FlexStyle& style) {
+  const bool layout_changed = !flex_layout_equal(host_style_, style);
   host_style_ = style;
+  if (layout_changed) {
+    invalidate_yoga_cache();
+  }
 }
 
 void YogaLayoutManager::set_child_style(const View* child,
                                         const FlexStyle& style) {
-  if (child) {
-    child_styles_[child] = style;
+  if (!child) {
+    return;
   }
+  const auto it = child_styles_.find(child);
+  if (it != child_styles_.end() && flex_layout_equal(it->second, style)) {
+    it->second = style;
+    return;
+  }
+  child_styles_[child] = style;
+  invalidate_yoga_cache();
 }
 
 void YogaLayoutManager::clear_child_style(const View* child) {
-  child_styles_.erase(child);
+  if (child_styles_.erase(child) == 0) {
+    return;
+  }
+  invalidate_yoga_cache();
 }
 
 void YogaLayoutManager::layout(View* host) {
@@ -246,32 +336,57 @@ void YogaLayoutManager::layout_impl(View* host) {
   if (!host) {
     return;
   }
+  const Rect host_bounds = host->bounds();
+  std::vector<ChildSnap> snaps = capture_child_snaps(host);
+  if (layout_valid_ && layout_host_ == host &&
+      layout_host_bounds_.x == host_bounds.x &&
+      layout_host_bounds_.y == host_bounds.y &&
+      layout_host_bounds_.width == host_bounds.width &&
+      layout_host_bounds_.height == host_bounds.height &&
+      child_snaps_equal(layout_snaps_, snaps)) {
+    return;
+  }
   YogaTree tree;
   build_tree(host, host_style_, child_styles_, &tree, /*set_host_size=*/true);
-  YGNodeCalculateLayout(tree.root, static_cast<float>(host->bounds().width),
-                        static_cast<float>(host->bounds().height),
+  YGNodeCalculateLayout(tree.root, static_cast<float>(host_bounds.width),
+                        static_cast<float>(host_bounds.height),
                         YGDirectionLTR);
   for (YGNodeRef yn : tree.children) {
     auto* child = static_cast<View*>(YGNodeGetContext(yn));
     if (!child) {
       continue;
     }
-    child->set_bounds({host->bounds().x + round_px(YGNodeLayoutGetLeft(yn)),
-                       host->bounds().y + round_px(YGNodeLayoutGetTop(yn)),
+    child->set_bounds({host_bounds.x + round_px(YGNodeLayoutGetLeft(yn)),
+                       host_bounds.y + round_px(YGNodeLayoutGetTop(yn)),
                        round_px(YGNodeLayoutGetWidth(yn)),
                        round_px(YGNodeLayoutGetHeight(yn))});
   }
+  // Recapture after measure_view so a follow-up pass sees stable preferred
+  // sizes and can skip instead of remaking the Yoga tree.
+  layout_host_ = host;
+  layout_host_bounds_ = host_bounds;
+  layout_snaps_ = capture_child_snaps(host);
+  layout_valid_ = true;
 }
 
 Size YogaLayoutManager::preferred_impl(const View* host) const {
   if (!host) {
     return {};
   }
+  std::vector<ChildSnap> snaps = capture_child_snaps(host);
+  if (pref_valid_ && pref_host_ == host &&
+      child_snaps_equal(pref_snaps_, snaps)) {
+    return pref_size_;
+  }
   YogaTree tree;
   build_tree(host, host_style_, child_styles_, &tree, /*set_host_size=*/false);
   YGNodeCalculateLayout(tree.root, YGUndefined, YGUndefined, YGDirectionLTR);
-  return {round_px(YGNodeLayoutGetWidth(tree.root)),
-          round_px(YGNodeLayoutGetHeight(tree.root))};
+  pref_host_ = host;
+  pref_snaps_ = capture_child_snaps(host);
+  pref_size_ = {round_px(YGNodeLayoutGetWidth(tree.root)),
+                round_px(YGNodeLayoutGetHeight(tree.root))};
+  pref_valid_ = true;
+  return pref_size_;
 }
 
 }  // namespace views

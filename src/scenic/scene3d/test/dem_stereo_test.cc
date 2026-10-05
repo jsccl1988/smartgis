@@ -17,7 +17,7 @@
 #include "scenic/scene3d/scene/scene_to_world.h"
 #include "vista/component/world/coord.h"
 #include "vista/terrain/dem/dem_height_field.h"
-#include "vista/component/world/dem_seed.h"
+#include "vista/component/world/terrain/seed.h"
 #include "scenic/scene3d/primitive/surface/terrain.h"
 
 namespace {
@@ -296,11 +296,11 @@ int main() {
     expect(node->min_z == expect_z0 && node->max_z == expect_z1,
            "World Z matches exaggerated elev");
     expect(node->has_terrain_mesh(), "terrain cpu mesh attached");
-    expect(node->terrain_positions.size() >= 9 &&
-               (node->terrain_positions.size() % 3) == 0,
+    expect(node->terrain.positions.size() >= 9 &&
+               (node->terrain.positions.size() % 3) == 0,
            "terrain positions xyz");
-    expect(node->terrain_indices.size() >= 3 &&
-               (node->terrain_indices.size() % 3) == 0,
+    expect(node->terrain.indices.size() >= 3 &&
+               (node->terrain.indices.size() % 3) == 0,
            "terrain triangle indices");
   }
 

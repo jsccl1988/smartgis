@@ -133,6 +133,10 @@ TrimeshLoaderDialog::TrimeshLoaderDialog(content::PluginHost* host) : host_(host
   set_layout_manager(std::make_unique<ui::views::FillLayout>());
   loaded.root->set_preferred_size({kW, kH});
   add_child(std::move(loaded.root));
+
+  if (host_) {
+    host_->present_dataset("smartgis.world3d", "", 1);
+  }
 }
 
 void TrimeshLoaderDialog::on_pick_vertex() {

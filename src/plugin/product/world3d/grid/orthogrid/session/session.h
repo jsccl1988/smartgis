@@ -5,10 +5,21 @@
 #define PLUGIN_WORLD3D_ORTHOGRID_SESSION_H_
 
 #include <string>
+#include <string_view>
 
 #include "plugin/product/world3d/grid/orthogrid/solve/boundary_solve.h"
 
+namespace content {
+class PluginHost;
+}
+
 namespace plugin {
+
+void bind_orthogrid_present_host(content::PluginHost* host);
+bool orthogrid_present_frame(content::PluginHost* host,
+                             std::string_view args_json);
+void arm_grid_boundary(int flag);
+
 namespace detail {
 
 // Digitizing session for four-edge orthogrid (flags 0..3) plus mesh commit.

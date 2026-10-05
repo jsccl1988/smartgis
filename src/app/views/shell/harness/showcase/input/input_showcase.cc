@@ -19,7 +19,7 @@
 #include "gis/edit/memory_session.h"
 #include "tool/interaction/interaction.h"
 #include "tool/workspace/workspace.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 namespace app {
 namespace {
@@ -86,7 +86,7 @@ int run_input_showcase(Browser& browser) {
   detail::pump_messages(400);
   // Digitize / FeatureGeom only needs ViewHost + Workspace ?do not hard-fail
   // on ContentMapView first-frame latency (full --self-test covers that).
-  if (ui::views::MapViewport* map = browser.map_viewport()) {
+  if (ui::views::DrawHost* map = browser.draw_host()) {
     (void)map->wait_ready(5000);
   }
   mark("map-ready");

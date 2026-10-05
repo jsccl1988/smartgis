@@ -9,6 +9,7 @@
 // #ifdef on HAS_SKIA. See docs/superpowers/ui-views-skia.md.
 
 #include "ui/ui_export.h"
+#include <memory>
 #include <windows.h>
 
 #include "ui/gfx/color/color.h"
@@ -21,8 +22,8 @@ namespace detail {
 class CanvasBackend;
 }  // namespace detail
 
-// Immediate-mode canvas used by ui::views. Map pixels stay on
-// leftover / RHI paths, not here.
+// Immediate-mode canvas used by ui::views. Map pixels stay on content / RHI
+// paths, not on this type.
 class UI_EXPORT Canvas {
  public:
   Canvas(HDC hdc, int width, int height);
@@ -48,8 +49,6 @@ class UI_EXPORT Canvas {
 
   int width() const { return width_; }
   int height() const { return height_; }
-  // GDI stub returns the paint HDC. Real Skia may still expose it for
-  // present/blit; callers must not use it to draw GIS.
   HDC hdc() const { return hdc_; }
 
   // Drop a SkSurface previously wrapped around a shell DIB that is about to
@@ -60,8 +59,7 @@ class UI_EXPORT Canvas {
   HDC hdc_;
   int width_;
   int height_;
-  // Owned; type is detail::CanvasBackend (canvas_backend.h).
-  detail::CanvasBackend* backend_ = nullptr;
+  std::unique_ptr<detail::CanvasBackend> backend_;
 };
 
 }  // namespace gfx

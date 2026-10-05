@@ -13,21 +13,21 @@
 #include "app/views/shell/harness/showcase/plugin/capture/capture.h"
 #include "app/views/shell/harness/showcase/plugin/session/device_session.h"
 #include "app/views/shell/harness/showcase/plugin/present/present_warmup.h"
-#include "app/views/shell/harness/showcase/plugin/session/session_finish.h"
+#include "app/views/shell/harness/showcase/plugin/present/world3d_fly.h"
 #include "app/views/shell/harness/showcase/plugin/seed/world3d_seed.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
-#include "ui/views/map/viewport/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "vista/assets/pointcloud/load.h"
 
 namespace app {
 namespace detail {
 
-// True Scene3D path: China DEM terrain + colored pointcloud overlay + HWND BMP.
+// True Scene3D path: globe Earth (full) or planar China DEM (perf-bare) + HWND BMP.
 // Map2d export_bmp (plugin.world3d.il) is intentionally not used here.
 // PLUGIN_WORLD3D_PERF_BARE=1 strips atmosphere + overlay for timing.
-// Unset PERF_BARE = M4 full-materials (atmo on); pointcloud soft-fails.
+// Unset PERF_BARE = M4 full-materials (globe + sat-cloud + sky).
 int run_world3d_scene3d(Browser& browser) {
   std::fprintf(stderr, "plugin-showcase: world3d Scene3D path\n");
   write_mark(kPluginShowcaseMarkLeaf, "world3d", /*truncate=*/true);
@@ -41,9 +41,9 @@ int run_world3d_scene3d(Browser& browser) {
     plugin_showcase_mark("full-materials");
   }
 
-  // Default FlyCube lit DEM. Explicit SCENE3D_ENGINE=scenic must win so
-  // the content-hosted scenic::Engine matrix row can present-proof GDI.
-  if (!content::apply_scene3d_engine_from_env()) {
+  // GPU Scene3D into the main App 3D pane. SCENE3D_ENGINE=gdi is rejected here.
+  if (!content::apply_scene3d_engine_from_env() ||
+      content::prefer_scene3d_gdi()) {
     content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
   }
 
@@ -81,22 +81,20 @@ int run_world3d_scene3d(Browser& browser) {
     return 50;
   }
   plugin_showcase_mark("cam-ok");
-  // Shell MapViewport FlyCube display thread can still call gpu_present while
-  // China seed mutates Scene3dPresenter — that race AVs (0xC0000005) before
-  // earth-atmo marks. Pause + drop the present callback first.
-  if (ui::views::MapViewport* scene_vp = browser.map_scene_viewport()) {
-    scene_vp->pause_present();
-    scene_vp->set_gpu_present({});
-    scene_vp->set_gpu_submit({});
-  }
-  plugin_showcase_mark("present-paused");
 
-  seed_world3d_earth_atmosphere(browser, cam);
+  if (bare) {
+    seed_world3d_earth_atmosphere(browser, cam);
+  } else {
+    seed_world3d_true_earth_globe(browser, cam);
+  }
   plugin_showcase_mark("seed-ok");
-  // Filled hypsometric DEM is the inspect SoT; wireframe hid land and read as
-  // a solid red ball when overlay albedo recycled.
+  // Globe albedo recycles to a solid red ball under wireframe; keep filled.
   cam->gpu().set_wireframe_enabled(false);
-  try_attach_world3d_city_tiles(cam);
+  if (cam->atmosphere_session().globe_enabled()) {
+    plugin_showcase_mark("earth-tiles-skip");
+  } else {
+    try_attach_world3d_city_tiles(cam);
+  }
   plugin_showcase_mark("tiles-ok");
 
   bool cloud_ok = false;
@@ -119,8 +117,12 @@ int run_world3d_scene3d(Browser& browser) {
       std::fprintf(stderr,
                    "plugin-showcase: cloud points=%zu color=%d path=%s\n",
                    cloud.point_count(), cloud.has_color() ? 1 : 0, cloud_path);
-      apply_world3d_pointcloud_overlay(cam, cloud);
-      cloud_ok = true;
+      // Planar overlay remaps Y onto the DEM slab; on the unit globe that
+      // paints a floating bead wall in front of Earth. Load still gates.
+      if (!cam->atmosphere_session().globe_enabled()) {
+        apply_world3d_pointcloud_overlay(cam, cloud);
+        cloud_ok = true;
+      }
     }
   }
 
@@ -133,25 +135,38 @@ int run_world3d_scene3d(Browser& browser) {
           cam, &session, browser,
           /*fail_log_prefix=*/nullptr, fail,
           // Bare: 6 = cold + 4 warm + DXGI tail (discarded from warm avg).
-          /*frame_count=*/bare ? 6 : 4,
+          /*frame_count=*/bare ? 6 : 5,
           /*perf_json_leaf=*/"plugin-showcase-world3d-perf.json",
           /*mode=*/bare ? "world3d-bare" : "world3d-full")) {
     return rc;
   }
 
+  // Full-materials globe: cinematic space → clouds → DEM → ocean, then park
+  // at high-China for the suite score BMP.
+  if (!bare && cam->atmosphere_session().globe_enabled()) {
+    const World3dGlobeFlyResult fly =
+        run_world3d_globe_fly_presents(browser, cam, orbit, &session);
+    std::fprintf(stderr,
+                 "plugin-showcase: world3d fly presents=%d stage_bmps=%d\n",
+                 fly.presents_added, fly.stage_bmps_ok);
+  }
+
   PluginCaptureOpts capture;
   capture.bmp_leaf = L"plugin-showcase-world3d.bmp";
-  capture.pre_capture_pump_ms = bare ? 0 : 120;
+  capture.pre_capture_pump_ms = bare ? 0 : 160;
   // Scenic GDI is not a lit DEM grid — color diversity, not grid-lit fraction.
-  capture.use_grid_lit_policy = !cam->hosts_scenic_present();
+  // Globe splash is a limb on starfield — not a filled DEM grid.
+  capture.use_grid_lit_policy =
+      !cam->hosts_scenic_present() && !cam->atmosphere_session().globe_enabled();
   capture.retry_dark_frame = true;
   const bool bmp_ok = capture_plugin_hwnd_bmp(cam, &session, capture);
 
   // Skip abandon_mesh on teardown — FlyCube + DX12 present remaps heap.
   teardown_plugin_device_session(
       cam, &session,
-      PluginTeardownOpts{.clear_pointcloud = cloud_ok, .shutdown_device = true});
-  detach_maps(browser);
+      PluginTeardownOpts{.clear_pointcloud = cloud_ok,
+                         .shutdown_device = false});
+  finish_scene3d_showcase(browser, session.borrowed_shell);
 
   if (!bmp_ok && session.want_gpu) {
     plugin_showcase_mark("bmp-fail");

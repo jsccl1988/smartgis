@@ -167,6 +167,55 @@ int main() {
          "dense concave fill");
   expect(dense_mesh.indices.size() >= 15, "dense concave keeps coverage");
 
+  // Grid quads store verts around the ring. Strip indices (0,1,2)/(1,3,2)
+  // leave a hole on the v0–v3 half; ring indices (0,1,2)/(0,2,3) cover it.
+  auto xyz = [](const TessMesh& m, uint32_t i, float* x, float* y) {
+    *x = m.positions[static_cast<size_t>(i) * 3];
+    *y = m.positions[static_cast<size_t>(i) * 3 + 1];
+  };
+  auto same_sign = [](float a, float b, float c) {
+    return (a >= 0 && b >= 0 && c >= 0) || (a <= 0 && b <= 0 && c <= 0);
+  };
+  auto in_tri = [&](float px, float py, float ax, float ay, float bx, float by,
+                    float cx, float cy) {
+    const float c0 = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+    const float c1 = (cx - bx) * (py - by) - (cy - by) * (px - bx);
+    const float c2 = (ax - cx) * (py - cy) - (ay - cy) * (px - cx);
+    return same_sign(c0, c1, c2);
+  };
+  auto mesh_covers = [&](const TessMesh& m, float px, float py) {
+    for (size_t i = 0; i + 2 < m.indices.size(); i += 3) {
+      float ax = 0;
+      float ay = 0;
+      float bx = 0;
+      float by = 0;
+      float cx = 0;
+      float cy = 0;
+      xyz(m, m.indices[i], &ax, &ay);
+      xyz(m, m.indices[i + 1], &bx, &by);
+      xyz(m, m.indices[i + 2], &cx, &cy);
+      if (in_tri(px, py, ax, ay, bx, by, cx, cy)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  OGRMultiPoint grid_mp;
+  OGRPoint gp00(0, 0);
+  OGRPoint gp10(1, 0);
+  OGRPoint gp01(0, 1);
+  OGRPoint gp11(1, 1);
+  grid_mp.addGeometry(&gp00);
+  grid_mp.addGeometry(&gp10);
+  grid_mp.addGeometry(&gp01);
+  grid_mp.addGeometry(&gp11);
+  TessMesh grid_mesh;
+  expect(vista::tessellate_grid(&grid_mp, 2, 2, grid_mesh), "unit grid");
+  expect(grid_mesh.indices.size() == 6, "unit grid two tris");
+  expect(mesh_covers(grid_mesh, 0.25f, 0.6f), "grid covers v0-v3 half");
+  expect(mesh_covers(grid_mesh, 0.75f, 0.4f), "grid covers v1-v2 half");
+
   if (g_fails) {
     std::fprintf(stderr, "tessellate_style_test: %d failed\n", g_fails);
     return 1;

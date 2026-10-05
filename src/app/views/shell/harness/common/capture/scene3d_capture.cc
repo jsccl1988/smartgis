@@ -72,10 +72,12 @@ bool capture_scene3d_hwnd_bmp(content::Scene3dPresenter* cam,
     return false;
   }
 
-  (void)cam->present_gpu(device, opts.present_w, opts.present_h);
+  if (!opts.skip_ui_thread_present) {
+    (void)cam->present_gpu(device, opts.present_w, opts.present_h);
+  }
   // Scenic GDI does not stick in the present HWND (no WM_PAINT owner-draw).
   // Export via scenic::Engine memory DIB instead of PrintWindow.
-  if (cam->hosts_scenic_present()) {
+  if (!opts.skip_ui_thread_present && cam->hosts_scenic_present()) {
     char utf8[MAX_PATH * 3] = {};
     const int n = WideCharToMultiByte(CP_UTF8, 0, bmp_path, -1, utf8,
                                       static_cast<int>(sizeof(utf8)), nullptr,
@@ -105,7 +107,8 @@ bool capture_scene3d_hwnd_bmp(content::Scene3dPresenter* cam,
       return !want_gpu;
     }
   }
-  if (cam->hosts_scenic_present() && capture_hwnd && IsWindow(capture_hwnd)) {
+  if (!opts.skip_ui_thread_present && cam->hosts_scenic_present() &&
+      capture_hwnd && IsWindow(capture_hwnd)) {
     HDC dc = GetDC(capture_hwnd);
     if (dc) {
       cam->paint(dc, static_cast<int>(opts.present_w),
@@ -131,14 +134,16 @@ bool capture_scene3d_hwnd_bmp(content::Scene3dPresenter* cam,
   bool signal = bmp_file_has_visible_signal(bmp_path, &bw, &bh, check);
 
   if (!signal && opts.retry_dark_frame) {
-    (void)cam->present_gpu(device, opts.present_w, opts.present_h);
-    if (cam->hosts_scenic_present() && capture_hwnd &&
-        IsWindow(capture_hwnd)) {
-      HDC dc = GetDC(capture_hwnd);
-      if (dc) {
-        cam->paint(dc, static_cast<int>(opts.present_w),
-                   static_cast<int>(opts.present_h), true);
-        ReleaseDC(capture_hwnd, dc);
+    if (!opts.skip_ui_thread_present) {
+      (void)cam->present_gpu(device, opts.present_w, opts.present_h);
+      if (cam->hosts_scenic_present() && capture_hwnd &&
+          IsWindow(capture_hwnd)) {
+        HDC dc = GetDC(capture_hwnd);
+        if (dc) {
+          cam->paint(dc, static_cast<int>(opts.present_w),
+                     static_cast<int>(opts.present_h), true);
+          ReleaseDC(capture_hwnd, dc);
+        }
       }
     }
     wait_before_capture(capture_hwnd, opts.pre_capture_pump_ms,

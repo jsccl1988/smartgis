@@ -73,7 +73,7 @@ ShortestPathDialog::ShortestPathDialog(content::PluginHost* host)
   loaded.root->set_preferred_size({kW, kH});
   add_child(std::move(loaded.root));
 
-  // Sample import defaults (Import pillar of AnalysisPlayback).
+  // Sample import defaults.
   const char* sample_dir = base::switch_cstr("plugin-sample-dir");
   const std::string base =
       sample_dir && *sample_dir ? std::string(sample_dir) : "../data/plugin";
@@ -94,6 +94,10 @@ ShortestPathDialog::ShortestPathDialog(content::PluginHost* host)
   }
   if (end_y_ && end_y_->text().empty()) {
     end_y_->set_text("39.95");
+  }
+
+  if (host_ && network_path_ && !network_path_->text().empty()) {
+    host_->present_dataset("smartgis.traffic", network_path_->text(), 0);
   }
 }
 

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "gis/style/style_types.h"
+#include "vista/component/world/terrain/payload.h"
 #include "vista/component/world/world.h"
 
 class OGRGeometry;
@@ -43,12 +44,7 @@ struct Instance {
   const vista::Tileset* tileset = nullptr;
   std::vector<std::string> visible_uris;
   // Copied from vista::Node on sync_from (terrain mesh upload seam).
-  std::vector<float> terrain_positions;
-  std::vector<uint32_t> terrain_indices;
-  std::vector<float> terrain_uvs;
-  std::vector<uint8_t> terrain_rgba;
-  uint32_t terrain_tex_w = 0;
-  uint32_t terrain_tex_h = 0;
+  TerrainPayload terrain;
   std::vector<float> point_positions;
   std::vector<uint8_t> point_rgba;
   std::vector<vista::PointCloudChunk> point_chunks;

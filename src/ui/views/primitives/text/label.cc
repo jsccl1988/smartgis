@@ -6,7 +6,7 @@
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
-#include "ui/views/kernel/widget/widget.h"
+#include "ui/views/primitives/detail/control_paint.h"
 
 namespace ui {
 namespace views {
@@ -17,13 +17,6 @@ constexpr int kPadX = 8;
 constexpr int kPadY = 6;
 constexpr int kMinHeight = 22;
 
-float scale_for(const View* view) {
-  if (view && view->widget()) {
-    return view->widget()->device_scale_factor();
-  }
-  return 1.f;
-}
-
 }  // namespace
 
 Label::Label(std::string text) : text_(std::move(text)) {
@@ -31,7 +24,7 @@ Label::Label(std::string text) : text_(std::move(text)) {
 }
 
 void Label::rebuild_text_cache() {
-  const float scale = scale_for(this);
+  const float scale = detail::device_scale_for(this);
   wide_ = utf8_to_wide(text_);
   ink_ = text_.empty() ? Size{} : measure_text_utf8(text_, scale);
   ink_scale_ = scale;
@@ -86,23 +79,18 @@ void Label::paint_self(ui::gfx::Canvas* canvas) {
   const Rect& b = bounds();
   const ui::gfx::Color c =
       has_color_ ? color_ : Theme::current().text;
-  const float scale = scale_for(this);
+  const float scale = detail::device_scale_for(this);
   if (ink_scale_ != scale) {
     rebuild_text_cache();
   }
   const int ink_h = ink_.height > 0 ? ink_.height : shell_body_font_px(scale);
   const int pad_x = dip_to_px(4, scale);
-  int text_y = b.y + pad_x;
-  if (b.height > ink_h) {
-    text_y = b.y + (b.height - ink_h) / 2;
-  }
+  const int text_y =
+      b.height > ink_h ? b.y + (b.height - ink_h) / 2 : b.y + pad_x;
   if (!wide_.empty()) {
     // Clip to label bounds so dock panels never paint mid-glyph into siblings
     // (FeatureInfo / status idle copy under narrow inspector widths).
-    canvas->save();
-    canvas->clip_rect(b.x, b.y, b.width, b.height);
-    canvas->draw_text(b.x + pad_x, text_y, wide_.c_str(), c);
-    canvas->restore();
+    detail::draw_clipped_text(canvas, b, b.x + pad_x, text_y, wide_.c_str(), c);
   }
 }
 

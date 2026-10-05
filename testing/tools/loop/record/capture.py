@@ -20,6 +20,7 @@ from .win32 import (
 )
 from .window import (
     bring_hwnd_to_front,
+    client_rect,
     drop_topmost,
     rect_fully_on_primary,
     window_rect,
@@ -351,35 +352,43 @@ def capture_hwnd_bmp_ex(
     """
     if not hwnd or not user32.IsWindow(hwnd):
         return False, 1.0
+    # Live GetWindowRect every call — do not reuse a start-of-session size
+    # after window(resize).
     left, top, right, bottom = window_rect(hwnd)
     w = max(1, right - left)
     h = max(1, bottom - top)
+    cl, ct, cr, cb = client_rect(hwnd)
+    cw = max(1, cr - cl)
+    ch = max(1, cb - ct)
 
-    candidates: list[tuple[str, bytes]] = []
+    candidates: list[tuple[str, bytes, int, int]] = []
 
-    def _try_accept(method: str, bgr: bytes, *, early: bool) -> tuple[bool, float] | None:
-        frac = near_black_frac(bgr, w, h)
-        candidates.append((method, bgr))
+    def _try_accept(
+        method: str, bgr: bytes, bw: int, bh: int, *, early: bool
+    ) -> tuple[bool, float] | None:
+        frac = near_black_frac(bgr, bw, bh)
+        candidates.append((method, bgr, bw, bh))
         if early and frac < 0.90:
-            _commit_bmp(path, w, h, bgr, method=method, near_black=frac)
+            _commit_bmp(path, bw, bh, bgr, method=method, near_black=frac)
             return True, frac
         return None
 
     if prefer_printwindow:
         pw = _capture_printwindow(hwnd, w, h)
         if pw is not None:
-            hit = _try_accept("printwindow", pw, early=True)
+            hit = _try_accept("printwindow", pw, w, h, early=True)
             if hit is not None:
                 return hit
 
-    # GDI map client: window DC beats desktop BitBlt when IDE covers the rect.
-    client = _capture_client_bitblt(hwnd, w, h)
+    # Client DC size is GetClientRect, not outer GetWindowRect — a locked
+    # chrome size after window(resize) BitBlts garbage / fails.
+    client = _capture_client_bitblt(hwnd, cw, ch)
     if client is not None:
         # Reject empty/DXGI-black client buffers so FlyCube can use desktop.
-        cfrac = near_black_frac(client, w, h)
+        cfrac = near_black_frac(client, cw, ch)
         if cfrac < 0.90:
             hit = _try_accept(
-                "client_bitblt", client, early=not prefer_printwindow
+                "client_bitblt", client, cw, ch, early=not prefer_printwindow
             )
             if hit is not None:
                 return hit
@@ -387,27 +396,29 @@ def capture_hwnd_bmp_ex(
     bitblt = _capture_bitblt(hwnd, w, h, left, top)
     if bitblt is not None:
         # Fast path: desktop BitBlt (dual-mon + DXGI present pixels).
-        hit = _try_accept("bitblt", bitblt, early=not prefer_printwindow)
+        hit = _try_accept(
+            "bitblt", bitblt, w, h, early=not prefer_printwindow
+        )
         if hit is not None:
             return hit
 
     if not prefer_printwindow:
         pw = _capture_printwindow(hwnd, w, h)
         if pw is not None:
-            candidates.append(("printwindow", pw))
+            candidates.append(("printwindow", pw, w, h))
 
     if not candidates:
         return False, 1.0
 
     # Prefer less-black, then prefer client_bitblt over desktop IDE bleed.
-    def _rank(item: tuple[str, bytes]) -> tuple[float, int]:
-        method, buf = item
+    def _rank(item: tuple[str, bytes, int, int]) -> tuple[float, int]:
+        method, buf, bw, bh = item
         pref = 0 if method == "client_bitblt" else (1 if method == "printwindow" else 2)
-        return near_black_frac(buf, w, h), pref
+        return near_black_frac(buf, bw, bh), pref
 
-    method, bgr = min(candidates, key=_rank)
-    frac = near_black_frac(bgr, w, h)
-    _commit_bmp(path, w, h, bgr, method=method, near_black=frac)
+    method, bgr, bw, bh = min(candidates, key=_rank)
+    frac = near_black_frac(bgr, bw, bh)
+    _commit_bmp(path, bw, bh, bgr, method=method, near_black=frac)
     return True, frac
 
 

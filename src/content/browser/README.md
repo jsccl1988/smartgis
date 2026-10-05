@@ -18,7 +18,7 @@ subdirectory tighten**. Present / debug / camera / capability stay.
 browser/   # C10 now → C11 target
   bootstrap/ catalog/ attrs/ plugin/   # C11 → contents/
   contents/                            # MapContents; C11 also public-impl TUs
-  session/                             # MapSession; C11 + MapHwndGestures
+  session/                             # BrowserSession; C11 + MapHwndGestures
   input/                               # C11 → session/
   document/{store,ingest,query,style,edit}/  # C11 files at document/
   camera/                              # keep (already flat)
@@ -32,7 +32,7 @@ browser/   # C10 now → C11 target
 | Dir | Owns | GN |
 | --- | --- | --- |
 | `contents/` | MapContents pipe; C11: bootstrap/catalog/attrs/plugin impls | `:content` |
-| `session/` | In-process WebContents-ish owner; C11: HWND gestures | `:map_session` |
+| `session/` | In-process WebContents-ish owner; C11: HWND gestures | `:browser_session` |
 | `document/` | MapScene + helpers | `:map_scene` |
 | `camera/` | 2D view + 3D orbit + navigation | `:map_camera` |
 | `present/` | Facades + CPU frame + GPU + GDI software | `:map_present` / `:scene3d_present` |
@@ -43,7 +43,7 @@ browser/   # C10 now → C11 target
 `software/` must not live under `src/render` (would reverse-depend on content).
 `render` must not depend on `content`. Public C++ stays two layers (`content`).
 
-Do **not** merge `content::MapSession` with `gis::MapEditSession`, or hosted
+Do **not** merge `content::BrowserSession` with `gis::MapEditSession`, or hosted
 `detail::MapLayer` with `gis::MapLayer`.
 
 Tests sit next to the code they cover (`*_test.cc`). `map2d_presenter_test.cc`
@@ -51,4 +51,4 @@ is still compiled into `:map_scene_test` (one exe, two colocated TUs).
 
 ---
 
-**最后更新：** 2026-10-04
+**最后更新：** 2026-10-05

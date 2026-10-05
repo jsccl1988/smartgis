@@ -18,6 +18,7 @@ from loop.record.hwnd import (  # noqa: E402
     _near_black_frac,
     _rect_fully_on_primary,
     _virtual_screen,
+    client_rect,
     find_window_by_title_substr,
     hwnd_pid,
     ocean_clear_frac,
@@ -85,6 +86,9 @@ class RecordHwndHelpersTest(unittest.TestCase):
         self.assertEqual(title, "")
         # hwnd_pid(0) is defined.
         self.assertEqual(hwnd_pid(0), 0)
+
+    def test_client_rect_null_hwnd(self) -> None:
+        self.assertEqual(client_rect(0), (0, 0, 0, 0))
 
 
 if __name__ == "__main__":

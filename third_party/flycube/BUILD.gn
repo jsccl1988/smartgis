@@ -81,7 +81,10 @@ if (is_debug) {
   _flycube_debug_out = "$root_out_dir/flycube"
   action("build_flycube_debug") {
     script = "//third_party/flycube/build_debug.py"
-    inputs = [ "$_flycube_root/CMakeLists.txt" ]
+    inputs = [
+      "$_flycube_root/CMakeLists.txt",
+      "$_flycube_root/src/FlyCube/CommandList/DXCommandList.cpp",
+    ]
     outputs = []
     foreach(_lib, _flycube_lib_names) {
       outputs += [ "$_flycube_debug_out/lib/$_lib" ]

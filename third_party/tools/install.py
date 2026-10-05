@@ -496,9 +496,22 @@ def build_cmake(
             cmake_args.append(f"-DCMAKE_CXX_COMPILER={cxx}")
             print(f"[install] using CXX compiler: {cxx}", flush=True)
     extra = pkg.get("cmake_args") or []
-    cmake_args.extend(
-        str(x).replace("@PREFIX@", str(install_prefix)) for x in extra
-    )
+    # @PREFIX@ — install root. @DASH_D@ — "-d" (Debug) / "" (Release) for
+    # libcurl-d_imp style. @D@ — "d" / "" for tiffd / geotiff_d_i style.
+    # Replace @DASH_D@ before @D@ so the longer token wins.
+    _debug = (build_type or "").lower() == "debug"
+    _d = "d" if _debug else ""
+    _dash_d = "-d" if _debug else ""
+
+    def _expand_cmake_token(arg: str) -> str:
+        return (
+            str(arg)
+            .replace("@PREFIX@", str(install_prefix))
+            .replace("@DASH_D@", _dash_d)
+            .replace("@D@", _d)
+        )
+
+    cmake_args.extend(_expand_cmake_token(x) for x in extra)
     if pkg.get("cmake_fetch_root_arg") and "cmake_from_tp_root" in pkg:
         fetch_root = pkg.get("cmake_fetch_root") or "scann"
         cmake_args.append(
@@ -570,6 +583,37 @@ def build_cmake(
         )
         _run(["cmake", "--install", str(build_dir)], cwd=build_dir.parent)
     _relocate_shadowing_bssl_openssl(install_prefix)
+
+
+def _ensure_tiff_cmake_include_junction(install_prefix: Path) -> None:
+    """Point lib/cmake/tiff/include → <prefix>/include when the former is missing."""
+    real_inc = install_prefix / "include"
+    link = install_prefix / "lib" / "cmake" / "tiff" / "include"
+    if not real_inc.is_dir() or not (real_inc / "tiffio.h").is_file():
+        return
+    if link.exists() or link.is_symlink():
+        return
+    link.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if sys.platform == "win32":
+            r = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(link), str(real_inc)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if r.returncode != 0:
+                print(
+                    f"[install] WARN: mklink TIFF cmake include failed: "
+                    f"{(r.stderr or r.stdout or '').strip()}",
+                    flush=True,
+                )
+                return
+        else:
+            link.symlink_to(real_inc, target_is_directory=True)
+        print(f"[install] libtiff: junction {link} -> {real_inc}", flush=True)
+    except OSError as e:
+        print(f"[install] WARN: could not junction TIFF cmake include: {e}", flush=True)
 
 
 def build_makefile(pkg: dict, src_dir: Path, install_prefix: Path) -> None:
@@ -803,6 +847,12 @@ def main() -> None:
         else:
             print(f"[install] ERROR: unsupported build_system {system!r}", file=sys.stderr)
             sys.exit(1)
+
+        # libtiff CONFIG export can surface include as lib/cmake/tiff/include under
+        # the VS generator; junction that path to the real prefix/include so
+        # libgeotiff's libxtiff (directory includes only) finds tiffio.h.
+        if args.package.lower() == "libtiff":
+            _ensure_tiff_cmake_include_junction(args.install_prefix)
 
     args.stamp.parent.mkdir(parents=True, exist_ok=True)
     args.stamp.write_text(f"ok {args.package}\n", encoding="utf-8")

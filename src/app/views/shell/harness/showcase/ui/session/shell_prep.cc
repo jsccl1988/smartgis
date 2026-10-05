@@ -4,12 +4,13 @@
 #include "app/views/shell/harness/showcase/ui/session/shell_prep.h"
 
 #include "app/views/shell/browser/browser.h"
+#include "app/views/shell/harness/common/io/maps.h"
 #include "app/views/shell/harness/common/present/linger_policy.h"
 #include "app/views/shell/harness/self_test/self_test.h"
 #include "ui/views/kernel/shell/theme_service.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/kernel/widget/widget.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -34,14 +35,8 @@ void apply_ui_harness_theme() {
 }
 
 void stop_ui_map_present(Browser& browser) {
-  auto stop = [](ui::views::MapViewport* pane) {
-    if (pane && pane->native_view() && IsWindow(pane->native_view())) {
-      KillTimer(pane->native_view(), 1);
-    }
-  };
-  stop(browser.map_viewport());
-  stop(browser.map_data_viewport());
-  stop(browser.map_scene_viewport());
+  // Drain queued WM_TIMER as well as KillTimer (see stop_map_present_timers).
+  stop_map_present_timers(browser);
 }
 
 void force_ui_shell_repaint(Browser& browser) {
@@ -52,13 +47,13 @@ void force_ui_shell_repaint(Browser& browser) {
       contents->layout();
     }
   }
-  if (ui::views::MapViewport* pane = browser.map_viewport()) {
+  if (ui::views::DrawHost* pane = browser.draw_host()) {
     pane->sync_native_bounds();
   }
-  if (ui::views::MapViewport* pane = browser.map_data_viewport()) {
+  if (ui::views::DrawHost* pane = browser.data_draw_host()) {
     pane->sync_native_bounds();
   }
-  if (ui::views::MapViewport* pane = browser.map_scene_viewport()) {
+  if (ui::views::DrawHost* pane = browser.scene_draw_host()) {
     pane->sync_native_bounds();
   }
   if (HWND hwnd = browser.hwnd()) {

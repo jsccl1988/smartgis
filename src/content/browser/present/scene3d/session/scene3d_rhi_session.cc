@@ -75,7 +75,13 @@ Scene3dEngine scene3d_engine() {
 }
 
 bool apply_scene3d_engine_from_env() {
+  // Switch wins when both are set. Harness suite.json often only exports
+  // SCENE3D_ENGINE; loop_runner peel_product_switches does not run for
+  // SmartGIS.exe, so getenv is required.
   const char* raw = base::switch_cstr("scene3d-engine");
+  if (!raw || !raw[0]) {
+    raw = std::getenv("SCENE3D_ENGINE");
+  }
   if (!raw || !raw[0]) {
     return false;
   }
@@ -131,9 +137,10 @@ bool prefer_scene3d_scenic() {
 }
 
 bool force_content_mapview_3d() {
-  // Scenic keeps the product HWND presenter; only stereo/GDI force the
-  // content MapView 3D path.
-  return prefer_scene3d_stereo_gl() || prefer_scene3d_gdi();
+  // Only leftover stereo needs a ContentMapView HWND. Scenic/GDI paint
+  // Scene3dPresenter on the product HWND — ContentMapView SharedSurface
+  // plus overlay fill flashes navy every present tick.
+  return prefer_scene3d_stereo_gl();
 }
 
 }  // namespace content

@@ -18,9 +18,19 @@ namespace views {
 class View;
 
 // Attribute bag for XML element construction (keeps pugixml out of the
-// public factory header).
-struct UI_EXPORT MarkupAttrs {
-  std::string get(std::string_view key, std::string_view fallback = {}) const;
+// public factory header). Export special members / methods only — marking the
+// whole struct UI_EXPORT makes MSVC emit those members in every UI_EXPORTS TU
+// (LNK2005 inside ui_views.dll).
+struct MarkupAttrs {
+  UI_EXPORT MarkupAttrs();
+  UI_EXPORT MarkupAttrs(const MarkupAttrs&);
+  UI_EXPORT MarkupAttrs(MarkupAttrs&&) noexcept;
+  UI_EXPORT MarkupAttrs& operator=(const MarkupAttrs&);
+  UI_EXPORT MarkupAttrs& operator=(MarkupAttrs&&) noexcept;
+  UI_EXPORT ~MarkupAttrs();
+
+  UI_EXPORT std::string get(std::string_view key,
+                            std::string_view fallback = {}) const;
   std::unordered_map<std::string, std::string> values;
 };
 

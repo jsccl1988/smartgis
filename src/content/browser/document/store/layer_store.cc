@@ -112,7 +112,7 @@ void LayerStore::ensure_active_layer_or_front() {
 
 std::vector<content::LayerDesc> LayerStore::layer_descs() const {
   std::vector<content::LayerDesc> out;
-  // Cap reserve: a skewed MapSession/MapScene layout (parallel out/Debug
+  // Cap reserve: a skewed BrowserSession/MapScene layout (parallel out/Debug
   // rebuild) can leave layers_ as MSVC debug-fill; size() then looks like
   // ~10^18 and vector::reserve throws std::length_error / process abort.
   constexpr size_t kMaxLayers = 1u << 20;
@@ -166,6 +166,9 @@ std::vector<content::LayerDesc> LayerStore::layer_descs() const {
 }
 
 size_t LayerStore::feature_count() const {
+  if (layers_.empty()) {
+    return 0;
+  }
   size_t n = 0;
   for (const MapLayer& layer : layers_) {
     n += layer.features.size();

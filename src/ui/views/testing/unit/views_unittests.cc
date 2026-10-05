@@ -17,6 +17,7 @@ int main() {
   test_skia_canvas_api();
   test_kernel_visible_enabled_focus_hover();
   test_tab_focus_traversal();
+  test_caption_button_release_outside_cancels();
   test_box_layout_skips_hidden();
   test_button_send_mouse();
   test_label_button_preferred_from_measure();
@@ -24,7 +25,11 @@ int main() {
   test_checkbox_toggle();
   test_slider_and_atmosphere_panel();
   test_radio_exclusive_group();
+  test_radio_exclusive_nested_rows();
+  test_radio_dpi_preferred();
   test_combobox_select();
+  test_markup_combobox_slider_button_attrs();
+  test_context_menu_empty_is_noop();
   test_tab_strip_switch_page();
   test_table_and_attribute_selection();
   test_layer_tree();
@@ -38,8 +43,11 @@ int main() {
   test_ambox_populate_from_commands();
   test_ambox_plugin_groups();
   test_tree_view_add_select_check();
+  test_tree_view_send_mouse_hits_rows();
   test_tree_view_dpi_row_height();
   test_scroll_view_wheel();
+  test_scroll_wheel_over_content_via_widget();
+  test_scroll_track_seek();
   test_menu_bar_click();
   test_menu_bar_add_menu();
   test_ambox_skips_view_navigation();
@@ -56,10 +64,11 @@ int main() {
   test_box_layout_flex_share_no_stack();
   test_box_layout_overflow_fits_host();
   test_box_layout_preferred_size_from_children();
+  test_add_child_during_layout_keeps_dirty();
   test_dialog_close_noop();
   test_dialog_host_geometry();
   test_layout_center_helper();
-  test_widget_hwnd_and_map_viewport();
+  test_widget_hwnd_and_draw_host();
   test_custom_frame_hides_os_caption();
   test_touch_multitouch_midpoint();
   test_dpi_scale_math();
@@ -75,12 +84,20 @@ int main() {
   test_shell_compositor_async_publish_wake();
   test_shell_compositor_present_fills_when_buffer_lags();
   test_shell_compositor_present_no_flash_when_front_covers();
+  test_shell_compositor_dirty_subset_skips_full_shell();
+  test_shell_compositor_full_frame_skips_off_dib_cmds();
   test_set_layers_layouts_once();
   test_scroll_skips_layout_when_preferred_unchanged();
   test_table_paints_viewport_rows_only();
   test_table_row_cache_hit_on_rerecord();
   test_set_text_caches_measure();
   test_vblank_clock_wait_returns();
+  test_paint_schedule_coalesce_gate();
+  test_chart_view_series_and_paint();
+  test_result_playback_panel_scrub();
+  test_geoprocessing_history_panel();
+  test_debug_console_and_diagnostic_tools();
+  test_attribute_field_schema_row();
 
   if (g_fails) {
     std::fprintf(stderr, "views_unittests: %d failed\n", g_fails);

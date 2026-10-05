@@ -27,11 +27,11 @@
   "visual_review": {
     "enabled": true,
     "checklist": [
-      "data_page_chrome_readable",
+      "chrome_readable",
       "no_panel_collapse",
       "no_sibling_overlap",
       "dark_theme_consistent"
     ],
-    "expect_notes": "Data page shell capture; score_id=ui_shell_dark"
+    "expect_notes": "Data pane removed; --ui-showcase data stays on Map tab (score_id=ui_shell_dark)"
   }
 }

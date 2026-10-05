@@ -5,7 +5,7 @@ All rights reserved.
 
 # GlRenderDevice (leftover OpenGL)
 
-Windows **OpenGL** implementation of leftover `RenderDevice3d`, parallel to `rhi3d/impl/d3d/`. Distinct from modern `src/render/rhi` (FlyCube).
+Windows **OpenGL** implementation of leftover `RenderDevice3d`, parallel to `rhi3d/impl/d3d/`. Distinct from modern `src/render/rhi` (Vista).
 
 Living spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../../../../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) §GL leftover capability · Plan: [`docs/superpowers/plans/2026-09-29-gl-leftover-capability.md`](../../../../../../docs/superpowers/plans/2026-09-29-gl-leftover-capability.md).
 
@@ -15,7 +15,7 @@ Same contract as D3D for FrameJob/prep. **No** D3D deferred on GL — P3 is D3D-
 
 ## Present
 
-`GlRenderDevice::Init(HWND)` owns WGL + `SwapBuffers` on that HWND. Do **not** create FlyCube on this HWND. The former `bind_rhi_present` / leftover_session strangler was removed.
+`GlRenderDevice::Init(HWND)` owns WGL + `SwapBuffers` on that HWND. Do **not** create Vista on this HWND. The former `bind_rhi_present` / leftover_session strangler was removed.
 
 ## Factory (ABI unchanged)
 
@@ -70,7 +70,7 @@ GL was already ahead of D3D on texture/FBO/font/frustum. This slice is primarily
 - **Font / frustum:** GDI bitmap font lists (`resource/text` + `font.cpp`); world + screen `DrawText`; `GetFrustum` from GL modelview × projection (`paint/misc.cpp`). **Fixed:** CreateFont failure path deletes the helper and releases HDC.
 - **Draw:** immediate/VBO paths, lit mesh, fastdraw, state manager.
 
-**Still stub / deferred:** full programmable shader manager enrichment beyond existing GL extension path; no FlyCube on this HWND; no rewrite of public `Smt_*` ABI.
+**Still stub / deferred:** full programmable shader manager enrichment beyond existing GL extension path; no Vista on this HWND; no rewrite of public `Smt_*` ABI.
 
 ## E2E
 

@@ -355,7 +355,7 @@ If Chromium exposes a PA version / stats API in the pin, call it once in smoke; 
 When `use_partition_alloc_as_malloc`:
 
 - every `shared_library` and `executable` gets `deps += [ "//…:allocator_shim" ]`
-- assert or document that FlyCube / third_party prebuilts either bypass (document risk) or also route through shim
+- assert or document that Vista / third_party prebuilts either bypass (document risk) or also route through shim
 
 - [ ] **Step 3: Enable only on Release** for a Views/self-test smoke; keep Debug off.
 

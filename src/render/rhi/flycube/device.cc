@@ -39,6 +39,7 @@ bool FlycubeDevice::recreate_swapchain(const DeviceDesc& desc) {
     depth_view_.reset();
     depth_srv_.reset();
     depth_texture_.reset();
+    depth_state_ = ResourceState::kCommon;
     clear_depth_sample_facade();
     depth_w_ = 0;
     depth_h_ = 0;
@@ -185,6 +186,7 @@ void FlycubeDevice::shutdown() {
     depth_view_.reset();
     depth_srv_.reset();
     depth_texture_.reset();
+    depth_state_ = ResourceState::kCommon;
     clear_depth_sample_facade();
     back_buffer_views_.clear();
     swapchain_.reset();

@@ -5,7 +5,7 @@ All rights reserved.
 
 # D3dRenderDevice (leftover D3D11)
 
-Windows **D3D11** implementation of leftover `RenderDevice3d`, parallel to `rhi3d/impl/gl/`. Chosen over D3D12 to match the product D3D11 stack and avoid resurrecting deleted D3D9/D3DX. Distinct from modern `src/render/rhi` (FlyCube).
+Windows **D3D11** implementation of leftover `RenderDevice3d`, parallel to `rhi3d/impl/gl/`. Chosen over D3D12 to match the product D3D11 stack and avoid resurrecting deleted D3D9/D3DX. Distinct from modern `src/render/rhi` (Vista).
 
 Living spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../../../../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) §D3D leftover capability · Plan: [`docs/superpowers/plans/2026-09-29-d3d-leftover-capability.md`](../../../../../../docs/superpowers/plans/2026-09-29-d3d-leftover-capability.md).
 
@@ -19,7 +19,7 @@ Stereo HWND present can run on a serial FrameJob worker (`Rhi3dFrameScheduler` u
 
 ## Present
 
-`D3dRenderDevice::Init(HWND)` owns D3D11 `IDXGISwapChain::Present` on that HWND. Do **not** create FlyCube on this HWND. The former `bind_rhi_present` / leftover_session strangler was removed.
+`D3dRenderDevice::Init(HWND)` owns D3D11 `IDXGISwapChain::Present` on that HWND. Do **not** create Vista on this HWND. The former `bind_rhi_present` / leftover_session strangler was removed.
 
 ## Factory (ABI unchanged)
 

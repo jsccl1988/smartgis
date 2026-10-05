@@ -22,7 +22,11 @@ class ViewFrame;
 // Shared MapIR cache for GPU present and GDI paint (dual-speed §Perf).
 class Map2dFrameCache {
  public:
-  Map2dFrameCache() = default;
+  // Out-of-line: MapIR / DrawItem vectors must be constructed and destroyed in
+  // this TU. An inline default ctor in map2d_presenter.cc plus bind() here
+  // _Tidy's a different sizeof (0xCD iterator proxy on BindPresenters).
+  Map2dFrameCache();
+  ~Map2dFrameCache();
 
   Map2dFrameCache(const Map2dFrameCache&) = delete;
   Map2dFrameCache& operator=(const Map2dFrameCache&) = delete;

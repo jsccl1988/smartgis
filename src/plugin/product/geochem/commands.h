@@ -4,7 +4,6 @@
 #ifndef PLUGIN_GEOCHEM_COMMANDS_H_
 #define PLUGIN_GEOCHEM_COMMANDS_H_
 
-#include <functional>
 #include <string>
 
 #include "gis/analysis/geochem/grade.h"
@@ -29,17 +28,6 @@ struct GeochemCommit {
   bool has_idw = false;
   bool has_stats = false;
 };
-
-using GeochemWriter =
-    std::function<bool(const GeochemCommit& commit, std::string* err)>;
-
-// Optional: read Point features from the active map session layer.
-using GeochemLayerReader = std::function<bool(
-    const std::string& element, gis::detail::GeochemSampleSet* out,
-    std::string* err)>;
-
-void set_geochem_writer(GeochemWriter writer);
-void set_geochem_layer_reader(GeochemLayerReader reader);
 
 bool register_geochem(content::PluginHost* host);
 

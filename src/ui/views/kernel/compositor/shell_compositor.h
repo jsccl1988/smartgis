@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -68,8 +69,26 @@ class UI_EXPORT ShellCompositor {
                         const RECT& dest,
                         ui::gfx::Color fallback_fill);
 
+  // Borrowed view of the published front DIB. Valid only while the caller
+  // still holds no further Commit/raster that may release or swap buffers —
+  // prefer copy_published_shell for any work after unlocking.
   ui::gfx::ShellRaster shell_raster() const;
+
+  // UI thread: memcpy published front BGRA into |out_bgra| under the compositor
+  // mutex so overlay crop cannot UAF when the worker swaps / recreate DIBs
+  // (STATUS_HEAP_CORRUPTION 0xC0000374 under non-debug heap timing).
+  // On success |out_meta->bgra| points into |out_bgra|; |out_generation| is the
+  // published generation that was copied (optional).
+  bool copy_published_shell(std::vector<std::uint8_t>* out_bgra,
+                            ui::gfx::ShellRaster* out_meta,
+                            std::uint64_t* out_generation) const;
+
   std::uint64_t published_generation() const;
+
+  // Published front DIB size (0×0 when empty). UI uses this to detect a client
+  // that grew past the last Commit so resize cannot keep presenting a lagging
+  // front (NULL_BRUSH desktop show-through / stale chrome).
+  void front_buffer_size(int* width_px, int* height_px) const;
 
   // Drop worker DIBs (minimize / zero size). Safe on UI thread after shutdown
   // or while the worker is idle between frames; takes the mutex.
@@ -88,17 +107,19 @@ class UI_EXPORT ShellCompositor {
   void worker_main();
   void activate_pending();
   void raster_active();
-  // Replay |frame| into |dc| for |dirty|. Selects |font| on every paint target
-  // (including U4 temp DIBs — omitting that left TextOut on SYSTEM font so
-  // full-frame chrome looked tiny until a small hover dirty reused |dc|).
-  // |dc| must reference a top-down 32bpp DIB matching frame size.
+  // Replay |frame| into |dc| for |dirty|. Always replay_clipped to dirty
+  // intersect DIB so hover/catalog and off-buffer cmds (tall TableView vs
+  // window DIB) never walk-and-draw the rest of the shell. |dc| is a top-down
+  // 32bpp DIB; |dib_w|/|dib_h| are the logical surface size (same as frame).
   void raster_dirty_into(HDC dc,
                          int dib_w,
                          int dib_h,
                          const PaintCommit& frame,
                          Rect dirty,
-                         bool full_frame,
                          HFONT font);
+  // 32bpp top-down copy of |r| from |src| into |dst|. Used to publish a subset
+  // dirty without BitBlt of the full shell (and without swapping buffers).
+  void copy_dib_rect(Dib* dst, const Dib& src, Rect r);
   HWND maybe_take_wake_hwnd_locked(std::uint64_t generation);
   bool ensure_dib(Dib* dib, int width_px, int height_px);
   void release_dib(Dib* dib);

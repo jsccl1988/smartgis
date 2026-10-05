@@ -18,9 +18,12 @@ from .win32 import user32
 from .window import (
     bring_hwnd_to_front,
     find_window_by_title_substr,
+    is_usable_map_record_hwnd,
     rect_fully_on_primary,
     resolve_map_record_hwnd,
     virtual_screen,
+    wait_stable_shell_hwnd,
+    window_area,
     window_rect,
 )
 
@@ -64,12 +67,16 @@ class HwndRecorder:
         title_substr: str,
         fps: float = 10.0,
         find_timeout_sec: float = 45.0,
+        env: dict[str, str] | None = None,
     ) -> None:
         self.captures_dir = Path(captures_dir)
         self.suite_id = suite_id
         self.title_substr = title_substr
         self.fps = max(1.0, float(fps))
         self.find_timeout_sec = find_timeout_sec
+        # Suite env (HARNESS_RECORD_MODE=bmp) — do not fall back to parent
+        # process os.environ alone (loop_runner reports mode=auto otherwise).
+        self._env = dict(env) if env is not None else None
         self._proc: subprocess.Popen[Any] | None = None
         self._mode = "none"
         self._path: Path | None = None
@@ -83,6 +90,11 @@ class HwndRecorder:
         self._rect: tuple[int, int, int, int] | None = None
         self._ffmpeg_skip: str | None = None
         self._mp4_path: Path | None = None
+        self._target_pid: int = 0
+
+    def bind_target_pid(self, pid: int) -> None:
+        """Restrict HWND lookup to this process (inproc loop_runner child)."""
+        self._target_pid = int(pid)
 
     def bind_hwnd(self, hwnd: int, title: str = "") -> None:
         self._hwnd = int(hwnd)
@@ -97,6 +109,7 @@ class HwndRecorder:
         w = max(2, right - left)
         h = max(2, bottom - top)
         title = (self._title or "").strip()
+        # gdigrab -video_size is fixed at start; window(resize) needs bmp_burst.
 
         # Prefer window-title grab: multi-monitor safe, no desktop offset math.
         if title:
@@ -195,13 +208,42 @@ class HwndRecorder:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         leaf = f"{self.suite_id.replace('.', '_')}_{stamp}"
         if wait_for_hwnd and not self._hwnd:
-            self._hwnd, self._title = find_window_by_title_substr(
-                self.title_substr, timeout_sec=self.find_timeout_sec
-            )
+            pid = int(self._target_pid) if self._target_pid else None
+            if pid:
+                # Bind the launched PE only — title substr matches Cursor too.
+                # Wait until the shell HWND is stable (past Widget.init splash).
+                self._hwnd, self._title = wait_stable_shell_hwnd(
+                    pid,
+                    title_substr=self.title_substr,
+                    timeout_sec=self.find_timeout_sec,
+                    min_area=80_000,
+                    stable_ms=900,
+                )
+            else:
+                self._hwnd, self._title = find_window_by_title_substr(
+                    self.title_substr, timeout_sec=self.find_timeout_sec
+                )
         if not self._hwnd:
             self._mode = "skipped"
             self._error = "hwnd_timeout"
             return self.status()
+
+        # Wait for map client / FlyCube Present before PrintWindow. BitBlt
+        # during init_shell (HWND exists, viewports not attached) re-enters
+        # DWM paint and has heap-corrupted the interact showcase.
+        map_deadline = time.time() + min(20.0, max(4.0, self.find_timeout_sec))
+        while time.time() < map_deadline:
+            if not user32.IsWindow(int(self._hwnd)):
+                self._mode = "skipped"
+                self._error = "hwnd_died"
+                return self.status()
+            mapped, mapped_title = resolve_map_record_hwnd(int(self._hwnd))
+            if mapped and is_usable_map_record_hwnd(mapped):
+                if mapped_title:
+                    self._title = mapped_title
+                break
+            time.sleep(0.2)
+        time.sleep(0.25)
 
         # Retarget shell → map client / FlyCube Present so BitBlt is not a
         # WS_CLIPCHILDREN black hole (browse / Views ContentMapView).
@@ -212,7 +254,7 @@ class HwndRecorder:
                 self._title = map_title
 
         self._rect = window_rect(self._hwnd)
-        mode_pref = record_mode_pref()
+        mode_pref = record_mode_pref(self._env)
         out_mp4 = record_dir / f"{leaf}.mp4"
         if mode_pref != "bmp" and self._try_start_ffmpeg(out_mp4):
             return self.status()
@@ -235,69 +277,62 @@ class HwndRecorder:
 
         def _burst() -> None:
             i = 0
-            good = 0
             interval = 1.0 / self.fps
             while not self._burst_stop:
                 t0 = time.time()
                 if not user32.IsWindow(self._hwnd):
                     break
-                if not user32.IsWindowVisible(self._hwnd):
-                    # Startup: HWND may briefly report invisible — wait a bit.
-                    if good == 0 and (time.time() - self._started) < 8.0:
-                        time.sleep(interval)
-                        continue
+                # Re-query geometry every frame. A start-of-session lock of
+                # 1280x800 misses window(resize) in ui.interact (~15s in).
+                shell = int(self._hwnd)
+                parent = int(user32.GetAncestor(shell, 2) or 0)  # GA_ROOT
+                root = parent if parent else shell
+                if not user32.IsWindow(root):
                     break
-                path = frames / f"frame_{i:05d}.bmp"
-                # Re-resolve each few frames: FlyCube Present may appear after
-                # shell HWND, and ContentMapView child size settles after seed.
-                root = int(self._hwnd)
-                if i == 0 or (i % 8) == 0:
-                    shell = int(self._hwnd)
-                    # If we already retargeted to a child, walk up for shell.
-                    parent = int(user32.GetAncestor(shell, 2) or 0)  # GA_ROOT
-                    root = parent if parent else shell
-                    mapped, mapped_title = resolve_map_record_hwnd(root)
-                    if mapped and user32.IsWindow(mapped):
-                        self._hwnd = int(mapped)
+                mapped, mapped_title = resolve_map_record_hwnd(root)
+                cap = int(root)
+                if mapped and is_usable_map_record_hwnd(mapped):
+                    # Map child that still fills the shell; otherwise the
+                    # Views chrome resized and the child lagged.
+                    if window_area(mapped) >= max(1, int(window_area(root) * 0.45)):
+                        cap = int(mapped)
                         if mapped_title:
                             self._title = mapped_title
-                    # Raise the shell root (not the WS_CHILD alone). BitBlt of
-                    # MapViewport copies desktop pixels at its rect — IDE chrome
-                    # above SmartGisViews freezes motion_gate unique-frame score.
+                    else:
+                        cap = int(root)
+                self._hwnd = cap
+                self._rect = window_rect(cap)
+                if not user32.IsWindowVisible(cap):
+                    # Resize/restore can flicker WS_VISIBLE — skip, do not stop.
+                    time.sleep(interval)
+                    continue
+                path = frames / f"frame_{i:05d}.bmp"
+                if i == 0 or (i % 8) == 0:
                     bring_hwnd_to_front(root, stay_topmost=True)
-                # After raising the shell root TOPMOST, BitBlt on primary is
-                # live and fast (needed for motion_gate frame count). PrintWindow
-                # of MapViewport forces full GDI china paint and starves fps.
-                # Off-primary / occluded: PrintWindow first, then BitBlt retry.
-                left, top, right, bottom = window_rect(self._hwnd)
+                left, top, right, bottom = self._rect
                 on_primary = rect_fully_on_primary(left, top, right, bottom)
                 prefer_pw = not on_primary
                 ok, near_black = capture_hwnd_bmp_ex(
-                    self._hwnd,
+                    cap,
                     path,
                     prefer_printwindow=prefer_pw,
                 )
                 if (not ok or near_black > 0.90) and prefer_pw:
                     ok2, nb2 = capture_hwnd_bmp_ex(
-                        self._hwnd, path, prefer_printwindow=False
+                        cap, path, prefer_printwindow=False
                     )
                     if ok2 and nb2 < near_black:
                         ok, near_black = ok2, nb2
                 elif (not ok or near_black > 0.90) and not prefer_pw:
-                    # Primary BitBlt still IDE-poisoned: one PrintWindow fallback.
                     ok2, nb2 = capture_hwnd_bmp_ex(
-                        self._hwnd, path, prefer_printwindow=True
+                        cap, path, prefer_printwindow=True
                     )
                     if ok2 and nb2 < near_black:
                         ok, near_black = ok2, nb2
-                if not ok:
-                    if good == 0 and (time.time() - self._started) < 8.0:
-                        time.sleep(interval)
-                        continue
-                    break
-                # Startup navy / flip-model black: skip until a real frame.
-                # Teardown black: stop only after we already had good frames.
-                if near_black > 0.98:
+                if not ok or near_black > 0.98:
+                    # Failed / flip-model black: skip this tick. Do not treat
+                    # as teardown — that capped ui.interact at ~120 frames / 15s
+                    # while the process still ran timeout_sec (180s).
                     try:
                         path.unlink(missing_ok=True)
                         path.with_suffix(path.suffix + ".method.txt").unlink(
@@ -305,11 +340,8 @@ class HwndRecorder:
                         )
                     except OSError:
                         pass
-                    if good > 0:
-                        break
                     time.sleep(interval)
                     continue
-                good += 1
                 i += 1
                 elapsed = time.time() - t0
                 time.sleep(max(0.0, interval - elapsed))
@@ -350,7 +382,7 @@ class HwndRecorder:
     def status(self) -> dict[str, Any]:
         out: dict[str, Any] = {
             "mode": self._mode,
-            "record_mode_pref": record_mode_pref(),
+            "record_mode_pref": record_mode_pref(self._env),
             "title_substr": self.title_substr,
             "hwnd": self._hwnd,
             "title": self._title,

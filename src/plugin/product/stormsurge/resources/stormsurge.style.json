@@ -1,0 +1,28 @@
+{
+  "version": 8,
+  "name": "stormsurge_mask",
+  "layers": [
+    {"id":"background","type":"background",
+     "paint":{"background-color":"#aad3df","background-opacity":1}},
+    {"id":"land","type":"fill","source-layer":"land",
+     "paint":{"fill-color":"#f5f3e9","fill-opacity":1}},
+    {"id":"water","type":"fill","source-layer":"water",
+     "paint":{"fill-color":"#a3ccff","fill-opacity":1}},
+    {"id":"river","type":"line","source-layer":"river",
+     "paint":{"line-color":"#4a8ab8","line-width":2.5}},
+    {"id":"admin","type":"line","source-layer":"admin",
+     "paint":{"line-color":"#2c2418","line-width":1.8}},
+    {"id":"road-casing","type":"line","source-layer":"road","minzoom":5,
+     "paint":{"line-color":"#8a7040","line-width":3.5}},
+    {"id":"road","type":"line","source-layer":"road","minzoom":5,
+     "paint":{"line-color":"#e0c06a","line-width":1.6}},
+    {"id":"surge_cells","type":"fill","source-layer":"flood_mask",
+     "paint":{"fill-color":"#16a085","fill-opacity":0.55}},
+    {"id":"surge_edge","type":"line","source-layer":"flood_mask",
+     "paint":{"line-color":"#0e6655","line-width":1.8}},
+    {"id":"water_fill","type":"fill","source-layer":"Storm surge water",
+     "paint":{"fill-color":"#1abc9c","fill-opacity":0.45}},
+    {"id":"water_edge","type":"line","source-layer":"Storm surge water",
+     "paint":{"line-color":"#0e6655","line-width":1.2}}
+  ]
+}

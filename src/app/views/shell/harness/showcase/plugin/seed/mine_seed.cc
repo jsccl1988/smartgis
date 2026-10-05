@@ -7,7 +7,7 @@
 
 #include "app/views/shell/browser/browser.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
-#include "app/views/shell/harness/showcase/plugin/common/common.h"
+#include "app/views/shell/harness/showcase/plugin/common/plugin_io.h"
 
 namespace app {
 namespace detail {

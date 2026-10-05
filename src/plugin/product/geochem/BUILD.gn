@@ -8,6 +8,7 @@ copy("geochem_resources") {
   sources = [
     "resources/analyze.ui.css",
     "resources/analyze.ui.xml",
+    "resources/geochem.style.json",
   ]
   outputs = [ "$root_out_dir/../plugins/geochem/{{source_file_part}}" ]
 }
@@ -16,6 +17,8 @@ source_set("geochem_views") {
   sources = [
     "commands.cc",
     "commands.h",
+    "present/present.cc",
+    "present/present.h",
     "views/analyze_dialog.cc",
     "views/analyze_dialog.h",
   ]
@@ -28,6 +31,7 @@ source_set("geochem_views") {
     "//src/gis:gis",
     "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/widgets:widgets",
+    "//src/tool:dispatch",
     "//src/ui/views:views",
     "//third_party:gdal",
     "//third_party:rapidjson",

@@ -4,7 +4,9 @@
 #ifndef APP_VIEWS_SHELL_APP_CMDLINE_VIEWS_LAUNCH_OPTIONS_H_
 #define APP_VIEWS_SHELL_APP_CMDLINE_VIEWS_LAUNCH_OPTIONS_H_
 
+#include <cstddef>
 #include <string>
+#include <string_view>
 
 #include "content/app/process_type.h"
 
@@ -34,20 +36,6 @@ enum class Map2dShowcaseMode {
   kOrthogrid,
 };
 
-  // Product plugin sample+viz (--plugin-showcase=...|geochem|mine).
-enum class PluginShowcaseMode {
-  kNone,
-  kWorld3d,
-  kPrint,
-  kOrthogrid,
-  kOrthogrid3d,
-  kTraffic,
-  kFlood,
-  kStormSurge,
-  kMine,
-  kGeochem,
-};
-
 // Shell chrome capture for ui_shell_loop / --ui-showcase=shell (distinct from --self-test).
 enum class UiShowcaseMode {
   kNone,
@@ -70,7 +58,13 @@ struct ViewsLaunchOptions {
   bool debug_console = false;
   AtmosphereShowcaseMode atmosphere_showcase = AtmosphereShowcaseMode::kNone;
   Map2dShowcaseMode map2d_showcase = Map2dShowcaseMode::kNone;
-  PluginShowcaseMode plugin_showcase = PluginShowcaseMode::kNone;
+  // Product plugin sample+viz (--plugin-showcase=<id>). Empty = none.
+  // Canonical ids: world3d|world_preview|print|orthogrid|orthogrid3d|traffic|flood|
+  // stormsurge|mine|geochem|report. Aliases dem→world3d, baogrid→orthogrid,
+  // hexgrid→orthogrid3d.
+  std::string plugin_showcase;
+  // present_dataset surface sticky: main|preview (empty = main).
+  std::string plugin_present;
   UiShowcaseMode ui_showcase = UiShowcaseMode::kNone;
   std::string atmosphere_fields;
   // Empty = unset (caller may fall back to env SHELL_CANVAS).
@@ -79,11 +73,21 @@ struct ViewsLaunchOptions {
   // Each plugin loads from <plugins_dir>/<package>/ (e.g. world3d/).
   std::string plugins_dir;
   // Opt-in OOP GPU child at Session.init_hosts (--enable-oop-render or
-  // ENABLE_OOP_RENDER=1). Default is deferred until MapViewport needs it.
+  // ENABLE_OOP_RENDER=1). Default is deferred until DrawHost needs it.
   bool enable_oop_render = false;
   bool ok = true;
   int exit_code = 0;
 };
+
+// Touch trailing members so a TU compiled against a truncated ViewsLaunchOptions
+// (missing plugin_present / plugins_dir) fails at compile time instead of
+// reading 0xCC past the stack object in run_browser_main.
+inline constexpr std::size_t k_views_launch_options_plugins_dir_off =
+    offsetof(ViewsLaunchOptions, plugins_dir);
+inline constexpr std::size_t k_views_launch_options_tail_off =
+    offsetof(ViewsLaunchOptions, exit_code);
+static_assert(k_views_launch_options_plugins_dir_off > 0);
+static_assert(k_views_launch_options_tail_off > k_views_launch_options_plugins_dir_off);
 
 // CLI11 parse of argc/argv (wide). On --help / parse error: ok=false and
 // exit_code set for wWinMain to return directly.
@@ -91,8 +95,10 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv);
 
 const char* atmosphere_showcase_name(AtmosphereShowcaseMode mode);
 const char* map2d_showcase_name(Map2dShowcaseMode mode);
-const char* plugin_showcase_name(PluginShowcaseMode mode);
 const char* ui_showcase_name(UiShowcaseMode mode);
+
+// Canonicalize --plugin-showcase aliases. Empty input → empty.
+std::string normalize_plugin_showcase_id(std::string_view value);
 
 }  // namespace app
 

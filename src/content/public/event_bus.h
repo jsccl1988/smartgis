@@ -36,6 +36,13 @@ struct RenderBackendChanged {
   uint32_t kind = 0;
 };
 
+// Catalog / inspector refresh after plugin present mutates layers.
+// Stable type name is "document.layers_changed" (not a content.* prefix).
+struct LayersChanged {
+  uint32_t view_id = 0;
+  uint32_t layer_count = 0;
+};
+
 // Fired after EditSession::commit succeeds (e.g. draw.* draft → append).
 // Shell status / inspectors subscribe; widgets never hold Feature*.
 struct EditCommitted {
@@ -67,6 +74,10 @@ inline const char* event_type_name<RenderBackendChanged>() {
 template <>
 inline const char* event_type_name<EditCommitted>() {
   return "content.EditCommitted";
+}
+template <>
+inline const char* event_type_name<LayersChanged>() {
+  return "document.layers_changed";
 }
 
 class EventBus {

@@ -28,7 +28,7 @@ ui::views::Widget
           Splitter horizontal
             CatalogView (~288; Layers|Sources|Maps tabs at bottom)
             TabStrip (flex; tabs at bottom): Map | Data | 3D
-              各页 MapViewport（非活动 HWND 隐藏）
+              各页 DrawHost（非活动 HWND 隐藏）
         TabStrip right dock (~280): AMBox | FeatureInfo | AttributeTable | …
       DiagnosticToolsPanel（底栏，默认开启；active=Console）
         tabs: Output | Console | Trace | Memory
@@ -39,7 +39,7 @@ Debug Console / LogSink / Agent / Python worker：见 living shell
 **§Diagnostic Tools** / archived
 [`docs/superpowers/archive/specs/2026-09-28-debug-console-design.md`](../../docs/superpowers/archive/specs/2026-09-28-debug-console-design.md)。
 产品壳默认打开底栏 Console；菜单 View → Toggle Diagnostic Tools 可折叠。
-三个地图页各自一个 `MapViewport` + `content::ViewHost`（2D 编辑 / 2D 浏览 /
+三个地图页各自一个 `DrawHost` + `content::ViewHost`（2D 编辑 / 2D 浏览 /
 3D）。`MapContents` 会话共享；`OpenView` 分别为 `kMapEdit` / `kMapData` /
 `kScene3d`。3D 若无法挂接则保持 native 占位，鼠标不崩。
 
@@ -61,7 +61,7 @@ Present README：
 
 `wWinMain` → CLI11 解析 → `content::content_main`（`process_type_set`），
 再进 `browser_main` / `gpu_main` / `renderer_main`。同一 PE 以 `--type=gpu`
-/ `--type=renderer` 再拉起。地图挂接仍走 `MapViewport::attach()`；原生 HWND
+/ `--type=renderer` 再拉起。地图挂接仍走 `DrawHost::attach()`；原生 HWND
 把鼠标 / 键 / 滚轮转给 `ViewHost::dispatch_input`。
 
 ```bat
@@ -100,32 +100,32 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 `--atmosphere-showcase=full` 共用——中国样例清掉 `china_city.style.json`（默认
 carto）、mainland 取景、`kChinaLonLatExtent` + orbit `distance=2.55`、3D 大气
 ocean/cloud/sky/**fog**（`SCENE3D_ATMO=0` / `SCENE3D_LAND_ONLY=1` 可关）。
-交互仍走 FlyCube；showcase/self-test 才强制 ContentMapView/GDI。
+交互仍走 Vista；showcase/self-test 才强制 ContentMapView/GDI。
 
-**2D 主路径 = RHI**：Map/Data 页默认 FlyCube；`MapScene::present_gpu` 把可见矢量层交给 `gis::vista::Layout` 生成 `MapIR`，再由 `vista::MapPass` 录到调用方 `Device` 并 present。成功时注记在帧内（`kText`），`paint_annotation_overlay` 只描选中；失败或强制时回退全量 GDI `MapScene::paint`（含注记）。
+**2D 主路径 = RHI**：Map/Data 页默认 Vista；`MapScene::present_gpu` 把可见矢量层交给 `gis::vista::Layout` 生成 `MapIR`，再由 `vista::MapPass` 录到调用方 `Device` 并 present。成功时注记在帧内（`kText`），`paint_annotation_overlay` 只描选中；失败或强制时回退全量 GDI `MapScene::paint`（含注记）。
 
 ```bat
-rem 强制 2D 走 ContentMapView / 跳过 FlyCube：
+rem 强制 2D 走 ContentMapView / 跳过 Vista：
 set FORCE_CONTENT_MAPVIEW_2D=1
 rem 或: set PREFER_FLYCUBE_2D=0
-rem 强制 GDI 全量 overlay（仍可挂 FlyCube HWND，但不走 present_gpu）：
+rem 强制 GDI 全量 overlay（仍可挂 Vista HWND，但不走 present_gpu）：
 set FORCE_GDI_MAP_OVERLAY=1
 out\SmartGIS.exe
 ```
 
 3D 页：`view3d.trackball` 更新 `OrbitFrame` / `Scene3dPresenter`。默认
-**FlyCube RHI**（`present_gpu`；成功时 shell 只叠 `paint_hud`）。挂接失败时
-回退 ContentMapView / GDI `Scene3dPresenter::paint()`。**不会**在 FlyCube
+**Vista RHI**（`present_gpu`；成功时 shell 只叠 `paint_hud`）。挂接失败时
+回退 ContentMapView / GDI `Scene3dPresenter::paint()`。**不会**在 Vista
 SoT 下再挂 leftover OpenGL（同 HWND 抢 swapchain 会把徽章永久钉成
 `Stereo/GL`）。
 
-**手动切换 3D 引擎**（不经环境变量）：菜单 **View → Engine: FlyCube/DX12 /
+**手动切换 3D 引擎**（不经环境变量）：菜单 **View → Engine: Vista/DX12 /
 Stereo/GL / GDI**，或 `content::set_scene3d_engine(...)`。命令 id：
 `view.engine.flycube` / `view.engine.stereo_gl` / `view.engine.gdi`。切换时
-会 detach/reattach Scene3d `MapViewport`，并按选择挂放 stereo。
+会 detach/reattach Scene3d `DrawHost`，并按选择挂放 stereo。
 
 3D HUD 显示引擎名；画面**右下角**有引擎 Logo 徽章（与真实后端一致：
-`FlyCube/DX12` / `Stereo/GL` / `GDI` / `ContentMapView` / `Null`）。DEM 默认
+`Vista/DX12` / `Stereo/GL` / `GDI` / `ContentMapView` / `Null`）。DEM 默认
 叠 hypsometric 着色；若存在 `china_rs.tif` / `china_imagery.tif`（exe 旁或
 `testing/data/`）则 draping 遥感影像。TIN 线框：
 
@@ -135,10 +135,10 @@ out\SmartGIS.exe
 ```
 
 `--self-test` 会 `set_scene3d_engine(kGdi)`（挂起规避），并断言 OGR 进层与相机矩阵；若挂上
-FlyCube 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_demo()`。
+Vista 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_demo()`。
 
 大气 3D 端到端 showcase。默认 **Null RHI**（可重复退出 0）；
-真 GPU：`set ATMOSPHERE_SHOWCASE_GPU=1`（独立 640×480 展示窗 + FlyCube/DX12）。
+真 GPU：`set ATMOSPHERE_SHOWCASE_GPU=1`（独立 640×480 展示窗 + Vista/DX12）。
 GPU **永远显示直到关掉展示窗**（忽略残留的正数 `LINGER_MS`）。自动化用
 `ATMOSPHERE_SHOWCASE_TIMED_MS=1500`，或 `ATMOSPHERE_SHOWCASE_LINGER_MS=0` 跳过停留。
 
@@ -157,10 +157,10 @@ out\SmartGIS.exe --atmosphere-showcase=full
 
 成功：exit 0；旁路 `out\Debug\captures\atmosphere-showcase-mark.txt` 与
 `out\Debug\captures\atmosphere-showcase-<mode>.bmp`（GPU 要求 BMP 有可见像素信号）。
-失败码：50 HWND、51 非 FlyCube、52 present、53 开关/场状态不符、54 BMP 全黑/无信号。
+失败码：50 HWND、51 非 Vista、52 present、53 开关/场状态不符、54 BMP 全黑/无信号。
 
 说明：showcase 启动前会 `set_scene3d_engine(kGdi)`，避免
-`BrowserView::init` 多视口 FlyCube 挂起；GPU 绘制走独立 640×480 present HWND。
+`BrowserView::init` 多视口 Vista 挂起；GPU 绘制走独立 640×480 present HWND。
 GPU BMP 需至少 2 种可见色（拒绝纯 clear）。根因修复：透视投影改为 RH，与 look_at（看向 -Z）一致。
 
 2D 地图 carto showcase（MapLibre / Baidu 色板）。打开 China 样例、`export_bmp`
@@ -195,6 +195,7 @@ Harness suites：契约在 `testing/tools/harness/<family>/<suite_id>/suite.json
 专属 script/`*_loop.py` 与 JSON 同目录；跨 suite 工具在 `harness/_shared/`。与
 `shell/harness/scenario_registry` id 对齐。详见
 [`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md) L1′。
+Chrome PaintCounters matrix：`py -3 testing/tools/harness/ui/run_ui_profile_matrix.py`（skill `harness-auto-ui-opt`）。
 
 样例也可直接 Open：`out\views_ogr_sample.geojson`（构建后可从
 `testing/data/` 复制）或仓库内 `testing/data/views_ogr_sample.geojson`。
@@ -205,7 +206,7 @@ Harness suites：契约在 `testing/tools/harness/<family>/<suite_id>/suite.json
 
 ---
 
-菜单 **Engine: FlyCube/DX12 / Stereo/GL / GDI** 发 `view.engine.*`，经
+菜单 **Engine: Vista/DX12 / Stereo/GL / GDI** 发 `view.engine.*`，经
 `content::set_scene3d_engine` 切换 3D 呈现后端并 reattach Scene3d 视口。
 菜单 **RHI** / **MapLibre** 发 `view.backend.rhi` / `view.backend.maplibre`，经
 `MapContents::SetRenderBackend` 通知 `--type=gpu` 切换 direct / tile

@@ -55,6 +55,11 @@ struct OceanDrawParams {
   float patch_y = 0.0f;
   float patch_half_x = 0.0f;
   float patch_half_z = 0.0f;
+  // When sphere_radius > 0, mesh is an ENU tangent patch on the globe
+  // (lon/lat degrees) instead of an XZ plane.
+  float sphere_radius = 0.0f;
+  float sphere_lon_deg = 0.0f;
+  float sphere_lat_deg = 0.0f;
   // Displaceable mesh resolution (vertices per edge); independent of FFT size.
   int mesh_resolution = 33;
 
@@ -166,6 +171,9 @@ class VISTA_EXPORT OceanPass {
   float cached_patch_y_ = 0.f;
   float cached_patch_hx_ = 0.f;
   float cached_patch_hz_ = 0.f;
+  float cached_sphere_r_ = 0.f;
+  float cached_sphere_lon_ = 0.f;
+  float cached_sphere_lat_ = 0.f;
   int cached_mask_cols_ = -1;
   int cached_mask_rows_ = -1;
   // Set by prepare_gpu(); cleared by record() after using the pre-uploaded map.

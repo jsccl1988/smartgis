@@ -32,7 +32,7 @@
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
 #include "ui/views/kernel/layout/layout_check.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/view/view.h"
 
@@ -106,7 +106,7 @@ if (layout_fails > 0) {
   self_test_detach_maps(browser);
   return 30;
 }
-ui::views::MapViewport* map_pane = browser.map_viewport();
+ui::views::DrawHost* map_pane = browser.draw_host();
 if (!map_pane || map_pane->bounds().width <= 0 ||
     map_pane->bounds().height <= 0) {
   self_test_detach_maps(browser);

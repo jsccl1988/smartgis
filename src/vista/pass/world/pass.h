@@ -16,6 +16,7 @@
 #include "vista/component/world/instance.h"
 #include "vista/component/world/world.h"
 #include "vista/pass/world/gpu_mesh.h"
+#include "vista/pass/world/terrain/pass.h"
 
 namespace vista {
 
@@ -95,8 +96,9 @@ class VISTA_EXPORT WorldPass {
   // Sky-on / stereo gate for FlyCube DEM: when |gate| is true, force solid
   // terrain tint from the largest synced hypso bake (textured samples read
   // near-black after ocean/sky SRV alloc). |gate| false clears the force flag.
+  // Forwards to composed TerrainPass.
   void update_solid_terrain(uint64_t generation, bool gate);
-  bool solid_terrain_forced() const { return solid_terrain_forced_; }
+  bool solid_terrain_forced() const { return terrain_.solid_terrain_forced(); }
   void clear_solid_terrain_cache();
 
   // Attach Style paint to one synced instance. Does not parse StyleDocument;
@@ -183,11 +185,8 @@ class VISTA_EXPORT WorldPass {
   float solid_g_;
   float solid_b_;
   float solid_a_;
-  // Albedo solid-terrain decision, cached by World generation.
-  bool solid_terrain_forced_ = false;
-  bool solid_terrain_cached_ = false;
-  uint64_t solid_terrain_cache_gen_ = 0;
-  float solid_terrain_rgb_[3] = {1.f, 1.f, 1.f};
+  // Terrain upload / solid gate / kTerrain record (composes TerrainPass).
+  TerrainPass terrain_;
   bool background_set_;
   float background_r_;
   float background_g_;

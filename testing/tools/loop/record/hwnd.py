@@ -76,6 +76,7 @@ from .window import (  # noqa: F401
     wait_stable_shell_hwnd,
     window_area,
     window_rect,
+    client_rect,
 )
 
 if __name__ == "__main__":

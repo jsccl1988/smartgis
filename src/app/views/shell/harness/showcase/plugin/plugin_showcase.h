@@ -4,24 +4,22 @@
 #ifndef APP_VIEWS_SHELL_SHOWCASE_PLUGIN_SHOWCASE_H_
 #define APP_VIEWS_SHELL_SHOWCASE_PLUGIN_SHOWCASE_H_
 
-#include "app/views/shell/app/cmdline/views_launch_options.h"
+#include <string>
 
 namespace app {
 
 class Browser;
 
-// Product plugin sample+viz. world3d / mine / stormsurge / orthogrid3d use
-// Scene3D C++ bodies; orthogrid uses Map2d; remaining modes use
-// testing/tools/harness/plugin/plugin.<mode>/*.il CapabilityHost scripts.
-int run_plugin_showcase(Browser& browser, PluginShowcaseMode mode);
+// Product plugin sample+viz. |mode| is a canonical showcase id
+// (normalize_plugin_showcase_id). Scene3D C++ bodies: world3d / mine /
+// stormsurge / orthogrid3d. Map2d C++: orthogrid / print / traffic. Report:
+// inspector dock. Remaining modes (flood / geochem) use plugin.<id>/*.il.
+int run_plugin_showcase(Browser& browser, const std::string& mode);
 
-// world3d: Scene3D DEM + pointcloud HWND capture.
-// mine: Scene3D TIN + borehole sticks HWND capture.
-// stormsurge: Scene3D water TIN HWND capture.
-// orthogrid: Map2d processing + export_bmp.
-// orthogrid3d: Scene3D hex TIN HWND capture.
-// Other modes: script stub.
-int plugin_showcase_body(Browser& browser, PluginShowcaseMode mode);
+// world3d / mine / stormsurge / orthogrid3d: GPU Scene3D + shell HWND capture.
+// orthogrid / traffic / print: Map2d export_bmp (GDI overlay OK).
+// report: ReportPanel + PluginHost::open_report.
+int plugin_showcase_body(Browser& browser, const std::string& mode);
 
 }  // namespace app
 

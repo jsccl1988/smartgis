@@ -7,13 +7,13 @@ All rights reserved.
 
 > Checklist hung off living [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) §Vista Map2d equal-profile optimize.
 >
-> Engine id / matrix codename: **`vista`** (Views + `gis/vista` + FlyCube). Former working name `src_render` retired.
+> Engine id / matrix codename: **`vista`** (Views + `gis/vista` + Vista). Former working name `src_render` retired.
 >
 > Parallel grain (P3): living **§src_render + vista parallel** + [`2026-10-02-src-render-vista-parallel-accelerate.md`](2026-10-02-src-render-vista-parallel-accelerate.md) (`VISTA_LAYOUT_PARALLEL`). This plan owns **equal-profile budgets**; that plan owns L0–L3 parallel machine.
 
 **Goal:** Under the same china 1280×720 profile as leftover rhi2d matrix, keep **warm** Vista GPU present in leftover IR order (already met), then crush **cold first-frame upload** and **software GDI paint** without dropping MapFrame / hillshade richness.
 
-**Architecture:** Keep Views `Map2dPresenter` → `Map2dFrameCache` → software `export_bmp` / FlyCube `present_gpu` (`vista/component/map` + `render::graph`). Optimize by **fair phase timing**, **warm-path reuse** (already OK), **cold upload merge**, **layout/incremental**, **software GDI batch** — not by stripping carto or chasing leftover IR-only ms.
+**Architecture:** Keep Views `Map2dPresenter` → `Map2dFrameCache` → software `export_bmp` / Vista `present_gpu` (`vista/component/map` + `render::graph`). Optimize by **fair phase timing**, **warm-path reuse** (already OK), **cold upload merge**, **layout/incremental**, **software GDI batch** — not by stripping carto or chasing leftover IR-only ms.
 
 **Tech Stack:** C++23, existing content/map2d + effect/map + render/rhi; harness `run_parallel_port_matrix.py`.
 
@@ -31,14 +31,14 @@ All rights reserved.
 
 ## Baseline (2026-10-03 matrix, Debug, equal-latitude)
 
-**Re-verify (2026-10-03 evening, post leftover-AV join + P0d CPU pack + P2d unit):** `run_parallel_port_matrix.py` Debug equal-latitude. Leftover 9/9 `pass=True`. Vista software BMP OK; FlyCube AV after `gpu device acquired`.
+**Re-verify (2026-10-03 evening, post leftover-AV join + P0d CPU pack + P2d unit):** `run_parallel_port_matrix.py` Debug equal-latitude. Leftover 9/9 `pass=True`. Vista software BMP OK; Vista AV after `gpu device acquired`.
 
 | Path | Metric | ms | Notes |
 | --- | --- | ---: | --- |
 | leftover serial/tile/layer × gdi/gdi+/skia | `execute_ms_max` | **202–554** | IR only; **9/9 `pass=True`** (no DLL-detach AV; join FrameJob) |
 | Vista software | `paint_ms` / `export_ms` | **319 / 328** | `bmp_io_ms=6`; `phase_gate_export=True`; log `fill_us≈151k` `line_us≈60k` `text_us≈41k` (second china paint). Unit `map2d_frame_gdi_test` **49** does **not** match matrix |
-| Vista FlyCube cold | `present_gpu_cold_ms` | **—** | `rc=3221225477` after `rhi.flycube initialize ok` + `gpu device acquired owned=1`; no upload/present clocks. Prior complete row still **3921 / upload 3082** |
-| Vista FlyCube warm | `present_gpu_warm_ms` | **—** | unmeasured this cell; last complete matrix **0** |
+| Vista cold | `present_gpu_cold_ms` | **—** | `rc=3221225477` after `rhi.flycube initialize ok` + `gpu device acquired owned=1`; no upload/present clocks. Prior complete row still **3921 / upload 3082** |
+| Vista warm | `present_gpu_warm_ms` | **—** | unmeasured this cell; last complete matrix **0** |
 | Vista phases | `layout_ms` / `hillshade_ms` | **0** | Timed window after cache warm + `MAP2D_NO_HILLSHADE=1` |
 
 Artifacts: `out/Debug/captures/map2d/matrix/parallel_port_matrix_with_vista.csv`, `vista_china.log`, `vista-china.inspect.png`.
@@ -80,7 +80,7 @@ Artifacts: `out/Debug/captures/map2d/matrix/parallel_port_matrix_with_vista.csv`
 - [x] P0c: Re-time matrix cold row; confirm warm DrawCache path untouched
   - **(2026-10-03 combined):** cold **3921** / upload **3082** / present **838**; warm **0** (StaticReuse OK). Prior P3-only run (paint~708 / cold~9242) was pre-P1/P2 merge — superseded.
 - [ ] P0d: Gate: cold upload ≤ 200; cold present ≤ 400
-  - **(2026-10-05 matrix, post DIB paint + upload pack):** upload **526** (budget 200); cold present **584** (budget 400); warm **0**. Residual is still mega-pack + FlyCube `create_buffer` / texture, not per-mesh VB.
+  - **(2026-10-05 matrix, post DIB paint + upload pack):** upload **526** (budget 200); cold present **584** (budget 400); warm **0**. Residual is still mega-pack + Vista `create_buffer` / texture, not per-mesh VB.
 
 ### P1 — Layout / incremental
 
@@ -169,7 +169,7 @@ Artifacts: `out/Debug/captures/map2d/matrix/parallel_port_matrix_with_vista.csv`
 ### Task 5: GPU upload / effect/map
 
 - [x] Batch / mega-buffer small line/fill uploads (**P0 MUST**); prefer one hillshade texture + instanced vectors
-- [ ] Async / double-buffer upload where FlyCube allows without tearing product API (after P0)
+- [ ] Async / double-buffer upload where Vista allows without tearing product API (after P0)
 - [x] Target: warm `gpu_upload_ms` ≈ 0 on StaticReuse (**met**); cold upload ≤ **200** (**miss 526** → **P0d**)
 
 ### Task 6: Matrix acceptance

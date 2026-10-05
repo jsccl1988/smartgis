@@ -77,10 +77,16 @@ class VISTA_EXPORT DemRaster {
   bool bake_hypsometric_rgba(int max_edge, std::vector<uint8_t>* rgba,
                              int* out_w, int* out_h) const;
 
+  // Origin-style jet elevation surface + isoline overlay (same downsample
+  // as bake_hypsometric_rgba). Ocean cells stay transparent (A=0).
+  bool bake_elevation_overlay_rgba(int max_edge, bool surface, bool curves,
+                                   std::vector<uint8_t>* rgba, int* out_w,
+                                   int* out_h) const;
+
   // Globe height grid via sample_meters plus albedo. |global_grid| uses about
-  // 512×256; otherwise about 768×480. |imagery_path| is tried first;
-  // bake_hypsometric_rgba is the fallback (384 global / 512 regional).
-  // |imagery_loaded| is optional. Does not retain GDAL buffers in the outputs.
+  // 1024×512; otherwise about 1024×640. |imagery_path| is tried first;
+  // bake_hypsometric_rgba is the fallback (1024). |imagery_loaded| is optional.
+  // Does not retain GDAL buffers in the outputs.
   bool sample_globe_surface(double minx, double miny, double maxx, double maxy,
                             bool global_grid, const char* imagery_path,
                             std::vector<float>* heights, int* cols, int* rows,
@@ -149,8 +155,10 @@ VISTA_EXPORT void terrain_material_rgb(float meters, float slope01, float* r,
                                      float* g, float* b);
 
 // Load GDAL RGB(A) raster to tightly packed RGBA8. Logs to stderr on failure.
+// |max_edge| caps the longer axis (GDAL RasterIO resamples). Globe albedo
+// uses 2048; China orthophoto drape stays at 1024 so china_rs stays modest.
 VISTA_EXPORT bool load_imagery_rgba(const char* path, std::vector<uint8_t>* rgba,
-                                  int* out_w, int* out_h);
+                                  int* out_w, int* out_h, int max_edge = 1024);
 
 // Lon/lat box for world/dem_seed view tiles and china seed.
 // Empty sample_dem_path_override forces the China box (73,18)-(135,54) when

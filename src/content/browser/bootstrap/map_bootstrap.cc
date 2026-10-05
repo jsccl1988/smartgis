@@ -10,32 +10,35 @@
 namespace content {
 namespace {
 
-// Prefer shared out/data/ (GN china_map_samples → $root_out_dir/../data).
-// Exe lives in out/Debug|Release, so ../data is the shared pack. Also try
-// data/ next to the exe, flat next-to-exe, and testing/data fallbacks.
-// Real china packs only — no views_ogr_sample / synthetic stub.
-// Order must stay aligned with content::china_seed_relative_paths() in
-// document/ingest/seed_paths.cc (MapScene::seed_default / ChinaBootstrap).
+// Product China pack policy (locked): bare SmartGIS.exe, MapScene::seed_default,
+// and harness openers must resolve the same file. GN china_map_samples writes
+// to out/data (exe is out/Debug|Release → ../data). Real packs only — no
+// views_ogr_sample / synthetic stub. Every china_city candidate precedes any
+// china_plp fallback so a schematic PLP under out/data cannot shadow a
+// prefecture pack under testing/data.
 const char* k_relative_candidates[] = {
     "../data/china_city.gpkg",
     "../data/china_city.geojson",
-    "../data/china_plp.geojson",
     "data/china_city.gpkg",
     "data/china_city.geojson",
-    "data/china_plp.geojson",
     "china_city.gpkg",
     "china_city.geojson",
+    "testing/data/china/china_city.gpkg",
+    "testing/data/china/china_city.geojson",
+    "../testing/data/china/china_city.gpkg",
+    "../testing/data/china/china_city.geojson",
+    "../../testing/data/china/china_city.gpkg",
+    "../../testing/data/china/china_city.geojson",
+    "../../../testing/data/china/china_city.gpkg",
+    "../../../testing/data/china/china_city.geojson",
+    // Schematic PLP fallback (only after every china_city candidate).
+    "../data/china_plp.geojson",
+    "data/china_plp.geojson",
     "china_plp.geojson",
-    "testing/data/china_city.gpkg",
-    "testing/data/china_city.geojson",
-    "testing/data/china_plp.geojson",
-    "../testing/data/china_city.gpkg",
-    "../testing/data/china_city.geojson",
-    "../testing/data/china_plp.geojson",
-    "../../testing/data/china_city.gpkg",
-    "../../testing/data/china_plp.geojson",
-    "../../../testing/data/china_city.gpkg",
-    "../../../testing/data/china_plp.geojson",
+    "testing/data/china/china_plp.geojson",
+    "../testing/data/china/china_plp.geojson",
+    "../../testing/data/china/china_plp.geojson",
+    "../../../testing/data/china/china_plp.geojson",
 };
 
 bool path_is_regular_file(const std::string& path) {
@@ -51,6 +54,13 @@ std::string join_root_rel(const std::string& root, const char* rel) {
 }
 
 }  // namespace
+
+std::vector<std::string> sample_map_relative_paths() {
+  return std::vector<std::string>(
+      k_relative_candidates,
+      k_relative_candidates +
+          (sizeof(k_relative_candidates) / sizeof(k_relative_candidates[0])));
+}
 
 std::vector<std::string> resolve_sample_map_candidates(
     const std::vector<std::string>& search_roots) {

@@ -3,7 +3,9 @@
   "kind": "showcase",
   "argv": [
     "--ui-showcase",
-    "interact"
+    "interact",
+    "--scene3d-engine",
+    "flycube"
   ],
   "driver": "inproc",
   "script": "ui.interact.il",
@@ -13,15 +15,21 @@
     "UI_FORENSICS": "1",
     "UI_THEME": "dark",
     "HARNESS_RECORD": "1",
-    "HARNESS_RECORD_MODE": "bmp"
+    "HARNESS_RECORD_MODE": "bmp",
+    "FORCE_GDI_MAP_OVERLAY": "0",
+    "FORCE_CONTENT_MAPVIEW_2D": "1",
+    "PREFER_FLYCUBE_2D": "0",
+    "MAP2D_ENGINE": "vista",
+    "SCENE3D_ENGINE": "flycube"
   },
   "bmp": {
     "path": "ui-showcase-interact.bmp",
-    "score_id": "ui_shell_dark"
+    "score_id": "ui_interact"
   },
   "motion_gate": {
-    "min_unique_frac": 0.012,
-    "min_unique_frames": 4
+    "min_unique_frac": 0.03,
+    "min_unique_frames": 4,
+    "min_unique_sizes": 2
   },
   "report_name": "ui_interact_loop_report.json",
   "probes": [
@@ -30,18 +38,24 @@
   ],
   "loop": {
     "rounds": 4,
-    "timeout_sec": 160,
+    "timeout_sec": 180,
     "build_target": "src/app/views:views",
     "exe": "SmartGIS.exe"
   },
   "visual_review": {
     "enabled": true,
     "checklist": [
-      "interact_targets_visible",
+      "2d_gestures_no_hitch",
+      "window_resize_2d_layout",
+      "3d_china_dem_bake_labels",
+      "window_resize_3d_layout",
+      "vista_2d_content_mapview",
+      "flycube_3d_china_dem",
+      "fps_hud_complete_2d_and_3d",
+      "return_2d_gestures_no_hitch",
       "chrome_readable",
-      "no_panel_collapse",
-      "dark_theme_consistent"
+      "no_panel_collapse"
     ],
-    "expect_notes": "In-proc interact showcase end frame; score_id=ui_shell_dark"
+    "expect_notes": "Product Vista: Map2d ContentMapView + Scene3d FlyCube. 2D pan/wheel → resize 960x640 → 3D China DEM orbit/wheel → resize 1440x900 then 1024x700 → restore 1280x800 + 2D pan/wheel; score end frame + 3d sibling BMP + HWND record"
   }
 }

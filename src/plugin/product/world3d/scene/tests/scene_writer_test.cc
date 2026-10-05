@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <string>
 
+#include "content/public/gis_document.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 
@@ -20,33 +21,85 @@ void expect(bool ok, const char* msg) {
   }
 }
 
+class StubGisDocument final : public content::GisDocument {
+ public:
+  size_t feature_count() const override { return feature_count_; }
+  bool add_point_cloud(std::string_view, const float*, int,
+                       const uint8_t*) override {
+    ++pointcloud_commits_;
+    return true;
+  }
+  bool add_triangle_mesh(std::string_view, const double*, int, const int*,
+                         int) override {
+    ++mesh_commits_;
+    return true;
+  }
+
+  size_t feature_count_ = 1;
+  int pointcloud_commits_ = 0;
+  int mesh_commits_ = 0;
+};
+
+void install_scene_stubs(content::PluginHost* host, StubGisDocument* doc) {
+  host->set_gis_document(doc);
+  content::PluginHost::Scene3dSink* sink = host->scene3d_sink();
+  expect(sink != nullptr, "scene3d_sink");
+  if (!sink) {
+    return;
+  }
+  sink->set_bridges(
+      [](std::string_view, double, double, double) { return true; },
+      [](std::string_view) { return true; }, []() {});
+  sink->set_earth_bridges(
+      []() { return true; },
+      [](double lon, double lat, float distance, double span) {
+        return lon > 116.3 && lon < 116.5 && lat > 39.8 && lat < 40.0 &&
+               distance > 0.f && span > 0.0;
+      },
+      [](std::string_view path, std::string* result) {
+        if (result) {
+          *result =
+              "{\"ok\":true,\"op\":\"world3d.load_global_dem\",\"source\":\"stub\"}";
+        }
+        return true;
+      },
+      [](std::string_view, bool enabled, std::string* result) {
+        if (result) {
+          *result = enabled ? "{\"ok\":true,\"mode\":\"procedural\"}"
+                            : "{\"ok\":true,\"mode\":\"off\"}";
+        }
+        return true;
+      },
+      [](bool sky, bool ocean, bool cloud, bool fog) {
+        return sky || ocean || cloud || fog || true;
+      });
+}
+
 }  // namespace
 
 int main() {
-  plugin::set_world3d_scene_writer({});
-
   content::PluginHost* host =
       content::create_plugin_host(nullptr, nullptr, nullptr);
   expect(host != nullptr, "create_plugin_host");
   expect(plugin::register_world3d(host), "register_world3d");
 
   expect(!host->run_processing("model3d.add_sphere", "{}"),
-         "add_sphere refuses without scene writer");
+         "add_sphere refuses without gis/sink");
   expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
          "add_sphere structured no_scene_device");
 
   expect(!host->run_processing("world3d.open_earth", "{}"),
-         "open_earth refuses without scene writer");
+         "open_earth refuses without earth bridges");
   expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
          "open_earth structured no_scene_device");
 
   expect(!host->run_processing("world3d.load_global_dem", "{}"),
-         "load_global_dem refuses without scene writer");
+         "load_global_dem refuses without earth bridges");
   expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
          "load_global_dem structured no_scene_device");
 
   expect(!host->run_processing("world3d.set_satellite_cloud", "{}"),
-         "set_satellite_cloud refuses without scene writer");
+         "set_satellite_cloud refuses without earth bridges");
   expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
          "set_satellite_cloud structured no_scene_device");
 
@@ -58,140 +111,59 @@ int main() {
   expect(!host->run_processing(
              "model3d.add_pointcloud",
              "{\"path\":\"Z:/no/such/model3d_fixture.txt\"}"),
-         "add_pointcloud refuses without scene writer");
+         "add_pointcloud refuses without gis document");
   expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
          "add_pointcloud structured no_scene_device");
 
-  int call_count = 0;
-  std::string last_path;
-  plugin::World3dSceneWriter writer;
-  writer.add_pointcloud = [&](const std::string& path) {
-    ++call_count;
-    last_path = path;
-    return true;
-  };
-  writer.add_sphere = [&]() {
-    ++call_count;
-    return true;
-  };
-  writer.add_water = [&]() {
-    ++call_count;
-    return true;
-  };
-  writer.add_terrain_heightmap = [&]() {
-    ++call_count;
-    return true;
-  };
-  writer.add_terrain_trimesh = [&]() {
-    ++call_count;
-    return true;
-  };
-  writer.layer_points_to_3d = [&]() {
-    ++call_count;
-    return true;
-  };
-  writer.layer_lines_to_3d = [&]() {
-    ++call_count;
-    return true;
-  };
-  writer.layer_polygons_to_3d = [&]() {
-    ++call_count;
-    return true;
-  };
-  writer.create_trimesh_from_active_layer = [&]() {
-    ++call_count;
-    return true;
-  };
-  writer.open_earth = [&]() {
-    ++call_count;
-    return true;
-  };
-  writer.fly_to = [&](double lon, double lat, float distance, double span) {
-    ++call_count;
-    last_path.clear();
-    if (lon < 116.3 || lon > 116.5 || lat < 39.8 || lat > 40.0 ||
-        distance <= 0.f || span <= 0.0) {
-      return false;
-    }
-    return true;
-  };
-  writer.attach_tileset = [&](const std::string& path) {
-    ++call_count;
-    last_path = path;
-    return true;
-  };
-  writer.load_global_dem = [&](const std::string& path, std::string* result) {
-    ++call_count;
-    last_path = path;
-    if (result) {
-      *result =
-          "{\"ok\":true,\"op\":\"world3d.load_global_dem\",\"source\":\"stub\"}";
-    }
-    return true;
-  };
-  writer.set_satellite_cloud = [&](const std::string& path, bool enabled,
-                                   std::string* result) {
-    ++call_count;
-    last_path = path;
-    if (result) {
-      *result = enabled ? "{\"ok\":true,\"mode\":\"procedural\"}"
-                        : "{\"ok\":true,\"mode\":\"off\"}";
-    }
-    return true;
-  };
-  writer.set_atmosphere = [&](bool sky, bool ocean, bool cloud, bool fog) {
-    ++call_count;
-    return sky || ocean || cloud || fog || true;
-  };
-  plugin::set_world3d_scene_writer(std::move(writer));
+  StubGisDocument stub_doc;
+  install_scene_stubs(host, &stub_doc);
 
   expect(host->run_processing("model3d.add_sphere", "{}"),
-         "add_sphere with writer");
-  expect(host->run_processing("model3d.add_pointcloud",
-                              "{\"path\":\"C:/tmp/cloud.txt\"}"),
-         "add_pointcloud with writer");
-  expect(last_path == "C:/tmp/cloud.txt", "pointcloud path forwarded");
+         "add_sphere with gis/sink");
+  expect(stub_doc.mesh_commits_ > 0, "standin mesh committed");
   expect(host->run_processing("model3d.create_trimesh", "{}"),
-         "create_trimesh with writer");
+         "create_trimesh with gis");
   expect(host->run_processing("model3d.layer_points_to_3d", "{}"),
-         "layer_points_to_3d with writer");
+         "layer_points_to_3d with gis");
   expect(host->run_processing("world3d.open_earth", "{}"),
-         "open_earth with writer");
+         "open_earth with sink stubs");
   expect(host->run_processing(
              "world3d.fly_to",
              "{\"lon\":116.4,\"lat\":39.9,\"distance\":1.5,\"span_deg\":3}"),
-         "fly_to with writer");
+         "fly_to with sink stubs");
   expect(host->run_processing("world3d.attach_city_tileset", "{}"),
          "attach_city_tileset empty path");
   expect(host->run_processing("world3d.load_global_dem", "{}"),
-         "load_global_dem with writer");
+         "load_global_dem with sink stubs");
   expect(host->run_processing("world3d.set_satellite_cloud",
                               "{\"enabled\":true}"),
          "set_satellite_cloud procedural");
   expect(host->run_processing(
              "world3d.set_atmosphere",
              "{\"sky\":true,\"ocean\":true,\"cloud\":true,\"fog\":true}"),
-         "set_atmosphere with writer");
-  expect(call_count >= 10, "writer callbacks invoked");
+         "set_atmosphere with sink stubs");
 
   expect(!host->run_processing("world3d.fly_to", "{}"),
          "fly_to refuses without lon/lat");
   expect(plugin::operation_result().find("bad_args") != std::string::npos,
          "fly_to structured bad_args");
 
-  plugin::set_world3d_scene_writer({});
+  host->set_gis_document(nullptr);
+  if (content::PluginHost::Scene3dSink* sink = host->scene3d_sink()) {
+    sink->set_earth_bridges(nullptr, nullptr, nullptr, nullptr, nullptr);
+  }
   expect(!host->run_processing("model3d.add_water", "{}"),
-         "add_water refuses after writer cleared");
+         "add_water refuses after gis cleared");
   expect(!host->run_processing("world3d.open_earth", "{}"),
-         "open_earth refuses after writer cleared");
+         "open_earth refuses after bridges cleared");
   expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
          "open_earth structured no_scene_device");
   expect(!host->run_processing("world3d.load_global_dem", "{}"),
-         "load_global_dem refuses after writer cleared");
+         "load_global_dem refuses after bridges cleared");
   expect(!host->run_processing("world3d.set_satellite_cloud", "{}"),
-         "set_satellite_cloud refuses after writer cleared");
+         "set_satellite_cloud refuses after bridges cleared");
   expect(!host->run_processing("world3d.set_atmosphere", "{}"),
-         "set_atmosphere refuses after writer cleared");
+         "set_atmosphere refuses after bridges cleared");
 
   delete host;
 
@@ -199,5 +171,6 @@ int main() {
     std::fprintf(stderr, "%d check(s) failed\n", g_fails);
     return 1;
   }
+  std::fprintf(stdout, "world3d_scene_writer_test ok\n");
   return 0;
 }

@@ -13,6 +13,7 @@
 #include "vista/assets/model/model.h"
 #include "vista/assets/tileset/tileset.h"
 #include "vista/component/world/pointcloud/chunk.h"
+#include "vista/component/world/terrain/payload.h"
 
 // Logical GIS world. Spatial query lives here; GPU instances live in render.
 
@@ -60,17 +61,8 @@ struct Node {
   const vista::ModelAsset* model;
   const vista::Tileset* tileset;
   std::vector<std::string> visible_uris;
-  // Optional CPU terrain mesh (SP4). Layout matches DemHeightField::build_mesh:
-  // leftover Y-up XYZ (X=-lon, elev, lat) + triangle indices. Empty = AABB-only.
-  std::vector<float> terrain_positions;
-  std::vector<uint32_t> terrain_indices;
-  // Per-vertex DEM UVs (u,v) matching terrain_rgba grid. Empty = AABB UV.
-  std::vector<float> terrain_uvs;
-  // Optional RGBA8 terrain drape (China RS / hypsometric bake). Size =
-  // terrain_tex_w * terrain_tex_h * 4. Empty = untextured lit solid.
-  std::vector<uint8_t> terrain_rgba;
-  uint32_t terrain_tex_w = 0;
-  uint32_t terrain_tex_h = 0;
+  // kTerrain CPU mesh + drape (nested; no flat terrain_* vectors).
+  TerrainPayload terrain;
   // Optional CPU point cloud (kPointCloud). Interleaved XYZ; rgba size 4*n.
   std::vector<float> point_positions;
   std::vector<uint8_t> point_rgba;
@@ -97,11 +89,7 @@ struct Node {
         model(nullptr),
         tileset(nullptr) {}
 
-  bool has_terrain_mesh() const {
-    return terrain_positions.size() >= 9 &&
-           (terrain_positions.size() % 3) == 0 &&
-           terrain_indices.size() >= 3 && (terrain_indices.size() % 3) == 0;
-  }
+  bool has_terrain_mesh() const { return terrain.has_mesh(); }
 };
 
 class VISTA_EXPORT World {
@@ -133,7 +121,7 @@ class VISTA_EXPORT World {
   bool set_terrain_mesh(uint64_t id, const float* positions,
                         size_t position_count, const uint32_t* indices,
                         size_t index_count);
-  // Per-vertex DEM UVs (2 floats / vert). Must match terrain_positions/3.
+  // Per-vertex DEM UVs (2 floats / vert). Must match terrain.positions/3.
   bool set_terrain_uvs(uint64_t id, const float* uvs, size_t float_count);
   // Attach / replace RGBA8 drape texture for a kTerrain node (imagery or
   // hypsometric bake). |byte_count| must be w*h*4.

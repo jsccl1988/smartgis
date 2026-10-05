@@ -10,7 +10,7 @@ class Browser;
 
 namespace detail {
 
-// Scene3D orthogrid3d.create_hex_grid → overlay TIN + .vts + HWND BMP.
+// Scene3D orthogrid3d.create_hex_grid → surface orthogonal grid + .vts + HWND BMP.
 int run_orthogrid3d(Browser& browser);
 
 }  // namespace detail

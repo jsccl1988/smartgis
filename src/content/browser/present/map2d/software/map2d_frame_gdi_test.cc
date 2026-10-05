@@ -196,14 +196,63 @@ int main() {
     }
   }
 
+  // Axis-aligned fill quad: both triangles must paint. Flat-top scanlines
+  // used to collapse the north half to zero width (plugin heat-cell holes).
+  {
+    vista::MapIR frame;
+    frame.background_rgba = 0xfff5f0e6u;
+    vista::DrawItem cell;
+    cell.kind = vista::DrawKind::kFill;
+    cell.rgba = 0xff2a6fbbu;
+    cell.pixel_space = true;
+    cell.vertices = {{20.f, 20.f}, {60.f, 20.f}, {60.f, 60.f}, {20.f, 60.f}};
+    cell.indices = {0, 1, 2, 0, 2, 3};
+    frame.items.push_back(std::move(cell));
+    vista::View view{80, 80, 0.0, 0.0, 80.0, 80.0};
+    HDC screen = GetDC(nullptr);
+    expect(screen != nullptr, "flat-top GetDC");
+    if (screen) {
+      HDC mem = CreateCompatibleDC(screen);
+      BITMAPINFO bmi = {};
+      bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+      bmi.bmiHeader.biWidth = 80;
+      bmi.bmiHeader.biHeight = -80;
+      bmi.bmiHeader.biPlanes = 1;
+      bmi.bmiHeader.biBitCount = 32;
+      bmi.bmiHeader.biCompression = BI_RGB;
+      void* bits = nullptr;
+      HBITMAP dib =
+          CreateDIBSection(mem, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+      expect(mem && dib && bits, "flat-top DIB");
+      if (mem && dib && bits) {
+        HGDIOBJ old = SelectObject(mem, dib);
+        content::detail::paint_map_frame_gdi(mem, frame, view, true, {});
+        const auto* px = static_cast<const unsigned char*>(bits);
+        const int stride = 80 * 4;
+        auto is_fill = [&](int x, int y) {
+          const unsigned char* s = px + y * stride + x * 4;
+          return s[2] < 80 && s[0] > 150;
+        };
+        expect(is_fill(30, 28), "flat-top north half filled");
+        expect(is_fill(50, 50), "flat-top south half filled");
+        SelectObject(mem, old);
+        DeleteObject(dib);
+      }
+      if (mem) {
+        DeleteDC(mem);
+      }
+      ReleaseDC(nullptr, screen);
+    }
+  }
+
   // Faithful china 1280x720 export when out/data samples exist.
   {
     const char* city_candidates[] = {
-        "testing\\data\\china_city.gpkg",
-        "testing\\data\\china_city.geojson",
+        "testing\\data\\china\\china_city.gpkg",
+        "testing\\data\\china\\china_city.geojson",
         "..\\data\\china_city.gpkg",
         "..\\data\\china_city.geojson",
-        "..\\..\\testing\\data\\china_city.gpkg",
+        "..\\..\\testing\\data\\china\\china_city.gpkg",
         "china_city.gpkg",
         "china_city.geojson",
     };

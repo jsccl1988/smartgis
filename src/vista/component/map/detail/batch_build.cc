@@ -10,11 +10,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -168,7 +170,9 @@ std::string carto_source_layer(const BatchFeature& feature,
         has("primary") || has("secondary") || has("street")) {
       return "road";
     }
-    return "admin";
+    // Unlabeled lines often duplicate land rings (china_city). Catch-all
+    // "admin" stacked on land→admin synth caused parallel ghost strokes.
+    return {};
   }
   return "label";
 }
@@ -253,6 +257,9 @@ struct FeatureProbe {
 
 bool should_keep_probe(const FeatureProbe& p, double scale, bool use_carto_slots,
                        const LineStemLens* line_stems) {
+  if (p.source.empty()) {
+    return false;
+  }
   if (scale <= 0.0) {
     return true;
   }
@@ -373,8 +380,100 @@ FeatureProbe make_probe(const BatchFeature& f, const std::string& layer_slot,
   return p;
 }
 
+// Quantize lon/lat so shared provincial borders hash as one undirected edge.
+uint64_t quantize_lonlat(double x, double y) {
+  const auto qx = static_cast<int32_t>(std::llround(x * 10000.0));
+  const auto qy = static_cast<int32_t>(std::llround(y * 10000.0));
+  return (static_cast<uint64_t>(static_cast<uint32_t>(qx)) << 32) |
+         static_cast<uint32_t>(qy);
+}
+
+struct UndirectedEdgeKey {
+  uint64_t a = 0;
+  uint64_t b = 0;
+  bool operator==(const UndirectedEdgeKey& o) const {
+    return a == o.a && b == o.b;
+  }
+};
+
+struct UndirectedEdgeHash {
+  size_t operator()(const UndirectedEdgeKey& e) const {
+    return static_cast<size_t>(e.a ^ (e.b * 0x9e3779b97f4a7c15ull));
+  }
+};
+
+using AdminEdgeSet = std::unordered_set<UndirectedEdgeKey, UndirectedEdgeHash>;
+
+UndirectedEdgeKey make_edge_key(double x0, double y0, double x1, double y1) {
+  uint64_t a = quantize_lonlat(x0, y0);
+  uint64_t b = quantize_lonlat(x1, y1);
+  if (a > b) {
+    std::swap(a, b);
+  }
+  return UndirectedEdgeKey{a, b};
+}
+
+// Emit land-ring segments as admin once per undirected edge. Adjacent
+// admin_1 polygons share borders; stroking every ring twice with independent
+// RDP produced parallel ghost strokes on china overview.
+void append_unique_admin_edges(const BatchFeature& f, int safe_step,
+                               const std::map<std::string, std::string>& attrs,
+                               LayerBatchSet* out, BatchSourceIndex* batch_index,
+                               AdminEdgeSet* seen_edges) {
+  if (!out || !seen_edges || !batch_index) {
+    return;
+  }
+  const int n = static_cast<int>(f.points.size());
+  if (n < 3) {
+    return;
+  }
+  std::vector<BatchPoint> ring;
+  ring.reserve(static_cast<size_t>(n / (std::max)(safe_step, 1) + 2));
+  for (int i = 0; i < n; i += safe_step) {
+    ring.push_back(f.points[static_cast<size_t>(i)]);
+  }
+  if (n > 0 && (n - 1) % safe_step != 0) {
+    ring.push_back(f.points.back());
+  }
+  if (ring.size() >= 2 &&
+      (ring.front().x != ring.back().x || ring.front().y != ring.back().y)) {
+    ring.push_back(ring.front());
+  }
+  if (ring.size() < 2) {
+    return;
+  }
+  LayerBatch* admin = batch_for(out, "admin", batch_index);
+  auto flush_run = [&](std::unique_ptr<OGRLineString>& run) {
+    if (!run || run->getNumPoints() < 2) {
+      run.reset();
+      return;
+    }
+    admin->geoms.push_back(run.get());
+    out->owned.push_back(std::move(run));
+    admin->attrs.push_back(attrs);
+  };
+  std::unique_ptr<OGRLineString> run;
+  for (size_t i = 1; i < ring.size(); ++i) {
+    const BatchPoint& p0 = ring[i - 1];
+    const BatchPoint& p1 = ring[i];
+    const UndirectedEdgeKey key = make_edge_key(p0.x, p0.y, p1.x, p1.y);
+    if (key.a == key.b || !seen_edges->insert(key).second) {
+      flush_run(run);
+      continue;
+    }
+    if (!run) {
+      run = std::make_unique<OGRLineString>();
+      run->addPoint(p0.x, p0.y);
+    }
+    run->addPoint(p1.x, p1.y);
+  }
+  flush_run(run);
+}
+
 void append_probe_geometry(const FeatureProbe& p, double scale,
-                           LayerBatchSet* out, BatchSourceIndex* batch_index) {
+                           LayerBatchSet* out, BatchSourceIndex* batch_index,
+                           AdminEdgeSet* land_admin_edges,
+                           bool skip_land_admin_synth) {
   if (!out || !p.feature) {
     return;
   }
@@ -426,22 +525,11 @@ void append_probe_geometry(const FeatureProbe& p, double scale,
   }
   batch->attrs.push_back(attrs);
   // china_city stores admin_1 as land polygons only; river/road extracts
-  // have no boundary lines. Stroke the same rings as source-layer admin.
-  if (p.source == "land" && f.kind == BatchGeomKind::kPolygon && n >= 3) {
-    LayerBatch* admin = batch_for(out, "admin", batch_index);
-    auto line = std::make_unique<OGRLineString>();
-    for (int i = 0; i < n; i += safe_step) {
-      line->addPoint(f.points[static_cast<size_t>(i)].x,
-                     f.points[static_cast<size_t>(i)].y);
-    }
-    if (n > 0 && (n - 1) % safe_step != 0) {
-      line->addPoint(f.points.back().x, f.points.back().y);
-    }
-    if (line->getNumPoints() >= 2) {
-      admin->geoms.push_back(line.get());
-      out->owned.push_back(std::move(line));
-      admin->attrs.push_back(std::move(attrs));
-    }
+  // have no boundary lines. Stroke unique undirected ring edges as admin.
+  if (!skip_land_admin_synth && land_admin_edges && p.source == "land" &&
+      f.kind == BatchGeomKind::kPolygon && n >= 3) {
+    append_unique_admin_edges(f, safe_step, attrs, out, batch_index,
+                              land_admin_edges);
   }
 }
 
@@ -467,13 +555,27 @@ void emit_kept_probes(const std::vector<FeatureProbe>& probes, double scale,
   if (!out) {
     return;
   }
+  // Dedicated admin line features already carry boundaries — do not also
+  // synth strokes from every land ring (that doubles shared provincial edges).
+  bool has_admin_lines = false;
+  for (const FeatureProbe& probe : probes) {
+    if (probe.source == "admin" && probe.feature &&
+        probe.feature->kind == BatchGeomKind::kLine &&
+        should_keep_probe(probe, scale, use_carto_slots, line_stems)) {
+      has_admin_lines = true;
+      break;
+    }
+  }
   BatchSourceIndex batch_index;
   batch_index.reserve(8);
+  AdminEdgeSet land_admin_edges;
+  land_admin_edges.reserve(4096);
   for (const FeatureProbe& probe : probes) {
     if (!should_keep_probe(probe, scale, use_carto_slots, line_stems)) {
       continue;
     }
-    append_probe_geometry(probe, scale, out, &batch_index);
+    append_probe_geometry(probe, scale, out, &batch_index, &land_admin_edges,
+                          has_admin_lines);
   }
 }
 

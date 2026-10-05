@@ -29,11 +29,11 @@ All rights reserved.
 
 ### 1.2 成功判据（可验收，3–5 条）
 
-1. **场驱动可见：** 至少一组 External GeoTIFF（或 GDAL 可开的规则栅格）经 `ingest_gdal_field` / 批量切片写入 `FieldStore` 后，调节 `Environment::time_sec` 能改变海面 Hs 或云量外观（Null RHI 录制不崩；FlyCube 可选门禁有像素差）。  
-2. **海面中档外观：** 默认 GPU FFT（JONSWAP-lite）路径在 FlyCube 下可读：岸线 `kSeaMask` 正确、深浅色+Fresnel、chop 位移；`quality==0` / Null / `prefer_gpu_fft=false` 自动回退 CPU FFT 或 Gerstner。  
+1. **场驱动可见：** 至少一组 External GeoTIFF（或 GDAL 可开的规则栅格）经 `ingest_gdal_field` / 批量切片写入 `FieldStore` 后，调节 `Environment::time_sec` 能改变海面 Hs 或云量外观（Null RHI 录制不崩；Vista 可选门禁有像素差）。  
+2. **海面中档外观：** 默认 GPU FFT（JONSWAP-lite）路径在 Vista 下可读：岸线 `kSeaMask` 正确、深浅色+Fresnel、chop 位移；`quality==0` / Null / `prefer_gpu_fft=false` 自动回退 CPU FFT 或 Gerstner。  
 3. **时间轴语义：** 宿主或 demo 能按时间序列 scrub；`FieldStore::sample(..., time_sec)` 线性插值与文档一致；`--atmosphere-showcase` 或等价自测覆盖「双时刻差」。  
 4. **风场叠图（Phase 3 完成才算总验收满分）：** `kWindU/V` 以矢量箭头 **或** 轻量 GPU 粒子之一叠在场景上，与相机/时间同步。  
-5. **边界不破：** 大气仍只走 `render::rhi` Facade（`PipelineId` / `ComputePipelineId`）；产品代码不 `#include` FlyCube 头；不引入 Cesium Native / 第二引擎。
+5. **边界不破：** 大气仍只走 `render::rhi` Facade（`PipelineId` / `ComputePipelineId`）；产品代码不 `#include` Vista 头；不引入 Cesium Native / 第二引擎。
 
 ---
 
@@ -47,7 +47,7 @@ All rights reserved.
 | **海面** | GPU FFT + JONSWAP-lite / Phillips、Dx/Dz chop、Fresnel、海掩膜；Gerstner/CPU 回退 | 同左 + 轻度泡沫/浪尖提示（非影视碎浪）；可选更高 FFT 分辨率档 | 泡沫/浪尖未做；RGBA8 量化噪声仍在 honest limits |
 | **云与大气** | 视锥短程 raymarch、单次散射+Beer；太阳方位角 | 云量纹理真正上传调制（非整块 cover）；天空散射可选升档 | cover 多为标量；无 Hillaire/Bruneton LUT；无多次散射（spec 已拒 v1） |
 | **风场与叠图** | `kWindU/V` 在场里；海面用风驱动谱 | ArcGIS 级矢量/流线或粒子叠图；雷达/卫星 External 栅格叠图路径说明 | **无**风场绘制 pass；叠图依赖现有影像层、未文档化对接 |
-| **RHI / GpuScene** | `kOcean` / `kCloud` + 5 个 ocean compute；load-op / depth 合成已通 | 新叠图最多新增 **窄** PipelineId；编排仍在 `render::atmosphere` | 风场/天空若做需新 Id；禁止透传 FlyCube |
+| **RHI / GpuScene** | `kOcean` / `kCloud` + 5 个 ocean compute；load-op / depth 合成已通 | 新叠图最多新增 **窄** PipelineId；编排仍在 `render::atmosphere` | 风场/天空若做需新 Id；禁止透传 Vista |
 | **Views UI** | `Environment` 挂 `Scene3dController`；demo / showcase / self-test；默认关 | 可选时间滑条或键盘 scrub；开关海洋/云；加载 External 场入口（哪怕 CLI/菜单最小） | **无**产品时间轴控件；ingest 未进常规 UI |
 
 ---
@@ -63,7 +63,7 @@ All rights reserved.
 | **交付物** | 本 plan 生效；整理 `--atmosphere-showcase` / 单测清单为「升级基线」；补视觉金标准目录约定（见 §6）；对 living spec 仅交叉引用，不复制 API |
 | **依赖** | Predecessor plan Tasks 0–12 已 landed |
 | **风险** | Showcase BMP 不稳定 → 用相对阈值/ROI 差分而非像素全等 |
-| **不做** | 新渲染算法；改 FlyCube 公共 API |
+| **不做** | 新渲染算法；改 Vista 公共 API |
 
 - [x] Phase 0.1：文档交叉链（spec ↔ 本 plan ↔ predecessor Deferred）  
 - [x] Phase 0.2：列出必跑单测目标名 + `RUN_FLYCUBE_GPU=1` 可选命令写入本 plan §6  
@@ -129,16 +129,16 @@ All rights reserved.
 
 ---
 
-## 5. 与 FlyCube / RHI 边界
+## 5. 与 Vista / RHI 边界
 
 | 放入 `render::rhi` Facade | 留在 `render::atmosphere` / `gis::atmosphere` | 禁止 |
 | --- | --- | --- |
-| 已有 `PipelineId::{kOcean,kCloud}` 与 ocean `ComputePipelineId::*` | `OceanPass` / `CloudPass` / `FieldTexture` 编排、频谱 CPU 归一化、海掩膜逻辑 | 产品 TU `#include` FlyCube / 完整 bgfx 式 API |
+| 已有 `PipelineId::{kOcean,kCloud}` 与 ocean `ComputePipelineId::*` | `OceanPass` / `CloudPass` / `FieldTexture` 编排、频谱 CPU 归一化、海掩膜逻辑 | 产品 TU `#include` Vista / 完整 bgfx 式 API |
 | Phase 3 若粒子风场：新增 **一个** `PipelineId`（如 `kWindParticles`）+ 必要 `set_*_params` | 风场采样、粒子生成、与 `FieldStore` 同步 | 在 Facade 外直接 `CreatePipeline` 旁路 |
 | Phase 3 若天空 LUT：新增 compute/graphics Id + LUT 纹理绑定钩子 | LUT 填充调度、与太阳参数同步 | 把 Omniverse / Earth-2 SDK 链进 render DLL |
 | `ColorLoadOp` / `DepthLoadOp` / blend / depth 模式（已有） | `GpuScene::record_draws` 前后插入点（`Scene3dController`） | 为大气新建第二 `Device` |
 
-**原则：** Facade 只暴露枚举化管线与常量缓冲钩子；大气领域知识不泄漏进 `rhi.h` 以外的 FlyCube 细节。
+**原则：** Facade 只暴露枚举化管线与常量缓冲钩子；大气领域知识不泄漏进 `rhi.h` 以外的 Vista 细节。
 
 ---
 
@@ -174,7 +174,7 @@ set RUN_FLYCUBE_GPU=1
 REM 例: build.bat src/app/views:scene3d_controller_test
 ```
 
-- FlyCube 机器：`--atmosphere-showcase`（ocean / cloud / demo）出 BMP，人工或 ROI 差分。  
+- Vista 机器：`--atmosphere-showcase`（ocean / cloud / demo）出 BMP，人工或 ROI 差分。  
 - 无 GPU / 驱动失败：**跳过不过红**（与现有惯例一致）。
 
 ### 6.3 视觉金标准建议

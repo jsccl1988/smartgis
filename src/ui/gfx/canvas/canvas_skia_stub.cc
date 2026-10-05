@@ -9,7 +9,7 @@ namespace ui {
 namespace gfx {
 namespace detail {
 
-CanvasBackend* create_skia_canvas_backend(HDC, int, int) {
+std::unique_ptr<CanvasBackend> create_skia_canvas_backend(HDC, int, int) {
   return nullptr;
 }
 

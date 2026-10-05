@@ -97,10 +97,16 @@ bool WorldPass::record_draws(render::rhi::Device* device,
 
   auto rec = [&](vista::NodeKind kind, const FrustumPlanes* frustum,
                  const std::vector<uint8_t>* visible) {
+    if (kind == vista::NodeKind::kTerrain) {
+      terrain_.record(list, pass, width, height, meshes_, &pass_opened,
+                      solid_pipeline_, textured_pipeline_, lit_pipeline_,
+                      lit_textured_pipeline_, light_, frustum, visible);
+      return;
+    }
     detail::record_kind(list, pass, width, height, meshes_, kind, &pass_opened,
                         solid_pipeline_, textured_pipeline_, lit_pipeline_,
                         lit_textured_pipeline_, light_, frustum, visible,
-                        solid_terrain_forced_);
+                        false);
   };
 
   rec(vista::NodeKind::kRasterLayer, nullptr, nullptr);

@@ -19,7 +19,7 @@ All rights reserved.
 
 
 
-**Goal:** Product-readable 3D defaults (lit solid), stable style→GPU albedo for 3D nodes, CPU frustum cull at GpuScene scale, and greener optional FlyCube GPU smoke — without Shiva/two/PBR.
+**Goal:** Product-readable 3D defaults (lit solid), stable style→GPU albedo for 3D nodes, CPU frustum cull at GpuScene scale, and greener optional Vista GPU smoke — without Shiva/two/PBR.
 
 
 
@@ -27,7 +27,7 @@ All rights reserved.
 
 
 
-**Tech Stack:** C++23, `render::rhi` / FlyCube DX12, `gis::World` + `GpuScene`, `gis::style::ResolvedPaint`, GN/`build.bat`, Null RHI tests.
+**Tech Stack:** C++23, `render::rhi` / Vista DX12, `gis::World` + `GpuScene`, `gis::style::ResolvedPaint`, GN/`build.bat`, Null RHI tests.
 
 
 
@@ -43,7 +43,7 @@ All rights reserved.
 
 - Public namespaces ≤2 layers; new APIs `snake_case`; English comments; Copyright 2026.
 
-- No Qt; no bgfx/Shiva/two; no product `#include` of FlyCube headers.
+- No Qt; no bgfx/Shiva/two; no product `#include` of Vista headers.
 
 - CI default Null; GPU optional skip-not-red.
 
@@ -121,7 +121,7 @@ All rights reserved.
 
 3. [x] Add `PipelineId::kLitSolid` (value after `kCloud`, do not renumber ocean/cloud).
 
-4. [x] FlyCube: compile lit solid shader (N·L Lambert + ambient); default light if unset (e.g. dir ≈ (−0.4, −0.8, −0.35) normalized, ambient 0.25).
+4. [x] Vista: compile lit solid shader (N·L Lambert + ambient); default light if unset (e.g. dir ≈ (−0.4, −0.8, −0.35) normalized, ambient 0.25).
 
 5. [x] Run `rhi_test` Null path green.
 
@@ -241,7 +241,7 @@ ninja -C out scene_gpu_test
 
 
 
-4. [x] Run once on a FlyCube machine if available; paste outcome in PR/notes (not required in CI).
+4. [x] Run once on a Vista machine if available; paste outcome in PR/notes (not required in CI).
 
 
 

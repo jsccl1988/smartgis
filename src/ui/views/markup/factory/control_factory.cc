@@ -24,6 +24,13 @@ std::string to_lower(std::string_view s) {
 
 }  // namespace
 
+MarkupAttrs::MarkupAttrs() = default;
+MarkupAttrs::MarkupAttrs(const MarkupAttrs&) = default;
+MarkupAttrs::MarkupAttrs(MarkupAttrs&&) noexcept = default;
+MarkupAttrs& MarkupAttrs::operator=(const MarkupAttrs&) = default;
+MarkupAttrs& MarkupAttrs::operator=(MarkupAttrs&&) noexcept = default;
+MarkupAttrs::~MarkupAttrs() = default;
+
 std::string MarkupAttrs::get(std::string_view key,
                              std::string_view fallback) const {
   const auto it = values.find(std::string(key));

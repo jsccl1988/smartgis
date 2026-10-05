@@ -41,6 +41,7 @@ Living specs, open plans, HTML diagrams, and as-built product notes live here. P
 | [`diagrams/content-present-accelerate.html`](diagrams/content-present-accelerate.html) | present 三车道：cache / GPU 合成 / `base::execution` |
 | [`diagrams/render-accelerate-topology.html`](diagrams/render-accelerate-topology.html) | GPU-process × vista parallel（A×B） |
 | [`diagrams/ui-views-shell-architecture.html`](diagrams/ui-views-shell-architecture.html) | Views shell / compositor 泳道 |
+| [`diagrams/map-viewport-paint.html`](diagrams/map-viewport-paint.html) | DrawHost paint 分层 + 2D SoT（不 blit leftover SharedSurface） |
 | [`diagrams/content-browser-layers.html`](diagrams/content-browser-layers.html) | `content/browser` 责任层 + C11 收紧 + MapSession / content.dll |
 | [`diagrams/views-window-process.html`](diagrams/views-window-process.html) | Views 窗口体系 / 进程体系 |
 | [`diagrams/legacy-render-architecture.html`](diagrams/legacy-render-architecture.html) | Scenic 上一代：CPU Raster×N / Prep×N · GPU 仅 rhi3d · 与 Vista 的优缺点 |
@@ -49,6 +50,7 @@ Living specs, open plans, HTML diagrams, and as-built product notes live here. P
 | [`diagrams/rhi3d-public-api-lanes.html`](diagrams/rhi3d-public-api-lanes.html) | Scenic `RenderDevice3d` 组合部件（`render_device.h`；几何源 XOR / 着色 XOR） |
 | [`diagrams/debug-console-agent.html`](diagrams/debug-console-agent.html) | Debug console agent |
 | [`diagrams/plugin-product-world3d.html`](diagrams/plugin-product-world3d.html) | world3d 包：DEM + 2D orthogrid + 3D hex |
+| [`diagrams/plugin-analysis-processing.html`](diagrams/plugin-analysis-processing.html) | 产品分析：chrome writer → 插件 compute/present processing |
 
 Legacy UI/app deep-layer slices: `diagrams/legacy-{app,ui-widgets,ui-map,ui-shell,ui-inspect,ui-dialogs}-deep-layer.html`.
 
@@ -62,7 +64,7 @@ Legacy UI/app deep-layer slices: `diagrams/legacy-{app,ui-widgets,ui-map,ui-shel
 | Tool dispatch + `src/tool` | [`specs/2026-09-13-tool-event-dispatch-design.md`](specs/2026-09-13-tool-event-dispatch-design.md) | [`plans/2026-09-13-tool-event-dispatch.md`](plans/2026-09-13-tool-event-dispatch.md) |
 | `src/base` foundation (+ memory / PA-E / execution / codecs) | [`specs/2026-09-14-base-root-hybrid-design.md`](specs/2026-09-14-base-root-hybrid-design.md) | [`plans/2026-09-28-partition-alloc-everywhere.md`](plans/2026-09-28-partition-alloc-everywhere.md) · [`plans/2026-09-28-base-execution.md`](plans/2026-09-28-base-execution.md) |
 | GIS datasource / GDAL / SDB / Session+Provider | [`specs/2026-09-13-gdal-layer-management-design.md`](specs/2026-09-13-gdal-layer-management-design.md) | [`plans/2026-09-28-datasource-session-provider.md`](plans/2026-09-28-datasource-session-provider.md) · [`plans/2026-09-13-ogr-db-datasource.md`](plans/2026-09-13-ogr-db-datasource.md) · [`plans/2026-09-19-sdbd-wsl-client.md`](plans/2026-09-19-sdbd-wsl-client.md) |
-| Plugin host / contributions / store | [`specs/2026-09-13-plugin-host-design.md`](specs/2026-09-13-plugin-host-design.md) | [`plans/2026-09-30-stormsurge-3d-disaster.md`](plans/2026-09-30-stormsurge-3d-disaster.md) · world3d / analysis / leftover-plugin checklists still open on the umbrella |
+| Plugin host / contributions / store | [`specs/2026-09-13-plugin-host-design.md`](specs/2026-09-13-plugin-host-design.md) | [`plans/2026-10-05-plugin-analysis-present-to-processing.md`](plans/2026-10-05-plugin-analysis-present-to-processing.md) · [`plans/2026-09-30-stormsurge-3d-disaster.md`](plans/2026-09-30-stormsurge-3d-disaster.md) · world3d / leftover-plugin checklists still open on the umbrella |
 | Algorithm layer (OSS) | [`specs/2026-09-13-algorithm-layer-oss-design.md`](specs/2026-09-13-algorithm-layer-oss-design.md) | [`plans/2026-09-13-algorithm-layer-oss.md`](plans/2026-09-13-algorithm-layer-oss.md) |
 | Net (asio / httplib) | [`specs/2026-09-13-net-asio-httplib-design.md`](specs/2026-09-13-net-asio-httplib-design.md) | [`plans/2026-09-13-net-asio-httplib.md`](plans/2026-09-13-net-asio-httplib.md) |
 
@@ -72,4 +74,4 @@ Open milestone: [`plans/2026-09-20-m1-carto-style-tile-export.md`](plans/2026-09
 
 Landed / superseded / fold-B children: [`archive/`](archive/).
 
-**最后更新:** 2026-10-05（living 仍 9 行；§Math 分层：[`diagrams/base-math-layers.html`](diagrams/base-math-layers.html)；无新 dated spec）
+**最后更新:** 2026-10-05（living 仍 9 行；§Analysis present in plugin：[`specs/2026-09-13-plugin-host-design.md`](specs/2026-09-13-plugin-host-design.md)；无新 dated spec）

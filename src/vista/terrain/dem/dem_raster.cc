@@ -3,8 +3,14 @@
 
 #include "vista/terrain/dem/dem_raster.h"
 
+#include "base/execution/executor/pool/global_executor.h"
+#include "base/execution/parallel/for.h"
 #include "base/time/elapsed_timer.h"
 #include "vista/terrain/dem/dem_bake_cache.h"
+#include "vista/terrain/dem/dem_contour.h"
+#include "vista/terrain/process/bake_parallel.h"
+#include "vista/terrain/process/nv/bake_pixel.h"
+#include "vista/terrain/process/nv/thrust_gis.h"
 #include "gdal_priv.h"
 
 #ifndef NOMINMAX
@@ -30,7 +36,19 @@ std::string& dem_path_override_store() {
 }
 
 float clampf(float v, float lo, float hi) {
-  return (std::max)(lo, (std::min)(hi, v));
+  return detail::bake_clampf(v, lo, hi);
+}
+
+template <typename Fn>
+void for_each_bake_row(int w, int h, Fn fn) {
+  if (bake_rows_should_parallel(w, h)) {
+    base::execution::GlobalNThreadPoolExecutor executor;
+    base::execution::parallel_for(executor, 0, h, fn);
+  } else {
+    for (int row = 0; row < h; ++row) {
+      fn(row);
+    }
+  }
 }
 
 float gauss_hill(double x, double y, double cx, double cy, double sx, double sy,
@@ -92,61 +110,12 @@ std::string join_dir(const std::string& dir, const char* rel) {
 // Base elevation ramp. Lowlands stay green (landish gate: g>r and g>b).
 // Highlands are tan, not a pink-white poster. Slope/snow live in the bake.
 void hypsometric_rgb(float meters, float* r, float* g, float* b) {
-  if (!r || !g || !b) {
-    return;
-  }
-  if (meters <= 1.f) {
-    // Deep coastal water (not cyan wash).
-    *r = 0.10f;
-    *g = 0.18f;
-    *b = 0.28f;
-    return;
-  }
-  // Four-stop atlas: sage plains → olive hills → ochre highland → cool rock.
-  // Keep g-dominant lowlands for Scene3d landish BMP gates.
-  const float t01 = (std::max)(0.f, (std::min)(1.f, meters / 5500.f));
-  if (t01 < 0.28f) {
-    const float u = t01 / 0.28f;
-    *r = (58.f + 42.f * u) / 255.f;
-    *g = (118.f + 36.f * u) / 255.f;
-    *b = (72.f + 18.f * (1.f - u)) / 255.f;
-  } else if (t01 < 0.52f) {
-    const float u = (t01 - 0.28f) / 0.24f;
-    *r = (100.f + 48.f * u) / 255.f;
-    *g = (154.f - 18.f * u) / 255.f;
-    *b = (68.f + 12.f * u) / 255.f;
-  } else if (t01 < 0.78f) {
-    const float u = (t01 - 0.52f) / 0.26f;
-    *r = (148.f + 36.f * u) / 255.f;
-    *g = (136.f - 8.f * u) / 255.f;
-    *b = (80.f + 20.f * u) / 255.f;
-  } else {
-    const float u = (t01 - 0.78f) / 0.22f;
-    *r = (164.f + 28.f * u) / 255.f;
-    *g = (148.f + 22.f * u) / 255.f;
-    *b = (118.f + 28.f * u) / 255.f;
-  }
+  detail::hypsometric_rgb_impl(meters, r, g, b);
 }
 
-// Albedo for the lit PBR pass: elevation ramp, then rock on steep faces
-// and a cool snow cap on high flats.
 void terrain_material_rgb(float meters, float slope01, float* r, float* g,
                           float* b) {
-  hypsometric_rgb(meters, r, g, b);
-  const float rock = clampf(slope01, 0.f, 1.f);
-  // Cool slate rock — less muddy brown on faceted DEM triangles.
-  const float w = 0.55f * rock;
-  *r = *r * (1.f - w) + 0.42f * w;
-  *g = *g * (1.f - w) + 0.40f * w;
-  *b = *b * (1.f - w) + 0.38f * w;
-  if (meters > 4200.f && rock < 0.45f) {
-    const float u =
-        clampf((meters - 4200.f) / 2200.f, 0.f, 1.f) * (1.f - rock);
-    // Soft cool snow — keep below ~0.58 so D3D lit response stays ochre/rock.
-    *r = *r * (1.f - u) + 0.55f * u;
-    *g = *g * (1.f - u) + 0.58f * u;
-    *b = *b * (1.f - u) + 0.62f * u;
-  }
+  detail::terrain_material_rgb_impl(meters, slope01, r, g, b);
 }
 
 bool DemRaster::adopt_bake_cache(int cols, int rows, double minx, double miny,
@@ -603,29 +572,67 @@ bool DemRaster::build_mesh_window(double minx, double miny, double maxx,
   // land-only meshes sample ocean texels → black FlyCube DEM slabs.
   const float u_den = static_cast<float>((std::max)(1, cols_ - 1));
   const float v_den = static_cast<float>((std::max)(1, rows_ - 1));
-  for (int row = 0; row < mr; ++row) {
+  std::vector<uint8_t> keep(static_cast<size_t>(mc * mr), 0);
+  std::vector<int> row_n(static_cast<size_t>(mr), 0);
+  auto mark_row = [&](int row) {
     const int src_row =
         (std::min)(row1, row0 + (std::min)(win_rows - 1, row * step_y));
-    const double lat = maxy_ - src_row * dy;
+    int n = 0;
     for (int col = 0; col < mc; ++col) {
       const int src_col =
           (std::min)(col1, col0 + (std::min)(win_cols - 1, col * step_x));
       if (!is_land(src_col, src_row)) {
         continue;
       }
-      vert_of[static_cast<size_t>(row * mc + col)] =
-          static_cast<int>(xyz->size() / 3);
-      const double lon = minx_ + src_col * dx;
-      const float h = meters_at(src_col, src_row) * vert_exag_;
-      xyz->push_back(dem_lon_to_x(lon));
-      xyz->push_back(h);
-      xyz->push_back(static_cast<float>(lat));
-      if (uvs) {
-        uvs->push_back(static_cast<float>(src_col) / u_den);
-        uvs->push_back(static_cast<float>(src_row) / v_den);
-      }
+      keep[static_cast<size_t>(row * mc + col)] = 1;
+      ++n;
     }
+    row_n[static_cast<size_t>(row)] = n;
+  };
+  for_each_bake_row(mc, mr, mark_row);
+  std::vector<int> row_off(static_cast<size_t>(mr) + 1u, 0);
+  for (int row = 0; row < mr; ++row) {
+    row_off[static_cast<size_t>(row) + 1] =
+        row_off[static_cast<size_t>(row)] + row_n[static_cast<size_t>(row)];
   }
+  const int nverts = row_off[static_cast<size_t>(mr)];
+  if (nverts < 3) {
+    return false;
+  }
+  xyz->assign(static_cast<size_t>(nverts) * 3u, 0.f);
+  if (uvs) {
+    uvs->assign(static_cast<size_t>(nverts) * 2u, 0.f);
+  }
+  float* xyzp = xyz->data();
+  float* uvp = uvs ? uvs->data() : nullptr;
+  auto fill_row = [&](int row) {
+    const int src_row =
+        (std::min)(row1, row0 + (std::min)(win_rows - 1, row * step_y));
+    const double lat = maxy_ - src_row * dy;
+    int out = row_off[static_cast<size_t>(row)];
+    for (int col = 0; col < mc; ++col) {
+      if (!keep[static_cast<size_t>(row * mc + col)]) {
+        continue;
+      }
+      const int src_col =
+          (std::min)(col1, col0 + (std::min)(win_cols - 1, col * step_x));
+      vert_of[static_cast<size_t>(row * mc + col)] = out;
+      const double lon = minx_ + src_col * dx;
+      const float ht = meters_at(src_col, src_row) * vert_exag_;
+      const size_t o = static_cast<size_t>(out) * 3u;
+      xyzp[o + 0] = dem_lon_to_x(lon);
+      xyzp[o + 1] = ht;
+      xyzp[o + 2] = static_cast<float>(lat);
+      if (uvp) {
+        uvp[static_cast<size_t>(out) * 2u + 0] =
+            static_cast<float>(src_col) / u_den;
+        uvp[static_cast<size_t>(out) * 2u + 1] =
+            static_cast<float>(src_row) / v_den;
+      }
+      ++out;
+    }
+  };
+  for_each_bake_row(mc, mr, fill_row);
   indices->reserve(static_cast<size_t>((mc - 1) * (mr - 1) * 6));
   for (int row = 0; row < mr - 1; ++row) {
     for (int col = 0; col < mc - 1; ++col) {
@@ -653,7 +660,8 @@ bool DemRaster::bake_hypsometric_rgba(int max_edge, std::vector<uint8_t>* rgba,
     return false;
   }
   base::ElapsedTimer hypso_timer;
-  if (!source_path_.empty() &&
+  const bool skip_cache = bake_skip_result_cache();
+  if (!skip_cache && !source_path_.empty() &&
       dem_hypso_cache_try_get(source_path_.c_str(), max_edge, rgba, out_w,
                               out_h)) {
     note_dem_phase_hypso(
@@ -679,7 +687,32 @@ bool DemRaster::bake_hypsometric_rgba(int max_edge, std::vector<uint8_t>* rgba,
     return false;
   }
   rgba->assign(static_cast<size_t>(w) * static_cast<size_t>(h) * 4u, 0);
-  for (int row = 0; row < h; ++row) {
+  const BakeBackend backend = resolved_bake_backend();
+  const bool allow_cuda = backend != BakeBackend::kCpu;
+  const bool require_cuda = backend == BakeBackend::kCuda;
+  const uint8_t* landp = land_.empty() ? nullptr : land_.data();
+  if (allow_cuda &&
+      try_bake_hypso_thrust(heights_.data(), landp, cols_, rows_, step_x,
+                            step_y, w, h, rgba->data())) {
+    if (out_w) {
+      *out_w = w;
+    }
+    if (out_h) {
+      *out_h = h;
+    }
+    if (!skip_cache && !source_path_.empty() && !rgba->empty()) {
+      dem_hypso_cache_put(source_path_.c_str(), max_edge, *rgba, w, h);
+    }
+    note_dem_phase_hypso(
+        static_cast<int64_t>(hypso_timer.elapsed_milliseconds() + 0.5),
+        /*cache_hit=*/false);
+    return true;
+  }
+  if (require_cuda) {
+    return false;
+  }
+  uint8_t* pixels = rgba->data();
+  auto fill_row = [&](int row) {
     const int src_row = (std::min)(rows_ - 1, row * step_y);
     for (int col = 0; col < w; ++col) {
       const int src_col = (std::min)(cols_ - 1, col * step_x);
@@ -691,46 +724,52 @@ bool DemRaster::bake_hypsometric_rgba(int max_edge, std::vector<uint8_t>* rgba,
         land = land_[static_cast<size_t>(index_at(src_col, src_row))] != 0;
       }
       if (land) {
-        // Coastal DEM often stores ≤1 m; pale ocean blue there made the
-        // mainland silhouette read as a flat cyan slab under FlyCube.
         float m = meters_at(src_col, src_row);
         if (m <= 1.f) {
           m = 80.f;
         }
         const int c1 = (std::min)(cols_ - 1, src_col + step_x);
         const int r1 = (std::min)(rows_ - 1, src_row + step_y);
-        const float dh = std::fabs(meters_at(c1, src_row) - meters_at(src_col, src_row));
-        const float dv = std::fabs(meters_at(src_col, r1) - meters_at(src_col, src_row));
+        const float m0 = meters_at(src_col, src_row);
+        const float dh = std::fabs(meters_at(c1, src_row) - m0);
+        const float dv = std::fabs(meters_at(src_col, r1) - m0);
         const float slope =
             clampf(std::sqrt(dh * dh + dv * dv) / 900.f, 0.f, 1.f);
         terrain_material_rgb(m, slope, &r, &g, &b);
       }
-      // Non-land stays deep navy (not 0.18/0.36/0.52 cyan) so mid-frame
-      // visual gates do not treat the whole DEM AABB as flat cyan.
       const size_t i =
           (static_cast<size_t>(row) * static_cast<size_t>(w) +
            static_cast<size_t>(col)) *
           4u;
-      (*rgba)[i + 0] = static_cast<uint8_t>(clampf(r, 0.f, 1.f) * 255.f + 0.5f);
-      (*rgba)[i + 1] = static_cast<uint8_t>(clampf(g, 0.f, 1.f) * 255.f + 0.5f);
-      (*rgba)[i + 2] = static_cast<uint8_t>(clampf(b, 0.f, 1.f) * 255.f + 0.5f);
-      (*rgba)[i + 3] = 255;
+      pixels[i + 0] = detail::bake_pack_u8(r);
+      pixels[i + 1] = detail::bake_pack_u8(g);
+      pixels[i + 2] = detail::bake_pack_u8(b);
+      pixels[i + 3] = 255;
     }
-  }
-  // Dilate land albedo two texels into coastal ocean. Land-only mesh UVs can
-  // still sample the ocean side of the coast; navy bleed painted China black
-  // under FlyCube (atmosphere.full landish gate) and left shoreline seams on
-  // D3D china showcase.
+  };
+  for_each_bake_row(w, h, fill_row);
   if (!land_.empty() && w > 2 && h > 2) {
     auto land_at = [&](int c, int r) -> bool {
       const int src_col = (std::min)(cols_ - 1, c * step_x);
       const int src_row = (std::min)(rows_ - 1, r * step_y);
       return land_[static_cast<size_t>(index_at(src_col, src_row))] != 0;
     };
+    std::vector<uint8_t> alt(rgba->size());
+    uint8_t* a = rgba->data();
+    uint8_t* b = alt.data();
     for (int pass = 0; pass < 3; ++pass) {
-      std::vector<uint8_t> dilated = *rgba;
-      for (int row = 0; row < h; ++row) {
+      const uint8_t* srcp = a;
+      uint8_t* dstp = b;
+      auto dilate_row = [&](int row) {
         for (int col = 0; col < w; ++col) {
+          const size_t dst =
+              (static_cast<size_t>(row) * static_cast<size_t>(w) +
+               static_cast<size_t>(col)) *
+              4u;
+          dstp[dst + 0] = srcp[dst + 0];
+          dstp[dst + 1] = srcp[dst + 1];
+          dstp[dst + 2] = srcp[dst + 2];
+          dstp[dst + 3] = srcp[dst + 3];
           if (land_at(col, row)) {
             continue;
           }
@@ -748,24 +787,25 @@ bool DemRaster::bake_hypsometric_rgba(int max_edge, std::vector<uint8_t>* rgba,
                 (static_cast<size_t>(nr) * static_cast<size_t>(w) +
                  static_cast<size_t>(nc)) *
                 4u;
-            // Copy from any non-navy neighbor (land or already dilated).
-            if ((*rgba)[src + 0] < 40 && (*rgba)[src + 1] < 55 &&
-                (*rgba)[src + 2] < 80 && !land_at(nc, nr)) {
+            if (srcp[src + 0] < 40 && srcp[src + 1] < 55 &&
+                srcp[src + 2] < 80 && !land_at(nc, nr)) {
               continue;
             }
-            const size_t dst =
-                (static_cast<size_t>(row) * static_cast<size_t>(w) +
-                 static_cast<size_t>(col)) *
-                4u;
-            dilated[dst + 0] = (*rgba)[src + 0];
-            dilated[dst + 1] = (*rgba)[src + 1];
-            dilated[dst + 2] = (*rgba)[src + 2];
-            dilated[dst + 3] = 255;
+            dstp[dst + 0] = srcp[src + 0];
+            dstp[dst + 1] = srcp[src + 1];
+            dstp[dst + 2] = srcp[src + 2];
+            dstp[dst + 3] = 255;
             break;
           }
         }
-      }
-      *rgba = std::move(dilated);
+      };
+      for_each_bake_row(w, h, dilate_row);
+      uint8_t* tmp = a;
+      a = b;
+      b = tmp;
+    }
+    if (a != rgba->data()) {
+      rgba->swap(alt);
     }
   }
   if (out_w) {
@@ -774,12 +814,65 @@ bool DemRaster::bake_hypsometric_rgba(int max_edge, std::vector<uint8_t>* rgba,
   if (out_h) {
     *out_h = h;
   }
-  if (!source_path_.empty() && !rgba->empty()) {
+  if (!skip_cache && !source_path_.empty() && !rgba->empty()) {
     dem_hypso_cache_put(source_path_.c_str(), max_edge, *rgba, w, h);
   }
   note_dem_phase_hypso(
       static_cast<int64_t>(hypso_timer.elapsed_milliseconds() + 0.5),
       /*cache_hit=*/false);
+  return true;
+}
+
+bool DemRaster::bake_elevation_overlay_rgba(int max_edge, bool surface,
+                                            bool curves,
+                                            std::vector<uint8_t>* rgba,
+                                            int* out_w, int* out_h) const {
+  if (!rgba || empty() || (!surface && !curves)) {
+    return false;
+  }
+  int step_x = 1;
+  int step_y = 1;
+  if (max_edge >= 8) {
+    if (cols_ > max_edge) {
+      step_x = cols_ / max_edge;
+    }
+    if (rows_ > max_edge) {
+      step_y = rows_ / max_edge;
+    }
+  }
+  step_x = (std::max)(1, step_x);
+  step_y = (std::max)(1, step_y);
+  const int w = (cols_ + step_x - 1) / step_x;
+  const int h = (rows_ + step_y - 1) / step_y;
+  if (w < 2 || h < 2) {
+    return false;
+  }
+  std::vector<float> grid(static_cast<size_t>(w) * static_cast<size_t>(h), 0.f);
+  float* gp = grid.data();
+  auto lod_row = [&](int row) {
+    const int src_row = (std::min)(rows_ - 1, row * step_y);
+    for (int col = 0; col < w; ++col) {
+      const int src_col = (std::min)(cols_ - 1, col * step_x);
+      float m = meters_at(src_col, src_row);
+      if (!land_.empty() &&
+          land_[static_cast<size_t>(index_at(src_col, src_row))] == 0) {
+        m = 0.f;
+      }
+      gp[static_cast<size_t>(row) * static_cast<size_t>(w) +
+         static_cast<size_t>(col)] = m;
+    }
+  };
+  for_each_bake_row(w, h, lod_row);
+  if (!vista::bake_elevation_overlay_rgba(grid.data(), w, h, surface, curves,
+                                          0.f, rgba)) {
+    return false;
+  }
+  if (out_w) {
+    *out_w = w;
+  }
+  if (out_h) {
+    *out_h = h;
+  }
   return true;
 }
 
@@ -845,10 +938,10 @@ std::string find_sample_dem_path() {
       "data\\china_dem.tiff",
       "china_dem.tif",
       "china_dem.tiff",
-      "testing\\data\\china_dem.tif",
-      "testing\\data\\china_dem.tiff",
-      "..\\testing\\data\\china_dem.tif",
-      "..\\..\\testing\\data\\china_dem.tif",
+      "testing\\data\\china\\china_dem.tif",
+      "testing\\data\\china\\china_dem.tiff",
+      "..\\testing\\data\\china\\china_dem.tif",
+      "..\\..\\testing\\data\\china\\china_dem.tif",
   };
   return first_existing_rel(module_dir_for_samples(), kChinaDemRel,
                             std::size(kChinaDemRel));
@@ -922,9 +1015,12 @@ std::string find_sample_global_imagery_path() {
 }
 
 bool load_imagery_rgba(const char* path, std::vector<uint8_t>* rgba, int* out_w,
-                       int* out_h) {
+                       int* out_h, int max_edge) {
   if (!path || !path[0] || !rgba) {
     return false;
+  }
+  if (max_edge < 2) {
+    max_edge = 2;
   }
   GDALAllRegister();
   GDALDataset* ds = static_cast<GDALDataset*>(GDALOpen(path, GA_ReadOnly));
@@ -940,14 +1036,13 @@ bool load_imagery_rgba(const char* path, std::vector<uint8_t>* rgba, int* out_w,
     std::fprintf(stderr, "Scene3d imagery: bad size/bands for %s\n", path);
     return false;
   }
-  // Cap drape / globe equirect so FlyCube upload stays modest (allows
-  // 1024x512 global_terrain.png without multi-hundred-MB china_rs).
-  constexpr int kMaxEdge = 1024;
+  // Cap drape / globe equirect so FlyCube upload stays modest. Globe callers
+  // pass 2048; default 1024 avoids multi-hundred-MB china_rs uploads.
   int out_cols = n_x;
   int out_rows = n_y;
-  if (out_cols > kMaxEdge || out_rows > kMaxEdge) {
-    const double sx = static_cast<double>(kMaxEdge) / out_cols;
-    const double sy = static_cast<double>(kMaxEdge) / out_rows;
+  if (out_cols > max_edge || out_rows > max_edge) {
+    const double sx = static_cast<double>(max_edge) / out_cols;
+    const double sy = static_cast<double>(max_edge) / out_rows;
     const double s = (std::min)(sx, sy);
     out_cols = (std::max)(2, static_cast<int>(std::lround(n_x * s)));
     out_rows = (std::max)(2, static_cast<int>(std::lround(n_y * s)));
@@ -1068,8 +1163,8 @@ bool DemRaster::sample_globe_surface(double minx, double miny, double maxx,
   if (!(maxx > minx) || !(maxy > miny)) {
     return false;
   }
-  const int k_cols = global_grid ? 512 : 768;
-  const int k_rows = global_grid ? 256 : 480;
+  const int k_cols = global_grid ? 1024 : 1024;
+  const int k_rows = global_grid ? 512 : 640;
   heights->assign(static_cast<size_t>(k_cols) * static_cast<size_t>(k_rows),
                   0.f);
   for (int r = 0; r < k_rows; ++r) {
@@ -1088,7 +1183,8 @@ bool DemRaster::sample_globe_surface(double minx, double miny, double maxx,
   *tex_h = 0;
   bool have_imagery = false;
   if (imagery_path && imagery_path[0] != '\0') {
-    have_imagery = load_imagery_rgba(imagery_path, rgba, tex_w, tex_h) &&
+    have_imagery = load_imagery_rgba(imagery_path, rgba, tex_w, tex_h,
+                                     global_grid ? 2048 : 1024) &&
                    *tex_w > 0 && *tex_h > 0;
     if (!have_imagery) {
       rgba->clear();
@@ -1097,7 +1193,7 @@ bool DemRaster::sample_globe_surface(double minx, double miny, double maxx,
     }
   }
   if (!have_imagery) {
-    (void)bake_hypsometric_rgba(global_grid ? 384 : 512, rgba, tex_w, tex_h);
+    (void)bake_hypsometric_rgba(global_grid ? 1024 : 1024, rgba, tex_w, tex_h);
   }
   if (imagery_loaded) {
     *imagery_loaded = have_imagery;

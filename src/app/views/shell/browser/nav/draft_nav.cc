@@ -58,7 +58,7 @@
 #include "ui/gis/catalog/layer_tree.h"
 #include "ui/gis/analysis/processing_panel.h"
 #include "ui/views/kernel/layout/layout.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/menu/context_menu.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/layout/splitter.h"
@@ -91,21 +91,21 @@ void Browser::apply_nav_draft(const tool::Draft& draft, bool pan,
     const bool content_map =
         ui_->active_map() &&
         ui_->active_map()->attach_mode() ==
-            ui::views::MapViewport::AttachMode::kContentMapView;
+            ui::views::DrawHost::AttachMode::kContentMapView;
     if (!content_map) {
-      session_.blit().begin_pan(vw, vh, dx, dy);
+      session_->blit().begin_pan(vw, vh, dx, dy);
     }
-    session_.view_frame().apply_pan(dx, dy);
+    session_->view_frame().apply_pan(dx, dy);
   } else {
     const bool content_map =
         ui_->active_map() &&
         ui_->active_map()->attach_mode() ==
-            ui::views::MapViewport::AttachMode::kContentMapView;
+            ui::views::DrawHost::AttachMode::kContentMapView;
     if (!content_map) {
-      session_.blit().begin_zoom(vw, vh, draft.points.front().x_px,
+      session_->blit().begin_zoom(vw, vh, draft.points.front().x_px,
                                  draft.points.front().y_px, zoom_factor);
     }
-    session_.view_frame().apply_zoom_at(draft.points.front().x_px,
+    session_->view_frame().apply_zoom_at(draft.points.front().x_px,
                             draft.points.front().y_px, zoom_factor);
   }
   forward_draft_to_contents(draft);
@@ -115,7 +115,7 @@ void Browser::apply_nav_draft(const tool::Draft& draft, bool pan,
 }
 
 void Browser::zoom_at_and_commit(int view_x, int view_y, double factor) {
-  session_.view_frame().apply_zoom_at(view_x, view_y, factor);
+  session_->view_frame().apply_zoom_at(view_x, view_y, factor);
   push_shared_extent();
   ui_->invalidate_map_overlays();
   adopt_or_commit_extent();
@@ -144,11 +144,11 @@ void Browser::fit_map_extent() {
     const char* skip = base::switch_cstr("skip-china-map2d-defaults");
     return skip && skip[0] != '\0' && skip[0] != '0';
   }();
-  if (session_.document().has_china_extent() && !skip_china_defaults) {
+  if (session_->document().has_china_extent() && !skip_china_defaults) {
     apply_china_map2d_product_defaults(*this, w, h);
   } else {
-    session_.view_frame().fit_extent(session_.document(), w, h);
-    session_.orbit_frame().apply_world_extent(session_.document().world_extent());
+    session_->view_frame().fit_extent(session_->document(), w, h);
+    session_->orbit_frame().apply_world_extent(session_->document().world_extent());
     push_shared_extent();
   }
   if (HWND chrome = hwnd()) {
@@ -159,21 +159,21 @@ void Browser::fit_map_extent() {
   adopt_or_commit_extent();
   refresh_scale();
   if (ui::views::StatusBar* bar = status_bar()) {
-    if (session_.document().last_open_was_ogr()) {
+    if (session_->document().last_open_was_ogr()) {
       bar->set_crs_text(
-          session_.document().has_china_extent() ? "EPSG:4326 (China)" : "EPSG:4326");
+          session_->document().has_china_extent() ? "EPSG:4326 (China)" : "EPSG:4326");
     } else {
       bar->set_crs_text("local");
     }
     bar->set_message(
-        "Layers: " + std::to_string(session_.document().layer_count()) +
-        " Features: " + std::to_string(session_.document().feature_count()));
+        "Layers: " + std::to_string(session_->document().layer_count()) +
+        " Features: " + std::to_string(session_->document().feature_count()));
   }
 }
 
 namespace {
 
-// MapSession / ViewHost / Workspace can be poisoned across partial multi-agent
+// BrowserSession / ViewHost / Workspace can be poisoned across partial multi-agent
 // out/Debug rebuilds; stack().current() must not AV the self-test path.
 // SEH helpers stay free of C++ object unwinding (MSVC C2712).
 tool::Workspace* seh_view_host_workspace(content::ViewHost* host) {
@@ -211,10 +211,10 @@ void Browser::handle_draft(const tool::Draft& draft) {
   const bool scene3d_tab = ui_->scene3d_tab_active();
 
   if (tool_id && std::strncmp(tool_id, "view3d.", 7) == 0) {
-    session_.scene3d().apply_draft(draft);
+    session_->scene3d().apply_draft(draft);
     forward_draft_to_contents(draft);
-    if (ui_->map_scene_viewport()) {
-      ui_->map_scene_viewport()->invalidate_native();
+    if (ui_->scene_draw_host()) {
+      ui_->invalidate_native_scene();
     }
     return;
   }
@@ -225,11 +225,9 @@ void Browser::handle_draft(const tool::Draft& draft) {
         draft.kind == tool::DraftKind::kRect ||
         draft.kind == tool::DraftKind::kPoint ||
         draft.kind == tool::DraftKind::kKey) {
-      session_.scene3d().apply_draft(draft);
+      session_->scene3d().apply_draft(draft);
       forward_draft_to_contents(draft);
-      if (ui_->map_scene_viewport()) {
-        ui_->map_scene_viewport()->invalidate_native();
-      }
+      ui_->invalidate_native_scene();
       return;
     }
   }
@@ -243,14 +241,14 @@ void Browser::handle_draft(const tool::Draft& draft) {
   }
 
   if (tool_id && std::strncmp(tool_id, "select.", 7) == 0) {
-    const MapScene::Feature* hit = session_.document().selected_feature();
+    const MapScene::Feature* hit = session_->document().selected_feature();
     if (hit) {
       ui_->set_status_message("Selected " + MapScene::feature_token(hit->id));
       if (ui_->feature_info()) {
         ui_->feature_info()->set_feature_id(MapScene::feature_token(hit->id));
         std::vector<std::pair<std::string, std::string>> pairs;
         std::string source_layer;
-        for (const MapScene::Layer& layer : session_.document().layers()) {
+        for (const MapScene::Layer& layer : session_->document().layers()) {
           for (const MapScene::Feature& candidate : layer.features) {
             if (std::memcmp(candidate.id.bytes, hit->id.bytes,
                             sizeof(hit->id.bytes)) == 0 &&
@@ -281,8 +279,8 @@ void Browser::handle_draft(const tool::Draft& draft) {
             break;
         }
         ui_->feature_info()->set_geometry_type(geom);
-        session_.document().fill_feature_info_fields(*hit, &pairs, source_layer,
-                                           session_.view_frame().scale());
+        session_->document().fill_feature_info_fields(*hit, &pairs, source_layer,
+                                           session_->view_frame().scale());
         std::vector<ui::views::FeatureInfo::Field> fields;
         for (auto& p : pairs) {
           fields.push_back({std::move(p.first), std::move(p.second)});
@@ -324,14 +322,14 @@ void Browser::handle_draft(const tool::Draft& draft) {
     }
     // EditSession append (with FeatureGeom) already ran in DraftPipeline.
     // MapScene remains the Views display store.
-    const content::FeatureId id = session_.document().append_from_draft(
+    const content::FeatureId id = session_->document().append_from_draft(
         draft, tool_id,
         [this](int view_x, int view_y, double* map_x, double* map_y) {
-          session_.view_frame().view_to_map(view_x, view_y, map_x, map_y);
+          session_->view_frame().view_to_map(view_x, view_y, map_x, map_y);
         });
     if (plugin::grid_boundary_armed() && id.len > 0) {
       std::vector<std::pair<double, double>> xy;
-      if (session_.document().copy_feature_xy(id, &xy) && xy.size() >= 2) {
+      if (session_->document().copy_feature_xy(id, &xy) && xy.size() >= 2) {
         std::vector<double> flat;
         flat.reserve(xy.size() * 2);
         for (const auto& p : xy) {
@@ -373,8 +371,8 @@ void Browser::handle_draft(const tool::Draft& draft) {
       double my0 = 0;
       double mx1 = 0;
       double my1 = 0;
-      session_.view_frame().view_to_map(x0, y0, &mx0, &my0);
-      session_.view_frame().view_to_map(x1, y1, &mx1, &my1);
+      session_->view_frame().view_to_map(x0, y0, &mx0, &my0);
+      session_->view_frame().view_to_map(x1, y1, &mx1, &my1);
       content::Extent2 box;
       box.xmin = (std::min)(mx0, mx1);
       box.xmax = (std::max)(mx0, mx1);
@@ -393,8 +391,8 @@ void Browser::handle_draft(const tool::Draft& draft) {
         box.ymax = c + 1e-6;
       }
       if (content::extent_nonempty(box)) {
-        session_.view_frame().apply_world_extent(box, vw, vh);
-        session_.map2d().invalidate_frame_cache();
+        session_->view_frame().apply_world_extent(box, vw, vh);
+        session_->map2d().invalidate_frame_cache();
         push_shared_extent();
         adopt_or_commit_extent();
         refresh_scale();
@@ -458,7 +456,7 @@ void Browser::refresh_scale() {
   }
   int raw_w = 0;
   int raw_h = 0;
-  if (ui::views::MapViewport* pane = ui_->active_map()) {
+  if (ui::views::DrawHost* pane = ui_->active_map()) {
     if (HWND map_hwnd = pane->native_view()) {
       RECT rc = {};
       GetClientRect(map_hwnd, &rc);
@@ -471,7 +469,7 @@ void Browser::refresh_scale() {
     return;
   }
   bar->set_scale_text(format_view_scale(
-      session_.view_frame().view_world_extent(raw_w, raw_h > 0 ? raw_h : 1),
+      session_->view_frame().view_world_extent(raw_w, raw_h > 0 ? raw_h : 1),
       raw_w));
 }
 
@@ -485,11 +483,11 @@ void Browser::adopt_or_commit_extent() {
   int w = 800;
   int h = 600;
   ui_->active_view_size(&w, &h);
-  const content::Extent2 now = session_.view_frame().view_world_extent(w, h);
+  const content::Extent2 now = session_->view_frame().view_world_extent(w, h);
   if (!navigation_baselined_) {
-    session_.navigation().reset(now);
+    session_->navigation().reset(now);
   } else {
-    session_.navigation().commit(now);
+    session_->navigation().commit(now);
   }
 }
 
@@ -502,16 +500,16 @@ void Browser::on_extent_watch(bool begin) {
       return;
     }
     extent_watch_open_ = true;
-    extent_watch_ = session_.view_frame().view_world_extent(w, h);
+    extent_watch_ = session_->view_frame().view_world_extent(w, h);
     return;
   }
   if (!extent_watch_open_) {
     return;
   }
   extent_watch_open_ = false;
-  const content::Extent2 now = session_.view_frame().view_world_extent(w, h);
+  const content::Extent2 now = session_->view_frame().view_world_extent(w, h);
   if (navigation_baselined_ && !extents_equal(extent_watch_, now)) {
-    session_.navigation().commit(now);
+    session_->navigation().commit(now);
   }
   refresh_scale();
 }
@@ -520,7 +518,7 @@ void Browser::frame_navigation_extent() {
   int w = 800;
   int h = 600;
   ui_->active_view_size(&w, &h);
-  session_.view_frame().apply_world_extent(session_.navigation().extent(), w, h);
+  session_->view_frame().apply_world_extent(session_->navigation().extent(), w, h);
   push_shared_extent();
   ui_->invalidate_map_overlays();
   refresh_scale();
@@ -530,30 +528,30 @@ void Browser::frame_navigation_extent() {
 void Browser::identify_at(int view_x, int view_y) {
   content::FeatureId saved{};
   bool had = false;
-  if (const MapScene::Feature* current = session_.document().selected_feature()) {
+  if (const MapScene::Feature* current = session_->document().selected_feature()) {
     saved = current->id;
     had = true;
   }
   double map_x = 0;
   double map_y = 0;
-  session_.view_frame().view_to_map(view_x, view_y, &map_x, &map_y);
-  const double scale = session_.view_frame().scale() > 1e-9 ? session_.view_frame().scale() : 1.0;
+  session_->view_frame().view_to_map(view_x, view_y, &map_x, &map_y);
+  const double scale = session_->view_frame().scale() > 1e-9 ? session_->view_frame().scale() : 1.0;
   const double tol_map = 12.0 / scale;
   const std::vector<const MapScene::Feature*> candidates =
-      session_.document().hit_test_all(map_x, map_y, tol_map);
+      session_->document().hit_test_all(map_x, map_y, tol_map);
   if (candidates.empty()) {
     if (had) {
-      session_.document().select_feature(saved);
+      session_->document().select_feature(saved);
     }
-    session_.navigation().note_no_feature();
-    ui_->set_status_message(session_.navigation().status());
+    session_->navigation().note_no_feature();
+    ui_->set_status_message(session_->navigation().status());
     return;
   }
   // hit_test_all already selected the nearest feature.
   const content::FeatureId id = candidates.front()->id;
   ui_->sync_inspectors_from_scene();
   if (ui::views::FeatureInfo* info = ui_->feature_info()) {
-    const double map_scale = session_.view_frame().scale();
+    const double map_scale = session_->view_frame().scale();
     std::vector<ui::views::FeatureInfo::Hit> hits;
     hits.reserve(candidates.size());
     for (const MapScene::Feature* feature : candidates) {
@@ -562,7 +560,7 @@ void Browser::identify_at(int view_x, int view_y) {
       }
       ui::views::FeatureInfo::Hit hit;
       hit.feature_id = MapScene::feature_token(feature->id);
-      for (const MapScene::Layer& layer : session_.document().layers()) {
+      for (const MapScene::Layer& layer : session_->document().layers()) {
         for (const MapScene::Feature& candidate : layer.features) {
           if (std::memcmp(candidate.id.bytes, feature->id.bytes,
                           sizeof(feature->id.bytes)) == 0 &&
@@ -591,7 +589,7 @@ void Browser::identify_at(int view_x, int view_y) {
           break;
       }
       std::vector<std::pair<std::string, std::string>> pairs;
-      session_.document().fill_feature_info_fields(*feature, &pairs,
+      session_->document().fill_feature_info_fields(*feature, &pairs,
                                                    hit.layer_name, map_scale);
       hit.fields.reserve(pairs.size());
       for (auto& pair : pairs) {
@@ -602,9 +600,7 @@ void Browser::identify_at(int view_x, int view_y) {
     }
     info->set_hits(std::move(hits), 0);
   }
-  if (ui_->inspector_tabs()) {
-    ui_->inspector_tabs()->set_active(0);
-  }
+  ui_->show_feature_info_tab();
   ui_->invalidate_map_overlays();
   if (candidates.size() > 1) {
     ui_->set_status_message("Identified " + std::to_string(candidates.size()) +
@@ -636,9 +632,9 @@ void Browser::on_view_command(std::string_view command_id,
     tool::Draft zoom;
     zoom.kind = tool::DraftKind::kWheel;
     zoom.wheel = command_id == "view.zoom_in" ? 120 : -120;
-    session_.scene3d().apply_draft(zoom);
-    if (ui_->map_scene_viewport()) {
-      ui_->map_scene_viewport()->invalidate_native();
+    session_->scene3d().apply_draft(zoom);
+    if (ui_->scene_draw_host()) {
+      ui_->invalidate_native_scene();
     }
     ui_->set_status_message(command_id == "view.zoom_in" ? "Zoom in"
                                                           : "Zoom out");
@@ -658,9 +654,9 @@ bool Browser::dispatch_shell_navigation(std::string_view command_id,
   if (command_id == "view.zoom_layer") {
     content::Extent2 box{};
     const content::Extent2* target =
-        session_.document().active_layer_world_extent(&box) ? &box : nullptr;
-    if (!session_.navigation().zoom_layer(target)) {
-      ui_->set_status_message(session_.navigation().status());
+        session_->document().active_layer_world_extent(&box) ? &box : nullptr;
+    if (!session_->navigation().zoom_layer(target)) {
+      ui_->set_status_message(session_->navigation().status());
       return true;
     }
     frame_navigation_extent();
@@ -670,9 +666,9 @@ bool Browser::dispatch_shell_navigation(std::string_view command_id,
   if (command_id == "view.zoom_selection") {
     content::Extent2 box{};
     const content::Extent2* target =
-        session_.document().selection_world_extent(&box) ? &box : nullptr;
-    if (!session_.navigation().zoom_selection(target)) {
-      ui_->set_status_message(session_.navigation().status());
+        session_->document().selection_world_extent(&box) ? &box : nullptr;
+    if (!session_->navigation().zoom_selection(target)) {
+      ui_->set_status_message(session_->navigation().status());
       return true;
     }
     frame_navigation_extent();
@@ -680,8 +676,8 @@ bool Browser::dispatch_shell_navigation(std::string_view command_id,
     return true;
   }
   if (command_id == "view.extent_prev") {
-    if (!session_.navigation().previous()) {
-      ui_->set_status_message(session_.navigation().status());
+    if (!session_->navigation().previous()) {
+      ui_->set_status_message(session_->navigation().status());
       return true;
     }
     frame_navigation_extent();
@@ -689,8 +685,8 @@ bool Browser::dispatch_shell_navigation(std::string_view command_id,
     return true;
   }
   if (command_id == "view.extent_next") {
-    if (!session_.navigation().next()) {
-      ui_->set_status_message(session_.navigation().status());
+    if (!session_->navigation().next()) {
+      ui_->set_status_message(session_->navigation().status());
       return true;
     }
     frame_navigation_extent();
@@ -709,28 +705,28 @@ bool Browser::dispatch_shell_navigation(std::string_view command_id,
     int w = 800;
     int h = 600;
     ui_->active_view_size(&w, &h);
-    const content::Extent2 live = session_.view_frame().view_world_extent(w, h);
+    const content::Extent2 live = session_->view_frame().view_world_extent(w, h);
     if (navigation_baselined_) {
-      session_.navigation().commit(live);
+      session_->navigation().commit(live);
     } else {
-      session_.navigation().reset(live);
+      session_->navigation().reset(live);
     }
-    session_.navigation().add_bookmark();
+    session_->navigation().add_bookmark();
     ui_->schedule_menu_rebuild();
-    if (!session_.navigation().bookmarks().empty()) {
-      ui_->set_status_message(session_.navigation().bookmarks().back().label);
+    if (!session_->navigation().bookmarks().empty()) {
+      ui_->set_status_message(session_->navigation().bookmarks().back().label);
     }
     return true;
   }
   if (command_id == "view.bookmark_go") {
     if (bookmark_index < 0 ||
-        !session_.navigation().go_bookmark(static_cast<size_t>(bookmark_index))) {
+        !session_->navigation().go_bookmark(static_cast<size_t>(bookmark_index))) {
       return true;
     }
     frame_navigation_extent();
     const auto index = static_cast<size_t>(bookmark_index);
-    if (index < session_.navigation().bookmarks().size()) {
-      ui_->set_status_message(session_.navigation().bookmarks()[index].label);
+    if (index < session_->navigation().bookmarks().size()) {
+      ui_->set_status_message(session_->navigation().bookmarks()[index].label);
     }
     return true;
   }
@@ -738,10 +734,10 @@ bool Browser::dispatch_shell_navigation(std::string_view command_id,
 }
 
 void Browser::forward_draft_to_contents(const tool::Draft& draft) {
-  if (!session_.map_contents()) {
+  if (!session_->map_contents()) {
     return;
   }
-  ui::views::MapViewport* pane = ui_->active_map();
+  ui::views::DrawHost* pane = ui_->active_map();
   const uint32_t view_id = pane ? pane->view_id() : 0;
   if (view_id == 0) {
     return;
@@ -759,25 +755,25 @@ void Browser::forward_draft_to_contents(const tool::Draft& draft) {
       e.x_px = draft.points.front().x_px;
       e.y_px = draft.points.front().y_px;
     }
-    session_.map_contents()->Dispatch(view_id, e);
+    session_->map_contents()->Dispatch(view_id, e);
     return;
   }
   if (draft.kind == tool::DraftKind::kRect && draft.points.size() >= 2) {
     e.kind = content::InputEvent::Kind::kLDown;
     e.x_px = draft.points.front().x_px;
     e.y_px = draft.points.front().y_px;
-    session_.map_contents()->Dispatch(view_id, e);
+    session_->map_contents()->Dispatch(view_id, e);
     e.kind = content::InputEvent::Kind::kMouseMove;
     e.x_px = draft.points.back().x_px;
     e.y_px = draft.points.back().y_px;
-    session_.map_contents()->Dispatch(view_id, e);
+    session_->map_contents()->Dispatch(view_id, e);
     e.kind = content::InputEvent::Kind::kLUp;
-    session_.map_contents()->Dispatch(view_id, e);
+    session_->map_contents()->Dispatch(view_id, e);
   }
 }
 
 void Browser::commit_blit_preview() {
-  session_.blit().end_preview();
+  session_->blit().end_preview();
   if (ui_) {
     ui_->invalidate_map_overlays();
   }
@@ -794,33 +790,32 @@ void Browser::push_shared_extent() {
   // On the 3D tab, never pull the Map-Edit 2D crop into the orbit camera 芒聙?  // a coastal / half-ocean 2D view made DEM present as a black void with a
   // sliver of terrain on the far edge (氓聺聦氓聡禄氓聢?3D 忙聴聽莽聰禄茅聺?.
   if (ui_->scene3d_tab_active()) {
-    e = session_.orbit_frame().world_extent();
+    e = session_->orbit_frame().world_extent();
     if (!extent_looks_like_china(e)) {
       e = kChinaLonLatExtent;
-      session_.orbit_frame().apply_world_extent(e);
+      session_->orbit_frame().apply_world_extent(e);
     }
   } else {
-    e = session_.view_frame().view_world_extent(w, h);
+    e = session_->view_frame().view_world_extent(w, h);
     if (!extent_looks_like_china(e)) {
-      const content::Extent2 world = session_.document().world_extent();
+      const content::Extent2 world = session_->document().world_extent();
       e = extent_looks_like_china(world) ? world : kChinaLonLatExtent;
     }
-    session_.orbit_frame().apply_world_extent(e);
+    session_->orbit_frame().apply_world_extent(e);
   }
   refresh_scale();
-  if (!session_.map_contents()) {
+  if (!session_->map_contents()) {
     return;
   }
   syncing_extent_ = true;
-  ui_->for_each_map_viewport([&](ui::views::MapViewport* pane) {
+  ui_->for_each_draw_host([&](ui::views::DrawHost* pane) {
     if (pane->view_id() != 0) {
-      session_.map_contents()->SetExtent(pane->view_id(), e);
+      session_->map_contents()->SetExtent(pane->view_id(), e);
     }
   });
-  const uint32_t scene_id =
-      ui_->map_scene_viewport() ? ui_->map_scene_viewport()->view_id() : 0;
+  const uint32_t scene_id = ui_->scene_view_id();
   if (scene_id != 0) {
-    session_.map_contents()->SetExtent(scene_id, session_.orbit_frame().world_extent());
+    session_->map_contents()->SetExtent(scene_id, session_->orbit_frame().world_extent());
   }
   syncing_extent_ = false;
   refresh_scale();
@@ -834,12 +829,12 @@ void Browser::handle_pinch(int view_x, int view_y, double scale) {
   int h = 600;
   ui_->active_view_size(&w, &h);
   if (ui_->scene3d_tab_active()) {
-    session_.orbit_frame().apply_pinch(view_x, view_y, scale, w, h);
-    if (ui_->map_scene_viewport()) {
-      ui_->map_scene_viewport()->invalidate_native();
+    session_->orbit_frame().apply_pinch(view_x, view_y, scale, w, h);
+    if (ui_->scene_draw_host()) {
+      ui_->invalidate_native_scene();
     }
   } else {
-    session_.view_frame().apply_pinch(view_x, view_y, scale);
+    session_->view_frame().apply_pinch(view_x, view_y, scale);
   }
   push_shared_extent();
   ui_->invalidate_map_overlays();
@@ -853,9 +848,9 @@ void Browser::handle_gesture_pan(int dx_px, int dy_px) {
   int vh = 600;
   ui_->active_view_size(&vw, &vh);
   if (ui_->scene3d_tab_active()) {
-    session_.orbit_frame().apply_pan(dx_px, dy_px);
-    if (ui_->map_scene_viewport()) {
-      ui_->map_scene_viewport()->invalidate_native();
+    session_->orbit_frame().apply_pan(dx_px, dy_px);
+    if (ui_->scene_draw_host()) {
+      ui_->invalidate_native_scene();
     }
   } else {
     // Match apply_nav_draft: ContentMapView + FORCE_GDI paints full Map2d each
@@ -864,11 +859,11 @@ void Browser::handle_gesture_pan(int dx_px, int dy_px) {
     const bool content_map =
         ui_->active_map() &&
         ui_->active_map()->attach_mode() ==
-            ui::views::MapViewport::AttachMode::kContentMapView;
+            ui::views::DrawHost::AttachMode::kContentMapView;
     if (!content_map) {
-      session_.blit().begin_pan(vw, vh, dx_px, dy_px);
+      session_->blit().begin_pan(vw, vh, dx_px, dy_px);
     }
-    session_.view_frame().apply_pan(dx_px, dy_px);
+    session_->view_frame().apply_pan(dx_px, dy_px);
   }
   push_shared_extent();
   ui_->invalidate_map_overlays();
@@ -883,13 +878,13 @@ void Browser::pull_orbit_extent() {
   // MapContents ABI skew that AVs inside Extent (cdb: pull_orbit_extent /
   // INVALID_POINTER_READ). Document world_extent + China fallback is enough
   // for orbit init; live view sync goes through push_shared_extent / fit.
-  const content::Extent2 doc = session_.document().world_extent();
+  const content::Extent2 doc = session_->document().world_extent();
   if (extent_nonempty(doc)) {
-    session_.orbit_frame().set_extent(doc);
+    session_->orbit_frame().set_extent(doc);
     return;
   }
-  if (!extent_nonempty(session_.orbit_frame().extent())) {
-    session_.orbit_frame().set_extent(kChinaLonLatExtent);
+  if (!extent_nonempty(session_->orbit_frame().extent())) {
+    session_->orbit_frame().set_extent(kChinaLonLatExtent);
   }
 }
 

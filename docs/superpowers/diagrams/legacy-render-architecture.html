@@ -52,7 +52,7 @@ All rights reserved.
 <div class="wrap">
   <header class="hero">
     <h1>Scenic — 上一代：逻辑与物理焊在一起</h1>
-    <p>产品 DLL <code>scenic.dll</code>（<code>namespace scenic</code>），宿主 <code>src/content</code>。2D 加速是 CPU 上的 Raster×N（私有 HDC），3D 加速是 rhi3d 设备上的 GL Draw / D3D11 deferred。当前代 Vista 把逻辑对象和 GPU 录制拆开，并改用 FlyCube 一条 CommandList。</p>
+    <p>产品 DLL <code>scenic.dll</code>（<code>namespace scenic</code>），宿主 <code>src/content</code>。2D 加速是 CPU 上的 Raster×N（私有 HDC），3D 加速是 rhi3d 设备上的 GL Draw / D3D11 deferred。当前代 Vista 把逻辑对象和 GPU 录制拆开，并改用 Vista 一条 CommandList。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Scenic</a>
       · <a href="../specs/2026-09-13-render-rhi-scene-design.md">§rhi2d tile-raster</a>
@@ -176,7 +176,7 @@ All rights reserved.
 
   <section class="panel">
     <h2>2. rhi2d — CPU 光栅并行（私有 HDC）</h2>
-    <p class="note" style="margin-top:0">Raster×N 在工人私有 HDC 上执行，汇合后 BitBlt。GPU 上传、Compute 与 CommandList 在 Vista 的 FlyCube 路径上。</p>
+    <p class="note" style="margin-top:0">Raster×N 在工人私有 HDC 上执行，汇合后 BitBlt。GPU 上传、Compute 与 CommandList 在 Vista 的 Vista 路径上。</p>
     <svg class="diagram" id="flow2d" viewBox="0 0 1040 140" role="img">
       <defs>
         <marker id="ah2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/></marker>
@@ -243,10 +243,10 @@ All rights reserved.
       <text class="box-title" x="32" y="182">逻辑 map / world</text>
       <text class="box-sub" x="32" y="202">Emit ×N 写 IR。工人无 Device。Resolve 串行汇合</text>
       <rect x="530" y="158" width="490" height="72" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
-      <text class="box-title" x="542" y="182">物理 frame / scene + FlyCube</text>
+      <text class="box-title" x="542" y="182">物理 frame / scene + Vista</text>
       <text class="box-sub" x="542" y="202">Upload → FFT Compute → 一条 CommandList → content present</text>
     </svg>
-    <p class="note">当前代全图：<a href="./vista-subdirectory-layers.html">Vista — 逻辑对象 / 物理录制</a>。Scenic 的 rhi2d/rhi3d 设备留在本引擎内；Vista 的设备是 <code>src/render</code> 的 FlyCube。取舍全文在规格 <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista logical/physical lanes</a>。</p>
+    <p class="note">当前代全图：<a href="./vista-subdirectory-layers.html">Vista — 逻辑对象 / 物理录制</a>。Scenic 的 rhi2d/rhi3d 设备留在本引擎内；Vista 的设备是 <code>src/render</code> 的 Vista。取舍全文在规格 <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista logical/physical lanes</a>。</p>
     <table class="map">
       <thead>
         <tr><th></th><th>Scenic（本图）</th><th>Vista</th></tr>
@@ -255,7 +255,7 @@ All rights reserved.
         <tr>
           <td>优点</td>
           <td>脏矩形按瓦片或图层光栅，合成只搬脏块。LP→DP 紧挨 HDC。多后端可做同等对比。帧拍已经跑过</td>
-          <td>2D 与 3D 共用 FlyCube。制图一次，软件出口和 GPU 出口共用 <code>MapFrame</code>。CPU 工人不碰 Device</td>
+          <td>2D 与 3D 共用 Vista。制图一次，软件出口和 GPU 出口共用 <code>MapFrame</code>。CPU 工人不碰 Device</td>
         </tr>
         <tr>
           <td>缺点</td>
@@ -282,7 +282,7 @@ All rights reserved.
         <tr><td>FrameJob / <code>Device2dFrame</code>（帧拍）</td><td>content <code>stage_frame</code>。UI 不 join</td></tr>
         <tr><td>Raster×N 私有 HDC（CPU）</td><td>逻辑 Emit ×N（<code>Layout</code> / 细分）。无 HDC</td></tr>
         <tr><td>Prep×N，禁 Draw（CPU）</td><td><code>prep_cull</code>。工人不碰 Device</td></tr>
-        <tr><td>GL Draw / D3D11 deferred（GPU）</td><td>FlyCube Upload + FFT Compute + 一条 CommandList</td></tr>
+        <tr><td>GL Draw / D3D11 deferred（GPU）</td><td>Vista Upload + FFT Compute + 一条 CommandList</td></tr>
         <tr><td><code>MapPainter</code> / <code>Scene::Render</code> 焊在一起</td><td>逻辑 <code>map</code>+<code>world</code>，物理 <code>frame</code>+<code>scene</code></td></tr>
       </tbody>
     </table>

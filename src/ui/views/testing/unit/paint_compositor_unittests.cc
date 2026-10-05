@@ -18,6 +18,7 @@
 #include "ui/views/kernel/layout/layout_check.h"
 #include "ui/views/kernel/paint/paint_commit.h"
 #include "ui/views/kernel/view/view.h"
+#include "ui/views/kernel/widget/paint_schedule.h"
 #include "ui/views/kernel/widget/widget.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/text/label.h"
@@ -313,6 +314,154 @@ void test_shell_compositor_present_no_flash_when_front_covers() {
   DeleteObject(dib);
 }
 
+void test_shell_compositor_dirty_subset_skips_full_shell() {
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bmi.bmiHeader.biWidth = 32;
+  bmi.bmiHeader.biHeight = -32;
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+  void* bits = nullptr;
+  HBITMAP dib =
+      CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+  expect(dib != nullptr && bits != nullptr, "subset dest DIB");
+  if (!dib || !bits) {
+    return;
+  }
+  HDC mem = CreateCompatibleDC(nullptr);
+  expect(mem != nullptr, "subset dest mem DC");
+  if (!mem) {
+    DeleteObject(dib);
+    return;
+  }
+  HGDIOBJ old = SelectObject(mem, dib);
+  auto* px = static_cast<std::uint32_t*>(bits);
+
+  ShellCompositor compositor;
+  compositor.start();
+
+  PaintCommit full;
+  full.width_px = 32;
+  full.height_px = 32;
+  full.dirty = Rect{0, 0, 32, 32};
+  full.font_px = 12;
+  full.clear_color = ui::gfx::color_rgb(10, 20, 30);
+  full.generation = 1;
+  compositor.commit(std::move(full));
+  expect(compositor.wait_published(1), "subset full frame published");
+
+  PaintCommit hover;
+  hover.width_px = 32;
+  hover.height_px = 32;
+  hover.dirty = Rect{4, 4, 8, 8};
+  hover.font_px = 12;
+  // If the worker expanded dirty to the full shell, undirty pixels would
+  // pick up this clear instead of the first frame.
+  hover.clear_color = ui::gfx::color_rgb(200, 10, 10);
+  // A full-shell fill in the hover list must not paint undirty pixels: raster
+  // is replay_clipped to |dirty|, not an unclipped walk of the whole DIB.
+  hover.display_list.fill_rect(0, 0, 32, 32, ui::gfx::color_rgb(200, 10, 10));
+  hover.display_list.fill_rect(4, 4, 8, 8, ui::gfx::color_rgb(1, 2, 3));
+  hover.generation = 2;
+  compositor.commit(std::move(hover));
+  expect(compositor.wait_published(2), "subset dirty published");
+
+  RECT dest = {0, 0, 32, 32};
+  expect(compositor.present(mem, dest, ui::gfx::color_rgb(9, 9, 9)) == 2,
+         "subset present gen 2");
+  const std::uint32_t first_bgra = (30u) | (20u << 8) | (10u << 16);
+  const std::uint32_t dirty_bgra = (3u) | (2u << 8) | (1u << 16);
+  const std::uint32_t wipe_bgra = (10u) | (10u << 8) | (200u << 16);
+  expect((px[0] & 0x00FFFFFFu) == first_bgra,
+         "subset keeps undirty corner from first frame");
+  expect((px[31 * 32 + 31] & 0x00FFFFFFu) == first_bgra,
+         "subset keeps undirty far corner");
+  expect((px[0] & 0x00FFFFFFu) != wipe_bgra,
+         "subset did not clear-color the full shell");
+  expect((px[4 * 32 + 4] & 0x00FFFFFFu) == dirty_bgra,
+         "subset rasters the dirty rect");
+
+  PaintCommit again;
+  again.width_px = 32;
+  again.height_px = 32;
+  again.dirty = Rect{4, 4, 8, 8};
+  again.font_px = 12;
+  again.clear_color = ui::gfx::color_rgb(200, 10, 10);
+  again.display_list.fill_rect(4, 4, 8, 8, ui::gfx::color_rgb(4, 5, 6));
+  again.generation = 2;
+  compositor.commit(std::move(again));
+  expect(compositor.wait_published(2), "unchanged generation still published");
+  expect(compositor.present(mem, dest, ui::gfx::color_rgb(9, 9, 9)) == 2,
+         "unchanged generation present");
+  expect((px[4 * 32 + 4] & 0x00FFFFFFu) == dirty_bgra,
+         "unchanged generation does not reraster hover");
+  expect((px[0] & 0x00FFFFFFu) == first_bgra,
+         "unchanged generation leaves undirty");
+
+  compositor.shutdown();
+  SelectObject(mem, old);
+  DeleteDC(mem);
+  DeleteObject(dib);
+}
+
+void test_shell_compositor_full_frame_skips_off_dib_cmds() {
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bmi.bmiHeader.biWidth = 16;
+  bmi.bmiHeader.biHeight = -16;
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+  void* bits = nullptr;
+  HBITMAP dib =
+      CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+  expect(dib != nullptr && bits != nullptr, "off-dib dest DIB");
+  if (!dib || !bits) {
+    return;
+  }
+  HDC mem = CreateCompatibleDC(nullptr);
+  expect(mem != nullptr, "off-dib dest mem DC");
+  if (!mem) {
+    DeleteObject(dib);
+    return;
+  }
+  HGDIOBJ old = SelectObject(mem, dib);
+  auto* px = static_cast<std::uint32_t*>(bits);
+
+  ShellCompositor compositor;
+  compositor.start();
+
+  PaintCommit frame;
+  frame.width_px = 16;
+  frame.height_px = 16;
+  frame.dirty = Rect{0, 0, 16, 16};
+  frame.font_px = 12;
+  frame.clear_color = ui::gfx::color_rgb(8, 8, 8);
+  frame.generation = 1;
+  frame.display_list.fill_rect(0, 0, 16, 16, ui::gfx::color_rgb(1, 2, 3));
+  // Below the DIB: unclipped replay would still invoke this fill; clipped
+  // replay must skip it. Canvas clip already hides it — this locks the skip.
+  frame.display_list.fill_rect(0, 64, 16, 256, ui::gfx::color_rgb(250, 0, 0));
+  compositor.commit(std::move(frame));
+  expect(compositor.wait_published(1), "off-dib frame published");
+
+  RECT dest = {0, 0, 16, 16};
+  expect(compositor.present(mem, dest, ui::gfx::color_rgb(9, 9, 9)) == 1,
+         "off-dib present gen 1");
+  const std::uint32_t on_bgra = (3u) | (2u << 8) | (1u << 16);
+  const std::uint32_t off_bgra = (0u) | (0u << 8) | (250u << 16);
+  expect((px[0] & 0x00FFFFFFu) == on_bgra, "full frame rasters in-DIB fill");
+  expect((px[15 * 16 + 15] & 0x00FFFFFFu) == on_bgra,
+         "full frame far pixel is in-DIB fill");
+  expect((px[0] & 0x00FFFFFFu) != off_bgra, "off-DIB fill does not paint");
+
+  compositor.shutdown();
+  SelectObject(mem, old);
+  DeleteDC(mem);
+  DeleteObject(dib);
+}
+
 void test_set_layers_layouts_once() {
   LayerTree tree;
   tree.set_bounds({0, 0, 220, 400});
@@ -346,5 +495,30 @@ void test_vblank_clock_wait_returns() {
   expect(paint_counters().begin_frame_count == 1, "begin_frame count");
   expect(paint_counters().begin_frame_to_present_qpc == 10,
          "begin_frame latency accumulates");
+}
+
+void test_paint_schedule_coalesce_gate() {
+  using ui::views::detail::is_large_dirty;
+  using ui::views::detail::should_coalesce_commit;
+  using ui::views::detail::union_dirty_rects;
+
+  Rect a{0, 0, 10, 10};
+  Rect b{8, 8, 10, 10};
+  Rect u = union_dirty_rects(a, b);
+  expect(u.x == 0 && u.y == 0 && u.width == 18 && u.height == 18,
+         "union dirty covers both");
+  expect(!is_large_dirty(Rect{0, 0, 10, 10}, false, 1280, 720),
+         "hover dirty is small");
+  expect(is_large_dirty(Rect{0, 0, 800, 600}, false, 1280, 720),
+         "scroll dirty is large");
+  expect(is_large_dirty(Rect{}, true, 1280, 720), "full paint is large");
+  expect(should_coalesce_commit(false, false, 100, 90, 20),
+         "within frame coalesces");
+  expect(!should_coalesce_commit(true, false, 100, 90, 20),
+         "lagging front does not coalesce");
+  expect(should_coalesce_commit(false, true, 100, 90, 20),
+         "large dirty still coalesces (timer drains)");
+  expect(!should_coalesce_commit(false, false, 100, 0, 20),
+         "first commit does not coalesce");
 }
 

@@ -143,9 +143,9 @@ bool AtmosphereFrame::record_post_opaque(render::rhi::Device* device,
     return false;
   }
 
-  // Flat ocean after opaque DEM, before cloud / fog / sat. Globe owns the
-  // sea on the sphere, so this draw stays off when globe_enabled_.
-  if (ocean_enabled_ && !globe_enabled_) {
+  // Flat ocean after opaque DEM, before cloud / fog / sat. Globe near-earth
+  // may overlay a tangent Gerstner patch on the East China Sea.
+  if (ocean_enabled_) {
     if (!ocean_pass_) {
       return false;
     }

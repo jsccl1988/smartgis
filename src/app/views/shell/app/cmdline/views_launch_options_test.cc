@@ -111,52 +111,54 @@ int main() {
   {
     auto o =
         parse_vec({L"SmartGIS.exe", L"--plugin-showcase=world3d"});
-    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kWorld3d,
-           "plugin showcase=world3d");
+    expect(o.ok && o.plugin_showcase == "world3d", "plugin showcase=world3d");
   }
   {
     auto o = parse_vec({L"SmartGIS.exe", L"--plugin-showcase", L"print"});
-    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kPrint,
-           "plugin showcase print");
+    expect(o.ok && o.plugin_showcase == "print", "plugin showcase print");
   }
   {
     auto o =
         parse_vec({L"SmartGIS.exe", L"--plugin-showcase=orthogrid"});
-    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kOrthogrid,
+    expect(o.ok && o.plugin_showcase == "orthogrid",
            "plugin showcase=orthogrid");
   }
   {
     auto o =
         parse_vec({L"SmartGIS.exe", L"--plugin-showcase=orthogrid3d"});
-    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kOrthogrid3d,
+    expect(o.ok && o.plugin_showcase == "orthogrid3d",
            "plugin showcase=orthogrid3d");
   }
   {
     auto o =
         parse_vec({L"SmartGIS.exe", L"--plugin-showcase=traffic"});
-    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kTraffic,
-           "plugin showcase=traffic");
+    expect(o.ok && o.plugin_showcase == "traffic", "plugin showcase=traffic");
   }
   {
     auto o = parse_vec({L"SmartGIS.exe", L"--plugin-showcase", L"flood"});
-    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kFlood,
-           "plugin showcase flood");
+    expect(o.ok && o.plugin_showcase == "flood", "plugin showcase flood");
   }
   {
     auto o =
         parse_vec({L"SmartGIS.exe", L"--plugin-showcase=stormsurge"});
-    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kStormSurge,
+    expect(o.ok && o.plugin_showcase == "stormsurge",
            "plugin showcase=stormsurge");
   }
   {
     auto o = parse_vec({L"SmartGIS.exe", L"--plugin-showcase=mine"});
-    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kMine,
-           "plugin showcase=mine");
+    expect(o.ok && o.plugin_showcase == "mine", "plugin showcase=mine");
   }
   {
     auto o = parse_vec({L"SmartGIS.exe", L"--plugin-showcase=geochem"});
-    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kGeochem,
-           "plugin showcase=geochem");
+    expect(o.ok && o.plugin_showcase == "geochem", "plugin showcase=geochem");
+  }
+  {
+    auto o = parse_vec({L"SmartGIS.exe", L"--plugin-showcase=report"});
+    expect(o.ok && o.plugin_showcase == "report", "plugin showcase=report");
+  }
+  {
+    auto o = parse_vec({L"SmartGIS.exe", L"--plugin-showcase=dem"});
+    expect(o.ok && o.plugin_showcase == "world3d", "plugin showcase dem alias");
   }
   {
     auto o = parse_vec({L"SmartGIS.exe", L"--ui-showcase", L"shell"});

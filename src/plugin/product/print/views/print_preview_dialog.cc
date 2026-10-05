@@ -5,11 +5,10 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 
+#include "content/public/plugin_host.h"
 #include "plugin/product/print/composer/print_composer.h"
 #include "plugin/runtime/host/processing/operation_result.h"
-#include "plugin/runtime/widgets/map_preview.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/dialogs/message_box.h"
@@ -21,7 +20,7 @@ constexpr wchar_t kImageFilter[] =
     L"Image Files (*.bmp;*.gif;*.jpg;*.png;*.tif)\0*.bmp;*.gif;*.jpg;*.png;*.tif\0"
     L"All Files (*.*)\0*.*\0";
 
-bool export_composed_page(MapPreviewView* preview, const std::string& path) {
+bool export_composed_page(const std::string& path) {
   PrintComposerInput in;
   in.page_width_px = 800;
   in.page_height_px = 600;
@@ -30,19 +29,15 @@ bool export_composed_page(MapPreviewView* preview, const std::string& path) {
   in.legend = {{"Basemap", 0xff88aa66},
                {"Roads", 0xffccaa44},
                {"Labels", 0xff333333}};
-  // Prefer page layout over raw viewport export.
-  if (PrintComposer::export_page_bmp(in, path)) {
-    return true;
-  }
-  return preview && preview->export_bmp(path);
+  return PrintComposer::export_page_bmp(in, path);
 }
 
 }  // namespace
 
-PrintPreviewDialog::PrintPreviewDialog() {
-  auto preview = std::make_unique<MapPreviewView>();
-  preview_ = preview.get();
-  add_child(std::move(preview));
+PrintPreviewDialog::PrintPreviewDialog(content::PluginHost* host) {
+  if (host) {
+    host->present_dataset("smartgis.print", "", 0);
+  }
 
   auto save = std::make_unique<ui::views::Button>("Save");
   save->set_click([this] {
@@ -51,7 +46,7 @@ PrintPreviewDialog::PrintPreviewDialog() {
     if (!picked.accepted || picked.path.empty()) {
       return;
     }
-    if (!export_composed_page(preview_, picked.path)) {
+    if (!export_composed_page(picked.path)) {
       set_operation_result(
           "{\"error\":\"export_not_implemented\",\"op\":\"print.save\"}");
       ui::views::show_message_box(
@@ -63,7 +58,7 @@ PrintPreviewDialog::PrintPreviewDialog() {
   });
   add_child(std::move(save));
 
-  set_preferred_size({520, 400});
+  set_preferred_size({360, 120});
 }
 
 }  // namespace plugin

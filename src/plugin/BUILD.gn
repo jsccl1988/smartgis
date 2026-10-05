@@ -24,3 +24,7 @@ group("plugin_report_browser_test") {
 group("processing") {
   public_deps = [ "//src/plugin/runtime/processing:processing_views" ]
 }
+
+group("product_builtins") {
+  public_deps = [ "//src/plugin/product:product_builtins" ]
+}

@@ -13,8 +13,8 @@
 #include "app/views/shell/harness/common/io/maps.h"
 #include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/harness/common/pump/pump.h"
-#include "app/views/shell/harness/showcase/plugin/common/common.h"
 #include "app/views/shell/harness/showcase/plugin/capture/map2d_export.h"
+#include "app/views/shell/harness/showcase/plugin/common/plugin_io.h"
 #include "content/public/map_types.h"
 
 namespace app {
@@ -67,7 +67,7 @@ int run_orthogrid(Browser& browser) {
     plugin_showcase_mark("bmp-skip");
     std::fprintf(stderr, "plugin-showcase: orthogrid export_bmp failed\n");
   }
-  // AnalysisPlayback scrub is flaky after create_orth_grid; live BMP is gate.
+  // Playback scrub is flaky after create_orth_grid; live BMP is gate.
   plugin_showcase_mark("playback-ok");
 
   if (!bmp_ok) {

@@ -8,12 +8,14 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "content/public/plugin_host.h"
 #include "cpl_conv.h"
 #include "gdal_priv.h"
 #include "gis/analysis/raster/dem/flood_fill.h"
 #include "plugin/product/flood/views/inundate_dialog.h"
+#include "plugin/product/flood/present/present.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
@@ -26,8 +28,8 @@ namespace {
 
 constexpr const char* kPluginId = "smartgis.flood";
 
-FloodMaskWriter g_mask_writer;
 std::string g_last_output;
+gis::detail::FloodFillResult g_last_fill;
 
 bool parse_args(std::string_view json, rapidjson::Document* out) {
   if (!out) {
@@ -110,7 +112,54 @@ bool sample_dem_z(const std::string& dem, double x, double y, double* z) {
   return true;
 }
 
-bool flood_inundate(content::PluginHost*, std::string_view args_json) {
+bool flood_inundate(content::PluginHost* host, std::string_view args_json) {
+  if (host) {
+    if (!g_last_fill.ok) {
+      set_operation_result(
+          "{\"error\":\"flood_failed\",\"op\":\"flood.inundate\"}");
+      return false;
+    }
+    const gis::detail::FloodFillResult& result = g_last_fill;
+    const int frame_count =
+        result.frame_masks.empty()
+            ? 1
+            : static_cast<int>(result.frame_masks.size());
+    auto mask_at = [&](int i) -> const unsigned char* {
+      return result.frame_masks.empty()
+                 ? result.mask.data()
+                 : result.frame_masks[static_cast<size_t>(i)].data();
+    };
+    content::GisDocument* gis = host->gis_document();
+    if (!gis) {
+      set_operation_result(
+          "{\"error\":\"no_flood_seam\",\"op\":\"flood.inundate\"}");
+      return false;
+    }
+    bool painted = present_flood_style(gis);
+    for (int i = 0; painted && i < frame_count; ++i) {
+      painted = present_flood_mask(
+          gis, mask_at(i), result.width, result.height, result.geotransform,
+          result.water_level, i == 0, /*add_water_standin=*/false);
+    }
+    if (!painted) {
+      set_operation_result(
+          "{\"error\":\"no_flood_seam\",\"op\":\"flood.inundate\"}");
+      return false;
+    }
+    if (content::PluginHost::Playback* pb = host->playback()) {
+      pb->clear();
+      for (int i = 0; i < frame_count; ++i) {
+        pb->push_frame("{\"index\":" + std::to_string(i) + "}");
+      }
+      pb->set_index(static_cast<size_t>(frame_count > 0 ? frame_count - 1 : 0));
+    }
+    (void)host->present_dataset(kPluginId, "", 0);
+    set_operation_result(
+        std::string("{\"ok\":true,\"op\":\"flood.inundate\",\"width\":") +
+        std::to_string(result.width) + ",\"height\":" +
+        std::to_string(result.height) + "}");
+    return true;
+  }
   rapidjson::Document args;
   if (!parse_args(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"flood.inundate\"}");
@@ -163,33 +212,11 @@ bool flood_inundate(content::PluginHost*, std::string_view args_json) {
     return false;
   }
   g_last_output = output;
-
-  if (!g_mask_writer) {
-    set_operation_result(
-        "{\"error\":\"no_flood_seam\",\"op\":\"flood.inundate\"}");
-    return false;
-  }
-  const int frame_count =
-      result.frame_masks.empty()
-          ? 1
-          : static_cast<int>(result.frame_masks.size());
-  for (int i = 0; i < frame_count; ++i) {
-    const unsigned char* mask =
-        result.frame_masks.empty()
-            ? result.mask.data()
-            : result.frame_masks[static_cast<size_t>(i)].data();
-    if (!g_mask_writer(mask, result.width, result.height, result.geotransform,
-                       i, frame_count, result.water_level)) {
-      set_operation_result(
-          "{\"error\":\"no_flood_seam\",\"op\":\"flood.inundate\"}");
-      return false;
-    }
-  }
-
+  g_last_fill = std::move(result);
   set_operation_result(
       std::string("{\"ok\":true,\"op\":\"flood.inundate\",\"width\":") +
-      std::to_string(result.width) + ",\"height\":" +
-      std::to_string(result.height) + "}");
+      std::to_string(g_last_fill.width) + ",\"height\":" +
+      std::to_string(g_last_fill.height) + "}");
   return true;
 }
 
@@ -250,6 +277,54 @@ bool flood_export_mask(content::PluginHost*, std::string_view args_json) {
   return true;
 }
 
+bool flood_present_frame(content::PluginHost* host,
+                         std::string_view args_json) {
+  if (!host || !g_last_fill.ok) {
+    set_operation_result(
+        "{\"error\":\"no_flood_session\",\"op\":\"flood.present_frame\"}");
+    return false;
+  }
+  content::GisDocument* gis = host->gis_document();
+  if (!gis) {
+    set_operation_result(
+        "{\"error\":\"no_flood_seam\",\"op\":\"flood.present_frame\"}");
+    return false;
+  }
+  int index = 0;
+  rapidjson::Document args;
+  if (parse_args(args_json, &args)) {
+    json_get_int(args, "index", &index);
+  }
+  const int frame_count =
+      g_last_fill.frame_masks.empty()
+          ? 1
+          : static_cast<int>(g_last_fill.frame_masks.size());
+  if (index < 0) {
+    index = 0;
+  }
+  if (index >= frame_count) {
+    index = frame_count - 1;
+  }
+  const unsigned char* mask =
+      g_last_fill.frame_masks.empty()
+          ? g_last_fill.mask.data()
+          : g_last_fill.frame_masks[static_cast<size_t>(index)].data();
+  if (!present_flood_style(gis) ||
+      !present_flood_mask(gis, mask, g_last_fill.width, g_last_fill.height,
+                          g_last_fill.geotransform, g_last_fill.water_level,
+                          /*rebuild_terrain=*/true,
+                          /*add_water_standin=*/true)) {
+    set_operation_result(
+        "{\"error\":\"present_failed\",\"op\":\"flood.present_frame\"}");
+    return false;
+  }
+  if (content::PluginHost::Playback* pb = host->playback()) {
+    pb->set_index(static_cast<size_t>(index));
+  }
+  set_operation_result("{\"ok\":true,\"op\":\"flood.present_frame\"}");
+  return true;
+}
+
 void show_dialog(const wchar_t* title, std::unique_ptr<ui::views::View> body) {
   if (!body) {
     return;
@@ -259,10 +334,6 @@ void show_dialog(const wchar_t* title, std::unique_ptr<ui::views::View> body) {
 }
 
 }  // namespace
-
-void set_flood_mask_writer(FloodMaskWriter writer) {
-  g_mask_writer = std::move(writer);
-}
 
 bool register_flood(content::PluginHost* host) {
   if (!host) {
@@ -305,6 +376,11 @@ bool register_flood(content::PluginHost* host) {
          host->contribute_processing(
              kPluginId, {"flood.export_mask", "Export flood mask GeoTIFF"},
              flood_export_mask) &&
+         host->contribute_processing(
+             kPluginId, {"flood.present_frame", "Re-present flood frame"},
+             flood_present_frame) &&
+         host->contribute_export_frame(
+             kPluginId, {"flood_wuhan", 114.15, 30.45, 114.45, 30.65}) &&
          host->contribute_command(
              kPluginId, "flood.export_mask", "导出淹没掩膜", "tools",
              [host](const tool::CommandArgs&) {

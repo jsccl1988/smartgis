@@ -66,10 +66,10 @@ int main() {
                ws.last_draft().points[1].x_px == 20,
            "pan continuous horizontal delta");
     expect(ws.dispatch_input(at(content::InputEvent::Kind::kMouseMove, 40, 15)),
-           "pan move keeps press origin");
-    expect(ws.last_draft().points[0].x_px == 1 &&
+           "pan move incremental origin");
+    expect(ws.last_draft().points[0].x_px == 20 &&
                ws.last_draft().points[1].x_px == 40,
-           "pan absolute origin across moves");
+           "pan incremental origin across moves");
     expect(ws.dispatch_input(at(content::InputEvent::Kind::kLUp, 40, 15)),
            "pan up");
     expect(ws.last_draft().kind == tool::DraftKind::kRect, "pan draft rect");

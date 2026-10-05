@@ -11,7 +11,17 @@ namespace vista {
 namespace atmosphere {
 
 Environment::Environment() = default;
-Environment::~Environment() = default;
+Environment::~Environment() {
+  contour_sheet_.clear();
+}
+
+void destroy_environment(Environment* p) {
+  delete p;
+}
+
+EnvironmentPtr create_environment() {
+  return EnvironmentPtr(new Environment());
+}
 
 void Environment::set_sky_enabled(bool on) {
   params_.sky_enabled = on;
@@ -31,6 +41,28 @@ bool Environment::fog_enabled() const {
 
 void Environment::sync_systems_from_params() {
   ocean_system_.set_quality(params_.quality);
+}
+
+bool Environment::rebuild_contour_sheet(FieldChannel channel,
+                                        const FieldGrid& grid,
+                                        const float* dem_meters) {
+  if (!params_.contour_enabled) {
+    contour_sheet_.clear();
+    return false;
+  }
+  ContourSheetOptions opts;
+  opts.curves = params_.contour_curves;
+  opts.surface = params_.contour_surface;
+  opts.color_scale = params_.contour_color_scale;
+  opts.dem_offset_m = params_.contour_dem_offset_m;
+  opts.value_to_meters = params_.contour_value_to_meters;
+  opts.surface_alpha = params_.contour_surface_alpha;
+  opts.scale_layout.margin = params_.contour_scale_margin;
+  opts.scale_layout.bar_width = params_.contour_scale_bar_width;
+  opts.scale_layout.bar_height = params_.contour_scale_bar_height;
+  opts.scale_layout.tick_count = params_.contour_scale_tick_count;
+  return contour_sheet_.rebuild_from_store(field_store_, channel, grid,
+                                           time_sec_, dem_meters, opts);
 }
 
 void Environment::seed_procedural_baseline(

@@ -1,0 +1,18 @@
+{
+  "version": 8,
+  "name": "geochem",
+  "layers": [
+    {"id":"bg","type":"background",
+     "paint":{"background-color":"#f5f0e6","background-opacity":1}},
+    {"id":"heat","type":"fill","source-layer":"geochem_heat_raster",
+     "paint":{
+       "fill-color":["interpolate",["linear"],["get","heat"],
+         0,"#313695",25,"#74add1",50,"#fee090",75,"#f46d43",100,"#a50026"],
+       "fill-opacity":0.72}},
+    {"id":"heat-edge","type":"line","source-layer":"geochem_heat_raster",
+     "paint":{"line-color":"#1a1a2e","line-width":0.4,"line-opacity":0.35}},
+    {"id":"samples","type":"circle","source-layer":"geochem_samples",
+     "paint":{"circle-color":["coalesce",["get","color"],"#3498db"],
+       "circle-radius":7,"circle-opacity":1.0}}
+  ]
+}

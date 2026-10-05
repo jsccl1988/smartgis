@@ -12,6 +12,8 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme_service.h"
 
+#include <mutex>
+
 namespace ui {
 namespace views {
 
@@ -62,21 +64,14 @@ struct FontSlot {
   HFONT font = nullptr;
 };
 
-struct LayoutSlot {
-  std::wstring text;
-  int px = 0;
-  IDWriteTextLayout* layout = nullptr;
-};
-
 FontSlot g_fonts[8];
 int g_font_count = 0;
-LayoutSlot g_layouts[48];
-int g_layout_count = 0;
 IDWriteFactory* g_dwrite = nullptr;
 bool g_dwrite_tried = false;
 IDWriteTextFormat* g_formats[8] = {};
 int g_format_px[8] = {};
 int g_format_count = 0;
+std::mutex g_type_mu;
 
 HFONT font_for_px(int px) {
   if (px < 1) {
@@ -139,39 +134,6 @@ IDWriteTextFormat* format_for_px(int px) {
   return format;
 }
 
-IDWriteTextLayout* layout_for(const std::wstring& text, int px) {
-  for (int i = 0; i < g_layout_count; ++i) {
-    if (g_layouts[i].px == px && g_layouts[i].text == text) {
-      return g_layouts[i].layout;
-    }
-  }
-  IDWriteTextFormat* format = format_for_px(px);
-  if (!format || !g_dwrite) {
-    return nullptr;
-  }
-  IDWriteTextLayout* layout = nullptr;
-  const HRESULT hr = g_dwrite->CreateTextLayout(
-      text.c_str(), static_cast<UINT32>(text.size()), format, 10000.f, 1000.f,
-      &layout);
-  if (FAILED(hr) || !layout) {
-    return nullptr;
-  }
-  if (g_layout_count >= 48) {
-    if (g_layouts[0].layout) {
-      g_layouts[0].layout->Release();
-    }
-    for (int i = 1; i < g_layout_count; ++i) {
-      g_layouts[i - 1] = g_layouts[i];
-    }
-    --g_layout_count;
-  }
-  g_layouts[g_layout_count].text = text;
-  g_layouts[g_layout_count].px = px;
-  g_layouts[g_layout_count].layout = layout;
-  ++g_layout_count;
-  return layout;
-}
-
 Size gdi_extent(const std::wstring& text, int px) {
   Size out;
   HDC screen = GetDC(nullptr);
@@ -193,6 +155,46 @@ Size gdi_extent(const std::wstring& text, int px) {
   return out;
 }
 
+// DWrite fallback when GDI cannot measure. Do not keep a process-global
+// IDWriteTextLayout cache: the previous 48-slot shift-eviction shallow-copied
+// COM pointers and, together with a GDI-success "warmup" CreateTextLayout on
+// every Label/Button measure during shell BuildContents, corrupted the CRT
+// heap (STATUS_HEAP_CORRUPTION / RtlReportCriticalFailure at the next alloc
+// inside DWrite::CreateTextLayout — FeatureInfo::refresh_frame).
+Size dwrite_extent(const std::wstring& wide, int face_px) {
+  Size out;
+  if (!ensure_dwrite()) {
+    return out;
+  }
+  IDWriteTextFormat* format = format_for_px(face_px);
+  if (!format || !g_dwrite) {
+    return out;
+  }
+  IDWriteTextLayout* layout = nullptr;
+  const HRESULT hr = g_dwrite->CreateTextLayout(
+      wide.c_str(), static_cast<UINT32>(wide.size()), format, 10000.f, 1000.f,
+      &layout);
+  if (FAILED(hr) || !layout) {
+    return out;
+  }
+  DWRITE_TEXT_METRICS metrics = {};
+  if (SUCCEEDED(layout->GetMetrics(&metrics))) {
+    out.width = static_cast<int>(metrics.width + 0.5f);
+    out.height = static_cast<int>(metrics.height + 0.5f);
+  }
+  layout->Release();
+  return out;
+}
+
+Size measure_cached(const std::wstring& wide, int face_px) {
+  std::lock_guard<std::mutex> lock(g_type_mu);
+  Size out = gdi_extent(wide, face_px);
+  if (out.width > 0 || out.height > 0) {
+    return out;
+  }
+  return dwrite_extent(wide, face_px);
+}
+
 }  // namespace
 
 Size measure_text_utf8(const std::string& text, float device_scale) {
@@ -206,25 +208,8 @@ Size measure_text_utf8(const std::string& text, float device_scale) {
   }
   const int px = shell_body_font_px(device_scale);
   const std::wstring wide = utf8_to_wide(text);
-  // Draw is TextOutW with the same HFONT. Prefer that extent so 96 DPI pixels
-  // stay aligned. DirectWrite layouts are cached for the same key and used
-  // only when GDI cannot measure.
   const int face_px = px > 0 ? px : kShellBodyFontDip;
-  out = gdi_extent(wide, face_px);
-  if (out.width > 0 || out.height > 0) {
-    // Keep a DirectWrite layout for this key. Draw stays on the GDI font so
-    // ink matches TextOutW; the layout is the fallback metrics source below.
-    (void)layout_for(wide, face_px);
-    return out;
-  }
-  if (IDWriteTextLayout* layout = layout_for(wide, face_px)) {
-    DWRITE_TEXT_METRICS metrics = {};
-    if (SUCCEEDED(layout->GetMetrics(&metrics))) {
-      out.width = static_cast<int>(metrics.width + 0.5f);
-      out.height = static_cast<int>(metrics.height + 0.5f);
-    }
-  }
-  return out;
+  return measure_cached(wide, face_px);
 }
 
 void draw_focus_ring(ui::gfx::Canvas* canvas, const Rect& bounds) {

@@ -22,6 +22,9 @@ struct HillshadeParams {
   uint32_t highlight_argb = 0xFFFFFFFFu;
   uint32_t accent_argb = 0xFF000000u;
   int max_edge = 256;
+  // 0 = grayscale Lambert (multiply underlay). 1 = Origin jet sheet +
+  // isolines over the carto/imagery base (ocean alpha 0).
+  int color_ramp = 0;
 };
 
 // Finite-difference slope/aspect shade → tightly packed RGBA8.

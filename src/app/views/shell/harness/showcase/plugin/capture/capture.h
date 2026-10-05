@@ -21,8 +21,8 @@ struct PluginCaptureOpts {
   bool retry_dark_frame = false;
 };
 
-// Present once more + PrintWindow BMP + color-diversity signal marks.
-// Returns true when capture is accepted (or Null path skips capture).
+// PrintWindow BMP of the borrowed shell Scene3D HWND (GPU FlyCube/RHI).
+// Returns true when capture is accepted.
 bool capture_plugin_hwnd_bmp(content::Scene3dPresenter* cam,
                              PluginDeviceSession* session,
                              const PluginCaptureOpts& opts);

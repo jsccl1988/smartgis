@@ -66,7 +66,7 @@
 #include "ui/gis/inspect/selection_panel.h"
 #include "ui/gis/style/symbology_panel.h"
 #include "ui/views/kernel/layout/layout.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/menu/context_menu.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/layout/splitter.h"
@@ -153,25 +153,13 @@ void InspectorSyncComposer::sync_result_playback_from_session() {
       host_->result_playback_panel_->widget() != &host_->widget_) {
     return;
   }
-  auto& session = host_->browser_->analysis_playback();
+  auto& session = host_->browser_->plugin_playback();
   host_->result_playback_panel_->set_frame_range(session.frame_count());
   host_->result_playback_panel_->set_frame_index(session.frame_index());
   host_->result_playback_panel_->set_looping(session.looping());
   host_->result_playback_panel_->set_playing(session.playing());
   if (session.frame_count() > 0) {
-    host_->result_playback_panel_->set_status_text(
-        session.product() == AnalysisProduct::kTraffic
-            ? "traffic"
-            : session.product() == AnalysisProduct::kFlood
-                  ? "flood"
-                  : session.product() == AnalysisProduct::kStormSurge
-                        ? "stormsurge"
-                        : session.product() == AnalysisProduct::kOrthogrid
-                              ? "orthogrid"
-                              : session.product() ==
-                                        AnalysisProduct::kOrthogrid3d
-                                    ? "orthogrid3d"
-                                    : "session");
+    host_->result_playback_panel_->set_status_text(session.label());
   } else {
     host_->result_playback_panel_->set_status_text("(no session)");
   }
@@ -199,7 +187,7 @@ void InspectorSyncComposer::wire_edit_feedback() {
     });
   }
   // Showcase / self-test set SKIP_AMBOX_CATALOG. Edit subscriptions are not
-  // required for BMP export. A skewed Browser/MapSession layout (stale
+  // required for BMP export. A skewed Browser/BrowserSession layout (stale
   // shell_browser .obj under parallel ninja) makes edit_host() return
   // 0xCD-filled garbage 鈫?STATUS_HEAP_CORRUPTION in ViewHost::events().
   if (const char* skip = base::switch_cstr("skip-ambox-catalog");
@@ -249,6 +237,11 @@ void InspectorSyncComposer::wire_edit_feedback() {
   *host_->browser_->extent_sub() = events->subscribe<content::ExtentChanged>(
       [this](const content::ExtentChanged& ev) {
         host_->browser_->OnExtentChanged(ev.view_id, ev.extent);
+      });
+  *host_->browser_->layers_sub() = events->subscribe<content::LayersChanged>(
+      [this](const content::LayersChanged&) {
+        host_->sync_catalog_from_scene();
+        host_->sync_inspectors_from_scene();
       });
 
   if (host_->attribute_table_) {

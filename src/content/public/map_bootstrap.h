@@ -15,9 +15,14 @@ namespace content {
 // Leftover App and Views open paths share these helpers; opening GDAL /
 // registering leftover mapmgr stays at the call site.
 
+// Ordered relative paths for the product China pack (SoT for bare launch,
+// MapScene::seed_default, and harness try_open_china_sample).
+// All china_city.* candidates precede any china_plp.* fallback. Prefers
+// shared `out/data/` (exe under out/Debug|Release → `../data/`), then
+// `data/` next to the exe, flat next-to-exe, and testing/data fallbacks.
+CONTENT_EXPORT std::vector<std::string> sample_map_relative_paths();
+
 // Relative candidates under each search root, preferred order first.
-// Prefers shared `out/data/` (exe is under out/Debug|Release → `../data/`),
-// then `data/` next to the exe, flat next-to-exe, and testing/data fallbacks.
 // Roots may include a trailing separator.
 CONTENT_EXPORT std::vector<std::string> resolve_sample_map_candidates(
     const std::vector<std::string>& search_roots);

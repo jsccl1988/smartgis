@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import time
 from pathlib import Path
 
@@ -94,7 +95,13 @@ def _kill(suite: Suite) -> None:
 
             # 4s: OpenGL ICD needs settle after TerminateProcess / taskkill
             # or the next scene3d round exits early with empty marks / bmp_missing.
-            kill_showcase_apps(settle_sec=4.0)
+            settle = 4.0
+            sid = suite.id if suite else ""
+            if sid.startswith("plugin."):
+                # After any plugin showcase the GPU ICD needs extra settle or
+                # the next round exits in ~1s with empty marks / bmp_missing.
+                settle = 8.0
+            kill_showcase_apps(settle_sec=settle)
         except Exception as exc:  # noqa: BLE001
             print(f"warn: kill_showcase failed ({exc}); falling back", flush=True)
     # Always clear the suite image — kill_showcase only matches marker argv;
@@ -155,10 +162,15 @@ def _prepare_env(suite: Suite) -> dict[str, str]:
         env["FORCE_CONTENT_MAPVIEW_2D"] = "0"
         env["PREFER_FLYCUBE_2D"] = "1"
         env["FORCE_GDI_MAP_OVERLAY"] = "0"
+        env["SCENE3D_ENGINE"] = "flycube"
     elif suite.id == "browse":
         env["FORCE_CONTENT_MAPVIEW_2D"] = "1"
         env["PREFER_FLYCUBE_2D"] = "0"
         env["FORCE_GDI_MAP_OVERLAY"] = "1"
+    # Suite JSON is SoT after parent-matrix scrub + id defaults. ui.interact
+    # pins MAP2D_ENGINE=vista / SCENE3D_ENGINE=flycube — do not clobber.
+    for key, value in suite.env.items():
+        env[str(key)] = str(value)
     script = suite.script_path()
     if script is not None and script.is_file():
         env["UI_INTERACT_SCRIPT"] = str(script.resolve())
@@ -207,6 +219,7 @@ def _attach_recorder(
         title_substr=suite.window_title,
         fps=fps,
         find_timeout_sec=min(45.0, float(suite.timeout_sec)),
+        env=env,
     )
     return rec
 
@@ -382,21 +395,36 @@ def run_suite(
                     captures_root=captures_root,
                 )
             else:
-                # Inproc: start record once HWND exists (poll title while exe runs).
+                # Inproc: Popen so the recorder binds this PID, then wait until
+                # the shell HWND is stable (not Widget.init).
+                cmd = [str(run_exe), *suite.argv]
+                run_env = env
+                if process_mod.is_views_exe(suite.exe_name):
+                    run_env, extra = process_mod.peel_product_switches(env)
+                    cmd.extend(extra)
+                print("RUN:", " ".join(cmd), flush=True)
+                proc = subprocess.Popen(cmd, cwd=str(out), env=run_env)
+                rec_thread = None
                 if recorder is not None:
+                    recorder.bind_target_pid(int(proc.pid))
                     import threading
 
                     def _bg_record() -> None:
                         nonlocal record_report
                         record_report = recorder.start_after_hwnd(wait_for_hwnd=True)
 
-                    t = threading.Thread(target=_bg_record, daemon=True)
-                    t.start()
+                    rec_thread = threading.Thread(target=_bg_record, daemon=True)
+                    rec_thread.start()
                 try:
-                    rc = _run_inproc_process(
-                        suite, exe=run_exe, out=out, env=env, timeout=timeout
-                    )
+                    rc = proc.wait(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    process_mod.kill_exe(suite.exe_name)
+                    rc = 124
                 finally:
+                    # Join record start first — stop() before start_after_hwnd
+                    # finishes left mode=none hwnd=0 (browse motion_gate blind).
+                    if rec_thread is not None:
+                        rec_thread.join(timeout=8.0)
                     if recorder is not None:
                         record_report = recorder.stop()
         finally:

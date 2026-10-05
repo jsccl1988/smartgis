@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <string>
 #include <vector>
 
 #include "vista/component/atmosphere/field/field_channel.h"
@@ -54,6 +55,19 @@ int main() {
   expect(env.fog_enabled(), "demo fog on");
   expect(env.field_store().layer_count() >= 4, "procedural layers seeded");
 
+  // Contour sheet + screen-ortho side color scale (title + tick labels).
+  {
+    env.set_contour_enabled(true);
+    expect(env.rebuild_contour_sheet(FieldChannel::kWaveHs, grid, nullptr),
+           "rebuild contour");
+    expect(env.contour_sheet().has_color_scale(), "contour color scale");
+    expect(!env.contour_sheet().color_scale().label_text.empty(),
+           "contour scale labels");
+    expect(env.contour_sheet().color_scale().label_text[0].find("Wave") !=
+               std::string::npos,
+           "contour scale title");
+  }
+
   const float cover =
       env.field_store().sample(FieldChannel::kCloudCover, 100.0, 30.0, 0.0);
   expect(std::isfinite(cover), "cover finite");
@@ -62,8 +76,8 @@ int main() {
   expect(std::isfinite(hs) && hs >= 0.f, "hs finite");
   const float sea =
       env.field_store().sample(FieldChannel::kSeaMask, 100.0, 30.0, 0.0);
-  // No land rings → all sea.
-  expect(sea > 0.5f, "empty rings => sea");
+  // Empty rings fail-closed (must not paint the whole grid as ocean).
+  expect_near(sea, 0.f, 1e-4f, "empty rings => sea=0 fail-closed");
 
   env.set_ocean_enabled(false);
   expect(!env.ocean_enabled(), "setter clears ocean");

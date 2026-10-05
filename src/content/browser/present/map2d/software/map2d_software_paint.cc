@@ -10,6 +10,7 @@
 #include "content/browser/present/map2d/software/map2d_frame_gdi.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -23,6 +24,7 @@
 #include "gis/tile/protocol/xyz_math.h"
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
+#include "tool/nav/camera_nav.h"
 
 namespace content {
 namespace {
@@ -131,6 +133,67 @@ bool Map2dSoftwarePainter::try_blit_present_cache(
   }
   return BitBlt(hdc, 0, 0, width_px, height_px, present_cache_dc_, 0, 0,
                 SRCCOPY) != FALSE;
+}
+
+bool Map2dSoftwarePainter::try_interactive_present_cache(
+    HDC hdc, int width_px, int height_px, uint64_t layout_gen,
+    const Map2dFrameCache::CameraKey& cam) const {
+  if (!hdc || !present_cache_dc_ || !present_cache_bmp_ ||
+      present_cache_w_ != width_px || present_cache_h_ != height_px ||
+      present_cache_layout_gen_ != layout_gen ||
+      !present_cache_cam_.same_pixels(cam) ||
+      present_cache_cam_.zoom_bucket != cam.zoom_bucket) {
+    return false;
+  }
+  const double old_span_x =
+      present_cache_cam_.max_x - present_cache_cam_.min_x;
+  const double old_span_y =
+      present_cache_cam_.max_y - present_cache_cam_.min_y;
+  const double new_span_x = cam.max_x - cam.min_x;
+  const double new_span_y = cam.max_y - cam.min_y;
+  if (!(old_span_x > 0.0) || !(old_span_y > 0.0) || !(new_span_x > 0.0) ||
+      !(new_span_y > 0.0)) {
+    return false;
+  }
+
+  // Ocean canvas under the shifted frame (matches BlitFrameCache::present).
+  RECT full = {0, 0, width_px, height_px};
+  HBRUSH bg = CreateSolidBrush(detail::rgba_to_colorref(0xFFAAD3DFu));
+  FillRect(hdc, &full, bg);
+  DeleteObject(bg);
+
+  const double sx_old = static_cast<double>(width_px) / old_span_x;
+  const double sy_old = static_cast<double>(height_px) / old_span_y;
+  // Screen shift of a world point when the camera moves (ViewXform contract).
+  const int dx = static_cast<int>(
+      std::lround((present_cache_cam_.min_x - cam.min_x) * sx_old));
+  const int dy = static_cast<int>(
+      std::lround((cam.max_y - present_cache_cam_.max_y) * sy_old));
+
+  const double zoom_x = old_span_x / new_span_x;
+  const double zoom_y = old_span_y / new_span_y;
+  const bool same_scale =
+      std::fabs(zoom_x - 1.0) < 1e-4 && std::fabs(zoom_y - 1.0) < 1e-4 &&
+      std::fabs(zoom_x - zoom_y) < 1e-4;
+  if (same_scale) {
+    const tool::BlitDestRect dest =
+        tool::pan_blit_dest(width_px, height_px, dx, dy);
+    SetStretchBltMode(hdc, COLORONCOLOR);
+    return StretchBlt(hdc, dest.x, dest.y, dest.w, dest.h, present_cache_dc_, 0,
+                      0, width_px, height_px, SRCCOPY) != FALSE;
+  }
+
+  // Zoom: scale the last frame about the view center (settle rebuild follows).
+  const double factor = 0.5 * (zoom_x + zoom_y);
+  if (!(factor > 0.0)) {
+    return false;
+  }
+  const tool::BlitDestRect dest = tool::zoom_blit_dest(
+      width_px, height_px, width_px / 2, height_px / 2, factor);
+  SetStretchBltMode(hdc, HALFTONE);
+  SetBrushOrgEx(hdc, 0, 0, nullptr);
+  return StretchBlt(hdc, dest.x, dest.y, dest.w, dest.h, present_cache_dc_, 0,
+                    0, width_px, height_px, SRCCOPY) != FALSE;
 }
 
 void Map2dSoftwarePainter::store_present_cache(
@@ -330,12 +393,26 @@ void Map2dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   const auto paint_t0 = std::chrono::steady_clock::now();
   const bool can_reuse_pixels =
       prepared &&
-      (action == Map2dFrameCache::PresentAction::kStaticReuse ||
-       action == Map2dFrameCache::PresentAction::kInteractiveReuse) &&
+      action == Map2dFrameCache::PresentAction::kStaticReuse &&
       cam_key.same_camera(present_cache_cam_) &&
       try_blit_present_cache(hdc, width_px, height_px, layout_gen);
   if (can_reuse_pixels) {
     BASE_TRACE_EVENT("cache_blit", "map2d.gdi");
+    paint_selection_overlay(hdc, width_px, height_px);
+    note_map2d_phase_software_paint(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - paint_t0)
+            .count());
+    return;
+  }
+  // Pan/zoom while layout is reused: shift the last composite as one bitmap
+  // so land / hillshade / labels stay locked. Never replay MapIR under a
+  // drifted View (pixel_space labels + raster AABB desync).
+  if (prepared &&
+      action == Map2dFrameCache::PresentAction::kInteractiveReuse &&
+      try_interactive_present_cache(hdc, width_px, height_px, layout_gen,
+                                    cam_key)) {
+    BASE_TRACE_EVENT("interactive_blit", "map2d.gdi");
     paint_selection_overlay(hdc, width_px, height_px);
     note_map2d_phase_software_paint(
         std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -355,10 +432,22 @@ void Map2dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
     BASE_TRACE_EVENT("frame_paint", "map2d.gdi");
     // Paint from cached MapIR by reference — deep-copying china tessellation
     // for every present was ~100–900 ms with frame_paint still ~50 ms.
+    // InteractiveReuse must use the layout camera (present_cache / publish
+    // cam), not the live ViewFrame cam — otherwise pixel_space labels and
+    // hillshade quads stay at the bake footprint while world fills move.
     std::lock_guard<std::recursive_mutex> lock(cache_->mutex());
-    const Map2dFrameCache::CameraKey& cam = cache_->camera();
-    const vista::View view = {cam.width_px, cam.height_px, cam.min_x, cam.min_y,
-                              cam.max_x, cam.max_y};
+    Map2dFrameCache::CameraKey paint_cam = cache_->camera();
+    // prepare_for_present already wrote the live camera into cache_->camera()
+    // for InteractiveReuse; MapIR still matches the last published layout cam
+    // (kept in present_cache_cam_ after a full paint).
+    if (action == Map2dFrameCache::PresentAction::kInteractiveReuse &&
+        present_cache_dc_ && present_cache_layout_gen_ == layout_gen &&
+        present_cache_cam_.same_pixels(paint_cam)) {
+      paint_cam = present_cache_cam_;
+    }
+    const vista::View view = {paint_cam.width_px, paint_cam.height_px,
+                              paint_cam.min_x, paint_cam.min_y, paint_cam.max_x,
+                              paint_cam.max_y};
     detail::paint_map_frame_gdi(
         hdc, cache_->frame(), view, fill_background,
         [this](uint32_t texture_key, std::vector<uint8_t>* rgba, int* w,

@@ -1,0 +1,12 @@
+{
+  "version": 8,
+  "name": "mine_stratum",
+  "layers": [
+    {"id":"stratum-fill","type":"fill","source-layer":"mine_stratum",
+     "paint":{"fill-color":"#b45c3e","fill-opacity":0.45}},
+    {"id":"stratum-line","type":"line","source-layer":"mine_stratum",
+     "paint":{"line-color":"#5c3317","line-width":1.5}},
+    {"id":"sticks","type":"line","source-layer":"mine_boreholes",
+     "paint":{"line-color":"#1b1b1b","line-width":3.0}}
+  ]
+}

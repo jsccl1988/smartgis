@@ -3,8 +3,6 @@
 
 #include "content/browser/present/scene3d/scenic_engine_host.h"
 
-#include <vector>
-
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/present/host/scenic_scene_bind.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
@@ -28,6 +26,8 @@ bool ScenicScene3dHost::ensure_locked() {
     if (engine_) {
       engine_->shutdown();
       engine_.reset();
+      xy_.clear();
+      items_.clear();
     }
     return false;
   }
@@ -55,11 +55,9 @@ void ScenicScene3dHost::sync_locked(uint32_t width_px, uint32_t height_px,
   engine_->initialize(desc);
   engine_->bind_orbit(scenic_orbit_from_host(orbit, scene));
   const double scale = labels ? labels->scale() : 1.0;
-  std::vector<scenic::Vertex2> xy;
-  std::vector<scenic::DrawItem> items;
-  fill_scenic_draw_items(scene, scale, &xy, &items);
-  engine_->bind_draw_items(items.data(),
-                           static_cast<uint32_t>(items.size()));
+  fill_scenic_draw_items(scene, scale, &xy_, &items_);
+  engine_->bind_draw_items(items_.data(),
+                           static_cast<uint32_t>(items_.size()));
 }
 
 bool ScenicScene3dHost::present(uint32_t width_px, uint32_t height_px,
@@ -114,6 +112,8 @@ void ScenicScene3dHost::shutdown() {
     engine_->shutdown();
     engine_.reset();
   }
+  xy_.clear();
+  items_.clear();
 }
 
 }  // namespace detail

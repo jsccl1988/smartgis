@@ -8,7 +8,7 @@
 #include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/harness/common/pump/pump.h"
 #include "content/public/map_contents.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 namespace app {
 namespace detail {
@@ -25,10 +25,10 @@ void self_test_mark(const char* step) {
   write_mark(kSelfTestMarkLeaf, step, /*truncate=*/true);
 }
 
-bool viewport_has_presented_frame(ui::views::MapViewport* pane) {
+bool viewport_has_presented_frame(ui::views::DrawHost* pane) {
   if (!pane ||
       pane->attach_mode() !=
-          ui::views::MapViewport::AttachMode::kContentMapView) {
+          ui::views::DrawHost::AttachMode::kContentMapView) {
     return false;
   }
   content::MapContents* session = pane->map_contents();

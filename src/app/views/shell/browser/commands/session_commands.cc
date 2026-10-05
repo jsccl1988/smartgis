@@ -90,7 +90,7 @@ bool Browser::run_m2_self_test_hooks(std::string* err) {
   if (!plugin::run_builtin_op("native.buffer", buf_args)) {
     return fail("m2: run native.buffer failed");
   }
-  if (!session_.document().open_path(out_buf.string()) || session_.document().feature_count() < 1) {
+  if (!session_->document().open_path(out_buf.string()) || session_->document().feature_count() < 1) {
     return fail("m2: buffer write-back produced no features");
   }
 
@@ -101,7 +101,7 @@ bool Browser::run_m2_self_test_hooks(std::string* err) {
   if (!plugin::run_builtin_op("native.clip", clip_args)) {
     return fail("m2: run native.clip failed");
   }
-  if (!session_.document().open_path(out_clip.string()) || session_.document().feature_count() < 1) {
+  if (!session_->document().open_path(out_clip.string()) || session_->document().feature_count() < 1) {
     return fail("m2: clip write-back produced no features");
   }
 
@@ -117,12 +117,12 @@ bool Browser::run_m2_self_test_hooks(std::string* err) {
 }
 
 bool Browser::apply_atmosphere_fields(std::string_view spec) {
-  const bool ok = session_.scene3d().atmosphere_session().load_fields(spec);
+  const bool ok = session_->scene3d().atmosphere_session().load_fields(spec);
   ui::views::AtmospherePanel* panel = ui_ ? ui_->atmosphere_panel() : nullptr;
   if (ok && panel) {
     double t_min = 0.0;
     double t_max = 3600.0;
-    if (auto* env = session_.scene3d().atmosphere_session().environment()) {
+    if (auto* env = session_->scene3d().atmosphere_session().environment()) {
       static const vista::atmosphere::FieldChannel kRangeOrder[] = {
           vista::atmosphere::FieldChannel::kWaveHs,
           vista::atmosphere::FieldChannel::kCloudCover,
@@ -146,7 +146,7 @@ bool Browser::apply_atmosphere_fields(std::string_view spec) {
       t_max = t_min + 1.0;
     }
     panel->set_time_range(t_min, t_max);
-    panel->set_time_sec(session_.scene3d().atmosphere_session().time_sec());
+    panel->set_time_sec(session_->scene3d().atmosphere_session().time_sec());
   }
   if (ui_) {
     if (ok) {

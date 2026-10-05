@@ -210,7 +210,7 @@ bool tessellate_grid(const OGRMultiPoint* grid, int nx, int ny, TessMesh& out) {
                          0);
       detail::append_xyz(out, static_cast<float>(x10), static_cast<float>(y10),
                          0);
-      detail::append_quad_indices(out, base);
+      detail::append_ring_quad_indices(out, base);
     }
   }
   return !out.indices.empty();

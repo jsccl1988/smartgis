@@ -5,10 +5,12 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 
 #include "app/views/shell/browser/browser.h"
 #include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/orbit_frame.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
@@ -32,11 +34,18 @@ bool env_flag_is_zero(const char* name) {
 
 ChinaScene3dAtmoFlags resolve_china_scene3d_atmo_flags() {
   ChinaScene3dAtmoFlags flags;
-  // Align interactive 3D with --atmosphere-showcase=full.
+  // Interactive 3D is East-China DEM + bake + labels. Full sky/cloud/fog
+  // wash filled the tab with navy when DEM present lagged Init's clear.
+  // SCENE3D_ATMO=1 restores atmosphere.full; SCENE3D_LAND_ONLY=1 drops ocean.
   flags.ocean = true;
-  flags.cloud = true;
-  flags.sky = true;
-  flags.fog = true;
+  flags.cloud = false;
+  flags.sky = false;
+  flags.fog = false;
+  if (env_flag_is_one("scene3d-atmo")) {
+    flags.cloud = true;
+    flags.sky = true;
+    flags.fog = true;
+  }
   if (env_flag_is_zero("scene3d-atmo") ||
       env_flag_is_one("scene3d-land-only")) {
     flags.ocean = false;
@@ -122,7 +131,7 @@ void apply_china_map2d_product_defaults(Browser& browser, int view_w,
   frame_china_map2d(browser, view_w, view_h);
   // Overlay invalidate stays in the caller (fit_map_extent). Do not call
   // browser.ui() here: a stale china_product_defaults.obj can disagree with
-  // MapSession/Browser layout and load ui_ from the wrong offset (vtable AV
+  // BrowserSession/Browser layout and load ui_ from the wrong offset (vtable AV
   // at [0x10] under parallel ninja). fit_map_extent uses matching Browser TU.
 }
 
@@ -147,6 +156,19 @@ ChinaScene3dAtmoFlags apply_china_scene3d_atmosphere(Browser& browser) {
   // Interactive 3D tab is East-China DEM, not the UV globe splash (that path
   // painted a solid red sphere when albedo SRV recycled).
   cam->atmosphere_session().set_globe_enabled(false);
+  // ContourSheet rebuild has ExitProcess(-1)'d under ui.interact Phase B.
+  // Keep elevation overlay flags only; full ContourSheet stays for world3d.
+  const char* showcase = base::switch_cstr("ui-showcase");
+  const bool interact_harness =
+      showcase && std::strcmp(showcase, "interact") == 0;
+  if (!interact_harness) {
+    (void)cam->atmosphere_session().apply_contour_suite_defaults();
+  } else {
+    cam->atmosphere_session().set_elevation_overlay(true, true);
+  }
+  // Do not fill GpuPresent::legacy_labels_ here. Tab-switch inlines used to
+  // land on a skewed gpu_ and AV in vector::push_back / feature_count.
+  // Software paint seeds city labels on the bound GpuPresent.
   return flags;
 }
 
@@ -160,6 +182,9 @@ void apply_china_scene3d_orbit(Browser& browser) {
   // Fill the viewport with East-China DEM (2.55 left a postage-stamp island).
   orbit->set_distance(1.45f);
   orbit->set_pitch(0.52f);
+  // Trackball activate historically left yaw~0.42 (sky/navy). Default DEM
+  // yaw is π-0.55; keep it after reset even if a draft already nudged yaw.
+  orbit->set_yaw(content::kScene3dDefaultYaw);
   browser.push_shared_extent();
 }
 
@@ -199,7 +224,7 @@ ChinaScene3dAtmoFlags apply_china_scene3d_legacy_look(Browser& browser) {
   // atmosphere-showcase BMP path when overlays are available.
   if (!env_flag_is_one("atmosphere-showcase-gpu")) {
     std::fprintf(stderr, "china-legacy-look: overlays\n");
-    (void)cam->gpu().ensure_legacy_overlays();
+    (void)cam->ensure_legacy_overlays();
   } else {
     std::fprintf(stderr, "china-legacy-look: overlays-skipped\n");
   }

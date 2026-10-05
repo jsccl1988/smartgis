@@ -17,6 +17,15 @@ bool try_shade_dem_thrust(const float*, int, int, int, int, int, int, float,
   return false;
 }
 
+bool try_bake_hypso_thrust(const float*, const uint8_t*, int, int, int, int,
+                           int, int, uint8_t*) {
+  return false;
+}
+
+bool try_jet_fill_thrust(const float*, int, int, float, float, uint8_t*) {
+  return false;
+}
+
 bool thrust_gis_cuda_built() {
   return false;
 }

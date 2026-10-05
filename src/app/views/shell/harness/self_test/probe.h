@@ -8,7 +8,7 @@
 
 namespace ui {
 namespace views {
-class MapViewport;
+class DrawHost;
 }
 }  // namespace ui
 
@@ -22,7 +22,7 @@ namespace detail {
 void pump_views_messages_impl(DWORD ms);
 void self_test_detach_maps(Browser& browser);
 void self_test_mark(const char* step);
-bool viewport_has_presented_frame(ui::views::MapViewport* pane);
+bool viewport_has_presented_frame(ui::views::DrawHost* pane);
 
 // Stage returns: 0 = continue, non-zero = process exit code.
 int self_test_shell_ready(Browser& browser);

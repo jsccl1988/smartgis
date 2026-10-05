@@ -9,6 +9,7 @@
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/canvas/shell_canvas_backend.h"
 #include "ui/gfx/color/color.h"
+#include "ui/views/kernel/frame/caption_button.h"
 #include "ui/views/kernel/paint/painter.h"
 #include "ui/views/kernel/paint/painter_registry.h"
 #include "ui/views/kernel/paint/register_default_painters.h"
@@ -218,5 +219,26 @@ void test_tab_focus_traversal() {
   expect(!mid->is_focused(), "hidden not focused");
   expect(widget.advance_focus(true), "shift-tab reverse");
   expect(a->is_focused(), "reverse back to A");
+}
+
+void test_caption_button_release_outside_cancels() {
+  int clicks = 0;
+  Widget widget;
+  auto root = std::make_unique<View>();
+  root->set_bounds({0, 0, 200, 80});
+  auto btn = std::make_unique<CaptionButton>(CaptionButtonKind::kClose);
+  CaptionButton* close = btn.get();
+  close->set_bounds({0, 0, 46, 32});
+  close->set_click([&clicks]() { ++clicks; });
+  root->add_child(std::move(btn));
+  widget.set_contents_view(std::move(root));
+
+  expect(widget.send_mouse(mouse_down(10, 10)), "caption down");
+  expect(widget.send_mouse(mouse_up(120, 60)), "caption up outside");
+  expect(clicks == 0, "release outside does not activate");
+
+  expect(widget.send_mouse(mouse_down(10, 10)), "caption down 2");
+  expect(widget.send_mouse(mouse_up(10, 10)), "caption up inside");
+  expect(clicks == 1, "release inside activates");
 }
 

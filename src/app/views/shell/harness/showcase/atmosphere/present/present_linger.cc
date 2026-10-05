@@ -69,6 +69,10 @@ AtmospherePresentLingerResult run_atmosphere_present_linger(
       pump_ms = 0;
     }
   }
+  uint32_t pw = kAtmosphereShowcaseW;
+  uint32_t ph = kAtmosphereShowcaseH;
+  atmosphere_hwnd_present_size(
+      owned_present_hwnd ? owned_present_hwnd : present_hwnd, &pw, &ph);
   for (;;) {
     if (owned_present_hwnd && !IsWindow(owned_present_hwnd)) {
       break;
@@ -94,7 +98,7 @@ AtmospherePresentLingerResult run_atmosphere_present_linger(
                              &cam->atmosphere_session().globe_pass(),
                              &cam->atmosphere_session());
     }
-    if (!cam->present_gpu(device, kAtmosphereShowcaseW, kAtmosphereShowcaseH)) {
+    if (!cam->present_gpu(device, pw, ph)) {
       std::fprintf(stderr, "atmosphere-showcase: linger present failed\n");
       break;
     }
@@ -102,7 +106,7 @@ AtmospherePresentLingerResult run_atmosphere_present_linger(
     if (!captured && out.frames >= 8) {
       out.bmp_signal_ok = capture_atmosphere_showcase_bmp(
           mode, mode_name, cam, device, present_hwnd, owned_present_hwnd,
-          /*want_gpu=*/true, globe_flythrough);
+          /*want_gpu=*/true, globe_flythrough, nullptr);
       captured = true;
     }
     pump_messages(pump_ms);
@@ -116,7 +120,7 @@ AtmospherePresentLingerResult run_atmosphere_present_linger(
   if (!captured) {
     out.bmp_signal_ok = capture_atmosphere_showcase_bmp(
         mode, mode_name, cam, device, present_hwnd, owned_present_hwnd,
-        /*want_gpu=*/true, globe_flythrough);
+        /*want_gpu=*/true, globe_flythrough, nullptr);
   }
   atmosphere_showcase_mark("linger-ok");
   const DWORD elapsed = GetTickCount() - linger_start;

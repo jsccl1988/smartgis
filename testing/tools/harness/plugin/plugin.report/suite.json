@@ -2,15 +2,14 @@
   "id": "plugin.report",
   "kind": "showcase",
   "argv": [
-    "--ui-showcase=interact"
+    "--plugin-showcase=report"
   ],
   "script": "plugin.report.il",
   "env": {
     "SKIP_MAP_CONTEXT_MENU": "1",
-    "UI_SHOWCASE_LINGER_MS": "1500",
     "REPORT_BROWSER": "fake"
   },
-  "mark_leaf": "ui/ui-showcase-mark.txt",
+  "mark_leaf": "plugin-showcase-mark.txt",
   "required_marks": [
     "report-ok",
     "pass"

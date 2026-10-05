@@ -27,7 +27,13 @@ bool world3d_perf_bare_enabled();
 
 // China product defaults + flat DEM atmosphere (no globe).
 // When perf-bare: DEM orbit only (atmosphere layers off).
+// browse.3d keeps this planar East-China fill (plugin_scene3d landish).
 void seed_world3d_earth_atmosphere(Browser& browser,
+                                   content::Scene3dPresenter* cam);
+
+// Product world3d full-materials face: unit DEM globe + sat-cloud + sky,
+// space hold aimed at China (same stack as --atmosphere-showcase=globe t=0).
+void seed_world3d_true_earth_globe(Browser& browser,
                                    content::Scene3dPresenter* cam);
 
 // Best-effort M3 city tileset when city_root.glb is present.

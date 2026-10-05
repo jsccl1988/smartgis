@@ -1,0 +1,182 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista — World LOD Terrain</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --cpu: #2f7d62; --gpu: #b06a1a; --bake: #6b5ea8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  @media (max-width: 800px) { .lanes { grid-template-columns: 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2); min-height: 160px;
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.78rem; color: var(--muted); }
+  .lane.cpu { border-top: 3px solid var(--cpu); }
+  .lane.gpu { border-top: 3px solid var(--gpu); }
+  .lane.bake { border-top: 3px solid var(--bake); }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .note { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .pulse { stroke-dasharray: 7 5; animation: dash 0.9s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Vista — World LOD Terrain</h1>
+    <p>CPU <code>component/world/terrain</code> 产出 <code>TerrainPayload</code>；设备线程 <code>TerrainPass</code> 由 <code>WorldPass</code> 组合。raster / TIN / surface-interp 共用上传与 record。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista world LOD terrain component+pass</a>
+      · <a href="../../../src/vista/component/world/terrain/README.md">terrain README</a>
+    </div>
+    <div class="rel">相关图：
+      <a href="./vista-subdirectory-layers.html">Vista 子目录分层</a>
+      <a href="./hillshade-bake-profile.html">DEM bake</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层</h2>
+    <div class="lanes">
+      <div class="lane bake">
+        <h3>vista/terrain — bake</h3>
+        <ul>
+          <li><code>DemRaster</code> / hillshade / land_mask</li>
+          <li><code>DemHeightField::sample</code> / <code>build_mesh</code></li>
+          <li>不持 World；不 include WorldPass</li>
+        </ul>
+      </div>
+      <div class="lane cpu">
+        <h3>IR — component/world/terrain</h3>
+        <ul>
+          <li><code>TerrainPayload</code> 嵌在 Node / Instance</li>
+          <li>lod：max_edge · TIN stride · surface edge</li>
+          <li>seed：raster / view tiles / surface / TIN</li>
+          <li><code>assert_no_deps</code> render</li>
+        </ul>
+      </div>
+      <div class="lane gpu">
+        <h3>Pass — pass/world</h3>
+        <ul>
+          <li><code>WorldPass::sync_from</code> / <code>record_draws</code></li>
+          <li>组合 <code>TerrainPass</code>（upload + solid gate + kTerrain）</li>
+          <li>content 只持 WorldPass</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（seed → sync → TerrainPass → record）</h2>
+    <svg class="diagram" viewBox="0 0 1000 220" role="img" aria-label="LOD terrain pipeline">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="0" y="0" width="1000" height="220" rx="10" fill="#fafbfc" stroke="#d8dee6"/>
+
+      <rect class="stage" data-i="0" x="20" y="50" width="150" height="70" rx="7" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="32" y="78">camera_distance</text>
+      <text class="box-sub" x="32" y="98">+ view AABB</text>
+
+      <rect class="stage" data-i="1" x="200" y="40" width="180" height="90" rx="7" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="212" y="68">terrain/seed + lod</text>
+      <text class="box-sub" x="212" y="88">raster · TIN · surface</text>
+      <text class="box-sub" x="212" y="108">→ TerrainPayload</text>
+
+      <rect class="stage" data-i="2" x="410" y="50" width="150" height="70" rx="7" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="422" y="78">WorldPass</text>
+      <text class="box-sub" x="422" y="98">sync_from</text>
+
+      <rect class="stage" data-i="3" x="590" y="40" width="180" height="90" rx="7" fill="#f8efe3" stroke="#b06a1a"/>
+      <text class="box-title" x="602" y="68">TerrainPass</text>
+      <text class="box-sub" x="602" y="88">prepare_mesh</text>
+      <text class="box-sub" x="602" y="108">solid gate · record</text>
+
+      <rect class="stage" data-i="4" x="800" y="50" width="170" height="70" rx="7" fill="#f8efe3" stroke="#b06a1a"/>
+      <text class="box-title" x="812" y="78">kTerrain draw</text>
+      <text class="box-sub" x="812" y="98">raster = TIN path</text>
+
+      <line class="pulse" x1="170" y1="85" x2="200" y2="85" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <line class="pulse" x1="380" y1="85" x2="410" y2="85" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <line class="pulse" x1="560" y1="85" x2="590" y2="85" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <line class="pulse" x1="770" y1="85" x2="800" y2="85" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+
+      <text x="20" y="180" class="box-sub">Gap：无 clipmap / CDLOD / GPU tess（本波离散桶）</text>
+    </svg>
+    <p class="note">阶段高亮循环表示「谁产出、谁上传、谁录制」——CPU seed 永不 join 设备线程。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. LOD 源对照</h2>
+    <table class="map">
+      <thead><tr><th>源</th><th>离散策略</th><th>Seed API</th></tr></thead>
+      <tbody>
+        <tr><td>Raster</td><td><code>lod_max_edge</code> + view tiles</td><td><code>seed_dem_raster_lod_into_world</code></td></tr>
+        <tr><td>Surface</td><td><code>terrain_lod_surface_edge</code></td><td><code>seed_dem_surface_lod_into_world</code></td></tr>
+        <tr><td>TIN</td><td><code>terrain_lod_tin_stride</code></td><td><code>seed_tin_lod_into_world</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+(function () {
+  var stages = document.querySelectorAll(".stage");
+  var i = 0;
+  function tick() {
+    for (var s = 0; s < stages.length; ++s) {
+      stages[s].setAttribute("stroke-width", s === i ? "2.5" : "1");
+      stages[s].style.filter = s === i ? "brightness(0.97)" : "";
+    }
+    i = (i + 1) % stages.length;
+  }
+  tick();
+  setInterval(tick, 900);
+})();
+</script>
+</body>
+</html>

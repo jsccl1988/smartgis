@@ -104,7 +104,7 @@ Env (product): `VISTA_LAYOUT_PARALLEL`; `GPUSCENE_PREP_PARALLEL` **default off**
 ### Task 5: GPU record (P3 peer) — V5 deferred
 
 - [ ] Default: **single** CommandList — no multi-thread record until cold `record_ms` hot after V3
-- [ ] Optional P3b: FlyCube multi-CL bundles (DX12)；never import leftover D3D11 deferred TLS
+- [ ] Optional P3b: Vista multi-CL bundles (DX12)；never import leftover D3D11 deferred TLS
 - [ ] Ocean FFT compute stays Device-thread（`OceanGpuFields::record`）
 
 ### Task 6: Acceptance harness
@@ -148,7 +148,7 @@ U5 / multi-CL stays Task 5. Do not start it from this task.
 
 ## Non-goals
 
-- Port `Rhi2dTileGraphRunner` / per-thread HDC into FlyCube
+- Port `Rhi2dTileGraphRunner` / per-thread HDC into Vista
 - Shared GL multi-thread Draw
 - Second thread pool in `gis` / `render`
 - N cameras / N CLs per `graph::present` (except optional P3b)

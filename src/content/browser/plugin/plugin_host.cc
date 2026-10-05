@@ -46,6 +46,11 @@ struct PainterRec {
   std::string role;
 };
 
+struct ExportFrameRec {
+  std::string plugin_id;
+  ExportFrameContribution frame;
+};
+
 class PluginHostImpl final : public PluginHost {
  public:
   PluginHostImpl(tool::CommandCatalog* catalog,
@@ -227,8 +232,125 @@ class PluginHostImpl final : public PluginHost {
                                      return r.plugin_id == pid;
                                    }),
                     painters_.end());
+    for (auto it = export_frames_.begin(); it != export_frames_.end();) {
+      if (it->second.plugin_id == pid) {
+        it = export_frames_.erase(it);
+      } else {
+        ++it;
+      }
+    }
     if (ui_withdraw_hook_) {
       ui_withdraw_hook_(plugin_id);
+    }
+  }
+
+  bool open_dock(std::string_view dock_id) override {
+    const std::string id(dock_id);
+    for (const DockRec& rec : docks_) {
+      if (rec.dock.id == id && rec.factory) {
+        rec.factory(this);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void set_present_dataset_bridge(PresentDatasetFn fn) override {
+    present_dataset_ = std::move(fn);
+  }
+
+  void set_present_surface(int surface) override {
+    present_surface_ = surface != 0 ? 1 : 0;
+  }
+
+  int present_surface() const override { return present_surface_; }
+
+  bool present_dataset(std::string_view plugin_id, std::string_view path,
+                       int face) override {
+    return present_dataset(plugin_id, path, face, present_surface_);
+  }
+
+  bool present_dataset(std::string_view plugin_id, std::string_view path,
+                       int face, int surface) override {
+    if (!present_dataset_) {
+      return false;
+    }
+    return present_dataset_(plugin_id, path, face, surface != 0 ? 1 : 0);
+  }
+
+  GisDocument* gis_document() override { return gis_doc_; }
+
+  void set_gis_document(GisDocument* doc) override { gis_doc_ = doc; }
+
+  Scene3dSink* scene3d_sink() override { return &scene3d_sink_; }
+
+  Playback* playback() override { return &playback_; }
+
+  bool contribute_export_frame(std::string_view plugin_id,
+                               const ExportFrameContribution& frame) override {
+    if (plugin_id.empty() || frame.id.empty()) {
+      return false;
+    }
+    if (!(frame.max_lon > frame.min_lon && frame.max_lat > frame.min_lat)) {
+      return false;
+    }
+    export_frames_[frame.id] = {std::string(plugin_id), frame};
+    return true;
+  }
+
+  bool lookup_export_frame(std::string_view frame_id,
+                           double* min_lon,
+                           double* min_lat,
+                           double* max_lon,
+                           double* max_lat) const override {
+    if (frame_id.empty() || !min_lon || !min_lat || !max_lon || !max_lat) {
+      return false;
+    }
+    auto it = export_frames_.find(std::string(frame_id));
+    if (it == export_frames_.end()) {
+      return false;
+    }
+    *min_lon = it->second.frame.min_lon;
+    *min_lat = it->second.frame.min_lat;
+    *max_lon = it->second.frame.max_lon;
+    *max_lat = it->second.frame.max_lat;
+    return true;
+  }
+
+  void for_each_processing(
+      const std::function<void(std::string_view plugin_id,
+                               std::string_view processing_id,
+                               std::string_view title)>& fn) const override {
+    if (!fn) {
+      return;
+    }
+    for (const auto& entry : processing_) {
+      fn(entry.second.plugin_id, entry.second.proc.id, entry.second.proc.title);
+    }
+  }
+
+  void for_each_dialog(
+      const std::function<void(std::string_view plugin_id,
+                               std::string_view dialog_id,
+                               std::string_view title)>& fn) const override {
+    if (!fn) {
+      return;
+    }
+    for (const auto& entry : dialogs_) {
+      fn(entry.second.plugin_id, entry.second.dialog.id,
+         entry.second.dialog.title);
+    }
+  }
+
+  void for_each_dock(
+      const std::function<void(std::string_view plugin_id,
+                               std::string_view dock_id,
+                               std::string_view title)>& fn) const override {
+    if (!fn) {
+      return;
+    }
+    for (const DockRec& rec : docks_) {
+      fn(rec.plugin_id, rec.dock.id, rec.dock.title);
     }
   }
 
@@ -296,6 +418,11 @@ class PluginHostImpl final : public PluginHost {
   ReportOpenFn report_open_;
   ReportPostFn report_post_;
   ReportCloseFn report_close_;
+  PresentDatasetFn present_dataset_;
+  int present_surface_ = 0;
+  GisDocument* gis_doc_ = nullptr;
+  Scene3dSink scene3d_sink_;
+  Playback playback_;
 
   std::map<std::string, tool::CommandHandler> handlers_;
   std::map<std::string, std::string> command_owners_;
@@ -306,9 +433,66 @@ class PluginHostImpl final : public PluginHost {
   std::vector<MenuRec> menus_;
   std::vector<DockRec> docks_;
   std::vector<PainterRec> painters_;
+  std::map<std::string, ExportFrameRec> export_frames_;
 };
 
 }  // namespace
+
+void PluginHost::Scene3dSink::set_bridges(AddStandinMeshFn mesh,
+                                          AttachTilesetFn tileset,
+                                          InvalidateFn invalidate) {
+  add_mesh_ = std::move(mesh);
+  attach_tileset_ = std::move(tileset);
+  invalidate_ = std::move(invalidate);
+}
+
+void PluginHost::Scene3dSink::invalidate() const {
+  if (invalidate_) {
+    invalidate_();
+  }
+}
+
+void PluginHost::Scene3dSink::set_overlay_bridges(SetOverlayTinMeshFn mesh,
+                                                  SetOverlayTinDrapeFn drape,
+                                                  ClearOverlayTinFn clear) {
+  overlay_tin_mesh_fn_ = std::move(mesh);
+  overlay_tin_drape_fn_ = std::move(drape);
+  clear_overlay_tin_fn_ = std::move(clear);
+}
+
+void PluginHost::Scene3dSink::set_earth_bridges(
+    OpenEarthFn open_earth, FlyToFn fly_to, LoadGlobalDemFn load_global_dem,
+    SetSatelliteCloudFn set_satellite_cloud, SetAtmosphereFn set_atmosphere) {
+  open_earth_ = std::move(open_earth);
+  fly_to_ = std::move(fly_to);
+  load_global_dem_ = std::move(load_global_dem);
+  set_satellite_cloud_ = std::move(set_satellite_cloud);
+  set_atmosphere_ = std::move(set_atmosphere);
+  earth_bridges_installed_ = static_cast<bool>(open_earth_);
+}
+
+bool PluginHost::Scene3dSink::set_overlay_tin_mesh(
+    const float* xyz_lon_lat_elev, int point_count, const unsigned* indices,
+    int index_count, const uint8_t* albedo_rgba) const {
+  return overlay_tin_mesh_fn_
+             ? overlay_tin_mesh_fn_(xyz_lon_lat_elev, point_count, indices,
+                                    index_count, albedo_rgba)
+             : false;
+}
+
+bool PluginHost::Scene3dSink::set_overlay_tin_drape(
+    const uint8_t* rgba, uint32_t width, uint32_t height, const float* uv,
+    int uv_float_count) const {
+  return overlay_tin_drape_fn_
+             ? overlay_tin_drape_fn_(rgba, width, height, uv, uv_float_count)
+             : false;
+}
+
+void PluginHost::Scene3dSink::clear_overlay_tin_mesh() const {
+  if (clear_overlay_tin_fn_) {
+    clear_overlay_tin_fn_();
+  }
+}
 
 PluginHost* create_plugin_host(tool::CommandCatalog* catalog,
                                EventBus* events,

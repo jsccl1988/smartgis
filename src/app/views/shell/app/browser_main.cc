@@ -20,6 +20,7 @@
 #include <string>
 
 #include "app/views/shell/browser/browser.h"
+#include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/harness/scenario_registry.h"
 #include "app/views/shell/harness/self_test/self_test.h"
@@ -28,6 +29,7 @@
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
+#include "content/public/plugin_host.h"
 #include "content/browser/debug/debug_agent.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
@@ -70,30 +72,11 @@ const char* map2d_suite_id(Map2dShowcaseMode mode) {
   return nullptr;
 }
 
-const char* plugin_suite_id(PluginShowcaseMode mode) {
-  switch (mode) {
-    case PluginShowcaseMode::kWorld3d:
-      return "plugin.world3d";
-    case PluginShowcaseMode::kPrint:
-      return "plugin.print";
-    case PluginShowcaseMode::kOrthogrid:
-      return "plugin.orthogrid";
-    case PluginShowcaseMode::kOrthogrid3d:
-      return "plugin.orthogrid3d";
-    case PluginShowcaseMode::kTraffic:
-      return "plugin.traffic";
-    case PluginShowcaseMode::kFlood:
-      return "plugin.flood";
-    case PluginShowcaseMode::kStormSurge:
-      return "plugin.stormsurge";
-    case PluginShowcaseMode::kMine:
-      return "plugin.mine";
-    case PluginShowcaseMode::kGeochem:
-      return "plugin.geochem";
-    case PluginShowcaseMode::kNone:
-      break;
+std::string plugin_suite_id(const std::string& mode) {
+  if (mode.empty()) {
+    return {};
   }
-  return nullptr;
+  return "plugin." + mode;
 }
 
 const char* ui_suite_id(UiShowcaseMode mode) {
@@ -159,7 +142,12 @@ void disable_debug_crt_leak_abort() {
 }  // namespace
 
 int run_browser_main(const content::ContentMainParams&,
-                     const ViewsLaunchOptions& options) {
+                     const ViewsLaunchOptions& options_in) {
+  // Copy by value before any large stack use. Browser / Session member ctors
+  // can smash the caller's ViewsContentHost when the PE stack reserve is too
+  // small (/STACK:16MiB in BUILD.gn). A value snapshot keeps plugin paths and
+  // atmosphere fields stable for the rest of startup.
+  const ViewsLaunchOptions options = options_in;
   BASE_TRACE_EVENT("BrowserMain", "startup");
   LOGGING(LOG_INFO, "startup: BrowserMain begin");
   {
@@ -168,7 +156,7 @@ int run_browser_main(const content::ContentMainParams&,
   }
   const AtmosphereShowcaseMode showcase = options.atmosphere_showcase;
   const Map2dShowcaseMode map2d_showcase = options.map2d_showcase;
-  const PluginShowcaseMode plugin_showcase = options.plugin_showcase;
+  const std::string& plugin_showcase = options.plugin_showcase;
   const UiShowcaseMode ui_showcase = options.ui_showcase;
   // Default Scene3d prefers FlyCube RHI. Switch via View -> Engine,
   // content::set_scene3d_engine, or harness SCENE3D_ENGINE (stereo_gl /
@@ -178,9 +166,10 @@ int run_browser_main(const content::ContentMainParams&,
   // FlyCube on its own HWND. Explicit SCENE3D_ENGINE wins over those
   // defaults (equal-profile GL/D3D matrix).
   //
-  // --browse-showcase and --ui-showcase=scene keep FlyCube: forensic 3D orbit
-  // and the product Scene3D face must not fall back to views-scene3d.gdi
-  // (Fps0 navy + tiny DEM sticker) or AV under ContentMapView stress.
+  // --browse-showcase, --ui-showcase=scene, and --ui-showcase=interact keep
+  // FlyCube: forensic 3D orbit / 2D→3D→2D gestures must not fall back to
+  // views-scene3d.gdi (Fps0 navy, no China DEM). 2D chrome-only showcases
+  // still force GDI so multi-viewport FlyCube attach does not hang.
   const bool self_test = options.self_test;
   const bool self_test_console = options.self_test_console;
   const bool input_showcase = options.input_showcase;
@@ -195,9 +184,11 @@ int run_browser_main(const content::ContentMainParams&,
   // interactive session (heap skew under parallel DLL rebuilds). Always quiet
   // the dialog; ExitProcess paths already skip atexit for showcases.
   disable_debug_crt_leak_abort();
+  const bool ui_scene3d_face =
+      ui_showcase == UiShowcaseMode::kScene ||
+      ui_showcase == UiShowcaseMode::kInteract;
   const bool ui_force_gdi =
-      ui_showcase != UiShowcaseMode::kNone &&
-      ui_showcase != UiShowcaseMode::kScene;
+      ui_showcase != UiShowcaseMode::kNone && !ui_scene3d_face;
   // --browse-showcase serves both browse (2D) and browse.3d. 2D needs the
   // same ContentMapView + GDI overlay path as map2d.china so software
   // export_bmp can paint china_city without racing FlyCube present (AV /
@@ -223,51 +214,75 @@ int run_browser_main(const content::ContentMainParams&,
       !self_test_console && !input_showcase && !browse_showcase &&
       showcase == AtmosphereShowcaseMode::kNone &&
       map2d_showcase == Map2dShowcaseMode::kNone &&
-      plugin_showcase == PluginShowcaseMode::kNone;
+      plugin_showcase.empty();
   const bool engine_from_env = content::apply_scene3d_engine_from_env();
   // Scene3D product plugin faces need FlyCube lit DEM (world3d / mine /
   // stormsurge / orthogrid3d). Map2d plugin IL suites still prefer GDI.
   const bool plugin_scene3d_face =
-      plugin_showcase == PluginShowcaseMode::kWorld3d ||
-      plugin_showcase == PluginShowcaseMode::kMine ||
-      plugin_showcase == PluginShowcaseMode::kStormSurge ||
-      plugin_showcase == PluginShowcaseMode::kOrthogrid3d;
-  if (!engine_from_env) {
-    if (plugin_scene3d_face) {
-      // Scene3D plugin faces present on an owned showcase HWND + Device
-      // (prepare_plugin_device_session). Keep content Scene3dEngine::kFlyCube
-      // for that path, but force ContentMapView on the shell MapViewport so
-      // the async FlyCube display thread cannot abort the process (STL mutex
-      // unlock / present SEH) before the plugin body runs.
+      plugin_showcase == "world3d" || plugin_showcase == "world_preview" ||
+      plugin_showcase == "mine" || plugin_showcase == "stormsurge" ||
+      plugin_showcase == "orthogrid3d";
+  // Scene3D plugin faces present on an owned showcase HWND + Device
+  // (prepare_plugin_device_session). Keep content Scene3dEngine::kFlyCube
+  // for that path, but force ContentMapView on the shell DrawHost so the
+  // async FlyCube display thread cannot abort before the plugin body runs.
+  // Must apply even when SCENE3D_ENGINE=flycube already set the engine
+  // (otherwise the prefer_scene3d_flycube block below clears the gate).
+  if (plugin_scene3d_face) {
+    if (!engine_from_env) {
+      content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
+    }
+    base::set_switch("force-content-mapview-2d", "1");
+    base::set_switch("force-gdi-map-overlay", "1");
+  } else if (!engine_from_env) {
+    if (ui_showcase == UiShowcaseMode::kInteract) {
+      // 2D stays ContentMapView (no dual FlyCube hang). 3D lazy-attaches
+      // FlyCube on select_map_tab(1) so China DEM + labels is the SoT.
       content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
       base::set_switch("force-content-mapview-2d", "1");
-      base::set_switch("force-gdi-map-overlay", "1");
+      base::set_switch("prefer-flycube-2d", "0");
+      base::set_switch("force-gdi-map-overlay", "0");
     } else if (self_test || self_test_console || input_showcase ||
                ui_force_gdi || showcase != AtmosphereShowcaseMode::kNone ||
                map2d_showcase != Map2dShowcaseMode::kNone ||
-               plugin_showcase != PluginShowcaseMode::kNone ||
-               (browse_showcase && !browse_3d_suite) ||
-               (bare_product && !map2d_fps_bench)) {
+               !plugin_showcase.empty() ||
+               (browse_showcase && !browse_3d_suite)) {
       content::set_scene3d_engine(content::Scene3dEngine::kGdi);
       if (!map2d_fps_bench) {
         base::set_switch("force-content-mapview-2d", "1");
       }
+    } else if (bare_product && !map2d_fps_bench) {
+      // 2D china carto on the Map/Data HWND only. Do not demote Scene3d to
+      // GDI/ContentMapView — that dual-SoT navy-fills the 3D tab every tick.
+      base::set_switch("force-content-mapview-2d", "1");
     } else if (browse_showcase || ui_showcase == UiShowcaseMode::kScene) {
       content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
       base::set_switch("force-content-mapview-2d", "0");
       base::set_switch("prefer-flycube-2d", "1");
       base::set_switch("force-gdi-map-overlay", "0");
     }
-  } else if (content::prefer_scene3d_stereo_gl() ||
-             content::prefer_scene3d_flycube()) {
-    // Stereo/FlyCube bench: do not force ContentMapView-only 2D overlay.
-    base::set_switch("force-content-mapview-2d", "0");
+  }
+  // Stereo/FlyCube bench: do not force ContentMapView-only 2D overlay.
+  // Interact keeps Content 2D + FlyCube 3D (set above / suite env).
+  if (!plugin_scene3d_face &&
+      (content::prefer_scene3d_stereo_gl() ||
+       content::prefer_scene3d_flycube())) {
+    if (ui_showcase != UiShowcaseMode::kInteract) {
+      base::set_switch("force-content-mapview-2d", "0");
+    }
   }
   // Scenic software present: never attach FlyCube HWND on shell map panes
-  // (display_run_present SEH). ContentMapView + MemFrame/export is the path.
+  // (display_run_present SEH). Product HWND + Map2d/Scene3dPresenter paint
+  // is the SoT — ContentMapView SharedSurface hid scenic HUD and froze FPS.
   if (content::prefer_map2d_scenic() || content::prefer_scene3d_scenic()) {
-    base::set_switch("force-content-mapview-2d", "1");
+    base::set_switch("force-content-mapview-2d", "0");
     base::set_switch("prefer-flycube-2d", "0");
+    if (content::prefer_map2d_scenic()) {
+      base::set_switch("map2d-engine", "scenic");
+    }
+    if (content::prefer_scene3d_scenic()) {
+      base::set_switch("scene3d-engine", "scenic");
+    }
   }
   // Force full Map2dPresenter::paint on the shell overlay so the HWND never
   // stays ocean-only while FlyCube DXGI is still hidden / clearing. Covers
@@ -280,20 +295,18 @@ int run_browser_main(const content::ContentMainParams&,
         force_gdi && force_gdi[0] == '0' && force_gdi[1] == '\0';
     if (!force_off &&
         (map2d_showcase != Map2dShowcaseMode::kNone ||
-         plugin_showcase != PluginShowcaseMode::kNone ||
-         (browse_showcase && !browse_3d_suite) || bare_product)) {
+         !plugin_showcase.empty() ||
+         (browse_showcase && !browse_3d_suite) || bare_product ||
+         (ui_showcase != UiShowcaseMode::kNone && !ui_scene3d_face))) {
       base::set_switch("force-gdi-map-overlay", "1");
     }
   }
-  // Showcase does not need Ambox command lists; skip catalog for_each when
-  // parallel tool/plugin DLL rebuilds leave maps unreadable (0xC0000005 in
-  // CommandCatalog::for_each during Browser::init / init_shell). Include
-  // ui-showcase — otherwise --ui-showcase=shell AVs in populate_ambox while
-  // other showcases already skip. browse/input: same catalog map risk.
+  // Map2d / plugin / atmosphere / browse / input skip CommandCatalog walks
+  // (parallel DLL rebuild AVs). UI showcase follows the product Browser::show
+  // path so Ambox chips + deferred China match no-args SmartGIS.exe.
   if (showcase != AtmosphereShowcaseMode::kNone ||
       map2d_showcase != Map2dShowcaseMode::kNone ||
-      plugin_showcase != PluginShowcaseMode::kNone ||
-      ui_showcase != UiShowcaseMode::kNone || browse_showcase ||
+      !plugin_showcase.empty() || browse_showcase ||
       input_showcase) {
     base::set_switch("skip-ambox-catalog", "1");
   }
@@ -317,30 +330,18 @@ int run_browser_main(const content::ContentMainParams&,
       }
     }
   }
-  // Snapshot option strings before Browser construction (member ctors are heavy).
-  // Prefer assign(c_str()) over operator=(string&) so a skewed/corrupt source
-  // string with a null data pointer fails soft instead of memcpy AV.
-  static std::string s_plugins_dir;
-  static std::string s_atmosphere_fields;
-  s_plugins_dir.clear();
-  s_atmosphere_fields.clear();
-  {
-    const char* plugins = options.plugins_dir.c_str();
-    const char* fields = options.atmosphere_fields.c_str();
-    if (plugins) {
-      s_plugins_dir.assign(plugins);
-    }
-    if (fields) {
-      s_atmosphere_fields.assign(fields);
-    }
-  }
+  // Keep string copies for post-Browser use (set_plugins_dir / fields ingest).
+  // Do not assign(c_str()): a poison 0xCC pointer (stale ViewsLaunchOptions
+  // layout) passes a null check and still AVs inside char_traits::length.
+  const std::string plugins_dir = options.plugins_dir;
+  const std::string atmosphere_fields = options.atmosphere_fields;
   const bool debug_console = options.debug_console;
   std::unique_ptr<Browser> browser;
   {
     BASE_TRACE_EVENT("Browser.ctor", "startup");
     browser = std::make_unique<Browser>();
   }
-  browser->set_plugins_dir(s_plugins_dir);
+  browser->set_plugins_dir(plugins_dir);
   {
     // OOP: CLI --enable-oop-render or ENABLE_OOP_RENDER=1.
     bool enable_oop = options.enable_oop_render;
@@ -397,6 +398,10 @@ int run_browser_main(const content::ContentMainParams&,
       return 1;
     }
   }
+  if (options.plugin_present == "preview" && browser->plugins() &&
+      browser->plugins()->host()) {
+    browser->plugins()->host()->set_present_surface(1);
+  }
   // Mid-startup snapshot (partial file) when show/wait may hang.
   base::trace::dump_startup_profile_partial("post-init");
   if (debug_console || self_test_console ||
@@ -405,11 +410,10 @@ int run_browser_main(const content::ContentMainParams&,
     LOGGING(LOG_INFO, "startup: DebugAgent start");
     content::debug_agent().start();
   }
-  if (!s_atmosphere_fields.empty()) {
+  if (!atmosphere_fields.empty()) {
     BASE_TRACE_EVENT("AtmosphereFields", "startup");
-    std::fprintf(stderr, "atmosphere-fields: %s\n",
-                 s_atmosphere_fields.c_str());
-    if (!browser->apply_atmosphere_fields(s_atmosphere_fields)) {
+    std::fprintf(stderr, "atmosphere-fields: %s\n", atmosphere_fields.c_str());
+    if (!browser->apply_atmosphere_fields(atmosphere_fields)) {
       std::fprintf(stderr, "atmosphere-fields: load failed\n");
       LOGGING(LOG_WARNING, "startup: atmosphere-fields load failed");
     }
@@ -423,7 +427,7 @@ int run_browser_main(const content::ContentMainParams&,
     const bool harness_show =
         showcase != AtmosphereShowcaseMode::kNone ||
         map2d_showcase != Map2dShowcaseMode::kNone ||
-        plugin_showcase != PluginShowcaseMode::kNone ||
+        !plugin_showcase.empty() ||
         ui_showcase != UiShowcaseMode::kNone || browse_showcase ||
         input_showcase || self_test || self_test_console;
     if (harness_show) {
@@ -440,13 +444,14 @@ int run_browser_main(const content::ContentMainParams&,
   if (browser) {
     browser->finish_deferred_shell_wiring();
   }
-  // Agent / shot hooks: open Data or 3D without flaky synthetic clicks.
+  // Agent / shot hooks: open 3D without flaky synthetic clicks. Data tab is gone.
   if (const char* tab = base::switch_cstr("views-start-map-tab")) {
     int idx = 0;
-    if (std::strcmp(tab, "scene3d") == 0 || std::strcmp(tab, "2") == 0) {
-      idx = 2;
-    } else if (std::strcmp(tab, "data") == 0 || std::strcmp(tab, "1") == 0) {
+    if (std::strcmp(tab, "scene3d") == 0 || std::strcmp(tab, "2") == 0 ||
+        std::strcmp(tab, "1") == 0) {
       idx = 1;
+    } else if (std::strcmp(tab, "data") == 0) {
+      idx = 0;
     } else if (tab[0] == '0' && tab[1] == '\0') {
       idx = 0;
     } else {
@@ -469,9 +474,10 @@ int run_browser_main(const content::ContentMainParams&,
       exit_after_scenario(browser, id);
     }
   }
-  if (plugin_showcase != PluginShowcaseMode::kNone) {
-    if (const char* id = plugin_suite_id(plugin_showcase)) {
-      exit_after_scenario(browser, id);
+  if (!plugin_showcase.empty()) {
+    const std::string suite = plugin_suite_id(plugin_showcase);
+    if (!suite.empty()) {
+      exit_after_scenario(browser, suite.c_str());
     }
   }
   if (ui_showcase != UiShowcaseMode::kNone) {

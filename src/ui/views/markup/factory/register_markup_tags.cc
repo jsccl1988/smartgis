@@ -72,7 +72,8 @@ void register_gis_placeholder_markup_tags(ControlFactory* factory) {
       "diagnostictools",
       "rendertrace",
       "debugconsole",
-      "mapviewport",
+      "drawhost",
+      "mapviewport",  // legacy alias; prefer drawhost
   };
   for (const char* tag : gis_tags) {
     factory->register_tag(tag, [tag](std::string_view, const MarkupAttrs& a) {

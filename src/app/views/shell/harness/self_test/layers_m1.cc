@@ -32,7 +32,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "base/trace/event/process_trace.h"
 #include "ui/views/kernel/layout/layout_check.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/view/view.h"
 #include "plugin/product/print/composer/print_composer.h"
@@ -396,7 +396,7 @@ self_test_mark("layers-ok");
       }
       // Restore product framing so later pan/wheel self-tests see the
       // real map HWND extent (M1 used a 256脙聴256 offscreen frame).
-      if (ui::views::MapViewport* pane = browser.map_viewport()) {
+      if (ui::views::DrawHost* pane = browser.draw_host()) {
         if (pane->native_view()) {
           browser.refit_active_view();
         }

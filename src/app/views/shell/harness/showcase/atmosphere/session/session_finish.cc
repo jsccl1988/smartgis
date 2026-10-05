@@ -12,8 +12,8 @@ void finish_atmosphere_device_session(Browser& browser,
                                       AtmosphereDeviceSession* session,
                                       bool shutdown_device) {
   RhiPresentTeardownOpts opts;
-  opts.shutdown_device = shutdown_device;
-  opts.destroy_hwnd = true;
+  opts.shutdown_device = shutdown_device && !(session && session->borrowed_shell);
+  opts.destroy_hwnd = !(session && session->borrowed_shell);
   opts.detach_maps = true;
   RhiPresentSession core;
   if (session) {
@@ -21,6 +21,7 @@ void finish_atmosphere_device_session(Browser& browser,
     core.present_hwnd = session->present_hwnd;
     core.owned_present_hwnd = session->owned_present_hwnd;
     core.want_gpu = session->want_gpu;
+    core.borrowed_shell = session->borrowed_shell;
   }
   teardown_rhi_present_session(&browser, nullptr, session ? &core : nullptr,
                                opts);

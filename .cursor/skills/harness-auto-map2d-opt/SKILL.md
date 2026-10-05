@@ -3,10 +3,10 @@ name: harness-auto-map2d-opt
 description: >-
   Runs the map2d equal-profile harness: same china 1280x720 rendering materials
   and effects across parallel strategies x image-driven backends (Scenic rhi2d
-  GDI / GDI+ / Skia, plus Vista FlyCube), then emits screenshots and an
+  GDI / GDI+ / Skia, plus Vista), then emits screenshots and an
   execution performance comparison table. Use when the user invokes
   /harness-auto-map2d-opt, or says map2d 矩阵, 同等渲染物料, 并行策略×图像驱动,
-  GDI/GDI+/Skia/FlyCube 对比, scenic 同等对比, map2d equal-profile, or asks for
+  GDI/GDI+/Skia/Vista 对比, scenic 同等对比, map2d equal-profile, or asks for
   map2d screenshots + performance comparison.
 ---
 
@@ -17,7 +17,7 @@ All rights reserved.
 
 # Harness auto map2d opt（同等物料 × 并行×图像驱动）
 
-**同等渲染物料及效果，并行策略×图像驱动（Scenic 引擎 GDI / GDI+ / Skia，再加 Vista FlyCube），并给出截图及执行性能对比表**
+**同等渲染物料及效果，并行策略×图像驱动（Scenic 引擎 GDI / GDI+ / Skia，再加 Vista），并给出截图及执行性能对比表**
 
 GDI / GDI+ / Skia **must** run on the **Scenic** rhi2d engine (`scenic_gdi_map_paint_test` + `scenic_rhi2d_{gdi,gdiplus,skia}`). Product matrix only — `src/legacy/` is frozen and is not an axis.
 
@@ -46,7 +46,7 @@ When this skill is invoked, attached (`@harness-auto-map2d-opt` / `/harness-auto
 2. **Fair compare / FALSE-GAP:** Scenic rhi2d `execute_ms` = **IR replay only**. Matrix equal-latitude sets `MAP2D_NO_HILLSHADE=1` so Vista skips DEM shade (same axis as Scenic IR). Still compare **phase columns** (`paint_ms` / `present_gpu_*`); never claim `execute_ms ≡ export_ms`.
 3. **Axes:**
    - **Scenic rhi2d (GDI / GDI+ / Skia):** `RHI2D_PARALLEL` ∈ `{serial, tile, layer}` × `RHI2D_PORT` ∈ `{gdi, gdiplus, skia}` via `scenic_gdi_map_paint_test` LoadLibrary `scenic_rhi2d_*`
-   - **Vista:** Views software export + FlyCube `present_gpu` (`port=views+flycube`); harness sets `VISTA_LAYOUT_PARALLEL=1` (opt-out `=0`)
+   - **Vista:** Views software export + Vista `present_gpu` (`port=views+flycube`); harness sets `VISTA_LAYOUT_PARALLEL=1` (opt-out `=0`)
    - **Scenic Map2dEngine (not a port peer):** one extra cell `MAP2D_ENGINE=scenic` — content-hosted `scenic::Engine` GDI of the same china MapScene
 4. Prefer **`build.bat debug <single_target>`**. Compile lock stays **OFF**. Stay on **`master`**. Do **not** build or edit `src/legacy/` (`src/legacy` freeze).
 5. Prefer **`*.inspect.png`** for `Read` (BMP often fails vision).
@@ -71,7 +71,7 @@ Artifacts root: `out/Debug/captures/map2d/matrix/`
 | Artifact | Role |
 | --- | --- |
 | `scenic-{parallel}_{port}.bmp` | Scenic rhi2d capture (9 cells) |
-| `vista-china.bmp` | Views + FlyCube equal-profile capture |
+| `vista-china.bmp` | Views + Vista equal-profile capture |
 | `scenic-china.bmp` | Map2dEngine (`MAP2D_ENGINE=scenic`) capture |
 | `parallel_port_matrix_with_vista.csv` / `.json` | Timing rows + `note` / `matrix_note` |
 | `parallel_port_matrix_NOTE.txt` | FALSE-GAP + equal-latitude one-liner |
@@ -144,7 +144,7 @@ Include `pass`, `bmp` path (or inspect PNG path) per cell when space allows.
 | wall_ms | | process wall |
 | export_ms | | software + BMP IO |
 | paint_ms | | paint only (excl IO when present) |
-| present_gpu_cold_ms | | first FlyCube present |
+| present_gpu_cold_ms | | first Vista present |
 | present_gpu_warm_ms | | StaticReuse warm |
 | layout_ms / hillshade_ms / software_paint_ms / bmp_io_ms / gpu_upload_ms / gpu_present_ms | | phase clocks |
 | `smt_vista_layout_parallel` | | harness env (`1` default) |
@@ -184,7 +184,7 @@ Non-goals (do not): delete hillshade/MapFrame to match IR; MapLibre Native port;
 | `RHI2D_MATRIX_BMP` | Scenic rhi2d BMP path |
 | `MAP2D_ENGINE` | port grid: unset; Map2dEngine cell: `scenic` |
 | `MAP2D_SHOWCASE_W/H` | `1280` / `720` |
-| `MAP2D_SHOWCASE_GPU` | `1` = FlyCube present (vista cell) |
+| `MAP2D_SHOWCASE_GPU` | `1` = Vista present (vista cell) |
 | `MAP2D_NO_HILLSHADE` | matrix default `1` = equal-latitude (no DEM); `0` = product shade-on |
 | `MAP2D_EXPORT_REUSE` | unset in matrix (full paint); `1` = bench-only blit |
 | `VISTA_LAYOUT_PARALLEL` | matrix default `1` (request vista tess parallel); `=0` opt-out serial |

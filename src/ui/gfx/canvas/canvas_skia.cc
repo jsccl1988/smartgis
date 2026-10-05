@@ -23,6 +23,8 @@
 
 #include <cstdint>
 #include <cstring>
+#include <memory>
+#include <mutex>
 #include <vector>
 
 #include "include/core/SkCanvas.h"
@@ -50,7 +52,9 @@ SkColor to_sk_color(Color color) {
   return SkColorSetARGB(a, r, g, b);
 }
 
-sk_sp<SkTypeface> ui_typeface() {
+std::mutex g_skia_font_mu;
+
+sk_sp<SkTypeface> ui_typeface_locked() {
   static sk_sp<SkTypeface> face;
   static bool tried = false;
   if (!tried) {
@@ -75,13 +79,14 @@ SkFont font_for_px(float px) {
     int key;
     SkFont font;
   };
+  std::lock_guard<std::mutex> lock(g_skia_font_mu);
   static std::vector<Slot> cache;
   for (const Slot& slot : cache) {
     if (slot.key == key) {
       return slot.font;
     }
   }
-  SkFont font(ui_typeface(), static_cast<SkScalar>(key));
+  SkFont font(ui_typeface_locked(), static_cast<SkScalar>(key));
   if (cache.size() < 8) {
     cache.push_back(Slot{key, font});
   }
@@ -105,61 +110,6 @@ struct SkiaRaster {
   SkFont font;
 };
 
-struct RetainedSurface {
-  void* pixels = nullptr;
-  int width = 0;
-  int height = 0;
-  int stride = 0;
-  SkiaRaster* raster = nullptr;
-  SkCanvas* canvas = nullptr;
-};
-
-RetainedSurface g_retained;
-
-void release_retained() {
-  delete g_retained.raster;
-  g_retained = {};
-}
-
-bool wrap_retained(void* bits, int width, int height, int stride, float font_px,
-                   SkiaRaster** raster_out, SkCanvas** canvas_out) {
-  if (!bits || width <= 0 || height <= 0 || stride <= 0) {
-    return false;
-  }
-  if (g_retained.raster && g_retained.pixels == bits &&
-      g_retained.width == width && g_retained.height == height &&
-      g_retained.stride == stride) {
-    g_retained.raster->font = font_for_px(font_px);
-    *raster_out = g_retained.raster;
-    *canvas_out = g_retained.canvas;
-    return g_retained.canvas != nullptr;
-  }
-  release_retained();
-  auto* raster = new SkiaRaster();
-  const SkImageInfo info = SkImageInfo::MakeN32Premul(width, height);
-  raster->surface =
-      SkSurfaces::WrapPixels(info, bits, static_cast<size_t>(stride));
-  if (!raster->surface) {
-    delete raster;
-    return false;
-  }
-  SkCanvas* canvas = raster->surface->getCanvas();
-  if (!canvas) {
-    delete raster;
-    return false;
-  }
-  raster->font = font_for_px(font_px);
-  g_retained.pixels = bits;
-  g_retained.width = width;
-  g_retained.height = height;
-  g_retained.stride = stride;
-  g_retained.raster = raster;
-  g_retained.canvas = canvas;
-  *raster_out = raster;
-  *canvas_out = canvas;
-  return true;
-}
-
 class SkiaCanvasBackend final : public CanvasBackend {
  public:
   SkiaCanvasBackend(HDC hdc, int width, int height)
@@ -176,14 +126,25 @@ class SkiaCanvasBackend final : public CanvasBackend {
       const int dib_h = section.dsBm.bmHeight < 0 ? -section.dsBm.bmHeight
                                                    : section.dsBm.bmHeight;
       const int dib_w = section.dsBm.bmWidth;
-      if (wrap_retained(section.dsBm.bmBits, dib_w, dib_h,
-                        section.dsBm.bmWidthBytes, font_px, &raster_,
-                        &canvas_)) {
-        pixels_ = section.dsBm.bmBits;
-        stride_ = section.dsBm.bmWidthBytes;
-        owns_dib_ = false;
-        ready_ = true;
-        return;
+      // Own a wrap per Canvas. A process-global retained SkSurface raced the
+      // compositor worker against UI-thread paint (0xC0000374).
+      auto raster = std::make_unique<SkiaRaster>();
+      const SkImageInfo info = SkImageInfo::MakeN32Premul(dib_w, dib_h);
+      raster->surface = SkSurfaces::WrapPixels(
+          info, section.dsBm.bmBits,
+          static_cast<size_t>(section.dsBm.bmWidthBytes));
+      if (raster->surface) {
+        SkCanvas* canvas = raster->surface->getCanvas();
+        if (canvas) {
+          raster->font = font_for_px(font_px);
+          raster_ = std::move(raster);
+          canvas_ = canvas;
+          pixels_ = section.dsBm.bmBits;
+          stride_ = section.dsBm.bmWidthBytes;
+          owns_dib_ = false;
+          ready_ = true;
+          return;
+        }
       }
     }
 
@@ -214,7 +175,7 @@ class SkiaCanvasBackend final : public CanvasBackend {
     }
     old_dib_ = static_cast<HBITMAP>(SelectObject(mem_dc_, dib_));
     owns_dib_ = true;
-    raster_ = new SkiaRaster();
+    raster_ = std::make_unique<SkiaRaster>();
     const SkImageInfo info = SkImageInfo::MakeN32Premul(width, height);
     raster_->surface =
         SkSurfaces::WrapPixels(info, bits, static_cast<size_t>(stride_));
@@ -232,12 +193,11 @@ class SkiaCanvasBackend final : public CanvasBackend {
   }
 
   ~SkiaCanvasBackend() override {
+    canvas_ = nullptr;
+    raster_.reset();
+    ready_ = false;
     if (owns_dib_) {
       destroy_owned();
-    } else {
-      canvas_ = nullptr;
-      raster_ = nullptr;
-      ready_ = false;
     }
   }
 
@@ -371,10 +331,7 @@ class SkiaCanvasBackend final : public CanvasBackend {
  private:
   void destroy_owned() {
     canvas_ = nullptr;
-    if (owns_dib_) {
-      delete raster_;
-    }
-    raster_ = nullptr;
+    raster_.reset();
     if (mem_dc_) {
       if (old_dib_) {
         SelectObject(mem_dc_, old_dib_);
@@ -400,7 +357,7 @@ class SkiaCanvasBackend final : public CanvasBackend {
   HDC mem_dc_ = nullptr;
   void* pixels_ = nullptr;
   int stride_ = 0;
-  SkiaRaster* raster_ = nullptr;
+  std::unique_ptr<SkiaRaster> raster_;
   SkCanvas* canvas_ = nullptr;
   bool ready_ = false;
   bool owns_dib_ = false;
@@ -408,10 +365,10 @@ class SkiaCanvasBackend final : public CanvasBackend {
 
 }  // namespace
 
-CanvasBackend* create_skia_canvas_backend(HDC hdc, int width, int height) {
-  auto* backend = new SkiaCanvasBackend(hdc, width, height);
+std::unique_ptr<CanvasBackend> create_skia_canvas_backend(HDC hdc, int width,
+                                                          int height) {
+  auto backend = std::make_unique<SkiaCanvasBackend>(hdc, width, height);
   if (!backend->ready()) {
-    delete backend;
     return nullptr;
   }
   return backend;
@@ -422,7 +379,7 @@ bool skia_canvas_backend_linked() {
 }
 
 void discard_skia_retained_surface() {
-  release_retained();
+  // Per-Canvas SkSurface wrap; nothing process-global to drop.
 }
 
 }  // namespace detail

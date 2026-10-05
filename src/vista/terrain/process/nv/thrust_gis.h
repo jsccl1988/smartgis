@@ -27,6 +27,16 @@ bool try_shade_dem_thrust(const float* heights, int cols, int rows, int step_x,
                           float sr, float sg, float sb, float hr, float hg,
                           float hb, uint8_t* rgba);
 
+// Hypsometric albedo (+ coastal dilate when |land| is cols*rows). |land|
+// may be null (all land, no dilate).
+bool try_bake_hypso_thrust(const float* heights, const uint8_t* land, int cols,
+                           int rows, int step_x, int step_y, int w, int h,
+                           uint8_t* rgba);
+
+// Jet fill on a packed height grid (ocean h < 1 stays A=0). Isolines stay CPU.
+bool try_jet_fill_thrust(const float* heights, int cols, int rows, float zmin,
+                         float zmax, uint8_t* rgba);
+
 // True when this binary linked thrust_gis.cu (CUDA Toolkit present at compile).
 bool thrust_gis_cuda_built();
 

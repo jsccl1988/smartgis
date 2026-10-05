@@ -5,15 +5,15 @@ All rights reserved.
 
 # `src/ui/views` — Views toolkit (endgame)
 
-**Diagram:** [`docs/superpowers/diagrams/ui-views-shell-architecture.html`](../../../docs/superpowers/diagrams/ui-views-shell-architecture.html)（toolkit / gfx / compositor 角色）
+**Diagram:** [`docs/superpowers/diagrams/ui-views-shell-architecture.html`](../../../docs/superpowers/diagrams/ui-views-shell-architecture.html) · [`docs/superpowers/diagrams/map-viewport-paint.html`](../../../docs/superpowers/diagrams/map-viewport-paint.html)
 
-**Views** (widget / layout / events / controls) for in-process C++ shell. Public namespace: `ui::views`. Includes use `"ui/views/<area>/<group>/..."` under the responsibility groups below. `map/` nests `viewport|input|chrome|device`.
+**Views** (widget / layout / events / controls) for in-process C++ shell. Public namespace: `ui::views`. Includes use `"ui/views/<area>/<group>/..."` under the responsibility groups below. `map/` nests `viewport|input|frame|device`.
 
 This directory is the **public toolkit**. Product composition is **`src/app/views`** (`out/SmartGIS.exe`, destination entry). The app hosts a `Widget` / `Splitter` and places toolkit widgets; it does not paint catalog / ambox / chart / layer panels by hand. Leftover MFC `SmartGis.exe` stays until parity. MFC migration: [`docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md).
 
 ## Physical layout (responsibility partitions)
 
-Headers and sources live together under responsibility groups. Callers include the grouped path (or the umbrella `views.h`). Namespace stays `ui::views`. Exception: `map/map_viewport.h` and `map/touch_multitouch.h` remain as **thin public forwards** to `map/viewport/` and `map/input/` so existing `#include "ui/views/map/…"` paths keep working.
+Headers and sources live together under responsibility groups. Callers include the grouped path (or the umbrella `views.h`). Namespace stays `ui::views`.
 
 ### GN layer boundaries (first cut, 2026-09-28)
 
@@ -57,6 +57,7 @@ src/ui/views/
   primitives/input/           Combobox, Slider
   primitives/collection/      TabStrip, TableView, TreeView, ScrollView
   primitives/menu/            MenuBar, ContextMenu
+  primitives/detail/          shared paint / click / markup CSV helpers (not public API)
   primitives/register_markup_controls.*  markup tag creators for primitives
   dialogs/                    Dialog, MessageBox, FilePicker, InputText, SelectOne (flat)
   markup/style/               CssParser, FlexStyle / StyleSheet
@@ -66,9 +67,7 @@ src/ui/views/
                               control_factory_default (make_default aggregation TU)
   markup/loader/              load_markup / MarkupRoot
   markup/testdata/            preview samples (test-only)
-  map/map_viewport.h          public forward → viewport/map_viewport.h
-  map/touch_multitouch.h      public forward → input/touch_multitouch.h
-  map/viewport/               MapViewport + display/paint/shell/flycube + features
+  map/viewport/               DrawHost + display/present/backbuffer/wnd_proc/shell/gpu_present + paint_policy
   map/input/                  viewport_input, TouchMultitouch
   map/frame/                 identity HUD, embed opaque fill
   map/device/                 legacy CreateRenderDevice load helpers
@@ -103,7 +102,7 @@ Module nest remains `src/ui/views` (one layer under `ui/`). The groups are direc
 | Markup loader | `load_markup`, `MarkupRoot` | `ui/views/markup/loader/` |
 | Dialogs | `Dialog`, `pick_open_file` / `pick_save_file`, `show_message_box`, InputText, SelectOne | `ui/views/dialogs/` |
 | GIS panels + product dialogs | Catalog (+ Create*/AddBasemap), Inspect (+ AttributeSchema), shell/style/analysis/debug | `ui/gis/{…}/` |
-| Map hang | `MapViewport`, `TouchMultitouch` | `ui/views/map/` |
+| Map hang | `DrawHost`, `TouchMultitouch` | `ui/views/map/` |
 
 ### Markup notes
 
@@ -114,12 +113,12 @@ Module nest remains `src/ui/views` (one layer under `ui/`). The groups are direc
 - Preview / editor: `build.bat UiDesigner` → `out/Debug/UiDesigner.exe` (default opens `shell/main_app.ui.xml` SmartGisViews chrome template; open/save/hot-reload, palette, properties, tree, insert/reorder, **Text2UI** Generate… / Ctrl+Shift+G — template by default, `@llm` → Cursor Agent; bottom **Console+Trace** DiagnosticToolsPanel for UI paint profile — View → Toggle Console+Trace; CSD FrameView, Dark/Light theme).
 - Text2UI API: `ui/views/text2ui/` (`generate_text2ui`, template matchers, validate). Host injects `LlmBackend` (UiDesigner: Cursor Agent CLI + `CURSOR_API_KEY`).
 - Main app chrome: `src/ui/resources/shell/main_app.ui.xml` (+ `.ui.css`) — product `ShellLayoutComposer` loads it and mounts Catalog / Map / Ambox / inspector / Diagnostic / Status into `*_host` panels; UiDesigner opens the same file as the default canvas.
-- UI render profile: `BASE_TRACE_EVENT(..., "ui.views")` on Widget paint/commit/present + ShellCompositor raster; RenderTrace **UI** filter; Diagnostic Tools tab **Trace**.
+- UI render profile: `BASE_TRACE_EVENT(..., "ui.views")` on Widget paint/commit/present + ShellCompositor raster; RenderTrace **UI** filter; Diagnostic Tools tab **Trace**. Equal-profile harness: [`.cursor/skills/harness-auto-ui-opt/SKILL.md`](../../../.cursor/skills/harness-auto-ui-opt/SKILL.md) (`run_ui_profile_matrix.py` + `ui-showcase-*-perf.json`).
 
 Map pixels stay on `src/map` / `src/feature` + `src/render`. Architecture: [`docs/superpowers/ui-views-skia.md`](../../../docs/superpowers/ui-views-skia.md). Control split: [`docs/superpowers/specs/2026-09-13-ui-views-controls-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-controls-design.md) (nesting superseded by the 2026-09-19 design).
 
-GN: `//src/ui/views:views` via `//:ui_views` (layered `views_kernel` / `views_control_factory` / `views_primitives` / `views_markup` / … under one DLL). Not in `src_all`. `views_unittests` / `markup_unittests` under `testing/unit/`. L1 `views_interactive_tests` + harness under `testing/harness/` / `testing/interactive/`. L1b `views_bench` under `testing/bench/`. `views_pixel_tests` under `testing/pixel/`. PNG goldens stay in `testing/testdata/`. GUI 分层与门禁：[`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md)。
+GN: `//src/ui/views:views` via `//:ui_views` (layered `views_kernel` / `views_control_factory` / `views_primitives` / `views_markup` / … under one DLL). Not in `src_all`. `views_unittests` / `markup_unittests` under `testing/unit/`. L1 `views_interactive_tests` + harness under `testing/harness/` / `testing/interactive/` (primitives + LayerTree / StatusBar / AttributeTable). L1b `views_bench` under `testing/bench/` (control/GIS panel paint + compositor). `views_unittests` includes `gis_panels_unittests.cc` (Chart / playback / history / Diagnostic Tools). `views_pixel_tests` under `testing/pixel/`. PNG goldens stay in `testing/testdata/`. GUI 分层与门禁：[`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md)。
 
 ---
 
-**最后更新：** 2026-09-30
+**最后更新：** 2026-10-05

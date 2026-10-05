@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-04 — Nest `gis/style/{document,eval,symbol}`（根上留 leftover-stable `paint_resolve.h`；无转发头）。Prior same day — Hoist `gis/carto/{style,tile}` → `gis/style` + `gis/tile`（删空 `carto/`；不拆进 datasource/map；无转发头）。Prior same day — Nest `gis/tile/{protocol,cache,provider,layer}`（撤销同日 flatten；无转发头）。Prior same day — Tighten `src/gis` dirs: drop `layer/` `crs/`; datasource backends `ogr/` `sdbd/` `gdal/` as siblings of `provider/` (no `impl/`); flatten `stat/{detail,eval,value}`; leftover `Style` OGR blob I/O in `legacy/gis/present/carto/smt_style_ogr.*`. Prior same day — Flatten `gis/model/*` → `gis/{feature,map,edit,envelope.h}`；`edit/` 按职责拆 mutation / undo_log / command / memory / map session；leftover catalog `CatalogSource` / `FeatureAdapter`。Prior same day — Task 5: 产品 `gis::Map`；PascalCase Feature → leftover `FeatureAdapter`；`CatalogSource`/`*Info`/`leftover_layer_feature_type` → `legacy/gis/layer/layer.h`。`copy_envelope` 在 `gis/geo/ops/geometry_traits.h`。Prior same day — **§ gis/model product surface vs leftover + OGR Map/Layer/Feature**。Prior same day — CPU MapFrame / World 在 **`src/vista`**（`vista.dll`）。Prior 2026-10-03 — product Style/tile under `gis/{style,tile}`。  
+**Updated:** 2026-10-05 — `testing/data` pack split (`china/` vs `plugin/` vs `fixtures/`; GN still flattens `out/data/`). Prior 2026-10-04 — Nest `gis/style/{document,eval,symbol}`（根上留 leftover-stable `paint_resolve.h`；无转发头）。Prior same day — Hoist `gis/carto/{style,tile}` → `gis/style` + `gis/tile`（删空 `carto/`；不拆进 datasource/map；无转发头）。Prior same day — Nest `gis/tile/{protocol,cache,provider,layer}`（撤销同日 flatten；无转发头）。Prior same day — Tighten `src/gis` dirs: drop `layer/` `crs/`; datasource backends `ogr/` `sdbd/` `gdal/` as siblings of `provider/` (no `impl/`); flatten `stat/{detail,eval,value}`; leftover `Style` OGR blob I/O in `legacy/gis/present/carto/smt_style_ogr.*`. Prior same day — Flatten `gis/model/*` → `gis/{feature,map,edit,envelope.h}`；`edit/` 按职责拆 mutation / undo_log / command / memory / map session；leftover catalog `CatalogSource` / `FeatureAdapter`。Prior same day — Task 5: 产品 `gis::Map`；PascalCase Feature → leftover `FeatureAdapter`；`CatalogSource`/`*Info`/`leftover_layer_feature_type` → `legacy/gis/layer/layer.h`。`copy_envelope` 在 `gis/geo/ops/geometry_traits.h`。Prior same day — **§ gis/model product surface vs leftover + OGR Map/Layer/Feature**。Prior same day — CPU MapFrame / World 在 **`src/vista`**（`vista.dll`）。Prior 2026-10-03 — product Style/tile under `gis/{style,tile}`。  
 **Diagram:** [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)（浅色 SVG：GIS 泳道 + LayerBatch→present 流水线；边界 `gis` ↛ `render/rhi`）· 瓦片子目录 [`../diagrams/gis-carto-tile.html`](../diagrams/gis-carto-tile.html) · vista 子目录收紧图 [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)（RHI umbrella §，非本文件新 spec）· **model 终局** [`../diagrams/gis-model-ogr-layers.html`](../diagrams/gis-model-ogr-layers.html)（产品 `Map`/`Layer`/`Feature` ↔ OGR；leftover ABI 迁出）  
 **Plans:** Session+Provider [`../plans/2026-09-28-datasource-session-provider.md`](../plans/2026-09-28-datasource-session-provider.md)（含 **Task 5** leftover-ABI 迁出核对）· OGR DB [`../plans/2026-09-13-ogr-db-datasource.md`](../plans/2026-09-13-ogr-db-datasource.md) · sdbd [`../plans/2026-09-19-sdbd-wsl-client.md`](../plans/2026-09-19-sdbd-wsl-client.md)
 **Scope:** 图层的打开 / 创建 / 列举 / 编辑 / 查询 / 关闭一律走 GDAL Dataset / Layer（矢量）或 GDAL raster（栅格）。本文件管 `sdb` 数据源与图层，不管桌面 chrome。新树编排入口见文末 **§ DataSession / Provider facade**。
@@ -696,6 +696,23 @@ Style JSON 文档仍在并列的 `gis/style`（`gis::style`；见 **§ gis/style
 ### Non-goals
 
 不改 `gis::style` / `gis::tile` 公共符号；不新增 `gis::carto`；不改 leftover ABI。
+
+---
+
+## § testing/data sample packs（2026-10-05）
+
+`testing/data` is **several packs**, not one dataset. Inventory: [`testing/data/README.md`](../../../testing/data/README.md).
+
+| Tree | Role |
+| --- | --- |
+| `testing/data/china/` | Aligned product China pack (NE 10m + Mapzen DEM, EPSG:4326). `china_plp.geojson` is schematic fallback only. |
+| `testing/data/plugin/` | Tiny/schematic plugin smokes — **not** `china_dem`. |
+| `testing/data/fixtures/` | OGR / MVT / city 3D Tiles unit fixtures. |
+| `testing/data/rs/terrain/` | Leftover AM heightmap. |
+
+GN `//testing/data:china_map_samples` still **flattens** filenames into `out/data/` so `sample_map_relative_paths()` / `find_sample_dem_path()` keep `../data/china_city.gpkg` and `../data/china_dem.tif`. Repo fallbacks use `testing/data/china/…`.
+
+Do **not** mix plugin rasters into the china seed path.
 
 ---
 

@@ -12,7 +12,7 @@
 #include "scenic/render/rhi2d/impl/common/paint/carto/style/style_pod.h"
 #include "scenic/scene3d/primitive/feature/map_label_batch.h"
 #include "scenic/scene3d/scene/scene_to_world.h"
-#include "vista/component/world/dem_seed.h"
+#include "vista/component/world/terrain/seed.h"
 #include "scenic/scene3d/primitive/surface/terrain.h"
 #include "scenic/scene3d/primitive/surface/pointcloud.h"
 #include "scenic/scene3d/primitive/feature/geo_object.h"

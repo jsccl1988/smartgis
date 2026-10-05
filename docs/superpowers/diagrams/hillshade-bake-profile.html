@@ -45,6 +45,7 @@ All rights reserved.
     <p>冷路径烘焙与逐帧 <code>hillshade_ms</code> 分开记账。跨度走 <code>base::trace::process_trace</code>（<code>cat=bake</code>），不是 <code>startup_profile</code>。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§DEM / hillshade bake profile</a>
+      · 核并行：<a href="./terrain-data-parallel.html">terrain-data-parallel</a>
       · 计划：<a href="../plans/2026-09-30-map2d-hillshade-line-casing.md">map2d hillshade + line casing</a>
       · 帧时钟：<a href="./map2d-present-frame.html">map2d-present-frame</a>
     </div>

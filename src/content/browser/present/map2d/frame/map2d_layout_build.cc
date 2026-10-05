@@ -8,32 +8,32 @@
 #include "content/browser/present/map2d/frame/map2d_batches.h"
 #include "content/browser/present/map2d/frame/map2d_carto.h"
 #include "content/browser/present/map2d/frame/map2d_tile_math.h"
-#include "content/browser/present/map2d/map2d_phase_profile.h"
 
-#include <atomic>
 #include <chrono>
-#include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <iterator>
-#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "base/execution/executor/pool/global_executor.h"
-#include "base/execution/futures/combinators/async.h"
-#include "base/memory/arena.h"
-#include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
+#include "base/trace/event/process_trace.h"
 #include "gis/style/document/style_document.h"
+#include "vista/component/map/detail/hillshade_bake.h"
 #include "vista/component/map/ir.h"
 #include "vista/pass/map/pass.h"
-#include "vista/component/map/detail/hillshade_bake.h"
 #include "vista/terrain/dem/dem_raster.h"
 
 namespace content {
 namespace detail {
+namespace {
+
+bool env_flag_one(const char* key) {
+  const char* e = std::getenv(key);
+  return e && e[0] == '1' && e[1] == '\0';
+}
+
+}  // namespace
 
 bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
   if (!out || !in.scene || !in.frame || in.cam.width_px == 0 ||
@@ -42,15 +42,6 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
   }
   *out = Map2dLayoutOutput{};
   BASE_TRACE_EVENT("layout", "map2d.layout");
-
-  if (in.scratch) {
-    if (base::MemoryResource* scratch = in.scratch->memory_resource.get()) {
-      scratch->clear(1 << 20);
-    }
-  }
-  if (base::MemoryResource* tls = base::tls_memory_resource()) {
-    tls->clear(base::Arena::kInitialSize);
-  }
 
   bool use_carto = true;
   const gis::style::StyleDocument* style =
@@ -62,27 +53,27 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
                     in.cam.min_y, in.cam.max_x, in.cam.max_y};
   layout_in.style = style;
   layout_in.zoom = zoom_from_scale(in.frame->scale());
-  layout_in.metrics = nullptr;
+  vista::WindowsGlyphRasterizer windows_rasterizer;
+  layout_in.metrics = &windows_rasterizer;
   layout_in.tiles = {};
   layout_in.layout_gen = in.layout_gen;
   layout_in.live_layout_gen = in.live_layout_gen;
+  layout_in.retained_slices = in.retained_slices;
 
-  const bool reuse_world = in.action == Map2dFrameCache::PresentAction::kSettleRebuild &&
-                           in.prev_published != nullptr;
-  layout_in.reuse_world_items = reuse_world;
-
-  const char* no_hs = base::switch_cstr("map2d-no-hillshade");
-  const char* force_hs = base::switch_cstr("map2d-force-hillshade");
+  // Soft-gate: MAP2D_NO_HILLSHADE=1 skips bake.
+  // Product cold start (defer_china_seed) still finds china_dem.tif on disk
+  // via find_sample_dem_path even with a demo-only document — skip until the
+  // scene has China extent. Force with MAP2D_FORCE_HILLSHADE=1.
   const bool force_hillshade =
-      force_hs && force_hs[0] == '1' && force_hs[1] == '\0';
+      base::switch_is_one("map2d-force-hillshade") ||
+      env_flag_one("MAP2D_FORCE_HILLSHADE");
   const bool skip_hillshade =
-      !force_hillshade &&
-      ((reuse_world && in.hillshade_ready) ||
-       (no_hs && no_hs[0] == '1' && no_hs[1] == '\0') ||
-       (in.scene && !in.scene->has_china_extent()));
+      base::switch_is_one("map2d-no-hillshade") ||
+      env_flag_one("MAP2D_NO_HILLSHADE") ||
+      (!force_hillshade && in.scene && !in.scene->has_china_extent());
 
   if (!skip_hillshade && in.hillshade_ready &&
-      in.hillshade_slot.texture_key != 0 && layout_in.hillshade_tiles.empty()) {
+      in.hillshade_slot.texture_key != 0) {
     layout_in.hillshade_tiles.push_back(in.hillshade_slot);
   }
   if (!skip_hillshade && layout_in.hillshade_tiles.empty()) {
@@ -93,23 +84,40 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
         std::fprintf(stderr, "map2d: hillshade skip - china_dem not found\n");
       } else {
         const auto hs_t0 = std::chrono::steady_clock::now();
-        vista::HillshadeBake baked = vista::bake_hillshade_slot(
-            dem_path, layout_in.zoom, *hs, kMap2dHillshadeTextureKey);
+        vista::HillshadeBake baked;
+        {
+          BASE_TRACE_EVENT("HillshadeBake", "startup");
+          baked = vista::bake_hillshade_slot(dem_path, layout_in.zoom, *hs,
+                                            kMap2dHillshadeTextureKey);
+        }
         if (baked.ok && baked.width > 0 && baked.height > 0 &&
             !baked.rgba.empty()) {
-          layout_in.hillshade_tiles.push_back(baked.slot);
+          // First china layout: bake/cache DEM shade but do not emit the
+          // raster DrawItem. force-GDI blit_rgba_quad (kMultiply at full
+          // viewport) dominated cold ShowWindow (~4s+ Debug). Next rebuild
+          // after show invalidate attaches shade. MAP2D_FORCE_HILLSHADE=1
+          // keeps shade on frame 0 for harnesses that require it.
+          const bool attach_tile =
+              force_hillshade || in.layout_build_count > 0;
+          if (attach_tile) {
+            layout_in.hillshade_tiles.push_back(baked.slot);
+          }
           out->baked_w = baked.width;
           out->baked_h = baked.height;
           out->hillshade_slot = baked.slot;
-          out->baked_rgba = std::make_shared<const std::vector<uint8_t>>(
-              std::move(baked.rgba));
+          out->baked_rgba = std::move(baked.rgba);
           std::fprintf(stderr,
                        "map2d: hillshade baked %dx%d from %s tiles=%zu "
-                       "opacity=%.2f key=0x%08x\n",
+                       "opacity=%.2f key=0x%08x defer_first=%d\n",
                        out->baked_w, out->baked_h, dem_path.c_str(),
                        layout_in.hillshade_tiles.size(),
-                       layout_in.hillshade_tiles.back().opacity,
-                       layout_in.hillshade_tiles.back().texture_key);
+                       layout_in.hillshade_tiles.empty()
+                           ? 0.f
+                           : layout_in.hillshade_tiles.back().opacity,
+                       layout_in.hillshade_tiles.empty()
+                           ? 0u
+                           : layout_in.hillshade_tiles.back().texture_key,
+                       attach_tile ? 0 : 1);
         }
         out->hillshade_ms =
             std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -129,148 +137,18 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
     BASE_TRACE_EVENT("batches", "map2d.layout");
     batches = visible_layer_batches(in.scene->layers(), use_carto, map_scale);
   }
-  vista::MapIR built;
-  if (reuse_world) {
-    built.background_rgba = in.prev_published->background_rgba;
-    built.background_opacity = in.prev_published->background_opacity;
-    built.items.reserve(in.prev_published->items.size() + 16);
-    for (const vista::DrawItem& item : in.prev_published->items) {
-      if (item.kind != vista::DrawKind::kIcon &&
-          item.kind != vista::DrawKind::kText) {
-        built.items.push_back(item);
-      }
-    }
-  }
   {
     BASE_TRACE_EVENT("build", "map2d.layout");
-    if (base::MemoryResource* tls = base::tls_memory_resource()) {
-      tls->clear(base::Arena::kInitialSize);
-    }
-    vista::MapIR overlays = layout.build(layout_in, batches.batches);
+    vista::MapIR built = layout.build(layout_in, batches.batches);
     if (in.live_layout_gen &&
         in.live_layout_gen->load(std::memory_order_acquire) != in.layout_gen) {
       return true;
     }
-    if (reuse_world) {
-      built.items.insert(built.items.end(),
-                         std::make_move_iterator(overlays.items.begin()),
-                         std::make_move_iterator(overlays.items.end()));
-    } else {
-      built = std::move(overlays);
-    }
+    out->frame = std::move(built);
   }
-  out->frame = std::move(built);
   out->ok = true;
   return true;
 }
 
 }  // namespace detail
-
-bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
-                                     const ContentFingerprint& fp,
-                                     PresentAction action,
-                                     uint64_t expected_gen) {
-  if (!scene_ || !frame_ || cam.width_px == 0 || cam.height_px == 0) {
-    return false;
-  }
-
-  const auto layout_wall_t0 = std::chrono::steady_clock::now();
-  detail::Map2dLayoutParams params;
-  {
-    std::lock_guard<std::mutex> lock(mu_);
-    params.prev_published = published_;
-    params.hillshade_ready = hillshade_ready_.load(std::memory_order_relaxed);
-    params.hillshade_slot = hillshade_slot_;
-  }
-  params.scene = scene_;
-  params.frame = frame_;
-  params.cam = cam;
-  params.action = action;
-  params.scratch = &layout_scratch_;
-  params.layout_gen = expected_gen;
-  params.live_layout_gen = mailbox_.live_layout_gen();
-
-  detail::Map2dLayoutOutput built;
-  if (!detail::build_map2d_layout(params, &built) || !built.ok) {
-    std::lock_guard<std::mutex> lock(mu_);
-    if (expected_gen != mailbox_.request_gen()) {
-      return true;
-    }
-    return false;
-  }
-
-  std::lock_guard<std::mutex> lock(mu_);
-  if (expected_gen != mailbox_.request_gen()) {
-    return true;
-  }
-  if (built.baked_rgba && built.baked_w > 0 && built.baked_h > 0) {
-    hillshade_rgba_ = built.baked_rgba;
-    hillshade_w_ = built.baked_w;
-    hillshade_h_ = built.baked_h;
-    hillshade_slot_ = built.hillshade_slot;
-    hillshade_ready_.store(true, std::memory_order_relaxed);
-  }
-  publish_unlocked(std::move(built.frame), cam, fp);
-  has_pending_gpu_action_ = true;
-  pending_gpu_action_ = action;
-  if (action != PresentAction::kInteractiveReuse) {
-    last_present_was_interactive_ = false;
-  }
-  mailbox_.cv_.notify_all();
-  const int64_t wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                              std::chrono::steady_clock::now() - layout_wall_t0)
-                              .count();
-  const int64_t layout_ms = wall_ms > built.hillshade_ms
-                                ? (wall_ms - built.hillshade_ms)
-                                : wall_ms;
-  note_map2d_phase_layout(layout_ms, built.hillshade_ms);
-  return true;
-}
-
-void Map2dFrameCache::prefetch_hillshade() {
-  double zoom = 0;
-  {
-    std::lock_guard<std::mutex> lock(mu_);
-    if (!scene_ || !frame_ || !scene_->has_china_extent()) {
-      return;
-    }
-    zoom = detail::zoom_from_scale(frame_->scale());
-  }
-  const char* no_hs = base::switch_cstr("map2d-no-hillshade");
-  const char* force_hs = base::switch_cstr("map2d-force-hillshade");
-  const bool force_hillshade =
-      force_hs && force_hs[0] == '1' && force_hs[1] == '\0';
-  if (!force_hillshade && no_hs && no_hs[0] == '1' && no_hs[1] == '\0') {
-    return;
-  }
-  const gis::style::StyleDocument* style = detail::default_carto_style();
-  const gis::style::StyleLayer* hs = detail::find_hillshade_layer(style, zoom);
-  if (!hs) {
-    return;
-  }
-  const std::string dem_path = vista::find_sample_dem_path();
-  if (dem_path.empty()) {
-    return;
-  }
-  const uint32_t tex = detail::kMap2dHillshadeTextureKey;
-  base::execution::GlobalNThreadPoolExecutor executor;
-  base::execution::async(executor, [this, dem_path, zoom, hs, tex]() {
-    BASE_TRACE_EVENT("HillshadePrefetch", "startup");
-    vista::HillshadeBake baked =
-        vista::bake_hillshade_slot(dem_path, zoom, *hs, tex);
-    if (!baked.ok || baked.rgba.empty() || baked.width <= 0 ||
-        baked.height <= 0) {
-      return;
-    }
-    auto pixels = std::make_shared<const std::vector<uint8_t>>(
-        std::move(baked.rgba));
-    std::lock_guard<std::mutex> lock(mu_);
-    hillshade_w_ = baked.width;
-    hillshade_h_ = baked.height;
-    hillshade_rgba_ = std::move(pixels);
-    hillshade_slot_ = baked.slot;
-    hillshade_ready_.store(true, std::memory_order_relaxed);
-  });
-}
-
 }  // namespace content

@@ -10,6 +10,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
+#include "ui/views/primitives/detail/control_paint.h"
 
 namespace ui {
 namespace views {
@@ -160,10 +161,7 @@ Combobox::~Combobox() {
 }
 
 float Combobox::scale_factor() const {
-  if (widget()) {
-    return widget()->device_scale_factor();
-  }
-  return 1.f;
+  return detail::device_scale_for(this);
 }
 
 int Combobox::header_height() const {
@@ -422,12 +420,12 @@ void Combobox::paint_self(ui::gfx::Canvas* canvas) {
 
   const std::wstring w = utf8_to_wide(selected_text());
   const Size ink = measure_text_utf8(selected_text(), scale_factor());
-  int text_y = b.y + 4;
-  if (ink.height > 0 && hh > ink.height) {
-    text_y = b.y + (hh - ink.height) / 2;
-  }
-  canvas->draw_text(b.x + 8, text_y, w.c_str(),
-                    is_enabled() ? t.text_bright : t.text_muted);
+  const int text_y = (ink.height > 0 && hh > ink.height)
+                         ? b.y + (hh - ink.height) / 2
+                         : b.y + 4;
+  const Rect text_clip{b.x, b.y, std::max(0, b.width - 22), hh};
+  detail::draw_clipped_text(canvas, text_clip, b.x + 8, text_y, w.c_str(),
+                            is_enabled() ? t.text_bright : t.text_muted);
   canvas->draw_text(b.right() - 18, text_y, open_ ? L"\u25B2" : L"\u25BC",
                     t.text_muted);
   if (is_focused()) {

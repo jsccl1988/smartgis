@@ -19,7 +19,7 @@ All rights reserved.
 
 **对 Scene3d / `src/render` 端到端渲染的每一帧做性能 profile，并 loop 驱动优化直至 equal-profile 预算。**
 
-Sibling of `harness-auto-world3d-opt` (backend **matrix**). This skill owns the **per-frame** profile + fix loop on the product FlyCube path (`--atmosphere-showcase=legacy` locked profile), not the GL/D3D leftover grid.
+Sibling of `harness-auto-world3d-opt` (backend **matrix**). This skill owns the **per-frame** profile + fix loop on the product Vista path (`--atmosphere-showcase=legacy` locked profile), not the GL/D3D leftover grid.
 
 Closed loop: build → locked-profile timed presents → parse hot phase → CBM → root-cause fix → rebuild → re-bench → until done bar / hard stop.
 
@@ -30,7 +30,7 @@ When this skill is invoked, attached (`@harness-auto-scene3d-frame-opt` / `/harn
 ## Hard rules
 
 1. **Equal profile (locked):** `--atmosphere-showcase=legacy` (`kLegacyStereo`, ocean on, sky off), viewport **640×480**. Do **not** strip ocean / hypsometric DEM to fake ms.
-2. **Fair metrics:** leftover HWND wall ≠ product `ms_per_present` work. Compare **phase columns** + `rebuild_count`; product default remains FlyCube/DX12.
+2. **Fair metrics:** leftover HWND wall ≠ product `ms_per_present` work. Compare **phase columns** + `rebuild_count`; product default remains Vista/DX12.
 3. Prefer **`build.bat debug //src/app/views:views`**. Compile lock stays **OFF**. Stay on **`master`**.
 4. CBM first (`user-codebase-memory-mcp`, project `smartgis`) before repo-wide Grep.
 5. Prefer `*.inspect.png` for visual gate (`Read`).

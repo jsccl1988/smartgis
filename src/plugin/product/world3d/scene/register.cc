@@ -11,6 +11,10 @@
 #include "content/public/plugin_host.h"
 #include "plugin/product/world3d/commands.h"
 #include "plugin/product/world3d/detail/contribute.h"
+#include "plugin/product/world3d/scene/present/contour.h"
+#include "plugin/product/world3d/scene/present/pointcloud.h"
+#include "plugin/product/world3d/scene/present/standin.h"
+#include "plugin/product/world3d/scene/present/style.h"
 #include "vista/assets/pointcloud/pdal_io.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "tool/command/command.h"
@@ -26,11 +30,43 @@ namespace {
 
 constexpr const char* kPluginId = "smartgis.world3d";
 
-World3dSceneWriter g_scene_writer;
+content::PluginHost* g_host = nullptr;
 
-void set_world3d_scene_writer_store(World3dSceneWriter writer) {
-  g_scene_writer = std::move(writer);
+content::PluginHost::Scene3dSink* scene_sink(content::PluginHost* host) {
+  return host ? host->scene3d_sink() : nullptr;
 }
+
+bool earth_sink_ready(content::PluginHost* host) {
+  content::PluginHost::Scene3dSink* sink = scene_sink(host);
+  return sink && sink->earth_bridges_installed();
+}
+
+bool process_add_pointcloud(content::PluginHost* host,
+                            std::string_view args_json);
+bool process_add_sphere(content::PluginHost* host, std::string_view args_json);
+bool process_add_water(content::PluginHost* host, std::string_view args_json);
+bool process_add_terrain_heightmap(content::PluginHost* host,
+                                   std::string_view args_json);
+bool process_add_terrain_trimesh(content::PluginHost* host,
+                                 std::string_view args_json);
+bool process_create_trimesh(content::PluginHost* host,
+                            std::string_view args_json);
+bool process_layer_points_to_3d(content::PluginHost* host,
+                                std::string_view args_json);
+bool process_layer_lines_to_3d(content::PluginHost* host,
+                               std::string_view args_json);
+bool process_layer_polygons_to_3d(content::PluginHost* host,
+                                  std::string_view args_json);
+bool process_open_earth(content::PluginHost* host, std::string_view args_json);
+bool process_fly_to(content::PluginHost* host, std::string_view args_json);
+bool process_attach_city_tileset(content::PluginHost* host,
+                                 std::string_view args_json);
+bool process_load_global_dem(content::PluginHost* host,
+                             std::string_view args_json);
+bool process_set_satellite_cloud(content::PluginHost* host,
+                                 std::string_view args_json);
+bool process_set_atmosphere(content::PluginHost* host,
+                            std::string_view args_json);
 
 bool fail_no_scene(const char* command) {
   set_operation_result(std::string("{\"error\":\"no_scene_device\",\"command\":\"") +
@@ -45,6 +81,53 @@ bool fail_no_scene_processing(const char* command) {
   set_operation_result(std::string("{\"error\":\"no_scene_device\",\"command\":\"") +
                        command + "\"}");
   return false;
+}
+
+bool present_standin(content::PluginHost* host, const char* name, double lon,
+                     double lat, double half_deg, const char* op) {
+  if (!host || !host->gis_document()) {
+    return fail_no_scene_processing(op);
+  }
+  if (!present_world3d_standin_mesh(host->gis_document(), scene_sink(host),
+                                    name, lon, lat, half_deg)) {
+    set_operation_result(std::string("{\"error\":\"add_failed\",\"op\":\"") +
+                         op + "\"}");
+    return false;
+  }
+  (void)apply_world3d_mesh_style(host->gis_document());
+  (void)host->present_dataset(kPluginId, "", 1);
+  set_operation_result(std::string("{\"ok\":true,\"op\":\"") + op + "\"}");
+  return true;
+}
+
+bool present_active_layer(content::PluginHost* host, const char* op) {
+  if (!host || !host->gis_document()) {
+    return fail_no_scene_processing(op);
+  }
+  if (host->gis_document()->feature_count() == 0) {
+    set_operation_result(std::string("{\"error\":\"add_failed\",\"op\":\"") +
+                         op + "\"}");
+    return false;
+  }
+  (void)host->present_dataset(kPluginId, "", 1);
+  set_operation_result(std::string("{\"ok\":true,\"op\":\"") + op + "\"}");
+  return true;
+}
+
+bool commit_pointcloud(content::PluginHost* host, const float* xyz,
+                       int point_count, const uint8_t* rgba, const char* op) {
+  if (!host || !host->gis_document()) {
+    return fail_no_scene_processing(op);
+  }
+  if (!present_world3d_pointcloud_xyz(host->gis_document(), xyz, point_count,
+                                      rgba)) {
+    set_operation_result(std::string("{\"error\":\"add_failed\",\"op\":\"") +
+                         op + "\"}");
+    return false;
+  }
+  (void)apply_world3d_mesh_style(host->gis_document());
+  (void)host->present_dataset(kPluginId, "", 1);
+  return true;
 }
 
 bool parse_scene_args(std::string_view json, rapidjson::Document* out) {
@@ -98,72 +181,48 @@ bool handle_add_pointcloud(const tool::CommandArgs&) {
   if (!pick.accepted || pick.path.empty()) {
     return false;
   }
-  if (!g_scene_writer.add_pointcloud) {
-    return fail_no_scene("model3d.add_pointcloud");
-  }
-  return g_scene_writer.add_pointcloud(pick.path);
+  rapidjson::StringBuffer buf;
+  rapidjson::Writer<rapidjson::StringBuffer> w(buf);
+  w.StartObject();
+  w.Key("path");
+  w.String(pick.path.c_str());
+  w.EndObject();
+  return process_add_pointcloud(g_host, buf.GetString());
 }
 
 bool handle_add_sphere(const tool::CommandArgs&) {
-  if (!g_scene_writer.add_sphere) {
+  if (!g_host || !g_host->gis_document()) {
     return fail_no_scene("model3d.add_sphere");
   }
-  return g_scene_writer.add_sphere();
+  return process_add_sphere(g_host, {});
 }
 
 bool handle_add_water(const tool::CommandArgs&) {
-  if (!g_scene_writer.add_water) {
+  if (!g_host || !g_host->gis_document()) {
     return fail_no_scene("model3d.add_water");
   }
-  return g_scene_writer.add_water();
+  return process_add_water(g_host, {});
 }
 
 bool handle_open_earth(const tool::CommandArgs&) {
-  if (!g_scene_writer.open_earth) {
+  if (!earth_sink_ready(g_host)) {
     return fail_no_scene("world3d.open_earth");
   }
-  return g_scene_writer.open_earth();
+  return process_open_earth(g_host, {});
 }
 
 bool handle_fly_to(const tool::CommandArgs& args) {
-  if (!g_scene_writer.fly_to) {
+  if (!earth_sink_ready(g_host)) {
     return fail_no_scene("world3d.fly_to");
   }
-  rapidjson::Document doc;
-  if (!parse_scene_args(args.payload, &doc)) {
-    set_operation_result("{\"error\":\"bad_args\",\"command\":\"world3d.fly_to\"}");
-    return false;
-  }
-  double lon = 0.0;
-  double lat = 0.0;
-  if (!scene_json_get_double(doc, "lon", &lon) ||
-      !scene_json_get_double(doc, "lat", &lat)) {
-    set_operation_result(
-        "{\"error\":\"bad_args\",\"command\":\"world3d.fly_to\","
-        "\"need\":\"lon,lat\"}");
-    return false;
-  }
-  double distance = 1.6;
-  double span_deg = 4.0;
-  (void)scene_json_get_double(doc, "distance", &distance);
-  (void)scene_json_get_double(doc, "span_deg", &span_deg);
-  return g_scene_writer.fly_to(lon, lat, static_cast<float>(distance),
-                               span_deg);
+  return process_fly_to(g_host, args.payload);
 }
 
 bool handle_attach_city_tileset(const tool::CommandArgs& args) {
-  if (!g_scene_writer.attach_tileset) {
+  if (!scene_sink(g_host)) {
     return fail_no_scene("world3d.attach_city_tileset");
   }
-  rapidjson::Document doc;
-  if (!parse_scene_args(args.payload, &doc)) {
-    set_operation_result(
-        "{\"error\":\"bad_args\",\"command\":\"world3d.attach_city_tileset\"}");
-    return false;
-  }
-  std::string path;
-  (void)scene_json_get_string(doc, "path", &path);
-  return g_scene_writer.attach_tileset(path);
+  return process_attach_city_tileset(g_host, args.payload);
 }
 
 bool scene_json_get_bool(const rapidjson::Value& obj, const char* key,
@@ -180,103 +239,45 @@ bool scene_json_get_bool(const rapidjson::Value& obj, const char* key,
 }
 
 bool handle_load_global_dem(const tool::CommandArgs& args) {
-  if (!g_scene_writer.load_global_dem) {
+  if (!earth_sink_ready(g_host)) {
     return fail_no_scene("world3d.load_global_dem");
   }
-  rapidjson::Document doc;
-  if (!parse_scene_args(args.payload, &doc)) {
-    set_operation_result(
-        "{\"error\":\"bad_args\",\"command\":\"world3d.load_global_dem\"}");
-    return false;
-  }
-  std::string path;
-  (void)scene_json_get_string(doc, "path", &path);
-  std::string result;
-  if (!g_scene_writer.load_global_dem(path, &result)) {
-    if (result.empty()) {
-      set_operation_result(
-          "{\"error\":\"load_failed\",\"command\":\"world3d.load_global_dem\"}");
-    } else {
-      set_operation_result(result);
-    }
-    return false;
-  }
-  if (!result.empty()) {
-    set_operation_result(result);
-  }
-  return true;
+  return process_load_global_dem(g_host, args.payload);
 }
 
 bool handle_set_satellite_cloud(const tool::CommandArgs& args) {
-  if (!g_scene_writer.set_satellite_cloud) {
+  if (!earth_sink_ready(g_host)) {
     return fail_no_scene("world3d.set_satellite_cloud");
   }
-  rapidjson::Document doc;
-  if (!parse_scene_args(args.payload, &doc)) {
-    set_operation_result(
-        "{\"error\":\"bad_args\",\"command\":\"world3d.set_satellite_cloud\"}");
-    return false;
-  }
-  std::string path;
-  (void)scene_json_get_string(doc, "path", &path);
-  bool enabled = true;
-  (void)scene_json_get_bool(doc, "enabled", &enabled);
-  std::string result;
-  if (!g_scene_writer.set_satellite_cloud(path, enabled, &result)) {
-    if (result.empty()) {
-      set_operation_result(
-          "{\"error\":\"cloud_failed\",\"command\":\"world3d.set_satellite_cloud\"}");
-    } else {
-      set_operation_result(result);
-    }
-    return false;
-  }
-  if (!result.empty()) {
-    set_operation_result(result);
-  }
-  return true;
+  return process_set_satellite_cloud(g_host, args.payload);
 }
 
 bool handle_set_atmosphere(const tool::CommandArgs& args) {
-  if (!g_scene_writer.set_atmosphere) {
+  if (!earth_sink_ready(g_host)) {
     return fail_no_scene("world3d.set_atmosphere");
   }
-  rapidjson::Document doc;
-  if (!parse_scene_args(args.payload, &doc)) {
-    set_operation_result(
-        "{\"error\":\"bad_args\",\"command\":\"world3d.set_atmosphere\"}");
-    return false;
-  }
-  bool sky = true;
-  bool ocean = true;
-  bool cloud = true;
-  bool fog = true;
-  (void)scene_json_get_bool(doc, "sky", &sky);
-  (void)scene_json_get_bool(doc, "ocean", &ocean);
-  (void)scene_json_get_bool(doc, "cloud", &cloud);
-  (void)scene_json_get_bool(doc, "fog", &fog);
-  return g_scene_writer.set_atmosphere(sky, ocean, cloud, fog);
+  return process_set_atmosphere(g_host, args.payload);
 }
 
 bool handle_add_terrain_heightmap(const tool::CommandArgs&) {
-  if (!g_scene_writer.add_terrain_heightmap) {
+  if (!g_host || !g_host->gis_document()) {
     return fail_no_scene("model3d.add_terrain_heightmap");
   }
-  return g_scene_writer.add_terrain_heightmap();
+  return process_add_terrain_heightmap(g_host, {});
 }
 
 bool handle_add_terrain_trimesh(const tool::CommandArgs&) {
-  if (!g_scene_writer.add_terrain_trimesh) {
+  if (!g_host || !g_host->gis_document()) {
     return fail_no_scene("model3d.add_terrain_trimesh");
   }
-  return g_scene_writer.add_terrain_trimesh();
+  return process_add_terrain_trimesh(g_host, {});
 }
 
 bool handle_create_trimesh(const tool::CommandArgs&) {
-  if (!g_scene_writer.create_trimesh_from_active_layer) {
+  if (!g_host || !g_host->gis_document()) {
     return fail_no_scene("model3d.create_trimesh");
   }
-  if (g_scene_writer.create_trimesh_from_active_layer()) {
+  if (process_create_trimesh(g_host, {})) {
     ui::views::show_message_box(ui::views::MessageBoxKind::kInfo,
                                 "Trimesh created successfully.");
     return true;
@@ -285,10 +286,10 @@ bool handle_create_trimesh(const tool::CommandArgs&) {
 }
 
 bool handle_layer_points_to_3d(const tool::CommandArgs&) {
-  if (!g_scene_writer.layer_points_to_3d) {
+  if (!g_host || !g_host->gis_document()) {
     return fail_no_scene("model3d.layer_points_to_3d");
   }
-  if (g_scene_writer.layer_points_to_3d()) {
+  if (process_layer_points_to_3d(g_host, {})) {
     return true;
   }
   ui::views::show_message_box(ui::views::MessageBoxKind::kInfo,
@@ -297,10 +298,10 @@ bool handle_layer_points_to_3d(const tool::CommandArgs&) {
 }
 
 bool handle_layer_lines_to_3d(const tool::CommandArgs&) {
-  if (!g_scene_writer.layer_lines_to_3d) {
+  if (!g_host || !g_host->gis_document()) {
     return fail_no_scene("model3d.layer_lines_to_3d");
   }
-  if (g_scene_writer.layer_lines_to_3d()) {
+  if (process_layer_lines_to_3d(g_host, {})) {
     return true;
   }
   ui::views::show_message_box(ui::views::MessageBoxKind::kInfo,
@@ -309,10 +310,10 @@ bool handle_layer_lines_to_3d(const tool::CommandArgs&) {
 }
 
 bool handle_layer_polygons_to_3d(const tool::CommandArgs&) {
-  if (!g_scene_writer.layer_polygons_to_3d) {
+  if (!g_host || !g_host->gis_document()) {
     return fail_no_scene("model3d.layer_polygons_to_3d");
   }
-  if (g_scene_writer.layer_polygons_to_3d()) {
+  if (process_layer_polygons_to_3d(g_host, {})) {
     return true;
   }
   ui::views::show_message_box(ui::views::MessageBoxKind::kInfo,
@@ -320,7 +321,8 @@ bool handle_layer_polygons_to_3d(const tool::CommandArgs&) {
   return false;
 }
 
-bool process_add_pointcloud(content::PluginHost*, std::string_view args_json) {
+bool process_add_pointcloud(content::PluginHost* host,
+                            std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_scene_args(args_json, &args)) {
     set_operation_result(
@@ -333,35 +335,26 @@ bool process_add_pointcloud(content::PluginHost*, std::string_view args_json) {
         "{\"error\":\"bad_args\",\"op\":\"model3d.add_pointcloud\"}");
     return false;
   }
-  if (!g_scene_writer.add_pointcloud) {
+  if (!host || !host->gis_document()) {
     return fail_no_scene_processing("model3d.add_pointcloud");
   }
-  if (!g_scene_writer.add_pointcloud(path)) {
+  if (!present_world3d_pointcloud(host->gis_document(), path)) {
     set_operation_result(
         "{\"error\":\"add_failed\",\"op\":\"model3d.add_pointcloud\"}");
     return false;
   }
+  (void)apply_world3d_mesh_style(host->gis_document());
+  (void)host->present_dataset(kPluginId, "", 1);
   set_operation_result("{\"ok\":true,\"op\":\"model3d.add_pointcloud\"}");
   return true;
 }
 
-bool attach_pointcloud_result(const vista::PointCloud& cloud, const char* op) {
-  if (g_scene_writer.add_pointcloud_xyz) {
-    const uint8_t* rgba = cloud.has_color() ? cloud.rgba.data() : nullptr;
-    if (!g_scene_writer.add_pointcloud_xyz(
-            cloud.xyz.data(), static_cast<int>(cloud.point_count()), rgba)) {
-      set_operation_result(std::string("{\"error\":\"add_failed\",\"op\":\"") +
-                           op + "\"}");
-      return false;
-    }
-  } else if (g_scene_writer.add_pointcloud && !cloud.source_path.empty()) {
-    if (!g_scene_writer.add_pointcloud(cloud.source_path)) {
-      set_operation_result(std::string("{\"error\":\"add_failed\",\"op\":\"") +
-                           op + "\"}");
-      return false;
-    }
-  } else if (!g_scene_writer.add_pointcloud_xyz && !g_scene_writer.add_pointcloud) {
-    return fail_no_scene_processing(op);
+bool attach_pointcloud_result(content::PluginHost* host,
+                              const vista::PointCloud& cloud, const char* op) {
+  const uint8_t* rgba = cloud.has_color() ? cloud.rgba.data() : nullptr;
+  if (!commit_pointcloud(host, cloud.xyz.data(),
+                         static_cast<int>(cloud.point_count()), rgba, op)) {
+    return false;
   }
   rapidjson::StringBuffer buf;
   rapidjson::Writer<rapidjson::StringBuffer> w(buf);
@@ -379,7 +372,7 @@ bool attach_pointcloud_result(const vista::PointCloud& cloud, const char* op) {
   return true;
 }
 
-bool process_pdal_read(content::PluginHost*, std::string_view args_json) {
+bool process_pdal_read(content::PluginHost* host, std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_scene_args(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"world3d.pdal_read\"}");
@@ -428,10 +421,11 @@ bool process_pdal_read(content::PluginHost*, std::string_view args_json) {
     set_operation_result(buf.GetString());
     return true;
   }
-  return attach_pointcloud_result(cloud, "world3d.pdal_read");
+  return attach_pointcloud_result(host, cloud, "world3d.pdal_read");
 }
 
-bool process_pdal_pipeline(content::PluginHost*, std::string_view args_json) {
+bool process_pdal_pipeline(content::PluginHost* host,
+                           std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_scene_args(args_json, &args)) {
     set_operation_result(
@@ -482,84 +476,63 @@ bool process_pdal_pipeline(content::PluginHost*, std::string_view args_json) {
     set_operation_result(buf.GetString());
     return true;
   }
-  return attach_pointcloud_result(cloud, "world3d.pdal_pipeline");
+  return attach_pointcloud_result(host, cloud, "world3d.pdal_pipeline");
 }
 
-bool process_noop_op(content::PluginHost*,
-                     std::string_view /*args_json*/,
-                     const char* op,
-                     const std::function<bool()>& fn) {
-  if (!fn) {
-    return fail_no_scene_processing(op);
-  }
-  if (!fn()) {
-    set_operation_result(std::string("{\"error\":\"add_failed\",\"op\":\"") + op +
-                         "\"}");
-    return false;
-  }
-  set_operation_result(std::string("{\"ok\":true,\"op\":\"") + op + "\"}");
-  return true;
+bool process_add_sphere(content::PluginHost* host, std::string_view) {
+  return present_standin(host, "Sphere", 105.0, 35.0, 0.4,
+                         "model3d.add_sphere");
 }
 
-bool process_add_sphere(content::PluginHost* host, std::string_view args_json) {
-  return process_noop_op(host, args_json, "model3d.add_sphere",
-                         g_scene_writer.add_sphere);
-}
-
-bool process_add_water(content::PluginHost* host, std::string_view args_json) {
-  return process_noop_op(host, args_json, "model3d.add_water",
-                         g_scene_writer.add_water);
+bool process_add_water(content::PluginHost* host, std::string_view) {
+  return present_standin(host, "Water", 110.0, 30.0, 0.6, "model3d.add_water");
 }
 
 bool process_add_terrain_heightmap(content::PluginHost* host,
-                              std::string_view args_json) {
-  return process_noop_op(host, args_json, "model3d.add_terrain_heightmap",
-                         g_scene_writer.add_terrain_heightmap);
+                                   std::string_view) {
+  return present_standin(host, "Terrain heightmap", 100.0, 35.0, 1.0,
+                         "model3d.add_terrain_heightmap");
 }
 
-bool process_add_terrain_trimesh(content::PluginHost* host,
-                             std::string_view args_json) {
-  return process_noop_op(host, args_json, "model3d.add_terrain_trimesh",
-                         g_scene_writer.add_terrain_trimesh);
+bool process_add_terrain_trimesh(content::PluginHost* host, std::string_view) {
+  return present_standin(host, "Terrain trimesh", 102.0, 36.0, 1.0,
+                         "model3d.add_terrain_trimesh");
 }
 
-bool process_create_trimesh(content::PluginHost* host, std::string_view args_json) {
-  return process_noop_op(host, args_json, "model3d.create_trimesh",
-                         g_scene_writer.create_trimesh_from_active_layer);
+bool process_create_trimesh(content::PluginHost* host, std::string_view) {
+  return present_active_layer(host, "model3d.create_trimesh");
 }
 
-bool process_layer_points_to_3d(content::PluginHost* host,
-                                std::string_view args_json) {
-  return process_noop_op(host, args_json, "model3d.layer_points_to_3d",
-                         g_scene_writer.layer_points_to_3d);
+bool process_layer_points_to_3d(content::PluginHost* host, std::string_view) {
+  return present_active_layer(host, "model3d.layer_points_to_3d");
 }
 
-bool process_layer_lines_to_3d(content::PluginHost* host,
-                               std::string_view args_json) {
-  return process_noop_op(host, args_json, "model3d.layer_lines_to_3d",
-                         g_scene_writer.layer_lines_to_3d);
+bool process_layer_lines_to_3d(content::PluginHost* host, std::string_view) {
+  return present_active_layer(host, "model3d.layer_lines_to_3d");
 }
 
-bool process_layer_polygons_to_3d(content::PluginHost* host,
-                                  std::string_view args_json) {
-  return process_noop_op(host, args_json, "model3d.layer_polygons_to_3d",
-                         g_scene_writer.layer_polygons_to_3d);
+bool process_layer_polygons_to_3d(content::PluginHost* host, std::string_view) {
+  return present_active_layer(host, "model3d.layer_polygons_to_3d");
 }
 
-bool process_open_earth(content::PluginHost*, std::string_view /*args_json*/) {
-  if (!g_scene_writer.open_earth) {
+bool process_open_earth(content::PluginHost* host,
+                        std::string_view /*args_json*/) {
+  if (!earth_sink_ready(host)) {
     return fail_no_scene_processing("world3d.open_earth");
   }
-  if (!g_scene_writer.open_earth()) {
+  if (!host->scene3d_sink()->open_earth()) {
     set_operation_result("{\"error\":\"open_failed\",\"op\":\"world3d.open_earth\"}");
     return false;
   }
-  set_operation_result("{\"ok\":true,\"op\":\"world3d.open_earth\"}");
+  // Contour suite is applied inside apply_china_scene3d_product_defaults
+  // (open_earth bridge). Result notes the default face.
+  set_operation_result(
+      "{\"ok\":true,\"op\":\"world3d.open_earth\",\"contour\":\"defaults\"}");
   return true;
 }
 
-bool process_fly_to(content::PluginHost*, std::string_view args_json) {
-  if (!g_scene_writer.fly_to) {
+bool process_fly_to(content::PluginHost* host, std::string_view args_json) {
+  if (!earth_sink_ready(host)) {
     return fail_no_scene_processing("world3d.fly_to");
   }
   rapidjson::Document args;
@@ -579,8 +552,8 @@ bool process_fly_to(content::PluginHost*, std::string_view args_json) {
   double span_deg = 4.0;
   (void)scene_json_get_double(args, "distance", &distance);
   (void)scene_json_get_double(args, "span_deg", &span_deg);
-  if (!g_scene_writer.fly_to(lon, lat, static_cast<float>(distance),
-                             span_deg)) {
+  if (!host->scene3d_sink()->fly_to(lon, lat, static_cast<float>(distance),
+                                    span_deg)) {
     set_operation_result("{\"error\":\"fly_failed\",\"op\":\"world3d.fly_to\"}");
     return false;
   }
@@ -588,9 +561,9 @@ bool process_fly_to(content::PluginHost*, std::string_view args_json) {
   return true;
 }
 
-bool process_attach_city_tileset(content::PluginHost*,
+bool process_attach_city_tileset(content::PluginHost* host,
                                  std::string_view args_json) {
-  if (!g_scene_writer.attach_tileset) {
+  if (!scene_sink(host)) {
     return fail_no_scene_processing("world3d.attach_city_tileset");
   }
   rapidjson::Document args;
@@ -601,7 +574,7 @@ bool process_attach_city_tileset(content::PluginHost*,
   }
   std::string path;
   (void)scene_json_get_string(args, "path", &path);
-  if (!g_scene_writer.attach_tileset(path)) {
+  if (!host->scene3d_sink()->attach_tileset(path)) {
     set_operation_result(
         "{\"error\":\"attach_failed\",\"op\":\"world3d.attach_city_tileset\"}");
     return false;
@@ -610,8 +583,9 @@ bool process_attach_city_tileset(content::PluginHost*,
   return true;
 }
 
-bool process_load_global_dem(content::PluginHost*, std::string_view args_json) {
-  if (!g_scene_writer.load_global_dem) {
+bool process_load_global_dem(content::PluginHost* host,
+                             std::string_view args_json) {
+  if (!earth_sink_ready(host)) {
     return fail_no_scene_processing("world3d.load_global_dem");
   }
   rapidjson::Document args;
@@ -623,7 +597,7 @@ bool process_load_global_dem(content::PluginHost*, std::string_view args_json) {
   std::string path;
   (void)scene_json_get_string(args, "path", &path);
   std::string result;
-  if (!g_scene_writer.load_global_dem(path, &result)) {
+  if (!host->scene3d_sink()->load_global_dem(path, &result)) {
     if (result.empty()) {
       set_operation_result(
           "{\"error\":\"load_failed\",\"op\":\"world3d.load_global_dem\"}");
@@ -640,9 +614,9 @@ bool process_load_global_dem(content::PluginHost*, std::string_view args_json) {
   return true;
 }
 
-bool process_set_satellite_cloud(content::PluginHost*,
+bool process_set_satellite_cloud(content::PluginHost* host,
                                  std::string_view args_json) {
-  if (!g_scene_writer.set_satellite_cloud) {
+  if (!earth_sink_ready(host)) {
     return fail_no_scene_processing("world3d.set_satellite_cloud");
   }
   rapidjson::Document args;
@@ -656,7 +630,7 @@ bool process_set_satellite_cloud(content::PluginHost*,
   bool enabled = true;
   (void)scene_json_get_bool(args, "enabled", &enabled);
   std::string result;
-  if (!g_scene_writer.set_satellite_cloud(path, enabled, &result)) {
+  if (!host->scene3d_sink()->set_satellite_cloud(path, enabled, &result)) {
     if (result.empty()) {
       set_operation_result(
           "{\"error\":\"cloud_failed\",\"op\":\"world3d.set_satellite_cloud\"}");
@@ -674,8 +648,9 @@ bool process_set_satellite_cloud(content::PluginHost*,
   return true;
 }
 
-bool process_set_atmosphere(content::PluginHost*, std::string_view args_json) {
-  if (!g_scene_writer.set_atmosphere) {
+bool process_set_atmosphere(content::PluginHost* host,
+                            std::string_view args_json) {
+  if (!earth_sink_ready(host)) {
     return fail_no_scene_processing("world3d.set_atmosphere");
   }
   rapidjson::Document args;
@@ -692,7 +667,7 @@ bool process_set_atmosphere(content::PluginHost*, std::string_view args_json) {
   (void)scene_json_get_bool(args, "ocean", &ocean);
   (void)scene_json_get_bool(args, "cloud", &cloud);
   (void)scene_json_get_bool(args, "fog", &fog);
-  if (!g_scene_writer.set_atmosphere(sky, ocean, cloud, fog)) {
+  if (!host->scene3d_sink()->set_atmosphere(sky, ocean, cloud, fog)) {
     set_operation_result(
         "{\"error\":\"atmo_failed\",\"op\":\"world3d.set_atmosphere\"}");
     return false;
@@ -703,16 +678,13 @@ bool process_set_atmosphere(content::PluginHost*, std::string_view args_json) {
 
 }  // namespace
 
-void set_world3d_scene_writer(World3dSceneWriter writer) {
-  set_world3d_scene_writer_store(std::move(writer));
-}
-
 namespace detail {
 
 bool register_world3d_scene(content::PluginHost* host) {
   if (!host) {
     return false;
   }
+  g_host = host;
 
   return contribute_command_aliases(
              host,

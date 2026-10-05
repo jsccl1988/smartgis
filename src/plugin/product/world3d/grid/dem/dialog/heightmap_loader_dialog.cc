@@ -77,6 +77,10 @@ HeightmapLoaderDialog::HeightmapLoaderDialog(content::PluginHost* host) : host_(
   set_layout_manager(std::make_unique<ui::views::FillLayout>());
   loaded.root->set_preferred_size({kW, kH});
   add_child(std::move(loaded.root));
+
+  if (host_) {
+    host_->present_dataset("smartgis.world3d", "", 1);
+  }
 }
 
 void HeightmapLoaderDialog::on_pick_heightmap() {

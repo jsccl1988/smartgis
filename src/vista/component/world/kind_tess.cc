@@ -44,11 +44,9 @@ bool tessellate_instance(const Instance& inst, double world_units_per_pixel,
       have = true;
     }
   } else if (inst.kind == vista::NodeKind::kTerrain) {
-    if (!inst.terrain_positions.empty() && !inst.terrain_indices.empty() &&
-        (inst.terrain_positions.size() % 3) == 0 &&
-        (inst.terrain_indices.size() % 3) == 0) {
-      out->positions = inst.terrain_positions;
-      out->indices = inst.terrain_indices;
+    if (inst.terrain.has_mesh()) {
+      out->positions = inst.terrain.positions;
+      out->indices = inst.terrain.indices;
       have = true;
     } else if (inst.geom_3d) {
       have = vista::tessellate_3d_geometry(inst.geom_3d, *out);

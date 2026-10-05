@@ -48,7 +48,7 @@ Do **not** “helpfully” add sleeps or pumps into the timed loop.
 
 | Env | Role |
 | --- | --- |
-| `ATMOSPHERE_SHOWCASE_GPU` | `1` = FlyCube path |
+| `ATMOSPHERE_SHOWCASE_GPU` | `1` = Vista path |
 | `ATMOSPHERE_SHOWCASE_PRESENT_COUNT` | Timed frames (1–600); >3 → pump 0 |
 | `ATMOSPHERE_SHOWCASE_LINGER_MS` | `0` for benches |
 | `SCENE3D_ENGINE` | Override engine (`flycube` / …) when needed |

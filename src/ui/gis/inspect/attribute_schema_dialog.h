@@ -19,7 +19,7 @@ struct AttributeField {
   std::string type;
 };
 
-// Modal field-schema editor that replaces leftover SmtAttStructEditDlg.
+// Modal field-schema editor that replaces leftover AttStructEditDlg.
 // Hosts map AttributeField rows to product attribute types after accept.
 class UI_EXPORT AttributeSchemaDialog {
  public:

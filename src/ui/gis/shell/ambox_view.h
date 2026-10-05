@@ -24,7 +24,7 @@ namespace ui {
 namespace views {
 
 // Outlook-style toolbox: markup scroll shell; dynamic Label + Button groups.
-// Replaces leftover SmtAMBoxMgrDocBar / SmtXAMBox (CBCGPOutlookBar). Does
+// Replaces leftover AMBoxMgrDocBar / XAMBox (CBCGPOutlookBar). Does
 // not wrap CView or any MFC bar. Vertical = classic dock; horizontal = map
 // tool bar (groups packed left-to-right above the viewport).
 // Chips paint vector glyphs + text (Pro/QGIS tool density; no image assets).

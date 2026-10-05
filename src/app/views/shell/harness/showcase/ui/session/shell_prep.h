@@ -13,7 +13,7 @@ namespace detail {
 // Deterministic chrome theme for visual gates (default dark; UI_THEME).
 void apply_ui_harness_theme();
 
-// Kill MapViewport present timers before ExitProcess teardown.
+// Kill DrawHost present timers and drain queued WM_TIMER (no DrawHost detach).
 void stop_ui_map_present(Browser& browser);
 
 // Layout + Invalidate + pump so PrintWindow sees finished chrome.

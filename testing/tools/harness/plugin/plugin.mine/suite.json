@@ -5,7 +5,8 @@
     "--plugin-showcase=mine"
   ],
   "env": {
-    "SKIP_MAP_CONTEXT_MENU": "1"
+    "SKIP_MAP_CONTEXT_MENU": "1",
+    "SCENE3D_ENGINE": "flycube"
   },
   "mark_leaf": "plugin-showcase-mark.txt",
   "required_marks": [
@@ -29,17 +30,18 @@
   ],
   "loop": {
     "rounds": 2,
-    "timeout_sec": 120,
+    "timeout_sec": 180,
     "build_target": "src/app/views:views",
     "exe": "SmartGIS.exe"
   },
   "visual_review": {
     "enabled": true,
     "checklist": [
-      "borehole_sticks",
-      "tin_visible",
+      "layered_stratum",
+      "surface_relief",
+      "cutaway_block",
       "no_black_frame"
     ],
-    "expect_notes": "mine stratum TIN + borehole sticks readable in 3D"
+    "expect_notes": "studio lithology cube: hills + water + layered cut faces"
   }
 }

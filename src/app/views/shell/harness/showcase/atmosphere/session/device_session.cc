@@ -5,23 +5,16 @@
 
 #include "app/views/shell/browser/browser.h"
 #include "app/views/shell/harness/common/present/rhi_present_session.h"
-#include "app/views/shell/harness/showcase/atmosphere/session/host.h"
+#include "app/views/shell/harness/common/pump/pump.h"
 #include "app/views/shell/harness/showcase/atmosphere/common/progress.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 #include <cstdio>
 #include <cstdlib>
 
 namespace app {
 namespace detail {
-namespace {
-
-void atmosphere_mark(const char* step) {
-  atmosphere_showcase_mark(step);
-}
-
-}  // namespace
 
 int prepare_atmosphere_device_session(Browser& browser,
                                       AtmosphereDeviceSession* out) {
@@ -34,23 +27,23 @@ int prepare_atmosphere_device_session(Browser& browser,
   opts.gpu_env = "atmosphere-showcase-gpu";
   opts.gpu_policy = GpuEnvPolicy::kDefaultOffRequireOne;
   opts.gpu_env_fallback = nullptr;
-  opts.require_scene_hwnd = false;
-  opts.detach_flycube = true;
-  opts.warm_swapchain = true;
+  opts.require_scene_hwnd = true;
+  opts.realize_scene_hwnd = true;
+  opts.detach_flycube = false;
+  // Do not call prepare_rhi_present_session borrow: that select_map_tab(1)
+  // AVs on the GDI/lazy ContentMapView path (mark stuck at rhi-borrow).
+  opts.borrow_shell_scene3d = false;
+  opts.warm_swapchain = false;
   opts.present_w = kAtmosphereShowcaseW;
   opts.present_h = kAtmosphereShowcaseH;
-  opts.create_hwnd = create_atmosphere_showcase_hwnd;
-  opts.mark = atmosphere_mark;
-  opts.marks.detached = "detached";
-  opts.marks.device_init_fail = "device-missing";
-  opts.marks.hwnd_missing = "hwnd-missing";
+  opts.create_hwnd = nullptr;
 
   const bool want_gpu = resolve_rhi_want_gpu(opts);
   out->want_gpu = want_gpu;
   // Only warm the swapchain on the GPU path (Null has no backbuffer).
   opts.warm_swapchain = want_gpu;
 
-  ui::views::MapViewport* scene = browser.map_scene_viewport();
+  ui::views::DrawHost* scene = browser.scene_draw_host();
   // GPU path owns a dedicated present HWND; avoid realize_native on the tab
   // child (ContentMapView attach AVs under GDI-forced showcase + DLL churn).
   if (!want_gpu) {
@@ -72,28 +65,55 @@ int prepare_atmosphere_device_session(Browser& browser,
 
   out->linger = atmosphere_showcase_linger(want_gpu);
 
-  RhiPresentSession core;
-  if (const int rc = prepare_rhi_present_session(browser, opts, &core)) {
-    out->device = core.device;
-    out->present_hwnd = core.present_hwnd;
-    out->owned_present_hwnd = core.owned_present_hwnd;
-    out->want_gpu = core.want_gpu;
-    out->owns_device = (core.device != nullptr);
-    if (rc == 50 && want_gpu && !core.owned_present_hwnd) {
-      std::fprintf(stderr, "atmosphere-showcase: present HWND create failed\n");
-    } else if (rc == 50 && !want_gpu) {
-      std::fprintf(stderr, "atmosphere-showcase: HWND gone after detach\n");
-    } else if (rc == 51) {
-      std::fprintf(stderr, "atmosphere-showcase: create_device/init failed\n");
-    }
-    return rc;
+  atmosphere_showcase_mark("rhi-borrow");
+  if (!scene) {
+    atmosphere_showcase_mark("hwnd-missing");
+    std::fprintf(stderr, "atmosphere-showcase: scene viewport missing\n");
+    return 50;
   }
-
-  out->device = core.device;
-  out->present_hwnd = core.present_hwnd;
-  out->owned_present_hwnd = core.owned_present_hwnd;
-  out->want_gpu = core.want_gpu;
-  out->owns_device = (core.device != nullptr);
+  if (!scene->native_view()) {
+    scene->realize_native();
+    atmosphere_showcase_mark("realize-native");
+  }
+  scene->sync_native_bounds();
+  if (HWND hwnd = scene->native_view()) {
+    if (IsWindow(hwnd)) {
+      ShowWindow(hwnd, SW_SHOW);
+      SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+  }
+  if (scene->attach_mode() == ui::views::DrawHost::AttachMode::kNone) {
+    atmosphere_showcase_mark("scene-attach");
+    scene->attach();
+    scene->sync_native_bounds();
+  }
+  scene->set_gpu_present_visible(true);
+  scene->resume_present_timer();
+  (void)scene->wait_ready(2500);
+  const DWORD wait0 = GetTickCount();
+  while (!scene->rhi_device() && (GetTickCount() - wait0) < 4000u) {
+    pump_messages(50);
+  }
+  if (content::Scene3dPresenter* cam = browser.scene3d()) {
+    cam->bind_contents(browser.map_session(), scene->view_id());
+  }
+  out->borrowed_shell = true;
+  out->owned_present_hwnd = nullptr;
+  out->present_hwnd = scene->present_hwnd();
+  if (!out->present_hwnd || !IsWindow(out->present_hwnd)) {
+    out->present_hwnd = shell_scene3d_capture_hwnd(scene);
+  }
+  out->device = static_cast<render::rhi::Device*>(scene->rhi_device());
+  out->want_gpu = want_gpu;
+  out->owns_device = false;
+  out->scene = scene;
+  if (!out->present_hwnd) {
+    atmosphere_showcase_mark("hwnd-missing");
+    std::fprintf(stderr, "atmosphere-showcase: capture HWND missing\n");
+    return 50;
+  }
+  atmosphere_showcase_mark("shell-scene3d-borrow");
   atmosphere_showcase_mark("hwnd-ready");
   atmosphere_showcase_mark("device-created");
   std::fprintf(stderr,

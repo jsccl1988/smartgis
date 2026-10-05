@@ -18,7 +18,7 @@ namespace detail {
 
 using CreateRenderDeviceFn = int (*)(HINSTANCE, void*&);
 
-// Legacy CreateRenderDevice export layout (vtable slots used by MapViewport).
+// Legacy CreateRenderDevice export layout (vtable slots used by DrawHost).
 struct DeviceVtable {
   void* dtor;
   int (*Init)(void* self, HWND hwnd, const char* logname);

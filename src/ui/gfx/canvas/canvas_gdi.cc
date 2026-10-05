@@ -4,10 +4,8 @@
 #include "ui/gfx/canvas/canvas_backend.h"
 
 #include <cstdint>
-#include <mutex>
+#include <memory>
 #include <vector>
-
-#include "ui/gfx/raster/paint_stats.h"
 
 namespace ui {
 namespace gfx {
@@ -21,61 +19,8 @@ COLORREF to_colorref(Color color) {
   return RGB(r, g, b);
 }
 
-struct BrushEntry {
-  COLORREF color;
-  HBRUSH brush;
-};
-
-struct PenEntry {
-  COLORREF color;
-  int width;
-  HPEN pen;
-};
-
-std::mutex g_gdi_cache_mu;
-std::vector<BrushEntry> g_brushes;
-std::vector<PenEntry> g_pens;
-
-HBRUSH brush_for(COLORREF color) {
-  std::lock_guard<std::mutex> lock(g_gdi_cache_mu);
-  for (const BrushEntry& entry : g_brushes) {
-    if (entry.color == color && entry.brush) {
-      return entry.brush;
-    }
-  }
-  note_create_brush();
-  HBRUSH brush = CreateSolidBrush(color);
-  if (!brush) {
-    return static_cast<HBRUSH>(GetStockObject(DC_BRUSH));
-  }
-  if (g_brushes.size() < 64) {
-    g_brushes.push_back({color, brush});
-    return brush;
-  }
-  DeleteObject(brush);
-  return g_brushes.back().brush;
-}
-
-HPEN pen_for(COLORREF color, int width) {
-  if (width < 1) {
-    width = 1;
-  }
-  std::lock_guard<std::mutex> lock(g_gdi_cache_mu);
-  for (const PenEntry& entry : g_pens) {
-    if (entry.color == color && entry.width == width && entry.pen) {
-      return entry.pen;
-    }
-  }
-  HPEN pen = CreatePen(PS_SOLID, width, color);
-  if (!pen) {
-    return static_cast<HPEN>(GetStockObject(DC_PEN));
-  }
-  if (g_pens.size() < 64) {
-    g_pens.push_back({color, width, pen});
-    return pen;
-  }
-  DeleteObject(pen);
-  return g_pens.back().pen;
+int clamp_stroke(int stroke_width) {
+  return stroke_width < 1 ? 1 : stroke_width;
 }
 
 class GdiCanvasBackend final : public CanvasBackend {
@@ -87,8 +32,9 @@ class GdiCanvasBackend final : public CanvasBackend {
       return;
     }
     const RECT rc = {x, y, x + w, y + h};
-    const HBRUSH brush = brush_for(to_colorref(color));
-    FillRect(hdc_, &rc, brush);
+    const COLORREF prev = SetDCBrushColor(hdc_, to_colorref(color));
+    FillRect(hdc_, &rc, static_cast<HBRUSH>(GetStockObject(DC_BRUSH)));
+    SetDCBrushColor(hdc_, prev);
   }
 
   void stroke_rect(int x, int y, int w, int h, Color color,
@@ -96,15 +42,17 @@ class GdiCanvasBackend final : public CanvasBackend {
     if (!hdc_ || w <= 0 || h <= 0) {
       return;
     }
-    if (stroke_width < 1) {
-      stroke_width = 1;
-    }
-    const HPEN pen = pen_for(to_colorref(color), stroke_width);
-    const HGDIOBJ old_pen = SelectObject(hdc_, pen);
+    stroke_width = clamp_stroke(stroke_width);
+    const HPEN pen = CreatePen(PS_SOLID, stroke_width, to_colorref(color));
+    const HGDIOBJ old_pen =
+        SelectObject(hdc_, pen ? pen : GetStockObject(DC_PEN));
     const HGDIOBJ old_brush = SelectObject(hdc_, GetStockObject(NULL_BRUSH));
     Rectangle(hdc_, x, y, x + w, y + h);
     SelectObject(hdc_, old_brush);
     SelectObject(hdc_, old_pen);
+    if (pen) {
+      DeleteObject(pen);
+    }
   }
 
   void draw_line(int x0, int y0, int x1, int y1, Color color,
@@ -112,14 +60,16 @@ class GdiCanvasBackend final : public CanvasBackend {
     if (!hdc_) {
       return;
     }
-    if (stroke_width < 1) {
-      stroke_width = 1;
-    }
-    const HPEN pen = pen_for(to_colorref(color), stroke_width);
-    const HGDIOBJ old_pen = SelectObject(hdc_, pen);
+    stroke_width = clamp_stroke(stroke_width);
+    const HPEN pen = CreatePen(PS_SOLID, stroke_width, to_colorref(color));
+    const HGDIOBJ old_pen =
+        SelectObject(hdc_, pen ? pen : GetStockObject(DC_PEN));
     MoveToEx(hdc_, x0, y0, nullptr);
     LineTo(hdc_, x1, y1);
     SelectObject(hdc_, old_pen);
+    if (pen) {
+      DeleteObject(pen);
+    }
   }
 
   void draw_text(int x, int y, const wchar_t* text, Color color) override {
@@ -177,9 +127,9 @@ class GdiCanvasBackend final : public CanvasBackend {
 
 }  // namespace
 
-CanvasBackend* create_gdi_canvas_backend(HDC hdc, int /*width*/,
-                                         int /*height*/) {
-  return new GdiCanvasBackend(hdc);
+std::unique_ptr<CanvasBackend> create_gdi_canvas_backend(HDC hdc, int /*width*/,
+                                                         int /*height*/) {
+  return std::make_unique<GdiCanvasBackend>(hdc);
 }
 
 }  // namespace detail

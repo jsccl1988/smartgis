@@ -25,7 +25,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/kernel/widget/widget.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "ui/views/primitives/menu/menu_bar.h"
@@ -121,17 +121,14 @@ bool ShellLayoutComposer::build_from_markup() {
   host_->wire_catalog();
 
   auto map_tabs = std::make_unique<ui::views::TabStrip>();
-  auto map_edit = std::make_unique<ui::views::MapViewport>();
-  auto map_data = std::make_unique<ui::views::MapViewport>();
-  auto map_scene = std::make_unique<ui::views::MapViewport>();
+  auto map_edit = std::make_unique<ui::views::DrawHost>();
+  auto map_scene = std::make_unique<ui::views::DrawHost>();
   host_->map_edit_ = map_edit.get();
-  host_->map_data_ = map_data.get();
+  host_->map_data_ = nullptr;
   host_->map_scene_ = map_scene.get();
-  host_->map_edit_->set_role(ui::views::MapViewport::Role::kMapEdit);
-  host_->map_data_->set_role(ui::views::MapViewport::Role::kMapData);
-  host_->map_scene_->set_role(ui::views::MapViewport::Role::kScene3d);
+  host_->map_edit_->set_role(ui::views::DrawHost::Role::kMapEdit);
+  host_->map_scene_->set_role(ui::views::DrawHost::Role::kScene3d);
   map_tabs->add_tab("Map", std::move(map_edit));
-  map_tabs->add_tab("Data", std::move(map_data));
   map_tabs->add_tab("3D", std::move(map_scene));
   map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   map_tabs->set_preferred_size({0, 0});
@@ -146,6 +143,7 @@ bool ShellLayoutComposer::build_from_markup() {
   auto tool_bar = std::make_unique<ui::views::AmboxView>();
   tool_bar->set_orientation(ui::views::AmboxView::Orientation::kHorizontal);
   // 48 DIP: glyph+label row must clear clip at 125–200% DPI (was 40).
+  // Width 0 lets Yoga shrink-wrap packed chips on the map stack.
   tool_bar->set_preferred_size({0, 48});
   host_->ambox_ = tool_bar.get();
   host_->ambox_->set_command_handler([this](const std::string& id) {
@@ -194,7 +192,7 @@ bool ShellLayoutComposer::build_from_markup() {
   host_->atmosphere_tab_ =
       side->add_tab("Atmosphere", make_inspector_placeholder());
   side->set_change([this](int i) { host_->ensure_inspector_tab(i); });
-  side->set_active(host_->feature_info_tab_);
+  side->set_active(0);  // Tools. Identify switches to Feature.
   host_->inspector_tabs_ = side.get();
   inspector_host->set_preferred_size({kInspectorWDip, 0});
   mount_fill(inspector_host, std::move(side));
@@ -296,29 +294,19 @@ void ShellLayoutComposer::build_imperative() {
   host_->wire_catalog();
 
   auto map_tabs = std::make_unique<ui::views::TabStrip>();
-  auto map_edit = std::make_unique<ui::views::MapViewport>();
-  auto map_data = std::make_unique<ui::views::MapViewport>();
-  auto map_scene = std::make_unique<ui::views::MapViewport>();
+  auto map_edit = std::make_unique<ui::views::DrawHost>();
+  auto map_scene = std::make_unique<ui::views::DrawHost>();
   host_->map_edit_ = map_edit.get();
-  host_->map_data_ = map_data.get();
+  host_->map_data_ = nullptr;
   host_->map_scene_ = map_scene.get();
-  host_->map_edit_->set_role(ui::views::MapViewport::Role::kMapEdit);
-  host_->map_data_->set_role(ui::views::MapViewport::Role::kMapData);
-  host_->map_scene_->set_role(ui::views::MapViewport::Role::kScene3d);
+  host_->map_edit_->set_role(ui::views::DrawHost::Role::kMapEdit);
+  host_->map_scene_->set_role(ui::views::DrawHost::Role::kScene3d);
   map_tabs->add_tab("Map", std::move(map_edit));
-  map_tabs->add_tab("Data", std::move(map_data));
   map_tabs->add_tab("3D", std::move(map_scene));
   map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   map_tabs->set_preferred_size({0, 0});
   map_tabs->set_change([this](int i) { host_->switch_map_tab(i); });
   host_->map_tabs_ = map_tabs.get();
-
-  auto catalog_map = std::make_unique<ui::views::Splitter>(
-      ui::views::Splitter::Orientation::kHorizontal);
-  catalog_map->set_preferred_size({0, 0});
-  catalog_map->add_child(std::move(catalog));
-  catalog_map->add_child(std::move(map_tabs));
-  host_->catalog_map_ = catalog_map.get();
 
   auto tool_bar = std::make_unique<ui::views::AmboxView>();
   tool_bar->set_orientation(ui::views::AmboxView::Orientation::kHorizontal);
@@ -331,6 +319,13 @@ void ShellLayoutComposer::build_imperative() {
     host_->browser_->run_tool_command(id);
   });
   host_->populate_ambox();
+
+  auto catalog_map = std::make_unique<ui::views::Splitter>(
+      ui::views::Splitter::Orientation::kHorizontal);
+  catalog_map->set_preferred_size({0, 0});
+  catalog_map->add_child(std::move(catalog));
+  catalog_map->add_child(std::move(map_tabs));
+  host_->catalog_map_ = catalog_map.get();
 
   auto map_column = std::make_unique<ui::views::View>();
   auto map_column_box = std::make_unique<ui::views::BoxLayout>(
@@ -376,7 +371,7 @@ void ShellLayoutComposer::build_imperative() {
   host_->atmosphere_tab_ =
       side->add_tab("Atmosphere", make_inspector_placeholder());
   side->set_change([this](int i) { host_->ensure_inspector_tab(i); });
-  side->set_active(host_->feature_info_tab_);
+  side->set_active(0);  // Tools. Identify switches to Feature.
   host_->inspector_tabs_ = side.get();
 
   auto work = std::make_unique<ui::views::Splitter>(

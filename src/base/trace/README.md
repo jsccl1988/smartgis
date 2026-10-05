@@ -23,7 +23,7 @@ Startup (SmartGisViews): `BASE_TRACE_EVENT(name, "startup")` spans; after first
 show, Debug builds (or `STARTUP_PROFILE=1`) print a phase table to stderr
 and write `out/Debug/log/startup_profile.txt` (+ sibling `.json`) by default.
 Override path with `STARTUP_PROFILE_DUMP=...`. Progressive dumps also fire
-before FlyCube attach and after `Browser::init`.
+before Vista attach and after `Browser::init`.
 
 ```bat
 .\build.bat trace_test

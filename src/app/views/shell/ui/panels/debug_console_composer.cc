@@ -24,6 +24,7 @@
 #include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/runtime/capability/run_script.h"
+#include "base/process/switches.h"
 #include "content/browser/debug/debug_agent.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/public/catalog_layers.h"
@@ -31,7 +32,7 @@
 #include "ui/gis/debug/diagnostic_tools_panel.h"
 #include "ui/views/kernel/shell/event.h"
 #include "ui/views/kernel/view/view.h"
-#include "ui/views/map/viewport/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 namespace app {
 
@@ -199,7 +200,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
   host.ui_overlay_stats = [this]() {
     std::ostringstream oss;
     oss << '{';
-    ui::views::MapViewport* pane = host_->active_map();
+    ui::views::DrawHost* pane = host_->active_map();
     if (pane) {
       oss << "\"hud_fps\":" << pane->hud_fps()
           << ",\"gpu_present_ok\":"
@@ -318,6 +319,14 @@ void DebugConsoleComposer::wire_debug_console() {
       host_->diagnostic_tools_->console_pane()->append_line(out);
     }
   });
+  // Plugin / map2d / atmosphere harness sets skip-ambox-catalog before
+  // init_shell. Eager bind_gis_python_bridge → Browser::plugins() has AVd
+  // under page-heap IFEO when shell_ui .obj layout is skewed (unique_ptr::get
+  // on a freefill plugins_ slot). Defer agent bind until Console submit.
+  const char* skip = base::switch_cstr("skip-ambox-catalog");
+  if (skip && skip[0] != '\0' && skip[0] != '0') {
+    return;
+  }
   // Shell defaults Diagnostic Tools open (Console tab); bind agent so :cmd
   // works without requiring View → Toggle first.
   if (host_->diagnostic_tools_->is_tools_visible()) {

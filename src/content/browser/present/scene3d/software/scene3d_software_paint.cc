@@ -362,9 +362,8 @@ void Scene3dSoftwarePainter::paint_hud(HDC hdc, int width_px, int height_px) con
              gpu_->yaw(), gpu_->pitch(), gpu_->distance());
   TextOutW(hdc, 12, 12, line, lstrlenW(line));
   const wchar_t* so_t =
-      hosts_shared_scene_
-          ? L"Orbit DEM SoT - leftover SmartGis.exe is reference"
-          : L"Local DEM SoT - leftover SmartGis.exe is reference";
+      hosts_shared_scene_ ? L"Orbit DEM (product Scene3D)"
+                          : L"Local DEM (product Scene3D)";
   TextOutW(hdc, 12, 32, so_t, lstrlenW(so_t));
 
   wchar_t eng[140];

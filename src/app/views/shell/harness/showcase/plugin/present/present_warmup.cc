@@ -6,9 +6,11 @@
 #include "app/views/shell/browser/browser.h"
 #include "app/views/shell/harness/common/io/maps.h"
 #include "app/views/shell/harness/common/pump/pump.h"
-#include "app/views/shell/harness/showcase/plugin/common/common.h"
+#include "app/views/shell/harness/showcase/plugin/common/plugin_io.h"
+#include "app/views/shell/harness/common/present/rhi_present_session.h"
+#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "app/views/shell/harness/showcase/plugin/seed/world3d_seed.h"
-#include "app/views/shell/harness/showcase/plugin/session/session_finish.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "content/browser/present/scene3d/scene3d_phase_profile.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
@@ -49,7 +51,8 @@ void on_plugin_warmup_fail(int failed_frame, void* user) {
   teardown_plugin_device_session(ctx->cam, ctx->session, teardown);
   plugin_showcase_mark("present-fail");
   if (ctx->browser) {
-    detach_maps(*ctx->browser);
+    finish_scene3d_showcase(*ctx->browser,
+                            ctx->session && ctx->session->borrowed_shell);
   }
 }
 
@@ -207,7 +210,8 @@ int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
     return 52;
   }
   // Scenic GDI present does not need a FlyCube/RHI Device*.
-  if (!session->device && !cam->hosts_scenic_present()) {
+  if (!session->device && !cam->hosts_scenic_present() &&
+      !session->borrowed_shell && !content::prefer_scene3d_gdi()) {
     return 52;
   }
   PluginWarmupFail fail_ctx;
@@ -239,10 +243,15 @@ int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
     if (qpf.QuadPart > 0) {
       QueryPerformanceCounter(&t0);
     }
-    if (!cam->present_gpu(session->device, kPluginShowcasePresentW,
-                          kPluginShowcasePresentH)) {
-      // Scenic stub / FlyCube first-frame miss: software solid+wireframe BMP
-      // capture still paints local DEM/TIN. Soft-continue for showcase BMPs.
+    bool ok = true;
+    if (session->borrowed_shell) {
+      ok = present_shell_scene3d_frame(browser.scene_draw_host(), 800);
+    } else {
+      ok = cam->present_gpu(session->device, kPluginShowcasePresentW,
+                            kPluginShowcasePresentH);
+    }
+    if (!ok) {
+      // Scenic stub / first-frame miss: software BMP still paints local DEM.
       plugin_showcase_mark("present-soft");
       if (i + 1 >= frame_count) {
         break;

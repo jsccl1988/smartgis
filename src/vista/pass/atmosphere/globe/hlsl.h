@@ -102,6 +102,11 @@ float4 main(PSIn input) : SV_TARGET
     float atmos = atmos_strength * limb;
     lit += atmos * float3(0.28, 0.48, 0.95);
     lit += atmos * atmos * 0.35 * float3(0.75, 0.55, 0.35);
+    // Ocean spec: keep CB layout; extra term is view/sun only.
+    float water = 1.0 - land_w;
+    float3 H = normalize(L + V);
+    lit += water * intensity * 0.45 * pow(saturate(dot(n, H)), 48.0) *
+           float3(0.80, 0.90, 1.0);
     return float4(saturate(lit), 1.0);
 }
 )";

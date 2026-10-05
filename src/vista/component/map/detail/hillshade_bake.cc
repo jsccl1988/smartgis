@@ -66,6 +66,15 @@ vista::HillshadeParams params_for_zoom(double zoom,
   if (gis::style::parse_color(paint_get("hillshade-accent-color"), &argb)) {
     params.accent_argb = argb;
   }
+  if (const std::string s = paint_get("hillshade-illumination-altitude");
+      !s.empty()) {
+    params.illumination_altitude_deg = std::strtof(s.c_str(), nullptr);
+  }
+  if (const std::string s = paint_get("hillshade-color-ramp"); !s.empty()) {
+    if (s == "jet") {
+      params.color_ramp = 1;
+    }
+  }
   return params;
 }
 
@@ -80,6 +89,7 @@ struct HillshadeBakeCache {
   uint32_t highlight_argb = 0;
   uint32_t accent_argb = 0;
   int max_edge = 0;
+  int color_ramp = 0;
   std::vector<uint8_t> rgba;
   int w = 0;
   int h = 0;
@@ -106,7 +116,8 @@ bool cache_lookup(const std::string& dem_path, const vista::HillshadeParams& par
       c.exaggeration != params.exaggeration ||
       c.shadow_argb != params.shadow_argb ||
       c.highlight_argb != params.highlight_argb ||
-      c.accent_argb != params.accent_argb) {
+      c.accent_argb != params.accent_argb ||
+      c.color_ramp != params.color_ramp) {
     return false;
   }
   *rgba = c.rgba;
@@ -119,7 +130,7 @@ bool cache_lookup(const std::string& dem_path, const vista::HillshadeParams& par
   return !rgba->empty() && *w > 0 && *h > 0;
 }
 
-constexpr char kDiskMagic[8] = {'S', 'G', 'H', 'S', '2', '\0', '\0', '\0'};
+constexpr char kDiskMagic[8] = {'S', 'G', 'H', 'S', '3', '\0', '\0', '\0'};
 
 struct DiskHeader {
   char magic[8];
@@ -132,6 +143,7 @@ struct DiskHeader {
   uint32_t shadow_argb = 0;
   uint32_t highlight_argb = 0;
   uint32_t accent_argb = 0;
+  int32_t color_ramp = 0;
   double min_x = 0;
   double min_y = 0;
   double max_x = 0;
@@ -140,9 +152,9 @@ struct DiskHeader {
 
 std::string disk_cache_path(const std::string& dem_path,
                             const vista::HillshadeParams& params) {
-  char suffix[80];
-  std::snprintf(suffix, sizeof(suffix), ".hs_%d_%.0f.bin", params.max_edge,
-                params.illumination_direction_deg);
+  char suffix[96];
+  std::snprintf(suffix, sizeof(suffix), ".hs_%d_%.0f_r%d.bin", params.max_edge,
+                params.illumination_direction_deg, params.color_ramp);
   return dem_path + suffix;
 }
 
@@ -154,7 +166,8 @@ bool params_match_header(const DiskHeader& hdr,
          hdr.exaggeration == params.exaggeration &&
          hdr.shadow_argb == params.shadow_argb &&
          hdr.highlight_argb == params.highlight_argb &&
-         hdr.accent_argb == params.accent_argb;
+         hdr.accent_argb == params.accent_argb &&
+         hdr.color_ramp == params.color_ramp;
 }
 
 bool disk_lookup(const std::string& dem_path, const vista::HillshadeParams& params,
@@ -215,6 +228,7 @@ void disk_store(const std::string& dem_path, const vista::HillshadeParams& param
   hdr.shadow_argb = params.shadow_argb;
   hdr.highlight_argb = params.highlight_argb;
   hdr.accent_argb = params.accent_argb;
+  hdr.color_ramp = params.color_ramp;
   hdr.min_x = min_x;
   hdr.min_y = min_y;
   hdr.max_x = max_x;
@@ -236,6 +250,7 @@ void cache_store(const std::string& dem_path, const vista::HillshadeParams& para
   c.shadow_argb = params.shadow_argb;
   c.highlight_argb = params.highlight_argb;
   c.accent_argb = params.accent_argb;
+  c.color_ramp = params.color_ramp;
   c.max_edge = params.max_edge;
   c.rgba = std::move(rgba);
   c.w = w;
@@ -248,13 +263,14 @@ void cache_store(const std::string& dem_path, const vista::HillshadeParams& para
 }
 
 void fill_slot(TileSlot* slot, double min_x, double min_y, double max_x,
-               double max_y, uint32_t texture_key) {
+               double max_y, uint32_t texture_key, int color_ramp) {
   slot->min_x = min_x;
   slot->max_x = max_x;
   slot->min_y = min_y;
   slot->max_y = max_y;
-  // Multiply strength for crisp DEM relief after the hi-res china_dem bake.
-  slot->opacity = 0.82f;
+  // Grayscale multiply uses a soft factor. Jet+isoline sheet is a second
+  // surface over carto/imagery (Origin stacked-DEM look); keep some base.
+  slot->opacity = color_ramp == 1 ? 0.72f : 0.82f;
   slot->texture_key = texture_key;
 }
 
@@ -332,7 +348,8 @@ HillshadeBake bake_hillshade_slot(const std::string& dem_path, double zoom,
       std::fprintf(stderr,
                    "map2d: hillshade cache hit %dx%d max_edge=%d path=%s\n",
                    out.width, out.height, params.max_edge, dem_path.c_str());
-      fill_slot(&out.slot, dem_minx, dem_miny, dem_maxx, dem_maxy, texture_key);
+      fill_slot(&out.slot, dem_minx, dem_miny, dem_maxx, dem_maxy, texture_key,
+                params.color_ramp);
       out.ok = true;
       sample.width = out.width;
       sample.height = out.height;
@@ -354,7 +371,8 @@ HillshadeBake bake_hillshade_slot(const std::string& dem_path, double zoom,
       std::fprintf(stderr,
                    "map2d: hillshade disk hit %dx%d max_edge=%d path=%s\n",
                    out.width, out.height, params.max_edge, dem_path.c_str());
-      fill_slot(&out.slot, dem_minx, dem_miny, dem_maxx, dem_maxy, texture_key);
+      fill_slot(&out.slot, dem_minx, dem_miny, dem_maxx, dem_maxy, texture_key,
+                params.color_ramp);
       out.ok = true;
       sample.width = out.width;
       sample.height = out.height;
@@ -403,7 +421,8 @@ HillshadeBake bake_hillshade_slot(const std::string& dem_path, double zoom,
     }
   }
   sample.store_ms = elapsed_ms(t);
-  fill_slot(&out.slot, dem_minx, dem_miny, dem_maxx, dem_maxy, texture_key);
+  fill_slot(&out.slot, dem_minx, dem_miny, dem_maxx, dem_maxy, texture_key,
+            params.color_ramp);
   out.ok = true;
   sample.width = out.width;
   sample.height = out.height;

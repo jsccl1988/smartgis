@@ -99,7 +99,7 @@ All rights reserved.
       <text class="box-sub" x="420" y="118" text-anchor="middle">pending / active</text>
       <rect x="540" y="84" width="180" height="40" rx="6" fill="#fff" stroke="#2563a8" stroke-width="1.5"/>
       <text class="box-title" x="630" y="102" text-anchor="middle">PaintCommit</text>
-      <text class="box-sub" x="630" y="118" text-anchor="middle">不可变快照</text>
+      <text class="box-sub" x="630" y="118" text-anchor="middle">快照 · CommitGate</text>
 
       <text class="lane-label" x="12" y="168" fill="#2f7d62">L2 gfx</text>
       <text class="lane-label" x="12" y="184" fill="#2f7d62">ui/gfx</text>
@@ -192,6 +192,40 @@ All rights reserved.
       <button type="button" id="btnReset">复位</button>
       <span class="legend" id="status">就绪</span>
     </div>
+  </section>
+
+  <section class="panel">
+    <h2>Primitives 控件 — 组合缝与命中（2026-10-05）</h2>
+    <p class="legend">控件实现按职责拆：<code>detail/</code> 共享 DPI/裁剪/点击；集合控件把命中与滚动合成出来，而不是在叶子上静默吞掉事件。</p>
+    <svg class="diagram" viewBox="0 0 1040 220" role="img" aria-label="Primitives 命中与滚动合成">
+      <rect x="8" y="8" width="250" height="204" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="24" y="32" fill="#2563a8">Widget</text>
+      <text class="box-sub" x="24" y="54">send_mouse → 最深 hit</text>
+      <text class="box-sub" x="24" y="74">wheel 未处理则沿 parent 上浮</text>
+      <text class="box-title" x="24" y="110">RadioButton</text>
+      <text class="box-sub" x="24" y="130">group_id 在整棵 widget 树互斥</text>
+      <text class="box-sub" x="24" y="150">layout 后再清同伴（markup 先 selected）</text>
+      <text class="box-sub" x="24" y="180">detail::handle_primary_click</text>
+
+      <rect x="274" y="8" width="380" height="204" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="290" y="32" fill="#2f7d62">TreeView 合成</text>
+      <rect x="300" y="48" width="328" height="44" rx="6" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="316" y="76">TreeView</text>
+      <rect x="318" y="104" width="292" height="40" rx="6" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="334" y="130">ScrollView + Track 拖拽</text>
+      <rect x="336" y="156" width="256" height="40" rx="6" fill="#fff" stroke="#2563a8" stroke-width="2"/>
+      <text class="box-title" x="352" y="182">Rows 转发 on_mouse_event</text>
+      <path class="arrow" d="M636 128 L668 128" marker-end="url(#ah)"/>
+
+      <rect x="670" y="8" width="360" height="204" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="686" y="32" fill="#b06a1a">ScrollView</text>
+      <text class="box-sub" x="686" y="58">1. 内容叶子忽略 wheel</text>
+      <text class="box-sub" x="686" y="80">2. parent 冒泡到 ScrollView</text>
+      <text class="box-sub" x="686" y="102">3. clip + content offset</text>
+      <text class="box-sub" x="686" y="124">4. Track seek_scroll_from_y</text>
+      <text class="box-sub" x="686" y="160">markup: items / min / max / value / style</text>
+      <text class="box-sub" x="686" y="182">csv + attr 绑定在 register_primitive_markup_tags</text>
+    </svg>
   </section>
 
   <details class="appendix">

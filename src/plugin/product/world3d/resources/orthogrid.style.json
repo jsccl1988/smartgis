@@ -1,0 +1,18 @@
+{
+  "version": 8,
+  "name": "orthogrid_heat",
+  "layers": [
+    {"id":"heat_raster","type":"fill","source-layer":"orthogrid_heat_raster",
+     "paint":{
+       "fill-color":["interpolate",["linear"],["get","heat"],
+         0,"#1a9850",5,"#91cf60",15,"#fee08b",30,"#fc8d59",45,"#d73027"],
+       "fill-opacity":0.42}},
+    {"id":"heat_cells","type":"fill","source-layer":"orthogrid_heat_cells",
+     "paint":{
+       "fill-color":["interpolate",["linear"],["get","heat"],
+         0,"#006837",5,"#31a354",15,"#fec44f",30,"#e6550d",45,"#a50f15"],
+       "fill-opacity":0.62}},
+    {"id":"mesh","type":"line","source-layer":"orthogrid",
+     "paint":{"line-color":"#1b1b1b","line-width":1.6}}
+  ]
+}

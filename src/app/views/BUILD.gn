@@ -3,8 +3,8 @@
 
 # Product host for Views + Skia. Loaded when build_views=true.
 # Output: out/SmartGIS.exe. Capability dirs live under //src/content
-# (document/camera/present/input) and //src/render:present_paint 脙垄脗聙脗聰 see
-# docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md 脙聜脗搂Content sink.
+# (document/camera/present/input) and //src/render:present_paint 脙垄脗蝙脗蝰 see
+# docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md 脙蝜脗杂Content sink.
 
 import("//build/config/win/application.gni")
 import("//build/python.gni")
@@ -15,7 +15,7 @@ source_set("shell_browser") {
   sources = [
     "shell/browser/browser.cc",
     "shell/browser/browser.h",
-    "shell/browser/browser_ui_delegate.h",
+    "shell/browser/ui_delegate.h",
     "shell/browser/china_product_defaults.cc",
     "shell/browser/china_product_defaults.h",
     "shell/browser/commands/app_commands.cc",
@@ -26,67 +26,36 @@ source_set("shell_browser") {
     "shell/browser/commands/view_commands.cc",
     "shell/browser/commands/view_commands.h",
     "shell/browser/nav/draft_nav.cc",
-    "shell/browser/plugin/analysis_writer_common.cc",
-    "shell/browser/plugin/analysis_writer_common.h",
-    "shell/browser/plugin/analysis_writer_flood.cc",
-    "shell/browser/plugin/analysis_writer_flood.h",
-    "shell/browser/plugin/analysis_writer_geochem.cc",
-    "shell/browser/plugin/analysis_writer_geochem.h",
-    "shell/browser/plugin/analysis_writer_mine.cc",
-    "shell/browser/plugin/analysis_writer_mine.h",
-    "shell/browser/plugin/analysis_writer_orthogrid.cc",
-    "shell/browser/plugin/analysis_writer_orthogrid.h",
-    "shell/browser/plugin/analysis_writer_playback.cc",
-    "shell/browser/plugin/analysis_writer_stormsurge.cc",
-    "shell/browser/plugin/analysis_writer_stormsurge.h",
-    "shell/browser/plugin/analysis_writer_traffic.cc",
-    "shell/browser/plugin/analysis_writer_traffic.h",
-    "shell/browser/plugin/analysis_writer_world3d.cc",
-    "shell/browser/plugin/analysis_writer_world3d.h",
-    "shell/browser/plugin/analysis_writers.cc",
-    "shell/browser/plugin/analysis_writers.h",
+    "shell/browser/nav/deferred_china_seed.cc",
+    "shell/browser/plugin/plugin_host_wiring.cc",
     "shell/browser/plugin/plugin_shell.cc",
     "shell/browser/plugin/plugin_shell.h",
-    "shell/runtime/analysis/flood_store.cc",
-    "shell/runtime/analysis/flood_store.h",
-    "shell/runtime/analysis/orthogrid_store.cc",
-    "shell/runtime/analysis/orthogrid_store.h",
-    "shell/runtime/analysis/traffic_store.cc",
-    "shell/runtime/analysis/traffic_store.h",
-    "shell/runtime/analysis/playback.cc",
-    "shell/runtime/analysis/playback.h",
+    "shell/runtime/plugin_playback.cc",
+    "shell/runtime/plugin_playback.h",
+    "shell/runtime/plugin_present.cc",
+    "shell/runtime/plugin_present.h",
+    "shell/runtime/plugin_preview_host.cc",
+    "shell/runtime/plugin_preview_host.h",
   ]
   deps = [
-    "//src/content:map_session",
+    "//src/content:browser_session",
     "//src/content:content",
+    "//src/content:map_scene",
     "//src/content:view_host",
     "//src/gis:gis",
     "//src/gis/edit:edit",
     "//src/gis/tile:tile",
     "//src/plugin:host",
-    "//src/plugin/product/world3d:world3d_views",
-    "//src/plugin/product/traffic:traffic_views",
-    "//src/plugin/product/flood:flood_views",
-    "//src/plugin/product/stormsurge:stormsurge_views",
-    "//src/plugin/product/mine:mine_views",
-    "//src/plugin/product/geochem:geochem_views",
-    "//src/plugin/product/print:print_views",
-    "//src/plugin/runtime/processing:processing_views",
+    "//src/plugin/product:product_builtins",
     "//src/plugin/runtime/python:python",
     "//src/render:rhi",
     "//src/tool:dispatch",
     "//src/ui/gis:gis",
     "//src/ui/views:views",
-    "//third_party:eigen",
     "//third_party:gdal",
     "//third_party:rapidjson",
   ]
-  # analysis_writer_orthogrid.cc pulls orthogrid orthogonality 鈫?Eigen; keep the
-  # include on this target even when group public_configs fail to forward.
-  include_dirs += [
-    "//src",
-    "//third_party/.src/eigen",
-  ]
+  include_dirs += [ "//src" ]
   libs = [
     "comctl32.lib",
     "user32.lib",
@@ -118,20 +87,12 @@ source_set("shell_ui") {
   deps = [
     ":shell_browser",
     "//src/content:debug_agent",
-    "//src/content:map_session",
+    "//src/content:browser_session",
     "//src/content:content",
     "//src/content:view_host",
     "//src/gis/edit:edit",
     "//src/gis/tile:tile",
     "//src/plugin:host",
-    "//src/plugin/product/world3d:world3d_views",
-    "//src/plugin/product/traffic:traffic_views",
-    "//src/plugin/product/flood:flood_views",
-    "//src/plugin/product/stormsurge:stormsurge_views",
-    "//src/plugin/product/mine:mine_views",
-    "//src/plugin/product/geochem:geochem_views",
-    "//src/plugin/product/print:print_views",
-    "//src/plugin/runtime/processing:processing_views",
     "//src/plugin/runtime/python:python",
     "//src/render:rhi",
     "//src/tool:dispatch",
@@ -233,14 +194,14 @@ source_set("harness_plugin") {
     "shell/harness/showcase/plugin/capture/capture.h",
     "shell/harness/showcase/plugin/capture/map2d_export.cc",
     "shell/harness/showcase/plugin/capture/map2d_export.h",
-    "shell/harness/showcase/plugin/common/common.cc",
-    "shell/harness/showcase/plugin/common/common.h",
+    "shell/harness/showcase/plugin/common/plugin_io.cc",
+    "shell/harness/showcase/plugin/common/plugin_io.h",
     "shell/harness/showcase/plugin/plugin_showcase.cc",
     "shell/harness/showcase/plugin/plugin_showcase.h",
-    "shell/harness/showcase/plugin/present/present_host.cc",
-    "shell/harness/showcase/plugin/present/present_host.h",
     "shell/harness/showcase/plugin/present/present_warmup.cc",
     "shell/harness/showcase/plugin/present/present_warmup.h",
+    "shell/harness/showcase/plugin/present/world3d_fly.cc",
+    "shell/harness/showcase/plugin/present/world3d_fly.h",
     "shell/harness/showcase/plugin/product/mine.cc",
     "shell/harness/showcase/plugin/product/mine.h",
     "shell/harness/showcase/plugin/product/orthogrid.cc",
@@ -249,10 +210,16 @@ source_set("harness_plugin") {
     "shell/harness/showcase/plugin/product/orthogrid3d.h",
     "shell/harness/showcase/plugin/product/print.cc",
     "shell/harness/showcase/plugin/product/print.h",
+    "shell/harness/showcase/plugin/product/report.cc",
+    "shell/harness/showcase/plugin/product/report.h",
     "shell/harness/showcase/plugin/product/stormsurge.cc",
     "shell/harness/showcase/plugin/product/stormsurge.h",
+    "shell/harness/showcase/plugin/product/traffic.cc",
+    "shell/harness/showcase/plugin/product/traffic.h",
     "shell/harness/showcase/plugin/product/world3d.cc",
     "shell/harness/showcase/plugin/product/world3d.h",
+    "shell/harness/showcase/plugin/product/world_preview.cc",
+    "shell/harness/showcase/plugin/product/world_preview.h",
     "shell/harness/showcase/plugin/seed/mine_seed.cc",
     "shell/harness/showcase/plugin/seed/mine_seed.h",
     "shell/harness/showcase/plugin/seed/orbit_seed.cc",
@@ -263,8 +230,6 @@ source_set("harness_plugin") {
     "shell/harness/showcase/plugin/seed/world3d_seed.h",
     "shell/harness/showcase/plugin/session/device_session.cc",
     "shell/harness/showcase/plugin/session/device_session.h",
-    "shell/harness/showcase/plugin/session/session_finish.cc",
-    "shell/harness/showcase/plugin/session/session_finish.h",
   ]
   deps = [
     ":shell_browser",
@@ -273,6 +238,8 @@ source_set("harness_plugin") {
     "//src/plugin/product/print:print_composer",
     "//src/render:rhi",
     "//src/ui/views:views",
+    "//src/vista:vista",
+    "//third_party:gdal",
   ]
   include_dirs += [ "//src" ]
   libs = [ "user32.lib", "gdi32.lib" ]
@@ -281,7 +248,7 @@ source_set("harness_plugin") {
 # SP5: product shell must not link leftover DLLs / MFC shell.
 win32_app("views") {
   output_name = "SmartGIS"
-  # Browser / MapSession / Scene3dPresenter construction needs >1 MiB stack;
+  # Browser / BrowserSession / Scene3dPresenter construction needs >1 MiB stack;
   # default reserve lets member ctors smash ViewsLaunchOptions (startup AV).
   ldflags = [ "/STACK:16777216" ]
   assert_no_deps = []
@@ -369,7 +336,7 @@ win32_app("views") {
     "//src/content:capability",
     "//src/content:debug_agent",
     "//src/content:embed_sample",
-    "//src/content:map_session",
+    "//src/content:browser_session",
     "//src/content:view_host",
     "//src/gis:gis",
     "//src/gis/edit:edit",
@@ -378,14 +345,7 @@ win32_app("views") {
     "//src/gpu:gpu_lib",
     "//src/net:net",
     "//src/plugin:host",
-    "//src/plugin/product/world3d:world3d_views",
-    "//src/plugin/product/traffic:traffic_views",
-    "//src/plugin/product/flood:flood_views",
-    "//src/plugin/product/stormsurge:stormsurge_views",
-    "//src/plugin/product/mine:mine_views",
-    "//src/plugin/product/geochem:geochem_views",
-    "//src/plugin/product/print:print_views",
-    "//src/plugin/runtime/processing:processing_views",
+    "//src/plugin/product:product_builtins",
     "//src/render:rhi",
     "//src/tool:tool",
     "//src/ui/gis:ui_gis",
@@ -443,14 +403,11 @@ test("views_launch_options_test") {
   ]
 }
 
-test("analysis_playback_test") {
-  output_name = "analysis_playback_test"
+test("plugin_playback_test") {
+  output_name = "plugin_playback_test"
   sources = [
-    "shell/runtime/analysis/flood_store.cc",
-    "shell/runtime/analysis/orthogrid_store.cc",
-    "shell/runtime/analysis/traffic_store.cc",
-    "shell/runtime/analysis/playback.cc",
-    "shell/runtime/analysis/playback_test.cc",
+    "shell/runtime/plugin_playback.cc",
+    "shell/runtime/plugin_playback_test.cc",
   ]
   include_dirs += [ "//src" ]
 }

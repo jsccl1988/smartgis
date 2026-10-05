@@ -19,6 +19,7 @@
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/host/shell_overlay_effect.h"
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
+#include "content/browser/present/scene3d/frame/scene3d_overlays.h"
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
 #include "content/public/map_types.h"
 #include "vista/pass/world/pass.h"
@@ -38,10 +39,12 @@ enum class Scene3dLookPreset {
 };
 
 // Screen-space / orbit place-name for leftover-style stereo labels.
+// |priority| matches MapLabelBatch: lower wins occupancy (0 = municipality).
 struct Scene3dLegacyLabel {
   std::string text;
   double lon = 0;
   double lat = 0;
+  int priority = 2;
 };
 
 // GPU present path for 3D: DEM mesh / WorldPass / shell overlay / present mutex.
@@ -71,9 +74,16 @@ class Scene3dGpuPresent {
   void set_look_preset(Scene3dLookPreset preset);
   Scene3dLookPreset look_preset() const { return look_preset_; }
 
+  // Isolated geological block: cream studio clear and hide china_dem tiles
+  // after the overlay TIN attaches (mine cutaway cube).
+  void set_studio_block(bool on);
+  bool studio_block() const { return studio_block_; }
+
   // Best-effort China coastlines + place-name labels for kLegacyStereo.
   // Returns true when at least one vector node or label was attached.
   bool ensure_legacy_overlays();
+  // Same as ensure_legacy_overlays(); caller must already hold mutex().
+  bool ensure_legacy_overlays_locked();
   int legacy_label_count() const { return static_cast<int>(legacy_labels_.size()); }
   bool has_legacy_coast_vectors() const { return legacy_coast_seeded_; }
   const std::vector<Scene3dLegacyLabel>& legacy_labels() const {
@@ -93,7 +103,14 @@ class Scene3dGpuPresent {
   void set_overlay_tin_mesh(const float* xyz_lon_lat_elev, int point_count,
                             const unsigned* indices, int index_count,
                             const uint8_t* albedo_rgba = nullptr);
+  void set_overlay_tin_drape(const uint8_t* rgba, uint32_t width, uint32_t height,
+                             const float* uv, int uv_float_count);
   void clear_overlay_tin_mesh();
+
+  // Optional RGBA8 drape on china_dem terrain tiles (2D map / china_rs).
+  // Re-applied after each DEM rebuild. Empty / null clears the override.
+  void set_dem_drape_rgba(const uint8_t* rgba, uint32_t width, uint32_t height);
+  void clear_dem_drape();
 
   // Attach an in-memory 3D Tiles JSON (city fixture) into the present World.
   // Each present() pumps select → ensure_tileset_content under the LRU budget.
@@ -119,13 +136,23 @@ class Scene3dGpuPresent {
   const std::vector<float>& local_xyz() const { return local_xyz_; }
   const std::vector<unsigned>& local_idx() const { return local_idx_; }
   // Geographic overlay beads for GDI stick/marker paint (lon/lat/elev).
-  const std::vector<float>& overlay_xyz_geo() const { return overlay_xyz_geo_; }
-  const std::vector<uint8_t>& overlay_rgba() const { return overlay_rgba_; }
+  const std::vector<float>& overlay_xyz_geo() const {
+    return overlays_.xyz_geo();
+  }
+  const std::vector<uint8_t>& overlay_rgba() const { return overlays_.rgba(); }
   // Index into local_idx_ where DEM tris end and overlay TIN tris begin
   // (software paint uses this to tint free-surface water cyan).
   size_t dem_local_idx_count() const { return dem_local_idx_count_; }
-  bool overlay_tin_has_albedo() const { return overlay_tin_has_albedo_; }
-  const uint8_t* overlay_tin_albedo() const { return overlay_tin_albedo_; }
+  bool overlay_tin_has_albedo() const { return overlays_.tin_has_albedo(); }
+  const uint8_t* overlay_tin_albedo() const { return overlays_.tin_albedo(); }
+  bool overlay_tin_has_drape() const { return overlays_.tin_has_drape(); }
+  const std::vector<float>& overlay_tin_uv() const { return overlays_.tin_uv(); }
+  const std::vector<uint8_t>& overlay_tin_tex() const {
+    return overlays_.tin_tex();
+  }
+  uint32_t overlay_tin_tex_w() const { return overlays_.tin_tex_w(); }
+  uint32_t overlay_tin_tex_h() const { return overlays_.tin_tex_h(); }
+  size_t dem_local_xyz_count() const { return dem_local_xyz_count_; }
 
   // Caller must hold mutex(). Used by software paint path.
   // Returns true when DEM LOD/extent changed (overlays must re-attach).
@@ -136,6 +163,9 @@ class Scene3dGpuPresent {
   void attach_overlay_pointcloud_locked(bool force = true);
   // Attach overlay TIN World node + fold into local_* for GDI (caller holds mutex).
   void attach_overlay_tin_locked(bool force = true);
+
+  // Apply stored china_rs / carto drape to DEM tiles (caller holds mutex).
+  void apply_dem_drape_locked();
 
   float yaw() const;
   float pitch() const;
@@ -173,6 +203,7 @@ class Scene3dGpuPresent {
   // lock state or container proxies (Debug AV on clear / unlock).
   std::vector<float> local_xyz_;
   std::vector<unsigned> local_idx_;
+  Scene3dOverlays overlays_;
   // DEM-only sizes before overlay fold (cache-hit presents must not stack).
   size_t dem_local_xyz_count_ = 0;
   size_t dem_local_idx_count_ = 0;
@@ -188,16 +219,8 @@ class Scene3dGpuPresent {
   OrbitGeoFrame geo_frame_;
   std::unique_ptr<TilesetStreamSession> tileset_stream_;
 
-  // Geographic lon/lat/elev + optional RGBA8; applied after DEM rebuild.
-  std::vector<float> overlay_xyz_geo_;
-  std::vector<uint8_t> overlay_rgba_;
-  // Geographic TIN verts (lon/lat/elev) + triangle indices.
-  std::vector<float> overlay_tin_xyz_geo_;
-  std::vector<unsigned> overlay_tin_idx_;
-  uint8_t overlay_tin_albedo_[4] = {46, 170, 220, 230};
-  bool overlay_tin_has_albedo_ = false;
-
   Scene3dLookPreset look_preset_ = Scene3dLookPreset::kAtmosphere;
+  bool studio_block_ = false;
   std::vector<Scene3dLegacyLabel> legacy_labels_;
   bool legacy_coast_seeded_ = false;
   bool legacy_overlays_attempted_ = false;
@@ -206,8 +229,9 @@ class Scene3dGpuPresent {
   // so FlyCube heap recycling cannot leave stale SRVs. Warm frames skip.
   bool dem_gpu_synced_after_ocean_ = false;
   bool dem_gpu_synced_after_sky_ = false;
-  bool overlay_pointcloud_dirty_ = false;
-  bool overlay_tin_dirty_ = false;
+  std::vector<uint8_t> dem_drape_rgba_;
+  uint32_t dem_drape_w_ = 0;
+  uint32_t dem_drape_h_ = 0;
 };
 
 }  // namespace content

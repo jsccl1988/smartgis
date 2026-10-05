@@ -7,16 +7,16 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Grow leftover **D3D11** `SmtD3DRenderDevice` under `rhi3d/impl/d3d/` (texture/FBO, font/frustum) while **D3D11 owns Present** on the scene3d HWND — not a FlyCube strangler.
+**Goal:** Grow leftover **D3D11** `SmtD3DRenderDevice` under `rhi3d/impl/d3d/` (texture/FBO, font/frustum) while **D3D11 owns Present** on the scene3d HWND — not a Vista strangler.
 
-**Architecture:** Spec §D3D leftover capability in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md). **`Smt3DRenderDevice` + `"Direct3D"` factory unchanged.** Layout: `host/` · `resource/` · `paint/` · `caps/` · `ext/`. Distinct from `src/render/rhi` FlyCube.
+**Architecture:** Spec §D3D leftover capability in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md). **`Smt3DRenderDevice` + `"Direct3D"` factory unchanged.** Layout: `host/` · `resource/` · `paint/` · `caps/` · `ext/`. Distinct from `src/render/rhi` Vista.
 
 **Tech Stack:** C++23, D3D11 + DXGI + D3DCompiler, `legacy_render` GN, hidden-HWND unit tests, `legacy_scene3d_shot_loop.py --d3d`.
 
 ## Global Constraints
 
 - Work on **`master`** only; scope **`src/legacy/render/rhi3d/impl/d3d/`** (+ GN/tests).
-- **`Init(HWND)`:** `bind_rhi_present` for Null recording only; **no FlyCube** on this HWND.
+- **`Init(HWND)`:** `bind_rhi_present` for Null recording only; **no Vista** on this HWND.
 - Do **not** port full GLSL program stack; **VideoBuffer** and **shader manager** stay stub.
 - New comments English; new-tree helpers **`snake_case`** where touched.
 - No commit unless the user asks.

@@ -29,7 +29,7 @@ class SkyPass;
 
 // Owns pass-order policy for environment draws around opaque geometry.
 // Flat path: sky/depth → host opaque DEM → ocean → cloud/fog.
-// Globe path: sky → globe DEM → sat clouds → fog. Flat ocean stays off.
+// Globe path: sky → globe DEM → optional coastal ocean → sat clouds → fog.
 class VISTA_EXPORT AtmosphereFrame {
  public:
   AtmosphereFrame() = default;

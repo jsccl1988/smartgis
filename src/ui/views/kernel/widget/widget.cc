@@ -13,6 +13,7 @@
 #include "ui/views/kernel/paint/paint_commit.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
+#include "ui/views/kernel/widget/paint_schedule.h"
 
 #include "base/trace/event/process_trace.h"
 
@@ -24,6 +25,15 @@ ui::gfx::ShellRaster Widget::shell_raster() const {
     return {};
   }
   return compositor_->shell_raster();
+}
+
+bool Widget::copy_shell_raster(std::vector<std::uint8_t>* out_bgra,
+                               ui::gfx::ShellRaster* out_meta,
+                               std::uint64_t* out_generation) const {
+  if (!compositor_) {
+    return false;
+  }
+  return compositor_->copy_published_shell(out_bgra, out_meta, out_generation);
 }
 
 std::uint64_t Widget::shell_generation() const {
@@ -100,27 +110,46 @@ void Widget::layout_contents() {
   RECT rc = {};
   GetClientRect(hwnd_, &rc);
   contents_->set_bounds({0, 0, rc.right - rc.left, rc.bottom - rc.top});
-  contents_->layout();
+  // Drain follow-up marks from add_child / set_visible during a pass. Cap so a
+  // pathological LayoutManager cannot spin the UI thread.
+  constexpr int kMaxLayoutPasses = 8;
+  int passes = 0;
+  do {
+    contents_->layout();
+  } while (contents_->needs_layout() && ++passes < kMaxLayoutPasses);
   contents_->realize_native_tree();
+  contents_->sync_native_tree();
+}
+
+void Widget::pump_until_shell_published(unsigned timeout_ms) {
+  if (!hwnd_ || !IsWindow(hwnd_) || timeout_ms == 0) {
+    return;
+  }
+  schedule_paint();
+  const DWORD t0 = GetTickCount();
+  MSG msg = {};
+  while (shell_generation() == 0 && GetTickCount() - t0 < timeout_ms) {
+    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+      if (msg.message == WM_QUIT) {
+        PostQuitMessage(static_cast<int>(msg.wParam));
+        return;
+      }
+      TranslateMessage(&msg);
+      DispatchMessageW(&msg);
+    }
+    UpdateWindow(hwnd_);
+    Sleep(5);
+  }
 }
 
 void Widget::union_pending_dirty(const Rect& dirty) {
   if (dirty.width <= 0 || dirty.height <= 0) {
     return;
   }
-  if (full_paint_pending_ || pending_dirty_.width <= 0 ||
-      pending_dirty_.height <= 0) {
-    pending_dirty_ = dirty;
+  if (full_paint_pending_) {
     return;
   }
-  const int l = dirty.x < pending_dirty_.x ? dirty.x : pending_dirty_.x;
-  const int t = dirty.y < pending_dirty_.y ? dirty.y : pending_dirty_.y;
-  const int r = dirty.right() > pending_dirty_.right() ? dirty.right()
-                                                       : pending_dirty_.right();
-  const int b = dirty.bottom() > pending_dirty_.bottom()
-                    ? dirty.bottom()
-                    : pending_dirty_.bottom();
-  pending_dirty_ = Rect{l, t, r - l, b - t};
+  pending_dirty_ = detail::union_dirty_rects(pending_dirty_, dirty);
 }
 
 void Widget::take_pending_dirty(int width_px, int height_px, Rect* out) {
@@ -259,20 +288,29 @@ void Widget::on_paint() {
     // U5: coalesce rapid Commits to ~display refresh (skip record when the
     // previous Commit is still within one frame). Still present + keep dirty
     // so the next tick records the unioned region.
+    // Never coalesce when the published front lags the client — NULL_BRUSH +
+    // a smaller front leaves desktop show-through / stale chrome after resize.
+    int front_w = 0;
+    int front_h = 0;
+    compositor_->front_buffer_size(&front_w, &front_h);
+    const bool front_lags_client =
+        front_w <= 0 || front_h <= 0 || front_w < w || front_h < h;
     LARGE_INTEGER now = {};
     QueryPerformanceCounter(&now);
-    LARGE_INTEGER freq = {};
-    QueryPerformanceFrequency(&freq);
-    const std::int64_t frame_ticks =
-        freq.QuadPart > 0 ? freq.QuadPart / 60 : 0;
-    const bool within_frame =
-        frame_ticks > 0 && last_commit_qpc_ != 0 &&
-        (now.QuadPart - last_commit_qpc_) < frame_ticks;
+    const std::int64_t frame_ticks = detail::refresh_frame_ticks();
+    const bool large_dirty = detail::is_large_dirty(pending_dirty_,
+                                                    full_paint_pending_, w, h);
+    const bool within_frame = detail::should_coalesce_commit(
+        front_lags_client, large_dirty, now.QuadPart, last_commit_qpc_,
+        frame_ticks);
     if (within_frame) {
-      // Keep pending dirty; present last front only. Hover/input already
-      // queues further WM_PAINTs; the next tick outside the frame window
-      // Commits the unioned dirty.
+      // Keep pending dirty; present last front. Arm a one-shot timer so the
+      // last hover in this refresh window still Commits. Do not InvalidateRect
+      // here — that re-enters paint while still within_frame and spins.
+      SetTimer(hwnd_, static_cast<UINT_PTR>(detail::kShellCommitCoalesceTimer),
+               16, nullptr);
     } else {
+      KillTimer(hwnd_, static_cast<UINT_PTR>(detail::kShellCommitCoalesceTimer));
       take_pending_dirty(w, h, &committed_dirty);
       PaintCommit frame;
       const int font_px = shell_body_font_px(device_scale_factor_);
@@ -367,10 +405,16 @@ void Widget::on_size(int width, int height) {
     }
   }
   layout_contents();
+  // Break U5 coalesce so the next WM_PAINT must record at the new client size
+  // (otherwise a hover Commit within ~16ms keeps presenting the old front).
+  last_commit_qpc_ = 0;
   // Force a full shell Commit+Present. Setting full_paint_pending alone is not
   // enough: without InvalidateRect, resize/move can leave WS_CLIPCHILDREN holes
   // and a lagging front DIB unpainted (desktop show-through / overlap).
   schedule_paint();
+  if (hwnd_ && IsWindow(hwnd_) && width > 0 && height > 0) {
+    InvalidateRect(hwnd_, nullptr, FALSE);
+  }
 }
 
 }  // namespace views

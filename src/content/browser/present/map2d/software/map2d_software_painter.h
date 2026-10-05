@@ -52,6 +52,12 @@ class Map2dSoftwarePainter {
   // debounce). Avoids full china GDI replay every InvalidateRect.
   bool try_blit_present_cache(HDC hdc, int width_px, int height_px,
                               uint64_t layout_gen) const;
+  // InteractiveReuse: StretchBlt the last good DIB by the camera pan/zoom
+  // delta. Replaying MapIR under a new View leaves pixel_space labels and
+  // hillshade footprints at the layout camera while world fills move.
+  bool try_interactive_present_cache(
+      HDC hdc, int width_px, int height_px, uint64_t layout_gen,
+      const Map2dFrameCache::CameraKey& cam) const;
   void store_present_cache(HDC src, int width_px, int height_px,
                            uint64_t layout_gen,
                            const Map2dFrameCache::CameraKey& cam) const;

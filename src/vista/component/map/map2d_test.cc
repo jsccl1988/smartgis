@@ -710,6 +710,45 @@ int main() {
     expect(count_kind(frame, DrawKind::kFill) >= 1, "fill after hillshade");
   }
 
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style("{\"version\":8,\"layers\":["
+                       "{\"id\":\"shade\",\"type\":\"hillshade\",\"paint\":{"
+                       "\"hillshade-color-ramp\":\"jet\"}},"
+                       "{\"id\":\"land\",\"type\":\"fill\",\"source-layer\":"
+                       "\"land\",\"paint\":{\"fill-color\":\"#f5f3e9\"}}"
+                       "]}",
+                       &doc),
+           "jet hillshade style parses");
+    vista::TileSlot hs;
+    hs.min_x = 0;
+    hs.min_y = 0;
+    hs.max_x = 20;
+    hs.max_y = 20;
+    hs.opacity = 1.f;
+    hs.texture_key = 0x48534844u;
+    LayoutInput in;
+    in.view = square_view(200, 20);
+    in.style = &doc;
+    in.zoom = 8;
+    in.hillshade_tiles = {hs};
+    OGRPolygon land_poly;
+    OGRLinearRing* ring = new OGRLinearRing();
+    ring->addPoint(2, 2);
+    ring->addPoint(18, 2);
+    ring->addPoint(18, 18);
+    ring->addPoint(2, 18);
+    ring->addPoint(2, 2);
+    land_poly.addRingDirectly(ring);
+    LayerBatch land;
+    land.source_layer = "land";
+    land.geoms = {&land_poly};
+    const vista::MapIR frame = layout.build(in, {land});
+    expect(!frame.items.empty() && frame.items[0].kind == DrawKind::kRaster &&
+               frame.items[0].blend == vista::DrawBlend::kOver,
+           "jet hillshade overpaints land");
+  }
+
   // Land that sits outside the DEM slot is clipped (no cream fringe).
   {
     gis::style::StyleDocument doc;

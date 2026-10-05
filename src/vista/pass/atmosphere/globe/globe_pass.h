@@ -43,6 +43,7 @@ struct GlobeDrawParams {
 // Host (AtmosphereSession) loads DemRaster / imagery and calls set_dem_surface.
 // When the DEM envelope is regional (e.g. china_dem), the rest of the sphere
 // stays at radius with ocean albedo — proves geometry until global_dem.tif.
+// Near-earth flythrough may attach a china_dem overlay via set_detail_dem_surface.
 class VISTA_EXPORT GlobePass {
  public:
   GlobePass();
@@ -62,6 +63,27 @@ class VISTA_EXPORT GlobePass {
                        double max_lat, int cols, int rows,
                        const float* heights_m, std::size_t height_count,
                        const uint8_t* albedo_rgba, int tex_w, int tex_h);
+
+  // Regional high-res DEM (china_dem) blended over the global grid. |blend|
+  // 0 = global only; 1 = full overlay inside the China envelope (soft edges).
+  void set_detail_dem_surface(double min_lon, double min_lat, double max_lon,
+                              double max_lat, int cols, int rows,
+                              const float* heights_m, std::size_t height_count,
+                              const uint8_t* albedo_rgba, int tex_w, int tex_h);
+  void set_detail_blend(float blend);
+  float detail_blend() const { return detail_blend_; }
+  bool has_detail_surface() const { return !detail_heights_.empty(); }
+
+  // Origin-like overlay on the China DEM window: jet elevation surface
+  // and/or isoline curves. Default both on so near-earth china_dem reads
+  // as a scientific height field rather than only satellite/hypsometric.
+  void set_elevation_overlay(bool surface, bool curves);
+  bool elevation_surface_overlay() const { return elevation_surface_; }
+  bool elevation_curve_overlay() const { return elevation_curves_; }
+  bool has_elevation_overlay() const { return !elev_overlay_.empty(); }
+
+  // Build far / mid / near CPU meshes into the LOD cache before fly-in.
+  void prewarm_mesh_lods();
 
   bool has_surface() const { return surface_ready_; }
   bool dem_is_global() const { return dem_is_global_; }
@@ -88,8 +110,11 @@ class VISTA_EXPORT GlobePass {
   void destroy_pipeline();
   void rebuild_mesh();
   void rebuild_equirect_albedo();
+  void rebuild_elevation_overlay();
+  void stamp_elevation_overlay();
   void apply_dem_hillshade();
   float sample_height(double lon, double lat) const;
+  float sample_detail_height(double lon, double lat) const;
   // Outward DEM surface normal at lon/lat (degrees); geocentric when flat.
   void sample_normal(double lon_deg, double lat_deg, float* nx, float* ny,
                      float* nz) const;
@@ -111,10 +136,36 @@ class VISTA_EXPORT GlobePass {
   int dem_tex_w_ = 0;
   int dem_tex_h_ = 0;
 
+  // Near-earth China overlay (optional).
+  double detail_min_lon_ = 73.0;
+  double detail_min_lat_ = 18.0;
+  double detail_max_lon_ = 135.0;
+  double detail_max_lat_ = 54.0;
+  int detail_cols_ = 0;
+  int detail_rows_ = 0;
+  std::vector<float> detail_heights_;
+  std::vector<uint8_t> detail_albedo_;
+  int detail_tex_w_ = 0;
+  int detail_tex_h_ = 0;
+  float detail_blend_ = 0.f;
+
+  bool elevation_surface_ = true;
+  bool elevation_curves_ = true;
+  std::vector<uint8_t> elev_overlay_;
+  int elev_overlay_w_ = 0;
+  int elev_overlay_h_ = 0;
+  double elev_min_lon_ = 73.0;
+  double elev_min_lat_ = 18.0;
+  double elev_max_lon_ = 135.0;
+  double elev_max_lat_ = 54.0;
+
   // Equirect RGBA uploaded to GPU (ocean + DEM window).
   std::vector<uint8_t> equirect_;
   int equirect_w_ = 0;
   int equirect_h_ = 0;
+  int gpu_equirect_w_ = 0;
+  int gpu_equirect_h_ = 0;
+  uint32_t gpu_vb_bytes_ = 0;
 
   std::vector<float> positions_;  // xyz + normal + uv interleaved (8 floats)
   std::vector<uint32_t> indices_;

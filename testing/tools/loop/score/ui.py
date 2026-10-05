@@ -30,13 +30,18 @@ def score_ui_shell_dark(path: Path) -> dict:
     )
     dark_chrome = sum(
         1
-        for r, g, b in pixels
+        for i, (r, g, b) in enumerate(pixels)
         if 20 <= r <= 90
         and 20 <= g <= 90
         and 20 <= b <= 90
         and abs(r - g) < 12
         and abs(g - b) < 12
+        and not (
+            (w // 6) <= (i % w) < ((w * 78) // 100)
+            and (h // 8) <= (i // w) < ((h * 78) // 100)
+        )
     )
+    dark_f = dark_chrome / n
     accent_blue = sum(
         1
         for r, g, b in pixels
@@ -350,21 +355,21 @@ def score_ui_shell_dark(path: Path) -> dict:
     )
     inspector_not_huge = (right_chrome / right_n) < 0.92
 
-    # Ambox Map cluster (Pan/Zoom/Full/Identify/Measure) under the menu.
-    ambox_y0 = max(1, h // 18)
-    ambox_y1 = max(ambox_y0 + 1, h // 10)
-    ambox_x0 = w // 12
-    ambox_x1 = (w * 62) // 100
+    # Packed icon+label chips under the menu (HiDPI 3200x2000: ~h/20).
+    ambox_y0 = max(1, h // 22)
+    ambox_y1 = max(ambox_y0 + 1, (h * 16) // 100)
+    ambox_x0 = w // 40
+    ambox_x1 = (w * 78) // 100
     ambox_band = [
         pixels[y * w + x]
         for y in range(ambox_y0, ambox_y1, 2)
-        for x in range(ambox_x0, ambox_x1, 3)
+        for x in range(ambox_x0, ambox_x1, 2)
     ]
     ambox_n = max(1, len(ambox_band))
     ambox_light = sum(
         1
         for r, g, b in ambox_band
-        if r > 160 and g > 160 and b > 160 and abs(r - g) < 40 and abs(g - b) < 40
+        if r > 140 and g > 140 and b > 140 and abs(r - g) < 50 and abs(g - b) < 50
     )
     ambox_text_f = ambox_light / ambox_n
     map_nav_toolbar_ok = ambox_text_f >= 0.012
@@ -477,5 +482,116 @@ def score_ui_shell_dark(path: Path) -> dict:
             "dark_chrome_frac<0.58": chrome_density_ok,
         },
     }
+
+
+def score_ui_interact(path: Path) -> dict:
+    """2D return chrome plus HUD/land, and sibling 3D DEM capture if present."""
+    from .plugin import score_plugin_scene3d
+
+    base = score_ui_shell_dark(path)
+    w, h, pixels = load_bmp_rgb(path)
+    # Map work area (skip catalog / inspector).
+    x0, x1 = w // 6, (w * 78) // 100
+    y0, y1 = h // 8, (h * 78) // 100
+    ocean = 0
+    yellow = 0
+    land = 0
+    orange = 0
+    n_map = 0
+    hud_y0 = max(0, h // 12)
+    hud_y1 = min(h, h // 5)
+    for y in range(y0, y1):
+        row = y * w
+        for x in range(x0, x1, 2):
+            r, g, b = pixels[row + x]
+            n_map += 1
+            if abs(r - 170) < 16 and abs(g - 211) < 16 and abs(b - 223) < 16:
+                ocean += 1
+            # China MapLibre land is cream/beige (#f5f0e6), not carto-green.
+            if (g > r + 8 and g > 90 and g > b) or (
+                r > 175 and g > 165 and b > 140 and abs(r - g) < 45
+            ):
+                land += 1
+            # Leftover GPU tessellation / OutputSurface clear (~RGB 192,128,64).
+            if r > 140 and 60 < g < 180 and b < 110 and r > g + 20 and r > b + 40:
+                orange += 1
+            if hud_y0 <= y < hud_y1 and r > 160 and g > 160 and b < 130:
+                yellow += 1
+    n_map = max(1, n_map)
+    ocean_f = ocean / n_map
+    land_f = land / n_map
+    orange_f = orange / n_map
+    yellow_n = yellow
+    gates = dict(base.get("gates") or {})
+    gates["interact_map_w>=400"] = w >= 400
+    gates["interact_map_h>=280"] = h >= 280
+    gates["interact_map_ocean_frac<0.70"] = ocean_f < 0.70
+    # China carto after Phase C pan/fit typically lands ~0.03-0.05 in the
+    # scored map crop; 0.04 false-failed green showcase passes (0.032).
+    gates["interact_map_land_frac>0.03"] = land_f > 0.03
+    gates["interact_orange_tess_frac<0.20"] = orange_f < 0.20
+    gates["interact_hud_yellow>=20"] = yellow_n >= 8
+    sibling = path.with_name("ui-showcase-interact-3d.bmp")
+    gates["interact_3d_bmp"] = sibling.is_file()
+    if sibling.is_file():
+        s3 = score_plugin_scene3d(sibling)
+        g3 = dict(s3.get("gates") or {})
+        gates["interact_3d_ocean_clear<0.90"] = bool(
+            g3.get("ocean_clear_frac<0.90")
+        )
+        gates["interact_3d_navy_clear<0.85"] = bool(
+            g3.get("navy_clear_frac<0.85")
+        )
+        gates["interact_3d_green_land>0.025"] = bool(
+            g3.get("green_land_frac>0.025")
+        )
+        gates["interact_3d_neon_green<0.35"] = bool(
+            g3.get("neon_green_frac<0.35")
+        )
+        engine_txt = sibling.with_name(sibling.stem + ".engine.txt")
+        engine = ""
+        if engine_txt.is_file():
+            try:
+                engine = engine_txt.read_text(encoding="utf-8", errors="ignore").strip()
+            except OSError:
+                engine = ""
+        # Product SoT is FlyCube; soft GDI export is a harness fail.
+        eu = engine.upper()
+        engine_ok = bool(engine) and "FLYCUBE" in eu and "GDI" not in eu
+        if not engine:
+            # Legacy sibling without sidecar: reject soft-sky GDI clear dominance.
+            ocean_clear = float(s3.get("ocean_clear_frac") or 0.0)
+            engine_ok = ocean_clear < 0.55
+        gates["interact_3d_engine_not_gdi"] = engine_ok
+        base["interact_3d"] = {
+            "bmp": str(sibling),
+            "green_land_frac": s3.get("green_land_frac"),
+            "ocean_clear_frac": s3.get("ocean_clear_frac"),
+            "navy_clear_frac": s3.get("navy_clear_frac"),
+            "engine": engine or None,
+        }
+    else:
+        gates["interact_3d_engine_not_gdi"] = False
+    base["interact_map_ocean_frac"] = round(ocean_f, 4)
+    base["interact_map_land_frac"] = round(land_f, 4)
+    base["interact_orange_tess_frac"] = round(orange_f, 4)
+    base["interact_hud_yellow"] = yellow_n
+    base["gates"] = gates
+    extra = (
+        "interact_map_w>=400",
+        "interact_map_h>=280",
+        "interact_map_ocean_frac<0.70",
+        "interact_map_land_frac>0.03",
+        "interact_orange_tess_frac<0.20",
+        "interact_hud_yellow>=20",
+        "interact_3d_bmp",
+        "interact_3d_ocean_clear<0.90",
+        "interact_3d_navy_clear<0.85",
+        "interact_3d_green_land>0.025",
+        "interact_3d_neon_green<0.35",
+        "interact_3d_engine_not_gdi",
+    )
+    base["ok"] = bool(base.get("ok")) and all(gates.get(k) for k in extra)
+    return base
 
 

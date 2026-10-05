@@ -12,8 +12,8 @@ class Browser;
 
 namespace detail {
 
-// After layout gate: optional linger, scene→Map flip for PrintWindow, shell
-// repaint, HUD FPS mark, chrome BMP write, and stop present timers.
+// After layout gate: linger, keep Scene on 3D, composite FlyCube present
+// pixels into the shell BMP, HUD FPS mark, chrome BMP write, stop timers.
 // Returns 0 on success, else showcase exit code (54/55).
 int run_ui_present_capture(Browser& browser, UiShowcaseMode mode);
 

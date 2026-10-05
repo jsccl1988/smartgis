@@ -20,7 +20,7 @@ class Label;
 class Slider;
 
 // Compact ResultPlayback strip: play/pause, loop, prev/next, and frame scrub.
-// Hosts wire apply_analysis_frame / AnalysisPlayback fps+looping; this panel
+// Hosts wire apply_plugin_frame / PluginPlayback fps+looping; this panel
 // stays map-agnostic.
 class UI_EXPORT ResultPlaybackPanel : public View {
  public:

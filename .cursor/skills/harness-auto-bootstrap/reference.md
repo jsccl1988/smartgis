@@ -13,7 +13,7 @@ Progressive disclosure. Read when parsing dumps, env, or hang vs slow.
 wWinMain
   ParseLaunchOptions
   ContentMain / BrowserMain
-    Browser.ctor → Browser.init (InitShell, SeedDocument, AttachViewports, FlyCube)
+    Browser.ctor → Browser.init (InitShell, SeedDocument, AttachViewports, Vista)
     [partial dump: post-init]
     Browser.show → ShowShell → WaitFirstMapPresent   ← 首地图渲染
   maybe_dump_startup_profile  (once; second call in wWinMain is no-op)

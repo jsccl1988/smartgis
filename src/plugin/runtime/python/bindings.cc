@@ -252,6 +252,28 @@ PyObject* host_close_report(HostObject* self, PyObject* /*args*/) {
   Py_RETURN_TRUE;
 }
 
+PyObject* host_present_dataset(HostObject* self, PyObject* args) {
+  const char* plugin_id = nullptr;
+  const char* path = "";
+  int face = 0;
+  int surface = -1;
+  if (!PyArg_ParseTuple(args, "s|sii", &plugin_id, &path, &face, &surface)) {
+    return nullptr;
+  }
+  if (!self->host || !plugin_id) {
+    Py_RETURN_FALSE;
+  }
+  const bool ok =
+      surface < 0
+          ? self->host->present_dataset(plugin_id, path ? path : "", face)
+          : self->host->present_dataset(plugin_id, path ? path : "", face,
+                                        surface);
+  if (!ok) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
 PyObject* host_run_processing(HostObject* self, PyObject* args) {
   const char* processing_id = nullptr;
   const char* args_json = "{}";
@@ -286,6 +308,9 @@ PyMethodDef kHostMethods[] = {
      METH_VARARGS, "Post JSON to the open report (window message)."},
     {"close_report", reinterpret_cast<PyCFunction>(host_close_report),
      METH_NOARGS, "Close the Report dock document."},
+    {"present_dataset", reinterpret_cast<PyCFunction>(host_present_dataset),
+     METH_VARARGS,
+     "Show plugin sample: face 0=Map/1=Scene3D; optional surface 0=main/1=preview."},
     {"run_processing", reinterpret_cast<PyCFunction>(host_run_processing),
      METH_VARARGS, "Run a contributed processing id."},
     {nullptr, nullptr, 0, nullptr},

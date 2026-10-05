@@ -1,0 +1,26 @@
+{
+  "version": 8,
+  "name": "traffic_path",
+  "layers": [
+    {"id":"bg","type":"background",
+     "paint":{"background-color":"#e8f5e9","background-opacity":1}},
+    {"id":"blocks","type":"fill","source-layer":"traffic_blocks",
+     "paint":{
+       "fill-color":["interpolate",["linear"],["get","heat"],
+         0,"#d5f5e3",50,"#f9e79f",100,"#f5cba7"],
+       "fill-opacity":0.85}},
+    {"id":"block_edge","type":"line","source-layer":"traffic_blocks",
+     "paint":{"line-color":"#aeb6bf","line-width":0.6,"line-opacity":0.5}},
+    {"id":"network","type":"line","source-layer":"traffic_network",
+     "paint":{
+       "line-color":["interpolate",["linear"],["get","heat"],
+         0,"#1e8449",40,"#f39c12",70,"#e67e22",100,"#922b21"],
+       "line-width":7.0}},
+    {"id":"path_glow","type":"line","source-layer":"traffic_path",
+     "paint":{"line-color":"#f4d03f","line-width":16.0,"line-opacity":0.6}},
+    {"id":"path_final","type":"line","source-layer":"traffic_path",
+     "paint":{"line-color":"#922b21","line-width":11.0}},
+    {"id":"path_anim","type":"line","source-layer":"traffic_path_anim",
+     "paint":{"line-color":"#1a5276","line-width":8.5,"line-opacity":0.95}}
+  ]
+}

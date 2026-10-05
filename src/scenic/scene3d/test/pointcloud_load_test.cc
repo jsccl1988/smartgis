@@ -3,7 +3,7 @@
 
 // Load a public china_dem.tif subsample through PointCloud3d::Read3DPointCloud.
 // DEM source: Mapzen/Nextzen terrain stack (SRTM/GMTED/…); see
-// testing/data/china_city.LICENSE.txt.
+// testing/data/china/china_city.LICENSE.txt.
 
 #include <cstdio>
 #include <filesystem>

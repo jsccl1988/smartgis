@@ -287,13 +287,13 @@ void clear_switch(std::string_view key) {
   std::lock_guard<std::mutex> lock(g_mu);
   const std::string k = normalize_key(key);
   g_values.erase(k);
-  sync_leftover_env(k, "");
+  sync_product_env(k, "");
 }
 
 void clear_switches_for_test() {
   std::lock_guard<std::mutex> lock(g_mu);
   for (const auto& kv : g_values) {
-    sync_leftover_env(kv.first, "");
+    sync_product_env(kv.first, "");
   }
   g_values.clear();
 }

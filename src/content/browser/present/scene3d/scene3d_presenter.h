@@ -9,18 +9,16 @@
 #endif
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <string>
-#include <vector>
 #include <windows.h>
 
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
+#include "content/browser/present/scene3d/scenic_engine_host.h"
 #include "content/browser/present/scene3d/software/scene3d_software_painter.h"
 #include "content/public/map_types.h"
 #include "render/rhi/rhi.h"
-#include "scenic/engine.h"
 #include "tool/draft/draft.h"
 #include "ui/gfx/raster/shell_raster.h"
 
@@ -33,6 +31,16 @@ class ViewFrame;
 // Thin 3D present facade: Atmosphere + GPU/software, or hosted scenic::Engine.
 class Scene3dPresenter {
  public:
+  // Heap-allocate in this TU so BrowserSession (exe source_set) does not
+  // embed a sizeof that can skew vs AtmosphereSession / GpuPresent under
+  // parallel ninja — that overflow is STATUS_HEAP_CORRUPTION on the next
+  // CRT malloc (Workspace::register_builtins).
+  struct Deleter {
+    void operator()(Scene3dPresenter* p) const;
+  };
+  using Ptr = std::unique_ptr<Scene3dPresenter, Deleter>;
+  static Ptr create();
+
   Scene3dPresenter();
   ~Scene3dPresenter();
 
@@ -50,6 +58,9 @@ class Scene3dPresenter {
 
   void set_look_preset(Scene3dLookPreset preset);
   Scene3dLookPreset look_preset() const { return gpu_.look_preset(); }
+  // Out-of-line so app TUs do not compute gpu_ from a stale AtmosphereSession
+  // size (3D tab AV in MapScene::feature_count).
+  bool ensure_legacy_overlays();
 
   void bind_orbit(const OrbitFrame* orbit);
   void bind_map(const MapScene* scene);
@@ -69,7 +80,12 @@ class Scene3dPresenter {
   void set_overlay_tin_mesh(const float* xyz_lon_lat_elev, int point_count,
                             const unsigned* indices, int index_count,
                             const uint8_t* albedo_rgba = nullptr);
+  // Optional RGBA8 atlas + per-vertex UV (2 floats / vert) for lithology drapes.
+  void set_overlay_tin_drape(const uint8_t* rgba, uint32_t width, uint32_t height,
+                             const float* uv, int uv_float_count);
   void clear_overlay_tin_mesh();
+  void set_dem_drape_rgba(const uint8_t* rgba, uint32_t width, uint32_t height);
+  void clear_dem_drape();
 
   render::rhi::CameraMatrices camera_matrices(float aspect) const;
   render::rhi::CameraMatrices camera_matrices_ortho(float width_px,
@@ -93,23 +109,16 @@ class Scene3dPresenter {
 
  private:
   void rebind_software();
-  void ensure_scenic() const;
-  void sync_scenic(uint32_t width_px, uint32_t height_px) const;
 
   AtmosphereSession atmosphere_;
   Scene3dGpuPresent gpu_;
   Scene3dSoftwarePainter software_;
+  mutable detail::ScenicScene3dHost scenic_host_;
 
   const ViewFrame* label_frame_ = nullptr;
   MapContents* contents_ = nullptr;
   const MapScene* map_scene_ = nullptr;
   uint32_t view_id_ = 0;
-
-  // Display mailbox + UI paint/export may call scenic sync concurrently.
-  mutable std::mutex scenic_mu_;
-  mutable std::unique_ptr<scenic::Engine> scenic_;
-  mutable std::vector<scenic::Vertex2> scenic_xy_;
-  mutable std::vector<scenic::DrawItem> scenic_items_;
 };
 
 }  // namespace content

@@ -7,7 +7,7 @@
 # Final frame compose stays in //src/gpu.
 #
 # Public responsibility dirs: geometry/ color/ canvas/ display/ display_list/
-# raster/ image/ font/ animation/. Includes: "ui/gfx/<area>/....". No root shims.
+# raster/ font/. Includes: "ui/gfx/<area>/....". No root shims.
 # Stable label :gfx forwards to the ui_views DLL; :gfx_headers is include-only.
 # :vblank_wait is a tiny DXGI source_set shared with //src/gpu (no ui_views.dll).
 
@@ -72,8 +72,6 @@ source_set("vblank_wait") {
 
 source_set("gfx_sources") {
   sources = [
-    "animation/animation.cc",
-    "animation/animation.h",
     "canvas/canvas.cc",
     "canvas/canvas.h",
     "canvas/canvas_backend.h",
@@ -89,13 +87,9 @@ source_set("gfx_sources") {
     "geometry/point.h",
     "geometry/rect.h",
     "geometry/size.h",
-    "image/image.cc",
-    "image/image.h",
     "raster/paint_stats.cc",
     "raster/paint_stats.h",
     "raster/shell_raster.h",
-    "skia.cc",
-    "skia.h",
   ]
   defines = [ "UI_EXPORTS" ]
   public_configs = [ ":skia_config" ]

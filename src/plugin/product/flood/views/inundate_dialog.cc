@@ -10,6 +10,7 @@
 
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/resources/resource_roots.h"
+#include "plugin/runtime/widgets/present_surface_picker.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/markup/loader/markup_loader.h"
@@ -69,18 +70,34 @@ InundateDialog::InundateDialog(content::PluginHost* host) : host_(host) {
     btn->set_click([this] { on_ok(); });
   }
 
-  set_layout_manager(std::make_unique<ui::views::FillLayout>());
-  loaded.root->set_preferred_size({kW, kH});
-  add_child(std::move(loaded.root));
-
   const char* sample_dir = base::switch_cstr("plugin-sample-dir");
   const std::string base =
       sample_dir && *sample_dir ? std::string(sample_dir) : "../data/plugin";
+  sample_path_ = base + "/flood_valley.geojson";
   if (dem_path_ && dem_path_->text().empty()) {
     dem_path_->set_text(base + "/flood_basin_sample.tif");
   }
   if (output_path_ && output_path_->text().empty()) {
     output_path_->set_text(base + "/flood_mask.tif");
+  }
+
+  auto box = std::make_unique<ui::views::BoxLayout>(
+      ui::views::BoxLayout::Orientation::kVertical);
+  auto picker = std::make_unique<PresentSurfacePicker>(host_);
+  picker->set_on_surface_change([this](int) { present_sample(); });
+  loaded.root->set_preferred_size({kW, kH});
+  box->set_flex_for_view(loaded.root.get(), 1);
+  set_layout_manager(std::move(box));
+  add_child(std::move(picker));
+  add_child(std::move(loaded.root));
+  set_preferred_size({kW, kH + 32});
+
+  present_sample();
+}
+
+void InundateDialog::present_sample() {
+  if (host_) {
+    host_->present_dataset("smartgis.flood", sample_path_, 0);
   }
 }
 

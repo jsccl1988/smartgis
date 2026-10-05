@@ -30,7 +30,7 @@ REPO = Path(__file__).resolve().parents[2]
 OUT_DATA = REPO / "out" / "data"
 CACHE = OUT_DATA / "cache" / "globe_terrain_src"
 CHINA_DEM = OUT_DATA / "china_dem.tif"
-TESTING_CHINA_DEM = REPO / "testing" / "data" / "china_dem.tif"
+TESTING_CHINA_DEM = REPO / "testing" / "data" / "china" / "china_dem.tif"
 
 # NASA Visible Earth Blue Marble (land_ocean_ice_2048) — small splash albedo.
 # Prefer .jpg; historical .png URL 404s on some mirrors.

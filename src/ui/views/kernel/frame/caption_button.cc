@@ -57,7 +57,9 @@ bool CaptionButton::on_mouse_event(const MouseEvent& e) {
     const bool was = is_pressed();
     set_pressed(false);
     schedule_paint();
-    if (was) {
+    // Capture delivers Up to the press target even after the cursor leaves.
+    // Activate only when the release is still over this control.
+    if (was && bounds().contains(e.x, e.y)) {
       activate();
     }
     return true;

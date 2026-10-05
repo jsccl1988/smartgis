@@ -16,9 +16,11 @@
 #include "gis/analysis/geochem/samples.h"
 #include "gis/analysis/geochem/stats.h"
 #include "plugin/product/geochem/views/analyze_dialog.h"
+#include "plugin/product/geochem/present/present.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
+#include "plugin/runtime/widgets/present_surface_picker.h"
 #include "tool/command/command.h"
 
 #include <rapidjson/document.h>
@@ -30,10 +32,9 @@ namespace {
 
 constexpr const char* kPluginId = "smartgis.geochem";
 
-GeochemWriter g_writer;
-GeochemLayerReader g_layer_reader;
 gis::detail::GeochemSampleSet g_last_samples;
 gis::detail::GeochemIdwResult g_last_idw;
+GeochemCommit g_last_commit;
 std::string g_last_element;
 
 // Showcase IL runs analyze then stats; stats must not wipe the IDW heat
@@ -114,22 +115,10 @@ gis::detail::GeochemSampleSet load_samples(const rapidjson::Document& args,
   bool use_active = false;
   json_get_bool(args, "use_active_layer", &use_active);
   if (use_active) {
-    if (!g_layer_reader) {
-      if (err) {
-        *err = "no_layer_reader";
-      }
-      set.error = "no_layer_reader";
-      return set;
+    if (err) {
+      *err = "no_layer_reader";
     }
-    std::string read_err;
-    if (!g_layer_reader(element, &set, &read_err) || !set.ok) {
-      if (err) {
-        *err = read_err.empty() ? (set.error.empty() ? "layer_load_failed"
-                                                     : set.error)
-                                : read_err;
-      }
-      return set;
-    }
+    set.error = "no_layer_reader";
     return set;
   }
 
@@ -161,19 +150,21 @@ gis::detail::GeochemSampleSet load_samples(const rapidjson::Document& args,
   return set;
 }
 
-bool publish(const GeochemCommit& commit, const char* op) {
-  if (!g_writer) {
-    set_operation_result(
-        std::string("{\"error\":\"no_geochem_seam\",\"op\":\"") + op + "\"}");
-    return false;
+bool publish(content::PluginHost* host, const GeochemCommit& commit,
+             const char* op) {
+  g_last_commit = commit;
+  if (!host) {
+    return true;
   }
+  content::GisDocument* gis = host->gis_document();
   std::string err;
-  if (!g_writer(commit, &err)) {
+  if (!gis || !present_geochem(gis, commit, &err)) {
     set_operation_result(
         std::string("{\"error\":\"") +
         (err.empty() ? "no_geochem_seam" : err) + "\",\"op\":\"" + op + "\"}");
     return false;
   }
+  (void)host->present_dataset(kPluginId, "", 0);
   return true;
 }
 
@@ -217,7 +208,10 @@ std::string stats_json(const GeochemCommit& commit) {
   return buf.GetString();
 }
 
-bool geochem_load(content::PluginHost*, std::string_view args_json) {
+bool geochem_load(content::PluginHost* host, std::string_view args_json) {
+  if (host) {
+    return publish(host, g_last_commit, "geochem.load");
+  }
   rapidjson::Document args;
   if (!parse_args(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"geochem.load\"}");
@@ -242,18 +236,20 @@ bool geochem_load(content::PluginHost*, std::string_view args_json) {
   commit.legend =
       gis::detail::build_geochem_grade_legend(set, element, 5);
   attach_cached_idw(&commit);
-  if (!publish(commit, "geochem.load")) {
+  if (!publish(host, commit, "geochem.load")) {
     return false;
   }
   set_operation_result(
       std::string("{\"ok\":true,\"op\":\"geochem.load\",\"samples\":") +
       std::to_string(set.samples.size()) + ",\"elements\":" +
-      std::to_string(set.element_names.size()) +
-      (g_writer ? "" : ",\"viz\":\"file_only\"") + "}");
+      std::to_string(set.element_names.size()) + "}");
   return true;
 }
 
-bool geochem_stats(content::PluginHost*, std::string_view args_json) {
+bool geochem_stats(content::PluginHost* host, std::string_view args_json) {
+  if (host) {
+    return publish(host, g_last_commit, "geochem.stats");
+  }
   rapidjson::Document args;
   if (!parse_args(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"geochem.stats\"}");
@@ -313,14 +309,17 @@ bool geochem_stats(content::PluginHost*, std::string_view args_json) {
     }
   }
 
-  if (!publish(commit, "geochem.stats")) {
+  if (!publish(host, commit, "geochem.stats")) {
     return false;
   }
   set_operation_result(stats_json(commit));
   return true;
 }
 
-bool geochem_analyze(content::PluginHost*, std::string_view args_json) {
+bool geochem_analyze(content::PluginHost* host, std::string_view args_json) {
+  if (host) {
+    return publish(host, g_last_commit, "geochem.analyze");
+  }
   rapidjson::Document args;
   if (!parse_args(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"geochem.analyze\"}");
@@ -386,7 +385,7 @@ bool geochem_analyze(content::PluginHost*, std::string_view args_json) {
     (void)gis::detail::write_geochem_idw_geotiff(output, commit.idw, mask_out);
   }
 
-  if (!publish(commit, "geochem.analyze")) {
+  if (!publish(host, commit, "geochem.analyze")) {
     return false;
   }
 
@@ -422,7 +421,10 @@ bool geochem_analyze(content::PluginHost*, std::string_view args_json) {
   return true;
 }
 
-bool geochem_style_apply(content::PluginHost*, std::string_view args_json) {
+bool geochem_style_apply(content::PluginHost* host, std::string_view args_json) {
+  if (host) {
+    return publish(host, g_last_commit, "geochem.style_apply");
+  }
   rapidjson::Document args;
   parse_args(args_json, &args);
   std::string element = g_last_element.empty() ? "Cu" : g_last_element;
@@ -444,7 +446,7 @@ bool geochem_style_apply(content::PluginHost*, std::string_view args_json) {
   commit.legend =
       gis::detail::build_geochem_grade_legend(g_last_samples, element, classes);
   attach_cached_idw(&commit);
-  if (!publish(commit, "geochem.style_apply")) {
+  if (!publish(host, commit, "geochem.style_apply")) {
     return false;
   }
   set_operation_result(
@@ -462,14 +464,6 @@ void show_dialog(const wchar_t* title, std::unique_ptr<ui::views::View> body) {
 }
 
 }  // namespace
-
-void set_geochem_writer(GeochemWriter writer) {
-  g_writer = std::move(writer);
-}
-
-void set_geochem_layer_reader(GeochemLayerReader reader) {
-  g_layer_reader = std::move(reader);
-}
 
 bool register_geochem(content::PluginHost* host) {
   if (!host) {
@@ -507,7 +501,8 @@ bool register_geochem(content::PluginHost* host) {
           kPluginId, {"geochem.analyze", "地球化学分析"},
           [host](content::PluginHost*) {
             show_dialog(L"地球化学分析",
-                        std::make_unique<AnalyzeDialog>(host));
+                        wrap_with_present_surface(
+                            host, std::make_unique<AnalyzeDialog>(host)));
           })) {
     return false;
   }
@@ -532,7 +527,9 @@ bool register_geochem(content::PluginHost* host) {
              geochem_analyze) &&
          host->contribute_processing(
              kPluginId, {"geochem.style_apply", "Apply graded sample style"},
-             geochem_style_apply);
+             geochem_style_apply) &&
+         host->contribute_export_frame(
+             kPluginId, {"geochem_samples", 114.18, 30.45, 114.36, 30.60});
 }
 
 }  // namespace plugin

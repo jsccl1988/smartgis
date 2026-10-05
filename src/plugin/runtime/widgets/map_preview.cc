@@ -31,11 +31,11 @@ std::string from_wide(const wchar_t* w) {
 MapPreviewView::MapPreviewView() {
   auto box = std::make_unique<ui::views::BoxLayout>(
       ui::views::BoxLayout::Orientation::kVertical);
-  auto vp = std::make_unique<ui::views::MapViewport>();
-  viewport_ = vp.get();
+  auto vp = std::make_unique<ui::views::DrawHost>();
+  draw_host_ = vp.get();
   auto bar = std::make_unique<ui::views::StatusBar>();
   status_ = bar.get();
-  box->set_flex_for_view(viewport_, 1);
+  box->set_flex_for_view(draw_host_, 1);
   set_layout_manager(std::move(box));
   add_child(std::move(vp));
   add_child(std::move(bar));
@@ -43,13 +43,13 @@ MapPreviewView::MapPreviewView() {
 }
 
 bool MapPreviewView::export_bmp(const std::string& path) const {
-  return viewport_ && viewport_->export_bmp(path);
+  return draw_host_ && draw_host_->export_bmp(path);
 }
 
 bool MapPreviewView::open_document(std::string_view path) {
   path_.assign(path);
   if (status_) {
-    const wchar_t* hang = viewport_ ? viewport_->status_text() : nullptr;
+    const wchar_t* hang = draw_host_ ? draw_host_->status_text() : nullptr;
     if (hang && hang[0]) {
       status_->set_status(from_wide(hang));
     } else {
@@ -59,8 +59,8 @@ bool MapPreviewView::open_document(std::string_view path) {
   return true;
 }
 
-ui::views::MapViewport* MapPreviewView::viewport() {
-  return viewport_;
+ui::views::DrawHost* MapPreviewView::draw_host() {
+  return draw_host_;
 }
 
 ui::views::StatusBar* MapPreviewView::status_bar() {

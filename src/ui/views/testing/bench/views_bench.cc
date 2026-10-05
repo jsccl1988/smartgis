@@ -126,18 +126,38 @@ void BM_table_scroll_commit(benchmark::State& state) {
   constexpr int kWidth = 640;
   table->set_bounds({0, 0, kWidth, full_h});
 
+  // Warm the front DIB once so steady-state scrolls stay subset-publish.
+  {
+    const Rect warm{0, header_h, kWidth, view_h};
+    table->set_exposed_rect(warm);
+    PaintCommit frame;
+    commit_view_tree(table.get(), warm, kWidth, full_h, 12,
+                     ui::gfx::color_rgb(20, 20, 20), &frame);
+    const std::uint64_t gen = frame.generation;
+    compositor.commit(std::move(frame));
+    compositor.wait_published(gen);
+  }
+
   int scroll_row = 0;
+  int prev_scroll = -1;
   for (auto _ : state) {
     const int y0 = header_h + scroll_row * row_h;
     const Rect strip{0, y0, kWidth, view_h};
-    table->set_exposed_rect(strip);
+    // After warm-up, one-row scroll only records/rasters the newly exposed
+    // leading edge; retained DIB already holds the overlapping viewport rows.
+    Rect dirty = strip;
+    if (prev_scroll >= 0 && scroll_row == prev_scroll + 1) {
+      dirty = Rect{0, y0 + view_h - row_h, kWidth, row_h};
+    }
+    table->set_exposed_rect(dirty);
+    prev_scroll = scroll_row;
     scroll_row = (scroll_row + 1) % 40;
 
     LARGE_INTEGER t0 = {};
     LARGE_INTEGER t1 = {};
     QueryPerformanceCounter(&t0);
     PaintCommit frame;
-    commit_view_tree(table.get(), strip, kWidth, full_h, 12,
+    commit_view_tree(table.get(), dirty, kWidth, full_h, 12,
                      ui::gfx::color_rgb(20, 20, 20), &frame);
     const std::uint64_t gen = frame.generation;
     compositor.commit(std::move(frame));

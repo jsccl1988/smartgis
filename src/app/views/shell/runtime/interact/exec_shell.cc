@@ -116,10 +116,6 @@ std::optional<bool> try_exec_shell_call(content::CapabilityHost& host,
     const std::string mode = arg_ident(c, 0, "mode", "full");
     return host.atmosphere_run && host.atmosphere_run(mode);
   }
-  if (op == "plugin_run") {
-    const std::string mode = arg_ident(c, 0, "mode", "world3d");
-    return host.plugin_run && host.plugin_run(mode);
-  }
   if (op == "run_processing") {
     const std::string id = arg_ident(c, 0, "id", "");
     if (id.empty() || !host.run_processing) {

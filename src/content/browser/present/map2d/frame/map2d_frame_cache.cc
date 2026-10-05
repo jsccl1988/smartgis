@@ -5,30 +5,18 @@
 
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/map_scene.h"
-#include "content/browser/present/map2d/frame/map2d_batches.h"
+#include "content/browser/present/map2d/frame/map2d_layout_build.h"
 #include "content/browser/present/map2d/frame/map2d_tile_math.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 
-#include <atomic>
 #include <cmath>
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
 #include <mutex>
-#include <string>
 #include <utility>
 #include <vector>
 
-#include "base/memory/arena.h"
-#include "base/trace/event/process_trace.h"
-#include "base/process/switches.h"
-#include "vista/pass/map/pass.h"
-#include "gis/style/document/style_document.h"
-#include "gis/style/eval/style_rules.h"
 #include "vista/component/map/ir.h"
-#include "vista/component/map/detail/hillshade_bake.h"
-#include "vista/terrain/dem/dem_raster.h"
 
 namespace content {
 namespace {
@@ -49,24 +37,11 @@ class MapSliceLookup final : public vista::SliceCache {
   const std::unordered_map<uint64_t, std::vector<vista::DrawItem>>& slices_;
 };
 
-const gis::style::StyleLayer* find_hillshade_layer(
-    const gis::style::StyleDocument* style, double zoom) {
-  if (!style) {
-    return nullptr;
-  }
-  for (const gis::style::StyleLayer& layer : style->layers) {
-    if (layer.type != gis::style::LayerType::kHillshade) {
-      continue;
-    }
-    if (!gis::style::layer_matches_zoom(layer, zoom)) {
-      continue;
-    }
-    return &layer;
-  }
-  return nullptr;
-}
-
 }  // namespace
+
+Map2dFrameCache::Map2dFrameCache() = default;
+
+Map2dFrameCache::~Map2dFrameCache() = default;
 
 void Map2dFrameCache::clear_hillshade_bake() {
   hillshade_ready_ = false;
@@ -210,209 +185,62 @@ void Map2dFrameCache::absorb_layer_slices(const vista::MapIR& frame) {
 bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
                                      const ContentFingerprint& fp,
                                      bool reuse_slices) {
-  BASE_TRACE_EVENT("layout", "map2d.layout");
   if (!scene_ || !frame_ || cam.width_px == 0 || cam.height_px == 0) {
     return false;
   }
 
   const auto layout_wall_t0 = std::chrono::steady_clock::now();
-  int64_t hillshade_ms = 0;
 
   // Keep cached_frame_ published until this gen is still current after build.
   // Do not reset TLS/scratch here — Layout::build owns TLS reset, and wiping
-  // arenas while published_ still aliases them AVs on the next paint.
+  // arenas while cached_frame_ still aliases them AVs on the next paint.
   const uint64_t build_gen =
       live_layout_gen_.fetch_add(1, std::memory_order_acq_rel) + 1;
 
-  const gis::style::StyleDocument* style = scene_->style_document();
-  // china_city.style.json keys source-layer area/line/point (+ circle on
-  // point). That disables carto_source_layer remap → cream wash, orange/black
-  // point squares, no river/land slots. Product china seed and showcase
-  // require default MapLibre carto (land/river/label).
-  auto style_is_china_city_pack = [](const gis::style::StyleDocument* doc) {
-    if (!doc || doc->layers.empty()) {
-      return false;
-    }
-    bool has_area_or_point = false;
-    bool has_land_or_river = false;
-    for (const gis::style::StyleLayer& layer : doc->layers) {
-      if (layer.source_layer == "land" || layer.source_layer == "river" ||
-          layer.source_layer == "label") {
-        has_land_or_river = true;
-      }
-      if (layer.source_layer == "area" || layer.source_layer == "point" ||
-          layer.source_layer == "line") {
-        has_area_or_point = true;
-      }
-    }
-    return has_area_or_point && !has_land_or_river;
-  };
-  auto style_has_carto_slots = [](const gis::style::StyleDocument* doc) {
-    if (!doc) {
-      return false;
-    }
-    for (const gis::style::StyleLayer& layer : doc->layers) {
-      if (layer.source_layer == "land" || layer.source_layer == "river" ||
-          layer.source_layer == "road" || layer.source_layer == "label") {
-        return true;
-      }
-    }
+  MapSliceLookup retained(layer_slices_);
+  detail::Map2dLayoutParams params;
+  params.scene = scene_;
+  params.frame = frame_;
+  params.cam = cam;
+  params.hillshade_ready = hillshade_ready_;
+  params.layout_build_count = layout_build_count_;
+  params.layout_gen = build_gen;
+  params.live_layout_gen = &live_layout_gen_;
+  if (reuse_slices && !layer_slices_.empty()) {
+    params.retained_slices = &retained;
+  }
+
+  detail::Map2dLayoutOutput built;
+  if (!detail::build_map2d_layout(params, &built)) {
     return false;
+  }
+  const int64_t hillshade_ms = built.hillshade_ms;
+  auto note_layout = [&] {
+    const int64_t wall_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - layout_wall_t0)
+            .count();
+    const int64_t layout_ms =
+        wall_ms > hillshade_ms ? (wall_ms - hillshade_ms) : wall_ms;
+    note_map2d_phase_layout(layout_ms, hillshade_ms);
   };
-  // Fingerprint treats china-city remaps as carto (style_document() null or
-  // remapped). Batch path must match: use_carto when original scene style was
-  // null or china-city pack. Print carto (land/river/label, no symbols) also
-  // needs slot remap so area/line/point packs bind. Evaluate once.
-  const bool china_city_pack = style_is_china_city_pack(style);
-  const bool carto_slots = style_has_carto_slots(style);
-  const bool use_carto = style == nullptr || china_city_pack || carto_slots;
-  if (china_city_pack) {
-    style = nullptr;
+  if (!built.ok) {
+    note_layout();
+    return has_frame_cache_;
   }
-  // Default carto JSON is large; parse once per process (rebuilds are frequent
-  // on settle / zoom-bucket). China-city pack remaps to this same document.
-  if (!style) {
-    static std::once_flag carto_once;
-    static gis::style::StyleDocument carto_doc;
-    std::call_once(carto_once, [] {
-      (void)gis::style::parse_style_document(
-          vista::default_carto_style_json(), &carto_doc);
-    });
-    style = &carto_doc;
-  }
-
-  vista::Layout layout;
-  vista::LayoutInput in;
-  in.view = {cam.width_px, cam.height_px, cam.min_x, cam.min_y, cam.max_x,
-             cam.max_y};
-  in.style = style;
-  in.zoom = detail::zoom_from_scale(frame_->scale());
-  vista::WindowsGlyphRasterizer windows_rasterizer;
-  in.metrics = &windows_rasterizer;
-  in.tiles = {};
-
-  // Soft-gate: MAP2D_NO_HILLSHADE=1 skips bake.
-  // Product cold start (defer_china_seed) still finds china_dem.tif on disk
-  // via find_sample_dem_path even with a demo-only document — that paid
-  // ~0.4s HillshadeBake inside WaitFirstMapPresent. Skip until the scene
-  // has China extent (real PLP/city seed). Force with MAP2D_FORCE_HILLSHADE=1
-  // (harness / agents that need shade before china open).
-  // Bake into locals first and install into members only after Layout::build
-  // succeeds so a failed / aborted rebuild cannot leave a half-swapped
-  // hillshade_rgba_.
-  auto env_flag_one = [](const char* key) {
-    const char* e = std::getenv(key);
-    return e && e[0] == '1' && e[1] == '\0';
-  };
-  const bool force_hillshade =
-      base::switch_is_one("map2d-force-hillshade") ||
-      env_flag_one("MAP2D_FORCE_HILLSHADE");
-  const bool skip_hillshade =
-      base::switch_is_one("map2d-no-hillshade") ||
-      env_flag_one("MAP2D_NO_HILLSHADE") ||
-      (!force_hillshade && scene_ && !scene_->has_china_extent());
-  std::vector<uint8_t> baked_rgba;
-  int baked_w = 0;
-  int baked_h = 0;
-  if (!skip_hillshade) {
-    if (const gis::style::StyleLayer* hs =
-            find_hillshade_layer(style, in.zoom)) {
-      const std::string dem_path = vista::find_sample_dem_path();
-      if (dem_path.empty()) {
-        std::fprintf(stderr, "map2d: hillshade skip - china_dem not found\n");
-      } else {
-        const auto hs_t0 = std::chrono::steady_clock::now();
-        vista::HillshadeBake baked;
-        {
-          BASE_TRACE_EVENT("HillshadeBake", "startup");
-          baked = vista::bake_hillshade_slot(dem_path, in.zoom, *hs,
-                                                   kHillshadeTextureKey);
-        }
-        if (baked.ok && baked.width > 0 && baked.height > 0 &&
-            !baked.rgba.empty()) {
-          // First china layout: bake/cache DEM shade but do not emit the
-          // raster DrawItem. force-GDI blit_rgba_quad (kMultiply at full
-          // viewport) dominated cold ShowWindow (~4s+ Debug). Next rebuild
-          // after show invalidate attaches shade. MAP2D_FORCE_HILLSHADE=1
-          // keeps shade on frame 0 for harnesses that require it.
-          if (force_hillshade || layout_build_count_ > 0) {
-            in.hillshade_tiles.push_back(baked.slot);
-          }
-          baked_w = baked.width;
-          baked_h = baked.height;
-          baked_rgba = std::move(baked.rgba);
-          std::fprintf(stderr,
-                       "map2d: hillshade baked %dx%d from %s tiles=%zu "
-                       "opacity=%.2f key=0x%08x defer_first=%d\n",
-                       baked_w, baked_h, dem_path.c_str(),
-                       in.hillshade_tiles.size(),
-                       in.hillshade_tiles.empty()
-                           ? 0.f
-                           : in.hillshade_tiles.back().opacity,
-                       in.hillshade_tiles.empty()
-                           ? 0u
-                           : in.hillshade_tiles.back().texture_key,
-                       (force_hillshade || layout_build_count_ > 0) ? 0 : 1);
-        }
-        hillshade_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                           std::chrono::steady_clock::now() - hs_t0)
-                           .count();
-      }
-    } else {
-      std::fprintf(stderr,
-                   "map2d: hillshade skip - no style layer @ zoom=%.2f\n",
-                   in.zoom);
-    }
-  }
-
-  // Batch build stays on the caller. A prior async+get paid thread-pool
-  // spawn with no overlap (Layout::build waited immediately). Nested
-  // parallel_for inside emit_fill / emit_line still owns the pool.
-  const double map_scale = frame_->scale();
-  vista::LayerBatchSet layer_batches;
-  {
-    BASE_TRACE_EVENT("batches", "map2d.layout");
-    layer_batches =
-        detail::visible_layer_batches(scene_->layers(), use_carto, map_scale);
-  }
-  {
-    BASE_TRACE_EVENT("build", "map2d.layout");
-    MapSliceLookup retained(layer_slices_);
-    if (reuse_slices && !layer_slices_.empty()) {
-      in.retained_slices = &retained;
-    }
-    in.layout_gen = build_gen;
-    in.live_layout_gen = &live_layout_gen_;
-    vista::MapIR built = layout.build(in, layer_batches.batches);
-    if (live_layout_gen_.load(std::memory_order_acquire) != build_gen) {
-      const int64_t wall_ms =
-          std::chrono::duration_cast<std::chrono::milliseconds>(
-              std::chrono::steady_clock::now() - layout_wall_t0)
-              .count();
-      const int64_t layout_ms =
-          wall_ms > hillshade_ms ? (wall_ms - hillshade_ms) : wall_ms;
-      note_map2d_phase_layout(layout_ms, hillshade_ms);
-      return has_frame_cache_;
-    }
-    cached_frame_ = std::move(built);
-    absorb_layer_slices(cached_frame_);
-  }
-  if (!baked_rgba.empty() && baked_w > 0 && baked_h > 0) {
-    hillshade_rgba_ = std::move(baked_rgba);
-    hillshade_w_ = baked_w;
-    hillshade_h_ = baked_h;
+  cached_frame_ = std::move(built.frame);
+  absorb_layer_slices(cached_frame_);
+  if (!built.baked_rgba.empty() && built.baked_w > 0 && built.baked_h > 0) {
+    hillshade_rgba_ = std::move(built.baked_rgba);
+    hillshade_w_ = built.baked_w;
+    hillshade_h_ = built.baked_h;
     hillshade_ready_ = true;
   }
   cached_fp_ = fp;
   cached_cam_ = cam;
   has_frame_cache_ = true;
   ++layout_build_count_;
-  const int64_t wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                              std::chrono::steady_clock::now() - layout_wall_t0)
-                              .count();
-  const int64_t layout_ms =
-      wall_ms > hillshade_ms ? (wall_ms - hillshade_ms) : wall_ms;
-  note_map2d_phase_layout(layout_ms, hillshade_ms);
+  note_layout();
   return true;
 }
 

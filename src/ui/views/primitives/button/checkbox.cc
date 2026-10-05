@@ -7,14 +7,9 @@
 
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/dpi.h"
-#include "ui/views/kernel/shell/event.h"
 #include "ui/views/kernel/shell/theme.h"
-#include "ui/views/kernel/widget/widget.h"
-
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
+#include "ui/views/primitives/detail/control_paint.h"
+#include "ui/views/primitives/detail/primary_input.h"
 
 namespace ui {
 namespace views {
@@ -25,13 +20,6 @@ constexpr int kGapDip = 8;
 constexpr int kPadYDip = 4;
 constexpr int kMinHeightDip = 22;
 
-float checkbox_scale(const View* view) {
-  if (view && view->widget()) {
-    return view->widget()->device_scale_factor();
-  }
-  return 1.f;
-}
-
 }  // namespace
 
 Checkbox::Checkbox(std::string label) : label_(std::move(label)) {
@@ -40,7 +28,7 @@ Checkbox::Checkbox(std::string label) : label_(std::move(label)) {
 }
 
 void Checkbox::rebuild_preferred_size() {
-  const float scale = checkbox_scale(this);
+  const float scale = detail::device_scale_for(this);
   const Size ink =
       label_.empty() ? Size{} : measure_text_utf8(label_, scale);
   const int box = dip_to_px(kBoxDip, scale);
@@ -93,25 +81,12 @@ void Checkbox::toggle() {
 }
 
 bool Checkbox::on_mouse_event(const MouseEvent& e) {
-  if (!is_enabled()) {
-    return false;
-  }
-  if (e.type == MouseEvent::Type::kUp && e.button == 1) {
-    toggle();
-    return true;
-  }
-  return e.type == MouseEvent::Type::kDown && e.button == 1;
+  return detail::handle_primary_click(e, is_enabled(), [this] { toggle(); });
 }
 
 bool Checkbox::on_key_event(const KeyEvent& e) {
-  if (!is_enabled() || e.type != KeyEvent::Type::kDown) {
-    return false;
-  }
-  if (e.vk == VK_SPACE) {
-    toggle();
-    return true;
-  }
-  return false;
+  return detail::handle_activate_key(e, is_enabled(), false,
+                                     [this] { toggle(); });
 }
 
 void Checkbox::on_device_scale_factor_changed(float /*old_scale*/,
@@ -125,7 +100,7 @@ void Checkbox::paint_self(ui::gfx::Canvas* canvas) {
   }
   const Theme& t = Theme::current();
   const Rect& b = bounds();
-  const float scale = checkbox_scale(this);
+  const float scale = detail::device_scale_for(this);
   const int box = dip_to_px(kBoxDip, scale);
   const int gap = dip_to_px(kGapDip, scale);
   const int box_y = b.y + std::max(0, (b.height - box) / 2);
@@ -139,12 +114,10 @@ void Checkbox::paint_self(ui::gfx::Canvas* canvas) {
   }
   canvas->fill_rect(b.x, box_y, box, box, fill);
   const Size text = measure_text_utf8(label_, scale);
-  const int text_y = b.y + std::max(0, (b.height - text.height) / 2);
-  canvas->save();
-  canvas->clip_rect(b.x, b.y, b.width, b.height);
-  canvas->draw_text(b.x + box + gap, text_y, utf8_to_wide(label_).c_str(),
-                    is_enabled() ? t.text : t.text_muted);
-  canvas->restore();
+  const int text_y = detail::centered_text_y(b, text.height);
+  const std::wstring w = utf8_to_wide(label_);
+  detail::draw_clipped_text(canvas, b, b.x + box + gap, text_y, w.c_str(),
+                            is_enabled() ? t.text : t.text_muted);
   if (is_focused()) {
     draw_focus_ring(canvas, {b.x, box_y, box, box});
   }

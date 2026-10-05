@@ -15,6 +15,8 @@ class Browser;
 
 namespace detail {
 
+void disable_plugin_atmosphere(content::Scene3dPresenter* cam);
+
 // Frame Beijing borehole pad; disable atmosphere passes. Clears mesh/overlays.
 void seed_mine_orbit(Browser& browser, content::Scene3dPresenter* cam,
                      content::OrbitFrame* orbit);
@@ -22,9 +24,12 @@ void seed_mine_orbit(Browser& browser, content::Scene3dPresenter* cam,
 // Re-apply borehole pad camera without clearing committed TIN / sticks.
 void frame_mine_orbit(content::OrbitFrame* orbit);
 
-// Frame Wuhan coast pad; disable atmosphere passes.
+// Frame Wuhan coast pad on filled china_dem; disable atmosphere; 2D labels.
 void seed_stormsurge_orbit(Browser& browser, content::Scene3dPresenter* cam,
                            content::OrbitFrame* orbit);
+
+// Re-apply coast pad camera without clearing committed water TIN / DEM.
+void frame_stormsurge_orbit(content::OrbitFrame* orbit);
 
 // Frame hex lab pad (matches commit_hex_grid_mesh geo mapping). Clears mesh.
 void seed_orthogrid3d_orbit(Browser& browser, content::Scene3dPresenter* cam,

@@ -118,7 +118,7 @@ void run_optional_map2d_gpu_present(Browser& browser,
   if (owned_device) {
     device->shutdown();
     // Intentionally leak Device* -- same FlyCube teardown policy as
-    // atmosphere showcase / MapViewport.
+    // atmosphere showcase / DrawHost.
   }
 }
 

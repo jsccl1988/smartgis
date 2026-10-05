@@ -11,7 +11,7 @@ All rights reserved.
 
 **Architecture:** UI thread owns HWND and Commits immutable `DisplayList` snapshots. Compositor thread holds pending/active and builds `CompositorFrame` (map quads + shell `kBgra` + HUD). One raster worker replays dirty rects into resources. GPU thread exclusively owns `rhi::Device` and `gpu::draw_and_swap`; `GpuPresentFn` becomes Submit. BeginFrame (DWM-aligned) lands only after P4. Shutdown via `Widget::will_close`.
 
-**Tech Stack:** C++23, GN, `ui::views` / `ui::gfx` / `gpu::detail`, existing FlyCube RHI. No Qt. No `--type=gpu` this phase.
+**Tech Stack:** C++23, GN, `ui::views` / `ui::gfx` / `gpu::detail`, existing Vista RHI. No Qt. No `--type=gpu` this phase.
 
 **Spec:** [`../specs/2026-09-27-views-desktop-shell-design.md`](../specs/2026-09-27-views-desktop-shell-design.md) §Shell perf upgrade waves（compositor roles；P0–P5 predecessor）— dated twin archived at [`../archive/specs/2026-09-28-ui-compositor-thread-design.md`](../archive/specs/2026-09-28-ui-compositor-thread-design.md)  
 **Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)
@@ -68,7 +68,7 @@ All rights reserved.
 - [x] `DrawRequest.shell` / `shell_generation` + skip `attach_shell_raster` memcpy when gen unchanged
 - [x] Retarget `MapViewport` frame_request_ / presented pairing to Submit/ack (no UI-thread device present)
 - [x] Product glue: `BrowserView` copies `Widget::shell_raster` → `MapViewport::commit_shell_overlay` (app layer; views must not hard-dep gpu)
-- [ ] Build full `CompositorFrame` on compositor with HUD-as-quad — **deferred** (HUD still GDI `overlay_paint_` / paint_hud; `commit_shell_overlay` not consumed by FlyCube `GpuPresentFn` yet)
+- [ ] Build full `CompositorFrame` on compositor with HUD-as-quad — **deferred** (HUD still GDI `overlay_paint_` / paint_hud; `commit_shell_overlay` not consumed by Vista `GpuPresentFn` yet)
 - [ ] Merge views `ShellCompositor` ↔ `gpu::PresentMailbox` — **deferred** (layering: keep glue in `src/app/views`)
 - [ ] Human verify map + shell still present (`build.bat` / `build.bat te` as appropriate)
 

@@ -65,7 +65,7 @@ src/ui/views/                    toolkit (opt-in //:ui_views → ui_views.dll)
   Widget, View, Splitter, layout, events, Theme (kernel/)
   primitives (Button, Label, Textfield, …)
   dialogs (Dialog, FilePicker, MessageBox, InputText, SelectOne only)
-  map/MapViewport                — View that hosts the map HWND + ViewHost
+  map/DrawHost                — View that hosts the map HWND + ViewHost
   include: "ui/views/<area>/...." — //src on the include path
 
 src/ui/resources/                product .ui.xml / .ui.css by area (GN → shared out/ui/<area>/)
@@ -89,7 +89,7 @@ src/sdb/{map,feature,layer}      EXISTING map / layers / doc
 
 GN: `//src/ui/views:views` + `//src/ui/gis:gis` + `//src/ui/gfx:gfx` via `//:ui_views`. `//src/app/views:views` (`out/SmartGIS.exe`) loads only when `build_views=true`. **Not** in `//src:src_all`, **not** a dep of GN `group("all")`.
 
-## How the map viewport hangs
+## How the draw host hangs
 
 **Today (legacy MFC):**
 
@@ -109,7 +109,7 @@ src/app/views  (SmartGIS.exe — only product entry)
     Splitter  (resizable; not true dock, not MDI)
       ├── AmboxView / CatalogView   public toolkit widgets
       └── TabStrip  Map edit 2D / Datasource / 3D
-            MapViewport (View)      do not wrap CView
+            DrawHost (View)      do not wrap CView
               child HWND
                 content::ViewHost   command / input dispatch
                 1) content::MapView when src/content/public exists
@@ -125,7 +125,7 @@ Same hang as mgis `content::MapView::CreateParams { HWND parent_hwnd }`: the she
 - **Canvas：** 壳 paint 默认 **GDI**（`canvas_gdi.cc`）；公开 API 经 `canvas.cc` 派发。`has_skia=true` + 本机 pin 时同链真 Skia（`canvas_skia.cc`），运行时 `--shell-canvas=gdi|skia` 或 `SHELL_CANVAS`（CLI 优先；默认 gdi；未链入则回落）。Views `paint_self` 无 `#ifdef`。几何在 `ui::gfx::geometry`。见 [`src/ui/gfx/README.md`](../../src/ui/gfx/README.md) 与 living [`2026-09-14-render-skia-canvas-design.md`](specs/2026-09-13-render-rhi-scene-design.md) § 运行时后端切换。
 - Toolkit kernel: `Widget`, `View` tree, focus / hover / press / enabled / visible, `schedule_paint`, `Theme`, `FillLayout` / `BoxLayout`, mouse/key/char dispatch, Skia stub canvas.
 - DPI: Per-Monitor V2 when available (`enable_process_dpi_awareness`), `WM_DPICHANGED` / `WM_GETDPISCALEDSIZE` on `Widget`, DIP→px helpers, preferred-size recompute on scale change, map host surface uses real window DPI (not hardcoded 96).
-- BeginFrame: `ui::gfx::VblankClock` (`IDXGIOutput::WaitForVBlank`) paces `MapViewport` Display thread and `gpu::PresentMailbox`; Sleep(16) fallback. Shell Commit still follows `WM_PAINT` (not yet BeginFrame-driven).
+- BeginFrame: `ui::gfx::VblankClock` (`IDXGIOutput::WaitForVBlank`) paces `DrawHost` Display thread and `gpu::PresentMailbox`; Sleep(16) fallback. Shell Commit still follows `WM_PAINT` (not yet BeginFrame-driven).
 - Primitives: `Label`, `Button`, `Textfield`, `Checkbox`, `RadioButton`, `Combobox`, `TabStrip`, `TableView`, plus Win32 `FilePicker` / `MessageBox`.
 - GIS widgets (public, `src/ui/gis/`): `CatalogView`, `LayerTree`, `AttributeTable`, `FeatureInfo`, `StatusBar`, `AmboxView`, `ChartView` — see [`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) §ui/gis layering move.
 - Exe: `build.bat views` → `out/SmartGIS.exe` (destination entry). Console check: `views_unittests` and `SmartGIS.exe --self-test`.
@@ -142,4 +142,4 @@ Same hang as mgis `content::MapView::CreateParams { HWND parent_hwnd }`: the she
 
 ---
 
-**最后更新：** 2026-09-28
+**最后更新：** 2026-10-05

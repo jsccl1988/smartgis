@@ -6,9 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <string>
 
-#include <imm.h>
 #include <windowsx.h>
 
 #include "ui/views/kernel/compositor/shell_compositor.h"
@@ -16,6 +14,8 @@
 #include "ui/views/kernel/shell/dialog_host.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/widget/widget.h"
+#include "ui/views/kernel/widget/widget_event.h"
+#include "ui/views/kernel/widget/paint_schedule.h"
 
 #ifndef WM_DPICHANGED
 #define WM_DPICHANGED 0x02E0
@@ -411,41 +411,9 @@ LRESULT Widget::handle_message(HWND hwnd, UINT msg, WPARAM wparam,
       return 0;
     }
     case WM_IME_COMPOSITION: {
-      if (!focused_) {
-        break;
-      }
-      HIMC imc = ImmGetContext(hwnd);
-      if (!imc) {
-        break;
-      }
-      bool handled = false;
-      if (lparam & GCS_RESULTSTR) {
-        const LONG bytes =
-            ImmGetCompositionStringW(imc, GCS_RESULTSTR, nullptr, 0);
-        if (bytes > 0) {
-          std::wstring result(static_cast<size_t>(bytes / sizeof(wchar_t)),
-                              L'\0');
-          ImmGetCompositionStringW(imc, GCS_RESULTSTR, result.data(),
-                                   static_cast<DWORD>(bytes));
-          handled = focused_->on_ime_composition(result, true);
-        } else {
-          handled = focused_->on_ime_composition(L"", true);
-        }
-      } else if (lparam & GCS_COMPSTR) {
-        const LONG bytes =
-            ImmGetCompositionStringW(imc, GCS_COMPSTR, nullptr, 0);
-        if (bytes > 0) {
-          std::wstring comp(static_cast<size_t>(bytes / sizeof(wchar_t)),
-                            L'\0');
-          ImmGetCompositionStringW(imc, GCS_COMPSTR, comp.data(),
-                                   static_cast<DWORD>(bytes));
-          handled = focused_->on_ime_composition(comp, false);
-        } else {
-          handled = focused_->on_ime_composition(L"", false);
-        }
-      }
-      ImmReleaseContext(hwnd, imc);
-      if (handled) {
+      const ImeDispatch ime =
+          dispatch_ime_composition(focused_, hwnd, lparam);
+      if (ime == ImeDispatch::kHandled) {
         return 0;
       }
       break;
@@ -459,6 +427,13 @@ LRESULT Widget::handle_message(HWND hwnd, UINT msg, WPARAM wparam,
       // Caret blink: Textfield arms this id while focused.
       if (wparam == 0x43415245u /* 'CARE' */ && focused_) {
         focused_->schedule_paint();
+        return 0;
+      }
+      if (wparam == static_cast<WPARAM>(detail::kShellCommitCoalesceTimer)) {
+        KillTimer(hwnd, static_cast<UINT_PTR>(detail::kShellCommitCoalesceTimer));
+        if (has_pending_paint()) {
+          InvalidateRect(hwnd, nullptr, FALSE);
+        }
         return 0;
       }
       break;

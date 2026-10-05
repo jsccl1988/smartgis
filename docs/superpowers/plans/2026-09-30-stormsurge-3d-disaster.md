@@ -50,13 +50,13 @@ All rights reserved.
 - [x] Real wet-cell free-surface triangle mesh (replaces raised-plane standin)
 - [x] Water mesh also commits via `Scene3dPresenter::set_overlay_tin_mesh` (peer of mine stratum)
 - [x] ResultPlayback frame scrub re-pushes water TIN (per-frame mesh store on `AnalysisPlayback`)
-- [x] Chrome Scene3D tab switch hardened (atmosphere before FlyCube attach; stereo `abandon` under FlyCube)
+- [x] Chrome Scene3D tab switch hardened (atmosphere before Vista attach; stereo `abandon` under Vista)
 
 ### Task 5 — Verify
 
 - [x] `build.bat debug` stormsurge / coastal kernel tests + link `SmartGisViews`
 - [x] `--plugin-showcase=stormsurge` Scene3D present path green (Null RHI default; GPU HWND via `PLUGIN_STORMSURGE_GPU=1`)
-- [ ] Optional: GPU HWND BMP signal probe when FlyCube chrome tab is exercised under `PLUGIN_STORMSURGE_GPU=1`
+- [ ] Optional: GPU HWND BMP signal probe when Vista chrome tab is exercised under `PLUGIN_STORMSURGE_GPU=1`
 ---
 
 ## Follow-on — P2 (stats)

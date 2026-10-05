@@ -104,6 +104,11 @@ StormSurgeRunDialog::StormSurgeRunDialog(content::PluginHost* host)
   if (impact_path_ && impact_path_->text().empty()) {
     impact_path_->set_text(base + "/stormsurge_impact_sample.geojson");
   }
+
+  if (host_) {
+    host_->present_dataset("smartgis.stormsurge",
+                           coast_path_ ? coast_path_->text() : "", 1);
+  }
 }
 
 void StormSurgeRunDialog::on_pick_dem() {

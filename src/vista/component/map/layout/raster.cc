@@ -54,7 +54,10 @@ void emit_hillshade(const gis::style::StyleLayer& layer, const LayoutInput& in,
   for (const TileSlot& tile : in.hillshade_tiles) {
     DrawItem item;
     item.kind = DrawKind::kRaster;
-    item.blend = DrawBlend::kMultiply;
+    const auto ramp = layer.paint.find("hillshade-color-ramp");
+    const bool jet =
+        ramp != layer.paint.end() && ramp->second == "jet";
+    item.blend = jet ? DrawBlend::kOver : DrawBlend::kMultiply;
     item.pixel_space = false;
     item.opacity = tile.opacity;
     item.rgba = 0xffffffffu;

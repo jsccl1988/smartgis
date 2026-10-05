@@ -19,7 +19,7 @@ Target names below are authoritative even while sources are mid-move. `frame/` a
 | --- | --- |
 | `vista::Layout` → `MapIR` / `DrawItem` | `gis::style` / `gis::tile` / OGR open (those stay `gis.dll`) |
 | `vista::World` node graph; CPU `Instance`, sync, tess, cull, index; DEM domain; CPU mesh; point-cloud codecs | HWND, Views chrome, `ui/gfx` widgets |
-| CPU `vista::atmosphere` (`FieldStore` / `Environment`) | FlyCube types in public headers |
+| CPU `vista::atmosphere` (`FieldStore` / `Environment`) | Vista types in public headers |
 | GPU `vista::MapPass`, `WorldPass`, `AtmosphereFrame` | Frame-graph vtable (`render/graph/frame_graph.h`) |
 | Leftover adapters compiled **in** (`legacy/gis/vista`) | `#include "legacy/…"` from product TUs here |
 
@@ -33,11 +33,13 @@ Target names below are authoritative even while sources are mid-move. `frame/` a
 | `component/map/detail/` | `carto_filter` ⊥ `batch_build`, `collision`, hillshade bake, MVT | `"vista/component/map/detail/collision.h"` |
 | `component/map/layout/` | collect / emit / coalesce + per-geom emit | `"vista/component/map/layout/fill.h"` |
 | `pass/map/` | `MapPass` (upload / encode / record) | `"vista/pass/map/pass.h"` |
-| `component/world/` | `World` node graph + `dem_seed`; CPU `Instance`, sync, tess, cull, index | `"vista/component/world/world.h"` |
+| `component/world/` | `World` node graph; CPU `Instance`, sync, tess, cull, index | `"vista/component/world/world.h"` |
+| `component/world/terrain/` | `TerrainPayload` + discrete LOD seed (raster / TIN / surface) | `"vista/component/world/terrain/seed.h"` |
 | `component/world/cull/` | frustum POD + prep_cull (not `frustum_camera`) | `"vista/component/world/cull/prep_cull.h"` |
 | `component/world/index/` | unibn AABB octree | `"vista/component/world/index/aabb_octree.h"` |
 | `component/world/pointcloud/` | Chunk / LOD buckets on a node | `"vista/component/world/pointcloud/chunk.h"` |
-| `pass/world/` | `WorldPass` (`sync_from`, `record_draws`); `GpuMesh`; `opaque_effect` | `"vista/pass/world/pass.h"` |
+| `pass/world/` | `WorldPass` (`sync_from`, `record_draws`); composes `TerrainPass`; `GpuMesh`; `opaque_effect` | `"vista/pass/world/pass.h"` |
+| `pass/world/terrain/` | `TerrainPass` (upload / solid gate / kTerrain) | `"vista/pass/world/terrain/pass.h"` |
 | `pass/world/detail/` | upload / tint / rebuild / draw / record | `"vista/pass/world/detail/upload.h"` |
 | `pass/world/cull/` | `frustum_camera` (CameraMatrices → planes) | `"vista/pass/world/cull/frustum_camera.h"` |
 | `assets/` | Model, 3D Tiles, point-cloud file codecs | `"vista/assets/model/model.h"` |

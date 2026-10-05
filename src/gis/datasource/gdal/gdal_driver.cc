@@ -87,6 +87,12 @@ void ensure_gdal_proj_data_env() {
       break;
     }
   }
+
+  // AutoLoadDrivers scans cwd when GDAL_DRIVER_PATH is unset. Harness cwd is
+  // out/Debug (product CRT DLLs); LoadLibrary of those maps a second
+  // ucrtbased and heap-corrupts Workspace::register_builtins.
+  const std::string plugins = root + "\\gdalplugins";
+  set_env_if_empty("GDAL_DRIVER_PATH", plugins.c_str());
 }
 
 }  // namespace

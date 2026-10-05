@@ -49,9 +49,9 @@ std::string find_china_plp() {
       "..\\data\\china_plp.geojson",
       "data\\china_plp.geojson",
       "china_plp.geojson",
-      "testing\\data\\china_plp.geojson",
-      "..\\testing\\data\\china_plp.geojson",
-      "..\\..\\testing\\data\\china_plp.geojson",
+      "testing\\data\\china\\china_plp.geojson",
+      "..\\testing\\data\\china\\china_plp.geojson",
+      "..\\..\\testing\\data\\china\\china_plp.geojson",
   };
   for (const char* r : rel) {
     const std::string cand = dir + r;

@@ -8,6 +8,7 @@ copy("stormsurge_resources") {
   sources = [
     "resources/run.ui.css",
     "resources/run.ui.xml",
+    "resources/stormsurge.style.json",
   ]
   outputs = [ "$root_out_dir/../plugins/stormsurge/{{source_file_part}}" ]
 }
@@ -16,6 +17,10 @@ source_set("stormsurge_views") {
   sources = [
     "commands.cc",
     "commands.h",
+    "present/mask.cc",
+    "present/mask.h",
+    "present/water_mesh.cc",
+    "present/water_mesh.h",
     "views/run_dialog.cc",
     "views/run_dialog.h",
   ]
@@ -25,9 +30,11 @@ source_set("stormsurge_views") {
   ]
   deps = [
     "//src/content:content",
+    "//src/content:scene3d_present",
     "//src/gis:gis",
     "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/widgets:widgets",
+    "//src/tool:tool",
     "//src/ui/views:views",
     "//third_party:gdal",
     "//third_party:rapidjson",

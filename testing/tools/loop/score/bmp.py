@@ -28,11 +28,12 @@ from .plugin import (
     score_plugin_scene3d,
     score_plugin_stormsurge,
 )
-from .ui import score_ui_shell_dark
+from .ui import score_ui_interact, score_ui_shell_dark
 from .views import score_views_present_dxgi, score_views_shell_chrome
 
 _SCORE_FNS = {
     "ui_shell_dark": score_ui_shell_dark,
+    "ui_interact": score_ui_interact,
     "map2d_china": score_map2d_china,
     "map2d_orthogrid": score_map2d_orthogrid,
     "plugin_product": score_plugin_product,

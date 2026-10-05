@@ -11,10 +11,12 @@
 #include "gis/analysis/geology/borehole.h"
 #include "gis/analysis/geology/prism_volume.h"
 #include "gis/analysis/geology/stratum_tin.h"
+#include "plugin/product/mine/present/stratum.h"
 #include "plugin/product/mine/views/interpolate_dialog.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
+#include "plugin/runtime/widgets/present_surface_picker.h"
 #include "tool/command/command.h"
 
 #include <rapidjson/document.h>
@@ -24,8 +26,8 @@ namespace {
 
 constexpr const char* kPluginId = "smartgis.mine";
 
-MineStratumWriter g_stratum_writer;
 gis::detail::BoreholeSet g_last_holes;
+gis::detail::StratumTin g_last_tin;
 std::string g_last_csv;
 
 bool parse_args(std::string_view json, rapidjson::Document* out) {
@@ -50,23 +52,38 @@ bool json_get_string(const rapidjson::Value& obj,
   return true;
 }
 
-bool publish_viz(const gis::detail::StratumTin& tin,
+bool publish_viz(content::PluginHost* host,
+                 const gis::detail::StratumTin& tin,
                  const gis::detail::BoreholeSet& holes,
                  const char* op) {
-  if (!g_stratum_writer) {
+  g_last_tin = tin;
+  g_last_holes = holes;
+  if (!host) {
     return true;
   }
+  if (!host->gis_document()) {
+    set_operation_result(
+        std::string("{\"error\":\"no_mine_seam\",\"op\":\"") + op + "\"}");
+    return false;
+  }
   std::string err;
-  if (!g_stratum_writer(tin, holes, &err)) {
+  if (!present_mine_stratum(host->gis_document(), host->scene3d_sink(),
+                            nullptr, tin, holes, &err)) {
     set_operation_result(
         std::string("{\"error\":\"") +
         (err.empty() ? "no_mine_seam" : err) + "\",\"op\":\"" + op + "\"}");
     return false;
   }
+  (void)host->present_dataset(kPluginId, "", 1);
   return true;
 }
 
-bool mine_load_boreholes(content::PluginHost*, std::string_view args_json) {
+bool mine_load_boreholes(content::PluginHost* host, std::string_view args_json) {
+  if (host) {
+    gis::detail::StratumTin empty_tin;
+    return publish_viz(host, g_last_tin.ok ? g_last_tin : empty_tin, g_last_holes,
+                       "mine.load_boreholes");
+  }
   rapidjson::Document args;
   if (!parse_args(args_json, &args)) {
     set_operation_result(
@@ -94,19 +111,22 @@ bool mine_load_boreholes(content::PluginHost*, std::string_view args_json) {
   g_last_csv = input;
 
   gis::detail::StratumTin empty_tin;
-  if (!publish_viz(empty_tin, holes, "mine.load_boreholes")) {
+  if (!publish_viz(host, empty_tin, holes, "mine.load_boreholes")) {
     return false;
   }
 
   set_operation_result(
       std::string("{\"ok\":true,\"op\":\"mine.load_boreholes\",\"contacts\":") +
-      std::to_string(holes.contacts.size()) +
-      (g_stratum_writer ? "" : ",\"viz\":\"file_only\"") + "}");
+      std::to_string(holes.contacts.size()) + "}");
   return true;
 }
 
-bool mine_interpolate_stratum(content::PluginHost*,
+bool mine_interpolate_stratum(content::PluginHost* host,
                               std::string_view args_json) {
+  if (host) {
+    return publish_viz(host, g_last_tin, g_last_holes,
+                       "mine.interpolate_stratum");
+  }
   rapidjson::Document args;
   if (!parse_args(args_json, &args)) {
     set_operation_result(
@@ -154,7 +174,7 @@ bool mine_interpolate_stratum(content::PluginHost*,
     }
   }
 
-  if (!publish_viz(tin, holes, "mine.interpolate_stratum")) {
+  if (!publish_viz(host, tin, holes, "mine.interpolate_stratum")) {
     return false;
   }
 
@@ -162,8 +182,7 @@ bool mine_interpolate_stratum(content::PluginHost*,
   set_operation_result(
       std::string("{\"ok\":true,\"op\":\"mine.interpolate_stratum\",\"stratum\":\"") +
       tin.stratum_id + "\",\"triangles\":" + std::to_string(tri_count) +
-      ",\"contacts\":" + std::to_string(holes.contacts.size()) +
-      (g_stratum_writer ? "" : ",\"viz\":\"file_only\"") + "}");
+      ",\"contacts\":" + std::to_string(holes.contacts.size()) + "}");
   return true;
 }
 
@@ -216,14 +235,8 @@ bool mine_prism_volume(content::PluginHost*, std::string_view args_json) {
     return false;
   }
 
-  // Keep sticks + top stratum TIN in view as an earthwork gate preview.
-  gis::detail::StratumTin tin =
-      gis::detail::interpolate_stratum_tin(holes, top_id);
-  if (tin.ok) {
-    if (!publish_viz(tin, holes, "mine.prism_volume")) {
-      return false;
-    }
-  }
+  // Volume only. Lithology overlay is committed by interpolate_stratum;
+  // rebuilding the studio mesh here stalls FlyCube present (harness rc 124).
 
   set_operation_result(
       std::string("{\"ok\":true,\"op\":\"mine.prism_volume\",\"volume\":") +
@@ -240,10 +253,6 @@ void show_dialog(const wchar_t* title, std::unique_ptr<ui::views::View> body) {
 }
 
 }  // namespace
-
-void set_mine_stratum_writer(MineStratumWriter writer) {
-  g_stratum_writer = std::move(writer);
-}
 
 bool register_mine(content::PluginHost* host) {
   if (!host) {
@@ -281,7 +290,8 @@ bool register_mine(content::PluginHost* host) {
           kPluginId, {"mine.interpolate_stratum", "地层TIN插值"},
           [host](content::PluginHost*) {
             show_dialog(L"地层TIN插值",
-                        std::make_unique<InterpolateDialog>(host));
+                        wrap_with_present_surface(
+                            host, std::make_unique<InterpolateDialog>(host)));
           })) {
     return false;
   }
@@ -303,7 +313,9 @@ bool register_mine(content::PluginHost* host) {
              mine_interpolate_stratum) &&
          host->contribute_processing(
              kPluginId, {"mine.prism_volume", "Prism volume between strata"},
-             mine_prism_volume);
+             mine_prism_volume) &&
+         host->contribute_export_frame(
+             kPluginId, {"mine_boreholes", 116.34, 39.87, 116.41, 39.93});
 }
 
 }  // namespace plugin

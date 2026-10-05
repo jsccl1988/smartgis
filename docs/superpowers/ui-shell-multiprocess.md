@@ -123,14 +123,14 @@ GPU paint internals (record quads → blend once → present): [`../../src/gpu/R
 
 | 建议 label | 树 | 产物 | 进 `src_all`？ |
 | --- | --- | --- | --- |
-| `//src/content:content` | `src/content` | source_set：`content::MapSession` / `MapView` + pipe 客户端。无 MFC | **可以**（无 MFC，不是 DLL） |
+| `//src/content:content` | `src/content` | source_set：`content::BrowserSession` / `MapView` + pipe 客户端。无 MFC | **可以**（无 MFC，不是 DLL） |
 | `//src/gpu:gpu` | `src/gpu` | `SmartGisRender.exe`（`build_render` / `build.bat render`） | 否（exe，仿 `build_app` 门闩） |
 | `//src/sde/host:io_host` | `src/sde/host` | `SmartGisIo.exe`（v1.5） | 否 |
 | `//src/app/winui:app_winui` | `src/app/winui` | 方案 2 exe | 否 |
 | `//src/app/views:views` | `src/app/views` | 方案 3 exe | 否 |
 | `//src/legacy/app:app` | `src/app` | leftover `SmartGIS-Legacy.exe`（MFC Feature Pack） | 否；不是终局 chrome |
 
-新公共命名空间（已落地）：**`content`**（chrome 调用 `MapSession` / `MapView`）、**`gpu`**（`SmartGisRender.exe` + `Smt*` 适配器）。更深的编解码放 `content::detail` / `gpu::detail`。
+新公共命名空间（已落地）：**`content`**（chrome 调用 `BrowserSession` / `MapView`）、**`gpu`**（`SmartGisRender.exe` + `Smt*` 适配器）。更深的编解码放 `content::detail` / `gpu::detail`。
 
 ### 0.4 IPC
 
@@ -434,7 +434,7 @@ SmartGisCef.exe
 - Unpackaged Win32 + `MddBootstrapInitialize2`. WinAppSDK **1.7.260224002** under `third_party/windows_app_sdk` (not `.install`). C++/WinRT projections in `out/winui_winrt`.
 - Chrome: WinUI 3 `NavigationView` (Map / Catalog / Tools) + map region. Dock is later work.
 - Present: **SwapChainPanel** when `content::MapView::latest()` has a DXGI shared handle; otherwise **HWND island**.
-- Host: `#include` `src/content/public` when present; else local `content::MapSession` / `MapView` in `src/app/winui/detail/`.
+- Host: `#include` `src/content/public` when present; else local `content::BrowserSession` / `MapView` in `src/app/winui/detail/`.
 - OOP: `CreateProcess(SmartGisRender.exe)` when that image exists beside the exe; otherwise marked LoadLibrary `Smt*` probe (no `Init` in chrome).
 
 

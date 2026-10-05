@@ -68,7 +68,7 @@ All rights reserved.
 
 | `src/app/views/BUILD.gn` | `map_scene` deps → `//src/gis:gis` style+tile |
 
-| `testing/data/china_city.style.json` | 最小 Style JSON（area/line/point/text） |
+| `testing/data/china/china_city.style.json` | 最小 Style JSON（area/line/point/text） |
 
 | `src/app/views/map_scene_test.cc` | style 着色 + basemap fetch + export 往返 |
 
@@ -98,7 +98,7 @@ All rights reserved.
 
 - [x] **Step 2:** 实现挂接 + `paint` 内对 `area`/`line`/`point` 调 `gis::style::resolve`。
 
-- [x] **Step 3:** 落地 `testing/data/china_city.style.json`；Views 启动/`seed_default` 旁若存在则 `load_style_path`。
+- [x] **Step 3:** 落地 `testing/data/china/china_city.style.json`；Views 启动/`seed_default` 旁若存在则 `load_style_path`。
 
 - [x] **Step 4:** `build.bat map_scene_test` PASS。不 commit。
 

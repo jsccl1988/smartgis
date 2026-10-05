@@ -18,13 +18,13 @@
 #include "app/views/shell/harness/common/io/sample.h"
 #include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/harness/common/pump/pump.h"
-#include "app/views/shell/harness/showcase/plugin/common/common.h"
+#include "app/views/shell/harness/showcase/plugin/common/plugin_io.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "gis/style/document/style_document.h"
 #include "plugin/product/print/composer/print_composer.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "vista/component/map/ir.h"
 
 namespace app {
@@ -143,7 +143,7 @@ int run_print(Browser& browser) {
   if (content::Map2dPresenter* map2d = browser.map2d()) {
     map2d->invalidate_frame_cache();
   }
-  if (ui::views::MapViewport* pane = browser.map_viewport()) {
+  if (ui::views::DrawHost* pane = browser.draw_host()) {
     pane->invalidate_native();
   }
   pump_messages(200);
@@ -193,9 +193,11 @@ int run_print(Browser& browser) {
   pin.map_stride_bytes = mstride;
   pin.map_units_per_px = 12000.0;
   pin.scale_label = "1:12000000";
-  pin.legend = {{"Land", 0xff88aa66},
-                {"Roads", 0xffccaa44},
-                {"Rivers", 0xff1565c0},
+  // Match print_carto_style_json: land #f5f3e9, road #e0c06a, river #4a8ab8,
+  // city-circle #e65100. A green Land swatch against beige fill is a product miss.
+  pin.legend = {{"Land", 0xfff5f3e9},
+                {"Roads", 0xffe0c06a},
+                {"Rivers", 0xff4a8ab8},
                 {"Cities", 0xffe65100}};
 
   if (!plugin::PrintComposer::export_page_bmp(pin, out_a)) {

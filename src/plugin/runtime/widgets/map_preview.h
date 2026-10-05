@@ -8,26 +8,26 @@
 #include <string_view>
 
 #include "plugin/runtime/host/plugin_host_export.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/gis/shell/status_bar.h"
 #include "ui/views/kernel/view/view.h"
 
 namespace plugin {
 
-// Shared map preview used by print. Owns a MapViewport
+// Shared map preview used by print. Owns a DrawHost
 // plus a StatusBar for attach / document text.
 class PLUGIN_HOST_EXPORT MapPreviewView : public ui::views::View {
  public:
   MapPreviewView();
   bool open_document(std::string_view path);
-  // False when the viewport has no presented pixels.
+  // False when the draw host has no presented pixels.
   bool export_bmp(const std::string& path) const;
-  ui::views::MapViewport* viewport();
+  ui::views::DrawHost* draw_host();
   ui::views::StatusBar* status_bar();
   const std::string& document_path() const;
 
  private:
-  ui::views::MapViewport* viewport_ = nullptr;
+  ui::views::DrawHost* draw_host_ = nullptr;
   ui::views::StatusBar* status_ = nullptr;
   std::string path_;
 };

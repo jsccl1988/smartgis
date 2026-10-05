@@ -443,10 +443,15 @@ int main() {
         content::create_plugin_host(nullptr, nullptr, nullptr);
     expect(plugin::register_world3d(host), "register world3d");
     expect(plugin::register_print(host), "register print");
+    expect(!host->present_dataset("smartgis.print", "", 0),
+           "present_dataset without bridge");
+    host->set_present_dataset_bridge(
+        [](std::string_view, std::string_view, int, int) { return true; });
+    expect(host->present_dataset("smartgis.print", "", 0),
+           "present_dataset with bridge");
 
     // Do not execute world3d/print dialog openers here: suppressed
-    // Dialog::run_modal still constructs MapPreviewView → MapViewport, and
-    // teardown has hung te (PrintPreviewDialog dtor). Registration is enough;
+    // Dialog::run_modal still constructs Views chrome; registration is enough;
     // am_msg → command_id checks below cover the AM surface.
 
     // Former model3d ids (owned by world3d): no scene device -> false.
@@ -495,14 +500,73 @@ int main() {
     std::thread::id worker{};
     expect(host->contribute_processing(
                "test.fixture", {"test.async", "Async"},
-               [&](content::PluginHost*, std::string_view) {
-                 worker = std::this_thread::get_id();
+               [&](content::PluginHost* h, std::string_view) {
+                 if (!h) {
+                   worker = std::this_thread::get_id();
+                 }
                  return true;
                }),
            "async contrib");
     expect(host->run_processing("test.async", "{}"), "async queue");
     pool.flush_for_test();
     expect(worker != submitter, "host factory off caller");
+    delete host;
+  }
+  {
+    content::EventBus bus;
+    tool::CommandCatalog catalog;
+    content::PluginHost* host =
+        content::create_plugin_host(&catalog, &bus, nullptr);
+    class StubGis : public content::GisDocument {
+     public:
+      bool create_layer(std::string_view name, std::string_view) override {
+        last = std::string(name);
+        ++n;
+        return true;
+      }
+      size_t layer_count() const override { return n; }
+      std::string last;
+      size_t n = 0;
+    };
+    StubGis gis;
+    host->set_gis_document(&gis);
+    bool presented = false;
+    host->set_present_dataset_bridge(
+        [&](std::string_view, std::string_view, int, int) {
+          presented = true;
+          return true;
+        });
+    const std::thread::id submitter = std::this_thread::get_id();
+    std::thread::id compute_tid{};
+    std::thread::id present_tid{};
+    plugin::ProcessingPool pool(plugin::ProcessingMode::kThread);
+    expect(pool.submit(
+               "test.compute_present", "{}",
+               [&](content::PluginHost*, std::string_view) {
+                 compute_tid = std::this_thread::get_id();
+                 return true;
+               },
+               [&](content::PluginHost*, std::string_view) {
+                 present_tid = std::this_thread::get_id();
+                 expect(host->gis_document()->create_layer("heat", "Polygon"),
+                        "gis layer in present");
+                 expect(host->present_dataset("test.fixture", "", 0),
+                        "present_dataset in present");
+                 expect(host->scene3d_sink() != nullptr, "scene3d sink");
+                 expect(!host->scene3d_sink()->add_standin_mesh("x", 0, 0, 1),
+                        "sink default no-op");
+                 host->playback()->push_frame("{\"i\":0}");
+                 expect(host->playback()->frame_count() == 1, "playback frame");
+                 return true;
+               },
+               [&](bool ok, std::string) { expect(ok, "compute-present done"); }),
+           "compute-then-present submit");
+    pool.flush_for_test();
+    expect(compute_tid != submitter, "compute on worker");
+    expect(present_tid == submitter, "present on UI drain");
+    expect(gis.n == 1, "layer from present not compute");
+    expect(gis.last == "heat", "layer name");
+    expect(presented, "dataset from present");
     delete host;
   }
   if (g_fails) {

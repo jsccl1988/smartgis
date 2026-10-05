@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "app/views/shell/browser/browser.h"
-#include "app/views/shell/browser/browser_ui_delegate.h"
+#include "app/views/shell/browser/ui_delegate.h"
 #include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/harness/self_test/self_test.h"
 #include "content/public/map_types.h"
@@ -277,11 +277,7 @@ bool run_step(Browser& browser, const rapidjson::Value& step) {
         step.HasMember("index") && step["index"].IsInt() ? step["index"].GetInt()
                                                          : 0;
     if (browser.ui()) {
-      if (ui::views::TabStrip* insp = browser.ui()->inspector_tabs()) {
-        if (index >= 0 && index < insp->tab_count()) {
-          insp->set_active(index);
-        }
-      }
+      browser.ui()->activate_inspector_tab(index);
     }
     return true;
   }
@@ -309,9 +305,12 @@ bool run_step(Browser& browser, const rapidjson::Value& step) {
           step.HasMember("w") && step["w"].IsInt() ? step["w"].GetInt() : 1280;
       const int h =
           step.HasMember("h") && step["h"].IsInt() ? step["h"].GetInt() : 800;
-      RECT rc = {};
-      GetWindowRect(hwnd, &rc);
-      MoveWindow(hwnd, rc.left, rc.top, w, h, TRUE);
+      if (IsZoomed(hwnd) || IsIconic(hwnd)) {
+        ShowWindow(hwnd, SW_RESTORE);
+      }
+      SetWindowPos(hwnd, nullptr, 0, 0, w > 0 ? w : 1280, h > 0 ? h : 800,
+                   SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE |
+                       SWP_FRAMECHANGED);
       return true;
     }
     if (std::strcmp(action, "move") == 0) {

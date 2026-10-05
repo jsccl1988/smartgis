@@ -283,15 +283,15 @@ int main() {
     // Local fixture: raw PBF → features → MapIR.
     {
       namespace fs = std::filesystem;
-      fs::path fixture = fs::path("testing") / "data" / "mvt" / "roads_fixture.mvt";
+      fs::path fixture = fs::path("testing") / "data" / "fixtures" / "mvt" / "roads_fixture.mvt";
       if (!fs::exists(fixture)) {
         // tile_test.exe runs from out/Debug — walk up to repo root.
-        fixture = fs::path("..") / ".." / "testing" / "data" / "mvt" /
+        fixture = fs::path("..") / ".." / "testing" / "data" / "fixtures" / "mvt" /
                   "roads_fixture.mvt";
       }
       if (!fs::exists(fixture)) {
-        fixture = fs::path("..") / ".." / ".." / "testing" / "data" / "mvt" /
-                  "roads_fixture.mvt";
+        fixture = fs::path("..") / ".." / ".." / "testing" / "data" / "fixtures" /
+                  "mvt" / "roads_fixture.mvt";
       }
       expect(fs::exists(fixture), "mvt fixture present");
       if (fs::exists(fixture)) {

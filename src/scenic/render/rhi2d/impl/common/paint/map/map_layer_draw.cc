@@ -106,8 +106,10 @@ void prepare_ogr_batches(std::vector<OgrLayerBatch>* ogr_batches,
     size_t batch = 0;
     size_t feat = 0;
   };
-  thread_local std::vector<PrepJob> prep_jobs;
-  prep_jobs.clear();
+  // Automatic storage, not thread_local. Block-scope TLS is not captured by
+  // the worker lambda, so each std::thread would index an empty TLS vector
+  // (heap smash after "Pipeline done" in Debug / browse.2d).
+  std::vector<PrepJob> prep_jobs;
 
   bool any_parallel_layer = false;
   for (OgrLayerBatch& b : *ogr_batches) {
@@ -140,23 +142,12 @@ void prepare_ogr_batches(std::vector<OgrLayerBatch>* ogr_batches,
 
   BASE_TRACE_EVENT("prep", "gdi.map");
   log_frame_flow("gdi.prep Pipeline run");
-  // Debug Edit/china: parallel prep has intermittently AV'd after
-  // "Pipeline done" (legacy.browse.2d / SmartGis heap+AV). Keep the
-  // Pipeline shape in Release; Debug runs the same body serially.
-#if defined(_DEBUG)
-  for (const PrepJob& job : prep_jobs) {
-    OgrLayerBatch& b = (*ogr_batches)[job.batch];
-    prepare_one_feature(b.feats[job.feat], env_viewp, xform, fblc, &b.fields,
-                        &b.prepared[job.feat]);
-  }
-#else
   run_chunked_prep_pipeline(prep_jobs.size(), [&](size_t ji) {
     const PrepJob& job = prep_jobs[ji];
     OgrLayerBatch& b = (*ogr_batches)[job.batch];
     prepare_one_feature(b.feats[job.feat], env_viewp, xform, fblc, &b.fields,
                         &b.prepared[job.feat]);
   });
-#endif
   log_frame_flow("gdi.prep Pipeline done");
 }
 

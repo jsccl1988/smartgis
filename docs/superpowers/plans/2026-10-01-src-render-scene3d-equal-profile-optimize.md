@@ -9,9 +9,9 @@ All rights reserved.
 > **Parallel / prep default-off:** [`2026-10-02-src-render-vista-parallel-accelerate.md`](2026-10-02-src-render-vista-parallel-accelerate.md) Task 4 (`prep_cull_parallel` · `GPUSCENE_PREP_PARALLEL`).  
 > **Diagram:** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html) §8 Scene3d cold vs warm.
 
-**Goal:** Keep atmosphere-showcase=legacy **warm** present in leftover order; drive **world3d** equal-profile matrix so FlyCube **cold** first-frame matches leftover order without dropping DEM / stripping materials on smoke rows.
+**Goal:** Keep atmosphere-showcase=legacy **warm** present in leftover order; drive **world3d** equal-profile matrix so Vista **cold** first-frame matches leftover order without dropping DEM / stripping materials on smoke rows.
 
-**Architecture:** Keep `Scene3dGpuPresent` → `GpuScene` → FlyCube. Optimize by **fair phase timing** (cold vs warm), **DEM StaticReuse**, **cold cache+upload merge**, and **honest prep** (parallel only after frustum cull) — not by stripping ocean/DEM.
+**Architecture:** Keep `Scene3dGpuPresent` → `GpuScene` → Vista. Optimize by **fair phase timing** (cold vs warm), **DEM StaticReuse**, **cold cache+upload merge**, and **honest prep** (parallel only after frustum cull) — not by stripping ocean/DEM.
 
 **Tech Stack:** C++23, content scene3d present, effect/scene, harness `--atmosphere-showcase=legacy` · `--plugin-showcase=world3d` · `run_world3d_backend_matrix.py`.
 
@@ -23,7 +23,7 @@ All rights reserved.
 | Perf rows | `flycube`, `prep_par_off`, `prep_par_on`, `gl_scenic`, `d3d_scenic` |
 | Smoke | `null` only (full materials; never a performance peer) |
 | Warm status | Already peer ~**5–6.5 ms** — protect |
-| Cold P0 | FlyCube ~**1.8–2 s** vs leftover ~**90 ms** |
+| Cold P0 | Vista ~**1.8–2 s** vs leftover ~**90 ms** |
 | Prep | `prep_par_on` currently slower; product `GPUSCENE_PREP_PARALLEL` **default off** until frustum cull |
 | Artifacts | `out/Debug/captures/analysis/world3d_opt/matrix/` |
 
@@ -53,7 +53,7 @@ Artifact: `out/Debug/captures/atmosphere/atmosphere-showcase-perf.json`.
 
 ### M2 — Cache + upload (cold ≤ 300 ms)
 
-- [ ] FlyCube first-frame **cold ≤ 300 ms** (baseline ~1.8–2 s; leftover peer ~90 ms)
+- [ ] Vista first-frame **cold ≤ 300 ms** (baseline ~1.8–2 s; leftover peer ~90 ms)
 - [ ] Prefer StaticReuse / batch upload / cache hit — do **not** strip DEM
 - [ ] Re-run matrix; artifacts under `out/Debug/captures/analysis/world3d_opt/matrix/`
 

@@ -30,20 +30,30 @@ int run_ui_showcase(Browser& browser, UiShowcaseMode mode) {
   if (mode == UiShowcaseMode::kNone) {
     return 0;
   }
-  // Yellow identity HUD is opt-in; clear a stale process env so catalog/shell
-  // BMPs are not polluted (visual_review bug 6).
-  base::set_switch("map-identity-hud", "0");
-  // Scene DXGI present (WS_EX_NOREDIRECTIONBITMAP) makes PrintWindow of the
-  // frame return a flat fill — prefer GDI placeholder for chrome BMPs.
+  // Match product: identity HUD (engine + FPS) stays on. Do not skip FlyCube
+  // for scene BMPs — GDI placeholder is not the product 3D face.
+  base::set_switch("map-identity-hud", "1");
   if (mode == UiShowcaseMode::kScene) {
-    base::set_switch("prefer-gdi-device", "1");
+    base::set_switch("prefer-gdi-device", "0");
   }
 
-  // Always stop present timers + detach before return (ExitProcess heap race).
-  struct DetachOnExit {
+  // Teardown: always KillTimer + drain WM_TIMER. Full DrawHost::detach of a
+  // live session races TerminateProcess (STATUS_HEAP_CORRUPTION 0xC0000374)
+  // after a green BMP — skip detach on rc==0 (exit_after_scenario kills the
+  // process). Keep detach on failure so callers that return into run_loop
+  // do not leave present ticks attached. Do not use KillTimer-only
+  // stop_ui_map_present here (queued WM_TIMER still fires).
+  struct ExitTeardown {
     Browser& browser;
-    ~DetachOnExit() { detail::detach_maps(browser); }
-  } detach_guard{browser};
+    bool detach_live_hosts = true;
+    ~ExitTeardown() {
+      if (detach_live_hosts) {
+        detail::detach_maps(browser);
+      } else {
+        detail::stop_map_present_timers(browser);
+      }
+    }
+  } teardown{browser};
 
   detail::clear_mark(detail::kUiShowcaseMarkLeaf);
   showcase_mark(ui_showcase_name(mode));
@@ -71,7 +81,11 @@ int run_ui_showcase(Browser& browser, UiShowcaseMode mode) {
     return layout_rc;
   }
 
-  return detail::run_ui_present_capture(browser, mode);
+  const int rc = detail::run_ui_present_capture(browser, mode);
+  if (rc == 0) {
+    teardown.detach_live_hosts = false;
+  }
+  return rc;
 }
 
 }  // namespace app

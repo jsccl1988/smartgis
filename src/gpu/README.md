@@ -245,7 +245,7 @@ sequenceDiagram
 | `GpuDeviceHub` + `AdapterId` pin | **As-built** |
 | DXGI enumerate + `D3D11CreateDevice` on pin | **As-built** |
 | Per-adapter `ensure_rhi_device` (`adapter_index`) | **As-built** (Dx12 preferred; Null / sticky software fallback) |
-| FlyCube `import_shared_nt_handle` / compose-into-shared | **As-built** when `HAS_FLYCUBE` + DXGI shared (`READ\|WRITE` NT) |
+| Vista `import_shared_nt_handle` / compose-into-shared | **As-built** when `HAS_FLYCUBE` + DXGI shared (`READ\|WRITE` NT) |
 | `copy_bgra_to_imported_shared` | **As-built** (CPU blend → GPU copy when compose-direct fails) |
 | GPU compose `kSolid` / `kBgra` / `replaces` | **As-built**; import path sets `composed_into_imported_shared` |
 | Per-adapter texture cache | **As-built** |
@@ -255,7 +255,7 @@ sequenceDiagram
 | Headless / DIB-only | `upload_bgra` only (no NT import) |
 | Cross-adapter D3D11↔DX12 (mismatched LUID) | **Best-effort** — `OpenSharedHandle` may fail |
 
-`view.backend.rhi` only selects `ContentSource::kDirect`, not FlyCube.
+`view.backend.rhi` only selects `ContentSource::kDirect`, not Vista.
 `//src/gpu:gpu_backend` deps `//src/render:rhi` (+ graph/scene) for RHI compose.
 
 - Spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) §GPU-process accelerate（Topology B；与 in-process L0–L3 双拓扑）

@@ -31,6 +31,13 @@ class TreeView::Rows : public View {
  public:
   explicit Rows(TreeView* host) : host_(host) {}
 
+  bool on_mouse_event(const MouseEvent& event) override {
+    // Deepest-hit dispatch lands here (child of ScrollView). Forward so
+    // twisty/check/select run; do not bounce unhandled events back through
+    // View::on_mouse_event (that would re-hit Rows and recurse).
+    return host_ ? host_->on_mouse_event(event) : false;
+  }
+
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override {
     if (host_) {
@@ -261,7 +268,7 @@ bool TreeView::on_mouse_event(const MouseEvent& event) {
   }
   const int i = row_at_point(event.x, event.y);
   if (i < 0) {
-    return View::on_mouse_event(event);
+    return false;
   }
   const VisibleRow& row = visible_[static_cast<size_t>(i)];
   const Rect r = row_rect(i);
@@ -280,6 +287,7 @@ bool TreeView::on_mouse_event(const MouseEvent& event) {
     return true;
   }
   if (event.type == MouseEvent::Type::kUp && event.button == 1) {
+    request_focus();
     if (event.x < twisty_x1) {
       toggle_expand(row.id);
       select_id(row.id);

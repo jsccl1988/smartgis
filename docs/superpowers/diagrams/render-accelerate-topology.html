@@ -126,7 +126,7 @@ All rights reserved.
            <strong>B：</strong> Hub×AdapterId → <code>FrameComposer</code> → SharedHandle；chrome 只 blit。</p>
       </div>
     </div>
-    <p class="note">禁止同一 HWND 上 A+B 双 present（禁 leftover FlyCube HWND + gpu shared surface）。compose/present 在 B 模式<strong>只</strong>发生在 <code>--type=gpu</code>。</p>
+    <p class="note">禁止同一 HWND 上 A+B 双 present（禁 leftover Vista HWND + gpu shared surface）。compose/present 在 B 模式<strong>只</strong>发生在 <code>--type=gpu</code>。</p>
   </section>
 
   <section class="panel" id="s1">
@@ -501,7 +501,7 @@ All rights reserved.
         <tr><td><code>GPUSCENE_PREP_PARALLEL</code></td><td><span class="pill pill-a">A</span> L2</td><td><strong>default off</strong>；<code>=1</code> 仅在 frustum cull 诚实后；world3d <code>prep_par_on</code> 实验行</td></tr>
         <tr><td><code>SCENE3D_FRUSTUM_CULL</code></td><td><span class="pill pill-a">A</span></td><td><code>=1</code> 启用 AABB（并行 prep 前提）</td></tr>
         <tr><td><code>GPU_COMPOSE</code></td><td><span class="pill pill-b">B</span></td><td>默认 <code>kRhi</code>；<code>software</code> 逃生</td></tr>
-        <tr><td><code>view.backend.rhi</code></td><td>wire</td><td><code>ContentSource::kDirect</code> — 非 FlyCube / 非 ComposeBackend</td></tr>
+        <tr><td><code>view.backend.rhi</code></td><td>wire</td><td><code>ContentSource::kDirect</code> — 非 Vista / 非 ComposeBackend</td></tr>
         <tr><td><code>--type=gpu</code> / <code>--in-process-gpu</code></td><td>进程模型</td><td>B 拓扑；in-process-gpu 仅 debug/CI</td></tr>
         <tr><td><code>RHI2D_*</code> / <code>RHI3D_*</code></td><td>leftover</td><td><strong>禁止</strong>产品路径 getenv</td></tr>
       </tbody>
@@ -551,7 +551,7 @@ All rights reserved.
       </div>
       <div class="card">
         <h3>P0 · cold upload</h3>
-        <p>FlyCube 首帧 cold ~1.8–2&nbsp;s vs leftover ~90&nbsp;ms。Crush <strong>cache + GPU upload</strong>（M2 ≤300&nbsp;ms）；勿删 DEM。不按 process <code>wall_ms</code> 排名。</p>
+        <p>Vista 首帧 cold ~1.8–2&nbsp;s vs leftover ~90&nbsp;ms。Crush <strong>cache + GPU upload</strong>（M2 ≤300&nbsp;ms）；勿删 DEM。不按 process <code>wall_ms</code> 排名。</p>
       </div>
     </div>
     <svg class="diagram" viewBox="0 0 1040 220" role="img" aria-label="Scene3d cold vs warm flow" style="margin-top:10px">
@@ -580,7 +580,7 @@ All rights reserved.
       <path d="M364 66 H392" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arrowHeadS8)"/>
       <path d="M562 66 H572" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arrowHeadS8)"/>
       <text class="box-sub" x="860" y="58" text-anchor="middle">leftover peer ~90 ms</text>
-      <text class="box-sub" x="860" y="76" text-anchor="middle">FlyCube baseline ~1.8–2 s</text>
+      <text class="box-sub" x="860" y="76" text-anchor="middle">Vista baseline ~1.8–2 s</text>
 
       <!-- warm lane -->
       <rect x="0" y="116" width="1040" height="96" rx="10" fill="#e6f5ef" stroke="#8fc4ae"/>

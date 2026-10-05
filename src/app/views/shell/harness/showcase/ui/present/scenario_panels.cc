@@ -4,13 +4,13 @@
 #include "app/views/shell/harness/showcase/ui/present/scenario_panels.h"
 
 #include "app/views/shell/browser/browser.h"
-#include "app/views/shell/browser/browser_ui_delegate.h"
+#include "app/views/shell/browser/ui_delegate.h"
 #include "app/views/shell/browser/china_product_defaults.h"
 #include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/harness/self_test/self_test.h"
 #include "app/views/shell/harness/showcase/ui/interact/interact_script.h"
 #include "ui/gis/catalog/catalog_view.h"
-#include "ui/views/map/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 
 namespace app {
@@ -26,39 +26,44 @@ void showcase_mark(const char* token) {
 void apply_ui_scenario_panels(Browser& browser, UiShowcaseMode mode) {
   switch (mode) {
     case UiShowcaseMode::kData:
-      browser.select_map_tab(1);
+      browser.select_map_tab(0);
       pump_views_messages(350);
       break;
     case UiShowcaseMode::kScene: {
-      browser.select_map_tab(2);
+      browser.select_map_tab(1);
       pump_views_messages(800);
       // Lazy FlyCube attach needs several present ticks before HUD leaves
       // views-scene3d.gdi / Fps0 and the DEM fills the tab (not a sticker).
-      if (ui::views::MapViewport* scene = browser.map_scene_viewport()) {
+      if (ui::views::DrawHost* scene = browser.scene_draw_host()) {
         for (int i = 0; i < 160; ++i) {
           if (scene->attach_mode() ==
-                  ui::views::MapViewport::AttachMode::kFlyCube &&
+                  ui::views::DrawHost::AttachMode::kGpuPresent &&
               scene->last_gpu_present_ok()) {
             break;
           }
           scene->sync_native_bounds();
           if (scene->attach_mode() ==
-              ui::views::MapViewport::AttachMode::kNone) {
+              ui::views::DrawHost::AttachMode::kNone) {
             scene->attach();
           }
           scene->invalidate_native();
           pump_views_messages(50);
         }
         if (scene->attach_mode() ==
-                ui::views::MapViewport::AttachMode::kFlyCube &&
+                ui::views::DrawHost::AttachMode::kGpuPresent &&
             scene->last_gpu_present_ok()) {
           showcase_mark("scene-flycube-ok");
+          apply_china_scene3d_product_defaults(browser);
+          for (int j = 0; j < 16; ++j) {
+            scene->request_frame();
+            pump_views_messages(50);
+          }
         } else {
           showcase_mark("scene-flycube-wait");
         }
       }
-      apply_china_scene3d_orbit(browser);
-      if (ui::views::MapViewport* scene = browser.map_scene_viewport()) {
+      apply_china_scene3d_product_defaults(browser);
+      if (ui::views::DrawHost* scene = browser.scene_draw_host()) {
         scene->invalidate_native();
       }
       pump_views_messages(400);
@@ -86,8 +91,6 @@ void apply_ui_scenario_panels(Browser& browser, UiShowcaseMode mode) {
       pump_views_messages(200);
       browser.select_map_tab(1);
       pump_views_messages(250);
-      browser.select_map_tab(2);
-      pump_views_messages(350);
       browser.select_map_tab(0);
       if (ui::views::CatalogView* cat = browser.catalog_view()) {
         if (ui::views::TabStrip* tabs = cat->source_tabs()) {

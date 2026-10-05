@@ -22,6 +22,22 @@ struct AtmosphereParams {
   bool cloud_enabled = false;
   bool sky_enabled = false;
   bool fog_enabled = false;
+  // Origin-style stacked contour sheet (curves + TIN) above DEM.
+  bool contour_enabled = false;
+  bool contour_curves = true;
+  bool contour_surface = true;
+  // Screen-ortho side color scale (jet bar + tick / title text anchors).
+  bool contour_color_scale = true;
+  // Lift (mesh Y meters) so the sheet clears terrain for presentation.
+  float contour_dem_offset_m = 800.f;
+  // Field value range → additional sheet undulation (meters).
+  float contour_value_to_meters = 400.f;
+  float contour_surface_alpha = 0.55f;
+  // Color-scale layout (viewport fractions; right side by default).
+  float contour_scale_margin = 0.03f;
+  float contour_scale_bar_width = 0.028f;
+  float contour_scale_bar_height = 0.48f;
+  int contour_scale_tick_count = 6;
 
   // Fog visibility knobs (orbit-normalized units; projected to FogDrawParams).
   // Soft defaults: aerial haze without washing DEM hypsometric greens.

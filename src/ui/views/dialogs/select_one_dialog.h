@@ -13,7 +13,7 @@
 namespace ui {
 namespace views {
 
-// Modal single-choice list that replaces leftover SmtSelectOneDlg.
+// Modal single-choice list that replaces leftover SelectOneDlg.
 // Hosts pass ids or labels; this dialog never stores GIS pointers.
 class UI_EXPORT SelectOneDialog {
  public:

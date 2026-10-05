@@ -16,14 +16,24 @@ class GlobePass;
 namespace app {
 namespace detail {
 
-// Cinematic Google-Earth / product-splash orbit path (space → high → Tibet skim).
-// |t01| in [0,1]; |china_yaw|/|china_pitch| seed the China aim before dive.
+// Cinematic path beats (t01 in [0,1]):
+//   space  [0, 0.15)  — deep orbit, sat-cloud limb
+//   clouds [0.15, 0.42) — approach through sat-cloud shell
+//   DEM    [0.42, 0.85) — surface dive + west→east skim
+//   ocean  [0.85, 1]  — East China Sea Gerstner
 void apply_globe_flythrough(content::OrbitFrame* orbit,
                             float t01,
                             float china_yaw,
                             float china_pitch,
                             const vista::GlobePass* globe,
                             content::AtmosphereSession* session);
+
+// Named stage centers for keyframe captures / marks.
+inline constexpr float kGlobeFlySpaceT = 0.06f;
+inline constexpr float kGlobeFlyCloudsT = 0.28f;
+inline constexpr float kGlobeFlyDemT = 0.76f;
+inline constexpr float kGlobeFlyOceanT = 1.0f;
+inline constexpr float kGlobeFlyParkT = 0.48f;
 
 }  // namespace detail
 }  // namespace app

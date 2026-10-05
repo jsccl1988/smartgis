@@ -100,6 +100,7 @@ class FlycubeDevice : public Device {
   bool execute_offscreen(FlycubeCommandList* recorded);
   void replay_dispatches(::CommandList* fc_list, const Dispatch* dispatches,
                          size_t count);
+  void barrier_depth(::CommandList* fc_list, ResourceState after);
 
   Backend backend_;
   HWND hwnd_ = nullptr;
@@ -123,6 +124,7 @@ class FlycubeDevice : public Device {
   std::shared_ptr<::CommandList> graphics_lists_[kFrameCount];
   std::vector<std::shared_ptr<View>> back_buffer_views_;
   std::shared_ptr<Resource> depth_texture_;
+  ResourceState depth_state_ = ResourceState::kCommon;
   std::shared_ptr<View> depth_view_;
   // Sampleable SRV over the same depth resource (fog / soft particles).
   std::shared_ptr<View> depth_srv_;

@@ -38,6 +38,12 @@ def run_process(
 def merge_env(extra: dict[str, str]) -> dict[str, str]:
     env = os.environ.copy()
     env.update(extra)
+    # GDAL AutoLoadDrivers searches cwd when GDAL_DRIVER_PATH is unset. The
+    # harness cwd is out/Debug (full of ucrtbased / product DLLs); loading
+    # those as "drivers" duplicates the debug CRT and heap-corrupts Workspace.
+    if "GDAL_DRIVER_PATH" not in env or not str(env.get("GDAL_DRIVER_PATH", "")).strip():
+        root = Path(__file__).resolve().parents[3]
+        env["GDAL_DRIVER_PATH"] = str(root / "out" / "third_party" / "lib" / "gdalplugins")
     return env
 
 

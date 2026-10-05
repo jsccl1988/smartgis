@@ -6,6 +6,7 @@
 
 #include "ui/ui_export.h"
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -17,8 +18,10 @@ namespace ui {
 namespace views {
 
 // Columnar preview table with an optional selected row.
-// Visible rows are recorded into a DisplayList cache so re-paint with an
-// unchanged span does not walk cell strings again.
+// Paint records only the exposed_rect row strip (plus header if visible) so
+// scroll commit does not fill or stroke the offscreen body. Overlapping rows
+// reuse per-row DisplayList slots keyed by content Y. Hit-test still uses
+// full content geometry.
 class UI_EXPORT TableView : public View {
  public:
   TableView();
@@ -59,8 +62,11 @@ class UI_EXPORT TableView : public View {
   int row_at_point(int y) const;
   int col_at_point(int x) const;
   float scale_factor() const;
+  Rect visible_clip_rect() const;
   void visible_row_span(int* begin, int* end) const;
   void invalidate_row_cache();
+  void paint_row_strip(ui::gfx::DisplayList* dl, int row, int y) const;
+  const ui::gfx::DisplayList* cached_row_strip(int row, int y);
   void rebuild_row_cache(int begin, int end);
   void emit_row_cache(ui::gfx::Canvas* canvas);
   bool row_cache_matches(int begin, int end) const;
@@ -76,7 +82,7 @@ class UI_EXPORT TableView : public View {
   std::function<void(int)> row_click_;
   std::function<void(int, int)> cell_activate_;
 
-  // Cached paint for the current visible_row_span (+ header).
+  // Cached paint for the current visible_row_span (+ header) and clip strip.
   int cache_begin_ = 0;
   int cache_end_ = 0;
   int cache_selected_ = -1;
@@ -84,6 +90,10 @@ class UI_EXPORT TableView : public View {
   int cache_origin_x_ = 0;
   int cache_origin_y_ = 0;
   int cache_width_ = 0;
+  int cache_clip_x_ = 0;
+  int cache_clip_y_ = 0;
+  int cache_clip_w_ = 0;
+  int cache_clip_h_ = 0;
   ui::gfx::Color cache_control_bg_ = 0;
   ui::gfx::Color cache_panel_header_ = 0;
   ui::gfx::Color cache_accent_ = 0;
@@ -95,6 +105,9 @@ class UI_EXPORT TableView : public View {
   ui::gfx::Color cache_control_hover_ = 0;
   bool cache_valid_ = false;
   ui::gfx::DisplayList row_cache_;
+
+  // Sliding per-row command strips; heap type lives in the .cc.
+  std::unique_ptr<void, void (*)(void*)> row_strips_{nullptr, nullptr};
 };
 
 }  // namespace views

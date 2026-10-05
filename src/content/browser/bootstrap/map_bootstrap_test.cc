@@ -57,6 +57,38 @@ int main() {
   // Chosen path should be the shared sibling data/ (lexically normalized).
   expect(chosen.find("data") != std::string::npos, "chose under data/");
 
+  // china_city must precede china_plp so a schematic PLP cannot shadow the
+  // prefecture pack (bare launch / harness / seed_default share this SoT).
+  const auto rels = content::sample_map_relative_paths();
+  expect(!rels.empty(), "sample_map_relative_paths non-empty");
+  size_t first_city = static_cast<size_t>(-1);
+  size_t first_plp = static_cast<size_t>(-1);
+  for (size_t i = 0; i < rels.size(); ++i) {
+    if (first_city == static_cast<size_t>(-1) &&
+        rels[i].find("china_city") != std::string::npos) {
+      first_city = i;
+    }
+    if (first_plp == static_cast<size_t>(-1) &&
+        rels[i].find("china_plp") != std::string::npos) {
+      first_plp = i;
+    }
+  }
+  expect(first_city != static_cast<size_t>(-1), "lists china_city");
+  expect(first_plp != static_cast<size_t>(-1), "lists china_plp");
+  expect(first_city < first_plp, "china_city before china_plp");
+
+  // When both packs exist under out/data, still pick china_city.
+  const fs::path plp = data_root / "china_plp.geojson";
+  {
+    std::ofstream f(plp.string(), std::ios::binary);
+    f << "stub-plp";
+  }
+  chosen.clear();
+  expect(content::try_resolve_existing_sample_map({root}, &chosen),
+         "resolve with both packs present");
+  expect(chosen.find("china_city.gpkg") != std::string::npos,
+         "prefers china_city over china_plp sibling");
+
   fs::remove_all(tmp, ec);
   if (g_fails != 0) {
     std::fprintf(stderr, "%d failure(s)\n", g_fails);

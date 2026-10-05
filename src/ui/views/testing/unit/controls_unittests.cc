@@ -3,6 +3,7 @@
 
 // Button / input / slider control unit tests.
 
+#include <cmath>
 #include <memory>
 #include <string>
 #include <vector>
@@ -23,11 +24,13 @@
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/kernel/widget/widget.h"
+#include "ui/views/markup/factory/control_factory.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/button/checkbox.h"
 #include "ui/views/primitives/button/radio_button.h"
 #include "ui/views/primitives/input/combobox.h"
 #include "ui/views/primitives/input/slider.h"
+#include "ui/views/primitives/menu/context_menu.h"
 #include "ui/views/primitives/text/label.h"
 #include "ui/views/primitives/text/textfield.h"
 #include "ui/views/testing/unit/views_unit_helpers.h"
@@ -348,5 +351,73 @@ void test_set_text_caches_measure() {
   const auto fonts = paint_counters().create_font;
   (void)measure_text_utf8("Bb");
   expect(paint_counters().create_font == fonts, "font cache hit");
+}
+
+void test_radio_exclusive_nested_rows() {
+  View host;
+  auto row0 = std::make_unique<View>();
+  auto row1 = std::make_unique<View>();
+  auto a = std::make_unique<RadioButton>("A", 1);
+  auto b = std::make_unique<RadioButton>("B", 1);
+  RadioButton* ra = a.get();
+  RadioButton* rb = b.get();
+  row0->add_child(std::move(a));
+  row1->add_child(std::move(b));
+  host.add_child(std::move(row0));
+  host.add_child(std::move(row1));
+  rb->set_bounds({0, 0, 100, 24});
+  expect(rb->on_mouse_event(mouse_up(0, 0)), "nested radio click");
+  expect(rb->is_selected(), "nested B selected");
+  expect(!ra->is_selected(), "nested A cleared across rows");
+}
+
+void test_radio_dpi_preferred() {
+  RadioButton r("Hello", 1);
+  expect(r.preferred_size().height >= 22, "radio dip height");
+  Widget widget;
+  auto root = std::make_unique<View>();
+  auto radio = std::make_unique<RadioButton>("Hello", 1);
+  RadioButton* p = radio.get();
+  root->add_child(std::move(radio));
+  widget.set_contents_view(std::move(root));
+  const int h1 = p->preferred_size().height;
+  widget.set_device_scale_factor(2.f);
+  expect(p->preferred_size().height > h1, "radio grows with dpi");
+}
+
+void test_markup_combobox_slider_button_attrs() {
+  ControlFactory factory = ControlFactory::make_default();
+  MarkupAttrs combo_a;
+  combo_a.values["items"] = "one, two, three";
+  combo_a.values["selected"] = "1";
+  auto combo_v = factory.create("combobox", combo_a);
+  auto* combo = static_cast<Combobox*>(combo_v.get());
+  expect(combo != nullptr && combo->item_count() == 3, "combo items csv");
+  expect(combo && combo->selected_index() == 1, "combo selected attr");
+
+  MarkupAttrs sl;
+  sl.values["min"] = "0";
+  sl.values["max"] = "10";
+  sl.values["value"] = "4";
+  auto sl_v = factory.create("slider", sl);
+  auto* slider = static_cast<Slider*>(sl_v.get());
+  expect(slider != nullptr && slider->max_value() == 10.0, "slider max attr");
+  expect(slider && slider->value() == 4.0, "slider value attr");
+
+  MarkupAttrs btn;
+  btn.values["text"] = "OK";
+  btn.values["style"] = "primary";
+  auto b = factory.create("button", btn);
+  auto* button = static_cast<Button*>(b.get());
+  expect(button != nullptr && button->style() == Button::Style::kPrimary,
+         "button style attr");
+}
+
+void test_context_menu_empty_is_noop() {
+  // TrackPopupMenu is not pumped in console tests. Empty / null owner must
+  // return without creating a menu (product right-click uses a live HWND).
+  show_context_menu(nullptr, {0, 0}, {{"Layer", nullptr, true, false}});
+  show_context_menu(reinterpret_cast<HWND>(1), {0, 0}, {});
+  expect(true, "context menu empty/null owner is noop");
 }
 

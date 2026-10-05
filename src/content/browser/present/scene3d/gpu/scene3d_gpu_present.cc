@@ -88,6 +88,11 @@ void Scene3dGpuPresent::set_look_preset(Scene3dLookPreset preset) {
 }
 
 bool Scene3dGpuPresent::ensure_legacy_overlays() {
+  std::lock_guard<std::mutex> lock(present_mu_);
+  return ensure_legacy_overlays_locked();
+}
+
+bool Scene3dGpuPresent::ensure_legacy_overlays_locked() {
   legacy_overlays_attempted_ = true;
   if (legacy_labels_.empty()) {
     // Major China place-names (leftover stereo label batch character).
@@ -147,24 +152,12 @@ void Scene3dGpuPresent::set_overlay_pointcloud(const float* xyz_lon_lat_elev,
                                                int point_count,
                                                const uint8_t* rgba) {
   std::lock_guard<std::mutex> lock(present_mu_);
-  overlay_xyz_geo_.clear();
-  overlay_rgba_.clear();
-  overlay_pointcloud_dirty_ = true;
-  if (!xyz_lon_lat_elev || point_count < 1) {
-    return;
-  }
-  const size_t n = static_cast<size_t>(point_count);
-  overlay_xyz_geo_.assign(xyz_lon_lat_elev, xyz_lon_lat_elev + n * 3);
-  if (rgba) {
-    overlay_rgba_.assign(rgba, rgba + n * 4);
-  }
+  overlays_.set_pointcloud(xyz_lon_lat_elev, point_count, rgba);
 }
 
 void Scene3dGpuPresent::clear_overlay_pointcloud() {
   std::lock_guard<std::mutex> lock(present_mu_);
-  overlay_xyz_geo_.clear();
-  overlay_rgba_.clear();
-  overlay_pointcloud_dirty_ = true;
+  overlays_.clear_pointcloud();
 }
 
 void Scene3dGpuPresent::set_overlay_tin_mesh(const float* xyz_lon_lat_elev,
@@ -173,38 +166,65 @@ void Scene3dGpuPresent::set_overlay_tin_mesh(const float* xyz_lon_lat_elev,
                                              int index_count,
                                              const uint8_t* albedo_rgba) {
   std::lock_guard<std::mutex> lock(present_mu_);
-  overlay_tin_xyz_geo_.clear();
-  overlay_tin_idx_.clear();
-  overlay_tin_has_albedo_ = false;
-  overlay_tin_dirty_ = true;
-  if (!xyz_lon_lat_elev || point_count < 3 || !indices || index_count < 3) {
-    return;
-  }
-  const size_t n = static_cast<size_t>(point_count);
-  const size_t ic = static_cast<size_t>(index_count);
-  if ((ic % 3u) != 0) {
-    return;
-  }
-  overlay_tin_xyz_geo_.assign(xyz_lon_lat_elev, xyz_lon_lat_elev + n * 3);
-  overlay_tin_idx_.assign(indices, indices + ic);
-  // Always drape a solid albedo. Untextured kTerrain uses the lit land-green
-  // path and reads as near-black slabs under FlyCube (mine / stormsurge).
-  if (albedo_rgba) {
-    overlay_tin_albedo_[0] = albedo_rgba[0];
-    overlay_tin_albedo_[1] = albedo_rgba[1];
-    overlay_tin_albedo_[2] = albedo_rgba[2];
-    overlay_tin_albedo_[3] = albedo_rgba[3];
-  }
-  // else: keep member default cyan {46,170,220,230}
-  overlay_tin_has_albedo_ = true;
+  overlays_.set_tin(xyz_lon_lat_elev, point_count, indices, index_count,
+                    albedo_rgba);
+}
+
+void Scene3dGpuPresent::set_overlay_tin_drape(const uint8_t* rgba, uint32_t width,
+                                              uint32_t height, const float* uv,
+                                              int uv_float_count) {
+  std::lock_guard<std::mutex> lock(present_mu_);
+  overlays_.set_tin_drape(rgba, width, height, uv, uv_float_count);
 }
 
 void Scene3dGpuPresent::clear_overlay_tin_mesh() {
   std::lock_guard<std::mutex> lock(present_mu_);
-  overlay_tin_xyz_geo_.clear();
-  overlay_tin_idx_.clear();
-  overlay_tin_has_albedo_ = false;
-  overlay_tin_dirty_ = true;
+  overlays_.clear_tin();
+}
+
+void Scene3dGpuPresent::set_dem_drape_rgba(const uint8_t* rgba, uint32_t width,
+                                           uint32_t height) {
+  std::lock_guard<std::mutex> lock(present_mu_);
+  dem_drape_rgba_.clear();
+  dem_drape_w_ = 0;
+  dem_drape_h_ = 0;
+  if (!rgba || width == 0 || height == 0) {
+    return;
+  }
+  const size_t need =
+      static_cast<size_t>(width) * static_cast<size_t>(height) * 4u;
+  dem_drape_rgba_.assign(rgba, rgba + need);
+  dem_drape_w_ = width;
+  dem_drape_h_ = height;
+}
+
+void Scene3dGpuPresent::clear_dem_drape() {
+  std::lock_guard<std::mutex> lock(present_mu_);
+  dem_drape_rgba_.clear();
+  dem_drape_w_ = 0;
+  dem_drape_h_ = 0;
+}
+
+void Scene3dGpuPresent::apply_dem_drape_locked() {
+  if (dem_drape_rgba_.empty() || dem_drape_w_ == 0 || dem_drape_h_ == 0) {
+    return;
+  }
+  for (size_t i = 0; i < terrain_world_.node_count(); ++i) {
+    vista::Node* n = const_cast<vista::Node*>(terrain_world_.node_at(i));
+    if (!n || n->kind != vista::NodeKind::kTerrain) {
+      continue;
+    }
+    if (n->name == "overlay_tin") {
+      continue;
+    }
+    n->terrain.rgba = dem_drape_rgba_;
+    n->terrain.tex_w = dem_drape_w_;
+    n->terrain.tex_h = dem_drape_h_;
+  }
+}
+
+void Scene3dGpuPresent::set_studio_block(bool on) {
+  studio_block_ = on;
 }
 
 bool Scene3dGpuPresent::attach_tileset_json(const char* json, size_t len,
@@ -248,265 +268,13 @@ const TilesetStreamSession* Scene3dGpuPresent::tileset_stream() const {
 }
 
 void Scene3dGpuPresent::attach_overlay_pointcloud_locked(bool force) {
-  if (overlay_xyz_geo_.empty() || !geo_frame_.valid) {
-    return;
-  }
-  const size_t n = overlay_xyz_geo_.size() / 3;
-  if (n == 0) {
-    return;
-  }
-  if (!force && !overlay_pointcloud_dirty_) {
-    for (size_t i = 0; i < terrain_world_.node_count(); ++i) {
-      const vista::Node* node = terrain_world_.node_at(i);
-      if (node && node->kind == vista::NodeKind::kPointCloud &&
-          node->name == "overlay_pointcloud") {
-        return;
-      }
-    }
-  }
-  // Drop prior overlay nodes (present may early-return mesh rebuild).
-  for (size_t i = 0; i < terrain_world_.node_count();) {
-    const vista::Node* node = terrain_world_.node_at(i);
-    if (node && node->kind == vista::NodeKind::kPointCloud &&
-        node->name == "overlay_pointcloud") {
-      if (!terrain_world_.remove_node(node->id)) {
-        ++i;
-      }
-      continue;
-    }
-    ++i;
-  }
-  std::vector<float> orbit_xyz;
-  orbit_xyz.reserve(n * 3);
-  float mn_x = 0.f;
-  float mn_y = 0.f;
-  float mn_z = 0.f;
-  float mx_x = 0.f;
-  float mx_y = 0.f;
-  float mx_z = 0.f;
-  for (size_t i = 0; i < n; ++i) {
-    const double lon = static_cast<double>(overlay_xyz_geo_[i * 3]);
-    const double lat = static_cast<double>(overlay_xyz_geo_[i * 3 + 1]);
-    const float elev = overlay_xyz_geo_[i * 3 + 2];
-    float ox = 0.f;
-    float oy = 0.f;
-    float oz = 0.f;
-    geo_frame_.lon_lat_to_orbit(lon, lat, elev, &ox, &oy, &oz);
-    orbit_xyz.push_back(ox);
-    orbit_xyz.push_back(oy);
-    orbit_xyz.push_back(oz);
-    if (i == 0) {
-      mn_x = mx_x = ox;
-      mn_y = mx_y = oy;
-      mn_z = mx_z = oz;
-    } else {
-      mn_x = (std::min)(mn_x, ox);
-      mn_y = (std::min)(mn_y, oy);
-      mn_z = (std::min)(mn_z, oz);
-      mx_x = (std::max)(mx_x, ox);
-      mx_y = (std::max)(mx_y, oy);
-      mx_z = (std::max)(mx_z, oz);
-    }
-  }
-  // Park beads in a thin band above the DEM roof (same framing as overlay TIN).
-  float dem_max_y = -1.0e9f;
-  const size_t dem_floats = dem_local_xyz_count_;
-  for (size_t i = 1; i < dem_floats && i < local_xyz_.size(); i += 3) {
-    dem_max_y = (std::max)(dem_max_y, local_xyz_[i]);
-  }
-  if (!(dem_max_y > -1.0e8f)) {
-    dem_max_y = 0.f;
-  }
-  constexpr float kBeadBase = 0.32f;  // above TIN slab (clearance 0.08 + 0.22)
-  constexpr float kBeadSpan = 0.12f;
-  const float geo_y0 = mn_y;
-  const float geo_span = (std::max)(mx_y - mn_y, 1.0e-4f);
-  const float target_base = dem_max_y + kBeadBase;
-  for (size_t i = 0; i < n; ++i) {
-    const float t = (orbit_xyz[i * 3 + 1] - geo_y0) / geo_span;
-    orbit_xyz[i * 3 + 1] = target_base + t * kBeadSpan;
-  }
-  mn_y = target_base;
-  mx_y = target_base + kBeadSpan;
-  vista::Node* node = terrain_world_.attach_pointcloud(
-      "overlay_pointcloud", mn_x, mn_y, mn_z, mx_x, mx_y, mx_z);
-  if (!node) {
-    return;
-  }
-  const uint8_t* rgba =
-      overlay_rgba_.size() == n * 4 ? overlay_rgba_.data() : nullptr;
-  (void)terrain_world_.set_pointcloud_points(node->id, orbit_xyz.data(), n, rgba,
-                                             rgba ? n * 4 : 0);
-  overlay_pointcloud_dirty_ = false;
+  overlays_.attach_pointcloud(&terrain_world_, geo_frame_, local_xyz_,
+                              dem_local_xyz_count_, force);
 }
 
 void Scene3dGpuPresent::attach_overlay_tin_locked(bool force) {
-  if (overlay_tin_xyz_geo_.empty() || overlay_tin_idx_.empty() ||
-      !geo_frame_.valid) {
-    return;
-  }
-  const size_t n = overlay_tin_xyz_geo_.size() / 3;
-  if (n < 3) {
-    return;
-  }
-  if (!force && !overlay_tin_dirty_) {
-    for (size_t i = 0; i < terrain_world_.node_count(); ++i) {
-      const vista::Node* node = terrain_world_.node_at(i);
-      if (node && node->kind == vista::NodeKind::kTerrain &&
-          node->name == "overlay_tin") {
-        return;
-      }
-    }
-  }
-  // Drop prior overlay tin terrain node (rebuild may leave stale ids).
-  for (size_t i = 0; i < terrain_world_.node_count();) {
-    const vista::Node* node = terrain_world_.node_at(i);
-    if (node && node->kind == vista::NodeKind::kTerrain &&
-        node->name == "overlay_tin") {
-      if (!terrain_world_.remove_node(node->id)) {
-        ++i;
-      }
-      continue;
-    }
-    ++i;
-  }
-
-  std::vector<float> orbit_xyz;
-  orbit_xyz.reserve(n * 3);
-  float mn_x = 0.f;
-  float mn_y = 0.f;
-  float mn_z = 0.f;
-  float mx_x = 0.f;
-  float mx_y = 0.f;
-  float mx_z = 0.f;
-  for (size_t i = 0; i < n; ++i) {
-    const double lon = static_cast<double>(overlay_tin_xyz_geo_[i * 3]);
-    const double lat = static_cast<double>(overlay_tin_xyz_geo_[i * 3 + 1]);
-    const float elev = overlay_tin_xyz_geo_[i * 3 + 2];
-    float ox = 0.f;
-    float oy = 0.f;
-    float oz = 0.f;
-    geo_frame_.lon_lat_to_orbit(lon, lat, elev, &ox, &oy, &oz);
-    orbit_xyz.push_back(ox);
-    orbit_xyz.push_back(oy);
-    orbit_xyz.push_back(oz);
-    if (i == 0) {
-      mn_x = mx_x = ox;
-      mn_y = mx_y = oy;
-      mn_z = mx_z = oz;
-    } else {
-      mn_x = (std::min)(mn_x, ox);
-      mn_y = (std::min)(mn_y, oy);
-      mn_z = (std::min)(mn_z, oz);
-      mx_x = (std::max)(mx_x, ox);
-      mx_y = (std::max)(mx_y, oy);
-      mx_z = (std::max)(mx_z, oz);
-    }
-  }
-
-  std::vector<uint32_t> orbit_idx;
-  orbit_idx.reserve(overlay_tin_idx_.size());
-  // Reverse winding so FlyCube solid PS does not cull the stratum TIN
-  // (point-cloud cubes still drew; single-sided TIN was invisible).
-  for (size_t t = 0; t + 2 < overlay_tin_idx_.size(); t += 3) {
-    const unsigned a = overlay_tin_idx_[t];
-    const unsigned b = overlay_tin_idx_[t + 1];
-    const unsigned c = overlay_tin_idx_[t + 2];
-    if (a >= n || b >= n || c >= n) {
-      continue;
-    }
-    orbit_idx.push_back(static_cast<uint32_t>(a));
-    orbit_idx.push_back(static_cast<uint32_t>(c));
-    orbit_idx.push_back(static_cast<uint32_t>(b));
-  }
-  if (orbit_idx.size() < 3) {
-    return;
-  }
-
-  // Geographic elev maps mine clay (~50m) to orbit y~7 while DEM roof is ~0.2.
-  // Remap relative relief into a slab just above the DEM roof. Thin slabs suit
-  // mine clay / stormsurge free-surface; tall geo spans (hex volume) keep a
-  // taller orbit slab so walls read as 3D lattice, not a DEM-like roof.
-  float dem_max_y = -1.0e9f;
-  const size_t dem_floats = dem_local_xyz_count_;
-  for (size_t i = 1; i < dem_floats && i < local_xyz_.size(); i += 3) {
-    dem_max_y = (std::max)(dem_max_y, local_xyz_[i]);
-  }
-  if (!(dem_max_y > -1.0e8f)) {
-    dem_max_y = 0.f;
-  }
-  const float geo_y0 = mn_y;
-  const float geo_span = (std::max)(mx_y - mn_y, 1.0e-4f);
-  constexpr float kOrbitClearance = 0.35f;
-  constexpr float kOrbitSlabMin = 0.25f;
-  constexpr float kOrbitSlabMax = 1.75f;
-  // Tall amber hex shell: keep a thicker orbit slab so walls dominate DEM pad.
-  const bool hex_albedo =
-      overlay_tin_has_albedo_ && overlay_tin_albedo_[0] >= 160 &&
-      overlay_tin_albedo_[1] >= 100 && overlay_tin_albedo_[2] < 140 &&
-      overlay_tin_albedo_[0] > overlay_tin_albedo_[2] + 40;
-  const float slab_max = hex_albedo ? 2.35f : kOrbitSlabMax;
-  const float slab_scale = hex_albedo ? 0.85f : 0.55f;
-  const float orbit_slab =
-      (std::min)(slab_max, (std::max)(kOrbitSlabMin, geo_span * slab_scale));
-  const float target_base = dem_max_y + kOrbitClearance;
-  for (size_t i = 0; i < n; ++i) {
-    const float t = (orbit_xyz[i * 3 + 1] - geo_y0) / geo_span;
-    orbit_xyz[i * 3 + 1] = target_base + t * orbit_slab;
-  }
-  mn_y = target_base;
-  mx_y = target_base + orbit_slab;
-  LOGGING(LOG_INFO,
-          "scene3d.present overlay_tin orbit_y=[%.3f,%.3f] geo_y0=%.3f "
-          "dem_roof=%.3f verts=%zu idx=%zu",
-          mn_y, mx_y, geo_y0, dem_max_y, n, orbit_idx.size());
-
-  // Trim any prior overlay fold (cache-hit DEM rebuild leaves local_* intact).
-  if (local_xyz_.size() > dem_local_xyz_count_ ||
-      local_idx_.size() > dem_local_idx_count_) {
-    local_xyz_.resize(dem_local_xyz_count_);
-    local_idx_.resize(dem_local_idx_count_);
-  }
-  const size_t base_vert = local_xyz_.size() / 3;
-
-  // Inflate XZ so AABB-bridge / sparse TIN still covers the borehole pad.
-  constexpr float kPadXz = 0.12f;
-  const float ax0 = mn_x - kPadXz;
-  const float ax1 = mx_x + kPadXz;
-  const float az0 = mn_z - kPadXz;
-  const float az1 = mx_z + kPadXz;
-  vista::Node* node = terrain_world_.attach_terrain(
-      "overlay_tin", ax0, mn_y, az0, ax1, mx_y, az1);
-  if (node) {
-    // Always attach the triangle mesh. Skipping for n<8 left only an AABB
-    // bridge that reads as a solid yellow/cyan toy prism in showcase BMPs.
-    (void)terrain_world_.set_terrain_mesh(node->id, orbit_xyz.data(),
-                                          orbit_xyz.size(), orbit_idx.data(),
-                                          orbit_idx.size());
-  }
-
-  // Fold into the GDI paint buffer; FlyCube draws the World node above.
-  local_xyz_.insert(local_xyz_.end(), orbit_xyz.begin(), orbit_xyz.end());
-  for (uint32_t vi : orbit_idx) {
-    local_idx_.push_back(
-        static_cast<unsigned>(base_vert + static_cast<size_t>(vi)));
-  }
-
-  // Do not attach overlay_tin_markers pointclouds: FlyCube draws the node AABB
-  // as a solid cyan/yellow toy prism that fails mid-complexity visual review.
-  // GDI solid tris + wireframe (and optional stick beads) are the showcase SoT.
-  for (size_t i = 0; i < terrain_world_.node_count();) {
-    const vista::Node* node = terrain_world_.node_at(i);
-    if (node && node->kind == vista::NodeKind::kPointCloud &&
-        node->name == "overlay_tin_markers") {
-      if (!terrain_world_.remove_node(node->id)) {
-        ++i;
-      }
-      continue;
-    }
-    ++i;
-  }
-  overlay_tin_dirty_ = false;
+  overlays_.attach_tin(&terrain_world_, geo_frame_, &local_xyz_, &local_idx_,
+                       dem_local_xyz_count_, dem_local_idx_count_, force);
 }
 
 float Scene3dGpuPresent::yaw() const {
@@ -629,8 +397,9 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     dem_rebuilt = rebuild_local_mesh();
     note_scene3d_phase_mesh(static_cast<int64_t>(
         mesh_timer.elapsed_milliseconds() + 0.5));
-    attach_overlay_tin_locked(dem_rebuilt || overlay_tin_dirty_);
-    attach_overlay_pointcloud_locked(dem_rebuilt || overlay_pointcloud_dirty_);
+    attach_overlay_tin_locked(dem_rebuilt || overlays_.tin_dirty());
+    attach_overlay_pointcloud_locked(dem_rebuilt ||
+                                     overlays_.pointcloud_dirty());
     // 3D Tiles product stream (P0-B): select -> LRU ensure when a tileset is attached.
     if (TilesetStreamSession* stream = live_tileset_stream_locked()) {
       if (stream->active()) {
@@ -684,8 +453,9 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   // multiply made land read as flat mud under FlyCube textured PS).
   gpu_scene_.set_solid_color(1.f, 1.f, 1.f, 1.f);
   // Overlay TIN: solid albedo as instance paint so FlyCube reads purple/cyan
-  // even when 2x2 terrain_rgba upload/sample fails (mine/stormsurge slabs).
-  if (overlay_tin_has_albedo_) {
+  // even when 2x2 terrain.rgba upload/sample fails (mine/stormsurge slabs).
+  if (overlays_.tin_has_albedo()) {
+    const uint8_t* tin_albedo = overlays_.tin_albedo();
     uint64_t overlay_id = 0;
     for (size_t ni = 0; ni < terrain_world_.node_count(); ++ni) {
       const vista::Node* n = terrain_world_.node_at(ni);
@@ -694,6 +464,31 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
         break;
       }
     }
+    // Isolated geological / hex block: drop china_dem apron so the overlay
+    // volume owns the frame (mine cutaway + orthogrid3d).
+    if (studio_block_ && overlay_id != 0) {
+      std::vector<uint64_t> drop;
+      for (size_t ni = 0; ni < terrain_world_.node_count(); ++ni) {
+        const vista::Node* n = terrain_world_.node_at(ni);
+        if (n && n->kind == vista::NodeKind::kTerrain && n->id != overlay_id) {
+          drop.push_back(n->id);
+        }
+      }
+      for (uint64_t id : drop) {
+        (void)terrain_world_.remove_node(id);
+      }
+      if (!drop.empty()) {
+        gpu_scene_.sync_from(terrain_world_);
+      }
+      gis::style::ResolvedPaint bg;
+      bg.type = gis::style::LayerType::kBackground;
+      bg.fill_color = 0xFFF5F0E6u;
+      bg.fill_opacity = 1.f;
+      bg.background_color = 0xFFF5F0E6u;
+      bg.background_opacity = 1.f;
+      gpu_scene_.set_background_paint(bg);
+      atmosphere.frame().set_clear_rgb(0.96f, 0.94f, 0.90f);
+    }
     for (size_t i = 0; i < gpu_scene_.instance_count(); ++i) {
       const vista::Instance* inst = gpu_scene_.instance_at(i);
       if (!inst || inst->kind != vista::NodeKind::kTerrain) {
@@ -701,32 +496,37 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       }
       const bool by_id = overlay_id != 0 && inst->node_id == overlay_id;
       const bool by_tex =
-          inst->terrain_tex_w == 2 && inst->terrain_tex_h == 2 &&
-          inst->terrain_rgba.size() >= 16 &&
-          inst->terrain_rgba[0] == overlay_tin_albedo_[0] &&
-          inst->terrain_rgba[1] == overlay_tin_albedo_[1] &&
-          inst->terrain_rgba[2] == overlay_tin_albedo_[2];
+          inst->terrain.tex_w == 2 && inst->terrain.tex_h == 2 &&
+          inst->terrain.rgba.size() >= 16 &&
+          inst->terrain.rgba[0] == tin_albedo[0] &&
+          inst->terrain.rgba[1] == tin_albedo[1] &&
+          inst->terrain.rgba[2] == tin_albedo[2];
       if (!by_id && !by_tex) {
         continue;
       }
       if (inst->has_paint) {
         break;
       }
+      // Zone / lithology atlases must stay textured — solid albedo paint
+      // collapses orthogrid3d to one amber parallelogram (color_buckets=2).
+      if (overlays_.tin_has_drape()) {
+        break;
+      }
       gis::style::ResolvedPaint fill;
       fill.type = gis::style::LayerType::kFill;
       // Opaque ARGB - avoid double-multiplying alpha via fill_opacity.
       fill.fill_color = 0xFF000000u |
-                         (static_cast<uint32_t>(overlay_tin_albedo_[0]) << 16) |
-                         (static_cast<uint32_t>(overlay_tin_albedo_[1]) << 8) |
-                         static_cast<uint32_t>(overlay_tin_albedo_[2]);
+                         (static_cast<uint32_t>(tin_albedo[0]) << 16) |
+                         (static_cast<uint32_t>(tin_albedo[1]) << 8) |
+                         static_cast<uint32_t>(tin_albedo[2]);
       fill.fill_opacity = 1.f;
       (void)gpu_scene_.set_instance_paint(i, fill);
       LOGGING(LOG_INFO,
               "scene3d.present overlay_tin paint id=%llu inst=%zu by_id=%d "
               "by_tex=%d rgba=%u,%u,%u,%u",
               static_cast<unsigned long long>(overlay_id), i, by_id ? 1 : 0,
-              by_tex ? 1 : 0, overlay_tin_albedo_[0], overlay_tin_albedo_[1],
-              overlay_tin_albedo_[2], overlay_tin_albedo_[3]);
+              by_tex ? 1 : 0, tin_albedo[0], tin_albedo[1], tin_albedo[2],
+              tin_albedo[3]);
       break;
     }
   }
@@ -742,9 +542,19 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     bg.background_opacity = 1.f;
     gpu_scene_.set_background_paint(bg);
     atmosphere.frame().set_clear_rgb(0.f, 0.f, 0.f);
-  } else {
+  } else if (!studio_block_) {
     gpu_scene_.clear_background_paint();
     atmosphere.frame().clear_clear_rgb();
+  } else {
+    // Keep cream studio clear set above when overlay owns the frame.
+    gis::style::ResolvedPaint bg;
+    bg.type = gis::style::LayerType::kBackground;
+    bg.fill_color = 0xFFF5F0E6u;
+    bg.fill_opacity = 1.f;
+    bg.background_color = 0xFFF5F0E6u;
+    bg.background_opacity = 1.f;
+    gpu_scene_.set_background_paint(bg);
+    atmosphere.frame().set_clear_rgb(0.96f, 0.94f, 0.90f);
   }
   // Drive DEM Lambert from atmosphere sun (azimuth / elevation scrub with time).
   {
@@ -793,8 +603,8 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       size_t tex_nodes = 0;
       for (size_t i = 0; i < terrain_world_.node_count(); ++i) {
         const vista::Node* n = terrain_world_.node_at(i);
-        if (n && !n->terrain_rgba.empty() && n->terrain_tex_w > 0 &&
-            n->terrain_tex_h > 0) {
+        if (n && !n->terrain.rgba.empty() && n->terrain.tex_w > 0 &&
+            n->terrain.tex_h > 0) {
           ++tex_nodes;
         }
       }

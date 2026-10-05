@@ -17,7 +17,7 @@ namespace gfx {
 struct Rect;
 }  // namespace gfx
 namespace views {
-class MapViewport;
+class DrawHost;
 using Rect = ui::gfx::Rect;
 }  // namespace views
 }  // namespace ui
@@ -41,13 +41,13 @@ class MapPagesComposer {
   void commit_widget_shell_to_maps(const ui::views::Rect& dirty);
   void sync_flash_timer();
   void wire_tool_seams();
-  void for_each_map_viewport(const std::function<void(ui::views::MapViewport*)>& fn) const;
+  void for_each_draw_host(const std::function<void(ui::views::DrawHost*)>& fn) const;
   void invalidate_map_overlays();
   void attach_hwnd_gestures();
   void configure_gestures(content::MapHwndGestures* gestures);
   void active_view_size(int* w, int* h) const;
   void switch_map_tab(int i);
-  ui::views::MapViewport* active_map() const;
+  ui::views::DrawHost* active_map() const;
   content::ViewHost* active_view_host() const;
 
  private:

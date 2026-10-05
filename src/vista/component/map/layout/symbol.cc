@@ -141,6 +141,11 @@ void prepare_text_metrics(SymbolCand* cand, float fblc,
   const int px_h = collision_text_height(*cand, fblc);
   cand->collision_text_h =
       static_cast<float>((std::max)(px_h, static_cast<int>(std::ceil(cand->text_size))));
+  // Emit glyphs at the collision LOD height so carto priority floors (12–17px)
+  // win over a small style text-size; otherwise city names read as dust while
+  // declutter still reserves a full carto box.
+  cand->text_size =
+      (std::max)(cand->text_size, cand->collision_text_h);
   const float units_floor =
       estimate_run_width_px(cand->text.c_str(), cand->collision_text_h);
   cand->collision_total_w = units_floor;

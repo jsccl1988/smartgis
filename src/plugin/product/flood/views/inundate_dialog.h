@@ -27,9 +27,11 @@ class InundateDialog : public ui::views::View {
   void on_ok();
   void on_pick_dem();
   void on_pick_output();
+  void present_sample();
   std::string build_json() const;
 
   content::PluginHost* host_ = nullptr;
+  std::string sample_path_;
   ui::views::Textfield* dem_path_ = nullptr;
   ui::views::Textfield* output_path_ = nullptr;
   ui::views::Textfield* seed_x_ = nullptr;

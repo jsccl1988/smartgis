@@ -78,6 +78,10 @@ InterpolateDialog::InterpolateDialog(content::PluginHost* host) : host_(host) {
   if (bottom_stratum_ && bottom_stratum_->text().empty()) {
     bottom_stratum_->set_text("sand");
   }
+
+  if (host_) {
+    host_->present_dataset("smartgis.mine", "", 1);
+  }
 }
 
 void InterpolateDialog::on_pick_csv() {

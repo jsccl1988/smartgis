@@ -3,7 +3,7 @@
 
 // Display mailbox thread: BeginFrame pacing, RHI init/resize/destroy, present.
 
-#include "ui/views/map/viewport/map_viewport.h"
+#include "ui/views/map/viewport/draw_host.h"
 
 #include <algorithm>
 #include <chrono>
@@ -23,7 +23,6 @@
 #include "base/core/log.h"
 #include "base/process/switches.h"
 #include "render/rhi/rhi.h"
-#include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
@@ -52,7 +51,7 @@ using detail::route_view_host_pointer;
 namespace {
 
 // SEH must not share a frame with C++ objects that need unwind. Keeps a
-// Scene3d/FlyCube AV inside present_gpu from killing the process on tab switch.
+// Scene3d/GPU present AV inside present_gpu from killing the process on tab switch.
 bool call_gpu_present_seh(bool (*fn)(void*, void*, uint32_t, uint32_t),
                           void* ctx, void* device, uint32_t w, uint32_t h,
                           DWORD* exception_code) {
@@ -70,13 +69,13 @@ bool call_gpu_present_seh(bool (*fn)(void*, void*, uint32_t, uint32_t),
 
 bool invoke_shared_gpu_present(void* ctx, void* device, uint32_t w,
                                uint32_t h) {
-  auto* present = static_cast<MapViewport::GpuPresentFn*>(ctx);
+  auto* present = static_cast<DrawHost::GpuPresentFn*>(ctx);
   return present && *present && (*present)(device, w, h);
 }
 
 }  // namespace
 
-void MapViewport::ensure_display_thread() {
+void DrawHost::ensure_display_thread() {
   std::lock_guard<std::mutex> lock(display_mu_);
   if (display_started_) {
     return;
@@ -86,7 +85,7 @@ void MapViewport::ensure_display_thread() {
   display_thread_ = std::thread([this]() { display_thread_main(); });
 }
 
-void MapViewport::stop_display_thread() {
+void DrawHost::stop_display_thread() {
   {
     std::lock_guard<std::mutex> lock(display_mu_);
     if (!display_started_) {
@@ -108,11 +107,11 @@ void MapViewport::stop_display_thread() {
   display_cv_.notify_all();
 }
 
-void MapViewport::signal_display() {
+void DrawHost::signal_display() {
   display_cv_.notify_all();
 }
 
-void MapViewport::enqueue_display_task(DisplayTask task) {
+void DrawHost::enqueue_display_task(DisplayTask task) {
   ensure_display_thread();
   {
     std::lock_guard<std::mutex> lock(display_mu_);
@@ -131,12 +130,12 @@ void MapViewport::enqueue_display_task(DisplayTask task) {
   display_cv_.notify_one();
 }
 
-void MapViewport::display_run_present(uint32_t width_px, uint32_t height_px,
+void DrawHost::display_run_present(uint32_t width_px, uint32_t height_px,
                                      uint32_t frame_token) {
   if (display_stop_) {
     return;
   }
-  // Scenic MemFrame path must never invoke FlyCube DXGI present (SEH).
+  // Scenic MemFrame path must never invoke DXGI GPU present present (SEH).
   if (const char* map_eng = base::switch_cstr("map2d-engine")) {
     if (map_eng[0] && _stricmp(map_eng, "scenic") == 0) {
       return;
@@ -182,13 +181,12 @@ void MapViewport::display_run_present(uint32_t width_px, uint32_t height_px,
     frame_presented_.store(frame_token, std::memory_order_release);
     note_hud_frame();
     // Safe to lift NOREDIRECTION after a real Present (Resize path hides first).
-    reveal_flycube_present_if_ready();
+    reveal_gpu_present_if_ready();
     if (!was_ok) {
       LOGGING(LOG_INFO, "rhi.present recovered size=%ux%u token=%u role=%d",
               width_px, height_px, frame_token, static_cast<int>(role_));
     }
   } else if (was_ok || frame_token <= 2) {
-    // Log first failures and transitions; avoid flooding Output every frame.
     LOGGING(LOG_ERROR,
             "rhi.present FAIL size=%ux%u token=%u role=%d (DXGI SoT; no GDI "
             "BitBlt overlay)",
@@ -204,7 +202,7 @@ void MapViewport::display_run_present(uint32_t width_px, uint32_t height_px,
   }
 }
 
-void MapViewport::display_run_begin_frame() {
+void DrawHost::display_run_begin_frame() {
   // Scheduler: produce only when a frame was requested and not yet presented.
   // Steady-state orbit must not force shell full repaints (no InvalidateRect).
   LARGE_INTEGER begin_qpc = {};
@@ -242,7 +240,7 @@ void MapViewport::display_run_begin_frame() {
   display_run_present(w, h, requested);
 }
 
-void MapViewport::shutdown_rhi_on_display_thread() {
+void DrawHost::shutdown_rhi_on_display_thread() {
 #ifdef HAS_FLYCUBE
   render::rhi::Device* device = nullptr;
   {
@@ -260,7 +258,7 @@ void MapViewport::shutdown_rhi_on_display_thread() {
 #endif
 }
 
-void MapViewport::display_thread_main() {
+void DrawHost::display_thread_main() {
   // P5: interruptible idle wait (enqueue / signal_display) + DXGI vblank
   // phase-align before BeginFrame. WaitForVBlank alone cannot be woken by
   // display_cv_, which left init/destroy and frame requests delayed or stuck
@@ -396,17 +394,20 @@ void MapViewport::display_thread_main() {
         // is not skipped while waiting.
         last_gpu_present_ok_.store(false, std::memory_order_release);
         mark_gpu_surface_dirty();
-        // Init already Present'd navy — safe to lift the NOREDIRECTION hole.
-        reveal_flycube_present_if_ready();
+        // Scene3d Init Present is a navy clear — do not lift the popup until
+        // present_gpu actually draws DEM (reveal_gpu_present_if_ready).
+        if (role_ != Role::kScene3d) {
+          reveal_gpu_present_if_ready();
+        }
         display_cv_.notify_all();
         continue;
       }
       if (task.op == DisplayOp::kResize && rhi_device_) {
         // Flip-model NOREDIRECTIONBITMAP shows the desktop while initialize()
         // rebuilds the swapchain. Hide until Present restores opaque pixels.
-        if (flycube_present_hwnd_ && IsWindow(flycube_present_hwnd_)) {
+        if (gpu_present_hwnd_ && IsWindow(gpu_present_hwnd_)) {
           // Display thread: must not block on UI (SWP_ASYNCWINDOWPOS).
-          SetWindowPos(flycube_present_hwnd_, nullptr, 0, 0, 0, 0,
+          SetWindowPos(gpu_present_hwnd_, nullptr, 0, 0, 0, 0,
                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
                            SWP_HIDEWINDOW | SWP_ASYNCWINDOWPOS);
         }
@@ -422,7 +423,7 @@ void MapViewport::display_thread_main() {
         desc.height = task.height_px != 0 ? task.height_px : 1;
         // Ignoring initialize() failure left a half-built swapchain; the next
         // Scene3d execute then AVd on a null backbuffer RTV (lazy 3D attach
-        // posts WM_SIZE right after FlyCube Init).
+        // posts WM_SIZE right after GPU present Init).
         const bool resized = device->initialize(desc);
         {
           std::lock_guard<std::mutex> lock(display_mu_);
@@ -449,14 +450,14 @@ void MapViewport::display_thread_main() {
               frame_request_.fetch_add(1, std::memory_order_acq_rel) + 1;
           display_run_present(desc.width, desc.height, token);
         }
-        reveal_flycube_present_if_ready();
+        reveal_gpu_present_if_ready();
         continue;
       }
       if (task.op == DisplayOp::kDestroy) {
         if (rhi_device_) {
           auto* device = static_cast<render::rhi::Device*>(rhi_device_);
           device->shutdown();
-          // FlyCube CRT / allocator can heap-corrupt on operator delete after
+          // GPU present CRT / allocator can heap-corrupt on operator delete after
           // a live DX12 session; leak the facade (matches rhi_test).
           rhi_device_ = nullptr;
         }
@@ -479,7 +480,7 @@ void MapViewport::display_thread_main() {
   shutdown_rhi_on_display_thread();
 }
 
-void MapViewport::release_rhi_device() {
+void DrawHost::release_rhi_device() {
   if (!rhi_device_ && !display_started_) {
     return;
   }

@@ -169,36 +169,26 @@ bool WorldPass::rebuild_meshes(render::rhi::Device* device, uint32_t width,
                                      tileset_content_cache_, &cpu)) {
       continue;
     }
-    const bool terrain_tex =
-        inst.kind == vista::NodeKind::kTerrain && !inst.terrain_rgba.empty() &&
-        inst.terrain_tex_w > 0 && inst.terrain_tex_h > 0 &&
-        inst.terrain_rgba.size() >= static_cast<size_t>(inst.terrain_tex_w) *
-                                        static_cast<size_t>(inst.terrain_tex_h) *
-                                        4u;
-    render::rhi::Texture* terrain_gpu_tex = nullptr;
-    if (terrain_tex) {
-      terrain_gpu_tex = detail::upload_rgba_texture_wh(
-          device, inst.terrain_rgba.data(), inst.terrain_tex_w,
-          inst.terrain_tex_h);
+    if (inst.kind == vista::NodeKind::kTerrain) {
+      if (!terrain_.prepare_mesh(device, inst, &cpu, &mesh, solid_r_, solid_g_,
+                                 solid_b_, solid_a_)) {
+        clear_meshes();
+        for (GpuMesh& leftover : prev_meshes) {
+          device->destroy_buffer(leftover.vertex);
+          device->destroy_buffer(leftover.index);
+          device->destroy_texture(leftover.texture);
+        }
+        return false;
+      }
+      meshes_.push_back(mesh);
+      continue;
     }
-    const bool terrain_tex_ok = terrain_gpu_tex != nullptr;
-    if (terrain_tex_ok) {
-      cpu.has_image = true;
-    }
-    const bool with_uv = terrain_tex_ok || want_symbol;
+    const bool with_uv = want_symbol;
     const bool with_normals = detail::upload_with_normals(inst.kind, with_uv);
-    const bool uv_on_xz = terrain_tex_ok;
-    const float* explicit_uvs = nullptr;
-    if (terrain_tex_ok &&
-        inst.terrain_uvs.size() == (cpu.positions.size() / 3) * 2) {
-      explicit_uvs = inst.terrain_uvs.data();
-    }
     if (!detail::upload_mesh(device, cpu.positions.data(), cpu.positions.size(),
                              cpu.indices.data(), cpu.indices.size(), with_uv,
-                             with_normals, uv_on_xz, explicit_uvs, &mesh)) {
-      if (terrain_gpu_tex) {
-        device->destroy_texture(terrain_gpu_tex);
-      }
+                             with_normals, /*uv_on_xz=*/false, nullptr,
+                             &mesh)) {
       clear_meshes();
       for (GpuMesh& leftover : prev_meshes) {
         device->destroy_buffer(leftover.vertex);
@@ -213,22 +203,7 @@ bool WorldPass::rebuild_meshes(render::rhi::Device* device, uint32_t width,
                             &mesh.aabb_max_x, &mesh.aabb_max_y,
                             &mesh.aabb_max_z);
     }
-    if (terrain_tex_ok) {
-      mesh.texture = terrain_gpu_tex;
-      if (!inst.has_paint) {
-        if (solid_terrain_forced_) {
-          mesh.solid_r = solid_r_;
-          mesh.solid_g = solid_g_;
-          mesh.solid_b = solid_b_;
-          mesh.solid_a = 1.f;
-        } else {
-          mesh.solid_r = 1.f;
-          mesh.solid_g = 1.f;
-          mesh.solid_b = 1.f;
-          mesh.solid_a = 1.f;
-        }
-      }
-    } else if (inst.kind == vista::NodeKind::kPointCloud) {
+    if (inst.kind == vista::NodeKind::kPointCloud) {
       float pr = 0.f;
       float pg = 0.f;
       float pb = 0.f;
@@ -240,8 +215,6 @@ bool WorldPass::rebuild_meshes(render::rhi::Device* device, uint32_t width,
       } else {
         detail::apply_default_point_tint(&mesh);
       }
-    } else if (inst.kind == vista::NodeKind::kTerrain && !inst.has_paint) {
-      detail::apply_untextured_terrain_tint(&mesh);
     } else if (cpu.has_image && inst.layer) {
       mesh.texture = detail::upload_layer_texture(device, inst.layer);
     } else if (want_symbol) {

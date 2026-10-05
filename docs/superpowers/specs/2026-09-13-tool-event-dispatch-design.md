@@ -26,7 +26,7 @@ The replacement is:
 - Do not rewrite leftover `SmtIATool` / `SmtGroupTool` classes or change `dll_stem` (`SmtToolCore`, `SmtGroupToolCore`).
 - Do not add a fourth `*Manager` singleton.
 - Do not put `EventBus` under `src/tool` (events follow the document / session).
-- Do not use the bus as RPC (`GT_MSG_GET_*`, `MSG_GET_SYS_2DVIEW`). Queries are methods on `MapSession` / `MapContents`.
+- Do not use the bus as RPC (`GT_MSG_GET_*`, `MSG_GET_SYS_2DVIEW`). Queries are methods on `BrowserSession` / `MapContents`.
 - Do not ship an OpenLayers-style arbitrary interaction stack in v1 (only exclusive current + two always-on handlers).
 - Do not put HWND, `Map*`, or `LPRENDERDEVICE` on new public headers.
 - Do not vendor Qt signals, Boost.Signals2, or eventpp.

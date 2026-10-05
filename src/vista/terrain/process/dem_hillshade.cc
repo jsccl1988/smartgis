@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstddef>
+#include <vector>
 
 #include "base/execution/executor/pool/global_executor.h"
 #include "base/execution/parallel/for.h"
@@ -16,6 +17,7 @@
 #include "gis/analysis/raster/dem/hillshade.h"
 #include "vista/terrain/process/bake_backend.h"
 #include "vista/terrain/process/nv/thrust_gis.h"
+#include "vista/terrain/dem/dem_contour.h"
 
 namespace {
 
@@ -38,6 +40,88 @@ BakeBackend shade_backend() {
     return parse_bake_backend_token(s);
   }
   return bake_backend_from_env();
+}
+
+float encode_shade(float shade) {
+  return std::clamp((shade - 0.5f) * 1.80f + 0.5f, 0.08f, 1.f);
+}
+
+void write_lambert_rgba(uint8_t* px, float shade, bool contrast, float sr,
+                        float sg, float sb, float hr, float hg, float hb) {
+  if (contrast) {
+    shade = encode_shade(shade);
+  } else {
+    shade = std::clamp(shade, 0.08f, 1.f);
+  }
+  px[0] = static_cast<uint8_t>(
+      std::clamp(sr + (hr - sr) * shade, 0.f, 1.f) * 255.f + 0.5f);
+  px[1] = static_cast<uint8_t>(
+      std::clamp(sg + (hg - sg) * shade, 0.f, 1.f) * 255.f + 0.5f);
+  px[2] = static_cast<uint8_t>(
+      std::clamp(sb + (hb - sb) * shade, 0.f, 1.f) * 255.f + 0.5f);
+  px[3] = 255;
+}
+
+// Second surface: Origin jet sheet + white isolines, lit by the Lambert bake
+// already in |pixels|. Ocean stays A=0 so the carto/imagery base shows.
+void compose_elevation_sheet(uint8_t* pixels, int w, int h, const DemRaster& dem,
+                             int step_x, int step_y, int cols, int rows,
+                             float sg, float hg) {
+  if (!pixels || w < 2 || h < 2) {
+    return;
+  }
+  std::vector<float> lod(static_cast<size_t>(w) * static_cast<size_t>(h), 0.f);
+  for (int row = 0; row < h; ++row) {
+    const int src_row = (std::min)(rows - 1, row * step_y);
+    for (int col = 0; col < w; ++col) {
+      const int src_col = (std::min)(cols - 1, col * step_x);
+      lod[static_cast<size_t>(row) * static_cast<size_t>(w) +
+          static_cast<size_t>(col)] = dem.meters_at(src_col, src_row);
+    }
+  }
+  std::vector<uint8_t> overlay;
+  if (!bake_elevation_overlay_rgba(lod.data(), w, h, true, true, 0.f,
+                                   &overlay) ||
+      overlay.size() < lod.size() * 4u) {
+    return;
+  }
+  const float denom = (std::max)(1.e-4f, hg - sg);
+  for (int row = 0; row < h; ++row) {
+    uint8_t* rowp =
+        pixels + static_cast<size_t>(row) * static_cast<size_t>(w) * 4u;
+    const uint8_t* ov =
+        overlay.data() + static_cast<size_t>(row) * static_cast<size_t>(w) * 4u;
+    for (int col = 0; col < w; ++col) {
+      const size_t i = static_cast<size_t>(col) * 4u;
+      if (ov[i + 3] == 0) {
+        rowp[i + 0] = 0;
+        rowp[i + 1] = 0;
+        rowp[i + 2] = 0;
+        rowp[i + 3] = 0;
+        continue;
+      }
+      const int mx = (std::max)(ov[i + 0], (std::max)(ov[i + 1], ov[i + 2]));
+      const int mn = (std::min)(ov[i + 0], (std::min)(ov[i + 1], ov[i + 2]));
+      const bool isoline = mx > 210 && (mx - mn) < 48;
+      if (isoline) {
+        rowp[i + 0] = ov[i + 0];
+        rowp[i + 1] = ov[i + 1];
+        rowp[i + 2] = ov[i + 2];
+        rowp[i + 3] = 255;
+        continue;
+      }
+      const float shade =
+          (static_cast<float>(rowp[i + 1]) / 255.f - sg) / denom;
+      const float lit = 0.28f + 0.72f * std::clamp(shade, 0.08f, 1.f);
+      rowp[i + 0] = static_cast<uint8_t>(
+          std::clamp(static_cast<float>(ov[i + 0]) * lit, 0.f, 255.f) + 0.5f);
+      rowp[i + 1] = static_cast<uint8_t>(
+          std::clamp(static_cast<float>(ov[i + 1]) * lit, 0.f, 255.f) + 0.5f);
+      rowp[i + 2] = static_cast<uint8_t>(
+          std::clamp(static_cast<float>(ov[i + 2]) * lit, 0.f, 255.f) + 0.5f);
+      rowp[i + 3] = 255;
+    }
+  }
 }
 
 }  // namespace
@@ -115,6 +199,10 @@ bool shade_dem_rgba(const DemRaster& dem, const HillshadeParams& params,
                              dx_m, dy_m, exag, az, sin_alt, cos_alt, sr, sg, sb,
                              hr, hg, hb, pixels)) {
       g_last_shade_cuda.store(1, std::memory_order_relaxed);
+      if (params.color_ramp == 1) {
+        compose_elevation_sheet(pixels, w, h, dem, step_x, step_y, cols, rows,
+                                sg, hg);
+      }
       if (out_w) {
         *out_w = w;
       }
@@ -165,24 +253,8 @@ bool shade_dem_rgba(const DemRaster& dem, const HillshadeParams& params,
         shade = gis::detail::horn_lambert_shade(zw, ze, zs, zn, dx_m, dy_m, exag,
                                                az, sin_alt, cos_alt);
       }
-      // Sharper contrast: deeper umbra / brighter lit facets so DEM relief
-      // reads crisp under soft-multiply. Floor stays above crushing cream
-      // land out of the map2d_china land_cream gate (r>170 after opacity).
-      shade = std::clamp((shade - 0.5f) * 1.80f + 0.5f, 0.08f, 1.f);
       const size_t i = static_cast<size_t>(col) * 4u;
-      rowp[i + 0] =
-          static_cast<uint8_t>(std::clamp(sr + (hr - sr) * shade, 0.f, 1.f) *
-                                   255.f +
-                               0.5f);
-      rowp[i + 1] =
-          static_cast<uint8_t>(std::clamp(sg + (hg - sg) * shade, 0.f, 1.f) *
-                                   255.f +
-                               0.5f);
-      rowp[i + 2] =
-          static_cast<uint8_t>(std::clamp(sb + (hb - sb) * shade, 0.f, 1.f) *
-                                   255.f +
-                               0.5f);
-      rowp[i + 3] = 255;
+      write_lambert_rgba(rowp + i, shade, true, sr, sg, sb, hr, hg, hb);
     }
   };
 
@@ -196,6 +268,11 @@ bool shade_dem_rgba(const DemRaster& dem, const HillshadeParams& params,
         shade_row(row);
       }
     }
+  }
+
+  if (params.color_ramp == 1) {
+    compose_elevation_sheet(pixels, w, h, dem, step_x, step_y, cols, rows, sg,
+                            hg);
   }
 
   if (out_w) {

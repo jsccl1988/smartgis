@@ -25,6 +25,8 @@ source_set("host_sources") {
     "processing/operation_result.h",
     "processing/processing.cc",
     "processing/processing.h",
+    "present/gis_present.cc",
+    "present/gis_present.h",
     "registry/registry.cc",
     "registry/registry.h",
     "resources/resource_roots.cc",

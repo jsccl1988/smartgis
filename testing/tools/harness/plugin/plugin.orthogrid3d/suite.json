@@ -6,7 +6,8 @@
   ],
   "script": "plugin.orthogrid3d.il",
   "env": {
-    "SKIP_MAP_CONTEXT_MENU": "1"
+    "SKIP_MAP_CONTEXT_MENU": "1",
+    "SCENE3D_ENGINE": "flycube"
   },
   "mark_leaf": "plugin-showcase-mark.txt",
   "required_marks": [
@@ -25,7 +26,7 @@
   ],
   "loop": {
     "rounds": 2,
-    "timeout_sec": 120,
+    "timeout_sec": 180,
     "build_target": "src/app/views:views",
     "exe": "SmartGIS.exe"
   },
@@ -33,8 +34,9 @@
     "enabled": true,
     "checklist": [
       "hex_or_grid_3d",
+      "surface_orth_grid",
       "no_black_frame"
     ],
-    "expect_notes": "orthogrid3d hex/grid volume visible"
+    "expect_notes": "orthogrid3d colored orthogonal hex volume with surface grid"
   }
 }

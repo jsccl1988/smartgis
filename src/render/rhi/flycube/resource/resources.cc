@@ -201,6 +201,7 @@ bool FlycubeDevice::ensure_depth_buffer(uint32_t w, uint32_t h) {
     depth_view_.reset();
     depth_srv_.reset();
     depth_texture_.reset();
+    depth_state_ = ResourceState::kCommon;
     ::TextureDesc td = {
         .type = TextureType::k2D,
         .format = gli::format::FORMAT_D32_SFLOAT_PACK32,

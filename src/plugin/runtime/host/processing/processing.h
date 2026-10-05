@@ -20,8 +20,17 @@ namespace plugin {
 
 enum class ProcessingMode { kThread, kUtilityStub };
 
-// Worker pool for algorithm factories. UI stays on the caller thread;
-// completion callbacks are queued for flush_for_test / host drain.
+// Worker pool for algorithm factories.
+//
+// Thread split (locked):
+// - Compute: |factory| / |compute| runs on a pool worker. Do not touch
+//   MapScene, Views, HWND, Browser*, or PluginHost present APIs
+//   (gis_document / scene3d_sink / playback / present_dataset).
+// - Present: only from |present| (optional 5-arg submit) or the |done|
+//   callback. Those run on the thread that calls flush_for_test (UI drain).
+// attach_host_processing injects compute=factory(nullptr) then
+// present=factory(host) on drain. Factories must skip gis_document /
+// scene3d_sink / playback / present_dataset when |host| is null.
 class PLUGIN_HOST_EXPORT ProcessingPool {
  public:
   explicit ProcessingPool(ProcessingMode mode);
@@ -31,6 +40,13 @@ class PLUGIN_HOST_EXPORT ProcessingPool {
   bool submit(std::string processing_id, std::string args_json,
               content::ProcessingFactory factory,
               std::function<void(bool ok, std::string message)> done);
+  // Compute on a worker; |present| then |done| on the drain / UI thread.
+  // |present| is skipped when compute returns false.
+  bool submit(std::string processing_id, std::string args_json,
+              content::ProcessingFactory compute,
+              content::ProcessingFactory present,
+              std::function<void(bool ok, std::string message)> done);
+  // Drain queued present/done callbacks on the caller thread (UI).
   void flush_for_test();
   // Last factory ok after the most recent flush_for_test drain.
   bool last_ok() const;
@@ -41,6 +57,7 @@ class PLUGIN_HOST_EXPORT ProcessingPool {
     std::string id;
     std::string args;
     content::ProcessingFactory factory;
+    content::ProcessingFactory present;
     std::function<void(bool, std::string)> done;
   };
 

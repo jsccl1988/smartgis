@@ -22,6 +22,10 @@
 #include <vector>
 #include "base/process/switches.h"
 
+#if defined(_MSC_VER) && defined(_DEBUG)
+#include <crtdbg.h>
+#endif
+
 namespace {
 
 int g_fails = 0;
@@ -33,9 +37,23 @@ void expect(bool ok, const char* msg) {
   }
 }
 
+void disable_crt_assert_dialog() {
+#if defined(_MSC_VER) && defined(_DEBUG)
+  // /RTC stack checks and CRT asserts otherwise MessageBox + WaitMessage,
+  // hanging non-interactive te / exe_smoke runners forever.
+  _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+  _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+  _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+  _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
+  _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+  _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
+#endif
+}
+
 }  // namespace
 
 int main() {
+  disable_crt_assert_dialog();
   // Default FlyCube; switch via set_scene3d_engine or SCENE3D_ENGINE.
   {
     content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
@@ -52,7 +70,10 @@ int main() {
     content::set_scene3d_engine(content::Scene3dEngine::kGdi);
     expect(content::prefer_scene3d_gdi(), "GDI selected");
     expect(!content::prefer_scene3d_flycube(), "GDI disables FlyCube");
-    expect(content::force_content_mapview_3d(), "GDI forces content path");
+    // GDI paints Scene3dPresenter on the product HWND; only leftover stereo
+    // still forces ContentMapView (navy SharedSurface flash otherwise).
+    expect(!content::force_content_mapview_3d(),
+           "GDI does not force ContentMapView");
 
     content::set_scene3d_engine(content::Scene3dEngine::kScenic);
     expect(content::prefer_scene3d_scenic(), "Scenic selected");
@@ -175,23 +196,25 @@ int main() {
   expect(content::extent_nonempty(orbit.world_extent()), "bound map has extent");
 
   // Seeded MapScene (China PLP) must still present DEM via World and WorldPass.
+  // Heap-allocate Scene3dPresenter — stack frame + WorldPass exceeds Debug RTC
+  // comfort and has hung te on _RTC_StackFailure MessageBox.
   {
     content::MapScene seeded;
     seeded.seed_default();
     content::OrbitFrame dem_orbit;
-    content::Scene3dPresenter dem_cam;
-    dem_cam.bind_orbit(&dem_orbit);
-    dem_cam.bind_map(&seeded);
+    auto dem_cam = std::make_unique<content::Scene3dPresenter>();
+    dem_cam->bind_orbit(&dem_orbit);
+    dem_cam->bind_map(&seeded);
     dem_orbit.apply_world_extent(seeded.world_extent());
-    expect(content::extent_looks_like_china(dem_cam.world_extent()) ||
-               content::extent_nonempty(dem_cam.world_extent()),
+    expect(content::extent_looks_like_china(dem_cam->world_extent()) ||
+               content::extent_nonempty(dem_cam->world_extent()),
            "seeded map extent");
     std::unique_ptr<render::rhi::Device> dem_device(
         render::rhi::create_device(render::rhi::Backend::kNull));
     expect(dem_device != nullptr &&
                dem_device->initialize(render::rhi::DeviceDesc()),
            "null device for seeded DEM");
-    expect(dem_cam.present_gpu(dem_device.get(), 64, 64),
+    expect(dem_cam->present_gpu(dem_device.get(), 64, 64),
            "present_gpu after seed_default");
     // GDI DEM wireframe path (Views placeholder / late DIB).
     HDC screen = GetDC(nullptr);
@@ -211,8 +234,8 @@ int main() {
       expect(mem && dib && bits, "GDI DIB for paint");
       if (mem && dib) {
         HGDIOBJ old = SelectObject(mem, dib);
-        dem_cam.reset();
-        dem_cam.paint(mem, 64, 64, /*fill_background=*/true);
+        dem_cam->reset();
+        dem_cam->paint(mem, 64, 64, /*fill_background=*/true);
         // Stride paint must cover the China AABB, not only the first mesh
         // rows (regression: thin green ribbon from first-N tris).
         if (bits) {
@@ -239,15 +262,15 @@ int main() {
           expect(max_x - min_x > 20 && max_y - min_y > 12,
                  "GDI DEM spans China AABB (not a ribbon)");
         }
-        dem_cam.paint(mem, 64, 64, /*fill_background=*/false);
-        dem_cam.paint_hud(mem, 64, 64);
+        dem_cam->paint(mem, 64, 64, /*fill_background=*/false);
+        dem_cam->paint_hud(mem, 64, 64);
         SelectObject(mem, old);
         DeleteObject(dib);
         DeleteDC(mem);
       }
       ReleaseDC(nullptr, screen);
     }
-    dem_cam.abandon_mesh();
+    dem_cam->abandon_mesh();
   }
 
   orbit.apply_draft(tool::Draft{});
