@@ -13,7 +13,7 @@ All rights reserved.
 
 **Architecture:** `SmtNetCore` remains `//src/net:net`. ASIO and httplib are private GN configs. `net::HttpClient` / `net::RpcClient` are the product facades. **Map-server UDP / `net::UdpSocket` / `src/web` are cancelled** (stack deleted 2026-09-13; UDP facade removed 2026-09-14 — do not restore). See the spec.
 
-**Tech Stack:** C++20 MSVC v145, standalone ASIO `asio-1-30-2`, cpp-httplib v0.18.3, GN `smt_shared_library` + `test()`.
+**Tech Stack:** C++20 MSVC v145, standalone ASIO `asio-1-30-2`, cpp-httplib v0.18.3, GN `product_shared_library` + `test()`.
 
 **Spec:** `docs/superpowers/specs/2026-09-13-net-asio-httplib-design.md`
 

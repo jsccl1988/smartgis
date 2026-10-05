@@ -4,17 +4,17 @@
 """Run Scenic rhi2d parallel x port matrix + Vista map2d china.
 
 Scenic GDI / GDI+ / Skia: scenic_gdi_map_paint_test LoadLibrary
-scenic_rhi2d_{gdi,gdiplus,skia} x SMT_RHI2D_PARALLEL. Same Scenic engine.
+scenic_rhi2d_{gdi,gdiplus,skia} x RHI2D_PARALLEL. Same Scenic engine.
 src/legacy/ is frozen and is not a matrix axis.
 
 Vista (codename): SmartGIS.exe --map2d-showcase=china — Map2dPresenter +
 gis/vista Layout + effect/map + optional FlyCube present_gpu, same 1280x720
 china frame. Engine id in CSV/JSON: ``vista``.
 
-Map2dEngine cell: SMT_MAP2D_ENGINE=scenic — content-hosted scenic::Engine
+Map2dEngine cell: MAP2D_ENGINE=scenic — content-hosted scenic::Engine
 GDI of the same china MapScene (not a GDI+/Skia port peer).
 
-Equal-latitude perf (default): SMT_MAP2D_NO_HILLSHADE=1 so Vista does not pay
+Equal-latitude perf (default): MAP2D_NO_HILLSHADE=1 so Vista does not pay
 DEM shade — same carto axis as Scenic rhi2d IR (no hillshade). Compare Scenic
 execute_ms (IR replay) vs Vista paint_ms / present_gpu_* phases, not as
 identical work units.
@@ -45,7 +45,7 @@ MATRIX = OUT / "captures" / "map2d" / "matrix"
 PORTS = ("gdi", "gdiplus", "skia")
 PARALLELS = ("serial", "tile", "layer")
 MS_RE = re.compile(
-    r"(?:SMT_RHI2D_PARALLEL=|rhi2d_parallel=)(\w+)\s+execute_ms=(\d+)"
+    r"(?:RHI2D_PARALLEL=|rhi2d_parallel=)(\w+)\s+execute_ms=(\d+)"
 )
 EXPORT_MS_RE = re.compile(r"map2d-showcase:\s+export_ms=(\d+)")
 GPU_MS_RE = re.compile(r"map2d-showcase:\s+present_gpu=\d+\s+present_gpu_ms=(\d+)")
@@ -78,7 +78,7 @@ FALSE_GAP_NOTE = (
     "never claim execute_ms == export_ms"
 )
 EQUAL_LATITUDE_NOTE = (
-    "equal-latitude: SMT_MAP2D_NO_HILLSHADE=1 (Vista skips DEM shade; "
+    "equal-latitude: MAP2D_NO_HILLSHADE=1 (Vista skips DEM shade; "
     "same carto axis as scenic rhi2d IR which has no hillshade)"
 )
 MATRIX_NOTE = f"{FALSE_GAP_NOTE}; {EQUAL_LATITUDE_NOTE}"
@@ -128,11 +128,11 @@ def _within_pct(total: int | None, wall: int | None, pct: float = 15.0) -> bool 
 
 
 def _resolve_layout_parallel(env: dict[str, str]) -> str:
-    """Matrix default ON; caller may set SMT_VISTA_LAYOUT_PARALLEL=0 to force serial.
+    """Matrix default ON; caller may set VISTA_LAYOUT_PARALLEL=0 to force serial.
 
     Product emitters may still ignore this until vista wires getenv (see plan P3a TODO).
     """
-    raw = env.get("SMT_VISTA_LAYOUT_PARALLEL")
+    raw = env.get("VISTA_LAYOUT_PARALLEL")
     if raw is None or raw == "":
         return "1"
     if raw.lower() in ("0", "false", "off", "no"):
@@ -141,16 +141,16 @@ def _resolve_layout_parallel(env: dict[str, str]) -> str:
 
 
 def run_scenic_port(port: str, parallel: str) -> dict:
-    """One Scenic rhi2d cell: SMT_RHI2D_PORT x SMT_RHI2D_PARALLEL."""
+    """One Scenic rhi2d cell: RHI2D_PORT x RHI2D_PARALLEL."""
     MATRIX.mkdir(parents=True, exist_ok=True)
     tag = f"{parallel}_{port}"
     log_path = MATRIX / f"scenic_{tag}.log"
     bmp_path = MATRIX / f"scenic-{tag}.bmp"
     env = os.environ.copy()
-    env["SMT_RHI2D_PORT"] = port
-    env["SMT_RHI2D_PARALLEL"] = parallel
-    env["SMT_RHI2D_PARALLEL_LOG"] = "1"
-    env["SMT_RHI2D_MATRIX_BMP"] = str(bmp_path)
+    env["RHI2D_PORT"] = port
+    env["RHI2D_PARALLEL"] = parallel
+    env["RHI2D_PARALLEL_LOG"] = "1"
+    env["RHI2D_MATRIX_BMP"] = str(bmp_path)
     env["PATH"] = str(OUT) + os.pathsep + env.get("PATH", "")
 
     t0 = time.perf_counter()
@@ -205,25 +205,25 @@ def run_vista() -> dict:
     log_path = MATRIX / "vista_china.log"
     bmp_dst = MATRIX / "vista-china.bmp"
     env = os.environ.copy()
-    env["SMT_MAP2D_SHOWCASE_W"] = "1280"
-    env["SMT_MAP2D_SHOWCASE_H"] = "720"
-    env["SMT_MAP2D_SHOWCASE_LINGER_MS"] = "0"
+    env["MAP2D_SHOWCASE_W"] = "1280"
+    env["MAP2D_SHOWCASE_H"] = "720"
+    env["MAP2D_SHOWCASE_LINGER_MS"] = "0"
     # Exercise src/render FlyCube present when adapter is available.
-    env["SMT_MAP2D_SHOWCASE_GPU"] = "1"
+    env["MAP2D_SHOWCASE_GPU"] = "1"
     # Equal-latitude vs Scenic rhi2d IR: no DEM hillshade (IR has none).
-    # Override with SMT_MAP2D_NO_HILLSHADE=0 to measure shade-on product path.
-    if env.get("SMT_MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
-        env["SMT_MAP2D_NO_HILLSHADE"] = "1"
+    # Override with MAP2D_NO_HILLSHADE=0 to measure shade-on product path.
+    if env.get("MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
+        env["MAP2D_NO_HILLSHADE"] = "1"
     # Full software paint (not present-cache blit) so paint_ms is same-axis
-    # as Scenic vector work. Set SMT_MAP2D_EXPORT_REUSE=1 to force blit bench.
-    if "SMT_MAP2D_EXPORT_REUSE" not in os.environ:
-        env.pop("SMT_MAP2D_EXPORT_REUSE", None)
-    # P3: request vista layout tess parallel (opt-out SMT_VISTA_LAYOUT_PARALLEL=0).
+    # as Scenic vector work. Set MAP2D_EXPORT_REUSE=1 to force blit bench.
+    if "MAP2D_EXPORT_REUSE" not in os.environ:
+        env.pop("MAP2D_EXPORT_REUSE", None)
+    # P3: request vista layout tess parallel (opt-out VISTA_LAYOUT_PARALLEL=0).
     # Emitters must read this env; until wired, parallel_for still runs by job count.
     layout_parallel = _resolve_layout_parallel(env)
-    env["SMT_VISTA_LAYOUT_PARALLEL"] = layout_parallel
+    env["VISTA_LAYOUT_PARALLEL"] = layout_parallel
     env["PATH"] = str(OUT) + os.pathsep + env.get("PATH", "")
-    env.pop("SMT_MAP2D_ENGINE", None)
+    env.pop("MAP2D_ENGINE", None)
 
     t0 = time.perf_counter()
     started = time.time()
@@ -235,7 +235,7 @@ def run_vista() -> dict:
         "--map2d-showcase-gpu=1",
         f"--vista-layout-parallel={layout_parallel}",
     ]
-    if env.get("SMT_MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
+    if env.get("MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
         vista_cmd.append("--map2d-no-hillshade=1")
     proc = subprocess.run(
         vista_cmd,
@@ -353,7 +353,7 @@ def run_vista() -> dict:
 
     vista_note = (
         f"{VISTA_ROW_NOTE}; "
-        f"SMT_VISTA_LAYOUT_PARALLEL={layout_parallel} "
+        f"VISTA_LAYOUT_PARALLEL={layout_parallel} "
         "(harness sets; product getenv wire = plan P3a / parallel plan V1)"
     )
     row = {
@@ -400,21 +400,21 @@ SCENIC_ROW_NOTE = (
 
 
 def run_scenic() -> dict:
-    """Scenic map2d china @ 1280x720 via SMT_MAP2D_ENGINE=scenic."""
+    """Scenic map2d china @ 1280x720 via MAP2D_ENGINE=scenic."""
     MATRIX.mkdir(parents=True, exist_ok=True)
     log_path = MATRIX / "scenic_china.log"
     bmp_dst = MATRIX / "scenic-china.bmp"
     env = os.environ.copy()
-    env["SMT_MAP2D_SHOWCASE_W"] = "1280"
-    env["SMT_MAP2D_SHOWCASE_H"] = "720"
-    env["SMT_MAP2D_SHOWCASE_LINGER_MS"] = "0"
-    env["SMT_MAP2D_SHOWCASE_GPU"] = "1"
-    env["SMT_MAP2D_ENGINE"] = "scenic"
-    env["SMT_SCENE3D_ENGINE"] = env.get("SMT_SCENE3D_ENGINE") or "scenic"
-    if env.get("SMT_MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
-        env["SMT_MAP2D_NO_HILLSHADE"] = "1"
-    if "SMT_MAP2D_EXPORT_REUSE" not in os.environ:
-        env.pop("SMT_MAP2D_EXPORT_REUSE", None)
+    env["MAP2D_SHOWCASE_W"] = "1280"
+    env["MAP2D_SHOWCASE_H"] = "720"
+    env["MAP2D_SHOWCASE_LINGER_MS"] = "0"
+    env["MAP2D_SHOWCASE_GPU"] = "1"
+    env["MAP2D_ENGINE"] = "scenic"
+    env["SCENE3D_ENGINE"] = env.get("SCENE3D_ENGINE") or "scenic"
+    if env.get("MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
+        env["MAP2D_NO_HILLSHADE"] = "1"
+    if "MAP2D_EXPORT_REUSE" not in os.environ:
+        env.pop("MAP2D_EXPORT_REUSE", None)
     env["PATH"] = str(OUT) + os.pathsep + env.get("PATH", "")
 
     # Private PE copy + serialize: avoid multi-agent LNK / 0xC0000135 races.
@@ -443,7 +443,7 @@ def run_scenic() -> dict:
             "--map2d-showcase-gpu=1",
             "--map2d-engine=scenic",
         ]
-        if env.get("SMT_MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
+        if env.get("MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
             scenic_cmd.append("--map2d-no-hillshade=1")
         proc = subprocess.run(
             scenic_cmd,
@@ -633,7 +633,7 @@ def print_comparison_tables(rows: list[dict]) -> None:
 
     print()
     print(
-        "### C) Scenic Map2dEngine (SMT_MAP2D_ENGINE=scenic; "
+        "### C) Scenic Map2dEngine (MAP2D_ENGINE=scenic; "
         "not a GDI+/Skia port peer)"
     )
     if not scenic_engine:
@@ -792,7 +792,7 @@ def main() -> int:
     if VIEWS.exists():
         print(
             "=== vista map2d china 1280x720 (Views+FlyCube) "
-            f"SMT_VISTA_LAYOUT_PARALLEL="
+            f"VISTA_LAYOUT_PARALLEL="
             f"{_resolve_layout_parallel(os.environ.copy())} ===",
             flush=True,
         )
@@ -843,7 +843,7 @@ def main() -> int:
         )
         print(
             "=== scenic map2d china 1280x720 (content scenic::Engine) "
-            "SMT_MAP2D_ENGINE=scenic ===",
+            "MAP2D_ENGINE=scenic ===",
             flush=True,
         )
         try:

@@ -15,22 +15,22 @@
 #include <filesystem>
 #include <string>
 
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
 #define PY_SSIZE_T_CLEAN
 #ifdef _DEBUG
-#define SMT_PYTHON_RESTORE_DEBUG
+#define PYTHON_RESTORE_DEBUG
 #undef _DEBUG
 #endif
 #include <Python.h>
 #include "base/process/switches.h"
-#ifdef SMT_PYTHON_RESTORE_DEBUG
+#ifdef PYTHON_RESTORE_DEBUG
 #define _DEBUG
-#undef SMT_PYTHON_RESTORE_DEBUG
+#undef PYTHON_RESTORE_DEBUG
 #endif
 #endif
 
 namespace plugin {
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
 extern "C" PyObject* PyInit_smartgis();
 PyObject* make_python_host(content::PluginHost* host);
 void bind_python_host(content::PluginHost* host);
@@ -39,9 +39,9 @@ void unbind_python_host();
 
 namespace {
 
-#if defined(SMT_HAS_PYTHON)
-#ifndef SMT_PYTHON_HOME
-#define SMT_PYTHON_HOME ""
+#if defined(HAS_PYTHON)
+#ifndef PYTHON_HOME
+#define PYTHON_HOME ""
 #endif
 
 std::wstring utf8_to_wide(const std::string& in) {
@@ -62,8 +62,8 @@ std::string python_home() {
   if (env && env[0]) {
     return env;
   }
-  if (SMT_PYTHON_HOME[0]) {
-    return SMT_PYTHON_HOME;
+  if (PYTHON_HOME[0]) {
+    return PYTHON_HOME;
   }
   return {};
 }
@@ -184,7 +184,7 @@ void call_stop_if_any() {
   unbind_python_host();
 }
 
-#else  // !SMT_HAS_PYTHON
+#else  // !HAS_PYTHON
 
 bool python_dll_present() {
   HMODULE m = LoadLibraryW(L"python312.dll");
@@ -200,7 +200,7 @@ bool python_dll_present() {
 }  // namespace
 
 bool PythonRuntime::init() {
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
   if (ready_) {
     return true;
   }
@@ -213,7 +213,7 @@ bool PythonRuntime::init() {
 }
 
 void PythonRuntime::shutdown() {
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
   if (Py_IsInitialized()) {
     call_stop_if_any();
     Py_FinalizeEx();
@@ -227,7 +227,7 @@ bool PythonRuntime::start(std::string_view directory, std::string_view entry,
   if (!ready_ || !host || directory.empty() || entry.empty()) {
     return false;
   }
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
   try {
     return run_entry_and_start(std::string(directory), std::string(entry), host);
   } catch (...) {
@@ -242,7 +242,7 @@ bool PythonRuntime::start(std::string_view directory, std::string_view entry,
 }
 
 void PythonRuntime::stop() {
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
   if (Py_IsInitialized()) {
     call_stop_if_any();
   }
@@ -254,7 +254,7 @@ bool PythonRuntime::is_ready() const {
 }
 
 std::string PythonRuntime::eval(std::string_view code) {
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
   if (!ready_ || !Py_IsInitialized()) {
     return "error: python not ready";
   }
@@ -346,7 +346,7 @@ std::string PythonRuntime::eval(std::string_view code) {
 }
 
 void PythonRuntime::bind_host(content::PluginHost* host) {
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
   if (!ready_ || !Py_IsInitialized()) {
     return;
   }

@@ -203,7 +203,7 @@ void ProcessingComposer::sync_result_playback_timer() {
     return;
   }
   constexpr UINT_PTR kPlayback = 0x504C424Bu;  // 'PLBK'
-  SetPropW(h, L"SmtPlaybackBrowser", reinterpret_cast<HANDLE>(host_));
+  SetPropW(h, L"PlaybackBrowser", reinterpret_cast<HANDLE>(host_));
   KillTimer(h, kPlayback);
   auto& session = host_->browser_->analysis_playback();
   if (!session.playing() || session.frame_count() <= 0) {
@@ -214,7 +214,7 @@ void ProcessingComposer::sync_result_playback_timer() {
       std::max(16.0, 1000.0 / fps));
   SetTimer(h, kPlayback, ms, [](HWND hwnd, UINT, UINT_PTR, DWORD) {
     auto* self = reinterpret_cast<BrowserView*>(
-        GetPropW(hwnd, L"SmtPlaybackBrowser"));
+        GetPropW(hwnd, L"PlaybackBrowser"));
     if (!self || !self->browser_ || !self->result_playback_panel_) {
       return;
     }

@@ -10,11 +10,11 @@
 
 
 
-**Architecture:** New DLL `SmtSDEGdalDevice` (`src/sdb/datasource/gdal`) implements `SmtDataSource` over `GDALDataset` / `OGRLayer`. Device manager constructs it for `DS_DB_ADO` plus `PROVIDER_POSTGRES` / `PROVIDER_GPKG` / `PROVIDER_SPATIALITE`. Access/SQL Server open returns false. Shared `ogr_feature_codec` is a `source_set` used by this DLL and later by SMF. No SOCI, nanodbc, or second GDAL.
+**Architecture:** New DLL `GdalDevice` (`src/sdb/datasource/gdal`) implements `SmtDataSource` over `GDALDataset` / `OGRLayer`. Device manager constructs it for `DS_DB_ADO` plus `PROVIDER_POSTGRES` / `PROVIDER_GPKG` / `PROVIDER_SPATIALITE`. Access/SQL Server open returns false. Shared `ogr_feature_codec` is a `source_set` used by this DLL and later by SMF. No SOCI, nanodbc, or second GDAL.
 
 
 
-**Tech Stack:** GDAL/OGR (`//third_party:gdal`), existing `Smt_GIS` layer/feature types, GN `smt_shared_library` + `test()`, Windows MSVC.
+**Tech Stack:** GDAL/OGR (`//third_party:gdal`), existing `Smt_GIS` layer/feature types, GN `product_shared_library` + `test()`, Windows MSVC.
 
 
 
@@ -46,7 +46,7 @@
 
 - No `Co-authored-by: Cursor`.
 
-- `dll_stem` for the new device is `SmtSDEGdalDevice`. Leave `src/ado` and `sdb/datasource/ado` sources on disk but drop them from `src_all`.
+- `dll_stem` for the new device is `GdalDevice`. Leave `src/ado` and `sdb/datasource/ado` sources on disk but drop them from `src_all`.
 
 
 
@@ -68,7 +68,7 @@
 
 | `src/sdb/datasource/gdal/ogr_vec_layer.h/.cc` | One `OgrVectorLayer` for all vector types |
 
-| `src/sdb/datasource/gdal/ogr_raster_layer.h/.cc` | Raster/child-image; `SMT_ERR_UNSUPPORTED` if driver cannot create |
+| `src/sdb/datasource/gdal/ogr_raster_layer.h/.cc` | Raster/child-image; `ERR_UNSUPPORTED` if driver cannot create |
 
 | `src/sdb/datasource/gdal/gdal_driver.h/.cc` | `register_gdal_driver()` → `GDALAllRegister()` |
 
@@ -380,7 +380,7 @@ source_set("ogr_codec") {
 
 
 
-smt_shared_library("sde_gdal") {
+product_shared_library("sde_gdal") {
 
   dll_stem = "sde_gdal"
 
@@ -1008,7 +1008,7 @@ git commit -m "Add shared OGR feature codec for point, line, polygon, and annota
 
 - Modify: `src/sdb/datasource/gdal/sde_gdal_test.cc`
 
-- Create stub headers for layers so `OgrDataSource` compiles: `ogr_vec_layer.h/.cc` with methods returning empty/false/`SMT_ERR_UNSUPPORTED` until Task 4
+- Create stub headers for layers so `OgrDataSource` compiles: `ogr_vec_layer.h/.cc` with methods returning empty/false/`ERR_UNSUPPORTED` until Task 4
 
 
 
@@ -1140,7 +1140,7 @@ bool register_gdal_driver() {
 
 
 
-1. If `!is_db_provider_supported(m_dsInfo.unProvider)`: log via `SmtLogManager` channel `SmtSDEGdalDevice` that Access/SQL Server are unsupported; `m_bOpen = false`; return false.
+1. If `!is_db_provider_supported(m_dsInfo.unProvider)`: log via `SmtLogManager` channel `GdalDevice` that Access/SQL Server are unsupported; `m_bOpen = false`; return false.
 
 2. `register_gdal_driver()`.
 
@@ -1258,11 +1258,11 @@ After GPKG Open succeeds (keep dataset open):
 
     feat.SetGeometryDirectly(new SmtPoint(3.0, 4.0));
 
-    expect(lyr->AppendFeature(&feat, true) == SMT_ERR_NONE, "append point");
+    expect(lyr->AppendFeature(&feat, true) == ERR_NONE, "append point");
 
     expect(lyr->Close(), "close layer");
 
-    SMT_SAFE_DELETE(lyr);
+    SAFE_DELETE(lyr);
 
     ds.Close();
 
@@ -1288,7 +1288,7 @@ After GPKG Open succeeds (keep dataset open):
 
       expect(p && p->GetX() == 3.0 && p->GetY() == 4.0, "xy persist");
 
-      SMT_SAFE_DELETE(lyr2);
+      SAFE_DELETE(lyr2);
 
     }
 
@@ -1336,9 +1336,9 @@ Expected: FAIL `create dots` or `append point`.
 
 - `Fetch`: clear `features_`; `ResetReading`; `GetNextFeature` → codec → push.
 
-- Iterators / `GetFeature` / `GetFeatureByID` / `DeleteFeature` / `UpdateFeature` / `Query` (spatial: `SetSpatialFilter` then fetch into result layer if non-null, else `SMT_ERR_UNSUPPORTED`): follow `SmtMemVecLayer` control flow so all pure virtuals are implemented.
+- Iterators / `GetFeature` / `GetFeatureByID` / `DeleteFeature` / `UpdateFeature` / `Query` (spatial: `SetSpatialFilter` then fetch into result layer if non-null, else `ERR_UNSUPPORTED`): follow `SmtMemVecLayer` control flow so all pure virtuals are implemented.
 
-- `StartTransaction` / `CommitTransaction` / `RollbackTransaction`: call `GDALDataset::StartTransaction` on owner when `TestCapability(ODsCTransactions)` (or layer `OLCTransactions`); else `SMT_ERR_NONE` (auto-commit).
+- `StartTransaction` / `CommitTransaction` / `RollbackTransaction`: call `GDALDataset::StartTransaction` on owner when `TestCapability(ODsCTransactions)` (or layer `OLCTransactions`); else `ERR_NONE` (auto-commit).
 
 
 
@@ -1508,7 +1508,7 @@ git commit -m "Round-trip curve, polygon, and annotation layers through OGR."
 
 - Consumes: `SmtTin` (`GetPointCount`, `GetTriangle`, `AddPoint`, `AddTriangle`), `SmtGrid` (`GetSize`, `GetGridNodeBuf`)
 
-- Produces: TIN stored as OGR TIN or MultiPolygon of triangles; grid as MultiPoint plus `grid_row`/`grid_col`; raster `Create` returns false / `CreaterRaster` returns `SMT_ERR_UNSUPPORTED` when the GPKG/PostGIS raster create path is missing — **never** a private blob table
+- Produces: TIN stored as OGR TIN or MultiPolygon of triangles; grid as MultiPoint plus `grid_row`/`grid_col`; raster `Create` returns false / `CreaterRaster` returns `ERR_UNSUPPORTED` when the GPKG/PostGIS raster create path is missing — **never** a private blob table
 
 
 
@@ -1520,7 +1520,7 @@ git commit -m "Round-trip curve, polygon, and annotation layers through OGR."
 
 - Grid: `SmtGrid(2,2)` nodes set; fields `grid_row`/`grid_col`; reopen type `SmtFtGrid`.
 
-- Raster: `CreateRasterLayer` may return a layer whose `Create()` is false **or** a non-null layer whose `CreaterRaster` is `SMT_ERR_UNSUPPORTED`. Assert it does **not** crash and does not create `geom_points` tables. If GPKG raster create works in this SDK, a 1x1 raster round-trip is allowed instead of UNSUPPORTED.
+- Raster: `CreateRasterLayer` may return a layer whose `Create()` is false **or** a non-null layer whose `CreaterRaster` is `ERR_UNSUPPORTED`. Assert it does **not** crash and does not create `geom_points` tables. If GPKG raster create works in this SDK, a 1x1 raster round-trip is allowed instead of UNSUPPORTED.
 
 
 
@@ -1552,7 +1552,7 @@ Grid: dump `Matrix2D<RawPoint>` as `OGRMultiPoint`; set `grid_row`/`grid_col` fr
 
 
 
-Raster layer: wrap GDAL raster if `dataset()->GetRasterCount()>0`; else `Create()` false and `CreaterRaster` → `SMT_ERR_UNSUPPORTED` + log. Tiles stay NULL like ADO.
+Raster layer: wrap GDAL raster if `dataset()->GetRasterCount()>0`; else `Create()` false and `CreaterRaster` → `ERR_UNSUPPORTED` + log. Tiles stay NULL like ADO.
 
 
 
@@ -1606,7 +1606,7 @@ git commit -m "Store TIN and grid through OGR; raster uses GDAL or UNSUPPORTED."
 
 - Modify: `src/BUILD.gn`
 
-- Modify: `sde_gdal_test.cc` (`SMT_PG_DSN`)
+- Modify: `sde_gdal_test.cc` (`PG_DSN`)
 
 - Modify: `src/app/app_core/app_smtapp.cpp`
 
@@ -1630,7 +1630,7 @@ Add at end of `main`:
 
 ```cpp
 
-  const char* pg = std::getenv("SMT_PG_DSN");
+  const char* pg = std::getenv("PG_DSN");
 
   if (pg && pg[0]) {
 
@@ -1642,7 +1642,7 @@ Add at end of `main`:
 
     std::strcpy(pgi.szName, "pg");
 
-    // If SMT_PG_DSN starts with PG:, put it in szService/szDBName via a small
+    // If PG_DSN starts with PG:, put it in szService/szDBName via a small
 
     // parser or set szService=host and szDBName from the env in the test only.
 
@@ -1656,7 +1656,7 @@ Add at end of `main`:
 
     pgds.SetInfo(pgi);
 
-    expect(pgds.Open(), "SMT_PG_DSN Open");
+    expect(pgds.Open(), "PG_DSN Open");
 
   }
 
@@ -1718,7 +1718,7 @@ Expected: `CreateTmpDataSource` still returns `SmtAdoDataSource` (Access) so GPK
 
 
 
-Optional PostGIS: only when `SMT_PG_DSN` is set; skip silently otherwise.
+Optional PostGIS: only when `PG_DSN` is set; skip silently otherwise.
 
 
 
@@ -1812,7 +1812,7 @@ Docs (English in new/changed comments; Chinese OK in existing README tables):
 
 
 
-- `src-layout.md`: `datasource/gdal` is `SmtSDEGdalDevice`; `src/ado` not in `src_all`.
+- `src-layout.md`: `datasource/gdal` is `GdalDevice`; `src/ado` not in `src_all`.
 
 - `src/README.md`: same.
 
@@ -1860,7 +1860,7 @@ git commit -m "Share the OGR feature codec with SMF and document the GDAL DB pro
 
 
 
-1. **Spec coverage:** Open targets, GPKG/PostGIS/SpatiaLite, ACCESS reject, one vector layer class, TIN/grid/anno/child-image, no `DS_TB`, no ADO in `src_all`, GPKG tests always, PostGIS via `SMT_PG_DSN`, docs — each has a task.
+1. **Spec coverage:** Open targets, GPKG/PostGIS/SpatiaLite, ACCESS reject, one vector layer class, TIN/grid/anno/child-image, no `DS_TB`, no ADO in `src_all`, GPKG tests always, PostGIS via `PG_DSN`, docs — each has a task.
 
 2. **Placeholders:** None. Raster may be UNSUPPORTED; that is specified, not TBD.
 

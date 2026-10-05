@@ -20,7 +20,7 @@ inline constexpr int kGradientDispatchSerial = 1;
 inline constexpr int kGradientDispatchParallel = 2;
 
 // Last compute_dem_gradient timing snapshot (always recorded; dumped when
-// SMT_ANALYSIS_PROFILE=1).
+// ANALYSIS_PROFILE=1).
 struct DemGradientProfile {
   int width = 0;
   int height = 0;

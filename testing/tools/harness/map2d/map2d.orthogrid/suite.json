@@ -6,8 +6,8 @@
   ],
   "script": "map2d.orthogrid.il",
   "env": {
-    "SMT_MAP2D_SHOWCASE_LINGER_MS": "0",
-    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+    "MAP2D_SHOWCASE_LINGER_MS": "0",
+    "SKIP_MAP_CONTEXT_MENU": "1"
   },
   "mark_leaf": "map2d-showcase-mark.txt",
   "required_marks": [

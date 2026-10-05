@@ -77,7 +77,7 @@ void load_unit_cube(ModelAsset& out) {
 }
 
 bool has_assimp() {
-#ifdef SMT_HAS_ASSIMP
+#ifdef HAS_ASSIMP
   return true;
 #else
   return false;
@@ -85,7 +85,7 @@ bool has_assimp() {
 }
 
 bool has_tinygltf() {
-#ifdef SMT_HAS_TINYGLTF
+#ifdef HAS_TINYGLTF
   return true;
 #else
   return false;

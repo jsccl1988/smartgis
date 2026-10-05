@@ -18,7 +18,7 @@ inline constexpr int kConvolveDispatchSerial = 1;
 inline constexpr int kConvolveDispatchParallel = 2;
 
 // Last convolve_raster timing snapshot (always recorded; logged when
-// SMT_ANALYSIS_PROFILE=1).
+// ANALYSIS_PROFILE=1).
 struct RasterConvolveProfile {
   int kernel_w = 0;
   int kernel_h = 0;

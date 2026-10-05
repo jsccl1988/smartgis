@@ -7,7 +7,7 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Align `impl/gdi/core` internal names with Chromium/cc lexicon; split dual `Rhi2dFrameScheduler`; snake_case device members; keep `SmtRenderDevice` ABI and CreateDevice string.
+**Goal:** Align `impl/gdi/core` internal names with Chromium/cc lexicon; split dual `Rhi2dFrameScheduler`; snake_case device members; keep `RenderDevice2d` ABI and CreateDevice string.
 
 **Architecture:** Spec §GDI core cc rename in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md). Directories `host/paint/worker/surface` stay. Thin Draw*/Render* forwards on device.
 
@@ -17,7 +17,7 @@ All rights reserved.
 
 - Work on **`master`** only; parallel agents use **non-overlapping paths** where possible.
 - Keep `SmtRhi2dRenderDevice` / `SmtGdiRenderThread` / `CreateDevice("SmtRhi2dRenderDevice")`.
-- Do **not** change `SmtRenderDevice` virtuals (including `DrawPloygon` / `StrethImage`).
+- Do **not** change `RenderDevice2d` virtuals (including `DrawPloygon` / `StrethImage`).
 - Do **not** touch `src/legacy/render/gdi/` dual-run tree.
 - Comments English; new helpers `snake_case`.
 - **Do not** `git commit` unless the user asks.

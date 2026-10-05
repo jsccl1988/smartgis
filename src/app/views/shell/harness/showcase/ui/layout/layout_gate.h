@@ -12,7 +12,7 @@ class Browser;
 
 namespace detail {
 
-// Runs layout / overlap / shell anomaly checks. On failure (or SMT_UI_FORENSICS)
+// Runs layout / overlap / shell anomaly checks. On failure (or UI_FORENSICS)
 // dumps under out/ui_forensics/. Returns 0 on pass, else showcase exit code 30.
 int run_ui_layout_gate(Browser& browser, UiShowcaseMode mode);
 

@@ -11,10 +11,11 @@
 #include <cstring>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <vector>
 
 #include "base/trace/event/process_trace.h"
-#include "vista/map/multiply.h"
+#include "vista/component/map/multiply.h"
 
 #pragma comment(lib, "Msimg32.lib")
 
@@ -115,6 +116,21 @@ inline bool tri_zero_area(const POINT& a, const POINT& b, const POINT& c) {
   return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) == 0;
 }
 
+// Force a consistent screen-space orientation so PolyPolygon + WINDING
+// does not cancel opposing-winding tessellation tris into cream holes.
+inline void orient_tri_positive(POINT* a, POINT* b, POINT* c) {
+  if (!a || !b || !c) {
+    return;
+  }
+  const LONG cross =
+      (b->x - a->x) * (c->y - a->y) - (b->y - a->y) * (c->x - a->x);
+  if (cross < 0) {
+    const POINT tmp = *b;
+    *b = *c;
+    *c = tmp;
+  }
+}
+
 // Line tessellation emits two triangles per segment (A,B,C / B,D,C) or a
 // miter fan (A,B,C / A,C,D). Fold those into one convex quad for GDI.
 enum class TessQuad : uint8_t { kNone, kSegment, kFan };
@@ -159,13 +175,234 @@ inline bool near_point(const POINT& a, const POINT& b) {
   return dx <= 1 && dy <= 1;
 }
 
-// Coalesce same-style fill triangles. Land fills use PolyPolygon (few large
-// polys). Tessellated line meshes stay on sticky SelectObject + chunked
-// PolyPolygon — a single mega batch of coastline strips is pathological in
-// GDI (~10× slower). Segment quads (2 tris) emit as 4-gons.
+// Export / present paint into a 32bpp DIB section — write land fills here
+// instead of GDI PolyPolygon (chunked PolyPolygon is still ~150ms on china).
+struct DibSurface {
+  uint32_t* pixels = nullptr;  // little-endian BGRA
+  int width = 0;
+  int height = 0;
+  int stride_px = 0;
+  bool top_down = true;
+
+  bool valid() const {
+    return pixels != nullptr && width > 0 && height > 0 && stride_px >= width;
+  }
+
+  uint32_t* row(int y) const {
+    if (!top_down) {
+      y = height - 1 - y;
+    }
+    return pixels + static_cast<size_t>(y) * static_cast<size_t>(stride_px);
+  }
+};
+
+bool try_bind_dib(HDC hdc, DibSurface* out) {
+  if (!hdc || !out) {
+    return false;
+  }
+  const HBITMAP bmp =
+      static_cast<HBITMAP>(GetCurrentObject(hdc, OBJ_BITMAP));
+  if (!bmp) {
+    return false;
+  }
+  DIBSECTION ds{};
+  if (GetObjectW(bmp, sizeof(ds), &ds) <
+      static_cast<int>(sizeof(DIBSECTION))) {
+    return false;
+  }
+  if (!ds.dsBm.bmBits || ds.dsBm.bmBitsPixel != 32 || ds.dsBm.bmWidth <= 0 ||
+      ds.dsBm.bmHeight == 0 || ds.dsBm.bmWidthBytes < 4) {
+    return false;
+  }
+  out->pixels = static_cast<uint32_t*>(ds.dsBm.bmBits);
+  out->width = ds.dsBm.bmWidth;
+  out->height = std::abs(ds.dsBm.bmHeight);
+  out->stride_px = ds.dsBm.bmWidthBytes / 4;
+  out->top_down = ds.dsBmih.biHeight < 0;
+  return out->valid();
+}
+
+inline uint32_t colorref_to_bgra(COLORREF c) {
+  return 0xff000000u |
+         (static_cast<uint32_t>(GetRValue(c)) << 16) |
+         (static_cast<uint32_t>(GetGValue(c)) << 8) |
+         static_cast<uint32_t>(GetBValue(c));
+}
+
+inline uint32_t rgba_to_bgra(uint32_t rgba) {
+  return 0xff000000u |
+         (static_cast<uint32_t>((rgba >> 16) & 0xff) << 16) |
+         (static_cast<uint32_t>((rgba >> 8) & 0xff) << 8) |
+         static_cast<uint32_t>(rgba & 0xff);
+}
+
+void fill_dib_solid(DibSurface* dib, uint32_t bgra) {
+  if (!dib || !dib->valid()) {
+    return;
+  }
+  const size_t width = static_cast<size_t>(dib->width);
+  for (int y = 0; y < dib->height; ++y) {
+    uint32_t* row = dib->row(y);
+    std::fill(row, row + width, bgra);
+  }
+}
+
+// Process-wide GDI handles for map paint — avoids CreateSolidBrush / CreateFont
+// churn on every present (cold bootstrap replays export + viewport paint).
+struct GdiPaintResourceCache {
+  std::mutex mu;
+  std::map<COLORREF, HBRUSH> brushes;
+  std::map<uint64_t, HPEN> pens;
+  std::map<uint64_t, HFONT> fonts;
+  HFONT default_text_font = nullptr;
+
+  HBRUSH brush_for(COLORREF c) {
+    std::lock_guard<std::mutex> lock(mu);
+    auto it = brushes.find(c);
+    if (it != brushes.end()) {
+      return it->second;
+    }
+    HBRUSH b = CreateSolidBrush(c);
+    if (b) {
+      brushes.emplace(c, b);
+    }
+    return b;
+  }
+
+  HPEN pen_for(COLORREF c, int width) {
+    const int w = std::max(1, width);
+    const uint64_t key =
+        (static_cast<uint64_t>(static_cast<uint32_t>(c)) << 16) |
+        static_cast<uint64_t>(static_cast<uint16_t>(w));
+    std::lock_guard<std::mutex> lock(mu);
+    auto it = pens.find(key);
+    if (it != pens.end()) {
+      return it->second;
+    }
+    HPEN p = CreatePen(PS_SOLID, w, c);
+    if (p) {
+      pens.emplace(key, p);
+    }
+    return p;
+  }
+
+  HFONT font_for(int font_px, int esc) {
+    const uint64_t key = (static_cast<uint64_t>(static_cast<uint32_t>(font_px))
+                          << 32) |
+                         static_cast<uint64_t>(static_cast<uint32_t>(esc));
+    std::lock_guard<std::mutex> lock(mu);
+    auto it = fonts.find(key);
+    if (it != fonts.end()) {
+      return it->second;
+    }
+    const int height = -std::max(1, font_px);
+    HFONT created = CreateFontW(
+        height, 0, esc, esc, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+    if (created) {
+      fonts.emplace(key, created);
+    }
+    return created;
+  }
+
+  HFONT default_text() {
+    std::lock_guard<std::mutex> lock(mu);
+    if (default_text_font) {
+      return default_text_font;
+    }
+    default_text_font = CreateFontW(
+        -13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+    return default_text_font;
+  }
+};
+
+GdiPaintResourceCache& gdi_paint_resources() {
+  static GdiPaintResourceCache cache;
+  return cache;
+}
+
+// Solid scanline fill. Overdraw union — no WINDING cancel holes, no tri edges.
+void fill_tri_solid(DibSurface* dib, POINT a, POINT b, POINT c, uint32_t bgra) {
+  if (!dib || !dib->valid()) {
+    return;
+  }
+  // Sort by y then x for stable spans.
+  if (b.y < a.y || (b.y == a.y && b.x < a.x)) {
+    const POINT t = a;
+    a = b;
+    b = t;
+  }
+  if (c.y < a.y || (c.y == a.y && c.x < a.x)) {
+    const POINT t = a;
+    a = c;
+    c = t;
+  }
+  if (c.y < b.y || (c.y == b.y && c.x < b.x)) {
+    const POINT t = b;
+    b = c;
+    c = t;
+  }
+  if (c.y == a.y) {
+    return;  // zero-height
+  }
+
+  const int min_y = (std::max)(0, static_cast<int>(a.y));
+  const int max_y = (std::min)(dib->height - 1, static_cast<int>(c.y));
+  if (min_y > max_y) {
+    return;
+  }
+
+  auto lerp_x = [](const POINT& p0, const POINT& p1, int y) -> double {
+    if (p1.y == p0.y) {
+      return static_cast<double>(p0.x);
+    }
+    const double t = (static_cast<double>(y) - static_cast<double>(p0.y)) /
+                     (static_cast<double>(p1.y) - static_cast<double>(p0.y));
+    return static_cast<double>(p0.x) +
+           t * (static_cast<double>(p1.x) - static_cast<double>(p0.x));
+  };
+
+  for (int y = min_y; y <= max_y; ++y) {
+    double x0 = 0.0;
+    double x1 = 0.0;
+    if (y < b.y || b.y == a.y) {
+      x0 = lerp_x(a, c, y);
+      x1 = lerp_x(a, b, y);
+    } else {
+      x0 = lerp_x(a, c, y);
+      x1 = lerp_x(b, c, y);
+    }
+    if (x1 < x0) {
+      const double tmp = x0;
+      x0 = x1;
+      x1 = tmp;
+    }
+    int xa = static_cast<int>(std::floor(x0 + 0.5));
+    int xb = static_cast<int>(std::floor(x1 + 0.5));
+    if (xa > xb) {
+      continue;
+    }
+    xa = (std::max)(0, xa);
+    xb = (std::min)(dib->width - 1, xb);
+    if (xa > xb) {
+      continue;
+    }
+    uint32_t* row = dib->row(y);
+    std::fill(row + xa, row + xb + 1, bgra);
+  }
+}
+
+// Coalesce same-style fill triangles. Land fills prefer direct DIB scanline
+// writes (PolyPolygon of tess tris is ~150ms on china 1280×720). Fallback is
+// chunked PolyPolygon. Tessellated line meshes stay on sticky SelectObject +
+// chunked PolyPolygon. Segment/fan quads (2 tris) emit as 4-gons.
 struct FillBatch {
   HBRUSH brush = nullptr;
   HPEN pen = nullptr;
+  COLORREF color = 0;
   bool active = false;
   bool use_poly_polygon = true;
   std::vector<POINT> points;
@@ -175,17 +412,27 @@ struct FillBatch {
   size_t flush_count = 0;
   size_t tri_draw_count = 0;
   size_t mesh_flush_count = 0;
+  size_t dib_tri_count = 0;
   int view_w = 0;
   int view_h = 0;
+  DibSurface* dib = nullptr;
+  bool* dib_dirty = nullptr;
 
-  // Keep PolyPolygon batches modest; large coastline meshes use chunked path.
-  static constexpr size_t kMaxPoints = 3072;
-  static constexpr size_t kMaxPolys = 512;
+  // Land-fill GDI fallback chunks stay modest: a single PolyPolygon / FillPath
+  // over tens of thousands of tessellation tris is pathological (~1s china).
+  static constexpr size_t kMaxPoints = 768;
+  static constexpr size_t kMaxPolys = 96;
   static constexpr size_t kMeshChunkPolys = 96;
 
   void reset_payload() {
     points.clear();
     counts.clear();
+  }
+
+  void mark_dib_dirty() {
+    if (dib_dirty) {
+      *dib_dirty = true;
+    }
   }
 
   void flush_mesh_chunk(HDC hdc) {
@@ -235,11 +482,8 @@ struct FillBatch {
       return;
     }
     style->ensure(hdc, brush, pen);
-    // Coalesced land tris: one PolyPolygon under HDC WINDING (set by
-    // paint_map_frame_gdi). Per-triangle Polygon was ~N GDI calls and
-    // dominated equal-latitude paint_ms (~650ms fill_us on china 1280).
-    // ALTERNATE would punch cream/ocean holes at province overlaps — do not
-    // change fill mode here.
+    // GDI fallback for land tris when the HDC is not a 32bpp DIB section.
+    // Mega batches are pathological; BeginPath+FillPath drew wireframe — avoid.
     if (counts.size() == 1) {
       Polygon(hdc, points.data(), counts[0]);
     } else {
@@ -251,19 +495,21 @@ struct FillBatch {
     active = false;
   }
 
-  void append_tris(HDC hdc, DcStyle* style, HBRUSH b, HPEN p,
+  void append_tris(HDC hdc, DcStyle* style, HBRUSH b, HPEN p, COLORREF c,
                    const std::vector<POINT>& pts,
                    const std::vector<uint32_t>& indices, bool coalesce) {
     if (pts.empty() || indices.size() < 3) {
       return;
     }
     if (active &&
-        (brush != b || pen != p || use_poly_polygon != coalesce)) {
+        (brush != b || pen != p || use_poly_polygon != coalesce ||
+         (use_poly_polygon && color != c && !(dib && dib->valid())))) {
       flush(hdc, style);
     }
     if (!active) {
       brush = b;
       pen = p;
+      color = c;
       use_poly_polygon = coalesce;
       active = true;
     }
@@ -292,40 +538,129 @@ struct FillBatch {
         }
         const uint32_t a = indices[i];
         const uint32_t bi = indices[i + 1];
-        const uint32_t c = indices[i + 2];
+        const uint32_t cidx = indices[i + 2];
         i += 3;
-        if (a >= nvert || bi >= nvert || c >= nvert) {
+        if (a >= nvert || bi >= nvert || cidx >= nvert) {
           continue;
         }
-        const POINT tri[3] = {pts[a], pts[bi], pts[c]};
+        const POINT tri[3] = {pts[a], pts[bi], pts[cidx]};
         emit_mesh_poly(hdc, tri, 3);
       }
       return;
     }
 
-    for (size_t i = 0; i + 2 < indices.size(); i += 3) {
-      if (counts.size() >= kMaxPolys || points.size() + 3 > kMaxPoints) {
-        flush(hdc, style);
-        brush = b;
-        pen = p;
-        use_poly_polygon = coalesce;
-        active = true;
+    // Land / circle fills: direct DIB scanline when available (fast solid
+    // overdraw — cream continents without PolyPolygon cancel holes).
+    if (dib && dib->valid()) {
+      const uint32_t bgra = colorref_to_bgra(c);
+      const size_t nvert = pts.size();
+      auto emit_tri = [&](POINT t0, POINT t1, POINT t2) {
+        POINT tri[3] = {t0, t1, t2};
+        if (tri_zero_area(tri[0], tri[1], tri[2]) ||
+            poly_outside_view(tri, 3, view_w, view_h)) {
+          return;
+        }
+        fill_tri_solid(dib, tri[0], tri[1], tri[2], bgra);
+        ++dib_tri_count;
+      };
+      size_t i = 0;
+      while (i + 2 < indices.size()) {
+        if (i + 5 < indices.size()) {
+          uint32_t q[4] = {};
+          const TessQuad kind =
+              classify_tess_quad(indices.data() + i, nvert, q);
+          if (kind == TessQuad::kFan) {
+            emit_tri(pts[q[0]], pts[q[1]], pts[q[2]]);
+            emit_tri(pts[q[0]], pts[q[2]], pts[q[3]]);
+            i += 6;
+            continue;
+          }
+          if (kind == TessQuad::kSegment) {
+            emit_tri(pts[q[0]], pts[q[1]], pts[q[3]]);
+            emit_tri(pts[q[1]], pts[q[2]], pts[q[3]]);
+            i += 6;
+            continue;
+          }
+        }
+        const uint32_t ia = indices[i];
+        const uint32_t ib = indices[i + 1];
+        const uint32_t ic = indices[i + 2];
+        i += 3;
+        if (ia >= nvert || ib >= nvert || ic >= nvert) {
+          continue;
+        }
+        emit_tri(pts[ia], pts[ib], pts[ic]);
       }
-      const uint32_t a = indices[i];
-      const uint32_t bi = indices[i + 1];
-      const uint32_t c = indices[i + 2];
-      if (a >= pts.size() || bi >= pts.size() || c >= pts.size()) {
+      mark_dib_dirty();
+      active = true;
+      return;
+    }
+
+    // GDI fallback: fold fan/segment quads; keep chunks modest.
+    const size_t nvert = pts.size();
+    size_t i = 0;
+    while (i + 2 < indices.size()) {
+      auto push_poly = [&](const POINT* poly, INT n) {
+        if (n < 3) {
+          return;
+        }
+        if (counts.size() >= kMaxPolys ||
+            points.size() + static_cast<size_t>(n) > kMaxPoints) {
+          flush(hdc, style);
+          brush = b;
+          pen = p;
+          color = c;
+          use_poly_polygon = true;
+          active = true;
+        }
+        if (n == 3) {
+          POINT tri[3] = {poly[0], poly[1], poly[2]};
+          if (tri_zero_area(tri[0], tri[1], tri[2]) ||
+              poly_outside_view(tri, 3, view_w, view_h)) {
+            return;
+          }
+          orient_tri_positive(&tri[0], &tri[1], &tri[2]);
+          points.push_back(tri[0]);
+          points.push_back(tri[1]);
+          points.push_back(tri[2]);
+          counts.push_back(3);
+          return;
+        }
+        if (poly_outside_view(poly, n, view_w, view_h)) {
+          return;
+        }
+        // Orient first tri of the quad so WINDING stays additive.
+        POINT q0 = poly[0];
+        POINT q1 = poly[1];
+        POINT q2 = poly[2];
+        orient_tri_positive(&q0, &q1, &q2);
+        points.push_back(q0);
+        points.push_back(q1);
+        points.push_back(q2);
+        points.push_back(poly[3]);
+        counts.push_back(4);
+      };
+
+      if (i + 5 < indices.size()) {
+        uint32_t q[4] = {};
+        const TessQuad kind =
+            classify_tess_quad(indices.data() + i, nvert, q);
+        if (kind != TessQuad::kNone) {
+          const POINT quad[4] = {pts[q[0]], pts[q[1]], pts[q[2]], pts[q[3]]};
+          push_poly(quad, 4);
+          i += 6;
+          continue;
+        }
+      }
+      const uint32_t ia = indices[i];
+      const uint32_t ib = indices[i + 1];
+      const uint32_t ic = indices[i + 2];
+      i += 3;
+      if (ia >= nvert || ib >= nvert || ic >= nvert) {
         continue;
       }
-      const POINT tri[3] = {pts[a], pts[bi], pts[c]};
-      if (tri_zero_area(tri[0], tri[1], tri[2]) ||
-          poly_outside_view(tri, 3, view_w, view_h)) {
-        continue;
-      }
-      points.push_back(tri[0]);
-      points.push_back(tri[1]);
-      points.push_back(tri[2]);
-      counts.push_back(3);
+      const POINT tri[3] = {pts[ia], pts[ib], pts[ic]};
+      push_poly(tri, 3);
     }
   }
 };
@@ -586,7 +921,7 @@ bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,
 }
 
 void paint_text_glyph(HDC hdc, DcStyle* style, HFONT default_font,
-                      HFONT* dc_font, std::map<uint64_t, HFONT>* font_cache,
+                      HFONT* dc_font, GdiPaintResourceCache* resources,
                       const vista::DrawItem& item, const ViewXform& xform,
                       COLORREF* last_halo, COLORREF* last_ink, bool* have_halo,
                       bool* have_ink) {
@@ -622,21 +957,11 @@ void paint_text_glyph(HDC hdc, DcStyle* style, HFONT default_font,
       std::fabs(deg) > 0.5 ? static_cast<int>(std::lround(-deg * 10.0)) : 0;
 
   HFONT glyph_font = default_font;
-  if (esc != 0 || font_px != 13) {
-    const uint64_t key = (static_cast<uint64_t>(static_cast<uint32_t>(font_px))
-                          << 32) |
-                         static_cast<uint64_t>(static_cast<uint32_t>(esc));
-    auto it = font_cache->find(key);
-    if (it == font_cache->end()) {
-      auto font_height = [](int px) { return -std::max(1, px); };
-      HFONT created =
-          CreateFontW(font_height(font_px), 0, esc, esc, FW_NORMAL, FALSE,
-                      FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-                      CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-                      DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
-      it = font_cache->emplace(key, created).first;
+  if (resources && (esc != 0 || font_px != 13)) {
+    HFONT created = resources->font_for(font_px, esc);
+    if (created) {
+      glyph_font = created;
     }
-    glyph_font = it->second ? it->second : default_font;
   }
   if (glyph_font && dc_font && glyph_font != *dc_font) {
     // Font select breaks sticky brush/pen tracking on this DC.
@@ -646,20 +971,21 @@ void paint_text_glyph(HDC hdc, DcStyle* style, HFONT default_font,
   }
 
   const COLORREF ink = rgba_to_colorref(item.rgba);
-  const COLORREF halo =
-      item.halo_width_px > 0.f
-          ? rgba_to_colorref(item.halo_rgba ? item.halo_rgba : 0xffffffffu)
-          : RGB(255, 255, 255);
-  if (!*have_halo || *last_halo != halo) {
-    SetTextColor(hdc, halo);
-    *last_halo = halo;
-    *have_halo = true;
-    *have_ink = false;
-  }
-  // 4-neighbor halo keeps CJK readable; diagonals cost 4 extra TextOutW.
-  const int halo_d[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-  for (const auto& d : halo_d) {
-    TextOutW(hdc, ax + d[0], ay + d[1], utf16, utf16_n);
+  // Skip halo TextOut when layout emitted no halo — was always paying 4×.
+  if (item.halo_width_px > 0.f) {
+    const COLORREF halo =
+        rgba_to_colorref(item.halo_rgba ? item.halo_rgba : 0xffffffffu);
+    if (!*have_halo || *last_halo != halo) {
+      SetTextColor(hdc, halo);
+      *last_halo = halo;
+      *have_halo = true;
+      *have_ink = false;
+    }
+    // Cardinal halo keeps CJK readable; diagonals are another 4 TextOutW.
+    const int halo_d[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+    for (const auto& d : halo_d) {
+      TextOutW(hdc, ax + d[0], ay + d[1], utf16, utf16_n);
+    }
   }
   if (!*have_ink || *last_ink != ink) {
     SetTextColor(hdc, ink);
@@ -725,41 +1051,31 @@ void paint_map_frame_gdi(
                n_line_mesh, n_line_stroke, n_text, view.min_x, view.max_x,
                view.min_y, view.max_y);
 
+  DibSurface dib{};
+  bool dib_dirty = false;
+  const bool have_dib = try_bind_dib(hdc, &dib);
+  GdiPaintResourceCache& resources = gdi_paint_resources();
+
   if (fill_background) {
-    HBRUSH bg = CreateSolidBrush(rgba_to_colorref(frame.background_rgba));
-    RECT full = {0, 0, static_cast<LONG>(view.width_px),
-                 static_cast<LONG>(view.height_px)};
-    FillRect(hdc, &full, bg);
-    DeleteObject(bg);
+    if (have_dib) {
+      fill_dib_solid(&dib, rgba_to_bgra(frame.background_rgba));
+      dib_dirty = true;
+    } else {
+      HBRUSH bg = resources.brush_for(rgba_to_colorref(frame.background_rgba));
+      RECT full = {0, 0, static_cast<LONG>(view.width_px),
+                   static_cast<LONG>(view.height_px)};
+      FillRect(hdc, &full, bg);
+    }
   }
 
-  // Land fills coalesce many same-color tris into one PolyPolygon. GDI's
-  // default ALTERNATE mode punches even-odd holes at shared province edges
-  // and coastal overlaps (cream fringe, ocean under city labels, dark
-  // cancel patches). WINDING matches scenic::map2d_engine and keeps the union.
+  // GDI fallback land path uses WINDING so opposing tess windings do not
+  // cancel into cream holes (ALTERNATE even-odd fringe bug).
   SetPolyFillMode(hdc, WINDING);
-
-  std::map<COLORREF, HBRUSH> brushes;
-  std::map<uint64_t, HFONT> fonts;
-  auto brush_for = [&](COLORREF c) -> HBRUSH {
-    auto it = brushes.find(c);
-    if (it != brushes.end()) {
-      return it->second;
-    }
-    HBRUSH b = CreateSolidBrush(c);
-    brushes.emplace(c, b);
-    return b;
-  };
 
   // MapIR text is already in view/bitmap pixels (Layout advances). Do not
   // DPI-scale CreateFont here — MulDiv(px, LOGPIXELSY, 96) on a HiDPI DC
   // draws glyphs larger than the metrics pen and stacks CJK within a label.
-  auto font_height = [](int px) { return -std::max(1, px); };
-  HFONT text_font =
-      CreateFontW(font_height(13), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-                  DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                  CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS,
-                  L"Microsoft YaHei UI");
+  HFONT text_font = resources.default_text();
   HGDIOBJ old_font =
       SelectObject(hdc, text_font ? text_font : GetStockObject(DEFAULT_GUI_FONT));
   SetBkMode(hdc, TRANSPARENT);
@@ -768,23 +1084,20 @@ void paint_map_frame_gdi(
   FillBatch fill_batch;
   fill_batch.view_w = xform.width_px;
   fill_batch.view_h = xform.height_px;
+  if (have_dib) {
+    fill_batch.dib = &dib;
+    fill_batch.dib_dirty = &dib_dirty;
+  }
   StrokeBatch stroke_batch;
-  std::map<uint64_t, HPEN> pens;
+  auto sync_dib_before_gdi = [&]() {
+    if (dib_dirty) {
+      GdiFlush();
+      dib_dirty = false;
+    }
+  };
+  auto brush_for = [&](COLORREF c) -> HBRUSH { return resources.brush_for(c); };
   auto pen_for = [&](COLORREF c, int width) -> HPEN {
-    const int w = std::max(1, width);
-    const uint64_t key =
-        (static_cast<uint64_t>(static_cast<uint32_t>(c)) << 16) |
-        static_cast<uint64_t>(static_cast<uint16_t>(w));
-    auto it = pens.find(key);
-    if (it != pens.end()) {
-      return it->second;
-    }
-    HPEN p = CreatePen(PS_SOLID, 1, c);
-    if (!p) {
-      p = CreatePen(PS_SOLID, w, c);
-    }
-    pens.emplace(key, p);
-    return p;
+    return resources.pen_for(c, width);
   };
   struct StrokeRun {
     COLORREF color = 0;
@@ -809,6 +1122,7 @@ void paint_map_frame_gdi(
     flush_stroke_run();
     fill_batch.flush(hdc, &style);
     stroke_batch.flush(hdc, &style);
+    sync_dib_before_gdi();
   };
 
   std::vector<POINT> pts;
@@ -846,13 +1160,14 @@ void paint_map_frame_gdi(
         // Always coalesce=true (triangle PolyPolygon). coalesce=false is the
         // line-mesh path (classify_tess_quad); large land fills (≥288 idx)
         // used to take it and punch rectangular ocean holes through China.
-        fill_batch.append_tris(hdc, &style, brush_for(color), null_pen, pts,
-                               item.indices, /*coalesce=*/true);
+        fill_batch.append_tris(hdc, &style, brush_for(color), null_pen, color,
+                               pts, item.indices, /*coalesce=*/true);
         add_us(&fill_us, t0);
         break;
       }
       case vista::DrawKind::kLine: {
         in_text_run = false;
+        sync_dib_before_gdi();
         item_to_points(item, xform, &pts);
         // Tessellated lines: cosmetic 1px PolyPolyline of emit_segment_quad
         // centerlines (P2d unit china). If no segment classifies, chunked mesh.
@@ -907,8 +1222,8 @@ void paint_map_frame_gdi(
           }
           flush_chain();
           if (n_seg == 0) {
-            fill_batch.append_tris(hdc, &style, brush_for(color), null_pen, pts,
-                                   indices, /*coalesce=*/false);
+            fill_batch.append_tris(hdc, &style, brush_for(color), null_pen,
+                                   color, pts, indices, /*coalesce=*/false);
           }
         } else {
           fill_batch.flush(hdc, &style);
@@ -927,6 +1242,7 @@ void paint_map_frame_gdi(
       case vista::DrawKind::kRaster: {
         in_text_run = false;
         flush_geometry();
+        sync_dib_before_gdi();
         style.invalidate();
         item_to_points(item, xform, &pts);
         std::vector<uint8_t> rgba;
@@ -945,8 +1261,8 @@ void paint_map_frame_gdi(
                      loaded ? 1 : 0, tw, th, pts.size(), item.codepoint,
                      item.opacity);
         if (pts.size() >= 3) {
-          fill_batch.append_tris(hdc, &style, brush_for(color), null_pen, pts,
-                                 item.indices, /*coalesce=*/true);
+          fill_batch.append_tris(hdc, &style, brush_for(color), null_pen, color,
+                                 pts, item.indices, /*coalesce=*/true);
           fill_batch.flush(hdc, &style);
         }
         add_us(&other_us, t0);
@@ -959,6 +1275,7 @@ void paint_map_frame_gdi(
       case vista::DrawKind::kText: {
         if (!in_text_run) {
           flush_geometry();
+          sync_dib_before_gdi();
           AbortPath(hdc);
           SelectClipRgn(hdc, nullptr);
           SelectObject(hdc, GetStockObject(NULL_BRUSH));
@@ -969,8 +1286,8 @@ void paint_map_frame_gdi(
           }
           in_text_run = true;
         }
-        paint_text_glyph(hdc, &style, text_font, &dc_font, &fonts, item, xform,
-                         &last_halo, &last_ink, &have_halo, &have_ink);
+        paint_text_glyph(hdc, &style, text_font, &dc_font, &resources, item,
+                         xform, &last_halo, &last_ink, &have_halo, &have_ink);
         add_us(&text_us, t0);
         break;
       }
@@ -980,13 +1297,14 @@ void paint_map_frame_gdi(
 
   std::fprintf(stderr,
                "map2d: gdi batch fill_us=%lld line_us=%lld text_us=%lld "
-               "other_us=%lld fill_flushes=%zu "
+               "other_us=%lld fill_flushes=%zu dib_tris=%zu dib=%d "
                "mesh_polys=%zu mesh_flushes=%zu brushes=%zu fonts=%zu\n",
                static_cast<long long>(fill_us), static_cast<long long>(line_us),
                static_cast<long long>(text_us),
                static_cast<long long>(other_us), fill_batch.flush_count,
+               fill_batch.dib_tri_count, have_dib ? 1 : 0,
                fill_batch.tri_draw_count, fill_batch.mesh_flush_count,
-               brushes.size(), fonts.size());
+               static_cast<size_t>(0), static_cast<size_t>(0));
 
   if (base::trace::tracing_enabled()) {
     auto flush_kind = [](const char* name, int64_t us) {
@@ -1004,17 +1322,7 @@ void paint_map_frame_gdi(
   }
 
   SelectObject(hdc, old_font);
-  if (text_font) {
-    DeleteObject(text_font);
-  }
-  for (auto& kv : fonts) {
-    if (kv.second) {
-      DeleteObject(kv.second);
-    }
-  }
-  for (auto& kv : brushes) {
-    DeleteObject(kv.second);
-  }
+  // Process-wide GdiPaintResourceCache owns brushes/pens/fonts — do not delete.
 }
 
 }  // namespace detail

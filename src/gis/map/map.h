@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef _GIS_MAP_H
-#define _GIS_MAP_H
+#ifndef GIS_MAP_MAP_H_
+#define GIS_MAP_MAP_H_
 
 #include <cstring>
 #include <vector>
@@ -32,79 +32,79 @@ class GIS_EXPORT Map {
   Map(Map&&) noexcept = default;
   Map& operator=(Map&&) noexcept = default;
 
-  bool AddLayer(MapLayer layer);
-  bool AddLayer(OGRLayer* layer);
+  bool add_layer(MapLayer layer);
+  bool add_layer(OGRLayer* layer);
 
-  bool DeleteLayer(const char* szName);
-  bool DeleteLayer(OGRLayer* layer);
+  bool delete_layer(const char* name);
+  bool delete_layer(OGRLayer* layer);
 
-  bool MoveTo(int fromIndex, int toIndex);
-  bool MoveToBottom(int index);
-  bool MoveToTop(int index);
+  bool move_to(int from_index, int to_index);
+  bool move_to_bottom(int index);
+  bool move_to_top(int index);
 
-  void SetActiveLayer(const char* szName);
-  void SetActiveOgrLayer(OGRLayer* layer);
+  void set_active_layer(const char* name);
+  void set_active_ogr_layer(OGRLayer* layer);
 
-  MapLayer* GetActiveMapLayer();
-  const MapLayer* GetActiveMapLayer() const;
-  OGRLayer* GetActiveOgrLayer();
-  const OGRLayer* GetActiveOgrLayer() const;
+  MapLayer* active_map_layer();
+  const MapLayer* active_map_layer() const;
+  OGRLayer* active_ogr_layer();
+  const OGRLayer* active_ogr_layer() const;
 
-  MapLayer* GetMapLayer(const char* szName);
-  const MapLayer* GetMapLayer(const char* szName) const;
-  MapLayer* GetMapLayer(int index);
-  const MapLayer* GetMapLayer(int index) const;
+  MapLayer* map_layer(const char* name);
+  const MapLayer* map_layer(const char* name) const;
+  MapLayer* map_layer(int index);
+  const MapLayer* map_layer(int index) const;
 
-  OGRLayer* GetOgrLayer(const char* szName);
-  const OGRLayer* GetOgrLayer(const char* szName) const;
-  OGRLayer* GetOgrLayer(int index);
-  const OGRLayer* GetOgrLayer(int index) const;
+  OGRLayer* ogr_layer(const char* name);
+  const OGRLayer* ogr_layer(const char* name) const;
+  OGRLayer* ogr_layer(int index);
+  const OGRLayer* ogr_layer(int index) const;
 
-  int GetLayerCount() const { return static_cast<int>(layers_.size()); }
-  LayerType GetLayerType(int index) const;
-  const char* GetLayerName(int index) const;
-  bool IsLayerVisible(int index) const;
-  void SetLayerVisible(int index, bool visible);
+  int layer_count() const { return static_cast<int>(layers_.size()); }
+  LayerType layer_type(int index) const;
+  const char* layer_name(int index) const;
+  bool is_layer_visible(int index) const;
+  void set_layer_visible(int index, bool visible);
 
-  virtual bool AppendFeature(OGRFeature* feature);
-  bool AppendFeature(Feature* feature, bool clone = false);
-  virtual bool DeleteFeature(OGRFeature* feature);
-  virtual bool UpdateFeature(OGRFeature* feature);
-  virtual bool QueryFeature(const GeomQueryDesc* gquery,
-                            const AttrQueryDesc* pquery, OGRLayer* result,
-                            int& n_geom_type);
+  virtual bool append_feature(OGRFeature* feature);
+  bool append_feature(Feature* feature, bool clone = false);
+  virtual bool delete_feature(OGRFeature* feature);
+  virtual bool update_feature(OGRFeature* feature);
+  virtual bool query_feature(const GeomQueryDesc* gquery,
+                             const AttrQueryDesc* aquery, OGRLayer* result,
+                             int& geom_type);
 
-  void MoveFirst() const;
-  void MoveNext() const;
-  void MoveLast() const;
-  void Delete();
-  bool IsEnd() const;
-  void DeleteAll();
+  void move_first() const;
+  void move_next() const;
+  void move_last() const;
+  void erase();
+  bool is_end() const;
+  void clear();
 
-  void SetMapName(const char* szName) {
-    strcpy_s(m_szMapName, k_map_name_max, szName);
+  void set_name(const char* name) {
+    strcpy_s(name_, k_map_name_max, name);
   }
-  const char* GetMapName() const { return m_szMapName; }
+  const char* name() const { return name_; }
 
   void get_envelope(Envelope& env) const {
-    memcpy(&env, &m_MapEnvelope, sizeof(Envelope));
+    memcpy(&env, &envelope_, sizeof(Envelope));
   }
-  void CalEnvelope();
+  void cal_envelope();
 
  protected:
-  int index_of_name(const char* szName) const;
+  int index_of_name(const char* name) const;
   void envelope_of(const MapLayer& layer, Envelope* env) const;
 
-  char m_szMapName[k_map_name_max];
-  Envelope m_MapEnvelope;
+  char name_[k_map_name_max];
+  Envelope envelope_;
   std::vector<MapLayer> layers_;
   int active_ = -1;
-  mutable int m_nIteratorIndex = 0;
+  mutable int iterator_index_ = 0;
 };
 
 // Leftover 2010 name. Same type as Map (not a second document class).
-using SmtMap = Map;
+using Map = Map;
 
 }  // namespace gis
 
-#endif  // _GIS_MAP_H
+#endif  // GIS_MAP_MAP_H_

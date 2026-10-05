@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_NET_HTTP_H
-#define SMT_NET_HTTP_H
+#ifndef NET_HTTP_H
+#define NET_HTTP_H
 
 #include "net/net_export.h"
 
@@ -38,4 +38,4 @@ class NET_EXPORT HttpClient {
 
 }  // namespace net
 
-#endif  // SMT_NET_HTTP_H
+#endif  // NET_HTTP_H

@@ -2,27 +2,28 @@
 # All rights reserved.
 
 # Product vista layer — CPU MapIR / World / atmosphere session + GPU
-# MapPass / WorldPass / atmosphere passes. One DLL (dll_stem = vista).
+# MapPass / WorldPass / atmosphere_pass passes. One DLL (dll_stem = vista).
 # May depend on gis.dll. gis.dll must not depend on this target.
 # Layout lock: docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md
 # §Vista subdirectory tighten. README: src/vista/README.md.
 
 import("//build/smartgis.gni")
 
-smt_shared_library("vista") {
+product_shared_library("vista") {
   dll_stem = "vista"
   defines = [ "VISTA_EXPORTS" ]
   deps = [
     "//src/vista/assets:assets_sources",
-    "//src/vista/atmosphere:atmosphere_sources",
+    "//src/vista/component/atmosphere:atmosphere_cpu_sources",
+    "//src/vista/component/atmosphere:session_sources",
+    "//src/vista/pass/atmosphere:atmosphere_pass_sources",
     "//src/vista/domain:domain_sources",
-    "//src/vista/atmosphere:session_sources",
-    "//src/vista/map:map_sources",
-    "//src/vista/map_gpu:map_gpu_sources",
+    "//src/vista/component/map:map_sources",
+    "//src/vista/pass/map:map_pass_sources",
     "//src/vista/mesh:mesh_sources",
-    "//src/vista/world_gpu:world_gpu_sources",
+    "//src/vista/pass/world:world_pass_sources",
     "//src/vista/terrain:terrain_sources",
-    "//src/vista/world:world_sources",
+    "//src/vista/component/world:world_sources",
   ]
   public_deps = [
     "//src/base:base",
@@ -39,26 +40,26 @@ group("vista_test_all") {
     "//src/vista/assets:model_test",
     "//src/vista/assets:pdal_io_test",
     "//src/vista/assets:tileset_test",
-    "//src/vista/atmosphere:atmosphere_frame_test",
-    "//src/vista/atmosphere:cloud_pass_test",
-    "//src/vista/atmosphere:fog_pass_test",
-    "//src/vista/atmosphere:globe_pass_test",
-    "//src/vista/atmosphere:ocean_pass_test",
-    "//src/vista/atmosphere:sky_pass_test",
-    "//src/vista/atmosphere:cloud_system_test",
-    "//src/vista/atmosphere:environment_test",
-    "//src/vista/atmosphere:field_ingest_test",
-    "//src/vista/atmosphere:field_store_test",
-    "//src/vista/atmosphere:ocean_system_test",
-    "//src/vista/atmosphere:procedural_test",
-    "//src/vista/map_gpu:map_effect_test",
-    "//src/vista/map:frame_test",
+    "//src/vista/pass/atmosphere:atmosphere_frame_test",
+    "//src/vista/pass/atmosphere:cloud_pass_test",
+    "//src/vista/pass/atmosphere:fog_pass_test",
+    "//src/vista/pass/atmosphere:globe_pass_test",
+    "//src/vista/pass/atmosphere:ocean_pass_test",
+    "//src/vista/pass/atmosphere:sky_pass_test",
+    "//src/vista/component/atmosphere:cloud_system_test",
+    "//src/vista/component/atmosphere:environment_test",
+    "//src/vista/component/atmosphere:field_ingest_test",
+    "//src/vista/component/atmosphere:field_store_test",
+    "//src/vista/component/atmosphere:ocean_system_test",
+    "//src/vista/component/atmosphere:procedural_test",
+    "//src/vista/pass/map:map_effect_test",
+    "//src/vista/component/map:frame_test",
     "//src/vista/mesh:tessellate_style_test",
-    "//src/vista/world_gpu:scene_gpu_test",
-    "//src/vista/world_gpu:unified_draw_test",
+    "//src/vista/pass/world:scene_gpu_test",
+    "//src/vista/pass/world:unified_draw_test",
     "//src/vista/terrain:dem_raster_test",
     "//src/vista/terrain:land_mask_test",
-    "//src/vista/world:pointcloud_test",
-    "//src/vista/world:world_test",
+    "//src/vista/component/world:pointcloud_test",
+    "//src/vista/component/world:world_test",
   ]
 }

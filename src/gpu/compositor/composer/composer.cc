@@ -78,7 +78,7 @@ std::unique_ptr<FrameComposer> make_frame_composer(ComposeBackend backend,
       if (!g_logged_rhi_fallback) {
         g_logged_rhi_fallback = true;
         std::fprintf(stderr,
-                     "gpu: RHI compose (default or SMT_GPU_COMPOSE=rhi) — "
+                     "gpu: RHI compose (default or GPU_COMPOSE=rhi) — "
                      "RHI device init failed for adapter %u; sticky software "
                      "fallback (GPU process)\n",
                      static_cast<unsigned>(id));

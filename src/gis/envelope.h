@@ -8,7 +8,7 @@
 
 namespace gis {
 
-// Unset marker for axis-aligned extents (legacy SMT_C_INVALID_DBF_VALUE).
+// Unset marker for axis-aligned extents (legacy C_INVALID_DBF_VALUE).
 inline constexpr double k_envelope_unset = 1e10;
 
 // Axis-aligned map / geometry extent (MBR). Header-only so base leftover

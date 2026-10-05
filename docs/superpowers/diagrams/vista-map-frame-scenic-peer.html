@@ -7,7 +7,7 @@ All rights reserved.
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vista map/map_gpu — 对照 Scenic paint/map 升级</title>
+<title>Vista map/map_pass — 对照 Scenic paint/map 升级</title>
 <style>
   :root {
     --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
@@ -65,9 +65,9 @@ All rights reserved.
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>Vista map / map_gpu — 对照 Scenic paint/map</h1>
+    <h1>Vista map / map_pass — 对照 Scenic paint/map</h1>
     <p>
-      产品 2D：<code>vista/map</code> 产出 <code>MapIR</code>，<code>vista/map_gpu</code> 在设备线程上 <code>MapPass::record</code>。
+      产品 2D：<code>vista/component/map</code> 产出 <code>MapIR</code>，<code>vista/pass/map</code> 在设备线程上 <code>MapPass::record</code>。
       Scenic 只借帧拍、脏区、prep→encode→submit 语义；不搬 HDC、<code>MapPainter</code> 焊死遍历、引擎内上屏。
     </p>
     <p class="meta">
@@ -86,7 +86,7 @@ All rights reserved.
   </header>
 
   <section class="panel">
-    <h2>1. 责任层（content / map CPU / map_gpu GPU / Scenic 对照轨）</h2>
+    <h2>1. 责任层（content / map CPU / map_pass GPU / Scenic 对照轨）</h2>
     <svg class="diagram" viewBox="0 0 1040 280" role="img" aria-label="四层所有权">
       <rect x="16" y="12" width="240" height="256" rx="8" fill="var(--ui)" stroke="#6b5ea8"/>
       <text class="lane" x="32" y="38" fill="var(--ui-ink)">content · L1 帧拍</text>
@@ -99,18 +99,18 @@ All rights reserved.
       <text class="box-sub" x="32" y="208">HWND 永不 join Emit</text>
 
       <rect x="272" y="12" width="280" height="256" rx="8" fill="var(--cpu)" stroke="#2f7d62"/>
-      <text class="lane" x="288" y="38" fill="var(--cpu-ink)">vista/map · CPU</text>
+      <text class="lane" x="288" y="38" fill="var(--cpu-ink)">vista/component/map · CPU</text>
       <text class="box-title" x="288" y="64">Layout::build</text>
       <text class="box-sub" x="288" y="84">view / draw / batch / layout 头</text>
       <text class="box-title" x="288" y="114">collect → emit_* → coalesce</text>
       <text class="box-sub" x="288" y="134">geom_walk · mesh_emit · tess_grain</text>
       <text class="box-title" x="288" y="164">LabelGrid 串行</text>
-      <text class="box-sub" x="288" y="184">carto_filter ⊥ batch_build</text>
+      <text class="box-sub" x="288" y="184">detail/ carto_filter ⊥ batch_build</text>
       <text class="box-sub" x="288" y="218">assert_no_deps render</text>
       <text class="box-sub" x="288" y="238">place 无 RHI</text>
 
       <rect x="568" y="12" width="240" height="256" rx="8" fill="var(--gpu)" stroke="#b06a1a"/>
-      <text class="lane" x="584" y="38" fill="var(--gpu-ink)">vista/map_gpu · GPU</text>
+      <text class="lane" x="584" y="38" fill="var(--gpu-ink)">vista/pass/map · GPU</text>
       <text class="box-title" x="584" y="64">MapPass::record</text>
       <text class="box-sub" x="584" y="84">对标 map_submit</text>
       <text class="box-title" x="584" y="114">upload / encode</text>

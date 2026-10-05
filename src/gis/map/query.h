@@ -6,38 +6,29 @@
 
 class OGRGeometry;
 
-namespace geo {
-
-enum SpatialRelation {
-  SS_Unknown = 0,
-  SS_Within = 1,
-  SS_Touches = 1 << 1,
-  SS_Crosses = 1 << 2,
-  SS_Overlaps = 1 << 3,
-  SS_Intersects = 1 << 4,
-  SS_Equals = 1 << 5,
-  SS_Contains = 1 << 6,
-  SS_Disjoint = 1 << 7
-};
-
-}  // namespace geo
-
 namespace gis {
 
-struct GeomQueryDesc {
-  OGRGeometry* pQueryGeom;
-  geo::SpatialRelation sSRs;
-  float fSmargin;
+enum class SpatialRelation : unsigned {
+  kUnknown = 0,
+  kWithin = 1,
+  kTouches = 1u << 1,
+  kCrosses = 1u << 2,
+  kOverlaps = 1u << 3,
+  kIntersects = 1u << 4,
+  kEquals = 1u << 5,
+  kContains = 1u << 6,
+  kDisjoint = 1u << 7,
+};
 
-  GeomQueryDesc()
-      : pQueryGeom(nullptr), sSRs(geo::SS_Contains), fSmargin(0.05f) {}
+struct GeomQueryDesc {
+  OGRGeometry* geometry = nullptr;
+  SpatialRelation spatial_relation = SpatialRelation::kContains;
+  float margin = 0.05f;
 };
 
 struct AttrQueryDesc {
-  char** szFldName;
-  char** szFldQueryContent;
-
-  AttrQueryDesc() : szFldName(nullptr), szFldQueryContent(nullptr) {}
+  char** field_names = nullptr;
+  char** field_queries = nullptr;
 };
 
 }  // namespace gis

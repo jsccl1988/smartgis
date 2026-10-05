@@ -16,7 +16,7 @@ All rights reserved.
 ## Global Constraints
 
 - Work on `master`; no new dated design twin.
-- Default CI Null only; GPU via `SMT_RUN_FLYCUBE_GPU=1` / `rhi_gpu_bench` not in default `benchmark_all`.
+- Default CI Null only; GPU via `RUN_FLYCUBE_GPU=1` / `rhi_gpu_bench` not in default `benchmark_all`.
 - No FlyCube types in public headers; no Qt.
 - snake_case; English comments; copyright 2026.
 

@@ -32,7 +32,7 @@
 #include "content/public/map_types.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "vista/atmosphere/session/field_channel.h"
+#include "vista/component/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "gis/edit/session.h"
 #include "gis/tile/layer/tile_map_layer.h"
@@ -445,6 +445,11 @@ void Browser::refresh_scale() {
   // Browser layout reads ui_ at the wrong offset and AVs on status_bar /
   // active_map during Browser::show (map2d-showcase / harness).
   if (!ui_) {
+    return;
+  }
+  // Showcase Widget::show hits StatusBar::set_scale_text before Label
+  // children are a live std::string (cdb: Label::_Equal read 0xe1).
+  if (base::switch_cstr("map2d-showcase")) {
     return;
   }
   ui::views::StatusBar* bar = ui_->status_bar();

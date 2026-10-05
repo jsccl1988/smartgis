@@ -23,7 +23,7 @@ struct Map2dCapturePaths {
 // prior leaf. Returns 0 on success, else 56.
 int prepare_map2d_capture_paths(const char* mode_name, Map2dCapturePaths* out);
 
-// Timed software export_bmp + phase logs. Optional SMT_MAP2D_EXPORT_REUSE=1
+// Timed software export_bmp + phase logs. Optional MAP2D_EXPORT_REUSE=1
 // warms present-cache off-clock. Returns 0 / 56.
 int export_map2d_showcase_bmp(content::Map2dPresenter* map2d,
                               const Map2dCapturePaths& paths,

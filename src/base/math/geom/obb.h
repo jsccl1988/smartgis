@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_OBB_H_
-#define SMT_RENDER_MATH_OBB_H_
+#ifndef BASE_MATH_GEOM_OBB_H_
+#define BASE_MATH_GEOM_OBB_H_
 
 #include "base/math/geom/cull.h"
 #include "base/math/linear/vector.h"
@@ -39,4 +39,4 @@ namespace render {
 using ::base::Obb;
 }  // namespace render
 
-#endif  // SMT_RENDER_MATH_OBB_H_
+#endif  // BASE_MATH_GEOM_OBB_H_

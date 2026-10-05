@@ -55,7 +55,7 @@ All rights reserved.
     <div class="meta">
       Spec：<a href="../specs/2026-09-13-gdal-layer-management-design.md">gdal-layer / Session</a>
       · <a href="../specs/2026-09-13-render-rhi-scene-design.md">§src_render + vista parallel</a>
-      · API：<a href="../../../src/vista/map/ir.h"><code>ir.h</code></a>
+      · API：<a href="../../../src/vista/component/map/ir.h"><code>ir.h</code></a>
       · 分层收紧：<a href="./vista-subdirectory-layers.html">vista.dll 子目录</a>
     </div>
     <div class="rel">相关图：
@@ -118,7 +118,7 @@ All rights reserved.
       <text class="box-sub" x="860" y="96" text-anchor="middle">present map2d / scene3d</text>
 
       <rect x="700" y="140" width="320" height="70" rx="7" fill="#fff" stroke="#8b3a3a" stroke-width="1.5"/>
-      <text class="box-title" x="860" y="168" text-anchor="middle">vista/map · vista/scene · vista/atmosphere</text>
+      <text class="box-title" x="860" y="168" text-anchor="middle">vista/component/map · vista/scene · vista/component/atmosphere</text>
       <text class="box-sub" x="860" y="188" text-anchor="middle">GPU passes 在 vista.dll</text>
 
       <rect x="700" y="232" width="320" height="70" rx="7" fill="#fff" stroke="#8b3a3a" stroke-width="1.5"/>
@@ -192,7 +192,7 @@ All rights reserved.
         <tr><td>content present</td><td>消费 MapFrame · schedule</td><td>反向依赖 shell chrome</td></tr>
       </tbody>
     </table>
-    <p class="legend" style="margin:8px 0 0"><code>SMT_VISTA_LAYOUT_PARALLEL=0</code> → tess N=1 · 池仅 <code>base::execution</code></p>
+    <p class="legend" style="margin:8px 0 0"><code>VISTA_LAYOUT_PARALLEL=0</code> → tess N=1 · 池仅 <code>base::execution</code></p>
   </details>
 </div>
 <script>

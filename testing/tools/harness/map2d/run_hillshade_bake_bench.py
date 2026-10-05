@@ -27,7 +27,7 @@ def run_test(exe: Path, env: dict[str, str]) -> int:
     if not exe.is_file():
         print(
             f"missing {exe} — build.bat debug "
-            "//src/vista/world:dem_raster_test",
+            "//src/vista/component/world:dem_raster_test",
             file=sys.stderr,
         )
         return 1
@@ -47,9 +47,9 @@ def load_json(name: str) -> dict:
 def main() -> int:
     ART.mkdir(parents=True, exist_ok=True)
     env = {
-        "SMT_BAKE_BENCH": "1",
-        "SMT_BAKE_DISK": "0",
-        "SMT_BAKE_PROFILE": "1",
+        "BAKE_BENCH": "1",
+        "BAKE_DISK": "0",
+        "BAKE_PROFILE": "1",
     }
     rc = 0
     rc |= run_test(OUT / "land_mask_test.exe", env)

@@ -10,7 +10,7 @@
 
 #include "vista/mesh/tessellate.h"
 #include "gis/tile/provider/mvt.h"
-#include "vista/map/mvt_layout.h"
+#include "vista/component/map/detail/mvt_layout.h"
 #include "gis/tile/layer/provider_tile_layer.h"
 #include "gis/tile/provider/source_registry.h"
 #include "gis/tile/provider/style_source.h"
@@ -111,8 +111,8 @@ int main() {
     vp.z = 2;
     auto layer = std::make_unique<gis::tile::ProviderTileLayer>(provider);
     expect(layer->refresh_visible(vp), "refresh_visible");
-    expect(layer->GetTileCount() >= 1, "tile count");
-    const gis::tile::TileImage* t = layer->GetTile(0);
+    expect(layer->tile_count() >= 1, "tile count");
+    const gis::tile::TileImage* t = layer->tile_at(0);
     expect(t && !t->bytes.empty(), "smt tile has image");
 
     gis::MapLayer map_layer = gis::tile::make_map_layer(provider);
@@ -122,13 +122,13 @@ int main() {
     expect(vista::tessellate_tile_layer(&map_layer, mesh), "tessellate");
     expect(mesh.has_image, "tessellate has_image");
 
-    expect(map_layer.layer_type() == gis::LYR_TITLE, "MapLayer kind=tile");
+    expect(map_layer.layer_type() == gis::LayerType::kTile, "MapLayer kind=tile");
     expect(map_layer.tile() != nullptr, "leftover ProviderTileLayer");
     expect(map_layer.ogr() == nullptr, "tile MapLayer has no OGR");
 
     gis::MapLayer xyz =
         gis::tile::make_xyz_map_layer("http://tiles.local/{z}/{x}/{y}.png");
-    expect(xyz.layer_type() == gis::LYR_TITLE, "make_xyz_map_layer kind=tile");
+    expect(xyz.layer_type() == gis::LayerType::kTile, "make_xyz_map_layer kind=tile");
     expect(xyz.tile() != nullptr, "make_xyz_map_layer leftover");
     gis::MapLayer bad = gis::tile::make_xyz_map_layer("http://bad/{z}");
     expect(bad.tile() == nullptr, "make_xyz_map_layer rejects bad tmpl");

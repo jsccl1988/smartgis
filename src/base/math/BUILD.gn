@@ -6,7 +6,7 @@ import("//testing/test.gni")
 
 declare_args() {
   # Optional float32 AVX2 batch path in base/math. Default: scalar.
-  smt_render_math_simd = false
+  base_math_simd = false
 }
 
 # Scene math layers (namespace `base`). Temporary `render::` aliases remain
@@ -19,7 +19,7 @@ config("math_headers") {
 }
 
 config("math_simd_avx2") {
-  defines = [ "SMT_RENDER_MATH_SIMD=1" ]
+  defines = [ "BASE_MATH_SIMD=1" ]
   if (is_win) {
     cflags = [ "/arch:AVX2" ]
   } else {
@@ -77,7 +77,7 @@ source_set("math") {
     "simd/simd.cc",
     "simd/simd.h",
   ]
-  if (smt_render_math_simd) {
+  if (base_math_simd) {
     configs += [ ":math_simd_avx2" ]
   }
 }

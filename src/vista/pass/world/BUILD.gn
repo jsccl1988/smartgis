@@ -1,0 +1,65 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# GPU: GpuMesh upload / pipelines / record. Facade WorldPass.
+# CPU sync, tess, cull, and index live in //src/vista/component/world:world_sources.
+# Public root: pass / gpu_mesh / opaque_effect. Internals under detail/.
+source_set("world_pass_sources") {
+  sources = [
+    "cull/frustum_camera.cc",
+    "cull/frustum_camera.h",
+    "detail/draw.cc",
+    "detail/draw.h",
+    "detail/rebuild.cc",
+    "detail/record.cc",
+    "detail/tint.cc",
+    "detail/tint.h",
+    "detail/upload.cc",
+    "detail/upload.h",
+    "gpu_mesh.h",
+    "opaque_effect.cc",
+    "opaque_effect.h",
+    "pass.cc",
+    "pass.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  public_deps = [
+    "//src/render:render",
+    "//src/vista/component/world:world_sources",
+    "//third_party:gdal",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis:gis",
+  ]
+}
+
+test("scene_gpu_test") {
+  output_name = "scene_gpu_test"
+  sources = [ "scene_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [ "//src/vista:vista" ]
+}
+
+test("unified_draw_test") {
+  output_name = "unified_draw_test"
+  sources = [ "unified_draw_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/vista:vista",
+    "//src/base:base",
+    "//src/gis:gis",
+  ]
+  if (has_flycube) {
+    defines = [ "HAS_FLYCUBE" ]
+  }
+}

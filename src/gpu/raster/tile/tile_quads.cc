@@ -318,7 +318,7 @@ bool raster_tile_quads(OutputSurface* surface, const DrawRequest& req,
     }
 
     // Request templates without matching raster layers: treat each remaining
-    // (or all) template as an opaque raster pass so SMT_XYZ_URL / callers keep
+    // (or all) template as an opaque raster pass so XYZ_URL / callers keep
     // working with a background-only Style JSON.
     if (req.fetch && !templates.empty() && raster_layers == 0) {
       size_t i = 0;

@@ -90,10 +90,10 @@ group("test_all") {
 group("e2e") {
   testonly = true
   deps = [ ":test_all" ]
-  if (smt_build_views) {
+  if (build_views) {
     deps += [ ":ui_views" ]
   }
-  if (smt_build_render) {
+  if (build_render) {
     deps += [ ":render" ]
   }
 }
@@ -140,14 +140,14 @@ group("app") {
 }
 
 # Views toolkit + Skia canvas. Not a dep of group("all") / src_all.
-# The chrome exe is loaded only when smt_build_views=true (build.bat views|app).
+# The chrome exe is loaded only when build_views=true (build.bat views|app).
 group("ui_views") {
   deps = [
     "//src/ui/gfx:gfx",
     "//src/ui/gis:gis",
     "//src/ui/views:views",
   ]
-  if (smt_build_views) {
+  if (build_views) {
     deps += [ "//src/app/views:views" ]
   }
 }
@@ -161,10 +161,10 @@ group("UiDesigner") {
   deps = [ "//src/app/ui_designer:ui_designer" ]
 }
 
-# GPU process. Only loaded when smt_build_render=true (build.bat render).
+# GPU process. Only loaded when build_render=true (build.bat render).
 group("render") {
   deps = []
-  if (smt_build_render) {
+  if (build_render) {
     deps += [ "//src/gpu:gpu" ]
   }
 }

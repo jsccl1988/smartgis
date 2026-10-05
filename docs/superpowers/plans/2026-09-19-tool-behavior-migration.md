@@ -112,7 +112,7 @@ Expected: exit 0；各打印 `*: ok`。
 ```cpp
 int SmtViewCtrlTool::MouseWeel(...) {
   if (m_workspace) {
-    return SMT_ERR_NONE;  // wheel via Workspace always-on / Draft
+    return ERR_NONE;  // wheel via Workspace always-on / Draft
   }
   // existing ApplyWheel path
 }

@@ -6,9 +6,9 @@
     "data"
   ],
   "env": {
-    "SMT_UI_SHOWCASE_LINGER_MS": "0",
-    "SMT_UI_FORENSICS": "1",
-    "SMT_UI_THEME": "dark"
+    "UI_SHOWCASE_LINGER_MS": "0",
+    "UI_FORENSICS": "1",
+    "UI_THEME": "dark"
   },
   "bmp": {
     "path": "ui-showcase-data.bmp",

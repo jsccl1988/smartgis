@@ -20,8 +20,8 @@ namespace detail {
 
 // Policy for Scene3D plugin showcase HWND + RHI device setup.
 struct PluginDeviceSessionOpts {
-  // Mode-specific GPU env (e.g. SMT_PLUGIN_MINE_GPU). Falls back to
-  // SMT_PLUGIN_WORLD3D_GPU, then default-on when unset.
+  // Mode-specific GPU env (e.g. PLUGIN_MINE_GPU). Falls back to
+  // PLUGIN_WORLD3D_GPU, then default-on when unset.
   const char* gpu_env = nullptr;
   // When true, require a live map_scene_viewport HWND before detach/create.
   bool require_scene_hwnd = true;

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_DATASOURCE_GDAL_OGR_TEXT_ENCODING_H_
-#define SDB_DATASOURCE_GDAL_OGR_TEXT_ENCODING_H_
+#ifndef GIS_DATASOURCE_GDAL_OGR_TEXT_ENCODING_H_
+#define GIS_DATASOURCE_GDAL_OGR_TEXT_ENCODING_H_
 
 #include <string>
 
@@ -24,4 +24,4 @@ GIS_EXPORT std::string ogr_bytes_to_utf8(const std::string& bytes);
 }  // namespace datasource
 }  // namespace gis
 
-#endif  // SDB_DATASOURCE_GDAL_OGR_TEXT_ENCODING_H_
+#endif  // GIS_DATASOURCE_GDAL_OGR_TEXT_ENCODING_H_

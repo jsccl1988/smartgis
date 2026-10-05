@@ -11,11 +11,11 @@ Living spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](..
 
 ## FrameJob (leftover parallel P1)
 
-Stereo HWND present can run on a serial FrameJob worker (`Rhi3dFrameScheduler` under `rhi3d/impl/common/frame/`). Default **on**; set `SMT_RHI3D_FRAME_JOB=0` for sync present on the caller thread. `smt_stereo_hwnd_present` returns after submit; `capture` / `blit` wait for publish. Destroy never joins the worker. Living §: **§rhi3d leftover parallel frame**.
+Stereo HWND present can run on a serial FrameJob worker (`Rhi3dFrameScheduler` under `rhi3d/impl/common/frame/`). Default **on**; set `RHI3D_FRAME_JOB=0` for sync present on the caller thread. `stereo_hwnd_present` returns after submit; `capture` / `blit` wait for publish. Destroy never joins the worker. Living §: **§rhi3d leftover parallel frame**.
 
-**P2 CPU prep:** `Rhi3dPrepRunner` (`SMT_RHI3D_PREP_PARALLEL=0` → N=1; else clamp 2–4) parallelizes AABB-in-frustum before serial draw. Workers must not call GL/D3D.
+**P2 CPU prep:** `Rhi3dPrepRunner` (`RHI3D_PREP_PARALLEL=0` → N=1; else clamp 2–4) parallelizes AABB-in-frustum before serial draw. Workers must not call GL/D3D.
 
-**P3 deferred (D3D only):** `SMT_RHI3D_D3D_DEFERRED` default **on** (`=0` serial). `CreateDeferredContext` per worker; TLS `active_context` / per-slot mesh CB; scene/octree partition visible objects → FinishCommandList → Execute on immediate. GL ignores this env.
+**P3 deferred (D3D only):** `RHI3D_D3D_DEFERRED` default **on** (`=0` serial). `CreateDeferredContext` per worker; TLS `active_context` / per-slot mesh CB; scene/octree partition visible objects → FinishCommandList → Execute on immediate. GL ignores this env.
 
 ## Present
 
@@ -98,7 +98,7 @@ py -3 testing\tools\case\legacy_scene3d_shot_loop.py --d3d --rounds 1
 
 Also wired in `testing/tools/case/run_engine_shots.py` as **`legacy-scene3d-d3d`**.
 
-Product default is **D3D11**. `--d3d` sets `SMT_STEREO_API=Direct3D` / `SMT_SCENE3D_SHOWCASE_D3D=1`; omit `--d3d` (or set `SMT_STEREO_API=OpenGL`) for GL.
+Product default is **D3D11**. `--d3d` sets `STEREO_API=Direct3D` / `SCENE3D_SHOWCASE_D3D=1`; omit `--d3d` (or set `STEREO_API=OpenGL`) for GL.
 
 **Runtime:** GN copies `d3dcompiler_47.dll` (Windows Kits Redist) into `out/Debug|Release` via `//src/scenic:d3dcompiler_runtime_dll` — required by `scenic_impl` when the D3D DrawIndexed path is linked.
 

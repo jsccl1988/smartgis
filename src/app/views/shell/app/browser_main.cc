@@ -171,11 +171,11 @@ int run_browser_main(const content::ContentMainParams&,
   const PluginShowcaseMode plugin_showcase = options.plugin_showcase;
   const UiShowcaseMode ui_showcase = options.ui_showcase;
   // Default Scene3d prefers FlyCube RHI. Switch via View -> Engine,
-  // content::set_scene3d_engine, or harness SMT_SCENE3D_ENGINE (stereo_gl /
+  // content::set_scene3d_engine, or harness SCENE3D_ENGINE (stereo_gl /
   // stereo_d3d / flycube / gdi). --self-test / console / atmosphere-showcase /
   // map2d-showcase / most ui-showcase select GDI before Browser::init so
   // multi-viewport FlyCube attach does not hang; atmosphere may acquire
-  // FlyCube on its own HWND. Explicit SMT_SCENE3D_ENGINE wins over those
+  // FlyCube on its own HWND. Explicit SCENE3D_ENGINE wins over those
   // defaults (equal-profile GL/D3D matrix).
   //
   // --browse-showcase and --ui-showcase=scene keep FlyCube: forensic 3D orbit
@@ -217,7 +217,7 @@ int run_browser_main(const content::ContentMainParams&,
   }();
   // Bare product (no showcase/self-test): match --ui-showcase=shell 2D face —
   // ContentMapView + GDI overlay paints china onto the shell HWND. FlyCube
-  // remains available via SMT_PREFER_FLYCUBE_2D=1 / FPS bench / scene showcase.
+  // remains available via PREFER_FLYCUBE_2D=1 / FPS bench / scene showcase.
   const bool bare_product =
       ui_showcase == UiShowcaseMode::kNone && !self_test &&
       !self_test_console && !input_showcase && !browse_showcase &&
@@ -273,7 +273,7 @@ int run_browser_main(const content::ContentMainParams&,
   // stays ocean-only while FlyCube DXGI is still hidden / clearing. Covers
   // map2d/plugin/browse(2D) showcases and bare SmartGIS.exe (same china
   // face as --ui-showcase=shell). Skip when FPS-benching FlyCube or when the
-  // operator explicitly sets SMT_FORCE_GDI_MAP_OVERLAY=0.
+  // operator explicitly sets FORCE_GDI_MAP_OVERLAY=0.
   if (!map2d_fps_bench) {
     const char* force_gdi = base::switch_cstr("force-gdi-map-overlay");
     const bool force_off =
@@ -342,7 +342,7 @@ int run_browser_main(const content::ContentMainParams&,
   }
   browser->set_plugins_dir(s_plugins_dir);
   {
-    // OOP: CLI --enable-oop-render or SMT_ENABLE_OOP_RENDER=1.
+    // OOP: CLI --enable-oop-render or ENABLE_OOP_RENDER=1.
     bool enable_oop = options.enable_oop_render;
     if (const char* env = base::switch_cstr("enable-oop-render")) {
       if (env[0] == '1' && env[1] == '\0') {
@@ -358,8 +358,8 @@ int run_browser_main(const content::ContentMainParams&,
 
     // China seed: sync by default so bare SmartGIS.exe matches the
     // --ui-showcase=shell carto face (china_city Land/Lines/Points/Labels).
-    // SMT_DEFER_CHINA_SEED=1 restores the post-show timer path; SMT_SYNC_CHINA_SEED=1
-    // forces sync. Showcase / harness that set SMT_SKIP_AMBOX_CATALOG still skip
+    // DEFER_CHINA_SEED=1 restores the post-show timer path; SYNC_CHINA_SEED=1
+    // forces sync. Showcase / harness that set SKIP_AMBOX_CATALOG still skip
     // OGR here and re-seed in their own china_seed helpers.
     bool defer_china = false;
     if (const char* env = base::switch_cstr("defer-china-seed")) {
@@ -373,6 +373,20 @@ int run_browser_main(const content::ContentMainParams&,
       }
     }
     browser->set_defer_china_seed(defer_china);
+    // Locked startup profile: china sync seed + first-present gate share the
+    // same harness env; default sync-first-map-present when only seed is set.
+    if (!defer_china) {
+      const char* sync_present = base::switch_cstr("sync-first-map-present");
+      const bool have_sync_present =
+          sync_present && sync_present[0] == '1' && sync_present[1] == '\0';
+      if (!have_sync_present) {
+        if (const char* sync_seed = base::switch_cstr("sync-china-seed")) {
+          if (sync_seed[0] == '1' && sync_seed[1] == '\0') {
+            base::set_switch("sync-first-map-present", "1");
+          }
+        }
+      }
+    }
   }
   {
     BASE_TRACE_EVENT("Browser.init", "startup");
@@ -421,6 +435,11 @@ int run_browser_main(const content::ContentMainParams&,
   // Dump once here so interactive sessions see the table without waiting for
   // process exit (wWinMain also calls maybe_dump — second call is a no-op).
   base::trace::maybe_dump_startup_profile();
+  // Catalog / inspector / tool seams / gestures are not on the first-carto
+  // gate. Run after the dump so WireShell.deferred does not inflate wall_ms.
+  if (browser) {
+    browser->finish_deferred_shell_wiring();
+  }
   // Agent / shot hooks: open Data or 3D without flaky synthetic clicks.
   if (const char* tab = base::switch_cstr("views-start-map-tab")) {
     int idx = 0;
@@ -436,7 +455,7 @@ int run_browser_main(const content::ContentMainParams&,
     if (idx >= 0) {
       browser->select_map_tab(idx);
       pump_views_messages(800);
-      LOGGING(LOG_INFO, "startup: SMT_VIEWS_START_MAP_TAB=%s -> tab %d", tab,
+      LOGGING(LOG_INFO, "startup: VIEWS_START_MAP_TAB=%s -> tab %d", tab,
               idx);
     }
   }
@@ -466,7 +485,7 @@ int run_browser_main(const content::ContentMainParams&,
     exit_after_scenario(browser, "input");
   }
   if (browse_showcase) {
-    // Prefer SMT_HARNESS_SUITE so browse.3d resolves its own ScenarioRegistry
+    // Prefer HARNESS_SUITE so browse.3d resolves its own ScenarioRegistry
     // entry (same run_browse_showcase body; IL/suite id from env).
     const char* browse_id = "browse";
     if (const char* env = base::switch_cstr("harness-suite")) {

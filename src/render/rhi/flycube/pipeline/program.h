@@ -7,7 +7,7 @@
 #include "render/rhi/flycube/command/recorder.h"
 #include "render/rhi/rhi.h"
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 #include "BindingSet/BindingSet.h"
 #include "BindingSetLayout/BindingSetLayout.h"
 #include "CommandList/CommandList.h"
@@ -27,7 +27,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 // Compiled FlyCube program. Holds shaders, the binding layout, one PSO per
 // requested depth variant, upload constant buffers, and one linear-clamp
@@ -106,7 +106,7 @@ class FlycubeProgram : public Pipeline {
   std::vector<UploadCb> constants_;
 };
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

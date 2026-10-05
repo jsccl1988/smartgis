@@ -63,7 +63,7 @@ void MapViewport::set_view_host(content::ViewHost* host) {
 
 void MapViewport::set_map_contents(content::MapContents* session) {
   if (owns_session_ && session_ && session_ != session) {
-#ifdef SMT_HAS_CONTENT_MAP_SESSION
+#ifdef HAS_CONTENT_MAP_SESSION
     session_->Shutdown();
     delete session_;
 #endif
@@ -129,11 +129,16 @@ bool MapViewport::attach() {
   // Scene3d / Map 2D default: FlyCube RHI. Scene3d engine is a runtime
   // preference (View menu / content::set_scene3d_engine); 2D still allows
   // FORCE_CONTENT / PREFER_FLYCUBE env for ContentMapView. ContentMapView /
-  // OOP / GDI remain fallbacks.
-#if defined(SMT_HAS_SCENE3D_ENGINE)
+  // OOP / GDI remain fallbacks. Scenic keeps the product HWND presenter
+  // (Scene3dPresenter::paint) — never ContentMapView leftover SharedSurface.
+#if defined(HAS_SCENE3D_ENGINE)
   const bool prefer_flycube_3d = content::prefer_scene3d_flycube();
+  const bool scenic_3d = content::prefer_scene3d_scenic();
+  const bool force_content_3d = content::force_content_mapview_3d();
 #else
   const bool prefer_flycube_3d = true;
+  const bool scenic_3d = false;
+  const bool force_content_3d = false;
 #endif
   const bool prefer_flycube_2d = []() {
     // Scenic MemFrame present must never create a FlyCube HWND — residual
@@ -161,16 +166,27 @@ bool MapViewport::attach() {
     }
     return true;
   }();
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
   constexpr int k_has_flycube = 1;
 #else
   constexpr int k_has_flycube = 0;
 #endif
   LOGGING(LOG_INFO,
           "rhi.attach policy role=%s prefer_flycube_2d=%d prefer_flycube_3d=%d "
-          "SMT_HAS_FLYCUBE=%d",
+          "scenic_3d=%d force_content_3d=%d HAS_FLYCUBE=%d",
           role_name, prefer_flycube_2d ? 1 : 0, prefer_flycube_3d ? 1 : 0,
-          k_has_flycube);
+          scenic_3d ? 1 : 0, force_content_3d ? 1 : 0, k_has_flycube);
+  // Scenic Scene3d: product HWND + Scene3dPresenter (MemFrame / paint_hdc).
+  // ContentMapView SharedSurface has no scenic SoT and paint3d used to HUD-only
+  // → navy blank (prefer_flycube_3d=0 attach log).
+  if (role_ == Role::kScene3d && scenic_3d) {
+    mode_ = AttachMode::kPlaceholder;
+    status_ = L"Scene3dPresenter (scenic)";
+    start_present_timer();
+    LOGGING(LOG_INFO, "rhi.attach role=%s mode=Scenic/product HWND", role_name);
+    sync_identity_frame();
+    return true;
+  }
   if (role_ == Role::kScene3d && prefer_flycube_3d) {
     if (try_flycube_device()) {
       mode_ = AttachMode::kFlyCube;
@@ -197,7 +213,11 @@ bool MapViewport::attach() {
             role_name);
   }
 
-  if (try_content_map_view()) {
+  // Scene3d ContentMapView: stereo/GDI (force_content_3d) or FlyCube-fail
+  // fallback. Scenic already returned above.
+  const bool allow_content_3d =
+      role_ != Role::kScene3d || force_content_3d || prefer_flycube_3d;
+  if (allow_content_3d && try_content_map_view()) {
     mode_ = AttachMode::kContentMapView;
     status_ = (role_ == Role::kScene3d)
                   ? L"content::MapWidgetHostView (3D SoT)"
@@ -258,7 +278,9 @@ bool MapViewport::attach() {
   }
   mode_ = AttachMode::kPlaceholder;
   if (role_ == Role::kScene3d) {
-    status_ = L"3D placeholder (no scene device)";
+    // Software / scenic-style DEM via Scene3dPresenter::paint overlay.
+    status_ = L"3D placeholder (Scene3dPresenter software)";
+    start_present_timer();
   } else if (role_ == Role::kMapData) {
     status_ = L"Datasource browse (placeholder)";
   } else {
@@ -283,7 +305,7 @@ void MapViewport::detach() {
     identity_badge_ = nullptr;
     identity_badge_parent_ = nullptr;
   }
-#ifdef SMT_HAS_CONTENT_MAP_SESSION
+#ifdef HAS_CONTENT_MAP_SESSION
   if (owns_session_ && session_) {
     session_->Shutdown();
     delete session_;
@@ -415,7 +437,7 @@ void MapViewport::invalidate_native() {
 }
 
 bool MapViewport::wait_ready(uint32_t timeout_ms) {
-#ifdef SMT_HAS_CONTENT_MAP_SESSION
+#ifdef HAS_CONTENT_MAP_SESSION
   if (session_ && view_id_ != 0) {
     return session_->WaitFrameReady(view_id_, timeout_ms);
   }
@@ -424,7 +446,7 @@ bool MapViewport::wait_ready(uint32_t timeout_ms) {
 }
 
 void MapViewport::resize_host_surface(int width_px, int height_px) {
-#ifdef SMT_HAS_CONTENT_MAP_SESSION
+#ifdef HAS_CONTENT_MAP_SESSION
   if (!session_ || view_id_ == 0 || width_px <= 0 || height_px <= 0) {
     return;
   }
@@ -455,7 +477,7 @@ void MapViewport::on_device_scale_factor_changed(float old_scale,
 }
 
 bool MapViewport::try_content_map_view() {
-#ifdef SMT_HAS_CONTENT_MAP_SESSION
+#ifdef HAS_CONTENT_MAP_SESSION
   if (!session_) {
     session_ = content::MapContents::Create();
     if (!session_) {
@@ -464,8 +486,8 @@ bool MapViewport::try_content_map_view() {
     owns_session_ = true;
   }
   // Shared Browser MapSession may own MapContents without StartRenderProcess
-  // (deferred until ensure_oop_render_process / SMT_ENABLE_OOP_RENDER).
-  // SMT_DISABLE_OOP_RENDER skips the GPU child (HelloWait ~15s on cold start).
+  // (deferred until ensure_oop_render_process / ENABLE_OOP_RENDER).
+  // DISABLE_OOP_RENDER skips the GPU child (HelloWait ~15s on cold start).
   // force-content-mapview-2d only selects ContentMapView / software DIB attach;
   // WaitFrameReady still needs kFrameReady from the GPU pipe, so do not treat
   // that switch as in-process-only.
@@ -513,7 +535,7 @@ bool MapViewport::try_content_map_view() {
 }
 
 bool MapViewport::try_oop_render() {
-#ifdef SMT_HAS_UI_SHELL
+#ifdef HAS_UI_SHELL
   if (ui::shell::IMapSession* session = ui::shell::create_map_session()) {
     if (session->start_render_process()) {
       session->open_view(ui::shell::ViewKind::kMapEdit);

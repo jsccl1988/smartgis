@@ -5,13 +5,13 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Endgame render layer → one DLL (dll_stem = render):
-#   rhi + programs + graph traversal. GPU world pass is //src/vista/world_gpu (caller-linked).
+#   rhi + programs + graph traversal. GPU world pass is //src/vista/pass/world (caller-linked).
 # Shell raster lives in //src/ui/gfx, not this DLL.
 # Scenic copy engines are //src/scenic (opt-in), not this DLL.
 # Scene math is //src/base/math:{math,bounds} and is not linked into this DLL.
 
 config("rhi_flycube") {
-  defines = [ "SMT_HAS_FLYCUBE" ]
+  defines = [ "HAS_FLYCUBE" ]
 }
 
 source_set("rhi_sources") {
@@ -37,7 +37,7 @@ source_set("rhi_sources") {
   ]
   include_dirs += [ "//src" ]
   defines = [ "RENDER_EXPORTS" ]
-  if (smt_has_flycube) {
+  if (has_flycube) {
     public_configs = [ ":rhi_flycube" ]
     deps = [ "//third_party:flycube" ]
   }
@@ -67,7 +67,7 @@ test("rhi_test") {
     "//src/base:base",
   ]
 }
-smt_shared_library("render") {
+product_shared_library("render") {
   dll_stem = "render"
   defines = [ "RENDER_EXPORTS" ]
   deps = [
@@ -77,8 +77,8 @@ smt_shared_library("render") {
     "//src/render/graph:graph_sources",
   ]
   # Forward FlyCube presence to consumers (tests / Views) that branch on
-  # SMT_HAS_FLYCUBE; source_set public_configs do not flow through the DLL.
-  if (smt_has_flycube) {
+  # HAS_FLYCUBE; source_set public_configs do not flow through the DLL.
+  if (has_flycube) {
     public_configs = [ ":rhi_flycube" ]
   }
 }

@@ -29,11 +29,11 @@ namespace gpu {
 namespace {
 namespace cd = content::detail;
 
-using SmtRhi2dBgraSubmitFn = bool (*)(const uint8_t* bgra, uint32_t width_px,
+using Rhi2dBgraSubmitFn = bool (*)(const uint8_t* bgra, uint32_t width_px,
                                     uint32_t height_px, uint32_t stride_bytes,
                                     void* user);
-using SmtRhi2dSetBgraSubmitFn = void (*)(SmtRhi2dBgraSubmitFn fn, void* user);
-using SmtRhi2dClearBgraSubmitFn = void (*)(void);
+using Rhi2dSetBgraSubmitFn = void (*)(Rhi2dBgraSubmitFn fn, void* user);
+using Rhi2dClearBgraSubmitFn = void (*)(void);
 
 detail::OutputSurface* g_leftover_gdi_present = nullptr;
 
@@ -125,8 +125,8 @@ void bind_leftover_gdi_bgra_submit() {
   if (!gdi) {
     return;
   }
-  auto set_fn = reinterpret_cast<SmtRhi2dSetBgraSubmitFn>(
-      GetProcAddress(gdi, "SmtRhi2dSetBgraSubmit"));
+  auto set_fn = reinterpret_cast<Rhi2dSetBgraSubmitFn>(
+      GetProcAddress(gdi, "Rhi2dSetBgraSubmit"));
   if (set_fn) {
     set_fn(&leftover_gdi_bgra_upload, nullptr);
   }
@@ -145,8 +145,8 @@ void clear_leftover_gdi_bgra_submit() {
   if (!gdi) {
     return;
   }
-  auto clear_fn = reinterpret_cast<SmtRhi2dClearBgraSubmitFn>(
-      GetProcAddress(gdi, "SmtRhi2dClearBgraSubmit"));
+  auto clear_fn = reinterpret_cast<Rhi2dClearBgraSubmitFn>(
+      GetProcAddress(gdi, "Rhi2dClearBgraSubmit"));
   if (clear_fn) {
     clear_fn();
   }

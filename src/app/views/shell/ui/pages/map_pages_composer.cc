@@ -40,8 +40,8 @@
 #include "content/public/map_types.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "vista/atmosphere/session/field_channel.h"
-#include "vista/atmosphere/session/environment.h"
+#include "vista/component/atmosphere/field/field_channel.h"
+#include "vista/component/atmosphere/environment.h"
 #include "vista/terrain/process/land_mask.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
@@ -127,8 +127,16 @@ bool seh_view_host_flashing(content::ViewHost* host) {
   if (!host || ptr_addr_poison(reinterpret_cast<uintptr_t>(host))) {
     return false;
   }
+  if (!ptr_mem_readable(host, sizeof(void*) * 2)) {
+    return false;
+  }
   __try {
-    return host->flashing();
+    tool::Workspace* ws = host->workspace();
+    if (!ws || ptr_addr_poison(reinterpret_cast<uintptr_t>(ws)) ||
+        !ptr_mem_readable(ws, sizeof(void*) * 2)) {
+      return false;
+    }
+    return ws->flashing();
   } __except (EXCEPTION_EXECUTE_HANDLER) {
     return false;
   }
@@ -308,7 +316,13 @@ void MapPagesComposer::wire_map_scene() {
         host_->browser_->blit()->capture(hdc, w, h);
       }
       content::ViewHost* host = host_->active_view_host();
-      if (host_->browser_->flash_lit() && seh_view_host_flashing(host)) {
+      // Showcase first Widget::show paints before MapSession hosts are live;
+      // flashing() then follows a dangling Workspace pimpl (cdb: tool_d
+      // Workspace::flashing INVALID_POINTER_READ). Skip until after export.
+      const bool showcase =
+          base::switch_cstr("map2d-showcase") != nullptr;
+      if (!showcase && host_->browser_->flash_lit() &&
+          seh_view_host_flashing(host)) {
         host_->browser_->map2d()->paint_flash_overlay(hdc, w, h);
       }
     };
@@ -347,8 +361,11 @@ void MapPagesComposer::wire_map_scene() {
       host_->browser_->scene3d()->paint_hud(hdc, w, h);
       return;
     }
-    if (content_map) {
-      // MapViewport already blitted ContentMapView when possible; HUD only.
+    if (content_map && host_->map_scene_ &&
+        host_->map_scene_->last_content_present_ok()) {
+      // SharedSurface actually blitted — HUD only. Empty ContentMapView
+      // (no GPU frames) must fall through to Scene3dPresenter::paint or the
+      // 3D tab stays navy (scenic / GDI product HWND SoT).
       host_->browser_->scene3d()->set_render_engine_name("ContentMapView");
       host_->browser_->scene3d()->paint_hud(hdc, w, h);
       return;
@@ -357,6 +374,10 @@ void MapPagesComposer::wire_map_scene() {
     // into the paint DC. Keep the RHI label so the badge is not "Stereo/GL".
     if (flycube) {
       host_->browser_->scene3d()->set_render_engine_name("FlyCube/DX12");
+    } else if (content::prefer_scene3d_scenic()) {
+      host_->browser_->scene3d()->set_render_engine_name("scenic");
+    } else if (content::prefer_scene3d_gdi()) {
+      host_->browser_->scene3d()->set_render_engine_name("GDI");
     }
     host_->browser_->scene3d()->paint(hdc, w, h, /*fill_background=*/true);
   };
@@ -396,7 +417,8 @@ void MapPagesComposer::wire_map_scene() {
   }
   // Seed shell overlay Commit for FlyCube / PresentMailbox (generation skip).
   host_->commit_widget_shell_to_maps();
-  host_->wire_tool_seams();
+  // Tool workspace binds run in BrowserView::finish_deferred_shell_wiring()
+  // after WaitFirstMapPresent so WireShell / Browser.init stay off the gate.
   // Do not sync inspectors here: ResultPlaybackPanel scrubber paint during
   // init_shell AVd on skewed/stale panel* (heap corruption). init_shell and
   // session/plugin paths call sync_inspectors_from_scene after chrome is up.
@@ -488,9 +510,11 @@ void MapPagesComposer::sync_flash_timer() {
     return;
   }
   constexpr UINT_PTR kFlash = 0x464C5348u;
-  SetPropW(h, L"SmtFlashBrowser", reinterpret_cast<HANDLE>(host_));
+  SetPropW(h, L"FlashBrowser", reinterpret_cast<HANDLE>(host_));
   content::ViewHost* host = host_->active_view_host();
-  const bool on = seh_view_host_flashing(host);
+  const bool on = base::switch_cstr("map2d-showcase")
+                      ? false
+                      : seh_view_host_flashing(host);
   KillTimer(h, kFlash);
   if (!on) {
     host_->browser_->set_flash_lit(true);
@@ -498,7 +522,7 @@ void MapPagesComposer::sync_flash_timer() {
   }
   SetTimer(h, kFlash, 400, [](HWND hwnd, UINT, UINT_PTR, DWORD) {
     auto* self = reinterpret_cast<BrowserView*>(
-        GetPropW(hwnd, L"SmtFlashBrowser"));
+        GetPropW(hwnd, L"FlashBrowser"));
     if (!self) {
       return;
     }
@@ -629,10 +653,10 @@ void MapPagesComposer::invalidate_map_overlays() {
 
 
 void MapPagesComposer::attach_hwnd_gestures() {
-  // Showcase / self-test set SMT_SKIP_AMBOX_CATALOG: HWND gesture subclass has
+  // Showcase / self-test set SKIP_AMBOX_CATALOG: HWND gesture subclass has
   // AVed under parallel ninja (std::function _Tidy on 0xcdcdcdcd). Product
   // ContentMapView / GDI overlay still needs attach so pan/pinch/right-click
-  // hit input_hwnd() (do not skip on SMT_FORCE_CONTENT_MAPVIEW_2D).
+  // hit input_hwnd() (do not skip on FORCE_CONTENT_MAPVIEW_2D).
   auto env_is_one = [](const char* name) {
     const char* v = base::switch_cstr(name);
     return v && v[0] == '1' && v[1] == '\0';

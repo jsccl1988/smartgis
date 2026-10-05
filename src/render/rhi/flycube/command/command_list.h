@@ -11,7 +11,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 // RHI command list. Recording state lives in Recorder.
 class FlycubeCommandList : public StubCommandList {
@@ -43,7 +43,7 @@ class FlycubeCommandList : public StubCommandList {
                     uint32_t first_instance) override;
 };
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

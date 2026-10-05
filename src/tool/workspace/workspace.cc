@@ -222,7 +222,17 @@ const Draft& Workspace::last_draft() const {
 }
 
 bool Workspace::flashing() const {
-  return impl_ && impl_->flashing;
+  const Impl* p = impl_.get();
+  if (!p) {
+    return false;
+  }
+  // Unique_ptr can look non-null after a dangling ViewHost (paint overlay on
+  // first Widget::show). Non-canonical / low pointers are not a live Impl.
+  const auto addr = reinterpret_cast<uintptr_t>(p);
+  if (addr < 0x10000ull || (addr >> 48) != 0) {
+    return false;
+  }
+  return p->flashing;
 }
 
 void Workspace::set_draft_flags(uint32_t flags) {

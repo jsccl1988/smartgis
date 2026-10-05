@@ -102,7 +102,7 @@ source_set("embed_sample_sources") {
 }
 
 # Product content DLL. Disk stem: content.dll / content_d.dll.
-smt_shared_library("content") {
+product_shared_library("content") {
   dll_stem = "content"
   defines = [ "CONTENT_EXPORTS" ]
   deps = [

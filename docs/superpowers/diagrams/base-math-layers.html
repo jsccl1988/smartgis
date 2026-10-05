@@ -161,9 +161,11 @@ All rights reserved.
       </thead>
       <tbody>
         <tr><td><code>base/math/math.h</code></td><td>产品聚合头（首选）</td></tr>
-        <tr><td><code>base/math/linear/vector.h</code> 等</td><td>新 TU 分层 include</td></tr>
-        <tr><td>根 <code>vector.h</code> 等</td><td>leftover 切断期别名，禁止新代码</td></tr>
+        <tr><td><code>base/math/linear/vector.h</code> 等</td><td>新 TU 分层 include（无根 shim）</td></tr>
+        <tr><td>include guard</td><td><code>BASE_MATH_&lt;LAYER&gt;_&lt;STEM&gt;_H_</code></td></tr>
+        <tr><td>函数 / 类型</td><td><code>snake_case</code> / <code>PascalCase</code>（<code>Point2f</code>；POD 场名保留）</td></tr>
         <tr><td><code>:linear</code> / <code>:bounds</code> / <code>:math</code></td><td>头 / geom cpp / facade+simd</td></tr>
+        <tr><td>SIMD</td><td><code>base_math_simd</code> 默认关</td></tr>
       </tbody>
     </table>
   </section>

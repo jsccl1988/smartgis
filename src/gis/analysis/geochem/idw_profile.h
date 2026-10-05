@@ -24,7 +24,7 @@ struct GeochemIdwProfile {
 };
 
 inline bool geochem_idw_profile_enabled() {
-  const char* e = std::getenv("SMT_ANALYSIS_PROFILE");
+  const char* e = std::getenv("ANALYSIS_PROFILE");
   if (!e || !e[0]) {
     return false;
   }

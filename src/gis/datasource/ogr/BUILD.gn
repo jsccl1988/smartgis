@@ -11,7 +11,7 @@ import("//testing/test.gni")
 #   source_sets). Inline GIS_EXPORT members must not also appear in a second
 #   PE that imports gis.dll (LNK2005).
 # - ogr_codec_client: no GIS_EXPORTS — leftover / content / tests that already
-#   link //src/gis:gis. GIS_EXPORT becomes dllimport so Tin/SmtStyle inlines
+#   link //src/gis:gis. GIS_EXPORT becomes dllimport so Tin/Style inlines
 #   resolve via gis.lib.
 
 # Windows charset helper only (no GDAL). Views + leftover GDI both decode

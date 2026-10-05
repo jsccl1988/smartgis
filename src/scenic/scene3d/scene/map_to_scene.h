@@ -4,7 +4,7 @@
 #ifndef SCENIC_SCENE3D_MAP_TO_SCENE_H_
 #define SCENIC_SCENE3D_MAP_TO_SCENE_H_
 
-#include "vista/world/world.h"
+#include "vista/component/world/world.h"
 #include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/camera/camera.h"
 #include "scenic/render/rhi3d/public/device/render_device.h"
@@ -71,7 +71,7 @@ SCENIC_IMPL_EXPORT int seed_showcase_mode_into_scene(LP3DRENDERDEVICE device,
                                                        Scene* scene,
                                                        const char* mode);
 
-// SMT_SCENE3D_SHOWCASE_MODE env, or "china" when unset / empty.
+// SCENE3D_SHOWCASE_MODE env, or "china" when unset / empty.
 SCENIC_IMPL_EXPORT const char* showcase_mode_from_env();
 
 // Drop DEM framing cache (mesh showcase must not prefer leftover china AABB).

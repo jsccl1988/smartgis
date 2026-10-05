@@ -23,7 +23,7 @@ All rights reserved.
 
 
 
-**Architecture:** Narrow Facade (`LightParams`, `PipelineId::kLitSolid`) + `GpuScene` bind for terrain/model/tileset; CPU AABB vs view frustum; Null counters + `SMT_RUN_FLYCUBE_GPU=1` smoke. Do **not** edit `src/render/atmosphere/**` or FieldStore (parallel atmosphere upgrade).
+**Architecture:** Narrow Facade (`LightParams`, `PipelineId::kLitSolid`) + `GpuScene` bind for terrain/model/tileset; CPU AABB vs view frustum; Null counters + `RUN_FLYCUBE_GPU=1` smoke. Do **not** edit `src/render/atmosphere/**` or FieldStore (parallel atmosphere upgrade).
 
 
 
@@ -127,7 +127,7 @@ All rights reserved.
 
 
 
-**Verify:** `build.bat` target for `rhi_test` exit 0 without `SMT_RUN_FLYCUBE_GPU`.
+**Verify:** `build.bat` target for `rhi_test` exit 0 without `RUN_FLYCUBE_GPU`.
 
 
 
@@ -221,7 +221,7 @@ All rights reserved.
 
 **Steps:**
 
-1. [x] Under `SMT_RUN_FLYCUBE_GPU=1`: after present clear, also draw a tiny lit triangle or record GpuScene terrain once; log `lit ok` / existing ok lines.
+1. [x] Under `RUN_FLYCUBE_GPU=1`: after present clear, also draw a tiny lit triangle or record GpuScene terrain once; log `lit ok` / existing ok lines.
 
 2. [x] On `initialize` false: print skip, return success (no red).
 
@@ -231,7 +231,7 @@ All rights reserved.
 
 ```bat
 
-set SMT_RUN_FLYCUBE_GPU=1
+set RUN_FLYCUBE_GPU=1
 
 ninja -C out rhi_test
 
@@ -281,7 +281,7 @@ ninja -C out scene_gpu_test
 
 
 
-**Task 6 regression (2026-09-20, Null default):** `rhi_test` / `scene_gpu_test` / `leftover_record_test` / `unified_draw_test` all exit 0 (`ok`; GPU paths skip without `SMT_RUN_FLYCUBE_GPU`). No code fix required.
+**Task 6 regression (2026-09-20, Null default):** `rhi_test` / `scene_gpu_test` / `leftover_record_test` / `unified_draw_test` all exit 0 (`ok`; GPU paths skip without `RUN_FLYCUBE_GPU`). No code fix required.
 
 
 
@@ -331,7 +331,7 @@ ninja -C out leftover_record_test
 
 REM Optional real GPU (skip-not-red if no adapter)
 
-set SMT_RUN_FLYCUBE_GPU=1
+set RUN_FLYCUBE_GPU=1
 
 ninja -C out rhi_test
 

@@ -16,7 +16,7 @@ All rights reserved.
 | **L0** | 工具箱单测（合成事件） | **已有** | `out\views_unittests.exe` |
 | **L1** | 进程内交互序列 | **已有**（Wave1；[`ui-testing` P2](#分期) + living §UI interactive harness） | `out\views_interactive_tests.exe`（GN `//src/ui/views:views_interactive_tests`；harness `src/ui/views/testing/harness/`） |
 | **L1b** | 壳/合成 perf 微基准 | **已有**（非默认 `te`） | `out\views_bench.exe`（GN `//src/ui/views:views_bench`） |
-| **L1c** | UI 视觉取证（Scheme 1 A+C） | **已有**（**非**默认 `te` 门禁） | 失败/`SMT_UI_FORENSICS=1` → `out\ui_forensics\`；`tools\debug\scripts\ui_visual_forensics.py` |
+| **L1c** | UI 视觉取证（Scheme 1 A+C） | **已有**（**非**默认 `te` 门禁） | 失败/`UI_FORENSICS=1` → `out\ui_forensics\`；`tools\debug\scripts\ui_visual_forensics.py` |
 | **L1′** | 产品壳语义路径 | **已有** | `SmartGIS.exe --self-test`；`SmartGisWinui.exe --self-test`；`SmartGisCef.exe --self-test`（有 CEF pin 时） |
 | **L2** | 壳像素回归 | **已有**；地图帧不进默认基线 | `out\views_pixel_tests.exe` |
 | **L3** | 黑盒 UIA / FlaUI | **低优先**（自绘 Views 缺 Provider） | 暂缓 |
@@ -81,7 +81,7 @@ out\views_bench.exe --benchmark_filter=BM_overlay
 ### L1c — UI visual forensics（Scheme 1 A+C；已落地）
 
 - **设计已锁定：** living spec [`2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) §UI visual forensics (A+C)；实现清单 [`2026-09-28-ui-visual-forensics.md`](plans/2026-09-28-ui-visual-forensics.md)。
-- **Mode A（默认行为）：** L0 / L1′ 仍以语义断言与 `layout_check` 为门禁；**失败时**（或 `SMT_UI_FORENSICS=1`）写入 `out\ui_forensics\<run_id>\`：
+- **Mode A（默认行为）：** L0 / L1′ 仍以语义断言与 `layout_check` 为门禁；**失败时**（或 `UI_FORENSICS=1`）写入 `out\ui_forensics\<run_id>\`：
   - `layout_issues.txt`（含 sibling-overlap 建议项）
   - `manifest.json`（View 树 bounds；L0 `dump_ui_forensics` 还可写 `frame_0000.png`）
 - **C++：** `layout_check` 增补 `collect_sibling_overlaps` / `write_layout_issues_file`；`testing/forensics/ui_forensics.*`；`views_unittests` 场景（TabStrip / Ambox / Gantt geom / dump）；`RenderTracePanel::set_embedded` 收起重复 chrome 以修甘特泳道；DebugAgent `ui.capture_shell` + `:ui capture [path]`。
@@ -92,7 +92,7 @@ out\views_bench.exe --benchmark_filter=BM_overlay
 
 ```bat
 dir out\ui_forensics
-set SMT_UI_FORENSICS=1
+set UI_FORENSICS=1
 out\Debug\views_unittests.exe
 py -3 tools\debug\scripts\ui_visual_forensics.py --list-runs
 py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run_id>
@@ -101,18 +101,18 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 ### L1′ — `SmartGIS.exe --self-test`
 
 - 实现：`src/app/views/main.cc`（`BrowserMain`）。
-- 真 HWND：泵消息 → 检查壳 → Map / Data / 3D 切换 → `wait_ready`（`kContentMapView` 时）→ 断言 `HostView::Latest` 出帧（marks：`map-frame-ok` / `scene-frame-ok`）→ 3D trackball 输入 → 编辑点 / 选择 / 清选（`input-point-ok`：`FeatureMutation.geom` 为 point）→ M0 折线 + FeatureGeom（`input-line-ok` / `m0-line-ok`）→ 多边形 digitize（`input-poly-ok` / `input-ok`）→ OGR China PLP 进层（`china-plp-ok`）→ `view.pan`（`pan-ok`）→ 浏览压力（`browse-ok`：多次 LMB pan + wheel，RMB 不被 pan 吞掉；`SMT_SKIP_MAP_CONTEXT_MENU=1` 跳过模态菜单）→ 光标处滚轮（`wheel-cursor-ok`）→ 轨道相机矩阵 → `layout_check` → 地图 HWND 与 View bounds 对齐。
+- 真 HWND：泵消息 → 检查壳 → Map / Data / 3D 切换 → `wait_ready`（`kContentMapView` 时）→ 断言 `HostView::Latest` 出帧（marks：`map-frame-ok` / `scene-frame-ok`）→ 3D trackball 输入 → 编辑点 / 选择 / 清选（`input-point-ok`：`FeatureMutation.geom` 为 point）→ M0 折线 + FeatureGeom（`input-line-ok` / `m0-line-ok`）→ 多边形 digitize（`input-poly-ok` / `input-ok`）→ OGR China PLP 进层（`china-plp-ok`）→ `view.pan`（`pan-ok`）→ 浏览压力（`browse-ok`：多次 LMB pan + wheel，RMB 不被 pan 吞掉；`SKIP_MAP_CONTEXT_MENU=1` 跳过模态菜单）→ 光标处滚轮（`wheel-cursor-ok`）→ 轨道相机矩阵 → `layout_check` → 地图 HWND 与 View bounds 对齐。
 - 由 `exe_smoke` 拉起；窗口标题 `SmartGIS Views`。
 - 浏览回归 loop：`py -3 testing/tools/loop_runner.py --suite browse`（可 `--no-build`）。
 - **Map browse forensic（L1′ 扩展，2026-09-30）：** 卡死 / 花屏黑屏 / 跟手差 / 崩溃 取证。
-  - Suites：`browse`（Views 2D）、`browse.3d`（Views 3D tab orbit/wheel）、`legacy.browse.2d`（裸 `SmartGIS-Legacy.exe` Edit + **`os_inject_default=sendinput`** → map_client HWND + `capture_hwnd_bmp_ex` → `legacy-browse-2d-edit.bmp`；`bmp.soft` 时 china score 仅 informational；**zoom_gate** / **motion_gate**（录像唯一帧）/ **click_gate**（click+dblclick + `_click_after.bmp`））、`legacy.browse.3d`（OS inject + scene3d showcase linger / `SMT_HARNESS_OS_WAIT_BMP`）。
-  - 录像：`SMT_HARNESS_RECORD=1`（可选 `SMT_HARNESS_RECORD_FPS`、`SMT_HARNESS_RECORD_MODE=auto|bmp|ffmpeg`）；`testing/tools/loop/record/hwnd.py`。
+  - Suites：`browse`（Views 2D）、`browse.3d`（Views 3D tab orbit/wheel）、`legacy.browse.2d`（裸 `SmartGIS-Legacy.exe` Edit + **`os_inject_default=sendinput`** → map_client HWND + `capture_hwnd_bmp_ex` → `legacy-browse-2d-edit.bmp`；`bmp.soft` 时 china score 仅 informational；**zoom_gate** / **motion_gate**（录像唯一帧）/ **click_gate**（click+dblclick + `_click_after.bmp`））、`legacy.browse.3d`（OS inject + scene3d showcase linger / `HARNESS_OS_WAIT_BMP`）。
+  - 录像：`HARNESS_RECORD=1`（可选 `HARNESS_RECORD_FPS`、`HARNESS_RECORD_MODE=auto|bmp|ffmpeg`）；`testing/tools/loop/record/hwnd.py`。
     - **双屏：** BMP burst：主屏 HWND 优先 `BitBlt`（跟手）；副屏/遮挡用 `PrintWindow`。`ffmpeg` 优先 `gdigrab title=`；缺 ffmpeg 时 BMP frames 可后编 `mp4_path`（有则写）。报告含 `virtual_screen` / `rect.on_primary` / `ffmpeg_skip` / `mp4_path`。
     - 缺 ffmpeg **不硬失败**；关窗时的全黑尾帧会被丢弃。
   - 产物：`out/<config>/captures/record/<suite>_<stamp>.mp4` 或 `…/record/*_frames/`；分析回放帧在 `captures/analysis/<topic>/`；报告 / marks / showcase BMP 在 `captures/<scenario>/`（与 harness family 对齐：`atmosphere/` `map2d/` `plugin/` `ui/` `legacy/` `shell/`）。报告 JSON 含 `record_path` / `steps[]` / `t_ms`。
   - 症状对照：timeout/`rc=124`→卡死；BMP score / 录像→花屏黑屏；`steps` 时间线 vs 画面→跟手；非零 exit / dump→崩溃（`windbg-crash-diagnose`）。
-  - 例：`set SMT_HARNESS_RECORD=1` 后 `py -3 testing/tools/loop_runner.py --suite browse.3d --no-build --rounds 1`。双屏强制 BMP：`set SMT_HARNESS_RECORD_MODE=bmp`。
-  - **As-built note (2026-10-01)：** `legacy.browse.2d` 不再用 `--map2d-showcase` / `SMT_HARNESS_OS_WAIT_BMP`；Edit 壳 title `SmartGis`，inject 优先 `AfxFrameOrView*` map client，suite BMP 由 `loop.record.hwnd.capture_hwnd_bmp_ex` 写出。`wheel_burst` **单向**（每 tick 用给定 `delta`，`sendinput`/`postmessage` 一致，不再 `i%2` 翻转）。`suite.json` → `zoom_gate`：首段 zoom-out 前后对 **shell HWND** 落 `legacy/_zoom_before.bmp` / `_zoom_after.bmp`（勿 BitBlt map_client），硬闸 `gates.zoom_pixel_diff`；无变化/after 过黑时升一次 SendInput 并重抓。`.il` 先 zoom-out → pan/path → zoom-in。`browse.3d` / `legacy.browse.3d`（`SMT_STEREO_API=OpenGL`）仍走 linger/showcase 路径；`browse`（Views 2D stress）曾会非零退出——正是 forensic 要抓的症状；录像路径已双屏加固。
+  - 例：`set HARNESS_RECORD=1` 后 `py -3 testing/tools/loop_runner.py --suite browse.3d --no-build --rounds 1`。双屏强制 BMP：`set HARNESS_RECORD_MODE=bmp`。
+  - **As-built note (2026-10-01)：** `legacy.browse.2d` 不再用 `--map2d-showcase` / `HARNESS_OS_WAIT_BMP`；Edit 壳 title `SmartGis`，inject 优先 `AfxFrameOrView*` map client，suite BMP 由 `loop.record.hwnd.capture_hwnd_bmp_ex` 写出。`wheel_burst` **单向**（每 tick 用给定 `delta`，`sendinput`/`postmessage` 一致，不再 `i%2` 翻转）。`suite.json` → `zoom_gate`：首段 zoom-out 前后对 **shell HWND** 落 `legacy/_zoom_before.bmp` / `_zoom_after.bmp`（勿 BitBlt map_client），硬闸 `gates.zoom_pixel_diff`；无变化/after 过黑时升一次 SendInput 并重抓。`.il` 先 zoom-out → pan/path → zoom-in。`browse.3d` / `legacy.browse.3d`（`STEREO_API=OpenGL`）仍走 linger/showcase 路径；`browse`（Views 2D stress）曾会非零退出——正是 forensic 要抓的症状；录像路径已双屏加固。
 - 输入/数字化回归 loop：`py -3 testing/tools/loop_runner.py --suite input`（脚本 `harness/shell/input/input.il`；缺省或失败时回退 C++）。
 - Suite 契约：`testing/tools/harness/<family>/<suite_id>/` 只留 `suite.json` + 可选 `*.il`（id 与 C++ `ScenarioRegistry` 对齐）；`--list` 列出可用 id。共享 case 在 `harness/_shared/case/`。入口统一 `loop_runner --suite <id>`（已移除同目录 `*_loop.py` / 旁路 `*.args.json`）。
 - 算子参数：`run_processing(..., args="{\"k\":\"$var\"}")` 内联（Interact.g4 支持 `\"` / `\\` 转义 + `$var` 展开）。
@@ -129,7 +129,7 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
   - Wave2 显式 checklist：`legacy.browse.*`、`ui.{shell,catalog,data,scene,interact,interact.os}`、`atmosphere.legacy`、`legacy.map2d/scene3d.*`、`map2d.orthogrid`（外加 Wave1 plugin/atmosphere.full/map2d.china）。Wave2 实跑优先：`legacy.browse.2d`、`map2d.china`。
   - Skill：`.cursor/skills/harness-visual-review/SKILL.md`。**不**进默认 `te`。
   - Living：[`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) §Visual review closed-loop。
-  - **Plain argv=[] 2D/3D browse：** `py -3 testing/tools/loop/plain_browse_capture.py`。壳 PrintWindow 用 `views_shell_chrome`（青蓝 map hole 允许）；DXGI 金样优先 FlyCube Present BitBlt + `views_present_dxgi`（拒 TabStrip accent bleed / 壳 ocean clear；可裁顶栏 underline）。Flip/NOREDIRECTION 下 BitBlt 常读不到 swapchain 时，以产品日志为金样（2D：`frame_items=`；3D：`scene3d.present dem` + `lazy attach tab=2`）。3D 用 env `SMT_VIEWS_START_MAP_TAB=scene3d`（仍无 argv），不靠 OS 点 TabStrip。
+  - **Plain argv=[] 2D/3D browse：** `py -3 testing/tools/loop/plain_browse_capture.py`。壳 PrintWindow 用 `views_shell_chrome`（青蓝 map hole 允许）；DXGI 金样优先 FlyCube Present BitBlt + `views_present_dxgi`（拒 TabStrip accent bleed / 壳 ocean clear；可裁顶栏 underline）。Flip/NOREDIRECTION 下 BitBlt 常读不到 swapchain 时，以产品日志为金样（2D：`frame_items=`；3D：`scene3d.present dem` + `lazy attach tab=2`）。3D 用 env `VIEWS_START_MAP_TAB=scene3d`（仍无 argv），不靠 OS 点 TabStrip。
 - Console 短路径：`py -3 testing/tools/loop_runner.py --suite console`（`--self-test-console`；`console.il`；marks：`console-ok` / `console-bench-ok`）。
   - 产品合同：`SmartGIS.exe --input-showcase` → `out/Debug/input-self-test-mark.txt`
   - 闸门 marks：`input-point-ok` / `input-line-ok` / `input-poly-ok` / `input-ok`（β `FeatureMutation.geom`）
@@ -176,10 +176,10 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 ### L1′ — Atmosphere 3D showcase（`SmartGIS.exe --atmosphere-showcase=`）
 
 独立于完整 `--self-test`：切到 3D 页，按模式配置大气，连续 `present_gpu` 三帧后退出。
-默认 **Null RHI**（确定性 exit 0）。`SMT_ATMOSPHERE_SHOWCASE_GPU=1` 时在**独立**
-640×480 展示窗上拉 FlyCube/DX12（启动期勿设 `SMT_PREFER_FLYCUBE_3D=1`）。
+默认 **Null RHI**（确定性 exit 0）。`ATMOSPHERE_SHOWCASE_GPU=1` 时在**独立**
+640×480 展示窗上拉 FlyCube/DX12（启动期勿设 `PREFER_FLYCUBE_3D=1`）。
 GPU **永远显示直到关掉展示窗**（忽略残留正数 `LINGER_MS`）。自动化用
-`SMT_ATMOSPHERE_SHOWCASE_TIMED_MS=1500`，或 `LINGER_MS=0` 跳过。
+`ATMOSPHERE_SHOWCASE_TIMED_MS=1500`，或 `LINGER_MS=0` 跳过。
 旁路产物：`out/Debug/captures/atmosphere/atmosphere-showcase-mark.txt`、`atmosphere/atmosphere-showcase-<mode>.bmp`、
 `atmosphere/atmosphere-showcase-cmdline.txt`。GPU 路径要求 BMP 有可见像素，否则 exit 54。
 
@@ -202,7 +202,7 @@ GPU **永远显示直到关掉展示窗**（忽略残留正数 `LINGER_MS`）。
 | 54 | GPU BMP 全黑 / 单色 clear（无几何信号） |
 
 ```bat
-set SMT_ATMOSPHERE_SHOWCASE_GPU=1
+set ATMOSPHERE_SHOWCASE_GPU=1
 out\SmartGIS.exe --atmosphere-showcase=land
 out\SmartGIS.exe --atmosphere-showcase=ocean
 out\SmartGIS.exe --atmosphere-showcase=full
@@ -217,7 +217,7 @@ py -3 testing\tools\loop_runner.py --suite atmosphere.legacy --no-build
 ### L1′ — Legacy scene3d showcase（`SmartGIS-Legacy.exe --scene3d-showcase=`）
 
 对照 Views atmosphere / legacy map2d shot loop：无 MDI，`smt_stereo_hwnd_*`
-present 三帧后写出旁路 BMP。自动化：`SMT_SCENE3D_SHOWCASE_LINGER_MS=0`。
+present 三帧后写出旁路 BMP。自动化：`SCENE3D_SHOWCASE_LINGER_MS=0`。
 
 | 模式 | 含义 |
 | --- | --- |
@@ -227,12 +227,12 @@ present 三帧后写出旁路 BMP。自动化：`SMT_SCENE3D_SHOWCASE_LINGER_MS=
 | --- | --- |
 | 0 | 通过（BMP 旁路已写） |
 | 51 | stereo create / resize 失败 |
-| 52 | `smt_stereo_hwnd_present` 失败 |
+| 52 | `stereo_hwnd_present` 失败 |
 | 54 | BMP 捕获失败 / 无可见像素 |
 | 56 / 57 | 旁路路径 / HWND / DLL 失败 |
 
 ```bat
-set SMT_SCENE3D_SHOWCASE_LINGER_MS=0
+set SCENE3D_SHOWCASE_LINGER_MS=0
 out\Debug\SmartGIS-Legacy.exe --scene3d-showcase china
 py -3 testing\tools\loop_runner.py --suite legacy.scene3d.china --no-build
 rem leftover D3D11 stereo:
@@ -246,7 +246,7 @@ py -3 testing\tools\loop_runner.py --suite legacy.scene3d.china.d3d --no-build
 
 独立壳层截图路径（对照 atmosphere / map2d shot loop）：`Browser::show` → layout_check →
 强制子窗 `RedrawWindow` → 写出 `ui-showcase-shell.bmp`。自动化：
-`SMT_UI_SHOWCASE_LINGER_MS=0`。可选 `SMT_UI_FORENSICS=1` 写 `out/ui_forensics/`。
+`UI_SHOWCASE_LINGER_MS=0`。可选 `UI_FORENSICS=1` 写 `out/ui_forensics/`。
 
 | 退出码 | 含义 |
 | --- | --- |
@@ -256,7 +256,7 @@ py -3 testing\tools\loop_runner.py --suite legacy.scene3d.china.d3d --no-build
 | 54 / 55 | BMP 捕获失败 / 路径失败 |
 
 ```bat
-set SMT_UI_SHOWCASE_LINGER_MS=0
+set UI_SHOWCASE_LINGER_MS=0
 out\Debug\SmartGIS.exe --ui-showcase=shell
 py -3 testing\tools\loop_runner.py --suite ui.shell --no-build
 ```

@@ -11,7 +11,7 @@ namespace detail {
 
 class D3dRenderDevice;
 
-// Env SMT_RHI3D_D3D_DEFERRED: unset/1/y → on; 0/n/f → off.
+// Env RHI3D_D3D_DEFERRED: unset/1/y → on; 0/n/f → off.
 bool d3d_deferred_env_enabled();
 
 // Per-device deferred-context pool (P3). Workers record; FrameJob executes.

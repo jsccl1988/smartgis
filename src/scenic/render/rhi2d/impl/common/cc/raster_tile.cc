@@ -88,7 +88,7 @@ Rhi2dParallelMode rhi2d_parallel_mode() {
   }
   // Debug Edit/china: default tile execute has been AV'ing after prep on
   // first ZoomToRect (legacy.browse.2d). Keep Release on tile; opt in Debug
-  // with SMT_RHI2D_PARALLEL=tile / SMT_RHI2D_TILE_FORCE=1.
+  // with RHI2D_PARALLEL=tile / RHI2D_TILE_FORCE=1.
 #if defined(_DEBUG)
   return Rhi2dParallelMode::kSerial;
 #else
@@ -129,7 +129,7 @@ int rhi2d_parallel_worker_count(size_t job_count) {
 
 int rhi2d_adaptive_tile_pixel_size(int viewport_w, int viewport_h) {
   int tile = rhi2d_tile_pixel_size();
-  // Explicit SMT_RHI2D_TILE_SIZE keeps the env value for A/B harnesses.
+  // Explicit RHI2D_TILE_SIZE keeps the env value for A/B harnesses.
   if (const char* forced = base::switch_cstr("rhi2d-tile-size");
       forced != nullptr && forced[0] != '\0') {
     return tile;

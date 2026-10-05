@@ -13,21 +13,21 @@ ProviderTileLayer::ProviderTileLayer(std::shared_ptr<TileProvider> provider)
     : provider_(std::move(provider)) {
   name_[0] = '\0';
   srs_[0] = '\0';
-  SetLayerName("tile");
-  SetSRS("EPSG:3857");
+  set_name("tile");
+  set_srs("EPSG:3857");
 }
 
 ProviderTileLayer::~ProviderTileLayer() { clear_tiles(); }
 
-void ProviderTileLayer::SetLayerName(const char* szName) {
-  std::snprintf(name_, sizeof(name_), "%s", szName ? szName : "");
+void ProviderTileLayer::set_name(const char* name) {
+  std::snprintf(name_, sizeof(name_), "%s", name ? name : "");
 }
 
-void ProviderTileLayer::SetSRS(const char* szSrs) {
-  std::snprintf(srs_, sizeof(srs_), "%s", szSrs ? szSrs : "");
+void ProviderTileLayer::set_srs(const char* srs) {
+  std::snprintf(srs_, sizeof(srs_), "%s", srs ? srs : "");
 }
 
-void ProviderTileLayer::SetLayerRect(const Envelope& lyr_rect) {
+void ProviderTileLayer::set_rect(const Envelope& lyr_rect) {
   envelope_ = lyr_rect;
 }
 
@@ -35,7 +35,7 @@ void ProviderTileLayer::clear_tiles() { images_.clear(); }
 
 void ProviderTileLayer::adopt_images(std::vector<TileImage> images) {
   images_ = std::move(images);
-  CalEnvelope();
+  cal_envelope();
   open_ = true;
 }
 
@@ -52,17 +52,17 @@ void ProviderTileLayer::set_images(std::vector<TileImage> images) {
   adopt_images(std::move(images));
 }
 
-bool ProviderTileLayer::Create() {
+bool ProviderTileLayer::create() {
   open_ = true;
   return true;
 }
 
-bool ProviderTileLayer::Open(const char* szLayerArchiveName) {
+bool ProviderTileLayer::open(const char* archive_name) {
   if (!provider_) {
     return false;
   }
-  if (szLayerArchiveName && szLayerArchiveName[0]) {
-    if (!provider_->open_xyz(szLayerArchiveName)) {
+  if (archive_name && archive_name[0]) {
+    if (!provider_->open_xyz(archive_name)) {
       return false;
     }
   }
@@ -70,26 +70,26 @@ bool ProviderTileLayer::Open(const char* szLayerArchiveName) {
   return open_;
 }
 
-bool ProviderTileLayer::Close() {
+bool ProviderTileLayer::close() {
   clear_tiles();
   open_ = false;
   return true;
 }
 
-bool ProviderTileLayer::Fetch() { return open_; }
+bool ProviderTileLayer::fetch() { return open_; }
 
-void ProviderTileLayer::CalEnvelope() {
+void ProviderTileLayer::cal_envelope() {
   envelope_ = Envelope();
   for (const TileImage& img : images_) {
     envelope_.merge(img.world_rect);
   }
 }
 
-int ProviderTileLayer::GetTileCount() const {
+int ProviderTileLayer::tile_count() const {
   return static_cast<int>(images_.size());
 }
 
-const TileImage* ProviderTileLayer::GetTile(int index) const {
+const TileImage* ProviderTileLayer::tile_at(int index) const {
   if (index < 0 || index >= static_cast<int>(images_.size())) {
     return nullptr;
   }

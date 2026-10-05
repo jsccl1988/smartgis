@@ -88,6 +88,7 @@ class BrowserView : public BrowserUiDelegate {
   // BrowserUiDelegate
   bool init_shell() override;
   void show_shell() override;
+  void finish_deferred_shell_wiring() override;
   int run_shell_loop() override;
   void prepare_shell_close() override;
 

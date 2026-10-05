@@ -3,9 +3,9 @@
 #
 # Shared paths and DLL template for SmartGIS sources under //src.
 
-smt_src = "//src"
-# Forced-include home for smt_compat.h (legacy Windows typedefs).
-smt_vs = "//build"
+src_root = "//src"
+# Forced-include home for win_compat.h (legacy Windows typedefs).
+win_vs = "//build"
 
 # Local graphic_engine FlyCube: sources under third_party/.src/flycube;
 # Release /MD libs under third_party/.install/lib (unified prefix).
@@ -14,54 +14,54 @@ _flycube_src = "//third_party/.src/flycube"
 _flycube_cmake = read_file(_flycube_src + "/CMakeLists.txt", "string")
 _flycube_release_lib = read_file("//third_party/.install/lib/FlyCube.lib",
                                  "string")
-smt_has_flycube_src = _flycube_cmake != ""
-smt_has_flycube =
-    smt_has_flycube_src && (is_debug || _flycube_release_lib != "")
+has_flycube_src = _flycube_cmake != ""
+has_flycube =
+    has_flycube_src && (is_debug || _flycube_release_lib != "")
 
 # Header-only tinygltf activates when the pin is on disk. Assimp stays off
 # until include/assimp/Importer.hpp exists (no GitHub fetch from this gni).
-_smt_has_assimp_h = exec_script("//build/file_exists.py",
-                                [
-                                  "third_party/.src/assimp/include/assimp/Importer.hpp",
-                                ],
-                                "trim string")
-_smt_has_tinygltf_h = exec_script("//build/file_exists.py",
-                                  [ "third_party/.src/tinygltf/tiny_gltf.h" ],
-                                  "trim string")
-_smt_has_rapidjson_h = exec_script("//build/file_exists.py",
-                                   [
-                                     "third_party/.src/rapidjson/include/rapidjson/document.h",
-                                   ],
-                                   "trim string")
-_smt_has_pugixml_h = exec_script("//build/file_exists.py",
-                                 [ "third_party/.src/pugixml/src/pugixml.hpp" ],
-                                 "trim string")
-_smt_has_protobuf_h = exec_script("//build/file_exists.py",
-                                  [
-                                    "third_party/.install/include/google/protobuf/message.h",
-                                  ],
-                                  "trim string")
-_smt_has_pdal_h = exec_script("//build/file_exists.py",
+_has_assimp_h = exec_script("//build/file_exists.py",
+                            [
+                              "third_party/.src/assimp/include/assimp/Importer.hpp",
+                            ],
+                            "trim string")
+_has_tinygltf_h = exec_script("//build/file_exists.py",
+                              [ "third_party/.src/tinygltf/tiny_gltf.h" ],
+                              "trim string")
+_has_rapidjson_h = exec_script("//build/file_exists.py",
+                               [
+                                 "third_party/.src/rapidjson/include/rapidjson/document.h",
+                               ],
+                               "trim string")
+_has_pugixml_h = exec_script("//build/file_exists.py",
+                             [ "third_party/.src/pugixml/src/pugixml.hpp" ],
+                             "trim string")
+_has_protobuf_h = exec_script("//build/file_exists.py",
                               [
-                                "third_party/.install/include/pdal/PipelineManager.hpp",
+                                "third_party/.install/include/google/protobuf/message.h",
                               ],
                               "trim string")
+_has_pdal_h = exec_script("//build/file_exists.py",
+                          [
+                            "third_party/.install/include/pdal/PipelineManager.hpp",
+                          ],
+                          "trim string")
 # Linking Release pdalcpp.lib into Debug gis_d.dll pulls MSVCP140 alongside
 # MSVCP140D → STATUS_HEAP_CORRUPTION (0xC0000374) on interactive launch.
-_smt_pdal_dbg_lib = exec_script("//build/file_exists.py",
-                                [ "third_party/.install/lib/pdalcppd.lib" ],
-                                "trim string")
-_smt_pdal_rel_lib = exec_script("//build/file_exists.py",
-                                [ "third_party/.install/lib/pdalcpp.lib" ],
-                                "trim string")
-smt_has_assimp = _smt_has_assimp_h == "1"
-smt_has_tinygltf = _smt_has_tinygltf_h == "1"
-smt_has_rapidjson = _smt_has_rapidjson_h == "1"
-smt_has_pugixml = _smt_has_pugixml_h == "1"
-smt_has_protobuf = _smt_has_protobuf_h == "1"
-smt_has_pdal = _smt_has_pdal_h == "1" &&
-               ((is_debug && _smt_pdal_dbg_lib == "1") ||
-                (!is_debug && _smt_pdal_rel_lib == "1"))
+_pdal_dbg_lib = exec_script("//build/file_exists.py",
+                            [ "third_party/.install/lib/pdalcppd.lib" ],
+                            "trim string")
+_pdal_rel_lib = exec_script("//build/file_exists.py",
+                            [ "third_party/.install/lib/pdalcpp.lib" ],
+                            "trim string")
+has_assimp = _has_assimp_h == "1"
+has_tinygltf = _has_tinygltf_h == "1"
+has_rapidjson = _has_rapidjson_h == "1"
+has_pugixml = _has_pugixml_h == "1"
+has_protobuf = _has_protobuf_h == "1"
+has_pdal = _has_pdal_h == "1" &&
+               ((is_debug && _pdal_dbg_lib == "1") ||
+                (!is_debug && _pdal_rel_lib == "1"))
 
 # Optional CUDA Toolkit (Thrust). RAPIDS cuSpatial is Linux/conda and is not
 # vendored. Empty when nvcc + cuda_runtime.h / Thrust headers are missing.
@@ -69,24 +69,24 @@ _detected_cuda_root = exec_script("//build/cuda_root.py", [], "trim string")
 
 declare_args() {
   # Link real Skia paint TU into //src/ui/gfx (default off — GDI remains
-  # the supported shell canvas). Enable with gn args smt_has_skia=true.
-  smt_has_skia = false
+  # the supported shell canvas). Enable with gn args has_skia=true.
+  has_skia = false
 
   # Build MapLibre Native examples (mbgl-render + mbgl-glfw) via CMake.
   # Default off — not a product pin. See //third_party/maplibre:maplibre_examples.
-  smt_enable_maplibre_example = false
+  enable_maplibre_example = false
 
   # CUDA Toolkit root override. Empty = auto-detect (cuda_root.py).
-  smt_cuda_root = ""
+  cuda_root = ""
 }
 
-smt_cuda_home = smt_cuda_root
-if (smt_cuda_home == "") {
-  smt_cuda_home = _detected_cuda_root
+cuda_home = cuda_root
+if (cuda_home == "") {
+  cuda_home = _detected_cuda_root
 }
-smt_has_cuda = smt_cuda_home != ""
+has_cuda = cuda_home != ""
 
-template("smt_shared_library") {
+template("product_shared_library") {
   shared_library(target_name) {
     forward_variables_from(invoker, "*", [ "configs", "dll_stem" ])
     configs += [ "//build:legacy" ]
@@ -112,9 +112,9 @@ template("smt_shared_library") {
 # Shared MFC DLL (MBCS). DAO headers are gone in VS 18 MFC.
 # Set mfc_extension = true for AFX extension DLLs that already have DllMain.
 # Set am_plugin = true for leftover AuxModule plugins: emit
-# out/plugin/<dll_stem>[_d].am so SmtApp::InitSmtAuxModules can LoadLibrary them.
-template("smt_mfc_shared_library") {
-  smt_shared_library(target_name) {
+# out/plugin/<dll_stem>[_d].am so the host can LoadLibrary them.
+template("mfc_shared_library") {
+  product_shared_library(target_name) {
     forward_variables_from(invoker, "*", [ "configs", "mfc_extension", "am_plugin" ])
     configs = [ "//build:mfc" ]
     if (!defined(invoker.mfc_extension) || !invoker.mfc_extension) {
@@ -145,7 +145,7 @@ template("smt_mfc_shared_library") {
 }
 
 # MFC Feature Pack desktop exe (MBCS). Do not set _USRDLL.
-template("smt_mfc_executable") {
+template("mfc_executable_impl") {
   executable(target_name) {
     forward_variables_from(invoker, "*", [ "configs" ])
     configs += [
@@ -174,7 +174,7 @@ template("smt_mfc_executable") {
 }
 
 template("mfc_executable") {
-  smt_mfc_executable(target_name) {
+  mfc_executable_impl(target_name) {
     forward_variables_from(invoker, "*")
   }
 }

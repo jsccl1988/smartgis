@@ -19,7 +19,7 @@ All rights reserved.
 | `config/BUILD.gn` | `default`、`c_std`、`cc_std`、可选 `warnings` |
 | `config/win/` | MSVC 默认 flags、CRT、subsystem |
 | `BUILD.gn` | `smt_legacy`（MBCS + 2010 include 树） |
-| `smartgis.gni` | `smt_shared_library` 模板 |
+| `smartgis.gni` | `product_shared_library` 模板 |
 | `toolchain/` | win/linux/mac toolchains |
 | `tools/` | `cmake.gni` / `makefile.gni` 及 Python 驱动 |
 | `fetch_binaries.py` | 拉取 `gn` / `ninja` 到 `build/bin` |

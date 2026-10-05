@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
-#include "vista/world/world.h"
+#include "vista/component/world/world.h"
 
 namespace content {
 

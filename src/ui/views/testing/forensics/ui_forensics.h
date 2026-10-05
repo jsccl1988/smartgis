@@ -38,7 +38,7 @@ ForensicsDumpResult dump_ui_forensics(View* root,
                                       const std::vector<std::string>& layout_issues,
                                       const ForensicsDumpOptions& options = {});
 
-// True when SMT_UI_FORENSICS is set to a non-empty / non-0 value.
+// True when UI_FORENSICS is set to a non-empty / non-0 value.
 bool ui_forensics_env_forced();
 
 // Resolve default forensics root (out/ui_forensics).

@@ -78,7 +78,7 @@ All rights reserved.
     <div class="lane pulse">
       <h2><span class="tag bootstrap">bootstrap</span> 会话引导（app_core DLL；原 core/）</h2>
       <div class="flow">
-        <span class="chip">bootstrap (SmtApp)</span>
+        <span class="chip">bootstrap (App)</span>
         <span class="chip">sample_map</span>
         <span class="arrow">→</span>
         <span>Init / DelayInit / Destory；样例地图打开与 content path policy</span>
@@ -129,7 +129,7 @@ All rights reserved.
   <div class="principle">
     <strong>原则流</strong>
     <ol>
-      <li><code>win_app</code> InitInstance → <code>SmtApp::Init</code>（bootstrap）→ 可选 showcase / self-test 早退。</li>
+      <li><code>win_app</code> InitInstance → <code>App::Init</code>（bootstrap）→ 可选 showcase / self-test 早退。</li>
       <li>DelayInit → <code>sample_map</code> 装 china 样例 → 仅 PostMessage 开 Edit。</li>
       <li>Edit/Data/3D <code>OnInitialUpdate</code> 共用 <code>views/helper/mdi_menu</code>（<code>legacy_app::helper</code>）；光标状态栏走 <code>views/helper/status_coord</code>。</li>
       <li>顶层四目录；<code>shell/</code> 与 <code>views/</code> 均按职责分子目录；showcase stem 用 <code>*_showcase</code>，与 <code>scene3d_view</code> 分离。</li>

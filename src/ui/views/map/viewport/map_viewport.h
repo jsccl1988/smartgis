@@ -78,10 +78,11 @@ class UI_EXPORT MapViewport : public View {
 
   // Prefer content::MapWidgetHostView (OpenView kind from Role). Scene3d and
   // Map Edit/Data try FlyCube / present_gpu first by default.
-  // Scene3d engine: content::set_scene3d_engine (View menu); non-FlyCube skips
-  // FlyCube attach. SMT_FORCE_CONTENT_MAPVIEW_2D=1 / SMT_PREFER_FLYCUBE_2D=0 →
-  // 2D ContentMapView. SMT_PREFER_GDI_DEVICE=1 skips FlyCube.
-  // SMT_FORCE_GDI_MAP_OVERLAY=1 skips 2D gpu_present_ (caller uses full GDI
+  // Scene3d engine: content::set_scene3d_engine (View menu); Scenic keeps the
+  // product HWND + Scene3dPresenter (no ContentMapView). Stereo/GDI may force
+  // ContentMapView. FORCE_CONTENT_MAPVIEW_2D=1 / PREFER_FLYCUBE_2D=0 →
+  // 2D ContentMapView. PREFER_GDI_DEVICE=1 skips FlyCube.
+  // FORCE_GDI_MAP_OVERLAY=1 skips 2D gpu_present_ (caller uses full GDI
   // MapScene::paint).
   bool attach();
   AttachMode attach_mode() const { return mode_; }

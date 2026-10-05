@@ -36,7 +36,7 @@ inline constexpr char kSdbdDriverName[] = "SDBD";
 inline constexpr char kSdbdPrefix[] = "SDBD:";
 inline constexpr char kSdbdMetadataDomain[] = "SDBD";
 inline constexpr char kSdbdMetaVectorSchema[] = "VECTOR_SCHEMA";
-inline constexpr char kSdbdMetaStyleHint[] = "SMT_STYLE_HINT";
+inline constexpr char kSdbdMetaStyleHint[] = "STYLE_HINT";
 
 namespace detail {
 

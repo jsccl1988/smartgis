@@ -82,7 +82,7 @@ Do **not** invent product→legacy deps. Stay on `master`. One phase per change.
 - [x] `ConnectionSpec` public header does not include `gis/map/layer_kind.h` / `SmtDataSourceInfo`
 - [x] `MapLayer` product seam: `GetLayerDefn`, spatial/attribute filter, feature iteration (thin OGR wrap)
 - [x] `Feature` product seam: `GetField`/`SetField` for full `OGRFieldType` set (not a string map)
-- [x] Rename product `SmtMap` → `gis::Map`; leftover alias/wrapper until catalog/rhi2d migrate
+- [x] Rename product `Map` → `gis::Map`; leftover alias/wrapper until catalog/rhi2d migrate
 - [ ] MOVE `SmtLayer` / `SmtRasterLayer` / `SmtTileLayer` virtual bases + `SmtGQueryDesc` (partial: `SmtDataSource` / `Smt*Info` / `leftover_layer_feature_type` already in `legacy/gis/layer/layer.h`)
 - [x] MOVE `Feature` PascalCase leftover names + `leftover_append_feature` out of product `gis/model`
 - [ ] Delete `MapLayer::from_leftover` from product (leftover uses `from_ogr`)

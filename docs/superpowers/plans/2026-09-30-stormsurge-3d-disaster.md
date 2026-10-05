@@ -55,8 +55,8 @@ All rights reserved.
 ### Task 5 — Verify
 
 - [x] `build.bat debug` stormsurge / coastal kernel tests + link `SmartGisViews`
-- [x] `--plugin-showcase=stormsurge` Scene3D present path green (Null RHI default; GPU HWND via `SMT_PLUGIN_STORMSURGE_GPU=1`)
-- [ ] Optional: GPU HWND BMP signal probe when FlyCube chrome tab is exercised under `SMT_PLUGIN_STORMSURGE_GPU=1`
+- [x] `--plugin-showcase=stormsurge` Scene3D present path green (Null RHI default; GPU HWND via `PLUGIN_STORMSURGE_GPU=1`)
+- [ ] Optional: GPU HWND BMP signal probe when FlyCube chrome tab is exercised under `PLUGIN_STORMSURGE_GPU=1`
 ---
 
 ## Follow-on — P2 (stats)

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_WORLD_DEM_HILLSHADE_H_
-#define GIS_WORLD_DEM_HILLSHADE_H_
+#ifndef VISTA_TERRAIN_PROCESS_DEM_HILLSHADE_H_
+#define VISTA_TERRAIN_PROCESS_DEM_HILLSHADE_H_
 
 #include <cstdint>
 #include <vector>
@@ -37,4 +37,4 @@ VISTA_EXPORT void reset_last_shade_used_cuda();
 
 }  // namespace vista
 
-#endif  // GIS_WORLD_DEM_HILLSHADE_H_
+#endif  // VISTA_TERRAIN_PROCESS_DEM_HILLSHADE_H_

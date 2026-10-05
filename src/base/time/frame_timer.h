@@ -9,7 +9,7 @@
 
 namespace base {
 
-// Frame / wall clock helper used by legacy 3D scene (replaces SmtTimer).
+// Frame / wall clock helper used by legacy 3D scene (replaces Timer).
 class FrameTimer {
  public:
   using clock = std::chrono::steady_clock;

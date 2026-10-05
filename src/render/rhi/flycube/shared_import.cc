@@ -7,7 +7,7 @@
 
 #include "render/rhi/flycube/device.h"
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 #include "Device/DXDevice.h"
 #include "Resource/DXTexture.h"
@@ -23,7 +23,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 void FlycubeDevice::clear_imported_shared() {
   imported_rtv_.reset();
@@ -167,7 +167,7 @@ bool FlycubeDevice::copy_bgra_to_imported_shared(const uint8_t* bgra,
   return true;
 }
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

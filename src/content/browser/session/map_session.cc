@@ -44,7 +44,7 @@ void MapSession::init_hosts() {
   scene_host_ = std::make_unique<ViewHost>();
   // OOP MapContents is optional for in-process present (atmosphere / map2d
   // showcase). Create the session object eagerly; StartRenderProcess is
-  // deferred until ensure_oop_render_process() (or SMT_ENABLE_OOP_RENDER=1).
+  // deferred until ensure_oop_render_process() (or ENABLE_OOP_RENDER=1).
   {
     BASE_TRACE_EVENT("MapContents.Create", "startup");
     map_contents_.reset(MapContents::Create());

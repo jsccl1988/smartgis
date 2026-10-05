@@ -10,7 +10,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 void FlycubeDevice::replay_draws(::CommandList* fc_list, const Pass& segment,
                                  bool pass_has_depth) {
@@ -328,7 +328,7 @@ bool FlycubeDevice::execute_offscreen(FlycubeCommandList* recorded) {
     return true;
   }
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

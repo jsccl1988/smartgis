@@ -7,7 +7,7 @@ All rights reserved.
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vista — IR / GPU 泳道</title>
+<title>Vista — IR / Pass 泳道</title>
 <style>
   :root {
     --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
@@ -78,9 +78,9 @@ All rights reserved.
 <div class="wrap">
   <header class="hero">
     <h1>Vista — IR 与 GPU</h1>
-    <p>一颗 <code>vista.dll</code>。IR 侧（<code>map</code> / <code>world</code>）在 CPU 上并行产出中间结果；GPU 侧（<code>map_gpu</code> / <code>world_gpu</code>）在设备线程上做上传、计算和一条 CommandList 录制。「逻辑 / 物理」不再用作目录词。<code>frame/</code> 与 <code>scene/</code> 不在目标布局里。上一代 <strong>Scenic</strong> 把两边焊在同一个类型里。</p>
+    <p>一颗 <code>vista.dll</code>。Component（<code>component/map</code> / <code>component/world</code>）在 CPU 上并行产出中间结果；Pass（<code>pass/map</code> / <code>pass/world</code>）在设备线程上做上传、计算和一条 CommandList 录制。「逻辑 / 物理」不再用作目录词。<code>frame/</code> 与 <code>scene/</code> 不在目标布局里。上一代 <strong>Scenic</strong> 把两边焊在同一个类型里。</p>
     <div class="meta">
-      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista IR/GPU lanes</a>
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista IR/Pass lanes</a>
       · 模块：<a href="../../../src/vista/README.md">src/vista/README.md</a>
     </div>
     <div class="rel">相关图：
@@ -105,22 +105,22 @@ All rights reserved.
       <div class="lane cpu">
         <h3>IR — CPU 可并行</h3>
         <ul>
-          <li><code>map/</code> <code>Layout</code> → <code>MapIR</code></li>
-          <li><code>world/</code> <code>World</code> + <code>Instance</code>；sync / tess / cull / index</li>
-          <li><code>mesh</code> CPU 三角化；<code>terrain</code> DEM（头文件无 World）</li>
+          <li><code>component/map/</code> <code>Layout</code> → <code>MapIR</code></li>
+          <li><code>component/world/</code> <code>World</code> + <code>Instance</code>；sync / tess / cull / index</li>
+          <li><code>mesh</code>（<code>fill/</code>·<code>line/</code>·<code>detail/</code>）CPU 三角化；<code>terrain</code> DEM（头文件无 World）</li>
           <li><code>assets</code> 模型 / 3D Tiles / 点云文件</li>
-          <li><code>atmosphere/session</code> 场；<code>domain</code> 缝</li>
+          <li><code>component/atmosphere</code> 场；<code>domain</code> 缝</li>
           <li>Emit 走 <code>base::execution</code>；工人只写自己的槽</li>
         </ul>
       </div>
       <div class="lane gpu">
-        <h3>GPU — 设备线程</h3>
+        <h3>Pass — 设备线程</h3>
         <ul>
-          <li><code>map_gpu/</code> <code>MapPass</code> 上传并编码</li>
-          <li><code>world_gpu/</code> <code>WorldPass</code>：<code>sync_from</code> 再 <code>record_draws</code></li>
-          <li><code>atmosphere</code> pass + 海洋 FFT Compute（<code>session</code> 除外）</li>
+          <li><code>pass/map/</code> <code>MapPass</code> 上传并编码</li>
+          <li><code>pass/world/</code> <code>WorldPass</code>：<code>sync_from</code> 再 <code>record_draws</code></li>
+          <li><code>pass/atmosphere/</code> pass + 海洋 FFT Compute</li>
           <li>顺序：Upload → Compute → Record，一条 CommandList</li>
-          <li>这一侧不进入 <code>parallel_for</code>。无 <code>vista::map_gpu</code> 命名空间</li>
+          <li>这一侧不进入 <code>parallel_for</code>。无 <code>vista::pass</code> 命名空间</li>
         </ul>
       </div>
       <div class="lane rhi">
@@ -145,7 +145,7 @@ All rights reserved.
       </defs>
       <rect x="0" y="0" width="1040" height="390" rx="10" fill="#fafbfc" stroke="#d8dee6"/>
 
-      <text class="lane-label" x="16" y="28" fill="#2f7d62">2D · IR map → GPU map_gpu</text>
+      <text class="lane-label" x="16" y="28" fill="#2f7d62">2D · component/map → pass/map</text>
       <rect x="16" y="40" width="150" height="64" rx="7" fill="#e8f1fa" stroke="#2563a8"/>
       <text class="box-title" x="28" y="64">gis 样式 / 瓦片</text>
       <text class="box-sub" x="28" y="84">LayerBatch</text>
@@ -160,13 +160,13 @@ All rights reserved.
 
       <rect x="576" y="40" width="220" height="64" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
       <text class="box-title" x="588" y="64">MapPass</text>
-      <text class="box-sub" x="588" y="84">map_gpu · Upload + Record</text>
+      <text class="box-sub" x="588" y="84">pass/map · Upload + Record</text>
 
       <rect x="816" y="40" width="208" height="64" rx="7" fill="#f6e8e8" stroke="#8b3a3a"/>
       <text class="box-title" x="828" y="64">Map2d present</text>
       <text class="box-sub" x="828" y="84">不改制图</text>
 
-      <text class="lane-label" x="16" y="140" fill="#b06a1a">3D · IR world → GPU world_gpu</text>
+      <text class="lane-label" x="16" y="140" fill="#b06a1a">3D · IR world → GPU world_pass</text>
       <rect x="16" y="152" width="150" height="64" rx="7" fill="#e8f1fa" stroke="#2563a8"/>
       <text class="box-title" x="28" y="176">gis 图层 / DEM</text>
       <text class="box-sub" x="28" y="196">挂到 World</text>
@@ -181,7 +181,7 @@ All rights reserved.
 
       <rect x="576" y="152" width="220" height="64" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
       <text class="box-title" x="588" y="176">WorldPass + 大气</text>
-      <text class="box-sub" x="588" y="196">world_gpu · Upload · FFT</text>
+      <text class="box-sub" x="588" y="196">world_pass · Upload · FFT</text>
 
       <rect x="816" y="152" width="208" height="64" rx="7" fill="#eee8f6" stroke="#6b5ea8"/>
       <text class="box-title" x="828" y="176">graph::present</text>
@@ -203,7 +203,7 @@ All rights reserved.
       <text class="box-sub" x="28" y="324">Upload、海洋 FFT Compute、Record 在同一设备线程上顺序执行。默认一条 CommandList。</text>
       <text class="box-sub" x="28" y="348">绿箭头 = CPU 并行区。琥珀箭头 = GPU 区。工人不调用 Device / CommandList。</text>
     </svg>
-    <p class="note"><code>SMT_VISTA_LAYOUT_PARALLEL=0</code> 把 2D Emit 收成 N=1（驱动 <code>Layout</code> emit）。<code>SMT_GPUSCENE_PREP_PARALLEL</code> 字面量保持，默认关，驱动 <code>WorldPass</code> prep。大气场由宿主投影进 GPU pass，GPU 目标不依赖 <code>world</code>。</p>
+    <p class="note"><code>VISTA_LAYOUT_PARALLEL=0</code> 把 2D Emit 收成 N=1（驱动 <code>Layout</code> emit）。<code>GPUSCENE_PREP_PARALLEL</code> 字面量保持，默认关，驱动 <code>WorldPass</code> prep。大气场由宿主投影进 GPU pass，GPU 目标不依赖 <code>world</code>。</p>
   </section>
 
   <section class="panel">
@@ -235,25 +235,25 @@ All rights reserved.
   </section>
 
   <section class="panel">
-    <h2>4. 目录（IR / GPU）</h2>
+    <h2>4. 目录（IR / Pass）</h2>
     <table class="map">
       <thead>
         <tr><th>目录</th><th>角色</th><th>线程</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>vista/map</code></td><td>CPU IR：<code>Layout</code> → <code>MapIR</code>。伞头 <code>vista/map/ir.h</code></td><td>Emit 可并行；碰撞串行。<code>map_sources</code> 禁止依赖 <code>render</code></td></tr>
-        <tr><td><code>vista/map_gpu</code></td><td>GPU：<code>MapPass</code>。GN <code>map_gpu_sources</code></td><td>设备线程。依赖 <code>map_sources</code> + <code>render</code></td></tr>
-        <tr><td><code>vista/world</code></td><td><code>World</code> + <code>Instance</code>；CPU sync / tess / cull / index</td><td>CPU。<code>world_sources</code> 依赖 <code>mesh</code>，禁止依赖 <code>render</code></td></tr>
-        <tr><td><code>vista/world_gpu</code></td><td>GPU：<code>WorldPass</code>（<code>sync_from</code>、<code>record_draws</code> 仍在此类型）。GN <code>world_gpu_sources</code></td><td>设备线程。依赖 <code>world_sources</code> + <code>render</code></td></tr>
+        <tr><td><code>vista/component/map</code></td><td>CPU IR：<code>Layout</code> → <code>MapIR</code>。伞头 <code>vista/component/map/ir.h</code></td><td>Emit 可并行；碰撞串行。<code>map_sources</code> 禁止依赖 <code>render</code></td></tr>
+        <tr><td><code>vista/pass/map</code></td><td>GPU：根 <code>MapPass</code> / <code>map_effect</code>；<code>detail/{atlas,encode,upload}</code>。GN <code>map_pass_sources</code></td><td>设备线程。依赖 <code>map_sources</code> + <code>render</code></td></tr>
+        <tr><td><code>vista/component/world</code></td><td><code>World</code> + <code>Instance</code>；CPU sync / tess / cull / index；<code>paint.h</code> 含 <code>rgba_from_resolved_paint</code></td><td>CPU。<code>world_sources</code> 依赖 <code>mesh</code>，禁止依赖 <code>render</code></td></tr>
+        <tr><td><code>vista/pass/world</code></td><td>GPU：根 <code>WorldPass</code> / <code>GpuMesh</code> / <code>opaque_effect</code>；<code>detail/{upload,tint,rebuild,draw,record}</code>；<code>cull/frustum_camera</code>。<code>sync_from</code> / <code>record_draws</code> 仍在 <code>WorldPass</code></td><td>设备线程。依赖 <code>world_sources</code> + <code>render</code></td></tr>
         <tr><td><code>vista/assets</code></td><td>模型、3D Tiles、点云文件解码。不改名</td><td>CPU。不依赖 <code>world</code></td></tr>
-        <tr><td><code>vista/mesh</code></td><td>CPU xyz+indices。<code>map</code> 与 <code>world</code> 直接用。不改名</td><td>CPU。不依赖 <code>world</code> / <code>render</code></td></tr>
+        <tr><td><code>vista/mesh</code></td><td>CPU xyz+indices。公开 <code>tessellate.h</code>；职责子目录 <code>fill/</code>·<code>line/</code>·<code>detail/</code></td><td>CPU。不依赖 <code>world</code> / <code>render</code></td></tr>
         <tr><td><code>vista/terrain</code></td><td>DEM 栅格、hillshade、land mask。不改名</td><td>CPU。头文件无 <code>World</code></td></tr>
         <tr><td><code>vista/domain</code></td><td><code>DomainSession</code> 缝。不改名</td><td>CPU</td></tr>
-        <tr><td><code>vista/atmosphere/session</code></td><td>CPU 场：<code>FieldStore</code> / <code>Environment</code></td><td>CPU。<code>assert_no_deps</code> 指向 <code>render</code></td></tr>
-        <tr><td><code>vista/atmosphere</code></td><td>其余目录：GPU pass + FFT。不拆 <code>atmosphere_gpu</code></td><td>GPU。不依赖 <code>session_sources</code>，不依赖 <code>world</code></td></tr>
+        <tr><td><code>vista/component/atmosphere</code></td><td>CPU：根 <code>Environment</code>；<code>field/</code> · <code>ocean/</code> · <code>cloud/</code>；<code>detail/math.h</code></td><td>CPU。<code>session_sources</code> / <code>atmosphere_cpu_sources</code> 禁止依赖 <code>render</code></td></tr>
+        <tr><td><code>vista/pass/atmosphere</code></td><td>GPU：根 <code>AtmosphereFrame</code> / effects；<code>ocean</code>/<code>cloud</code>/<code>sky</code>/<code>fog</code>/<code>globe</code>；<code>detail/{mesh,raster,field_texture}</code></td><td>设备线程。依赖 <code>atmosphere_cpu_sources</code> + <code>render</code>。不依赖 <code>session_sources</code></td></tr>
       </tbody>
     </table>
-    <p class="note">没有 <code>map/gpu</code> 或 <code>world/gpu</code>。没有公共命名空间 <code>vista::map_gpu</code>。<code>content</code> 的 <code>present/map2d</code> 与 <code>present/scene3d</code> 目录不动。权威节：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista IR/GPU lanes</a>。</p>
+    <p class="note">没有 <code>map/gpu</code>、<code>world/gpu</code> 或 <code>atmosphere/gpu</code>。没有公共命名空间 <code>vista::map_pass</code> / <code>vista::atmosphere_pass</code>。<code>content</code> 的 <code>present/map2d</code> 与 <code>present/scene3d</code> 目录不动。权威节：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista IR/Pass lanes</a>。</p>
   </section>
 
   <section class="panel">
@@ -263,14 +263,14 @@ All rights reserved.
         <tr><th></th><th>Vista（本图）</th><th>Scenic</th></tr>
       </thead>
       <tbody>
-        <tr><td>IR / GPU</td><td><code>map</code>→<code>map_gpu</code>，<code>world</code>→<code>world_gpu</code>，两段类型</td><td><code>MapPainter</code>、<code>scene3d/Scene</code> 各持有图又直接画</td></tr>
+        <tr><td>Component / Pass</td><td><code>component/map</code>→<code>pass/map</code>，<code>component/world</code>→<code>pass/world</code>，<code>component/atmosphere</code>→<code>pass/atmosphere</code></td><td><code>MapPainter</code>、<code>scene3d/Scene</code> 各持有图又直接画</td></tr>
         <tr><td>CPU 并行</td><td>Emit ×N，工人无 Device；Resolve 再串行</td><td>rhi2d Raster×N 私有 HDC；rhi3d Prep×N 不做 Draw</td></tr>
         <tr><td>GPU</td><td>FlyCube：Upload、FFT Compute、一条 CommandList</td><td>仅 rhi3d 的 GL Draw / D3D11 deferred。2D 是 CPU 光栅后 BitBlt</td></tr>
         <tr><td>设备与上屏</td><td><code>src/render</code> + content present</td><td>引擎内 rhi2d/rhi3d 与 <code>Device2dPresent</code></td></tr>
-        <tr><td>「frame」一词</td><td><code>map_gpu</code> 是 <code>MapPass</code> 录制。content <code>present/map2d</code> 目录名不动</td><td><code>cc/</code> 帧拍与 <code>Device2dFrame::schedule_redraw</code></td></tr>
+        <tr><td>「frame」一词</td><td><code>pass/map</code> 是 <code>MapPass</code> 录制。content <code>present/map2d</code> 目录名不动</td><td><code>cc/</code> 帧拍与 <code>Device2dFrame::schedule_redraw</code></td></tr>
       </tbody>
     </table>
-    <p class="note">上一代全图：<a href="./legacy-render-architecture.html">Scenic — CPU 并行与 GPU 设备</a>。取舍全文在规格 <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista IR/GPU lanes</a>（逻辑/物理词汇已退役）。</p>
+    <p class="note">上一代全图：<a href="./legacy-render-architecture.html">Scenic — CPU 并行与 GPU 设备</a>。取舍全文在规格 <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista IR/Pass lanes</a>（逻辑/物理词汇已退役）。</p>
   </section>
 
   <section class="panel">
@@ -314,17 +314,17 @@ All rights reserved.
       <rect x="422" y="16" width="190" height="88" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
       <text class="box-title" x="517" y="42" text-anchor="middle">U2 对调目录</text>
       <text class="box-sub" x="517" y="64" text-anchor="middle">U2 当时 map / frame</text>
-      <text class="box-sub" x="517" y="82" text-anchor="middle">现为 map_gpu / MapPass</text>
+      <text class="box-sub" x="517" y="82" text-anchor="middle">现为 pass/map / MapPass</text>
       <rect x="632" y="16" width="190" height="88" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
       <text class="box-title" x="727" y="42" text-anchor="middle">U3 大气会话</text>
-      <text class="box-sub" x="727" y="64" text-anchor="middle">atmosphere/session</text>
+      <text class="box-sub" x="727" y="64" text-anchor="middle">场在 atmosphere 根</text>
       <text class="box-sub" x="727" y="82" text-anchor="middle">GPU 集不依赖它</text>
       <rect x="842" y="16" width="186" height="88" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
       <text class="box-title" x="935" y="42" text-anchor="middle">U4 脏区 Emit</text>
       <text class="box-sub" x="935" y="64" text-anchor="middle">cache_key 切片</text>
       <text class="box-sub" x="935" y="82" text-anchor="middle">keyed upload</text>
     </svg>
-    <p class="note">U0–U4 用的是已退役的逻辑/物理名字，勾选记录留在 <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista logical/physical lanes</a>。当前目录以上面第 4 节和 <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista IR/GPU lanes</a> 为准。</p>
+    <p class="note">U0–U4 用的是已退役的逻辑/物理名字，勾选记录留在 <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista logical/physical lanes</a>。当前目录以上面第 4 节和 <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista IR/Pass lanes</a> 为准。</p>
   </section>
 </div>
 <script>

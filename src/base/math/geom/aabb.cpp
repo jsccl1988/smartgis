@@ -12,8 +12,8 @@
 namespace base
 {
 	Aabb::Aabb() {
-	  vcMin.set(kInvalidDbfValue, kInvalidDbfValue,
-	            kInvalidDbfValue);
+	  vcMin.set(kInvalidCoord, kInvalidCoord,
+	            kInvalidCoord);
 	  vcMax = vcCenter = vcMin;
 	}
 
@@ -26,8 +26,8 @@ namespace base
   
 	bool  Aabb::is_init() const
 	{ 
-		return (std::abs((vcMin.x)-(kInvalidDbfValue))>(kEpsilon)) || (std::abs((vcMin.y )-(kInvalidDbfValue))>(kEpsilon)) || (std::abs((vcMin.z)-( kInvalidDbfValue))>(kEpsilon)) || 
-			   (std::abs((vcMax.x)-(kInvalidDbfValue))>(kEpsilon)) || (std::abs((vcMax.y )-(kInvalidDbfValue))>(kEpsilon)) || (std::abs((vcMax.z)-( kInvalidDbfValue))>(kEpsilon)) ;
+		return (std::abs((vcMin.x)-(kInvalidCoord))>(kEpsilon)) || (std::abs((vcMin.y )-(kInvalidCoord))>(kEpsilon)) || (std::abs((vcMin.z)-( kInvalidCoord))>(kEpsilon)) || 
+			   (std::abs((vcMax.x)-(kInvalidCoord))>(kEpsilon)) || (std::abs((vcMax.y )-(kInvalidCoord))>(kEpsilon)) || (std::abs((vcMax.z)-( kInvalidCoord))>(kEpsilon)) ;
 	}
 
 	void Aabb::merge(const Aabb&sOther)

@@ -21,7 +21,7 @@ namespace detail {
 // Resolve colored DEM sample, else tiny uncolored LAS under exe.
 bool resolve_world3d_pointcloud_sample(char* out_utf8, size_t out_cap);
 
-// SMT_PLUGIN_WORLD3D_PERF_BARE=1 — strip sky/ocean/cloud/fog + pointcloud overlay
+// PLUGIN_WORLD3D_PERF_BARE=1 — strip sky/ocean/cloud/fog + pointcloud overlay
 // for equal-profile timing vs leftover china DEM.
 bool world3d_perf_bare_enabled();
 

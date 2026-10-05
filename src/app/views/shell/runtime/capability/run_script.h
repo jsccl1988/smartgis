@@ -22,7 +22,7 @@ bool run_interact_script(Browser& browser,
                          const wchar_t* mark_leaf);
 
 // Resolves testing/tools/harness/<family>/<suite_id>/<suite_id>.il (or
-// SMT_UI_INTERACT_SCRIPT / recursive harness search) and runs it.
+// UI_INTERACT_SCRIPT / recursive harness search) and runs it.
 // Returns false if no script found (caller may fall back).
 bool try_run_suite_script(Browser& browser,
                           const char* suite_id,

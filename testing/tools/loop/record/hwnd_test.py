@@ -71,9 +71,9 @@ class RecordHwndHelpersTest(unittest.TestCase):
 
     def test_record_mode_pref(self) -> None:
         self.assertEqual(record_mode_pref({}), "auto")
-        self.assertEqual(record_mode_pref({"SMT_HARNESS_RECORD_MODE": "bmp"}), "bmp")
+        self.assertEqual(record_mode_pref({"HARNESS_RECORD_MODE": "bmp"}), "bmp")
         self.assertEqual(
-            record_mode_pref({"SMT_HARNESS_RECORD_MODE": "ffmpeg"}), "ffmpeg"
+            record_mode_pref({"HARNESS_RECORD_MODE": "ffmpeg"}), "ffmpeg"
         )
 
     def test_pid_filter_skips_foreign_title_match(self) -> None:

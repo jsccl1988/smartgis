@@ -5,11 +5,11 @@ All rights reserved.
 
 # `src/vista` — viewport vista layer (`vista.dll`)
 
-CPU IR (`map` `MapIR`, `world` `World` + `Instance`) and GPU passes (`map_gpu` `MapPass`, `world_gpu` `WorldPass`, atmosphere) live in this tree. One product DLL: GN `//src/vista:vista`, `dll_stem=vista` (`vista.dll` / `vista_d.dll`).
+CPU components (`component/map` `MapIR`, `component/world` `World` + `Instance`, `component/atmosphere` session) and device passes (`pass/map` `MapPass`, `pass/world` `WorldPass`, `pass/atmosphere`) live in this tree. One product DLL: GN `//src/vista:vista`, `dll_stem=vista` (`vista.dll` / `vista_d.dll`).
 
 The previous-generation engine is **Scenic** (`src/scenic` / `scenic.dll`, hosted by `src/content`). Leftover `src/legacy/render` is **frozen** until the cut completes. Scenic is **not** compiled into `vista.dll`. Leftover adapters under `legacy/gis/vista` are **not** Scenic.
 
-Living layout lock: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) **§Vista IR/GPU lanes**. Diagram: [`vista-subdirectory-layers.html`](../../docs/superpowers/diagrams/vista-subdirectory-layers.html). Layer table: [`docs/superpowers/src-layout.md`](../../docs/superpowers/src-layout.md).
+Living layout lock: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) **§Vista IR/Pass lanes**. Diagram: [`vista-subdirectory-layers.html`](../../docs/superpowers/diagrams/vista-subdirectory-layers.html). Layer table: [`docs/superpowers/src-layout.md`](../../docs/superpowers/src-layout.md).
 
 Target names below are authoritative even while sources are mid-move. `frame/` and `scene/` are not part of this layout.
 
@@ -19,7 +19,7 @@ Target names below are authoritative even while sources are mid-move. `frame/` a
 | --- | --- |
 | `vista::Layout` → `MapIR` / `DrawItem` | `gis::style` / `gis::tile` / OGR open (those stay `gis.dll`) |
 | `vista::World` node graph; CPU `Instance`, sync, tess, cull, index; DEM domain; CPU mesh; point-cloud codecs | HWND, Views chrome, `ui/gfx` widgets |
-| CPU `vista::atmosphere` session (`atmosphere/session/`) | FlyCube types in public headers |
+| CPU `vista::atmosphere` (`FieldStore` / `Environment`) | FlyCube types in public headers |
 | GPU `vista::MapPass`, `WorldPass`, `AtmosphereFrame` | Frame-graph vtable (`render/graph/frame_graph.h`) |
 | Leftover adapters compiled **in** (`legacy/gis/vista`) | `#include "legacy/…"` from product TUs here |
 
@@ -29,35 +29,44 @@ Target names below are authoritative even while sources are mid-move. `frame/` a
 
 | Dir | Role | Include |
 | --- | --- | --- |
-| `map/` | CPU IR: `Layout` → `MapIR` (place has no RHI) | `"vista/map/ir.h"` umbrella; types in `view.h` / `draw.h` / `batch.h` / `layout.h` |
-| `map/` internals | `carto_filter`, `collision`, `place` | `"vista/map/collision.h"` |
-| `map/layout/` | collect / emit / coalesce + per-geom emit | `"vista/map/layout/fill.h"` |
-| `map_gpu/` | GPU `MapPass` (upload / encode / record) | `"vista/map_gpu/pass.h"` |
-| `world/` | `World` node graph + `dem_seed`; CPU `Instance`, sync, tess, cull, index | `"vista/world/world.h"` |
-| `world/cull/` | frustum POD + prep_cull (not `frustum_camera`) | `"vista/world/cull/prep_cull.h"` |
-| `world/index/` | unibn AABB octree | `"vista/world/index/aabb_octree.h"` |
-| `world/pointcloud/` | Chunk / LOD buckets on a node | `"vista/world/pointcloud/chunk.h"` |
-| `world_gpu/` | GPU `WorldPass` (`sync_from`, `record_draws`); `GpuMesh` device buffers; `cull/frustum_camera` | `"vista/world_gpu/pass.h"` |
+| `component/map/` | CPU IR: `Layout` → `MapIR` (place has no RHI) | `"vista/component/map/ir.h"` umbrella; types in `view.h` / `draw.h` / `batch.h` / `layout.h` |
+| `component/map/detail/` | `carto_filter` ⊥ `batch_build`, `collision`, hillshade bake, MVT | `"vista/component/map/detail/collision.h"` |
+| `component/map/layout/` | collect / emit / coalesce + per-geom emit | `"vista/component/map/layout/fill.h"` |
+| `pass/map/` | `MapPass` (upload / encode / record) | `"vista/pass/map/pass.h"` |
+| `component/world/` | `World` node graph + `dem_seed`; CPU `Instance`, sync, tess, cull, index | `"vista/component/world/world.h"` |
+| `component/world/cull/` | frustum POD + prep_cull (not `frustum_camera`) | `"vista/component/world/cull/prep_cull.h"` |
+| `component/world/index/` | unibn AABB octree | `"vista/component/world/index/aabb_octree.h"` |
+| `component/world/pointcloud/` | Chunk / LOD buckets on a node | `"vista/component/world/pointcloud/chunk.h"` |
+| `pass/world/` | `WorldPass` (`sync_from`, `record_draws`); `GpuMesh`; `opaque_effect` | `"vista/pass/world/pass.h"` |
+| `pass/world/detail/` | upload / tint / rebuild / draw / record | `"vista/pass/world/detail/upload.h"` |
+| `pass/world/cull/` | `frustum_camera` (CameraMatrices → planes) | `"vista/pass/world/cull/frustum_camera.h"` |
 | `assets/` | Model, 3D Tiles, point-cloud file codecs | `"vista/assets/model/model.h"` |
 | `assets/pointcloud/` | `PointCloud` + LAS / LAZ / PDAL / text | `"vista/assets/pointcloud/point_cloud.h"` |
-| `mesh/` | CPU xyz+indices from GIS geometry | `"vista/mesh/tessellate.h"` |
+| `mesh/` | CPU xyz+indices from GIS geometry (public API) | `"vista/mesh/tessellate.h"` |
+| `mesh/fill/` | Polygon / ring fill tess | `"vista/mesh/fill/fill_tess.h"` |
+| `mesh/line/` | Stroked ribbon tess (cap/join/dash) | `"vista/mesh/line/line_tess.h"` |
+| `mesh/detail/` | Types, append, scratch pools, process-trace | `"vista/mesh/detail/mesh_types.h"` |
 | `terrain/` | DEM raster, hillshade bake, land mask (no `World` in headers). Horn shade and even-odd mask call `gis/analysis` | `"vista/terrain/dem/dem_raster.h"` |
 | `domain/` | `DomainSession` seam | `"vista/domain/domain.h"` |
-| `atmosphere/session/` | CPU FieldStore / Environment | `"vista/atmosphere/session/environment.h"` |
-| `atmosphere/` | GPU pass order + ocean/cloud/sky/fog/globe | `"vista/atmosphere/frame/atmosphere_frame.h"` |
+| `component/atmosphere/` | CPU `Environment` + params | `"vista/component/atmosphere/environment.h"` |
+| `component/atmosphere/field/` | FieldStore / ingest / procedural seed | `"vista/component/atmosphere/field/field_store.h"` |
+| `component/atmosphere/ocean/` | `OceanSystem` + `cpu_waves` (no RHI) | `"vista/component/atmosphere/ocean/ocean_system.h"` |
+| `component/atmosphere/cloud/` | CPU `CloudSystem` | `"vista/component/atmosphere/cloud/cloud_system.h"` |
+| `pass/atmosphere/` | Facade: `AtmosphereFrame` / effects | `"vista/pass/atmosphere/atmosphere_frame.h"` |
+| `pass/atmosphere/{ocean,cloud,sky,fog,globe}/` | Per-kind recorders | `"vista/pass/atmosphere/ocean/ocean_pass.h"` |
 
-No `map/gpu` or `world/gpu` nested directories. Headers sit next to their `.cc`. No `gis/vista/` or `effect/` trees or forwarding headers.
+No `map/gpu`, `world/gpu`, or `atmosphere/gpu` nested directories. Headers sit next to their `.cc`. Include guards match the path (`VISTA_COMPONENT_…` / `VISTA_PASS_…`). No `gis/vista/` or `effect/` trees or forwarding headers.
 
 ## Namespaces
 
-Public C++ stays two levels: `vista` (CPU IR / World / GPU passes) and `vista::atmosphere`. Internals: `vista::detail` or an anonymous namespace. Do not add `vista::map_gpu` or any other public third layer. `gis::style` / `gis::tile` / leftover `gis::Smt*` stay in `gis.dll`.
+Public C++ stays two levels: `vista` (components and passes) and `vista::atmosphere`. Internals: `vista::detail` or an anonymous namespace. Do not add `vista::component`, `vista::pass`, or any other public third layer. `gis::style` / `gis::tile` / leftover `gis::Smt*` stay in `gis.dll`.
 
 ## GN
 
 - DLL: `//src/vista:vista`
 - Tests: `//src/vista:vista_test_all`
 - Per-module `*_sources` compile into the DLL. CPU sets must not grow a `//src/render:render` dep (`assert_no_deps`). `assets` / `mesh` / `terrain` do not depend on `world`. `world_sources` depends on `assets` + `terrain` + `mesh`, and `assert_no_deps` `//src/render:render`. `map_sources` depends on `mesh` + `terrain` and `assert_no_deps` `//src/render:render`.
-- GPU sets may depend on `render` plus the CPU set they consume: `map_gpu_sources` → `map_sources` + `render`; `world_gpu_sources` → `world_sources` + `render`.
-- `//src/vista/atmosphere:atmosphere_sources` depends on `atmosphere_cpu_sources` and must not depend on `session_sources`.
-- Env strings `SMT_GPUSCENE_PREP_PARALLEL` and `SMT_VISTA_LAYOUT_PARALLEL` stay. They drive `WorldPass` prep and `Layout` emit.
+- GPU sets may depend on `render` plus the CPU set they consume: `map_pass_sources` → `map_sources` + `render`; `world_pass_sources` → `world_sources` + `render`; `atmosphere_pass_sources` → `atmosphere_cpu_sources` + `render`.
+- `//src/vista/pass/atmosphere:atmosphere_pass_sources` must not depend on `session_sources`.
+- Env strings `GPUSCENE_PREP_PARALLEL` and `VISTA_LAYOUT_PARALLEL` stay. They drive `WorldPass` prep and `Layout` emit.
 - Test executable `output_name` values stay (`map2d_pass_test`, `scene_gpu_test`, `unified_draw_test`). `content` `present/map2d` and `present/scene3d` directory names stay.

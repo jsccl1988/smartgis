@@ -10,7 +10,7 @@ class Browser;
 
 namespace detail {
 
-// Deterministic chrome theme for visual gates (default dark; SMT_UI_THEME).
+// Deterministic chrome theme for visual gates (default dark; UI_THEME).
 void apply_ui_harness_theme();
 
 // Kill MapViewport present timers before ExitProcess teardown.
@@ -19,7 +19,7 @@ void stop_ui_map_present(Browser& browser);
 // Layout + Invalidate + pump so PrintWindow sees finished chrome.
 void force_ui_shell_repaint(Browser& browser);
 
-// SMT_UI_SHOWCASE_TIMED_MS / SMT_UI_SHOWCASE_LINGER_MS; 0 = no linger.
+// UI_SHOWCASE_TIMED_MS / UI_SHOWCASE_LINGER_MS; 0 = no linger.
 int ui_showcase_linger_ms();
 
 }  // namespace detail

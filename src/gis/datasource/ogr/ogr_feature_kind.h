@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_DATASOURCE_GDAL_OGR_FEATURE_KIND_H_
-#define SDB_DATASOURCE_GDAL_OGR_FEATURE_KIND_H_
+#ifndef GIS_DATASOURCE_GDAL_OGR_FEATURE_KIND_H_
+#define GIS_DATASOURCE_GDAL_OGR_FEATURE_KIND_H_
 
 #include <tuple>
 #include <utility>
@@ -173,4 +173,4 @@ inline OGRwkbGeometryType wkb_for_vector_schema(gis::VectorSchema schema,
 }  // namespace datasource
 }  // namespace gis
 
-#endif  // SDB_DATASOURCE_GDAL_OGR_FEATURE_KIND_H_
+#endif  // GIS_DATASOURCE_GDAL_OGR_FEATURE_KIND_H_

@@ -7,8 +7,8 @@
   ],
   "script": "atmosphere.full.il",
   "env": {
-    "SMT_ATMOSPHERE_SHOWCASE_GPU": "1",
-    "SMT_ATMOSPHERE_SHOWCASE_LINGER_MS": "0"
+    "ATMOSPHERE_SHOWCASE_GPU": "1",
+    "ATMOSPHERE_SHOWCASE_LINGER_MS": "0"
   },
   "bmp": {
     "path": "atmosphere-showcase-full.bmp",

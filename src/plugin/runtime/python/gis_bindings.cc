@@ -14,16 +14,16 @@
 #include <string_view>
 #include <utility>
 
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
 #define PY_SSIZE_T_CLEAN
 #ifdef _DEBUG
-#define SMT_PYTHON_RESTORE_DEBUG
+#define PYTHON_RESTORE_DEBUG
 #undef _DEBUG
 #endif
 #include <Python.h>
-#ifdef SMT_PYTHON_RESTORE_DEBUG
+#ifdef PYTHON_RESTORE_DEBUG
 #define _DEBUG
-#undef SMT_PYTHON_RESTORE_DEBUG
+#undef PYTHON_RESTORE_DEBUG
 #endif
 #endif
 
@@ -33,7 +33,7 @@ namespace {
 GisConsoleBridge g_gis_bridge;
 content::PluginHost* g_gis_host = nullptr;
 
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
 
 std::string json_escape_path(std::string_view path) {
   std::string out;
@@ -480,11 +480,11 @@ bool attach_gis_module_impl(PyObject* smartgis_module) {
   return true;
 }
 
-#endif  // SMT_HAS_PYTHON
+#endif  // HAS_PYTHON
 
 }  // namespace
 
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
 
 bool attach_gis_module(PyObject* smartgis_module) {
   return attach_gis_module_impl(smartgis_module);

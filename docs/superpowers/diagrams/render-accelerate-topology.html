@@ -497,13 +497,13 @@ All rights reserved.
     <table class="map">
       <thead><tr><th>Flag / env</th><th>作用域</th><th>含义</th></tr></thead>
       <tbody>
-        <tr><td><code>SMT_VISTA_LAYOUT_PARALLEL</code></td><td><span class="pill pill-a">A</span> L2</td><td><code>=0</code> → tess N=1</td></tr>
-        <tr><td><code>SMT_GPUSCENE_PREP_PARALLEL</code></td><td><span class="pill pill-a">A</span> L2</td><td><strong>default off</strong>；<code>=1</code> 仅在 frustum cull 诚实后；world3d <code>prep_par_on</code> 实验行</td></tr>
-        <tr><td><code>SMT_SCENE3D_FRUSTUM_CULL</code></td><td><span class="pill pill-a">A</span></td><td><code>=1</code> 启用 AABB（并行 prep 前提）</td></tr>
-        <tr><td><code>SMT_GPU_COMPOSE</code></td><td><span class="pill pill-b">B</span></td><td>默认 <code>kRhi</code>；<code>software</code> 逃生</td></tr>
+        <tr><td><code>VISTA_LAYOUT_PARALLEL</code></td><td><span class="pill pill-a">A</span> L2</td><td><code>=0</code> → tess N=1</td></tr>
+        <tr><td><code>GPUSCENE_PREP_PARALLEL</code></td><td><span class="pill pill-a">A</span> L2</td><td><strong>default off</strong>；<code>=1</code> 仅在 frustum cull 诚实后；world3d <code>prep_par_on</code> 实验行</td></tr>
+        <tr><td><code>SCENE3D_FRUSTUM_CULL</code></td><td><span class="pill pill-a">A</span></td><td><code>=1</code> 启用 AABB（并行 prep 前提）</td></tr>
+        <tr><td><code>GPU_COMPOSE</code></td><td><span class="pill pill-b">B</span></td><td>默认 <code>kRhi</code>；<code>software</code> 逃生</td></tr>
         <tr><td><code>view.backend.rhi</code></td><td>wire</td><td><code>ContentSource::kDirect</code> — 非 FlyCube / 非 ComposeBackend</td></tr>
         <tr><td><code>--type=gpu</code> / <code>--in-process-gpu</code></td><td>进程模型</td><td>B 拓扑；in-process-gpu 仅 debug/CI</td></tr>
-        <tr><td><code>SMT_RHI2D_*</code> / <code>SMT_RHI3D_*</code></td><td>leftover</td><td><strong>禁止</strong>产品路径 getenv</td></tr>
+        <tr><td><code>RHI2D_*</code> / <code>RHI3D_*</code></td><td>leftover</td><td><strong>禁止</strong>产品路径 getenv</td></tr>
       </tbody>
     </table>
 
@@ -609,7 +609,7 @@ All rights reserved.
       <tbody>
         <tr><td>M1</td><td>Cold phases in matrix / perf JSON</td><td>open</td></tr>
         <tr><td>M2</td><td>Cache+upload cold ≤300 ms</td><td>open · P0</td></tr>
-        <tr><td>M3</td><td>Prep honesty；<code>SMT_GPUSCENE_PREP_PARALLEL</code> default off</td><td>open</td></tr>
+        <tr><td>M3</td><td>Prep honesty；<code>GPUSCENE_PREP_PARALLEL</code> default off</td><td>open</td></tr>
         <tr><td>M4</td><td>Non-bare（full atmosphere）budgets</td><td>open</td></tr>
       </tbody>
     </table>

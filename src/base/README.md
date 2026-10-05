@@ -28,7 +28,7 @@ base DLL (`:base`), except foundation which is `:foundation`.
 | **threading / util / files / memory / time** | 同名子树 | `:foundation` | mogu 式薄面；**无** mogu `base::mutex` |
 | **synchronization / concurrency** | `synchronization/`、`concurrency/` | `:foundation` | latch/future/spin + moodycamel queues |
 | **execution** | `execution/` | `//src/base/execution:execution` → foundation | L1–L5 + `parallel_for` / Pipeline / MapReduce；Windows 可移植 IO；io_uring 门控 |
-| **trace** | `trace/` | `//src/base/trace:trace` → foundation | `base::trace::` — `event/trace.h`, `process_trace`, `SpanRecorder`, `export_chrome_trace`；详见 [`trace/README.md`](trace/README.md)；`SMT_TRACE=1` |
+| **trace** | `trace/` | `//src/base/trace:trace` → foundation | `base::trace::` — `event/trace.h`, `process_trace`, `SpanRecorder`, `export_chrome_trace`；详见 [`trace/README.md`](trace/README.md)；`TRACE=1` |
 | **archive** | `archive/` | `//src/base/archive:archive` | BinarySink / Serializer（A1；平台 DLL `public_deps`） |
 | **ipc** | `ipc/{codec,handle,channel,endpoint,data_pipe,invitation,portal,receiver}` | `//src/base/ipc:ipc` | Named pipe + pickle + invitation / DataPipe / Node+Portal / PendingRemote（mojom 形状，无 IDL；static；非 DLL）。头与实现同目录，例如 `#include "base/ipc/channel/channel.h"` |
 | **math** | `math/{scalar,linear,traits,geom,xform,simd}` | `//src/base/math:math`（`:linear` + `:bounds`） | Scene Vector/Matrix/Aabb (namespace `base`). Source sets only; **not** in `base.dll`. See [`math/README.md`](math/README.md) |

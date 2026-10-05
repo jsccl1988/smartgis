@@ -22,7 +22,7 @@ This is the durable destination. **This pass ports leftover MFC chrome** into `u
 | Leftover MFC exe | `SmartGIS-Legacy.exe` until parity | `src/legacy/app/` | — |
 | Legacy chrome | MFC Feature Pack / `src/legacy/ui` (retire after parity) | `src/legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | `Smt_*` |
 
-**Nesting cap** stays `src/<layer>/<module>`. `src/app/views` is OK; do **not** add ad-hoc nests at the module root (e.g. `src/ui/views/widget/` outside `kernel/`). Under `src/ui/views`, responsibility partitions (`kernel` / `primitives` / `dialogs` / `map` / `markup` / `testing`) are public include roots; product GIS chrome lives in sibling module `src/ui/gis/` (`catalog` / `inspect` / `shell` / `style` / `analysis` / `debug` / `dialogs`). Chromium-aligned subgroups under them are allowed. They are not a third semantic UI namespace. Paint stays `src/ui/gfx` (`ui::gfx`) with the same style of public responsibility dirs (`geometry/` · `color/` · `canvas/` · `display_list/` · `raster/` · `image/` · `font/` · `animation/`); includes are `"ui/gfx/<area>/...."`. Skia is the optional canvas backend (`canvas/canvas_skia.cc`, `smt_has_skia`), not a widget kit and not a third semantic namespace. See [`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) and [`specs/2026-09-13-render-rhi-scene-design.md`](specs/2026-09-13-render-rhi-scene-design.md) § 职责子目录.
+**Nesting cap** stays `src/<layer>/<module>`. `src/app/views` is OK; do **not** add ad-hoc nests at the module root (e.g. `src/ui/views/widget/` outside `kernel/`). Under `src/ui/views`, responsibility partitions (`kernel` / `primitives` / `dialogs` / `map` / `markup` / `testing`) are public include roots; product GIS chrome lives in sibling module `src/ui/gis/` (`catalog` / `inspect` / `shell` / `style` / `analysis` / `debug` / `dialogs`). Chromium-aligned subgroups under them are allowed. They are not a third semantic UI namespace. Paint stays `src/ui/gfx` (`ui::gfx`) with the same style of public responsibility dirs (`geometry/` · `color/` · `canvas/` · `display_list/` · `raster/` · `image/` · `font/` · `animation/`); includes are `"ui/gfx/<area>/...."`. Skia is the optional canvas backend (`canvas/canvas_skia.cc`, `has_skia`), not a widget kit and not a third semantic namespace. See [`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) and [`specs/2026-09-13-render-rhi-scene-design.md`](specs/2026-09-13-render-rhi-scene-design.md) § 职责子目录.
 
 Local **mgis** (`c:\Dev\src\gis\mgis`) is WTL + `gui/` + `content::MapView` (`CreateParams { HWND parent_hwnd }`). **mogu** Chromium Views is not on this machine. Naming: `ui/views` = toolkit, `src/app/` = product shells, `ui/gfx` = shell canvas.
 
@@ -42,7 +42,7 @@ Local **mgis** (`c:\Dev\src\gis\mgis`) is WTL + `gui/` + `content::MapView` (`Cr
 | Split a separate browser-shell tree vs leftover `src/app/` | Rejected. Hosts live in `src/app/{views,winui,cef,cs}`. |
 
 
-`build.bat app` / `build.bat views` build the destination chrome (`SmartGIS.exe`). Leftover MFC：`build.bat legacy_app`（`smt_build_app`）。
+`build.bat app` / `build.bat views` build the destination chrome (`SmartGIS.exe`). Leftover MFC：`build.bat legacy_app`（`build_app`）。
 
 ## Layering (paths + responsibilities)
 
@@ -87,7 +87,7 @@ src/legacy/render/{gdi,gl,…}     leftover map/3D devices (optional DLL)
 src/sdb/{map,feature,layer}      EXISTING map / layers / doc
 ```
 
-GN: `//src/ui/views:views` + `//src/ui/gis:gis` + `//src/ui/gfx:gfx` via `//:ui_views`. `//src/app/views:views` (`out/SmartGIS.exe`) loads only when `smt_build_views=true`. **Not** in `//src:src_all`, **not** a dep of GN `group("all")`.
+GN: `//src/ui/views:views` + `//src/ui/gis:gis` + `//src/ui/gfx:gfx` via `//:ui_views`. `//src/app/views:views` (`out/SmartGIS.exe`) loads only when `build_views=true`. **Not** in `//src:src_all`, **not** a dep of GN `group("all")`.
 
 ## How the map viewport hangs
 
@@ -97,8 +97,8 @@ GN: `//src/ui/views:views` + `//src/ui/gis:gis` + `//src/ui/gfx:gfx` via `//:ui_
 CMainFrame
   └── CSmartMapEditView : CView
         HWND
-        SmtRenderDevice::Init(hWnd)     src/render/{gdi,gl}
-        SmtMap                          src/sdb/map
+        RenderDevice2d::Init(hWnd)     src/render/{gdi,gl}
+        Map                          src/sdb/map
 ```
 
 **Scheme 3 (this chrome):**
@@ -114,7 +114,7 @@ src/app/views  (SmartGIS.exe — only product entry)
                 content::ViewHost   command / input dispatch
                 1) content::MapView when src/content/public exists
                 2) CreateProcess SmartGisRender.exe (IMapSession ABI)
-                3) LoadLibrary + SmtRenderDevice::Init
+                3) LoadLibrary + RenderDevice2d::Init
                 4) labeled placeholder
 ```
 
@@ -122,7 +122,7 @@ Same hang as mgis `content::MapView::CreateParams { HWND parent_hwnd }`: the she
 
 ## Status (v1)
 
-- **Canvas：** 壳 paint 默认 **GDI**（`canvas_gdi.cc`）；公开 API 经 `canvas.cc` 派发。`smt_has_skia=true` + 本机 pin 时同链真 Skia（`canvas_skia.cc`），运行时 `--shell-canvas=gdi|skia` 或 `SMT_SHELL_CANVAS`（CLI 优先；默认 gdi；未链入则回落）。Views `paint_self` 无 `#ifdef`。几何在 `ui::gfx::geometry`。见 [`src/ui/gfx/README.md`](../../src/ui/gfx/README.md) 与 living [`2026-09-14-render-skia-canvas-design.md`](specs/2026-09-13-render-rhi-scene-design.md) § 运行时后端切换。
+- **Canvas：** 壳 paint 默认 **GDI**（`canvas_gdi.cc`）；公开 API 经 `canvas.cc` 派发。`has_skia=true` + 本机 pin 时同链真 Skia（`canvas_skia.cc`），运行时 `--shell-canvas=gdi|skia` 或 `SHELL_CANVAS`（CLI 优先；默认 gdi；未链入则回落）。Views `paint_self` 无 `#ifdef`。几何在 `ui::gfx::geometry`。见 [`src/ui/gfx/README.md`](../../src/ui/gfx/README.md) 与 living [`2026-09-14-render-skia-canvas-design.md`](specs/2026-09-13-render-rhi-scene-design.md) § 运行时后端切换。
 - Toolkit kernel: `Widget`, `View` tree, focus / hover / press / enabled / visible, `schedule_paint`, `Theme`, `FillLayout` / `BoxLayout`, mouse/key/char dispatch, Skia stub canvas.
 - DPI: Per-Monitor V2 when available (`enable_process_dpi_awareness`), `WM_DPICHANGED` / `WM_GETDPISCALEDSIZE` on `Widget`, DIP→px helpers, preferred-size recompute on scale change, map host surface uses real window DPI (not hardcoded 96).
 - BeginFrame: `ui::gfx::VblankClock` (`IDXGIOutput::WaitForVBlank`) paces `MapViewport` Display thread and `gpu::PresentMailbox`; Sleep(16) fallback. Shell Commit still follows `WM_PAINT` (not yet BeginFrame-driven).

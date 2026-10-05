@@ -104,7 +104,7 @@ int main() {
       expect(d3d->bind_deferred_worker(-1) == kErrNone, "unbind");
       expect(d3d->finish_deferred_draw() == kErrNone, "finish_deferred");
     } else {
-      // Env SMT_RHI3D_D3D_DEFERRED=0 or CreateDeferredContext unsupported.
+      // Env RHI3D_D3D_DEFERRED=0 or CreateDeferredContext unsupported.
       expect(true, "deferred skipped");
     }
   }

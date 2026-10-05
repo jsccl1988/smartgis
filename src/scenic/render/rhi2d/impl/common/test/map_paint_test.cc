@@ -484,7 +484,7 @@ int main(int argc, char** argv) {
       }
       OGRFeature::DestroyFeature(feat);
     }
-    expect(map.AddLayer(lyr), "AddLayer OGR China sample");
+    expect(map.add_layer(lyr), "add_layer OGR China sample");
   }
   const bool city_pack = path.find("china_city") != std::string::npos;
   // china_city pack: area≈34, line≥1, point≈64; labels folded into point
@@ -495,8 +495,8 @@ int main(int argc, char** argv) {
   expect(n_anno >= (city_pack ? 0 : 5), "annotation text features");
   std::fprintf(stderr, "kinds region=%d line=%d dot=%d anno=%d\n", n_region,
                n_line, n_dot, n_anno);
-  expect(map.GetLayerCount() >= 1, "map layer count");
-  expect(map.GetOgrLayer(0) != nullptr, "GetOgrLayer");
+  expect(map.layer_count() >= 1, "map layer count");
+  expect(map.ogr_layer(0) != nullptr, "ogr_layer");
 
   GDALDriver* mem = GetGDALDriverManager()->GetDriverByName("Memory");
   GDALDataset* donut_ds = nullptr;
@@ -511,7 +511,7 @@ int main(int argc, char** argv) {
     OGRLayer* donut = add_donut_with_holes(donut_ds);
     expect(donut != nullptr, "in-memory polygon with 5 holes");
     if (donut) {
-      expect(map.AddLayer(donut), "AddLayer donut holes");
+      expect(map.add_layer(donut), "add_layer donut holes");
     }
   }
 
@@ -601,7 +601,7 @@ int main(int argc, char** argv) {
   dev->SetRenderOptions(options);
 
   gis::Envelope env;
-  map.CalEnvelope();
+  map.cal_envelope();
   map.get_envelope(env);
   expect(env.is_init(), "map envelope");
   base::fRect frt;

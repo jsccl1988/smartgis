@@ -70,7 +70,7 @@ M0–M4 验收口令均挂在 `SmartGIS.exe --self-test`；计划：`docs/superp
 | 布局打印 | A | — | A | **C**（Views `PrintPreviewDialog` 壳 + viewport BMP；**无**页布局/比例尺/图例引擎） | B | [plugin-host](specs/2026-09-13-plugin-host-design.md) print；gap pin P0-3 | M1 末 |
 | 编辑 / 捕捉 / 拓扑 | A | — | A | C（`EditSession`/`feature_edit` 有；**新栈无 snap/拓扑**）+ leftover | B→A | [tool-event-dispatch](specs/2026-09-13-tool-event-dispatch-design.md)；gap pin P0-4/P1-4 | **M0** / M4 |
 | Processing / 分析 | A | — | A | C–D（algorithm 核有，无工具箱） | B | [algorithm-layer-oss](specs/2026-09-13-algorithm-layer-oss-design.md) **accepted**；[plugin-host](specs/2026-09-13-plugin-host-design.md) Processing 契约 | **M2** |
-| RHI / 双场景 | — | A | A | **B**（`gis::World` + `vista::GpuScene` + `Scene3dGpuPresent`；SP4 主刀已绿；leftover `DemHeightField` / `SmtScene` octree 仍 Deferred） | A | [render-rhi-scene](specs/2026-09-13-render-rhi-scene-design.md) **accepted**；[legacy umbrella SP4](specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md)；[scene3d-world-gpuscene plan](plans/2026-09-19-scene3d-world-gpuscene.md)；[**map3d-gap-pin**](plans/2026-09-30-map3d-gap-pin.md) | **M3**+ |
+| RHI / 双场景 | — | A | A | **B**（`gis::World` + `vista::GpuScene` + `Scene3dGpuPresent`；SP4 主刀已绿；leftover `DemHeightField` / `Scene` octree 仍 Deferred） | A | [render-rhi-scene](specs/2026-09-13-render-rhi-scene-design.md) **accepted**；[legacy umbrella SP4](specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md)；[scene3d-world-gpuscene plan](plans/2026-09-19-scene3d-world-gpuscene.md)；[**map3d-gap-pin**](plans/2026-09-30-map3d-gap-pin.md) | **M3**+ |
 | 3D 模型 / Tiles | B | A | A | **B**（`TilesetStreamSession` + present pump/`GpuScene` cache；b3dm/glb 解码；M3 fixture + `scene3d_presenter_test` 绿；城市场规模 / i3dm·pnts → P1-C） | B→A | render-rhi-scene §model；`vista/assets/tileset`；[m3 plan](archive/plans/2026-09-27-m3-city-3d-stream.md)；[map3d-gap-pin](plans/2026-09-30-map3d-gap-pin.md) P0-B **done** | **M3**+ |
 | 地形 DEM | B | A | A | **B–C**（`DemRaster` + `seed_china_dem_into_world` + mesh；**无**高度场瓦片/clipmap） | B | [legacy umbrella DEM](specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md)；[map3d-gap-pin](plans/2026-09-30-map3d-gap-pin.md) P0-C | M3+ |
 | 点云 | B | B | A | **C→B**（LAS/LAZ/txt + World/`kPointCloud` + chunk/LOD；PDAL stub；活 PDAL install Deferred） | B | [plugin-host §world3d](specs/2026-09-13-plugin-host-design.md)；[world3d-pointcloud-las](plans/2026-09-30-world3d-pointcloud-las.md)；[map3d-gap-pin](plans/2026-09-30-map3d-gap-pin.md) P1-A | M3 后 |
@@ -115,7 +115,7 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 
 ### 3.2.1 Map3D 钉死清单（2026-09-30）
 
-核对依据：CBM `smartgis` + `src/vista/world/**`、`src/vista/assets/tileset/**`、`src/vista/scene/**`、`src/content/browser/present/scene3d/**`、相关 plans。刻意不追：Cesium Native、完整 GCM/影视级海洋、产品 Web GIS。
+核对依据：CBM `smartgis` + `src/vista/component/world/**`、`src/vista/assets/tileset/**`、`src/vista/scene/**`、`src/content/browser/present/scene3d/**`、相关 plans。刻意不追：Cesium Native、完整 GCM/影视级海洋、产品 Web GIS。
 
 执行 checkbox：[`plans/2026-09-30-map3d-gap-pin.md`](plans/2026-09-30-map3d-gap-pin.md)。
 
@@ -127,7 +127,7 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 | **P1-A** | 点云「生产可用」未钉死 | `load_point_cloud` / LAS·LAZ·txt；`set_pointcloud_points` chunk+LOD；`world3d` 命令；`pointcloud_test`；PDAL stub | 大云（≥1M）稳定打开 + 文档化 in-tree vs PDAL | showcase/interact 出画；>500k 自动 thin；`pointcloud_test` 绿 | [plugin-host](specs/2026-09-13-plugin-host-design.md) §world3d；[world3d-pointcloud-las](plans/2026-09-30-world3d-pointcloud-las.md) | **P1** |
 | **P1-B** | 大气产品总验收未关 | upgrade Phase 0–3.3 多 `[x]`；Phase 3.4 开；`m3-atmosphere-ok`；`--atmosphere-showcase` | 按 upgrade §1.2 五条逐项关闸并记证据 | 五条均有可复述证据；大气自测不回归 | [atmosphere upgrade](plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md)；[render-rhi-scene](specs/2026-09-13-render-rhi-scene-design.md) Atmosphere | **P1** |
 | **P1-C** | Tiles 内容面偏窄 | b3dm/glb 主路径；i3dm/pnts 多为路径识别；`select_tiles_limited` 截断偏粗 | 内容矩阵 + 诚实 skip；SSE/预算策略产品默认 | README 内容矩阵；unsupported → `put_failed` 无重试风暴 | [render-rhi-scene](specs/2026-09-13-render-rhi-scene-design.md)；[map3d-gap-pin](plans/2026-09-30-map3d-gap-pin.md) | **P1** |
-| **P2-A** | `SmtScene` octree 仅 AABB 镜像 | `seed_smt_scene_aabbs_into_world`；SP4 Deferred | 查询路径进一步委托 World | 相关 leftover 查询测绿；无双真相 | [scene3d-world-gpuscene plan](plans/2026-09-19-scene3d-world-gpuscene.md) Deferred | **P2** |
+| **P2-A** | `Scene` octree 仅 AABB 镜像 | `seed_smt_scene_aabbs_into_world`；SP4 Deferred | 查询路径进一步委托 World | 相关 leftover 查询测绿；无双真相 | [scene3d-world-gpuscene plan](plans/2026-09-19-scene3d-world-gpuscene.md) Deferred | **P2** |
 | **P2-B** | 活 PDAL 安装未产品化 | `pdal_io` stub → `pdal_not_built`；plan Task 5 注明 live Deferred | 可选 `build.bat t pdal` 文档/机时允许时绿 | stub 必绿；有安装时 processing 读样例 | [world3d-pointcloud-las](plans/2026-09-30-world3d-pointcloud-las.md) Task 5 | **P2** |
 | **P2-C** | 地形 LOD 观感低于 Cesium 中档 | 单 coarse mesh / 无 morph | clipmap 或等价中档观感（非 Cesium terrain 全家桶） | 城市场演示可述「近细远粗」 | [render-rhi-scene](specs/2026-09-13-render-rhi-scene-design.md)；[map3d-gap-pin](plans/2026-09-30-map3d-gap-pin.md) | **P2** |
 
@@ -208,7 +208,7 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 
 ## 8. Map2D 钉死清单（2026-09-30）
 
-核对依据：CBM `smartgis` + `src/gis/style/**`、`src/gis/tile/**`、`src/vista/map/**`、`src/content/browser/present/map2d/**`、`src/plugin/product/print/**`、`src/content/browser/document/edit/**`、render-rhi §Map2d richness、[`2026-09-30-map2d-hillshade-line-casing.md`](plans/2026-09-30-map2d-hillshade-line-casing.md)。
+核对依据：CBM `smartgis` + `src/gis/style/**`、`src/gis/tile/**`、`src/vista/component/map/**`、`src/content/browser/present/map2d/**`、`src/plugin/product/print/**`、`src/content/browser/document/edit/**`、render-rhi §Map2d richness、[`2026-09-30-map2d-hillshade-line-casing.md`](plans/2026-09-30-map2d-hillshade-line-casing.md)。
 
 刻意不追：Qt、Cesium Native、产品 Web GIS/mapd、第二套 GEOS、完整 MapLibre Native 链接。
 

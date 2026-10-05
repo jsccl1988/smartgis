@@ -68,7 +68,7 @@ Present README：
 build.bat views
 ```
 
-产出 `out/SmartGIS.exe`（`smt_build_views=true`）。不在
+产出 `out/SmartGIS.exe`（`build_views=true`）。不在
 `group("all")` 里。`--self-test` 泵消息、检查 widget HWND，切换 Map/Data/3D
 页，在 `kContentMapView` 时 `wait_ready`，并对 3D 页跑 `view3d.trackball`
 输入（无 GPU 时占位 HWND 亦可）。分层与退出码：
@@ -99,17 +99,17 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 （`shell/browser/`）供交互 shell 与 `--map2d-showcase=china` /
 `--atmosphere-showcase=full` 共用——中国样例清掉 `china_city.style.json`（默认
 carto）、mainland 取景、`kChinaLonLatExtent` + orbit `distance=2.55`、3D 大气
-ocean/cloud/sky/**fog**（`SMT_SCENE3D_ATMO=0` / `SMT_SCENE3D_LAND_ONLY=1` 可关）。
+ocean/cloud/sky/**fog**（`SCENE3D_ATMO=0` / `SCENE3D_LAND_ONLY=1` 可关）。
 交互仍走 FlyCube；showcase/self-test 才强制 ContentMapView/GDI。
 
 **2D 主路径 = RHI**：Map/Data 页默认 FlyCube；`MapScene::present_gpu` 把可见矢量层交给 `gis::vista::Layout` 生成 `MapIR`，再由 `vista::MapPass` 录到调用方 `Device` 并 present。成功时注记在帧内（`kText`），`paint_annotation_overlay` 只描选中；失败或强制时回退全量 GDI `MapScene::paint`（含注记）。
 
 ```bat
 rem 强制 2D 走 ContentMapView / 跳过 FlyCube：
-set SMT_FORCE_CONTENT_MAPVIEW_2D=1
-rem 或: set SMT_PREFER_FLYCUBE_2D=0
+set FORCE_CONTENT_MAPVIEW_2D=1
+rem 或: set PREFER_FLYCUBE_2D=0
 rem 强制 GDI 全量 overlay（仍可挂 FlyCube HWND，但不走 present_gpu）：
-set SMT_FORCE_GDI_MAP_OVERLAY=1
+set FORCE_GDI_MAP_OVERLAY=1
 out\SmartGIS.exe
 ```
 
@@ -130,7 +130,7 @@ Stereo/GL / GDI**，或 `content::set_scene3d_engine(...)`。命令 id：
 `testing/data/`）则 draping 遥感影像。TIN 线框：
 
 ```bat
-set SMT_SCENE3D_WIREFRAME=1
+set SCENE3D_WIREFRAME=1
 out\SmartGIS.exe
 ```
 
@@ -138,13 +138,13 @@ out\SmartGIS.exe
 FlyCube 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_demo()`。
 
 大气 3D 端到端 showcase。默认 **Null RHI**（可重复退出 0）；
-真 GPU：`set SMT_ATMOSPHERE_SHOWCASE_GPU=1`（独立 640×480 展示窗 + FlyCube/DX12）。
+真 GPU：`set ATMOSPHERE_SHOWCASE_GPU=1`（独立 640×480 展示窗 + FlyCube/DX12）。
 GPU **永远显示直到关掉展示窗**（忽略残留的正数 `LINGER_MS`）。自动化用
-`SMT_ATMOSPHERE_SHOWCASE_TIMED_MS=1500`，或 `SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=0` 跳过停留。
+`ATMOSPHERE_SHOWCASE_TIMED_MS=1500`，或 `ATMOSPHERE_SHOWCASE_LINGER_MS=0` 跳过停留。
 
 ```bat
-set SMT_ATMOSPHERE_SHOWCASE_GPU=1
-rem automation only: set SMT_ATMOSPHERE_SHOWCASE_TIMED_MS=1500
+set ATMOSPHERE_SHOWCASE_GPU=1
+rem automation only: set ATMOSPHERE_SHOWCASE_TIMED_MS=1500
 out\SmartGIS.exe --atmosphere-showcase=full
 ```
 
@@ -164,8 +164,8 @@ out\SmartGIS.exe --atmosphere-showcase=full
 GPU BMP 需至少 2 种可见色（拒绝纯 clear）。根因修复：透视投影改为 RH，与 look_at（看向 -Z）一致。
 
 2D 地图 carto showcase（MapLibre / Baidu 色板）。打开 China 样例、`export_bmp`
-写旁路 `out\Debug\captures\map2d-showcase-china.bmp`。自动化：`SMT_MAP2D_SHOWCASE_LINGER_MS=0`
-（当前无 linger；预留）。可选 `SMT_MAP2D_SHOWCASE_GPU=1` 额外跑 `present_gpu`。
+写旁路 `out\Debug\captures\map2d-showcase-china.bmp`。自动化：`MAP2D_SHOWCASE_LINGER_MS=0`
+（当前无 linger；预留）。可选 `MAP2D_SHOWCASE_GPU=1` 额外跑 `present_gpu`。
 
 **Align 模式**（长期 Style 对齐，不链 Native）：与 china 模式相同打开
 `china_city` 样例，再加载 `maplibre/example/style_align.json`，同 mainland
@@ -199,7 +199,7 @@ Harness suites：契约在 `testing/tools/harness/<family>/<suite_id>/suite.json
 样例也可直接 Open：`out\views_ogr_sample.geojson`（构建后可从
 `testing/data/` 复制）或仓库内 `testing/data/views_ogr_sample.geojson`。
 
-产出 `out/SmartGIS.exe`（`smt_build_views=true`）。不在
+产出 `out/SmartGIS.exe`（`build_views=true`）。不在
 `group("all")` 里。分层与退出码：
 [`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md)。
 

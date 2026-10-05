@@ -22,7 +22,7 @@ bool file_exists(const wchar_t* path) {
 // (e.g. forced 640x480 on a ~2k child) clears navy on-screen even when
 // DrawIndexed succeeds — DXGI does not stretch that path the way a matching
 // showcase HWND does. Default: native client size. Opt in:
-// SMT_SCENE3D_SWAPCHAIN_MAX=1280x720 (or WIDTHxHEIGHT).
+// SCENE3D_SWAPCHAIN_MAX=1280x720 (or WIDTHxHEIGHT).
 void clamp_scene3d_swapchain_size(uint32_t* w, uint32_t* h) {
   if (!w || !h) {
     return;

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_WORLD_DEM_FRAME_H_
-#define GIS_WORLD_DEM_FRAME_H_
+#ifndef VISTA_TERRAIN_DEM_DEM_FRAME_H_
+#define VISTA_TERRAIN_DEM_DEM_FRAME_H_
 
 namespace vista {
 
@@ -24,4 +24,4 @@ inline double dem_x_to_lon(float x) {
 
 }  // namespace vista
 
-#endif  // GIS_WORLD_DEM_FRAME_H_
+#endif  // VISTA_TERRAIN_DEM_DEM_FRAME_H_

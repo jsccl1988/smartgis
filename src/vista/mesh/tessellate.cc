@@ -10,11 +10,11 @@
 #include "base/trace/event/process_trace.h"
 #include "gis/tile/layer/provider_tile_layer.h"
 #include "gis/map/map_layer.h"
-#include "vista/mesh/fill_tess.h"
-#include "vista/mesh/line_tess.h"
-#include "vista/mesh/mesh_append.h"
-#include "vista/mesh/mesh_scratch.h"
-#include "vista/mesh/tess_trace.h"
+#include "vista/mesh/detail/mesh_append.h"
+#include "vista/mesh/detail/mesh_scratch.h"
+#include "vista/mesh/detail/tess_trace.h"
+#include "vista/mesh/fill/fill_tess.h"
+#include "vista/mesh/line/line_tess.h"
 #include "ogrsf_frmts.h"
 
 namespace vista {
@@ -241,13 +241,13 @@ bool tessellate_tile_layer(const gis::MapLayer* slot, TessMesh& out) {
   if (!tile) {
     return tessellate_raster_layer(slot, out);
   }
-  const int n = tile->GetTileCount();
+  const int n = tile->tile_count();
   if (n <= 0) {
     return false;
   }
   bool any_image = false;
   for (int i = 0; i < n; ++i) {
-    const gis::tile::TileImage* img = tile->GetTile(i);
+    const gis::tile::TileImage* img = tile->tile_at(i);
     if (!img) {
       continue;
     }
@@ -277,14 +277,15 @@ bool tessellate_line(const OGRLineString* line, TessMesh& out) {
 bool tessellate_line(const OGRLineString* line, const LineTessOptions& options,
                      TessMesh& out) {
   detail::ScopedTessCpu cpu(&detail::tess_trace_stats().line_us);
+  if (!line || detail::line_skips_tessellation(line, options)) {
+    detail::reset_mesh(out);
+    return false;
+  }
   if (base::trace::tracing_enabled()) {
     detail::tess_trace_stats().line_n.fetch_add(1, std::memory_order_relaxed);
   }
   detail::clear_tessellate_tls_scratch();
   detail::reset_mesh(out);
-  if (!line) {
-    return false;
-  }
   auto pts_holder = detail::poly_pt_vec_pool().allocate();
   std::vector<detail::PolyPt>& pts = *pts_holder;
   {

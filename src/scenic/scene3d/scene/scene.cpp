@@ -33,7 +33,7 @@ bool object_aabb_in_frustum(const Frustum& frustum, Object3d* obj) {
   if (!obj) {
     return false;
   }
-  return frustum.intersects(obj->GetAabb());
+  return frustum.intersects(obj->aabb());
 }
 
 }  // namespace
@@ -67,7 +67,7 @@ Scene::~Scene(void) {
   m_p3DRenderDevice = NULL;
 }
 
-inline void Scene::SetSceneCamera(PerspCamera *pCamera) {
+inline void Scene::set_camera(PerspCamera *pCamera) {
   m_pCamera = pCamera;
   if (m_pNorthArray) m_pNorthArray->set_camera(m_pCamera);
 }
@@ -140,7 +140,7 @@ long Scene::Render(void) {
     if (m_bOctTreeCreated) {
       static char szBuf[TEMP_BUFFER_SIZE];
 
-      if (m_pSceneTree->IsVisible()) {
+      if (m_pSceneTree->is_visible()) {
         m_pSceneTree->Render(m_p3DRenderDevice);
         m_pSceneTree->debug_string(szBuf, TEMP_BUFFER_SIZE);
         sprintf(m_szRenderInfoBuf, "Fps%.3f\t%s", m_pTimer->get_fps(), szBuf);
@@ -156,7 +156,7 @@ long Scene::Render(void) {
       m_p3DRenderDevice->GetFrustum(frustum);
       const size_t n = m_v3DObjectPtrs.size();
       std::vector<uint8_t> in_frustum(n, 0);
-      // SMT_RHI3D_SKIP_FRUSTUM=1: draw all visible objects (debug / D3D frustum
+      // RHI3D_SKIP_FRUSTUM=1: draw all visible objects (debug / D3D frustum
       // extract regressions).
       const bool skip_frustum = []() {
         const char* e = base::switch_cstr("rhi3d-skip-frustum");
@@ -169,7 +169,7 @@ long Scene::Render(void) {
         const Object3dPtrs& objects = m_v3DObjectPtrs;
         prep.run_jobs(n, [&](size_t i) {
           Object3d* obj = objects[i];
-          if (!obj || !obj->IsVisible()) {
+          if (!obj || !obj->is_visible()) {
             return;
           }
           if (skip_frustum || object_aabb_in_frustum(frustum, obj)) {
@@ -227,7 +227,7 @@ long Scene::Render(void) {
       }
     }
 
-    if (m_pNorthArray && m_pNorthArray->IsVisible())
+    if (m_pNorthArray && m_pNorthArray->is_visible())
       m_pNorthArray->Render(m_p3DRenderDevice);
 
     // Debug HUD (D3D GDI→sprite is costly; skip unless explicitly enabled).
@@ -275,33 +275,33 @@ long Scene::Transform3DTo2D(const Vector3 &ver3D, lPoint &point) {
   return kErrNone;
 }
 
-void Scene::CreateOctTreeSceneMgr(void) {
+void Scene::create_octree(void) {
   m_pSceneTree->rebuild(m_v3DObjectPtrs);
   m_aAbb = m_pSceneTree->aabb();
   m_bOctTreeCreated = true;
   // SP4: one switch — mirror object AABBs into World when a mirror is set
   // (map_to_scene / tests). Does not delete leftover octree.
-  if (vista::World *mirror = smt_scene_world_mirror()) {
+  if (vista::World *mirror = scene_world_mirror()) {
     seed_smt_scene_aabbs_into_world(mirror, this);
   }
 }
 
-void Scene::Add3DObject(Object3d *p3DObject) {
+void Scene::add_object(Object3d *p3DObject) {
   if (NULL != p3DObject) {
     m_v3DObjectPtrs.push_back(p3DObject);
-    m_aAbb.merge(p3DObject->GetAabb());
+    m_aAbb.merge(p3DObject->aabb());
     m_aAbb.vcCenter = (m_aAbb.vcMax + m_aAbb.vcMin) / 2.;
     m_bOctTreeCreated = false;
   }
 }
 
-void Scene::Remove3DObject(int index) {
+void Scene::remove_object(int index) {
   Object3dPtrs ::iterator iter = m_v3DObjectPtrs.begin();
   while (iter != m_v3DObjectPtrs.end()) {
     if (index == 0) {
       SAFE_DELETE(*iter);
       m_v3DObjectPtrs.erase(iter);
-      CreateOctTreeSceneMgr();
+      create_octree();
       break;
     }
 
@@ -310,18 +310,18 @@ void Scene::Remove3DObject(int index) {
   }
 }
 
-void Scene::Remove3DObject(Object3d *p3DObject) {
+void Scene::remove_object(Object3d *p3DObject) {
   Object3dPtrs::iterator iter;
   iter = find(m_v3DObjectPtrs.begin(), m_v3DObjectPtrs.end(), p3DObject);
 
   if (iter != m_v3DObjectPtrs.end()) {
     SAFE_DELETE(*iter);
     m_v3DObjectPtrs.erase(iter);
-    CreateOctTreeSceneMgr();
+    create_octree();
   }
 }
 
-Object3d *Scene::Get3DObject(int index) {
+Object3d *Scene::object_at(int index) {
   Object3dPtrs ::iterator iter = m_v3DObjectPtrs.begin();
   while (iter != m_v3DObjectPtrs.end()) {
     if (index == 0) {
@@ -335,7 +335,7 @@ Object3d *Scene::Get3DObject(int index) {
   return NULL;
 }
 
-const Object3d *Scene::Get3DObject(int index) const {
+const Object3d *Scene::object_at(int index) const {
   Object3dPtrs ::const_iterator iter = m_v3DObjectPtrs.begin();
   while (iter != m_v3DObjectPtrs.end()) {
     if (index == 0) {
@@ -349,11 +349,11 @@ const Object3d *Scene::Get3DObject(int index) const {
   return NULL;
 }
 
-void Scene::Get3DObjectPtrs(Object3dPtrs &v3DObjectPtrs) {
+void Scene::objects(Object3dPtrs &v3DObjectPtrs) {
   v3DObjectPtrs = m_v3DObjectPtrs;
 }
 
-long Scene::Select3DObject(Object3dPtrs &vSelected3DObjects,
+long Scene::select_objects(Object3dPtrs &vSelected3DObjects,
                               lPoint point) {
   if (m_pCamera) m_pCamera->apply();
 
@@ -377,7 +377,7 @@ long Scene::Select3DObject(Object3dPtrs &vSelected3DObjects,
   return kErrNone;
 }
 
-long Scene::TransModel3DObjects(::base::Matrix &matTransform) {
+long Scene::transform_model_objects(::base::Matrix &matTransform) {
   if (m_bOctTreeCreated) {
     if (NULL != m_pSceneTree)
       m_pSceneTree->multiply_object_model_matrices(matTransform);
@@ -385,7 +385,7 @@ long Scene::TransModel3DObjects(::base::Matrix &matTransform) {
     Object3dPtrs ::iterator iter = m_v3DObjectPtrs.begin();
     while (iter != m_v3DObjectPtrs.end()) {
       if (NULL != (*iter)) {
-        (*iter)->ModelTransMatrixMultiply(matTransform);
+        (*iter)->multiply_model_matrix(matTransform);
       }
       iter++;
     }
@@ -394,7 +394,7 @@ long Scene::TransModel3DObjects(::base::Matrix &matTransform) {
   return kErrNone;
 }
 
-long Scene::TransWorld3DObjects(::base::Matrix &matTransform) {
+long Scene::transform_world_objects(::base::Matrix &matTransform) {
   if (m_bOctTreeCreated) {
     if (NULL != m_pSceneTree)
       m_pSceneTree->multiply_object_world_matrices(matTransform);
@@ -402,7 +402,7 @@ long Scene::TransWorld3DObjects(::base::Matrix &matTransform) {
     Object3dPtrs ::iterator iter = m_v3DObjectPtrs.begin();
     while (iter != m_v3DObjectPtrs.end()) {
       if (NULL != (*iter)) {
-        (*iter)->WorldTransMatrixMultiply(matTransform);
+        (*iter)->multiply_world_matrix(matTransform);
       }
       iter++;
     }

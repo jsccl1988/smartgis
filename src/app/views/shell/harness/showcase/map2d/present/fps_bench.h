@@ -14,7 +14,7 @@ class Browser;
 
 namespace detail {
 
-// Optional HUD FPS sample loop (SMT_MAP2D_FPS_BENCH_MS). Writes
+// Optional HUD FPS sample loop (MAP2D_FPS_BENCH_MS). Writes
 // map2d-fps-bench.txt under the exe capture dir when enabled.
 void run_optional_map2d_fps_bench(Browser& browser,
                                   content::Map2dPresenter* map2d);

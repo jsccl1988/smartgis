@@ -19,6 +19,11 @@ std::vector<std::string> style_seed_relative_paths();
 // Declared in content (not detail)  - public helper used by MapScene callers.
 std::vector<std::string> china_seed_relative_paths();
 
+// First existing regular file under |exe_dir| (trailing separator ok).
+// Stat-only — does not open GDAL. Preferred order matches china_seed_relative_paths().
+bool try_resolve_china_seed_path(const std::string& exe_dir,
+                                 std::string* out_path);
+
 }  // namespace content
 
 #endif  // CONTENT_BROWSER_DOCUMENT_INGEST_SEED_PATHS_H_

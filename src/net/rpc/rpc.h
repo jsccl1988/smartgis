@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_NET_RPC_H
-#define SMT_NET_RPC_H
+#ifndef NET_RPC_H
+#define NET_RPC_H
 
 #include "net/net_export.h"
 
@@ -60,4 +60,4 @@ class NET_EXPORT RpcClient {
 
 }  // namespace net
 
-#endif  // SMT_NET_RPC_H
+#endif  // NET_RPC_H

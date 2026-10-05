@@ -12,7 +12,7 @@
 #include "scenic/render/rhi2d/impl/common/paint/carto/style/style_pod.h"
 #include "scenic/scene3d/primitive/feature/map_label_batch.h"
 #include "scenic/scene3d/scene/scene_to_world.h"
-#include "vista/world/dem_seed.h"
+#include "vista/component/world/dem_seed.h"
 #include "scenic/scene3d/primitive/surface/terrain.h"
 #include "scenic/scene3d/primitive/surface/pointcloud.h"
 #include "scenic/scene3d/primitive/feature/geo_object.h"
@@ -369,8 +369,8 @@ bool seed_stereo_underlay(LP3DRENDERDEVICE device, Scene* scene,
     remember_dem_frame(*dem);
     g_active_dem = dem;
     seed_dem_into_map_world(*dem);
-    terrain->SetVisible(true);
-    scene->Add3DObject(terrain);
+    terrain->set_visible(true);
+    scene->add_object(terrain);
   }
   auto* labels = new MapLabelBatch();
   if (!device || labels->Init(pos, mat) != kErrNone ||
@@ -382,7 +382,7 @@ bool seed_stereo_underlay(LP3DRENDERDEVICE device, Scene* scene,
     }
     return true;
   }
-  labels->SetVisible(true);
+  labels->set_visible(true);
   g_pending_labels = labels;
   if (out_labels) {
     *out_labels = labels;
@@ -518,7 +518,7 @@ int seed_ogr_layer_into_scene(LP3DRENDERDEVICE device, Scene* scene,
   layer->ResetReading();
   int added = 0;
   // china_city line layer is ~1.7k features; per-feature D3D DrawPrimitives
-  // dominated present time (~100ms). Opt-in with SMT_SCENE3D_SEED_LINES=1.
+  // dominated present time (~100ms). Opt-in with SCENE3D_SEED_LINES=1.
   const bool seed_lines = []() {
     const char* e = base::switch_cstr("scene3d-seed-lines");
     return e && e[0] && e[0] != '0' && e[0] != 'n' && e[0] != 'N';
@@ -574,8 +574,8 @@ int seed_ogr_layer_into_scene(LP3DRENDERDEVICE device, Scene* scene,
     obj->set_geometry(geom);
     obj->set_style(&style);
     if (obj->Create(device) == kErrNone) {
-      obj->SetVisible(true);
-      scene->Add3DObject(obj);
+      obj->set_visible(true);
+      scene->add_object(obj);
       ++added;
     } else {
       delete obj;
@@ -625,12 +625,12 @@ int seed_geojson_into_scene(LP3DRENDERDEVICE device, Scene* scene,
     added += seed_ogr_layer_into_scene(device, scene, layer);
   }
   if (labels) {
-    scene->Add3DObject(labels);
+    scene->add_object(labels);
     if (g_pending_labels == labels) {
       g_pending_labels = nullptr;
     }
   }
-  // SP4: refresh World AABB mirror without requiring CreateOctTreeSceneMgr.
+  // SP4: refresh World AABB mirror without requiring create_octree.
   seed_smt_scene_aabbs_into_world(&g_map_world, scene);
   GDALClose(ds);
   // Terrain counts as a seed even when the pack has no line features (area /
@@ -734,8 +734,8 @@ int seed_cube_object(LP3DRENDERDEVICE device, Scene* scene) {
     delete cube;
     return 0;
   }
-  cube->SetVisible(true);
-  scene->Add3DObject(cube);
+  cube->set_visible(true);
+  scene->add_object(cube);
   return 1;
 }
 
@@ -754,8 +754,8 @@ int seed_sphere_object(LP3DRENDERDEVICE device, Scene* scene) {
     delete sphere;
     return 0;
   }
-  sphere->SetVisible(true);
-  scene->Add3DObject(sphere);
+  sphere->set_visible(true);
+  scene->add_object(sphere);
   return 1;
 }
 
@@ -784,8 +784,8 @@ int seed_water_object(LP3DRENDERDEVICE device, Scene* scene) {
       water->Update(device, 0.016f);
     }
   }
-  water->SetVisible(true);
-  scene->Add3DObject(water);
+  water->set_visible(true);
+  scene->add_object(water);
   return 1;
 }
 
@@ -839,8 +839,8 @@ int seed_pointcloud_object(LP3DRENDERDEVICE device, Scene* scene) {
     return 0;
   }
   cloud->set_show_bounds(false);
-  cloud->SetVisible(true);
-  scene->Add3DObject(cloud);
+  cloud->set_visible(true);
+  scene->add_object(cloud);
   DeleteFileA(csv);
   return 1;
 }
@@ -852,7 +852,7 @@ int seed_northarray_framing(Scene* scene) {
   aabb.vcMin.set(-20.f, -8.f, -20.f);
   aabb.vcMax.set(20.f, 8.f, 20.f);
   aabb.vcCenter = (aabb.vcMax + aabb.vcMin) * 0.5f;
-  scene->SetAabb(aabb);
+  scene->set_aabb(aabb);
   return 1;
 }
 

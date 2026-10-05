@@ -103,23 +103,23 @@ void test_profile_dump() {
                     "dem_gradient_profile_test.json";
   std::filesystem::create_directories(dump.parent_path());
 #if defined(_WIN32)
-  _putenv_s("SMT_ANALYSIS_PROFILE", "1");
-  _putenv_s("SMT_ANALYSIS_PROFILE_DUMP", dump.string().c_str());
+  _putenv_s("ANALYSIS_PROFILE", "1");
+  _putenv_s("ANALYSIS_PROFILE_DUMP", dump.string().c_str());
 #else
-  setenv("SMT_ANALYSIS_PROFILE", "1", 1);
-  setenv("SMT_ANALYSIS_PROFILE_DUMP", dump.string().c_str(), 1);
+  setenv("ANALYSIS_PROFILE", "1", 1);
+  setenv("ANALYSIS_PROFILE_DUMP", dump.string().c_str(), 1);
 #endif
   expect(gis::detail::dem_gradient_profile_enabled(), "profile env on");
   const auto elev = make_ramp(8, 8);
   (void)gis::detail::compute_dem_gradient(elev, 8, 8, 1.0, 1.0);
   expect(std::filesystem::exists(dump),
-         "profile json dumped (SMT_ANALYSIS_PROFILE_DUMP)");
+         "profile json dumped (ANALYSIS_PROFILE_DUMP)");
 #if defined(_WIN32)
-  _putenv_s("SMT_ANALYSIS_PROFILE", "0");
-  _putenv_s("SMT_ANALYSIS_PROFILE_DUMP", "");
+  _putenv_s("ANALYSIS_PROFILE", "0");
+  _putenv_s("ANALYSIS_PROFILE_DUMP", "");
 #else
-  unsetenv("SMT_ANALYSIS_PROFILE");
-  unsetenv("SMT_ANALYSIS_PROFILE_DUMP");
+  unsetenv("ANALYSIS_PROFILE");
+  unsetenv("ANALYSIS_PROFILE_DUMP");
 #endif
 }
 

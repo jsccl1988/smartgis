@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_AFFINE2_H_
-#define SMT_RENDER_MATH_AFFINE2_H_
+#ifndef BASE_MATH_LINEAR_AFFINE2_H_
+#define BASE_MATH_LINEAR_AFFINE2_H_
 
 namespace base {
 
@@ -59,4 +59,4 @@ using ::base::transform_xy;
 using ::base::inverse_xy;
 }  // namespace render
 
-#endif  // SMT_RENDER_MATH_AFFINE2_H_
+#endif  // BASE_MATH_LINEAR_AFFINE2_H_

@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-04 — Nest `gis/style/{document,eval,symbol}`（根上留 leftover-stable `paint_resolve.h`；无转发头）。Prior same day — Hoist `gis/carto/{style,tile}` → `gis/style` + `gis/tile`（删空 `carto/`；不拆进 datasource/map；无转发头）。Prior same day — Nest `gis/tile/{protocol,cache,provider,layer}`（撤销同日 flatten；无转发头）。Prior same day — Tighten `src/gis` dirs: drop `layer/` `crs/`; datasource backends `ogr/` `sdbd/` `gdal/` as siblings of `provider/` (no `impl/`); flatten `stat/{detail,eval,value}`; leftover `SmtStyle` OGR blob I/O in `legacy/gis/present/carto/smt_style_ogr.*`. Prior same day — Flatten `gis/model/*` → `gis/{feature,map,edit,envelope.h}`；`edit/` 按职责拆 mutation / undo_log / command / memory / map session；leftover catalog `CatalogSource` / `FeatureAdapter`。Prior same day — Task 5: 产品 `gis::Map`；PascalCase Feature → leftover `FeatureAdapter`；`CatalogSource`/`*Info`/`leftover_layer_feature_type` → `legacy/gis/layer/layer.h`。`copy_envelope` 在 `gis/geo/ops/geometry_traits.h`。Prior same day — **§ gis/model product surface vs leftover + OGR Map/Layer/Feature**。Prior same day — CPU MapFrame / World 在 **`src/vista`**（`vista.dll`）。Prior 2026-10-03 — product Style/tile under `gis/{style,tile}`。  
+**Updated:** 2026-10-04 — Nest `gis/style/{document,eval,symbol}`（根上留 leftover-stable `paint_resolve.h`；无转发头）。Prior same day — Hoist `gis/carto/{style,tile}` → `gis/style` + `gis/tile`（删空 `carto/`；不拆进 datasource/map；无转发头）。Prior same day — Nest `gis/tile/{protocol,cache,provider,layer}`（撤销同日 flatten；无转发头）。Prior same day — Tighten `src/gis` dirs: drop `layer/` `crs/`; datasource backends `ogr/` `sdbd/` `gdal/` as siblings of `provider/` (no `impl/`); flatten `stat/{detail,eval,value}`; leftover `Style` OGR blob I/O in `legacy/gis/present/carto/smt_style_ogr.*`. Prior same day — Flatten `gis/model/*` → `gis/{feature,map,edit,envelope.h}`；`edit/` 按职责拆 mutation / undo_log / command / memory / map session；leftover catalog `CatalogSource` / `FeatureAdapter`。Prior same day — Task 5: 产品 `gis::Map`；PascalCase Feature → leftover `FeatureAdapter`；`CatalogSource`/`*Info`/`leftover_layer_feature_type` → `legacy/gis/layer/layer.h`。`copy_envelope` 在 `gis/geo/ops/geometry_traits.h`。Prior same day — **§ gis/model product surface vs leftover + OGR Map/Layer/Feature**。Prior same day — CPU MapFrame / World 在 **`src/vista`**（`vista.dll`）。Prior 2026-10-03 — product Style/tile under `gis/{style,tile}`。  
 **Diagram:** [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)（浅色 SVG：GIS 泳道 + LayerBatch→present 流水线；边界 `gis` ↛ `render/rhi`）· 瓦片子目录 [`../diagrams/gis-carto-tile.html`](../diagrams/gis-carto-tile.html) · vista 子目录收紧图 [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)（RHI umbrella §，非本文件新 spec）· **model 终局** [`../diagrams/gis-model-ogr-layers.html`](../diagrams/gis-model-ogr-layers.html)（产品 `Map`/`Layer`/`Feature` ↔ OGR；leftover ABI 迁出）  
 **Plans:** Session+Provider [`../plans/2026-09-28-datasource-session-provider.md`](../plans/2026-09-28-datasource-session-provider.md)（含 **Task 5** leftover-ABI 迁出核对）· OGR DB [`../plans/2026-09-13-ogr-db-datasource.md`](../plans/2026-09-13-ogr-db-datasource.md) · sdbd [`../plans/2026-09-19-sdbd-wsl-client.md`](../plans/2026-09-19-sdbd-wsl-client.md)
 **Scope:** 图层的打开 / 创建 / 列举 / 编辑 / 查询 / 关闭一律走 GDAL Dataset / Layer（矢量）或 GDAL raster（栅格）。本文件管 `sdb` 数据源与图层，不管桌面 chrome。新树编排入口见文末 **§ DataSession / Provider facade**。
@@ -34,19 +34,19 @@ ADO 源码删除由另一条工作流负责。本文不恢复、不重写、不�
 
 - 不要再 vendor 一份 GDAL / GEOS / PROJ。只链 `//third_party:gdal`（`third_party/.install`）。
 - 不要 Qt。桌面终局是 Views + Skia；本文不改 `src/ui` / `src/app` chrome。
-- 不要保留 `SmtFeature` / `SmtVectorLayer` / `SmtDataSource` 作为图层 ABI（几何算法 / `SmtStyle` 可独立留下）。
+- 不要保留 `SmtFeature` / `SmtVectorLayer` / `SmtDataSource` 作为图层 ABI（几何算法 / `Style` 可独立留下）。
 - 不要在本文周期实现 WMS / WFS / XYZ 瓦片，也不要把 `SmtTileLayer` 硬塞进 OGR。瓦片见 sibling [`2026-09-13-tile-layer-provider-design.md`](../archive/specs/2026-09-13-tile-layer-provider-design.md)；**禁止**用 OGR Memory / `SDBD:MEM` 冒充瓦片。
 - 不要恢复 ADO / `msado15` / `DS_TB` / 按类型 `*Fcls` SQL。另一 agent 删 leftover ADO 文件时不要冲突。
 - 不要为缺 GPKG / PG 的 SDK 手写读写器。
 - 不要改 `content/public` 的稳定嵌入 API。
-- 不要把 `SmtMap` 再设计成只持 `SmtLayer*`；地图文档改持 `OGRLayer*` / `GDALDataset*`（或同等 GDAL 句柄）。
+- 不要把 `Map` 再设计成只持 `SmtLayer*`；地图文档改持 `OGRLayer*` / `GDALDataset*`（或同等 GDAL 句柄）。
 
 ## 现状 vs 目标
 
 ### 现状（2026-09-14 树）
 
 ```
-SmtMap  (src/sdb/map)          矢量走 OGRLayer* / MapLayer；raster/tile leftover 仍 SmtLayer*
+Map  (src/sdb/map)          矢量走 OGRLayer* / MapLayer；raster/tile leftover 仍 SmtLayer*
         ^
 SmtDataSourceMgr
         |
@@ -76,7 +76,7 @@ Select / Flash：CreateMemVecLayer()
 ### 目标
 
 ```
-SmtMap / tools / catalog       持 GDALDataset* / OGRLayer* / OGRFeature*
+Map / tools / catalog       持 GDALDataset* / OGRLayer* / OGRFeature*
         ^
         |  GDALOpenEx / CreateLayer / CreateFeature
         v
@@ -196,10 +196,10 @@ Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动
 | 产品类型 | GDAL 对象 | v1 |
 | --- | --- | --- |
 | `SmtVectorLayer` / 点线面 / Anno / TIN / Grid | `OGRLayer` | 必须。Grid 优先做成同数据集里的 GDAL raster；否则已有 MultiPoint + `grid_row` / `grid_col`。 |
-| `SmtRasterLayer` / `SmtFtChildImage` | `GDALDataset` 栅格 / 子数据集 / GPKG tiles | 必须补齐 `OgrRasterLayer`（今天 Create/Open 为 false）。缺栅格创建能力则 `SMT_ERR_UNSUPPORTED` + 日志，不发明 blob 表。 |
+| `SmtRasterLayer` / `SmtFtChildImage` | `GDALDataset` 栅格 / 子数据集 / GPKG tiles | 必须补齐 `OgrRasterLayer`（今天 Create/Open 为 false）。缺栅格创建能力则 `ERR_UNSUPPORTED` + 日志，不发明 blob 表。 |
 | `SmtTileLayer` / `SmtLayer_Tile` | 不是 OGR | **不在本文。** 见 [tile-layer-provider](../archive/specs/2026-09-13-tile-layer-provider-design.md)；勿用 Memory 冒充。 |
 
-同一 GPKG 可以既有矢量层又有栅格；`fill_layer_infos()` 已经扫 `GetLayerCount()`，应同时扫栅格子数据集并把 `unFeatureType` 标成 `SmtLayer_Ras`。`SmtMap` 仍按 `GetLayerType()` 区分绘制，不需要知道 GDAL。
+同一 GPKG 可以既有矢量层又有栅格；`fill_layer_infos()` 已经扫 `GetLayerCount()`，应同时扫栅格子数据集并把 `unFeatureType` 标成 `SmtLayer_Ras`。`Map` 仍按 `GetLayerType()` 区分绘制，不需要知道 GDAL。
 
 ## ABI
 
@@ -207,7 +207,7 @@ Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动
 
 保持：
 
-- `dll_stem`（`SmtGisCore`、`SmtSDEGdalDevice`、`SmtSDEDeviceMgr`）与 `SDE_GDAL_EXPORT` 直到链接面另开清理。
+- `dll_stem`（`SmtGisCore`、`GdalDevice`、`SmtSDEDeviceMgr`）与 `SDE_GDAL_EXPORT` 直到链接面另开清理。
 - `.dsm` 头字节布局可暂留；打开只看路径 / `SDBD:` 连接串。
 - `eDSType` / provider 枚举取值不重排（旧文件）。
 
@@ -218,7 +218,7 @@ Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动
 
 允许：
 
-- `SmtStyle` 与 `src/algorithm` 几何类型独立存在（不是要素门面）。
+- `Style` 与 `src/algorithm` 几何类型独立存在（不是要素门面）。
 - `SmtTileLayer` / `DS_WS` 残留 → [tile-layer-provider](../archive/specs/2026-09-13-tile-layer-provider-design.md)。
 - 工具 / 地图 `#include` `ogrsf_frmts.h` / `gdal_priv.h`。
 
@@ -299,7 +299,7 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 
 | 风险 | 处理 |
 | --- | --- |
-| 当前 `gdal_sdk` 没有 GPKG 和/或 PostgreSQL 驱动 | **API 仍是 GDAL Dataset/Layer。** `Open` / `Create` 查 `GetDriverByName`；缺失则日志 + false。测试对 GPKG / PG **跳过**（已有 `SMT_PG_DSN` 模式）；shapefile + Memory 是无条件必跑项，因为 ESRI Shapefile 与 Memory 在常见 SDK 里更稳。 |
+| 当前 `gdal_sdk` 没有 GPKG 和/或 PostgreSQL 驱动 | **API 仍是 GDAL Dataset/Layer。** `Open` / `Create` 查 `GetDriverByName`；缺失则日志 + false。测试对 GPKG / PG **跳过**（已有 `PG_DSN` 模式）；shapefile + Memory 是无条件必跑项，因为 ESRI Shapefile 与 Memory 在常见 SDK 里更稳。 |
 | GPKG TIN | MultiPolygon 回退；产品类型仍是 `SmtFtTin`（DB spec 已定）。 |
 | Shapefile 字段名 / 事务 | 不在产品层补洞；需要完整 GIS 库时用 GPKG 或 PostGIS。 |
 | 旧 `.smf` + 目录 shp | 阶段 2 只读兼容；内部多 `GDALDataset*`。新工程不写 `.smf`。 |
@@ -324,7 +324,7 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 **有驱动才跑：**
 
 6. 现有 GPKG 点/线/面/Anno 往返：`GetDriverByName("GPKG")` 为空则 skip，不要 fail `build.bat te`。
-7. `SMT_PG_DSN` 已设则跑 PostGIS 点往返（已有）。
+7. `PG_DSN` 已设则跑 PostGIS 点往返（已有）。
 
 **不要：** 要求 SQL Server / Access；要求实时 WMS；在本测试里编第二份 GDAL。
 
@@ -341,7 +341,7 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 
 - 产品路径上，文件 / 库 / 内存的打开、创建、列举、编辑、查询、关闭都经过一个 `OgrDataSource` 和一个 `GDALDataset`（Memory 驱动也算）。
 - 不再出现新的 per-format / per-feature-type 图层子类。
-- `SmtMap` 与工具看见 `GDALDataset` / `OGRLayer` / `OGRFeature`，不是 `SmtFeature`。
+- `Map` 与工具看见 `GDALDataset` / `OGRLayer` / `OGRFeature`，不是 `SmtFeature`。
 - `GetDriverByName("SDBD")` 非空；`SDBD:MEM:` 点层往返。
 - `build.bat` 与 `build.bat te` 绿；shapefile + Memory 测试无条件跑；GPKG / PG 随 SDK 跳过或跑。
 - 缺 GPKG 驱动时产品仍能打开 shapefile 与 Memory 层；错误信息说明缺的是驱动，不是 API。
@@ -550,7 +550,7 @@ Ship **functional coverage** (industry-capability matrix vs GDAL / GEOS / PROJ /
 ### Non-goals
 
 - 本 § **不**一次搬完 `gis.dll`；不改 `content/public` 嵌入 API；不加 Qt；不第二套 GEOS/PROJ；不平行 `Geometry2`/`Geometry3`。
-- 不把 `SmtStyle` leftover carto POD（已链进 `gis.dll`）假装成 OGR 字段。Style 走 `gis::style::StyleDocument` / layer `style_document()`；POD 收口仍是 leftover carto 债，另轨缩小。
+- 不把 `Style` leftover carto POD（已链进 `gis.dll`）假装成 OGR 字段。Style 走 `gis::style::StyleDocument` / layer `style_document()`；POD 收口仍是 leftover carto 债，另轨缩小。
 - 不把 XYZ/WMTS 瓦片硬塞进 `OGRLayer`（仍 `MapLayer` + `TileProvider`，见 §Tile）。
 - 不把 `geo::Grid` 伪造成 `OGRGeometry`（OGR 无 Grid；sidecar + `indexed_tin`，见 `geometry_traits.h` 注释）。
 
@@ -560,15 +560,15 @@ Coverage：`src/gis/model` 8 个 parse_partial（`feature.h` / `map.h` / `map_la
 
 | 现状类型 | 路径 | 产品调用（例） | leftover 调用（例） | 处置 |
 | --- | --- | --- | --- | --- |
-| `gis::Feature` | `model/feature/feature.h` | snake_case OGR field I/O；`feature_test` | leftover `SmtFeature`（`legacy/gis/feature/leftover_feature.h`）+ chart `leftover_append_feature` | **KEEP** `OGRFeature*`。PascalCase **已 MOVE**。sidecar 仍 `SmtStyle*` / `SmtMaterial*` |
+| `gis::Feature` | `model/feature/feature.h` | snake_case OGR field I/O；`feature_test` | leftover `SmtFeature`（`legacy/gis/feature/leftover_feature.h`）+ chart `leftover_append_feature` | **KEEP** `OGRFeature*`。PascalCase **已 MOVE**。sidecar 仍 `Style*` / `Material*` |
 | `gis::SmtFeatureType` | 同 header | codec `infer_feature_type`；`sdbd_layer`；`MapLayer::feature_type` | orthogrid/dem/model3d/proj 插件；`map_painter`；chart | **ADAPT** → 产品以 `OGRwkbGeometryType` + 少量 kind（Anno/Grid）为准；枚举名 `SmtFt*` 最终随 leftover |
 | `gis::MapLayer` | `model/map/map_layer.h` | `DataSession` / `DatasetHandle`；`content`；tile `make_*_map_layer` | 经 `gis::Map` / `from_leftover` | **KEEP** OGR 缝已补。**债：** `from_leftover` / `leftover()` 仍在产品头（tile 产品层仍 `ProviderTileLayer : SmtTileLayer`） |
-| `gis::Map` | `model/map/map.h` | `MapEditSession`；产品测试 | leftover `using SmtMap = gis::Map`（`map.h` 底部） | **ADAPT 已改名**。**债：** `AddLayer(SmtLayer*)` / `GetLeftoverLayer` 仍在产品 `Map` |
+| `gis::Map` | `model/map/map.h` | `MapEditSession`；产品测试 | leftover `using Map = gis::Map`（`map.h` 底部） | **ADAPT 已改名**。**债：** `AddLayer(SmtLayer*)` / `GetLeftoverLayer` 仍在产品 `Map` |
 | `SmtLayer` / `SmtRasterLayer` / `SmtTileLayer` | `model/layer/layer.h` | `OgrRasterLayer` / `ProviderTileLayer` 仍继承；`ogr_connect` `PROVIDER_*`/`DS_*` | leftover copy_layer；DataSourceMgr ras | **债：** 虚基仍产品头（产品实现继承 leftover 虚接口，不能 `#include leftover`）。下步：产品 raster/tile 去继承 |
 | `SmtDataSource` / `Smt*Info` / `leftover_layer_feature_type` / `leftover_feature_wkb` | `legacy/gis/layer/layer.h` | 产品测试经 leftover `connection_spec_info` | catalog / DataSourceMgr / 插件 | **MOVE 已落地** |
 | `SmtGQueryDesc` / `geo::SpatialRelation` | 仍 `model/layer/layer.h` | `Map::QueryFeature`；`select_query_test` | leftover select tool | **债：** 查询描述仍绑在产品 `Map` API |
 | `append_cloned_feature` / `copy_layer(OGRLayer*)` | `model/feature/feature_api.h` | catalog `copy_layer`（leftover UI）；OGR 拷贝本身可产品化 | `copy_layer(SmtLayer*)` / `SmtRasterLayer*` | **KEEP** OGR 两参拷贝。**MOVE** `Smt*` 重载已在 leftover。产品 Feature 不再 `set_style(const char*)`（named lookup 在 leftover `SmtFeature`） |
-| `gis::Envelope` | `model/envelope.h` | `geo/ops/geometry_traits.h` `fill_envelope`；`MapLayer`/`SmtMap` | leftover carto / rhi2d map paint / scene3d `geo_object` | **KEEP**（header-only MBR；可与 `OGREnvelope` 互拷，不是第二套几何） |
+| `gis::Envelope` | `model/envelope.h` | `geo/ops/geometry_traits.h` `fill_envelope`；`MapLayer`/`Map` | leftover carto / rhi2d map paint / scene3d `geo_object` | **KEEP**（header-only MBR；可与 `OGREnvelope` 互拷，不是第二套几何） |
 | `gis::CrsId` | `model/crs/crs.h`（已删） | 无调用方 | — | **DELETE** 空 stub（权威 CRS 仍是 `OGRLayer::GetSpatialRef()` / `OGRSpatialReference`；PROJ 在 `gis/geo/proj`） |
 | `EditSession` / `CommandEditSession` / `MapEditSession` / `OptimisticLayerStore` | `model/edit/` | `content/view`；`tool/workspace`；`app/views` fill/nav/self-test | `legacy/tool/draft/appendfeaturetool`；`legacy/ui/map/viewport/view_2d_edit` | **KEEP**。编辑会话写 `OGRLayer`/`Feature`，不写 `SmtLayer` 虚 CRUD |
 | `geo::geometry_traits` / `OGRGeometry` | `gis/geo`（非 model） | 产品几何唯一层次 | leftover 经 `Feature::geometry()` | **KEEP** 在 `gis/geo`；Feature.geo **就是** `OGRGeometry*` |
@@ -579,7 +579,7 @@ Coverage：`src/gis/model` 8 个 parse_partial（`feature.h` / `map.h` / `map_la
 
 | OGR / GDAL | 产品 C++（终局） | 今日 | 差距 |
 | --- | --- | --- | --- |
-| `GDALDataset` / 概念上的 `OGRDataSource` | `gis::datasource::DatasetHandle` + 文档 `gis::Map` | `DatasetHandle` 已有；文档类已名 `gis::Map`（`using SmtMap = Map`）；仍混 `SmtLayer*` | 去掉 leftover 层槽；删产品头别名 |
+| `GDALDataset` / 概念上的 `OGRDataSource` | `gis::datasource::DatasetHandle` + 文档 `gis::Map` | `DatasetHandle` 已有；文档类已名 `gis::Map`（`using Map = Map`）；仍混 `SmtLayer*` | 去掉 leftover 层槽；删产品头别名 |
 | `OGRLayer` | `gis::MapLayer`（持非拥有 `OGRLayer*`；scratch 用 `adopt_dataset`） | `from_ogr` / `adopt_dataset` 已有；`ogr()` 逃生口 | 产品面补：`GetLayerDefn`/`OGRFeatureDefn`、`GetSpatialRef`、`ResetReading`/`GetNextFeature`、`SetSpatialFilter`/`SetAttributeFilter`、`GetFIDColumn`。实现薄封装，禁止第二套游标 |
 | `OGRFeature` | `gis::Feature` | snake_case 全 `OGRFieldType`；PascalCase 在 leftover `SmtFeature` | 无新产品 PascalCase |
 | `OGRGeometry` | `Feature::geometry()` + `geo::geometry_traits` | 已是 `OGRGeometry*`；TIN = `OGRTriangulatedSurface` | Grid 保持 sidecar；不要 `SmtFtTin` 第二棵树 |
@@ -597,7 +597,7 @@ product gis/geo         OGRGeometry traits / ops / Grid sidecar codec
 product gis/style       StyleDocument, ResolvedPaint
 product gis/tile        TileProvider, protocol/cache/provider/layer
 leftover src/legacy/    SmtLayer* 虚树, DataSourceMgr, Smt*Info, PascalCase Feature 门面,
-                        leftover_append_feature, leftover SmtStyle OGR blob, catalog/MFC 适配
+                        leftover_append_feature, leftover Style OGR blob, catalog/MFC 适配
                         leftover 可 #include gis/{feature,map,edit} + gis/datasource
 ```
 
@@ -607,7 +607,7 @@ leftover src/legacy/    SmtLayer* 虚树, DataSourceMgr, Smt*Info, PascalCase Fe
 2. **切断产品→leftover。** 修 `feature_api.h` 的 `legacy/core/macros` include；OGR `copy_layer` 留产品，`Smt*` 重载挪 leftover TU。
 3. **ConnectionSpec 去 `layer.h`（本波已落地）。** `connection_spec_{to,from}_info` / `provider_kind_from_info` 在 leftover `legacy/gis/datasource/connection_spec_info.*`；产品 `ConnectionSpec` / `DataSession` 头不再导出 `SmtDataSourceInfo`。`ogr_connect` 仍为 `PROVIDER_*`/`DS_*` 包含 `layer.h`（随整文件 MOVE）。
 4. **补齐 MapLayer/Feature 的 OGR 缝**（defn、游标、filter、字段读写）。单测挂 `gis_test_all` / 现有 `feature_test`、`select_query_test`、`datasource_session_test`。
-5. **`SmtMap` → `gis::Map`（已落地）。** leftover `using SmtMap = gis::Map`（产品 `map.h` 底部，直到 catalog/rhi2d 只写 `gis::Map`）。
+5. **`Map` → `gis::Map`（已落地）。** leftover `using Map = gis::Map`（产品 `map.h` 底部，直到 catalog/rhi2d 只写 `gis::Map`）。
 6. **整文件 MOVE `layer.h` leftover 类型** 到 `src/legacy/gis/layer/layer.h`。**已迁：** `SmtDataSource` / `Smt*Info` / `leftover_layer_feature_type` / `leftover_feature_wkb`。**未迁：** `SmtLayer`/`SmtRasterLayer`/`SmtTileLayer` 虚基（`OgrRasterLayer`/`ProviderTileLayer` 仍继承）、`SmtGQueryDesc`、`MapLayer::from_leftover`。
 7. **剥 Feature PascalCase + `leftover_append_feature`（已落地）。** leftover `class SmtFeature : public Feature`；chart 仍走 leftover 适配。
 8. **Style/material sidecar。** 不阻塞 1–7；carto POD 已在 gis.dll 的债单独缩小。
@@ -620,9 +620,9 @@ leftover src/legacy/    SmtLayer* 虚树, DataSourceMgr, Smt*Info, PascalCase Fe
 
 ### Risks
 
-- **`gis.dll` ABI：** `SmtLayer`/`SmtMap`/`GetID` 仍被 leftover 插件与 rhi2d 链接；必须先 leftover 适配再从产品头删除，否则 LoadLibrary 插件断符号。
+- **`gis.dll` ABI：** `SmtLayer`/`Map`/`GetID` 仍被 leftover 插件与 rhi2d 链接；必须先 leftover 适配再从产品头删除，否则 LoadLibrary 插件断符号。
 - **ConnectionSpec ↔ `SmtDataSourceInfo`：** leftover 适配器桥 catalog/`DataSourceMgr`；产品 session 只谈 `ConnectionSpec`。
-- **leftover carto POD 在 gis.dll：** `Feature::style()` 仍是 `base::SmtStyle*`；迁 Feature 门面时不要把 POD 再拷进产品模型。
+- **leftover carto POD 在 gis.dll：** `Feature::style()` 仍是 `base::Style*`；迁 Feature 门面时不要把 POD 再拷进产品模型。
 - **`feature_api.h` 已是产品→leftover include** — 现有反向边，迁出时必须删，不能复制第二条。
 - **parse_partial** 于 `feature.h`/`map.h`：caller 图会漏；搬迁前对目标符号做 scoped search_code。
 - **Grid / Anno / ChildImage：** 不是纯 OGR 要素类；sidecar 必须文档化，避免 leftover 再发明 `SmtMemVecLayer`。

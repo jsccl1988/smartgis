@@ -232,7 +232,7 @@ LRESULT CALLBACK BrowserView::shell_wheel_subclass_proc(HWND hwnd, UINT msg,
                                                        UINT_PTR id,
                                                        DWORD_PTR data) {
   auto* self = reinterpret_cast<BrowserView*>(data);
-  // Posted by deferred China seed when SMT_VIEWS_START_MAP_TAB is set — must
+  // Posted by deferred China seed when VIEWS_START_MAP_TAB is set — must
   // not nest select_map_tab inside the seed timer / switch_map_tab wait.
   constexpr UINT kReselectTab = WM_APP + 0x5354;  // 'ST'
   constexpr UINT kExtentChangedUi = WM_APP + 0x5253;  // 'RS'
@@ -345,7 +345,7 @@ bool BrowserView::init_shell() {
   base::trace::dump_startup_profile_partial("post-build");
   {
     BASE_TRACE_EVENT("SeedDocument", "startup");
-    // Showcase / harness set SMT_SKIP_AMBOX_CATALOG before Browser::init.
+    // Showcase / harness set SKIP_AMBOX_CATALOG before Browser::init.
     // Skip china OGR bootstrap so plugin-showcase can reach Scene3D bodies;
     // product defer_china_seed() leaves the doc empty until Browser::show.
     // Real-data policy: never invent demo features on either path.
@@ -357,7 +357,7 @@ bool BrowserView::init_shell() {
     if (skip_china_seed || defer_china) {
       if (skip_china_seed) {
         std::fprintf(stderr,
-                     "startup: SeedDocument empty (SMT_SKIP_AMBOX_CATALOG)\n");
+                     "startup: SeedDocument empty (SKIP_AMBOX_CATALOG)\n");
       } else {
         std::fprintf(stderr,
                      "startup: SeedDocument empty (defer_china_seed)\n");
@@ -422,7 +422,7 @@ bool BrowserView::init_shell() {
         std::fprintf(stderr, "startup: fit/push_shared_extent SEH fail\n");
       }
     }
-    // Showcase SMT_SKIP_AMBOX_CATALOG: skip push_shared_extent too — under
+    // Showcase SKIP_AMBOX_CATALOG: skip push_shared_extent too — under
     // parallel gis_d rebuilds it AVd after SeedDocument (exit 3, no marks).
     wire_map_scene();
   }
@@ -440,9 +440,6 @@ bool BrowserView::init_shell() {
   }
   {
     BASE_TRACE_EVENT("WireShell", "startup");
-    attach_hwnd_gestures();
-    wire_catalog();
-    wire_edit_feedback();
     // Re-fit after HWND sizes settle (layout may change client rect post-attach).
     // Same showcase skip as BindPresenters — demo-only seed AVs in fit_map_extent
     // / push_shared_extent (ui_ offset freefill under parallel ninja + SKIP_AMBOX).
@@ -455,15 +452,25 @@ bool BrowserView::init_shell() {
       if (!seh_fit_and_push_extent(browser_)) {
         std::fprintf(stderr, "startup: post-attach fit/push SEH fail\n");
       }
-      sync_inspectors_from_scene();
     }
+    // Catalog, inspector sync, tool seams, and HWND gestures run in
+    // finish_deferred_shell_wiring() after WaitFirstMapPresent (show_shell).
     // China 3D atmosphere (same defaults as --atmosphere-showcase=full) is
     // seeded on first switch to the 3D tab — see apply_china_scene3d_* in
     // switch_map_tab — so init_shell does not pay DEM/atmosphere cost before
     // the Map pane is interactive.
-    sync_status();
   }
   return true;
+}
+
+void BrowserView::finish_deferred_shell_wiring() {
+  BASE_TRACE_EVENT("WireShell.deferred", "startup");
+  wire_catalog();
+  wire_edit_feedback();
+  wire_tool_seams();
+  sync_inspectors_from_scene();
+  sync_status();
+  attach_hwnd_gestures();
 }
 
 void BrowserView::show_shell() {
@@ -543,10 +550,6 @@ void BrowserView::show_shell() {
     // popup now that chrome is shown (inactive tabs stay hidden below).
     // Also bumps request_frame for the first china present.
     pane->set_flycube_present_visible(true);
-    // Present may have been revealed after the first gesture attach (embed
-    // only). Rebind to input_hwnd() so pan/pinch/right-click hit the DXGI
-    // surface under plain (no-arg) launch.
-    attach_hwnd_gestures();
     // Do NOT fit_map_extent / invalidate_frame_cache here: Display may hold
     // the map2d cache mutex on the first china present (~8s Debug). Fit's
     // overlay invalidate can also re-enter while this pump waits. Browser::show
@@ -562,8 +565,8 @@ void BrowserView::show_shell() {
     // Invalidate above already schedules the first frame; China seed (when
     // deferred) refreshes after show. Opt-in sync wait for harness / agents
     // that need a deterministic first carto frame before continuing:
-    //   SMT_SYNC_FIRST_MAP_PRESENT=1
-    // Showcase skips Map Edit present attach (SMT_SKIP_AMBOX_CATALOG) — never
+    //   SYNC_FIRST_MAP_PRESENT=1
+    // Showcase skips Map Edit present attach (SKIP_AMBOX_CATALOG) — never
     // spin waiting for a frame that will never arrive.
     const bool skip_wait = []() {
       const char* skip = base::switch_cstr("skip-ambox-catalog");
@@ -805,13 +808,13 @@ void BrowserView::schedule_menu_rebuild() {
     return;
   }
   constexpr UINT_PTR kMenuTimer = 0x4D4E55u;
-  SetPropW(owner, L"SmtMenuBrowser", reinterpret_cast<HANDLE>(this));
+  SetPropW(owner, L"MenuBrowser", reinterpret_cast<HANDLE>(this));
   KillTimer(owner, kMenuTimer);
   SetTimer(owner, kMenuTimer, 1,
            [](HWND timer_hwnd, UINT, UINT_PTR id, DWORD) {
              KillTimer(timer_hwnd, id);
              auto* self = reinterpret_cast<BrowserView*>(
-                 GetPropW(timer_hwnd, L"SmtMenuBrowser"));
+                 GetPropW(timer_hwnd, L"MenuBrowser"));
              if (self) {
                self->rebuild_menus();
              }
@@ -1074,13 +1077,13 @@ void BrowserView::schedule_overlay_full_redraw() {
     return;
   }
   constexpr UINT_PTR kId = 0x424C54u;
-  SetPropW(h, L"SmtBlitBrowser", reinterpret_cast<HANDLE>(this));
+  SetPropW(h, L"BlitBrowser", reinterpret_cast<HANDLE>(this));
   KillTimer(h, kId);
   SetTimer(h, kId, static_cast<UINT>(tool::kBlitDebounceMs),
            [](HWND timer_hwnd, UINT, UINT_PTR id, DWORD) {
              KillTimer(timer_hwnd, id);
              auto* self = reinterpret_cast<BrowserView*>(
-                 GetPropW(timer_hwnd, L"SmtBlitBrowser"));
+                 GetPropW(timer_hwnd, L"BlitBrowser"));
              if (self && self->browser_) {
                self->browser_->commit_blit_preview();
              } else {

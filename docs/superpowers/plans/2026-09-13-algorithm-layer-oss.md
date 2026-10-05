@@ -11,9 +11,9 @@ All rights reserved.
 
 **Goal:** Wrap shipped gdal_sdk GEOS + PROJ 9; merge math/math3d/geo3d into `SmtGeoCore`; replace in-tree projections and TIN; remove the DEM algorithm DLL; move MFC charts to `src/ui/chart`.
 
-**Architecture:** One `smt_shared_library("geo")` compiles today’s geo + geo3d + math + math3d sources. Old GN labels become `group()` with `public_deps` on geo. Algorithms use C++20 `geo::geometry_traits` (instance coordinateDimension 2|3) and `geo::vector_traits` (compile-time dim). proj/tin are still their own DLLs. See the spec.
+**Architecture:** One `product_shared_library("geo")` compiles today’s geo + geo3d + math + math3d sources. Old GN labels become `group()` with `public_deps` on geo. Algorithms use C++20 `geo::geometry_traits` (instance coordinateDimension 2|3) and `geo::vector_traits` (compile-time dim). proj/tin are still their own DLLs. See the spec.
 
-**Tech Stack:** C++20 MSVC v145, `geos_c` + PROJ 9 from `//third_party/gdal_sdk`, GN `smt_shared_library` + `test()`, optional header-only CDT.
+**Tech Stack:** C++20 MSVC v145, `geos_c` + PROJ 9 from `//third_party/gdal_sdk`, GN `product_shared_library` + `test()`, optional header-only CDT.
 
 **Spec:** `docs/superpowers/specs/2026-09-13-algorithm-layer-oss-design.md`
 
@@ -214,7 +214,7 @@ Expected: PASS.
 
 - [ ] **Step 2: Confirm `group("algorithm")` does not list chart**
 
-- [ ] **Step 3: `gn gen out` + ninja `stat_chart` only when `smt_build_app` is on (`build.bat app` graph). `build.bat` (`//:all`) stays green without chart.**
+- [ ] **Step 3: `gn gen out` + ninja `stat_chart` only when `build_app` is on (`build.bat app` graph). `build.bat` (`//:all`) stays green without chart.**
 
 Expected: no `algorithm/chart` path; include `"chart.h"` still works via `smt_legacy` + `ui/chart`.
 

@@ -77,7 +77,7 @@ source_set("workspace_sources") {
 }
 
 # Product tool DLL. Disk stem: tool.dll / tool_d.dll.
-smt_shared_library("tool") {
+product_shared_library("tool") {
   dll_stem = "tool"
   defines = [ "TOOL_EXPORTS" ]
   deps = [

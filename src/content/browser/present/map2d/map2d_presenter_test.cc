@@ -8,7 +8,7 @@
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 #include "content/browser/present/map2d/software/map2d_frame_gdi.h"
 #include "gis/tile/provider/tile_provider.h"
-#include "vista/map/ir.h"
+#include "vista/component/map/ir.h"
 #include "net/http/http.h"
 #include "render/rhi/rhi.h"
 

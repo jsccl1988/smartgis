@@ -232,7 +232,7 @@ config("win_macros") {
     "_CRT_NONSTDC_NO_WARNINGS",
     "_CRT_SECURE_NO_DEPRECATE",
     "_CRT_SECURE_NO_WARNINGS",
-    # C++17 std::byte collides with Windows/smt_compat `byte`.
+    # C++17 std::byte collides with Windows/win_compat `byte`.
     "_HAS_STD_BYTE=0",
   ]
   if (is_winxp) {

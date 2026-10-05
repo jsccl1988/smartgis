@@ -6,8 +6,8 @@
 // space later). Render effects are not included here, and this header does
 // not implement any domain.
 
-#ifndef GIS_VISTA_DOMAIN_H_
-#define GIS_VISTA_DOMAIN_H_
+#ifndef VISTA_DOMAIN_DOMAIN_H_
+#define VISTA_DOMAIN_DOMAIN_H_
 
 namespace vista {
 
@@ -29,4 +29,4 @@ class DomainSession {
 
 }  // namespace vista
 
-#endif  // GIS_VISTA_DOMAIN_H_
+#endif  // VISTA_DOMAIN_DOMAIN_H_

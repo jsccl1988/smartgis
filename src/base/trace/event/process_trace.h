@@ -2,7 +2,7 @@
 // All rights reserved.
 //
 // Process-wide Trace for Views render profiling (always-on diagnostics,
-// SMT_TRACE=1, or UI Record). Implementation lives in base.dll (one buffer
+// TRACE=1, or UI Record). Implementation lives in base.dll (one buffer
 // across content / ui_views / exe).
 
 #ifndef BASE_TRACE_EVENT_PROCESS_TRACE_H_
@@ -30,10 +30,10 @@ BASE_EXPORT void process_trace_add(std::string_view name,
                                    Trace::time_point begin,
                                    Trace::time_point end);
 
-// Call once at process start. SMT_TRACE=1 enables recording.
+// Call once at process start. TRACE=1 enables recording.
 BASE_EXPORT void maybe_init_tracing_from_env();
 
-// If SMT_TRACE_DUMP=<path> is set, write Chrome Trace JSON and print a rollup
+// If TRACE_DUMP=<path> is set, write Chrome Trace JSON and print a rollup
 // to stderr. Safe to call when tracing is empty / disabled.
 BASE_EXPORT void maybe_dump_tracing_to_env();
 

@@ -11,7 +11,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 namespace {
 
@@ -161,7 +161,7 @@ void Recorder::mark_barrier() {
   }
 }
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

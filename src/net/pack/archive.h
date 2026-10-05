@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_NET_ARCHIVE_H
-#define SMT_NET_ARCHIVE_H
+#ifndef NET_ARCHIVE_H
+#define NET_ARCHIVE_H
 
 // Compatibility shim: BinarySink/archive moved to base/archive (mogu layout).
 #include "base/archive/archive.h"
@@ -24,4 +24,4 @@ using base::write_value;
 
 }  // namespace net
 
-#endif  // SMT_NET_ARCHIVE_H
+#endif  // NET_ARCHIVE_H

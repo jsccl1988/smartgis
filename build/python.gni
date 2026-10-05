@@ -3,17 +3,17 @@
 #
 # CPython 3.12 embed. Default prefix is
 # %LOCALAPPDATA%/Programs/Python/Python312 (same as build.bat).
-# Override with smt_python_root. Force the skip stub with smt_has_python=false.
+# Override with python_root. Force the skip stub with has_python=false.
 # Optional check: python build/find_python.py
 
 declare_args() {
   # Compile in-process CPython bindings when a 3.12 prefix is set.
   # Set false to force the skip stub even if Python is installed.
-  smt_has_python = true
+  has_python = true
 
   # Empty = %LOCALAPPDATA%/Programs/Python/Python312.
   # Prefix must contain include/Python.h, libs/python312.lib, python312.dll.
-  smt_python_root = ""
+  python_root = ""
 }
 
 _auto_python = ""
@@ -22,20 +22,20 @@ if (_localappdata != "") {
   _auto_python = _localappdata + "/Programs/Python/Python312"
 }
 
-if (smt_python_root != "") {
-  smt_python_prefix = smt_python_root
+if (python_root != "") {
+  python_prefix = python_root
 } else {
-  smt_python_prefix = _auto_python
+  python_prefix = _auto_python
 }
-smt_python_prefix = string_replace(smt_python_prefix, "\\", "/")
+python_prefix = string_replace(python_prefix, "\\", "/")
 
-smt_python_include = ""
-smt_python_libdir = ""
-smt_python_dll = ""
-if (smt_python_prefix != "") {
-  smt_python_include = smt_python_prefix + "/include"
-  smt_python_libdir = smt_python_prefix + "/libs"
-  smt_python_dll = smt_python_prefix + "/python312.dll"
+python_include = ""
+python_libdir = ""
+python_dll = ""
+if (python_prefix != "") {
+  python_include = python_prefix + "/include"
+  python_libdir = python_prefix + "/libs"
+  python_dll = python_prefix + "/python312.dll"
 }
 
 # Official Windows CPython ships /MD only (no python312_d). Linking
@@ -43,5 +43,5 @@ if (smt_python_prefix != "") {
 # MSVCP140D and trips STATUS_HEAP_CORRUPTION (0xC0000374) on ordinary
 # interactive launch. Keep Python for Release; Debug uses the stub until a
 # matching debug CPython is available.
-smt_python_enabled =
-    smt_has_python && smt_python_prefix != "" && !is_debug
+python_enabled =
+    has_python && python_prefix != "" && !is_debug

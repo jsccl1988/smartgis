@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_MAP_MAP_LAYER_H_
-#define SDB_MAP_MAP_LAYER_H_
+#ifndef GIS_MAP_MAP_LAYER_H_
+#define GIS_MAP_MAP_LAYER_H_
 
 #include <memory>
 #include <string>
@@ -99,7 +99,7 @@ class GIS_EXPORT MapLayer {
   const char* fid_column() const;
 
  private:
-  LayerType type_ = LYR_VECTOR;
+  LayerType type_ = LayerType::kVector;
   OGRLayer* ogr_ = nullptr;
   bool owns_ogr_ = false;
   GDALDataset* owned_ds_ = nullptr;
@@ -115,4 +115,4 @@ class GIS_EXPORT MapLayer {
 
 }  // namespace gis
 
-#endif  // SDB_MAP_MAP_LAYER_H_
+#endif  // GIS_MAP_MAP_LAYER_H_

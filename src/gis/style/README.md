@@ -3,7 +3,7 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# `gis/carto/style`
+# `gis/style`
 
 MapLibre-subset `StyleDocument`、外置符号库、属性/比例尺规则引擎、嵌套数组 expression 常量求值。命名空间 `gis::style`。进 **`gis` DLL**。
 

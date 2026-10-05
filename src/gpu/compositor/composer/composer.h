@@ -29,7 +29,7 @@ class FrameComposer {
                           const CompositorFrame& frame) = 0;
 };
 
-// Default is kRhi when SMT_GPU_COMPOSE is unset or unknown; only explicit
+// Default is kRhi when GPU_COMPOSE is unset or unknown; only explicit
 // "software" selects kSoftware.
 ComposeBackend select_compose_backend();
 void set_compose_backend(ComposeBackend backend);

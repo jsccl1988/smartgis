@@ -36,7 +36,7 @@ void expect(bool ok, const char* msg) {
 }  // namespace
 
 int main() {
-  // Default FlyCube; switch via set_scene3d_engine or SMT_SCENE3D_ENGINE.
+  // Default FlyCube; switch via set_scene3d_engine or SCENE3D_ENGINE.
   {
     content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
     expect(content::prefer_scene3d_flycube(), "default prefer FlyCube RHI");
@@ -71,7 +71,7 @@ int main() {
            "engine getter matches FlyCube");
   }
 
-  // Harness env: SMT_SCENE3D_ENGINE selects leftover GL vs D3D under kStereoGl.
+  // Harness env: SCENE3D_ENGINE selects leftover GL vs D3D under kStereoGl.
   {
     base::set_switch("scene3d-engine", "stereo_gl");
     expect(content::apply_scene3d_engine_from_env(), "env stereo_gl applies");

@@ -4,7 +4,7 @@
 """Run world3d full-materials (non-bare) FlyCube matrix — separate from bare peers.
 
 Product path: SmartGIS.exe --plugin-showcase=world3d with
-SMT_PLUGIN_WORLD3D_PERF_BARE unset (sky/ocean/cloud/fog + pointcloud on).
+PLUGIN_WORLD3D_PERF_BARE unset (sky/ocean/cloud/fog + pointcloud on).
 role=full_materials — NEVER mix into bare warm peer ranking
 (out/.../matrix/ MATRIX.md Performance section).
 
@@ -38,11 +38,11 @@ FULL_MATRIX = (
 # FlyCube product materials only. Scenic GL/D3D stay on the bare matrix
 # (china stereo seed ≠ product full atmo). null stays smoke-only on bare.
 _FLYCUBE_FULL_ENV: dict[str, str | None] = {
-    "SMT_PLUGIN_WORLD3D_GPU": "1",
+    "PLUGIN_WORLD3D_GPU": "1",
     # Unset = product materials (sky/ocean/cloud/fog + pointcloud).
-    "SMT_PLUGIN_WORLD3D_PERF_BARE": None,
-    "SMT_PREFER_GDI_DEVICE": None,
-    "SMT_SCENE3D_ENGINE": None,
+    "PLUGIN_WORLD3D_PERF_BARE": None,
+    "PREFER_GDI_DEVICE": None,
+    "SCENE3D_ENGINE": None,
 }
 
 # row_id, backend, parallel, role, env
@@ -52,7 +52,7 @@ FULL_ROWS: list[tuple[str, str, str, str, dict[str, str | None]]] = [
         "FlyCube/DX12",
         "prep_default",
         "full_materials",
-        {**_FLYCUBE_FULL_ENV, "SMT_GPUSCENE_PREP_PARALLEL": None},
+        {**_FLYCUBE_FULL_ENV, "GPUSCENE_PREP_PARALLEL": None},
     ),
     (
         "prep_par_off",
@@ -61,8 +61,8 @@ FULL_ROWS: list[tuple[str, str, str, str, dict[str, str | None]]] = [
         "full_materials",
         {
             **_FLYCUBE_FULL_ENV,
-            "SMT_GPUSCENE_PREP_PARALLEL": "0",
-            "SMT_SCENE3D_FRUSTUM_CULL": None,
+            "GPUSCENE_PREP_PARALLEL": "0",
+            "SCENE3D_FRUSTUM_CULL": None,
         },
     ),
     (
@@ -72,8 +72,8 @@ FULL_ROWS: list[tuple[str, str, str, str, dict[str, str | None]]] = [
         "full_materials",
         {
             **_FLYCUBE_FULL_ENV,
-            "SMT_GPUSCENE_PREP_PARALLEL": "1",
-            "SMT_SCENE3D_FRUSTUM_CULL": "1",
+            "GPUSCENE_PREP_PARALLEL": "1",
+            "SCENE3D_FRUSTUM_CULL": "1",
         },
     ),
 ]
@@ -107,7 +107,7 @@ def _write_reports(rows: list[dict]) -> None:
                 "role": "full_materials",
                 "note": (
                     "Separate from bare warm peer ranking "
-                    "(SMT_PLUGIN_WORLD3D_PERF_BARE=1 matrix)."
+                    "(PLUGIN_WORLD3D_PERF_BARE=1 matrix)."
                 ),
                 "rows": rows,
             },
@@ -121,7 +121,7 @@ def _write_reports(rows: list[dict]) -> None:
         "# world3d full-materials matrix (M4)",
         "",
         "**role=`full_materials`** — product sky/ocean/cloud/fog + pointcloud.",
-        "`SMT_PLUGIN_WORLD3D_PERF_BARE` unset. Do **not** rank these rows",
+        "`PLUGIN_WORLD3D_PERF_BARE` unset. Do **not** rank these rows",
         "against bare warm peers in `../MATRIX.md` Performance.",
         "",
         "Phase columns align with atmosphere / scene3d-frame-opt",
@@ -170,7 +170,7 @@ def _write_reports(rows: list[dict]) -> None:
         "",
         "| Concern | Bare (`../`) | This dir |",
         "| --- | --- | --- |",
-        "| Env | `SMT_PLUGIN_WORLD3D_PERF_BARE=1` | unset |",
+        "| Env | `PLUGIN_WORLD3D_PERF_BARE=1` | unset |",
         "| role | `perf` / `smoke` | `full_materials` |",
         "| Peer ranking | warm `ms_per_present` across GL/D3D/FlyCube | "
         "FlyCube full materials only |",
@@ -256,7 +256,7 @@ def main(argv: list[str] | None = None) -> int:
         if "PERF_BARE strips" in (row.get("note") or ""):
             row["note"] = (
                 "china DEM + full product materials "
-                "(SMT_PLUGIN_WORLD3D_PERF_BARE unset); "
+                "(PLUGIN_WORLD3D_PERF_BARE unset); "
                 f"{tag}; prefer ms_per_present + ocean_prep_ms over wall_ms"
             )
         rows_out.append(row)

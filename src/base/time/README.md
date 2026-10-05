@@ -8,4 +8,4 @@ All rights reserved.
 | 头 | 角色 |
 | --- | --- |
 | `elapsed_timer.h` | 简单秒表 |
-| `frame_timer.h` | 帧时钟 / FPS（替换 `SmtTimer`） |
+| `frame_timer.h` | 帧时钟 / FPS（替换 `Timer`） |

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_STYLE_EXPRESSION_H_
-#define SDB_STYLE_EXPRESSION_H_
+#ifndef GIS_STYLE_EXPRESSION_H_
+#define GIS_STYLE_EXPRESSION_H_
 
 #include <cstdlib>
 #include <sstream>
@@ -113,4 +113,4 @@ GIS_EXPORT bool looks_like_expression(const std::string& raw);
 }  // namespace style
 }  // namespace gis
 
-#endif  // SDB_STYLE_EXPRESSION_H_
+#endif  // GIS_STYLE_EXPRESSION_H_

@@ -10,7 +10,7 @@
 
 #include "gis/style/document/style_document.h"
 #include "gis/style/eval/style_rules.h"
-#include "vista/map/ir.h"
+#include "vista/component/map/ir.h"
 
 namespace content {
 namespace detail {

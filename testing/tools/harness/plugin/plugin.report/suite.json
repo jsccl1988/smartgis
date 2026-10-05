@@ -6,9 +6,9 @@
   ],
   "script": "plugin.report.il",
   "env": {
-    "SMT_SKIP_MAP_CONTEXT_MENU": "1",
-    "SMT_UI_SHOWCASE_LINGER_MS": "1500",
-    "SMT_REPORT_BROWSER": "fake"
+    "SKIP_MAP_CONTEXT_MENU": "1",
+    "UI_SHOWCASE_LINGER_MS": "1500",
+    "REPORT_BROWSER": "fake"
   },
   "mark_leaf": "ui/ui-showcase-mark.txt",
   "required_marks": [

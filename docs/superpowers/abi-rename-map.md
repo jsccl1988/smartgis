@@ -20,7 +20,7 @@ Status: **in progress** (include/snake_case cutover still open；foundation Hybr
 
 ## Debug / Release 文件名（`_d`）
 
-`smt_shared_library`（`build/smartgis.gni`）：
+`product_shared_library`（`build/smartgis.gni`）：
 
 | 配置 | 磁盘文件 |
 | --- | --- |
@@ -45,7 +45,7 @@ Status: **in progress** (include/snake_case cutover still open；foundation Hybr
 | `tool` | `src/tool/**`（`TOOL_EXPORT` / `TOOL_EXPORTS`；非 leftover `legacy_tool`） | 默认 `src_all`；`:dispatch`→`:tool` | **完成** |
 | `ui_views` | `ui/views` + `ui/gfx` + `ui/gis`（同 PE；`UI_EXPORT`） | SmartGisViews / plugin_host；`:gfx_headers` 给 gpu | **完成** |
 | `plugin_host` | `plugin/runtime/host` + widgets（`PLUGIN_HOST_*`） | Views 宿主；非 legacy `PLUGIN_EXPORT` | **完成** |
-| `ui_legacy` | `gui` … `stat_chart`（+ `tool_group_sources`） | `smt_build_app` | **完成** |
+| `ui_legacy` | `gui` … `stat_chart`（+ `tool_group_sources`） | `build_app` | **完成** |
 | `legacy_render` | leftover host (GDI / scene3d / bridge / `Smt3DRenderer` loader) | optional | **完成** |
 | `legacy_render_gl` | leftover OpenGL `SmtGLRenderDevice` | optional; LoadLibrary from 3D factory | **完成** |
 | `legacy_render_d3d` | leftover D3D11 `SmtD3DRenderDevice` | optional; LoadLibrary from 3D factory | **完成** |
@@ -115,10 +115,10 @@ Status: **in progress** (include/snake_case cutover still open；foundation Hybr
 | SmtGLRenderDevice | render_gl | RENDER_GL_EXPORT / RENDER3D_EXPORT (gl) | RENDER_GL_EXPORT |
 | Smt3DBaseLib | scene3d | SCENE3D_EXPORT | SCENE3D_EXPORT |
 | Smt3DMdLib | model3d | MODEL3D_EXPORT | MODEL3D_EXPORT |
-| Smt3DPointCloud | pointcloud | POINTCLOUD_EXPORT | POINTCLOUD_EXPORT |
+| PointCloud3d | pointcloud | POINTCLOUD_EXPORT | POINTCLOUD_EXPORT |
 | Smt3DTerrain | terrain | TERRAIN_EXPORT | TERRAIN_EXPORT |
 | SmtSDEDeviceMgr | sde_mgr | SDE_MGR_EXPORT | SDE_MGR_EXPORT |
-| SmtSDEGdalDevice | sde_gdal | SDE_GDAL_EXPORT | SDE_GDAL_EXPORT |
+| GdalDevice | sde_gdal | SDE_GDAL_EXPORT | SDE_GDAL_EXPORT |
 | SmtSDEMemDevice | sde_mem | — (removed) | — |
 | SmtSDESmfDevice | sde_smf | — (removed) | — |
 | SmtSDEWSDevice | sde_ws | — (removed) | — |

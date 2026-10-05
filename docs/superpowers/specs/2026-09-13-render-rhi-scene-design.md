@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-05 — **§Vista IR/GPU lanes**（停用「逻辑 / 物理」；目录以该节为准：`map`/`MapIR` + `map_gpu`/`MapPass`，`world`/`Instance` + `world_gpu`/`WorldPass`；`frame/` 与 `scene/` 退出目标布局；图 [`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)）。Prior same day — **§Vista scene subdirectory**（取消 `scene/gpu/`；`GpuScene` 与 `map/` 一样落在模块根；公开 `"vista/scene/scene.h"`；图 [`vista-scene-octree.html`](../diagrams/vista-scene-octree.html)）。Prior same day — **§Vista map/frame scenic damage**（N0 拆回 `geom_walk` / `mesh_emit` / `tess_grain`，删掉焊在一起的 `geom_mesh`；N1–N3 锁脏瓦片 / pack / job abort；图 [`vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)）。Prior same day — **§Vista map deep split**（`vista/map` 公开 IR/Layout 头拆开 + emit 辅件按职责；图仍 [`vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)）。Prior same day — **§Vista scene unibn octree**（`vista/scene/index` + 渲染视锥外过滤；图 [`vista-scene-octree.html`](../diagrams/vista-scene-octree.html)）。Prior same day — **§Vista map/frame scenic-peer**（`vista/map` CPU × `vista/frame` GPU 对照 Scenic `paint/map`；U1–U4 as-built；图 [`vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)）。Prior 2026-10-04 — **§DEM / hillshade bake profile + bench**（`cat=bake` · CPU `parallel_for` vs Thrust；图 [`hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html)）。Prior same day — **§Scenic copy-type split**：`math.h`（vector 别名）与 `scenic_impl_export.h`（宏 + 一处 autolink）；STL/`ulong` 糖在 `scenic::detail` 非全局；`render/backend_dll.h` 共用 Loader。Prior same day — **§Vista logical/physical lanes U0–U4**（Task 8）。Prior same day — **§Scenic scene3d peer lock**：`scene3d/` ↔ `vista/scene`，禁止下沉 `rhi3d/impl/common`（[`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html)）。Prior same day — **§Vista logical/physical lanes**：[`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html) 与 [`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) 对照 CPU Emit×N 与 GPU 设备线程。Prior same day — **§Content present/scene3d slim**：`scenic_engine_host` + `frame/{look_preset,scene3d_overlays}`；规范图 [`scene3d-present-layers.html`](../diagrams/scene3d-present-layers.html)。Prior same day — **§content present accelerate**：`content/browser/present` 三车道（C cache / G GPU 合成 / E `base::execution`）；规范图 [`content-present-accelerate.html`](../diagrams/content-present-accelerate.html)。Prior same day — **§RHI2D cc frame-beat upgrade**：`cc/` 是帧拍（commit/activate/FrameJob），与 `MapScheduler`×`TileGraphRunner` **组合不合并**；升级只在 `src/scenic` / `src/content`（[`rhi2d-paint-map-strategy.html`](../diagrams/rhi2d-paint-map-strategy.html)）。Prior same day — **§RHI2D map-layer-feature paint strategy**：`paint/map/` 拆 map / layer / feature（prep → encode → submit）；与 carto/cc 保持 sibling，不并入（同图）。Prior same day — **§RHI2D public composition split**：`Device2d*` 并入 `render_device.h`（无独立 `device_parts.h`）。Prior same day — **§Carto draw lattice seam**：`paint/carto/draw` 只消费 `LatticeView2d`，不认识 `plugin::detail::OrthoLattice`（[`rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html)）。Prior same day — Mini expression 路径 `gis/style/eval/expression.*`（style 子目录 nest）。Prior same day — **§RHI2D public composition split**（`Device2d*` + thin `RenderDevice2d`，与 rhi3d 同形；无 `Map2dSession`；[`rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html)）。**§Scenic**：copy 制图消费 `gis::style::ResolvedPaint`。**§rhi3d public API composition**（[`rhi3d-public-api-lanes.html`](../diagrams/rhi3d-public-api-lanes.html)）。copy TUs 去 Smt 前缀 + 零 `#include "legacy/…"`。**§Vista subdirectory tighten P0–P3 landed**。Prior 2026-10-03 — Scene3d GPU present 终态：`graph::present` 1 CL（sky/depth → opaque DEM → ocean → post）· §Map2d present：**MapFrame 双出口**（制图一次在 `Layout::build`；GDI 只消费 `DrawItem`）· [`map2d-present-frame.html`](../diagrams/map2d-present-frame.html) · §src_render Scene3d equal-profile：**world3d 矩阵 + cold vs warm**（P0 cold upload；`SMT_GPUSCENE_PREP_PARALLEL` default-off） · §Vista Map2d equal-profile **P0–P3 总方案** · §GPU-process × §vista parallel **统一规范图** [`render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（A×B + Scene3d cold） · …
+**Updated:** 2026-10-05 — **§Vista IR/Pass lanes** 拆 `atmosphere` / `atmosphere_pass`（对标 `map`/`map_pass`；CPU `session` + `cpu_waves` 留在 `atmosphere/`；GPU pass 进 `atmosphere_pass/`；图 [`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)）。Prior same day — **§Vista world_pass deep split**（根公开 `pass`/`gpu_mesh`/`opaque_effect` + `detail/{upload,tint,rebuild,draw,record}` + `cull/`；`rgba_from_resolved_paint` 归 `world/paint.h`；图 [`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)）。Prior same day — **§Vista mesh subdirectory**（`mesh/` 按职责拆 `fill/` · `line/` · `detail/`；公开仍 `"vista/mesh/tessellate.h"`；图 [`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)）。Prior same day — **§Vista IR/Pass lanes**（停用「逻辑 / 物理」；目录以该节为准：`map`/`MapIR` + `map_pass`/`MapPass`，`world`/`Instance` + `world_pass`/`WorldPass`；`frame/` 与 `scene/` 退出目标布局；图 [`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)）。Prior same day — **§Vista scene subdirectory**（取消 `scene/gpu/`；`GpuScene` 与 `map/` 一样落在模块根；公开 `"vista/scene/scene.h"`；图 [`vista-scene-octree.html`](../diagrams/vista-scene-octree.html)）。Prior same day — **§Vista map/frame scenic damage**（N0 拆回 `geom_walk` / `mesh_emit` / `tess_grain`，删掉焊在一起的 `geom_mesh`；N1–N3 锁脏瓦片 / pack / job abort；图 [`vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)）。Prior same day — **§Vista map deep split**（`vista/component/map` 公开 IR/Layout 头拆开 + emit 辅件按职责；图仍 [`vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)）。Prior same day — **§Vista scene unibn octree**（`vista/scene/index` + 渲染视锥外过滤；图 [`vista-scene-octree.html`](../diagrams/vista-scene-octree.html)）。Prior same day — **§Vista map/frame scenic-peer**（`vista/component/map` CPU × `vista/frame` GPU 对照 Scenic `paint/map`；U1–U4 as-built；图 [`vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)）。Prior 2026-10-04 — **§DEM / hillshade bake profile + bench**（`cat=bake` · CPU `parallel_for` vs Thrust；图 [`hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html)）。Prior same day — **§Scenic copy-type split**：`math.h`（vector 别名）与 `scenic_impl_export.h`（宏 + 一处 autolink）；STL/`ulong` 糖在 `scenic::detail` 非全局；`render/backend_dll.h` 共用 Loader。Prior same day — **§Vista logical/physical lanes U0–U4**（Task 8）。Prior same day — **§Scenic scene3d peer lock**：`scene3d/` ↔ `vista/scene`，禁止下沉 `rhi3d/impl/common`（[`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html)）。Prior same day — **§Vista logical/physical lanes**：[`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html) 与 [`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) 对照 CPU Emit×N 与 GPU 设备线程。Prior same day — **§Content present/scene3d slim**：`scenic_engine_host` + `frame/{look_preset,scene3d_overlays}`；规范图 [`scene3d-present-layers.html`](../diagrams/scene3d-present-layers.html)。Prior same day — **§content present accelerate**：`content/browser/present` 三车道（C cache / G GPU 合成 / E `base::execution`）；规范图 [`content-present-accelerate.html`](../diagrams/content-present-accelerate.html)。Prior same day — **§RHI2D cc frame-beat upgrade**：`cc/` 是帧拍（commit/activate/FrameJob），与 `MapScheduler`×`TileGraphRunner` **组合不合并**；升级只在 `src/scenic` / `src/content`（[`rhi2d-paint-map-strategy.html`](../diagrams/rhi2d-paint-map-strategy.html)）。Prior same day — **§RHI2D map-layer-feature paint strategy**：`paint/map/` 拆 map / layer / feature（prep → encode → submit）；与 carto/cc 保持 sibling，不并入（同图）。Prior same day — **§RHI2D public composition split**：`Device2d*` 并入 `render_device.h`（无独立 `device_parts.h`）。Prior same day — **§Carto draw lattice seam**：`paint/carto/draw` 只消费 `LatticeView2d`，不认识 `plugin::detail::OrthoLattice`（[`rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html)）。Prior same day — Mini expression 路径 `gis/style/eval/expression.*`（style 子目录 nest）。Prior same day — **§RHI2D public composition split**（`Device2d*` + thin `RenderDevice2d`，与 rhi3d 同形；无 `Map2dSession`；[`rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html)）。**§Scenic**：copy 制图消费 `gis::style::ResolvedPaint`。**§rhi3d public API composition**（[`rhi3d-public-api-lanes.html`](../diagrams/rhi3d-public-api-lanes.html)）。copy TUs 去 Smt 前缀 + 零 `#include "legacy/…"`。**§Vista subdirectory tighten P0–P3 landed**。Prior 2026-10-03 — Scene3d GPU present 终态：`graph::present` 1 CL（sky/depth → opaque DEM → ocean → post）· §Map2d present：**MapFrame 双出口**（制图一次在 `Layout::build`；GDI 只消费 `DrawItem`）· [`map2d-present-frame.html`](../diagrams/map2d-present-frame.html) · §src_render Scene3d equal-profile：**world3d 矩阵 + cold vs warm**（P0 cold upload；`GPUSCENE_PREP_PARALLEL` default-off） · §Vista Map2d equal-profile **P0–P3 总方案** · §GPU-process × §vista parallel **统一规范图** [`render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（A×B + Scene3d cold） · …
 **Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；multiprocess [`../ui-shell-multiprocess.md`](../ui-shell-multiprocess.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)。  
 **Diagrams:** **Vista scene octree** [`../diagrams/vista-scene-octree.html`](../diagrams/vista-scene-octree.html) · **Vista map/frame scenic-peer** [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html) · **DEM / hillshade bake** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html) · **Scene3d present** [`../diagrams/scene3d-present-layers.html`](../diagrams/scene3d-present-layers.html) · **content present accelerate** [`../diagrams/content-present-accelerate.html`](../diagrams/content-present-accelerate.html) · **rhi2d frame-beat + map/layer/feature** [`../diagrams/rhi2d-paint-map-strategy.html`](../diagrams/rhi2d-paint-map-strategy.html) · **rhi3d public lanes** [`../diagrams/rhi3d-public-api-lanes.html`](../diagrams/rhi3d-public-api-lanes.html) · **Vista 子目录分层** [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html) · **Scenic** [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · **RHI2D composition split** [`../diagrams/rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html) · **Map2d present** [`../diagrams/map2d-present-frame.html`](../diagrams/map2d-present-frame.html) · **A×B 规范图** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（含 **§8 Scene3d cold vs warm**） · Views shell [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · GIS MapFrame [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)  
 **Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · **gpu accelerate（§GPU-process 唯一 checklist）** [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · **vista parallel** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md) · suite/bench [`../plans/2026-09-28-render-rhi-suite-bench.md`](../plans/2026-09-28-render-rhi-suite-bench.md) · **Map2d hillshade + line casing** [`../plans/2026-09-30-map2d-hillshade-line-casing.md`](../plans/2026-09-30-map2d-hillshade-line-casing.md) · **world3d pointcloud LAS** [`../plans/2026-09-30-world3d-pointcloud-las.md`](../plans/2026-09-30-world3d-pointcloud-las.md) · **D3D leftover capability** [`../plans/2026-09-29-d3d-leftover-capability.md`](../plans/2026-09-29-d3d-leftover-capability.md) · **GL leftover capability** [`../plans/2026-09-29-gl-leftover-capability.md`](../plans/2026-09-29-gl-leftover-capability.md) · GDI leftover worker [`../plans/2026-09-29-gdi-leftover-worker.md`](../plans/2026-09-29-gdi-leftover-worker.md) · GDI carto math [`../plans/2026-09-29-gdi-carto-base-math.md`](../plans/2026-09-29-gdi-carto-base-math.md) · GDI layout/compose [`../plans/2026-09-29-gdi-layout-device-compose.md`](../plans/2026-09-29-gdi-layout-device-compose.md) · GDI profile [`../plans/2026-09-29-gdi-leftover-profile.md`](../plans/2026-09-29-gdi-leftover-profile.md) · **GDI internal RHI** [`../plans/2026-09-29-gdi-internal-rhi-reshape.md`](../plans/2026-09-29-gdi-internal-rhi-reshape.md) · **Legacy Pipeline+Arena** [`../plans/2026-09-30-legacy-render-pipeline-arena.md`](../plans/2026-09-30-legacy-render-pipeline-arena.md) · **rhi2d Chromium-cc** [`../plans/2026-10-01-rhi2d-chromium-cc-compose.md`](../archive/plans/2026-10-01-rhi2d-chromium-cc-compose.md) · **rhi2d leftover tile-raster** [`../plans/2026-10-01-rhi2d-leftover-tile-raster.md`](../plans/2026-10-01-rhi2d-leftover-tile-raster.md) · **rhi3d leftover parallel frame** [`../plans/2026-10-01-rhi3d-parallel-frame.md`](../archive/plans/2026-10-01-rhi3d-parallel-frame.md) · **rhi3d Eigen frustum** [`../plans/2026-10-01-rhi3d-eigen-base-math.md`](../archive/plans/2026-10-01-rhi3d-eigen-base-math.md)。  
@@ -15,15 +15,15 @@ All rights reserved.
 
 ## Goal
 
-One `RenderDevice` path draws **2D maps and 3D worlds** through the same command-list RHI. GPU work is FlyCube (DirectX 12 and Vulkan). Logical models and the GIS world live in `sdb`; `render` only owns GPU resources and a synced render scene. Leftover `SmtRenderDevice` / GDI / GL stay as adapters so MFC views keep compiling.
+One `RenderDevice` path draws **2D maps and 3D worlds** through the same command-list RHI. GPU work is FlyCube (DirectX 12 and Vulkan). Logical models and the GIS world live in `sdb`; `render` only owns GPU resources and a synced render scene. Leftover `RenderDevice2d` / GDI / GL stay as adapters so MFC views keep compiling.
 
 ## Non-goals
 
 - Do not vendor Cesium Native, OpenSceneGraph, Filament, Diligent, bgfx, or a second GDAL/GEOS.
 - Do not leak FlyCube, Assimp, or tinygltf types in public headers under `src/`.
-- Do not treat Skia as the **FlyCube** map RHI (`render::rhi`). Leftover `SmtSkiaRenderDevice` (`legacy_rhi2d_skia.dll`, CPU `SkCanvas` / bootstrap) is an `SmtRenderDevice` paint lane only; chrome Skia stays in `ui/gfx`.
+- Do not treat Skia as the **FlyCube** map RHI (`render::rhi`). Leftover `SmtSkiaRenderDevice` (`legacy_rhi2d_skia.dll`, CPU `SkCanvas` / bootstrap) is an `RenderDevice2d` paint lane only; chrome Skia stays in `ui/gfx`.
 - Do not revive D3D9 / D3DX (`src/render/d3d` was deleted).
-- Do not rewrite leftover `Smt_*` ABI or merge DLLs. `SmtRenderDevice::Init(HWND)` remains the MFC present seam.
+- Do not rewrite leftover `Smt_*` ABI or merge DLLs. `RenderDevice2d::Init(HWND)` remains the MFC present seam.
 - Do not put logical scene graphs back under `render/scene3d` / `render/model3d`.
 - Qt is banned.
 - v1 does not require implicit 3D Tiles, Draco, i3dm, pnts, or cmpt.
@@ -40,7 +40,7 @@ One `RenderDevice` path draws **2D maps and 3D worlds** through the same command
 | Model I/O | `sdb::model` via **Assimp** (OBJ/FBX/DAE/glTF files) |
 | 3D Tiles | v1 streams explicit `tileset.json` (REPLACE/ADD). Tile content is glTF / b3dm via tinygltf, not Assimp |
 | Spatial query | World-side AABB index (linear v1; libspatialindex later). GPU BVH/frustum in `GpuScene` |
-| Leftover devices | `SmtRenderDevice` + GDI/GL wrap the Facade present; they do not grow a second 3D engine |
+| Leftover devices | `RenderDevice2d` + GDI/GL wrap the Facade present; they do not grow a second 3D engine |
 | Scenic | Product previous-gen engine. Host = **`src/content`**. Disk **`src/scenic`** (peer of `src/vista`). Public DLL **`scenic.dll`**, namespace **`scenic`**. Leftover **`src/legacy/render` frozen**. Not a FlyCube `Device` port. Not merged into `vista.dll`. |
 
 ## Architecture
@@ -53,12 +53,12 @@ render::rhi::Device  (Facade: Device / CommandList / Resource)
         |
         +-- FlyCube  (DX12 | Vulkan)     default GPU
         +-- Null                         tests
-        +-- GDI / GL leftover            SmtRenderDevice::Init
+        +-- GDI / GL leftover            RenderDevice2d::Init
         |
         v
 render::scene::GpuScene   <----sync generation----  sdb::scene::World
         |                                              |
-        | GPU mesh / texture / instance                +-- SmtMap layers (vector/raster)
+        | GPU mesh / texture / instance                +-- Map layers (vector/raster)
         | frustum / GPU occupancy                      +-- sdb::model::ModelAsset (Assimp)
         | record CommandList                           +-- sdb::model::Tileset (3D Tiles)
                                                        +-- AABB query / pick
@@ -156,13 +156,13 @@ Backend preferred_gpu_backend();  // Windows: kDx12
 - Leftover GDI/GL/D3D `Init(HWND)` present is owned by BitBlt / SwapBuffers / D3D11 Present. The former process-wide `leftover_session` / `bind_rhi_present` bridge was removed (2026-10-01). New code (`gpu`, Views map viewport) uses `preferred_gpu_backend()`.
 - FlyCube headers appear only under `rhi/flycube/` (internal split: `flycube_{types,resources,command_list,shaders,device}.h` + impl TUs). `flycube_device.h` forward-declares command-list / Buffer / Texture; full types stay in the dedicated headers. Mapping: `Device` → FlyCube `Device` + `Swapchain`; `CommandList` → FlyCube `CommandList`; `execute` → `CommandQueue::ExecuteCommandLists`; `present` → `Swapchain::Present`.
 
-Public RHI now includes `Buffer` + `create_buffer` / `upload` / `bind_vertex_buffer` / `bind_index_buffer`, `Texture` + `create_texture` / `upload_texture` / `bind_texture` for raster/tile quads, and `bind_camera` / `CameraMatrices`. FlyCube types stay out of `rhi.h`. When `SMT_HAS_FLYCUBE` is on (Debug compiles `/MDd` FlyCube into `out/flycube`; Release links the MD prebuilt), initialized devices upload to FlyCube heaps, bind view/proj constants, sample uploaded textures in a DX12 pipeline, and can clear/present a swapchain. Null-path tests stay CPU stubs (`bind_texture` / `bind_camera` counters). Optional: `rhi_test` initializes DX12 on a hidden HWND and skips (does not fail) when the machine has no adapter. Leftover GDI/GL/D3D present stays on BitBlt / SwapBuffers / D3D11 Present — the process-wide `leftover_session` / `LeftoverRecorder` bridge was removed.
+Public RHI now includes `Buffer` + `create_buffer` / `upload` / `bind_vertex_buffer` / `bind_index_buffer`, `Texture` + `create_texture` / `upload_texture` / `bind_texture` for raster/tile quads, and `bind_camera` / `CameraMatrices`. FlyCube types stay out of `rhi.h`. When `HAS_FLYCUBE` is on (Debug compiles `/MDd` FlyCube into `out/flycube`; Release links the MD prebuilt), initialized devices upload to FlyCube heaps, bind view/proj constants, sample uploaded textures in a DX12 pipeline, and can clear/present a swapchain. Null-path tests stay CPU stubs (`bind_texture` / `bind_camera` counters). Optional: `rhi_test` initializes DX12 on a hidden HWND and skips (does not fail) when the machine has no adapter. Leftover GDI/GL/D3D present stays on BitBlt / SwapBuffers / D3D11 Present — the process-wide `leftover_session` / `LeftoverRecorder` bridge was removed.
 
 ## Model (`sdb::model`)
 
 CPU-only. No GPU types, no `render` includes.
 
-**Assimp (standalone files).** `load_file(const char* path, ModelAsset& out)` uses Assimp when `smt_has_assimp` is true. Supported product formats: OBJ, FBX, DAE, glTF/GLB. On failure, return false and leave `out` empty. When Assimp is not linked, `load_file` returns false except for the built-in name `"cube"` which fills a unit cube (`load_unit_cube`).
+**Assimp (standalone files).** `load_file(const char* path, ModelAsset& out)` uses Assimp when `has_assimp` is true. Supported product formats: OBJ, FBX, DAE, glTF/GLB. On failure, return false and leave `out` empty. When Assimp is not linked, `load_file` returns false except for the built-in name `"cube"` which fills a unit cube (`load_unit_cube`).
 
 ```cpp
 namespace sdb {
@@ -259,7 +259,7 @@ class World {
   const Node* node_at(size_t index) const;
 
   // GIS: one node per SmtLayer in draw order. Does not copy features.
-  void attach_map(const Smt_GIS::SmtMap* map);
+  void attach_map(const Smt_GIS::Map* map);
 
   void query_aabb(double min_x, double min_y, double min_z, double max_x,
                   double max_y, double max_z, std::vector<const Node*>& hits) const;
@@ -275,7 +275,7 @@ class World {
 ```
 
 - Mutating methods bump `generation_`.
-- `attach_map` replaces all `kVectorLayer` / `kRasterLayer` nodes with one node per `SmtMap` layer. Envelope comes from `SmtLayer::GetEnvelope` when present; otherwise a zero box. Terrain/pointcloud leftover engines are attached later as `kTerrain` / `kPointCloud` name handles; v1 does not port `SmtScene` octree code.
+- `attach_map` replaces all `kVectorLayer` / `kRasterLayer` nodes with one node per `Map` layer. Envelope comes from `SmtLayer::GetEnvelope` when present; otherwise a zero box. Terrain/pointcloud leftover engines are attached later as `kTerrain` / `kPointCloud` name handles; v1 does not port `Scene` octree code.
 - `query_aabb` is inclusive AABB overlap (linear scan). This is the **identify / spatial filter** path. It is not the draw path.
 
 ## GPU scene (`render::scene`)
@@ -315,7 +315,7 @@ class GpuScene {
 
 ## Data flow
 
-1. App/content opens `SmtMap` and/or `load_file` / `parse_tileset_json`.
+1. App/content opens `Map` and/or `load_file` / `parse_tileset_json`.
 2. `World::attach_map` + `add_node(kModel|kTileset, …)`.
 3. Camera tick: `select_tiles` updates which tileset nodes are considered loaded (generation bump when the visible set changes).
 4. `GpuScene::sync_from(world)` in the GPU process.
@@ -347,7 +347,7 @@ Optional: if FlyCube is linked, `rhi_test` tries `initialize` on a hidden HWND a
 ## Build / third_party
 
 - `third_party/manifest.json` pins `flycube` (andrejnau/FlyCube), `assimp`, and `tinygltf`. Fetch via existing `build.bat t` / `fetch.py`. Do not vendor Chromium or a second copy inside `src/`.
-- GN args (in `build/smartgis.gni`): `smt_has_flycube` / `smt_has_assimp` / `smt_has_tinygltf`, default false until the source dir exists. Stub TUs always compile.
+- GN args (in `build/smartgis.gni`): `has_flycube` / `has_assimp` / `has_tinygltf`, default false until the source dir exists. Stub TUs always compile.
 - C++23 (`cc_std`). FlyCube / Assimp keep their own CMake dialect; do not force `cc_std` onto those CMake trees unless they already inherit it.
 - `src/render/d3d` was deleted (D3D9 / D3DX). Do not resurrect.
 
@@ -365,11 +365,11 @@ Optional: if FlyCube is linked, `rhi_test` tries `initialize` on a hidden HWND a
 
 - Default **direct** (`ContentSource::kDirect`): demo grid / Scene3d DEM underlay
   via `raster/direct` → `CompositorFrame` → `SoftwareRenderer` → `OutputSurface`.
-- Optional **tile** (`SMT_MAP_BACKEND=a|track_a|maplibre` or `view.backend.maplibre`):
+- Optional **tile** (`MAP_BACKEND=a|track_a|maplibre` or `view.backend.maplibre`):
   StyleDocument + XYZ mosaic via `raster/tile` into the same compositor path
   (shared DXGI / DIB). Chrome still only presents the shared surface. Wire name
   `maplibre` means tile, **not** MapLibre Native.
-- MapLibre Native product pin / `smt_enable_maplibre` / `maplibre_link` were
+- MapLibre Native product pin / `enable_maplibre` / `maplibre_link` were
   **removed** (2026-09-27; deferred reconsider). Do not include mln/mbgl from
   `app/`, `content/public`, or `gpu/`.
 - **§MapLibre Native examples (2026-09-29):** opt-in only —
@@ -402,7 +402,7 @@ Optional: if FlyCube is linked, `rhi_test` tries `initialize` on a hidden HWND a
 - `build.bat te` runs `rhi_test`, `model_test`, `scene_test`, `scene_gpu_test`.
 - 2D layer nodes and 3D model nodes record into **one** `CommandList` via `GpuScene::record`.
 - Public headers under `src/` do not `#include` FlyCube, Assimp, or tinygltf.
-- `SmtRenderDevice::Init` still compiles and still calls `BindRhiPresent`.
+- `RenderDevice2d::Init` still compiles and still calls `BindRhiPresent`.
 
 ---
 
@@ -433,7 +433,7 @@ One viewport, one camera, one `CommandList`, one `execute`/`present`. Passes onl
 | Backend | `render::rhi` |
 | Render Scene | `render::scene::GpuScene` (GPU cache only) |
 | Frame graph | `render::graph` — `Effect` / slots / `present` / `OpaqueEffect` |
-| Map / atmosphere GPU passes | `src/vista/map`, `src/vista/atmosphere` (`effect::*`); **not** compiled into `render.dll` deps of those passes |
+| Map / atmosphere GPU passes | `src/vista/component/map`, `src/vista/component/atmosphere` (`effect::*`); **not** compiled into `render.dll` deps of those passes |
 | CPU frame | `vista` (`MapFrame`); present layering is §Map2d present |
 
 `ViewInput` is width/height + one camera + non-owning `Effect*` list — does not name `GpuScene` / `MapFrame` / `AtmosphereFrame`. Archive detail: [`../archive/specs/2026-09-27-render-frame-graph-design.md`](../archive/specs/2026-09-27-render-frame-graph-design.md).
@@ -533,7 +533,7 @@ Warm StaticReuse / equal-profile budgets stay owned by §vista / equal-profile �
 | Milestone | Meaning | Status (as-built) |
 | --- | --- | --- |
 | Software compose fallback | `SoftwareComposer` + `upload_bgra` per sticky adapter | landed |
-| RHI blit / compose → DXGI shared | `RhiComposer` · `import_shared_nt_handle` · `execute_to_imported` / `copy_bgra_to_imported_shared` | landed (FlyCube when `SMT_HAS_FLYCUBE`) |
+| RHI blit / compose → DXGI shared | `RhiComposer` · `import_shared_nt_handle` · `execute_to_imported` / `copy_bgra_to_imported_shared` | landed (FlyCube when `HAS_FLYCUBE`) |
 | GPU compose quads | `kSolid` / `kBgra` / `replaces` on RHI path | landed |
 | Texture cache | `GpuDeviceHub` per-slot cache + `DrawQuad::texture_cache_key` | landed |
 | Frame Graph / GpuScene underlay | `underlay_bridge` record; BGRA readback / effect::map color-target copy **open** | partial |
@@ -543,7 +543,7 @@ Warm StaticReuse / equal-profile budgets stay owned by §vista / equal-profile �
 
 | Topic | Choice |
 | --- | --- |
-| Default `ComposeBackend` | **`kRhi`**. Unset / empty / unknown `SMT_GPU_COMPOSE` → `kRhi`. Explicit `SMT_GPU_COMPOSE=software` is the escape hatch (case-insensitive). Test override APIs remain. |
+| Default `ComposeBackend` | **`kRhi`**. Unset / empty / unknown `GPU_COMPOSE` → `kRhi`. Explicit `GPU_COMPOSE=software` is the escape hatch (case-insensitive). Test override APIs remain. |
 | Sticky fallback | On hard RHI / present failure for adapter A: sticky **software** for **that adapter only** (`GpuDeviceHub` sticky bit); other adapters keep RHI when healthy. |
 | Topology | **One** `--type=gpu` process × **N** adapter device slots. Not N gpu processes. **No** single-frame multi-GPU split / cross-adapter mosaic in one compose. |
 | Shell role | Shell consumes NT shared handles / DIB only — **never** blends the final frame. |
@@ -553,12 +553,12 @@ Warm StaticReuse / equal-profile budgets stay owned by §vista / equal-profile �
 
 | Flag / env | Meaning |
 | --- | --- |
-| `SMT_GPU_COMPOSE` | unset/empty/unknown → **`kRhi`**; `software` → `kSoftware` (escape). Parsed in `select_compose_backend` (`compositor/composer/composer.cc`). |
+| `GPU_COMPOSE` | unset/empty/unknown → **`kRhi`**; `software` → `kSoftware` (escape). Parsed in `select_compose_backend` (`compositor/composer/composer.cc`). |
 | `view.backend.rhi` | Wire → `ContentSource::kDirect` only — **not** FlyCube / not `ComposeBackend`. |
-| `view.backend.maplibre` / `SMT_MAP_BACKEND=…maplibre` | Tile StyleDocument path — **not** MapLibre Native. |
-| `SMT_MAP_BACKEND` / `SMT_XYZ_URL` | Content source / XYZ hand-test (see `src/gpu/README.md`). |
+| `view.backend.maplibre` / `MAP_BACKEND=…maplibre` | Tile StyleDocument path — **not** MapLibre Native. |
+| `MAP_BACKEND` / `XYZ_URL` | Content source / XYZ hand-test (see `src/gpu/README.md`). |
 | `--type=gpu` / `--in-process-gpu` | Process model (`ui-shell-multiprocess.md`); in-process-gpu debug/CI only. |
-| Vista parallel envs | `SMT_VISTA_LAYOUT_PARALLEL` / `SMT_GPUSCENE_PREP_PARALLEL` — **§vista**; do not overload as compose backend. |
+| Vista parallel envs | `VISTA_LAYOUT_PARALLEL` / `GPUSCENE_PREP_PARALLEL` — **§vista**; do not overload as compose backend. |
 
 ### Non-goals（硬）
 
@@ -584,14 +584,14 @@ src/legacy/render/rhi2d/impl/common/surface/ is map2d **compose + present**, not
 | buf→buf compose | detail::blit_owned_to / blit_surfaces → color-key→alpha then src-over; **stretch via nearest-neighbor** then blend |
 | Blit mode | Rhi2dBlitMode::{kOpaque,kColorKey} (replaces eSwapType / GdiBlitMode) |
 | Surface pool | rhi2d_surface_pool() reuses DIB by size; draw TUs allocate POINT scratch from TLS arena |
-| Phase 2 | make_compositor_frame + submit_surface; C ABI SmtRhi2dSetBgraSubmit; GPU process binds → OutputSurface. Shell still must not final-compose. |
+| Phase 2 | make_compositor_frame + submit_surface; C ABI Rhi2dSetBgraSubmit; GPU process binds → OutputSurface. Shell still must not final-compose. |
 | Phase 3 | GPU leftover_gdi_bgra_upload builds CompositorFrame → make_frame_composer (RHI/software) → draw_frame; NN-scale when sizes differ. Test: gdi_compose_test. |
 
 ### Phases
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| **P0** | Default compose = RHI; `SMT_GPU_COMPOSE=software` escape; sticky per-adapter software fallback; docs/tests match. | mostly landed |
+| **P0** | Default compose = RHI; `GPU_COMPOSE=software` escape; sticky per-adapter software fallback; docs/tests match. | mostly landed |
 | **P1** | LUID fields on Attach/Resize IPC; shell fills LUID; `gpu_main` rebinds via hub (not primary-only forever). | code landed; LUID pin tests open |
 | **P2** | TDR / device-lost → sticky software + generation bump wired from recovery path; dual-adapter notes. | API landed; OS TDR wire open |
 | **Bridge** | Topology A↔B remap + underlay BGRA / effect::map copy — Task 8 on plan | open |
@@ -621,7 +621,7 @@ Thin facade, same seam as `present/map2d`. `Scene3dGpuPresent::present` fills vi
 | Stays in present | Role |
 | --- | --- |
 | `Scene3dPresenter` | bind / dispatch GPU vs software vs scenic |
-| `scenic_engine_host` | content-hosted `scenic::Engine` (`SMT_SCENE3D_ENGINE=scenic`) |
+| `scenic_engine_host` | content-hosted `scenic::Engine` (`SCENE3D_ENGINE=scenic`) |
 | `session/scene3d_rhi_session` | FlyCube prefer / engine source of truth (`CONTENT_EXPORT` in `content.dll`) |
 | `Scene3dStereoSession` | scenic_impl LoadLibrary HWND stereo |
 | `scene3d_phase_profile` | phase clocks, including warm `rebuild_count` |
@@ -633,7 +633,7 @@ Thin facade, same seam as `present/map2d`. `Scene3dGpuPresent::present` fills vi
 
 China box, LOD cache key, and globe height sampling are not content policy. `dem_seed_lonlat_box` / `dem_seed_cache_key` sit beside `seed_dem_view_tiles_into_world` and `seed_china_dem_into_world`. `DemRaster::sample_globe_surface` owns the sample loop and hypsometric fallback. `rebuild_local_mesh` still builds into a local vector, swaps, and holds `present_mu_`. A set `set_sample_dem_path_override` does not force the China box. Globe present skips `rebuild_local_mesh` and `GpuScene::sync_from`.
 
-Albedo mean and the solid-terrain flag live on `vista::GpuScene` (`update_solid_terrain`, next to `set_solid_color` / `synced_generation()`). `rebuild_meshes` and `detail::record_kind` read that flag. One remesh is still ordered by present: `OceanPass::prepare_gpu` → `GpuScene::sync_from` → `mark_meshes_dirty` on the cold frame only. Warm frames do not `sync_from` again. `dem_gpu_synced_after_ocean_` / `dem_gpu_synced_after_sky_` stay on present. `SMT_GPUSCENE_PREP_PARALLEL` stays off.
+Albedo mean and the solid-terrain flag live on `vista::GpuScene` (`update_solid_terrain`, next to `set_solid_color` / `synced_generation()`). `rebuild_meshes` and `detail::record_kind` read that flag. One remesh is still ordered by present: `OceanPass::prepare_gpu` → `GpuScene::sync_from` → `mark_meshes_dirty` on the cold frame only. Warm frames do not `sync_from` again. `dem_gpu_synced_after_ocean_` / `dem_gpu_synced_after_sky_` stay on present. `GPUSCENE_PREP_PARALLEL` stays off.
 
 Callers use `atmosphere_session()` / `gpu()` / `software()`. As-built index: [`../../../src/content/browser/present/README.md`](../../../src/content/browser/present/README.md).
 
@@ -649,7 +649,7 @@ Headless functional matrix + performance benches for `render::rhi` / `graph`, pl
 | Locked | Choice |
 | --- | --- |
 | Layout | Shared scenarios in `src/render/testing/` (`render::detail`); product DLL does **not** depend on testing |
-| Functional | `rhi_suite_test` (Null) → `test_shell` / `test_all`; keep existing `rhi_test` GPU smoke (`SMT_RUN_FLYCUBE_GPU=1`) |
+| Functional | `rhi_suite_test` (Null) → `test_shell` / `test_all`; keep existing `rhi_test` GPU smoke (`RUN_FLYCUBE_GPU=1`) |
 | Bench CI | `rhi_bench` (Null, **google/benchmark**) → `benchmark_all` / `build.bat b` |
 | Bench GPU | `rhi_gpu_bench` (DX12); **not** in default `benchmark_all`; env or explicit ninja target |
 | Console | `:rhi test\|bench` spawn sibling exes (same pattern as `:gis test\|bench`) |
@@ -843,7 +843,7 @@ Layout split left **two paint lanes**: host `GdiGeomDrawer` / `GdiStyleState` / 
 
 ### Why
 
-After paint dedupe, leftover still had dual scheduler vocabulary (`GdiUiController` vs worker lane) plus Hungarian `m_smt*` members and paint type names that did not match Chromium/cc. Worker lane is now `Rhi2dFrameWorker` + `detail::Rhi2dFrameScheduler`. `SmtRenderDevice` Draw* ABI stays.
+After paint dedupe, leftover still had dual scheduler vocabulary (`GdiUiController` vs worker lane) plus Hungarian `m_smt*` members and paint type names that did not match Chromium/cc. Worker lane is now `Rhi2dFrameWorker` + `detail::Rhi2dFrameScheduler`. `RenderDevice2d` Draw* ABI stays.
 
 ### Locked choices
 
@@ -851,7 +851,7 @@ After paint dedupe, leftover still had dual scheduler vocabulary (`GdiUiControll
 | --- | --- |
 | Lexicon | Chromium/cc-style names inside `impl/gdi/core` |
 | Directories | Keep `host/` · `paint/` · `worker/` · `surface/` |
-| ABI | `SmtRenderDevice` virtuals + CreateDevice string **unchanged** |
+| ABI | `RenderDevice2d` virtuals + CreateDevice string **unchanged** |
 | Device class | `SmtRhi2dRenderDevice` unchanged; worker façade `Rhi2dFrameWorker` |
 | Dual scheduler | `Rhi2dPresentController` (host) + `detail::Rhi2dFrameScheduler` (worker) |
 | Paint types | `Rhi2dCartoDraw` · `Rhi2dPainter` · `GdiCartoFrame` |
@@ -891,7 +891,7 @@ After paint dedupe, leftover still had dual scheduler vocabulary (`GdiUiControll
 | Present lane | `Rhi2dPresentController` / `present_controller.*` · accessor `present()` |
 | Buffer images | `Rhi2dBufferImage` / `buffer_image.*` · accessor `buffer_image()` |
 | Draw*/Render* | Declarations stay on `SmtRhi2dRenderDevice`; bodies thin-forward in `device_draw.cc` |
-| ABI | `SmtRhi2dRenderDevice` / CreateDevice / `SmtRenderDevice` virtuals **unchanged** |
+| ABI | `SmtRhi2dRenderDevice` / CreateDevice / `RenderDevice2d` virtuals **unchanged** |
 
 ### Acceptance
 
@@ -922,7 +922,7 @@ Leftover GDI multi-point paint still calls `LPToDP` per vertex. Carto declutter 
 | --- | --- |
 | Approach | **`LpToDp2` + `transform_xy_batch`** in `base/math`; carto uses `Vector2` / constants; point declutter gets a cell grid |
 | `LPToDP` semantics | Match leftover: `+0.5` then cast to `LONG`, then `Y = view_h - Y` |
-| SIMD | Same as render-math: `smt_render_math_simd` default **off** (scalar) |
+| SIMD | Same as base/math: `base_math_simd` default **off** (scalar) |
 | Style / LOD | **Unchanged** (colors, priority, budget, halo) |
 | Worker | Still single GDI lane; this is CPU math on that lane, not parallel GDI |
 
@@ -958,8 +958,8 @@ Goal C (hot-path batch + type unify) under constraints: scope **common + gdi pro
 | Eigen surface | **A**: rhi2d uses `base/math` only (`Vector2`, `LpToDp2`, simd batch) |
 | Scope | **B**: `impl/common/` (GDI DLL links common); no gdiplus/skia port drive-by |
 | 4×4 | Still **do not** force 2D through `Matrix` |
-| SIMD default | Remains **off** (`smt_render_math_simd`) |
-| ABI | `SmtRenderDevice` LPToDP/DPToLP signatures unchanged |
+| SIMD default | Remains **off** (`base_math_simd`) |
+| ABI | `RenderDevice2d` LPToDP/DPToLP signatures unchanged |
 
 ### Acceptance
 
@@ -993,7 +993,7 @@ Dense line/polygon paths already use `transform_xy_batch`. Remaining cost: `draw
 | --- | --- |
 | P0 | `draw_linear_ring` → pack + `transform_xy_batch` (same as line_string) |
 | P1 | Frame-level `LpToDp2` cache on `Rhi2dCartoDrawXform` (invalidate on context / port fingerprint change) |
-| P2 | AVX2 fill of `transform_xy_batch` when `smt_render_math_simd`; default **off**; ≡ scalar `LONG+0.5+flip_y` |
+| P2 | AVX2 fill of `transform_xy_batch` when `base_math_simd`; default **off**; ≡ scalar `LONG+0.5+flip_y` |
 | P3 | Prep play keeps device `POINT` — no second LP→DP (document + guard comment) |
 | 4×4 | Still forbidden for this path |
 
@@ -1046,7 +1046,7 @@ Dense line/polygon paths already use `transform_xy_batch`. Remaining cost: `draw
 
 ### Acceptance
 
-- `SMT_TRACE=1` or UI Record captures GDI spans; default off stays cheap.
+- `TRACE=1` or UI Record captures GDI spans; default off stays cheap.
 - Legacy dock appends per-`RenderMap` text lines while armed.
 - Views Gantt can show/hide `gdi.*`.
 - `trace_test` covers frame-log formatter; GDI paint smoke still draws.
@@ -1062,7 +1062,7 @@ Dense line/polygon paths already use `transform_xy_batch`. Remaining cost: `draw
 
 ## §Atmosphere look pack（ocean C / fog depth / sky / cloud）（2026-09-29）
 
-Industry look pass on `src/vista/atmosphere` without a second atmosphere tree. Living umbrella only — no new dated design twin.
+Industry look pass on `src/vista/component/atmosphere` without a second atmosphere tree. Living umbrella only — no new dated design twin.
 
 ### Scope
 
@@ -1123,7 +1123,7 @@ Gate: `map2d_china_loop.py` land_cream / water / detail_frac.
 **Status:** active  
 **Updated:** 2026-10-02  
 
-Three-layer product face on `src/vista/atmosphere` (no second engine):
+Three-layer product face on `src/vista/component/atmosphere` (no second engine):
 
 | Layer | Pass | Role |
 | --- | --- | --- |
@@ -1148,7 +1148,7 @@ Three-layer product face on `src/vista/atmosphere` (no second engine):
 - Globe present skips flat DEM: no `rebuild_local_mesh`, no `GpuScene::sync_from`, and no `OpaqueEffect` on the `ViewInput` list.
 - Record order on the one `graph::present` list: sky/depth (and globe DEM) in `record_pre_opaque`; flat ocean then cloud/fog/sat in `record_post_opaque`. Flat ocean is not drawn in the pre slot.
 - Showcase: `--atmosphere-showcase=globe` (`testing/tools/harness/atmosphere/atmosphere.globe/`).
-- Unit: `globe_pass_test` (Null RHI). Null showcase verified PASS (`SMT_ATMOSPHERE_SHOWCASE_GPU=0`).
+- Unit: `globe_pass_test` (Null RHI). Null showcase verified PASS (`ATMOSPHERE_SHOWCASE_GPU=0`).
 
 ### Non-goals
 
@@ -1174,7 +1174,7 @@ Leftover GDI should read like an industry 2D RHI (Device / Surface / CommandEnco
 | --- | --- |
 | Approach | **Internal RHI vocabulary** under `impl/gdi/core/`; thin public facade |
 | Phases | **1 Resource/Surface → 2 Encoder → 3 Draw ops → 4 Schedule/trace** |
-| ABI | **May break** `SmtRenderDevice` / callers (sync MFC/`xview`/tool) |
+| ABI | **May break** `RenderDevice2d` / callers (sync MFC/`xview`/tool) |
 | Naming | `Gdi*` types; internals in `render` / `render::detail` — **never** `render::rhi::*` |
 | Present | HWND still GDI BitBlt / Invalidate; compose IR stays `CompositorFrame` |
 | Dirs | Keep `surface/` path for buffers; add `encode/`; device stays `host/` |
@@ -1220,7 +1220,7 @@ After reshape / paint dedupe / cc rename, `core/` still has (1) mixed `.cpp`/`.c
 | A depth | **A2** — FrameJob + sync `RenderMap` geom/text/pen through encoder |
 | Approach | **CartoDraw-as-recorder** — Draw* API stays; bind via TLS (`paint/carto/encode/encoder_tls.h`) so `Rhi2dCartoDraw` size does not shift `frame_worker_` |
 | Road while encoding | Dual GDI pen polylines (not Gdiplus) |
-| ABI | `SmtRenderDevice` / CreateDevice / class names **unchanged** |
+| ABI | `RenderDevice2d` / CreateDevice / class names **unchanged** |
 | Namespace | Never `render::rhi` |
 
 ### Acceptance
@@ -1451,7 +1451,7 @@ GN: `//src/legacy/render/rhi3d/impl/gl:gl_sources` → `legacy_render_gl` (`open
 - **No FlyCube** device/swapchain/command list on this HWND.
 - **No** rewriting **`Smt_*` export names** or merging `legacy_render` with FlyCube.
 - **No** full new RHI Facade inside legacy GL.
-- **No** drive-by rename of public `SmtGL*` types or factory strings.
+- **No** drive-by rename of public `GL*` types or factory strings.
 - **Do not** edit `impl/d3d/` in the GL slice (coordinate via separate plans).
 
 ### Acceptance
@@ -1481,7 +1481,7 @@ Align leftover map2d host with Chromium **cc** (commit / activate / draw) so dua
 | Approach | **`impl/common/cc/`** owns frame beat (`LayerTreeHost` · `Scheduler` · `LayerTreeImpl` gen/damage) |
 | Pipeline | PresentController → Host stage/submit → activate → (tile raster / Painter) → submit_surface / present_to_hwnd |
 | Threading | **Compose, do not merge:** serial `NThreadPoolExecutor(1)` FrameJob (`MapScheduler`) **owns** the Impl lane; paint_fn barriers on one `TileGraphRunner` (HWND still never `join`s the FrameJob; raster pool joins after idle) |
-| ABI | `SmtRenderDevice` / LoadLibrary / three DLL stems **frozen** |
+| ABI | `RenderDevice2d` / LoadLibrary / three DLL stems **frozen** |
 | Ports | `impl/{gdi,gdiplus,skia}/` = `backend/` + `create_backend` only |
 | Namespace | `render::detail` + `Rhi2d*` (no third public ns) |
 | Concept rule | **No parallel Chromium names for the same job** — no FrameWorker/FrameSink/cc::Layer list beside Host/Composer/paint |
@@ -1523,19 +1523,19 @@ Landing priority (revised): expose **two parallel grains** so wall-clock can be 
 | --- | --- |
 | Track | Leftover `rhi2d/impl/common` (option C) |
 | First breakthrough | **C1** multi-thread offscreen raster; GPU compose/raster later |
-| Mode switch | `SMT_RHI2D_PARALLEL=serial\|tile\|layer` (default **tile**). Legacy `SMT_RHI2D_TILE_RASTER=0` → serial when PARALLEL unset |
-| Grain A (scheme 1) | **Viewport device-pixel grid** (default **256×256**, adaptive up to 1024 to keep ≤~4 tiles unless `SMT_RHI2D_TILE_SIZE` set) |
+| Mode switch | `RHI2D_PARALLEL=serial\|tile\|layer` (default **tile**). Legacy `RHI2D_TILE_RASTER=0` → serial when PARALLEL unset |
+| Grain A (scheme 1) | **Viewport device-pixel grid** (default **256×256**, adaptive up to 1024 to keep ≤~4 tiles unless `RHI2D_TILE_SIZE` set) |
 | Grain B | **Per GIS layer** encode → parallel `execute` → ocean **color-key** compose (TransparentBlt; preserves z-order cartography) |
 | Ports | Shared encode IR; tile/layer execute uses **thread-private** HDC (all ports) |
 | Thread model | **H2 slim compose:** FrameJob (`MapScheduler` / size-1 executor) = Impl; **N Raster** via one `TileGraphRunner`. Distinct shutdown (leak vs join) — **do not collapse into one type** |
 | Runner | Slim **TaskGraphRunner**: one process-wide pool, workers **pull** job indices for **tile or layer** (no per-job PostTask; no second pool) |
-| Paint split (tile) | **Serial encode** → **parallel `execute_tile` + AABB cull** on **partial damage**; full-damage falls back to serial (`SMT_RHI2D_TILE_FORCE=1` to force). Prefer **layer** grain for full china frames |
+| Paint split (tile) | **Serial encode** → **parallel `execute_tile` + AABB cull** on **partial damage**; full-damage falls back to serial (`RHI2D_TILE_FORCE=1` to force). Prefer **layer** grain for full china frames |
 | Paint split (layer) | **Serial encode per layer** → **parallel `execute`** → ocean clear + z-order ocean color-key |
 | Damage | Tile mode: intersect damage with tiles; blit only dirty centers |
 | Skirt | Tile **outset 16px**; compose writes center only |
 | Labels | In command buffer for v1; dedicated serial label pass deferred |
-| Timing | `SMT_RHI2D_PARALLEL_LOG=1` prints `execute_ms` to stderr |
-| ABI | `SmtRenderDevice` / Create·Destroy / three stems **frozen** |
+| Timing | `RHI2D_PARALLEL_LOG=1` prints `execute_ms` to stderr |
+| ABI | `RenderDevice2d` / Create·Destroy / three stems **frozen** |
 
 ### Architecture
 
@@ -1590,7 +1590,7 @@ N default: `clamp(2, 4, hardware_concurrency/2)`.
 - [x] `cc/raster_tile.*` + `cc/tile_graph_runner.*` + encode `execute`/`execute_tile`
 - [x] `gdi_cc_test` + `tile_raster_test` (stitch, damage, cancel, env fallback, layer color-key compose)
 - [x] `impl/common/README.md` pipeline documents TileGraph + layer mode
-- [x] `SMT_RHI2D_PARALLEL=serial\|tile\|layer` (+ legacy `TILE_RASTER=0`)
+- [x] `RHI2D_PARALLEL=serial\|tile\|layer` (+ legacy `TILE_RASTER=0`)
 - [x] `legacy_rhi2d_{gdi,gdiplus,skia}` build green with tile/layer path
 - [ ] Pan/zoom smoke: HWND never joins; stale gen does not publish
 - [ ] Measurable wall-clock compare on mid-size PLP (`PARALLEL_LOG` + serial/tile/layer)
@@ -1605,7 +1605,7 @@ N default: `clamp(2, 4, hardware_concurrency/2)`.
 
 ### Why
 
-Mirror §rhi3d harden for leftover 2D: loader still uses `MessageBox`, `Release` does not `FreeLibrary`, tree still has C-era `NULL` / C-casts / raw `POINT[]` scratch. Paint hot path should use modern C++ + `base` allocators without changing `SmtRenderDevice` ABI or multi-DLL LoadLibrary shape.
+Mirror §rhi3d harden for leftover 2D: loader still uses `MessageBox`, `Release` does not `FreeLibrary`, tree still has C-era `NULL` / C-casts / raw `POINT[]` scratch. Paint hot path should use modern C++ + `base` allocators without changing `RenderDevice2d` ABI or multi-DLL LoadLibrary shape.
 
 ### Decisions
 
@@ -1613,7 +1613,7 @@ Mirror §rhi3d harden for leftover 2D: loader still uses `MessageBox`, `Release`
 | --- | --- |
 | Depth | **B**: loader harden + full-tree modern C++ + paint hot-path base |
 | Boundary | **Full tree**: `common` + `gdi`/`gdiplus`/`skia` ports (+ stale `impl/gdi` mirrors when present) |
-| ABI | **`SmtRenderDevice` / Create*/Destroy* exports frozen**; `public/` only `NULL`→`nullptr`-class edits |
+| ABI | **`RenderDevice2d` / Create*/Destroy* exports frozen**; `public/` only `NULL`→`nullptr`-class edits |
 | Load errors | **`LOGGING(LOG_ERROR)` + return code** — no `MessageBox` |
 | DLL lifetime | `Release` destroys device then **`FreeLibrary`**; fail paths unload; `CreateDevice` replaces prior via `Release()` first |
 | POINT scratch | Keep heap path (not HybridOptimized TLS — known worker crash); prefer `base::allocate` / RAII over raw `new[]` |
@@ -1678,7 +1678,7 @@ Leftover 3D host/loader still carried C-era patterns (`MessageBox` on load fail,
 | Factory | `make_view3d_camera` → `std::unique_ptr<SmtPerspCamera>` |
 | Layout | Decl `camera.h` + body `camera.cc`; shared orbit in `detail` |
 | Math | Reuse `base/math` `Vector3` |
-| Non-goals | No FlyCube camera; no `SmtScene` ownership rewrite |
+| Non-goals | No FlyCube camera; no `Scene` ownership rewrite |
 
 **Acceptance**
 
@@ -1765,7 +1765,7 @@ already a differentiator — P0 closes the **2D basemap “premium”** look fir
 | Line casing | Two Style layers (`road-casing` then `road`) in `default_carto_style_json`. Width is `LineTessOptions::pixel_width` on each layer; `emit_lines` tessellates both. No third casing width. No MapLibre SDF line shaders |
 | DEM source | Reuse `vista::DemRaster` / china_dem samples; no new terrain stack |
 | Align gate | Extend `style_align.json` + `maplibre_align` / china loops; optional Native still is reference only |
-| Implementation ban | No `#include` mln/mbgl from `app/` / `content/public` / `gpu/` / `vista/map`; no port of hillshade_prepare / line SDF buckets |
+| Implementation ban | No `#include` mln/mbgl from `app/` / `content/public` / `gpu/` / `vista/component/map`; no port of hillshade_prepare / line SDF buckets |
 | Expression | Own mini eval in `gis/style/eval/expression.*` — **not** a MapLibre expression VM |
 
 ### Deliverables
@@ -1862,7 +1862,7 @@ Deferred: full SDF distance-field atlas, GPU glyph raster, text-offset / icon-te
 **Status:** accepted  
 **Updated:** 2026-10-04  
 **Diagram:** [`../diagrams/map2d-present-frame.html`](../diagrams/map2d-present-frame.html)（含 Scenic rhi2d app 栈）  
-**Code:** `src/vista/map/**` · `src/vista/map_gpu/**` · `src/content/browser/present/map2d/**`  
+**Code:** `src/vista/component/map/**` · `src/vista/pass/map/**` · `src/content/browser/present/map2d/**`  
 **Look facts:** §Map2d richness P0（two style layers, `LineTessOptions::pixel_width`, hillshade/heatmap/extrusion/collision）  
 **Budgets:** §Vista Map2d equal-profile — this § does not chase warm-GPU or `paint_ms`
 
@@ -1876,13 +1876,13 @@ CPU contract remains `vista::MapFrame`. Cartography runs once in `Layout::build`
 
 - GPU: `Map2dGpuPresent` → `vista::FramePass` → FlyCube `render::rhi::BlendMode`
 - Software: `paint_map_frame_gdi` → HDC
-- Scenic rhi2d (`SMT_MAP2D_ENGINE=scenic`): `ScenicRhi2dHost` → `Renderer2d` + `gis::Map` + `scenic_rhi2d_{gdi,gdiplus,skia}` → HWND/`blit_to_dc` (`SMT_RHI2D_PORT`). Not a MapFrame exit. `src/legacy` is frozen.
+- Scenic rhi2d (`MAP2D_ENGINE=scenic`): `ScenicRhi2dHost` → `Renderer2d` + `gis::Map` + `scenic_rhi2d_{gdi,gdiplus,skia}` → HWND/`blit_to_dc` (`RHI2D_PORT`). Not a MapFrame exit. `src/legacy` is frozen.
 
 ### Layer ownership
 
 | Layer | Owns |
 | --- | --- |
-| content present | `Map2dPresenter` bind and the GPU/software/Scenic choice; `PresentAction` + `prepare_for_present`; `Map2dGpuPresent` thin adapter; `ScenicRhi2dHost` when `SMT_MAP2D_ENGINE=scenic`; phase profile; GDI `FillBatch` / `DcStyle` / `BitBlt` cache; HWND/HDC only on the software / Scenic entries |
+| content present | `Map2dPresenter` bind and the GPU/software/Scenic choice; `PresentAction` + `prepare_for_present`; `Map2dGpuPresent` thin adapter; `ScenicRhi2dHost` when `MAP2D_ENGINE=scenic`; phase profile; GDI `FillBatch` / `DcStyle` / `BitBlt` cache; HWND/HDC only on the software / Scenic entries |
 | gis vista + carto | `Layout::build`; `default_carto_style_json` as the only color source; collision; line / label / batch policy; `shade_dem_rgba`; hillshade bake orchestration |
 | effect map | `DrawItem` → command list; `DrawBlend` → `BlendMode` |
 | software GDI | fill triangles, draw positioned glyphs, blit rasters using `DrawItem` blend |
@@ -1892,17 +1892,17 @@ CPU contract remains `vista::MapFrame`. Cartography runs once in `Layout::build`
 ### Locked
 
 1. **Colors.** The only color source is `default_carto_style_json` / `MapFrame::background_rgba` (`0xAARRGGBB`). Carto headers carry no `COLORREF` palette and no second road/river `COLORREF` table.
-2. **Batches.** Policy lives in `vista/map/carto_filter` (`vista::detail`). `build_layer_batches` takes POD features. Vista does not include `map_scene.h`. `Layout::build(LayoutInput, vector<LayerBatch>)` stays. Content copies `MapScene` → POD at the boundary.
+2. **Batches.** Policy lives in `vista/component/map/detail/carto_filter` (`vista::detail`). `build_layer_batches` in `detail/batch_build.cc` takes POD features. Vista does not include `map_scene.h`. `Layout::build(LayoutInput, vector<LayerBatch>)` stays. Content copies `MapScene` → POD at the boundary.
 3. **Line casing.** Two style layers, `road-casing` then `road`. Width is the existing `LineTessOptions::pixel_width`. `emit_lines` tessellates both. `LineTessOptions` has no third casing width. GDI draws `kLine` only as triangles (`append_tris`). Items with fewer than 3 indices are skipped, same as an empty mesh. There is no `flush_stroke_run` cartography.
 4. **Labels.** The only labels are `DrawKind::kText` from `emit_symbols` plus `detail/collision` (scale floor, budget, and 8-direction nudge live there; along-line slots stay §Symbol collision). There is no second whole-string `paint_labels_projected` / `LabelOccupancy` path and no whole-string `DrawItem`.
-5. **Blend.** `DrawItem` carries `enum class DrawBlend : uint8_t { kOver, kMultiply }` defaulting to `kOver`, defined in `vista/map/draw.h`. That header does not include `rhi.h`. `emit_hillshade` sets `kMultiply`; `emit_raster` stays `kOver`. One vista pure function implements luma multiply `dst.rgb * ((1 - a) + a * luma)`. GDI calls it only for `kMultiply`; `kOver` is `AlphaBlend`. GPU adds `BlendMode::kMultiply` (`dst.rgb *= src.rgb`). Fixed-function blend cannot express `dst * ((1 - a) + a * luma)`, so opacity and luma are baked into the texture with that same function before upload (alpha hard cut), and multiply items use opacity 1. `Pass` and GDI read the same `DrawBlend`. Do not multiply every `kRaster`.
+5. **Blend.** `DrawItem` carries `enum class DrawBlend : uint8_t { kOver, kMultiply }` defaulting to `kOver`, defined in `vista/component/map/draw.h`. That header does not include `rhi.h`. `emit_hillshade` sets `kMultiply`; `emit_raster` stays `kOver`. One vista pure function implements luma multiply `dst.rgb * ((1 - a) + a * luma)`. GDI calls it only for `kMultiply`; `kOver` is `AlphaBlend`. GPU adds `BlendMode::kMultiply` (`dst.rgb *= src.rgb`). Fixed-function blend cannot express `dst * ((1 - a) + a * luma)`, so opacity and luma are baked into the texture with that same function before upload (alpha hard cut), and multiply items use opacity 1. `Pass` and GDI read the same `DrawBlend`. Do not multiply every `kRaster`.
 6. **Hillshade bake.** `hillshade_max_edge_for_zoom`, `HillshadeParams`, cache, `shade_dem_rgba`, and `TileSlot` live next to vista terrain as `bake_hillshade_slot`. Content keeps getenv, the china-extent gate, the DEM path, and the RGBA held for `load_raster`.
 7. **Software entry.** The contract is `MapFrame` + `View` + `load_raster` → HDC. `paint_map_frame_gdi` is the first implementation. The MapFrame image backend is not `src/legacy/render/rhi2d` `PaintBackend`. This design adds no Skia or GDI+ software backend. FlyCube is the RHI device, not a fourth software rasterizer.
 8. **`kIcon`.** GPU atlases icons. GDI may no-op until a product style emits icons, then draw a bitmap from `symbol_id` + anchors. That GDI icon draw is an open gap.
 
 ### Out of scope
 
-- Equal-profile warm-GPU and `paint_ms` budgets stay in §Vista Map2d equal-profile. Those cells set `SMT_MAP2D_NO_HILLSHADE=1`, so they do not prove hillshade parity.
+- Equal-profile warm-GPU and `paint_ms` budgets stay in §Vista Map2d equal-profile. Those cells set `MAP2D_NO_HILLSHADE=1`, so they do not prove hillshade parity.
 - `PresentAction` and `FillBatch` batching stay.
 - Cache / GPU compose / execution parallel for this tree: **§content present accelerate**.
 
@@ -1914,12 +1914,12 @@ CPU contract remains `vista::MapFrame`. Cartography runs once in `Layout::build`
 **Updated:** 2026-10-04  
 **Diagram:** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html)  
 **Plan:** [`../plans/2026-09-30-map2d-hillshade-line-casing.md`](../plans/2026-09-30-map2d-hillshade-line-casing.md) Task 6（no twin plan）  
-**Code:** `vista/map/hillshade_bake.*` · `vista/terrain/process/{dem_hillshade,land_mask,bake_backend}.*` · tests `dem_raster_test` / `land_mask_test` · harness `testing/tools/harness/map2d/run_hillshade_bake_bench.py`  
-**Related:** §Map2d present (C4 bake ownership) · §Vista Map2d equal-profile (`hillshade_ms` lump; matrix still `SMT_MAP2D_NO_HILLSHADE=1`) · `DemPhaseSample` (3D seed only)
+**Code:** `vista/component/map/detail/hillshade_bake.*` · `vista/terrain/process/{dem_hillshade,land_mask,bake_backend}.*` · tests `dem_raster_test` / `land_mask_test` · harness `testing/tools/harness/map2d/run_hillshade_bake_bench.py`  
+**Related:** §Map2d present (C4 bake ownership) · §Vista Map2d equal-profile (`hillshade_ms` lump; matrix still `MAP2D_NO_HILLSHADE=1`) · `DemPhaseSample` (3D seed only)
 
 ### Why
 
-`Map2dPhaseSample.hillshade_ms` is the **layout-lump** wall around `bake_hillshade_slot`. It cannot attribute load vs Horn vs Thrust vs disk. Terrain PIP (`fill_lonlat_mask`) is a sibling bake, not a present phase. Equal-profile map2d FPS (`SMT_MAP2D_FPS_BENCH_MS`) is **warm StaticReuse** and must not be the DEM bake bench.
+`Map2dPhaseSample.hillshade_ms` is the **layout-lump** wall around `bake_hillshade_slot`. It cannot attribute load vs Horn vs Thrust vs disk. Terrain PIP (`fill_lonlat_mask`) is a sibling bake, not a present phase. Equal-profile map2d FPS (`MAP2D_FPS_BENCH_MS`) is **warm StaticReuse** and must not be the DEM bake bench.
 
 ### Locked — profile
 
@@ -1929,9 +1929,9 @@ CPU contract remains `vista::MapFrame`. Cartography runs once in `Layout::build`
 | Not startup | `startup_profile` stays **`cat=startup`** (cold chrome → first map). Bake spans must **not** use `cat=startup` (content previously wrapped bake as startup — wrong bucket) |
 | Last-lump POD | `vista::HillshadeBakeSample` on `bake_hillshade_slot` (mem/disk/load/shade/store ms + hits + `used_cuda` + w/h/`max_edge`). `vista::LandMaskBakeSample` on `fill_lonlat_mask`. `DemPhaseSample` stays 3D load/tess/hypso |
 | Downsample | Fused into `shade_dem_rgba` (`step_x`/`step_y` from `max_edge`). No fake `downsample_ms` clock |
-| Arm recording | `SMT_TRACE=1` / `--trace=1` **or** `SMT_BAKE_PROFILE=1` / `--bake-profile=1`. Dump: `SMT_TRACE_DUMP=<path>` Chrome JSON under captures |
-| Backend | `SMT_BAKE_BACKEND` / `--bake-backend` = `auto` (default) \| `cpu` \| `cuda` (`gpu` alias). `cpu` skips Thrust. `cuda` must **not** silently CPU-fallback (bench cell is skip if launch fails) |
-| Disk | `SMT_BAKE_DISK=0` skips disk lookup/store (kernel compare). Default on for product |
+| Arm recording | `TRACE=1` / `--trace=1` **or** `BAKE_PROFILE=1` / `--bake-profile=1`. Dump: `TRACE_DUMP=<path>` Chrome JSON under captures |
+| Backend | `BAKE_BACKEND` / `--bake-backend` = `auto` (default) \| `cpu` \| `cuda` (`gpu` alias). `cpu` skips Thrust. `cuda` must **not** silently CPU-fallback (bench cell is skip if launch fails) |
+| Disk | `BAKE_DISK=0` skips disk lookup/store (kernel compare). Default on for product |
 | Capture | `out/<config>/captures/analysis/hillshade_bake/` — JSON + markdown table. Not gen-root; not a new product exe |
 
 ### Locked — equal-profile bench
@@ -1942,19 +1942,19 @@ CPU contract remains `vista::MapFrame`. Cartography runs once in `Layout::build`
 | LOD | `max_edge=768` (zoom 4.5–7 china overview bucket in `hillshade_max_edge_for_zoom`) |
 | Illumination | `HillshadeParams` defaults: direction **335°**, altitude **32°**, exaggeration **0.5** |
 | CPU cell | `base::execution::parallel_for` Horn / PIP |
-| CUDA cell | `try_shade_dem_thrust` / `try_fill_lonlat_mask_thrust` when `smt_has_cuda` **and** runtime device; else JSON `cuda_ok=false` (not a fail) |
+| CUDA cell | `try_shade_dem_thrust` / `try_fill_lonlat_mask_thrust` when `has_cuda` **and** runtime device; else JSON `cuda_ok=false` (not a fail) |
 | Compare | Same raster / rings / illumination; CPU then CUDA; report **cold** (first timed) and **warm** (second). CUDA context must not be charged to the CPU cell |
 | Entry | `dem_raster_test` (shade + optional `bake_hillshade_slot`) · `land_mask_test` (PIP) · `py -3 testing/tools/harness/map2d/run_hillshade_bake_bench.py` merges table like map2d matrix JSON |
-| Env | `SMT_BAKE_BENCH=1` on those tests writes JSON; default off so `te` stays cheap |
+| Env | `BAKE_BENCH=1` on those tests writes JSON; default off so `te` stays cheap |
 
 ### Relation to map2d FPS
 
-`SMT_MAP2D_FPS_BENCH_MS` / `map2d-fps-bench.txt` may **echo** `HillshadeBakeSample` for cold leftover attribution. It is not the equal-profile bake matrix. Warm `hillshade_ms≈0` remains the present-path gate (C4 hit).
+`MAP2D_FPS_BENCH_MS` / `map2d-fps-bench.txt` may **echo** `HillshadeBakeSample` for cold leftover attribution. It is not the equal-profile bake matrix. Warm `hillshade_ms≈0` remains the present-path gate (C4 hit).
 
 ### Non-goals
 
 - New `SmartGIS --bake-showcase` product exe
-- Rewrite `thrust_gis.cu` for the bench (callers skip/require via `SMT_BAKE_BACKEND`)
+- Rewrite `thrust_gis.cu` for the bench (callers skip/require via `BAKE_BACKEND`)
 - Mixing `DemPhaseSample` hypso with 2D hillshade columns
 - Enabling `out/.build.lock.on`
 
@@ -2024,7 +2024,7 @@ Topology **A** (Views in-process) stays the product default: Display thread, **o
 | G1 Incremental upload | Item identity (`layer_ord` + mesh hash). Dirty slices `place_frame`/`upload_draws`; unchanged borrows C2 buffers. CPU pack of **new** meshes may `parallel_for` then **one** Display upload. |
 | G2 Raster compose | Hillshade / XYZ tiles: textured quads (`load_raster` / `gpu/raster/tile` mosaic) not re-tess. Vector fill/line stay MapFrame meshes. |
 | Warm StaticReuse | Keep skip `graph::present` when swapchain image valid (china FPS). |
-| Scene3d | Same 1 CL; warm `rebuild_count=0`; frustum `prep_cull_parallel` only after `SMT_SCENE3D_FRUSTUM_CULL` honesty. |
+| Scene3d | Same 1 CL; warm `rebuild_count=0`; frustum `prep_cull_parallel` only after `SCENE3D_FRUSTUM_CULL` honesty. |
 
 `ShellOverlayEffect` stays an extra `ViewInput` effect on the same CL (A). Do not fold chrome pixels into `MapFrame`.
 
@@ -2074,14 +2074,14 @@ L3  Display: wait only if published gen stale AND no previous image
 - China 1280×720 Debug: warm StaticReuse budget **unchanged**; `layout_builds_delta≈0` on FPS window
 - Pan (`kInteractiveReuse`): no `rebuild_layout`; no `invalidate_uploaded`; `gpu_upload_ms≈0`
 - Settle/cold: `layout_ms` / `gpu_upload_ms` drop vs whole-frame rebuild (phase clocks)
-- `SMT_VISTA_LAYOUT_PARALLEL=0` still correct; visual hillshade + labels on inspect
+- `VISTA_LAYOUT_PARALLEL=0` still correct; visual hillshade + labels on inspect
 - Destroy/navigate: no join hang; stale gen never `mark_published`
 
 ### Non-goals
 
 - Copy leftover `CommandBuffer` / per-thread GDI HDC / D3D11 deferred TLS
 - MapLibre Native; delete MapFrame to fake ms
-- Second thread pool; product `getenv` leftover `SMT_RHI2D_*`
+- Second thread pool; product `getenv` leftover `RHI2D_*`
 - Dual Topology A+B compose in one process
 
 ### Relation
@@ -2107,7 +2107,7 @@ L3  Display: wait only if published gen stale AND no previous image
 | 1 | `vista::NodeKind::kPointCloud` carries CPU `point_positions` (xyz float) + optional `point_rgba`. |
 | 2 | P0 draw: `tessellate_point_cloud` → tiny triangles uploaded like other lit kinds; `GpuScene::record_draws` must `record_kind(..., kPointCloud, ...)`. |
 | 3 | P1+: chunk AABB cull; P2 octree/LOD — no native POINTLIST pipeline required for P0. |
-| 4 | Do not route default Views path through leftover `Smt3DPointCloud`. |
+| 4 | Do not route default Views path through leftover `PointCloud3d`. |
 
 ---
 
@@ -2132,7 +2132,7 @@ Leftover GL/D3D HWND `Begin→Update→Render→End→Swap` runs on the caller t
 | P1 | Off-HWND **serial** FrameJob (`NThreadPoolExecutor(1)`); Main stages/submits; HWND **never joins** |
 | P2 | In-frame **CPU prep** parallel (frustum AABB); then draw (serial on GL; P3 deferred on D3D) |
 | P3 | D3D11 **deferred-context** multi-thread record (asymmetric); GL stays P2-only |
-| Fallback | `SMT_RHI3D_FRAME_JOB=0` → sync present; `SMT_RHI3D_PREP_PARALLEL=0` → prep N=1; `SMT_RHI3D_D3D_DEFERRED=0` → serial D3D draw |
+| Fallback | `RHI3D_FRAME_JOB=0` → sync present; `RHI3D_PREP_PARALLEL=0` → prep N=1; `RHI3D_D3D_DEFERRED=0` → serial D3D draw |
 | ABI | `Smt3DRenderDevice` / Create*/Release* / `smt_stereo_hwnd_*` export names **frozen** (behavior: present may return before GPU finish when FrameJob on) |
 
 ### Architecture
@@ -2173,10 +2173,10 @@ Industry map: P1 ≈ Chromium Impl / rhi2d FrameJob; P2 ≈ Unity Jobs / Unreal 
 
 - [x] `Rhi3dFrameScheduler` + `frame_scheduler_test` green
 - [x] FrameJob on: present returns without blocking full Update/Render; HWND destroy no join hang
-- [x] `SMT_RHI3D_FRAME_JOB=0` matches prior sync present behavior
+- [x] `RHI3D_FRAME_JOB=0` matches prior sync present behavior
 - [x] capture/blit wait published gen (bounded); destroy cancels + shutdown
 - [x] P2: N≥2 prep workers when enabled; CPU cull before draw
-- [x] P3: D3D deferred begin/bind/finish (`d3d_texture_test`); `SMT_RHI3D_D3D_DEFERRED=0` serial fallback
+- [x] P3: D3D deferred begin/bind/finish (`d3d_texture_test`); `RHI3D_D3D_DEFERRED=0` serial fallback
 - [x] `legacy_render` / `legacy_render_d3d` green
 - [x] Module README documents FrameJob + prep + deferred env (gl/d3d)
 
@@ -2218,24 +2218,24 @@ Leftover 3D still hand-extracts frustum planes (GL NeHe / D3D transpose pack) an
 ## §Vista Map2d equal-profile optimize（2026-10-01）
 
 **Status:** active  
-**Updated:** 2026-10-03 — overall **P0–P3** scheme; engine codename **`vista`**; baseline from Debug equal-latitude matrix；**P3 harness** FALSE-GAP labels + `SMT_VISTA_LAYOUT_PARALLEL` env set (product getenv still parallel-plan V1)  
+**Updated:** 2026-10-03 — overall **P0–P3** scheme; engine codename **`vista`**; baseline from Debug equal-latitude matrix；**P3 harness** FALSE-GAP labels + `VISTA_LAYOUT_PARALLEL` env set (product getenv still parallel-plan V1)  
 **Plan:** [`../plans/2026-10-01-src-render-map2d-equal-profile-optimize.md`](../plans/2026-10-01-src-render-map2d-equal-profile-optimize.md)（phased P0–P3 + Task 1–6）  
-**Present layering:** §Map2d present (colors, casing, labels, hillshade blend, software entry). This § locks equal-profile budgets only; P3 stays `SMT_VISTA_LAYOUT_PARALLEL` / false-gap.  
-**Related parallel:** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) / **§src_render + vista parallel**（`SMT_VISTA_LAYOUT_PARALLEL` = P3；规范图已有，不另开 HTML）  
-**Code:** `vista/**`, `content/browser/present/map2d/**`, `vista/map/**` (`Pass::record`, `upload_draws`), `render/{rhi,graph}/**`; harness `testing/tools/harness/map2d/run_parallel_port_matrix.py` (`engine=vista`)
+**Present layering:** §Map2d present (colors, casing, labels, hillshade blend, software entry). This § locks equal-profile budgets only; P3 stays `VISTA_LAYOUT_PARALLEL` / false-gap.  
+**Related parallel:** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) / **§src_render + vista parallel**（`VISTA_LAYOUT_PARALLEL` = P3；规范图已有，不另开 HTML）  
+**Code:** `vista/**`, `content/browser/present/map2d/**`, `vista/component/map/**` (`Pass::record`, `upload_draws`), `render/{rhi,graph}/**`; harness `testing/tools/harness/map2d/run_parallel_port_matrix.py` (`engine=vista`)
 
 ### Why
 
-Equal-latitude matrix (Debug china 1280×720, `SMT_MAP2D_NO_HILLSHADE=1`): leftover IR `execute_ms` ≈ **327–531 ms**; Vista `paint_ms`/`export_ms` ≈ **2161/2173**; GPU cold ≈ **30694** (`gpu_upload_ms≈29313` + `gpu_present_ms≈1381`); **warm = 0** (StaticReuse OK). Confirmed: metric asymmetry (IR vs MapFrame); cold per-mesh VB/IB in `upload_draws`; full GDI software; dual software+GPU doubles matrix wall. Need **phased** cut — protect warm, crush cold upload first — **without** deleting carto.
+Equal-latitude matrix (Debug china 1280×720, `MAP2D_NO_HILLSHADE=1`): leftover IR `execute_ms` ≈ **327–531 ms**; Vista `paint_ms`/`export_ms` ≈ **2161/2173**; GPU cold ≈ **30694** (`gpu_upload_ms≈29313` + `gpu_present_ms≈1381`); **warm = 0** (StaticReuse OK). Confirmed: metric asymmetry (IR vs MapFrame); cold per-mesh VB/IB in `upload_draws`; full GDI software; dual software+GPU doubles matrix wall. Need **phased** cut — protect warm, crush cold upload first — **without** deleting carto.
 
 ### Profile (locked)
 
 | Axis | Value |
 | --- | --- |
 | Extent | China mainland `[80,16]–[128,52]` (same as leftover / showcase) |
-| Viewport | **1280×720** (`SMT_MAP2D_SHOWCASE_W/H`) |
-| Sample | `china_city` + product Style; matrix equal-latitude → `SMT_MAP2D_NO_HILLSHADE=1` |
-| Leftover metric | `SMT_RHI2D_PARALLEL_LOG` → `execute_ms` (**IR replay only**) |
+| Viewport | **1280×720** (`MAP2D_SHOWCASE_W/H`) |
+| Sample | `china_city` + product Style; matrix equal-latitude → `MAP2D_NO_HILLSHADE=1` |
+| Leftover metric | `RHI2D_PARALLEL_LOG` → `execute_ms` (**IR replay only**) |
 | Vista metrics | `export_ms` / `paint_ms`; `present_gpu_{cold,warm}_ms`; phase clocks (`gpu_upload_ms`, …) |
 
 ### Decisions
@@ -2247,7 +2247,7 @@ Equal-latitude matrix (Debug china 1280×720, `SMT_MAP2D_NO_HILLSHADE=1`): lefto
 | Cold first frame | Budget cold present ≤ **400**, cold upload ≤ **200**; **P0 = mega-buffer / batch-by-pipeline** (not strip MapFrame) |
 | Software export | Faithful default; `paint_ms` ≤ **100** via GDI batch (**P2**); `EXPORT_REUSE` bench-only |
 | Layout | Incremental / LOD (**P1**); `layout_ms` cold ≤ **60** |
-| Parallel grain | **P3** → `SMT_VISTA_LAYOUT_PARALLEL` (§vista parallel); do **not** copy leftover opaque wipe |
+| Parallel grain | **P3** → `VISTA_LAYOUT_PARALLEL` (§vista parallel); do **not** copy leftover opaque wipe |
 | Diagram | No new HTML — reuse `render-accelerate-topology.html` |
 
 ### Workstreams P0–P3 (see plan)
@@ -2257,9 +2257,9 @@ Equal-latitude matrix (Debug china 1280×720, `SMT_MAP2D_NO_HILLSHADE=1`): lefto
 | **P0** MUST | Cold upload merge | `upload_draws` / `Pass::record` | cold upload ≤200; cold present ≤400 |
 | **P1** | Layout / incremental | `Map2dFrameCache::prepare_for_present` / Layout | `layout_ms` ≤60 cold |
 | **P2** | Software GDI batch | `Map2dSoftwarePainter::paint` / frame GDI | faithful `paint_ms` ≤100 |
-| **P3** | Parallel + false-gap label | `SMT_VISTA_LAYOUT_PARALLEL` + matrix CSV | labeled IR ≠ MapFrame |
+| **P3** | Parallel + false-gap label | `VISTA_LAYOUT_PARALLEL` + matrix CSV | labeled IR ≠ MapFrame |
 
-Done already (plan Task 1–3 partial): phase clocks; warm/cold split; device reuse; avoid timed invalidate; DrawCache StaticReuse; hillshade cache; EXPORT_REUSE bench. **P3 harness (2026-10-03):** matrix prints leftover vs Vista phase tables; CSV/`NOTE.txt`/`matrix_note` carry FALSE-GAP + equal-latitude (`SMT_MAP2D_NO_HILLSHADE=1`); harness sets `SMT_VISTA_LAYOUT_PARALLEL=1` — product `getenv` wire remains open (P3a / parallel V1; avoid conflicting with P1 `gis/vista` edits).
+Done already (plan Task 1–3 partial): phase clocks; warm/cold split; device reuse; avoid timed invalidate; DrawCache StaticReuse; hillshade cache; EXPORT_REUSE bench. **P3 harness (2026-10-03):** matrix prints leftover vs Vista phase tables; CSV/`NOTE.txt`/`matrix_note` carry FALSE-GAP + equal-latitude (`MAP2D_NO_HILLSHADE=1`); harness sets `VISTA_LAYOUT_PARALLEL=1` — product `getenv` wire remains open (P3a / parallel V1; avoid conflicting with P1 `gis/vista` edits).
 
 ### Acceptance
 
@@ -2280,7 +2280,7 @@ Done already (plan Task 1–3 partial): phase clocks; warm/cold split; device re
 ## §src_render Scene3d equal-profile optimize（2026-10-01）
 
 **Status:** active  
-**Updated:** 2026-10-03 — **world3d equal-profile matrix + cold vs warm**（P0 = FlyCube cold upload；warm already peer）；`SMT_GPUSCENE_PREP_PARALLEL` **default off** until frustum cull（cross-link §vista parallel）  
+**Updated:** 2026-10-03 — **world3d equal-profile matrix + cold vs warm**（P0 = FlyCube cold upload；warm already peer）；`GPUSCENE_PREP_PARALLEL` **default off** until frustum cull（cross-link §vista parallel）  
 **Plan:** [`../plans/2026-10-01-src-render-scene3d-equal-profile-optimize.md`](../plans/2026-10-01-src-render-scene3d-equal-profile-optimize.md)（M1–M4）  
 **Parallel contract:** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) Task 4 (`prep_cull_parallel`；default-off)  
 **Diagram:** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html) §8 Scene3d cold vs warm  
@@ -2292,7 +2292,7 @@ Equal-profile vs leftover scene3d (same 640×480 HWND): warm `ms_per_present` wa
 
 ### Why (world3d matrix — active)
 
-World3d equal-profile matrix (True-Earth DEM bare on FlyCube; leftover china stereo peers): **warm** `ms_per_present` already sits in leftover’s order (**~5–6.5 ms**). The remaining **P0** gap is **FlyCube cold** (~**1.8–2 s**) vs leftover cold (~**90 ms**) — first-frame cache + GPU upload, not warm StaticReuse. `prep_par_on` is currently **slower** than serial prep; product must keep `SMT_GPUSCENE_PREP_PARALLEL` **default off** until frustum cull makes parallel prep honest (§vista parallel Task 4).
+World3d equal-profile matrix (True-Earth DEM bare on FlyCube; leftover china stereo peers): **warm** `ms_per_present` already sits in leftover’s order (**~5–6.5 ms**). The remaining **P0** gap is **FlyCube cold** (~**1.8–2 s**) vs leftover cold (~**90 ms**) — first-frame cache + GPU upload, not warm StaticReuse. `prep_par_on` is currently **slower** than serial prep; product must keep `GPUSCENE_PREP_PARALLEL` **default off** until frustum cull makes parallel prep honest (§vista parallel Task 4).
 
 ### Profile — atmosphere legacy (locked)
 
@@ -2307,8 +2307,8 @@ World3d equal-profile matrix (True-Earth DEM bare on FlyCube; leftover china ste
 
 | Axis | Value |
 | --- | --- |
-| Entry | `--plugin-showcase=world3d` + `SMT_PLUGIN_WORLD3D_PERF_BARE=1` (FlyCube DEM-only; no sky/ocean/cloud/fog / pointcloud; `pump_ms=0`) |
-| Scenic peers | `gl_scenic` / `d3d_scenic` via SmartGisViews + `SMT_SCENE3D_ENGINE=stereo_gl\|stereo_d3d` (`scenic_impl`) |
+| Entry | `--plugin-showcase=world3d` + `PLUGIN_WORLD3D_PERF_BARE=1` (FlyCube DEM-only; no sky/ocean/cloud/fog / pointcloud; `pump_ms=0`) |
+| Scenic peers | `gl_scenic` / `d3d_scenic` via SmartGisViews + `SCENE3D_ENGINE=stereo_gl\|stereo_d3d` (`scenic_impl`) |
 | Primary metric | **warm** `ms_per_present` — **n=5**, **discard_cold=1** (do **not** rank by process `wall_ms`) |
 | Perf rows | `flycube`, `prep_par_off`, `prep_par_on`, `gl_scenic`, `d3d_scenic` |
 | Smoke only | `null` (full materials; never a performance peer) |
@@ -2325,8 +2325,8 @@ World3d equal-profile matrix (True-Earth DEM bare on FlyCube; leftover china ste
 | Overlays | Re-attach only when DEM rebuilt or overlay dirty |
 | Phase clocks | `mesh_ms` / `sync_ms` / `rebuild_ms` / `ocean_prep_ms` / `record_ms` / `present_swap_ms` (+ **cold** phase fields in matrix JSON — M1) |
 | Cold vs warm | Warm = StaticReuse present budget; **P0** = cold first-frame upload/cache (peer Map2d cold-upload-first) |
-| `prep_cull_parallel` | `SMT_GPUSCENE_PREP_PARALLEL` **default off** until `SMT_SCENE3D_FRUSTUM_CULL` + honest prep (§vista parallel Task 4); matrix still measures `prep_par_on` as experiment row |
-| Submit | `Scene3dGpuPresent::present` calls `render::graph::present` (one CommandList, same seam as `Map2dGpuPresent::present_frame`). Warm frames keep `rebuild_count=0`. Do not turn `SMT_GPUSCENE_PREP_PARALLEL` on |
+| `prep_cull_parallel` | `GPUSCENE_PREP_PARALLEL` **default off** until `SCENE3D_FRUSTUM_CULL` + honest prep (§vista parallel Task 4); matrix still measures `prep_par_on` as experiment row |
+| Submit | `Scene3dGpuPresent::present` calls `render::graph::present` (one CommandList, same seam as `Map2dGpuPresent::present_frame`). Warm frames keep `rebuild_count=0`. Do not turn `GPUSCENE_PREP_PARALLEL` on |
 | Fairness | Compare `ms_per_present` / phases; leftover seed ≠ FlyCube bare — do not treat identical GPU work |
 
 ### Acceptance — atmosphere legacy
@@ -2355,15 +2355,15 @@ World3d equal-profile matrix (True-Earth DEM bare on FlyCube; leftover china ste
 
 Composite `china` showcase covers terrain + GeoObject + MapLabelBatch + northarray together. Cube / sphere / water / pointcloud render paths and northarray-only had no separately runnable BMP harness.
 
-### Modes (`--scene3d-showcase <mode>` / `SMT_SCENE3D_SHOWCASE_MODE`)
+### Modes (`--scene3d-showcase <mode>` / `SCENE3D_SHOWCASE_MODE`)
 
 | Mode | Seeds | Harness suite | score_id |
 | --- | --- | --- | --- |
 | `china` (default) | DEM + vectors + labels | `legacy.scene3d.china` (+ `.d3d` / browse) | `legacy_scene3d_china` |
 | `terrain` | DEM underlay only | `legacy.scene3d.terrain` | `legacy_scene3d_china` |
 | `cube` / `sphere` / `water` | single mesh at origin | `legacy.scene3d.<mode>` | `legacy_scene3d_mesh` |
-| `pointcloud` | synthetic CSV → `Smt3DPointCloud` | `legacy.scene3d.pointcloud` | `legacy_scene3d_mesh` |
-| `northarray` | framing AABB only (HUD from `SmtScene::Setup`) | `legacy.scene3d.northarray` | `legacy_scene3d_mesh` |
+| `pointcloud` | synthetic CSV → `PointCloud3d` | `legacy.scene3d.pointcloud` | `legacy_scene3d_mesh` |
+| `northarray` | framing AABB only (HUD from `Scene::Setup`) | `legacy.scene3d.northarray` | `legacy_scene3d_mesh` |
 
 `SmtSurfaceObject` (`surface_base`) is abstract — covered by `terrain` + `pointcloud` draw paths, not a separate suite.
 
@@ -2400,14 +2400,14 @@ Composite `china` showcase covers terrain + GeoObject + MapLabelBatch + northarr
 ## §src_render + vista parallel accelerate（终态 · 2026-10-02）
 
 **Status:** active  
-**Updated:** 2026-10-03 — `SMT_GPUSCENE_PREP_PARALLEL` **default off**（§Scene3d equal-profile / world3d M3；直到 frustum cull）；cross-link Map2d **P3**；既有 L0–L3 详设不变  
+**Updated:** 2026-10-03 — `GPUSCENE_PREP_PARALLEL` **default off**（§Scene3d equal-profile / world3d M3；直到 frustum cull）；cross-link Map2d **P3**；既有 L0–L3 详设不变  
 **Plan:** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md)（L0–L3）；GPU-process checklist → [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) Task 8  
 **Equal-profile budgets:** Map2d [`../plans/2026-10-01-src-render-map2d-equal-profile-optimize.md`](../plans/2026-10-01-src-render-map2d-equal-profile-optimize.md) **P3** · Scene3d/world3d [`../plans/2026-10-01-src-render-scene3d-equal-profile-optimize.md`](../plans/2026-10-01-src-render-scene3d-equal-profile-optimize.md) **M1–M4**  
 **Diagram (normative):** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（§2–§3 L0–L3 + 命名阶段 `stage_frame` → `build_layout_parallel` → `prep_cull_parallel` → `record_and_present`）  
 **CPU boundary diagram:** [`gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)（MapFrame POD 穿墙 → content/effect/graph）  
 **Present layering diagram:** [`map2d-present-frame.html`](../diagrams/map2d-present-frame.html)（§Map2d present；本 § 仍只锁并行机器）  
 **Related diagrams:** [`ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · [`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html)  
-**Code:** `src/vista/**` · `src/content/browser/present/{map2d,scene3d}/**` · `src/vista/{map,map_gpu,world,world_gpu,atmosphere}/**` · `src/render/{rhi,graph,scene}/**` · `src/base/execution/**`  
+**Code:** `src/vista/**` · `src/content/browser/present/{map2d,scene3d}/**` · `src/vista/{map,map_pass,world,world_pass,atmosphere}/**` · `src/render/{rhi,graph,scene}/**` · `src/base/execution/**`  
 **Reference (leftover as-built):** §rhi2d leftover tile-raster · §rhi3d leftover parallel frame  
 **Visual rule:** `.cursor/rules/repo/design-html-diagrams.mdc`（技术架构浅色 · SVG-first）
 
@@ -2432,14 +2432,14 @@ Sole pool: **`base::execution`** (`GlobalNThreadPoolExecutor` / `parallel_for` i
 
 | Type | Header / owner | Allocates | Consumed by | Notes |
 | --- | --- | --- | --- | --- |
-| `vista::LayoutInput` | `vista/map/layout.h` · content fills | View + style* + tiles + `GlyphMetrics*`（非拥有） | `Layout::build` | 无 RHI；晕渲烘焙是 `bake_hillshade_slot`（§Map2d present）；content 持 RGBA 供 `load_raster` |
+| `vista::LayoutInput` | `vista/component/map/layout.h` · content fills | View + style* + tiles + `GlyphMetrics*`（非拥有） | `Layout::build` | 无 RHI；晕渲烘焙是 `bake_hillshade_slot`（§Map2d present）；content 持 RGBA 供 `load_raster` |
 | `vista::LayerBatch` | same · `build_layer_batches`（`vista::detail` / `carto_filter`） | POD features（content 在边界把 `MapScene` 拷成 POD） | `Layout::build` | vista 不 `#include` `map_scene.h`；签名 `Layout::build(LayoutInput, vector<LayerBatch>)` 不变 |
-| `vista::MapIR` | `vista/map/ir.h` · **cache 拥有** `cached_frame_` | `background_rgba` + `DrawItem[]`（`DrawBlend` 在 `vista/map/draw.h`，不 include `rhi.h`） | `vista::MapPass` / `paint_map_frame_gdi` | POD 穿 `gis ↛ rhi` 墙 |
+| `vista::MapIR` | `vista/component/map/ir.h` · **cache 拥有** `cached_frame_` | `background_rgba` + `DrawItem[]`（`DrawBlend` 在 `vista/component/map/draw.h`，不 include `rhi.h`） | `vista::MapPass` / `paint_map_frame_gdi` | POD 穿 `gis ↛ rhi` 墙 |
 | `vista::Layout` | `layout.cc` · 无状态 | TLS arena clear 于 build 开头 | — | 纯函数式 CPU |
 | `content::Map2dFrameCache` | `map2d_frame_cache.h` | MapFrame、hillshade RGBA、fingerprint、`layout_scratch_` | `Map2dGpuPresent` / software | `mu_` 保护 prepare/rebuild |
 | `PresentAction` | cache enum | — | present 路径分支 | `kRebuildFull` / `kInteractiveReuse` / `kSettleRebuild` / `kStaticReuse` |
-| `vista::MapPass` | `vista/map_gpu/pass.h` · present 拥有 `map2d_pass_` | GPU VB/IB/纹理 upload 缓存 | `graph::present` via `MapEffect` | `invalidate_uploaded` 仅 cold |
-| `vista::WorldPass` | `vista/world_gpu/pass.h` | `GpuMesh` / pipelines / instances | `record_draws` → graph opaque | remesh 在 Device 线程 |
+| `vista::MapPass` | `vista/pass/map/pass.h` · present 拥有 `map2d_pass_` | GPU VB/IB/纹理 upload 缓存 | `graph::present` via `MapEffect` | `invalidate_uploaded` 仅 cold |
+| `vista::WorldPass` | `vista/pass/world/pass.h` | `GpuMesh` / pipelines / instances | `record_draws` → graph opaque | remesh 在 Device 线程 |
 | `render::graph::ViewInput` | `render/graph/frame_graph.h` | effect* 列表（非拥有） | `graph::present` | 1 camera · 1 CL |
 | `render::rhi::Device` | Display / viewport | sole；create/destroy CL | `graph::present` | UI 永不持有写侧 |
 
@@ -2509,9 +2509,9 @@ Scene3dPresenter::present_gpu
             └─ post_effect → record_post_opaque    // 平坦海洋，然后 cloud/fog/sat
 ```
 
-记录顺序：sky/depth → opaque DEM → ocean → cloud/fog。冷帧在 `graph::present` 之前置 `meshes_dirty_`，由 `record_draws` 里已有分支 rebuild（pre 的 depth 分配先发生）。温帧 `dem_gpu_synced_after_sky_` / `dem_gpu_synced_after_ocean_` 为真时不置 dirty，`rebuild_count=0`。不打开 `SMT_GPUSCENE_PREP_PARALLEL`。
+记录顺序：sky/depth → opaque DEM → ocean → cloud/fog。冷帧在 `graph::present` 之前置 `meshes_dirty_`，由 `record_draws` 里已有分支 rebuild（pre 的 depth 分配先发生）。温帧 `dem_gpu_synced_after_sky_` / `dem_gpu_synced_after_ocean_` 为真时不置 dirty，`rebuild_count=0`。不打开 `GPUSCENE_PREP_PARALLEL`。
 
-Frustum cull 仍是 `vista/scene/frustum_aabb.cc` + `detail::frustum_cull_enabled()`（默认关；`SMT_SCENE3D_FRUSTUM_CULL=1`）。启用 cull 时 `prep_cull_meshes` 先走 `AabbOctree`（unibn 中心半径候选），再 `aabb_intersects_frustum`；失败则线性扫描。可见性标位可以 `parallel_for`，record 仍串行读标位。见 **§Vista scene unibn octree**。
+Frustum cull 仍是 `vista/scene/frustum_aabb.cc` + `detail::frustum_cull_enabled()`（默认关；`SCENE3D_FRUSTUM_CULL=1`）。启用 cull 时 `prep_cull_meshes` 先走 `AabbOctree`（unibn 中心半径候选），再 `aabb_intersects_frustum`；失败则线性扫描。可见性标位可以 `parallel_for`，record 仍串行读标位。见 **§Vista scene unibn octree**。
 
 ---
 
@@ -2519,15 +2519,15 @@ Frustum cull 仍是 `vista/scene/frustum_aabb.cc` + `detail::frustum_cull_enable
 
 | Grain | As-built | Target rule |
 | --- | --- | --- |
-| Fill / line tess | `emit_fills` / `emit_lines`：collect `FillJob`/`LineJob` → `parallel_for` → **按 layer_ord 有序 merge** | 保留；加 `SMT_VISTA_LAYOUT_PARALLEL=0` → 强制串行 |
+| Fill / line tess | `emit_fills` / `emit_lines`：collect `FillJob`/`LineJob` → `parallel_for` → **按 layer_ord 有序 merge** | 保留；加 `VISTA_LAYOUT_PARALLEL=0` → 强制串行 |
 | Batch collect | `batches_via_parallel_for` per visible layer → `merge_parts` | 保留；属 L1 数据准备，非 RHI |
 | Circle / heatmap / extrusion / symbol | 大多串行 | **同一模式**：job 向量 → `parallel_for` 写 per-index scratch → 保序 merge |
 | Labels / collision | `LabelGrid` 在 `emit_symbols` | **必须串行**（在 parallel emit 之后）；禁止 worker 写共享 grid |
-| Optional tile layout (V4) | 无 | device-pixel AABB 切 Layout 子任务；仍产出 **一个** `MapFrame`；GPU compose 走 `vista/map`，软件出口仍是 `paint_map_frame_gdi`（§Map2d present） |
+| Optional tile layout (V4) | 无 | device-pixel AABB 切 Layout 子任务；仍产出 **一个** `MapFrame`；GPU compose 走 `vista/component/map`，软件出口仍是 `paint_map_frame_gdi`（§Map2d present） |
 | GpuScene prep (V3) | `mesh_culled` 在 record 内串行 | `prep_cull_parallel`：每 mesh 写 `visible[i]`；`worker_hint` clamp 2–4 |
 | Worker 禁令 | TLS `mesh_scratch` / arena OK | **禁止** `rhi::Device`、HWND、`CommandList`、共享 GL context |
 
-常量：`kParallelTessMinGeoms` / `kParallelTessGrain` in `vista/map/layout/tess_grain.h`（今日 `MinGeoms=2`）。
+常量：`kParallelTessMinGeoms` / `kParallelTessGrain` in `vista/component/map/layout/tess_grain.h`（今日 `MinGeoms=2`）。
 
 统一伪模式（所有 L2 emitter）：
 
@@ -2553,7 +2553,7 @@ if (!vista_layout_parallel_enabled() || jobs.size() < kParallelTessMinGeoms) {
 | `graph::present` | **永远** `create_command_list` → `record_effects` → `close` → `execute` → `present` → destroy — **1 CL**（`frame_graph.cc`） |
 | When NOT multi-CL | `record_ms` 未成为 equal-profile 热点；GL 共享 context；任何 leftover D3D11 deferred TLS |
 | Effect slots | `kBeforeOpaque` / `kOpaque` / `kAfterOpaque` / `kOverlay` — 顺序固定；并行只发生在 slot **之前**的 CPU prep |
-| FlyCube compute | `OceanGpuFields::record`（`vista/atmosphere/ocean/gpu_fields.cc`）在 **同一 Device 线程**、可在 present CL 前/内提交 compute；**不是** worker 线程开 Device |
+| FlyCube compute | `OceanGpuFields::record`（`vista/pass/atmosphere/ocean/gpu_fields.cc`）在 **同一 Device 线程**、可在 present CL 前/内提交 compute；**不是** worker 线程开 Device |
 | Equal-profile | 本 § 不改预算数字；并行只服务于 `layout_ms` / `prep_ms` 下降，且不得破坏 warm present 上限 |
 
 ---
@@ -2562,11 +2562,11 @@ if (!vista_layout_parallel_enabled() || jobs.size() < kParallelTessMinGeoms) {
 
 | Env | Default | Effect | Scope |
 | --- | --- | --- | --- |
-| `SMT_VISTA_LAYOUT_PARALLEL` | on（jobs ≥ `kParallelTessMinGeoms`） | `=0` → tess N=1 | **product** · vista emitters |
-| `SMT_GPUSCENE_PREP_PARALLEL` | **off**（default；直到 frustum cull 诚实） | `=1` → frustum prep N clamp 2–4；`=0` → N=1 | **product** · effect/scene prep · §Scene3d equal-profile M3 |
-| `SMT_SCENE3D_FRUSTUM_CULL` | off（as-built） | `=1` 启用 AABB cull（并行 prep 的前提） | product · 与 equal-profile 联调 |
-| `SMT_RHI2D_PARALLEL` / `SMT_RHI2D_TILE_RASTER` | leftover | **禁止** product 路径 `getenv` | leftover only |
-| `SMT_RHI3D_FRAME_JOB` / `*_PREP_PARALLEL` / `*_D3D_DEFERRED` | leftover | **禁止** product 路径 | leftover only |
+| `VISTA_LAYOUT_PARALLEL` | on（jobs ≥ `kParallelTessMinGeoms`） | `=0` → tess N=1 | **product** · vista emitters |
+| `GPUSCENE_PREP_PARALLEL` | **off**（default；直到 frustum cull 诚实） | `=1` → frustum prep N clamp 2–4；`=0` → N=1 | **product** · effect/scene prep · §Scene3d equal-profile M3 |
+| `SCENE3D_FRUSTUM_CULL` | off（as-built） | `=1` 启用 AABB cull（并行 prep 的前提） | product · 与 equal-profile 联调 |
+| `RHI2D_PARALLEL` / `RHI2D_TILE_RASTER` | leftover | **禁止** product 路径 `getenv` | leftover only |
+| `RHI3D_FRAME_JOB` / `*_PREP_PARALLEL` / `*_D3D_DEFERRED` | leftover | **禁止** product 路径 | leftover only |
 
 文档入口：`src/render/README.md`「Parallel / GPU (planned)」→ 本 § + 图。
 
@@ -2590,7 +2590,7 @@ bool stage_frame(Map2dFrameCache* cache, const FrameRequest& req);
 bool build_layout_parallel(Map2dFrameCache* cache, uint64_t layout_gen);
 // publish only if gen matches; else drop.
 
-// L2 — vista/map/layout/*  (already: emit_fills / emit_lines)
+// L2 — vista/component/map/layout/*  (already: emit_fills / emit_lines)
 void build_layout_parallel_emitters(const LayoutInput& in,
                                     const std::vector<LayerBatch>& layers,
                                     MapFrame* out);  // == Layout::build body
@@ -2630,7 +2630,7 @@ bool record_and_present(render::rhi::Device* device,
 
 | Piece | As-built | Target |
 | --- | --- | --- |
-| Fill / line `parallel_for` | Yes | + `SMT_VISTA_LAYOUT_PARALLEL` |
+| Fill / line `parallel_for` | Yes | + `VISTA_LAYOUT_PARALLEL` |
 | Symbol / circle / heatmap / extrusion | Partial serial | Unify job→merge (V1) |
 | `batches_via_parallel_for` | Yes | Keep under L1 |
 | FrameJob UI-never-joins layout | Partial（present skip）；layout 仍同步 | `stage_frame` / async build (V2) |
@@ -2643,7 +2643,7 @@ bool record_and_present(render::rhi::Device* device,
 | Leftover | Product |
 | --- | --- |
 | rhi2d FrameJob / Impl | L1+L3：`stage_frame` → build → `record_and_present`；L0 never join |
-| tile / layer Raster×N | L2 tess + optional tile **layout**；compose = `vista/map` |
+| tile / layer Raster×N | L2 tess + optional tile **layout**；compose = `vista/component/map` |
 | rhi3d PrepRunner | `prep_cull_parallel` |
 | D3D11 deferred | 默认 1 CL；禁 TLS deferred |
 
@@ -2652,9 +2652,9 @@ bool record_and_present(render::rhi::Device* device,
 | Phase | Deliverable | Status |
 | --- | --- | --- |
 | **V0** | Living 代码级 § + HTML 命名阶段 + README 指针 | **done（本修订）** |
-| **V1** | 统一 emitters + `SMT_VISTA_LAYOUT_PARALLEL` | open |
+| **V1** | 统一 emitters + `VISTA_LAYOUT_PARALLEL` | open |
 | **V2** | `stage_frame` / async layout / gen cancel | open |
-| **V3** | `prep_cull_parallel` + `SMT_GPUSCENE_PREP_PARALLEL` | open |
+| **V3** | `prep_cull_parallel` + `GPUSCENE_PREP_PARALLEL` | open |
 | **V4** | Optional viewport tile layout | open |
 | **V5** | P3b multi-CL if `record_ms` hot | deferred |
 
@@ -2662,7 +2662,7 @@ bool record_and_present(render::rhi::Device* device,
 
 - **§rhi2d tile-raster** / **§rhi3d parallel frame**：leftover 语义参考 only。
 - **§content present accelerate**：present 树 C/G/E 采纳（cache 分层、GPU 合成、Pipeline 重叠）；本 § 仍只锁 L0–L3 机器。
-- **§Vista Map2d / §src_render Scene3d equal-profile**：ms + StaticReuse；Map2d **P3** 消费本 § 的 `SMT_VISTA_LAYOUT_PARALLEL`；本 § 供并行机器。
+- **§Vista Map2d / §src_render Scene3d equal-profile**：ms + StaticReuse；Map2d **P3** 消费本 § 的 `VISTA_LAYOUT_PARALLEL`；本 § 供并行机器。
 - **Views §compositor thread**：L0/L3 线程角色。
 - **§GPU-process accelerate**：双拓扑 — **本 § = Topology A**（in-process L3 Display + `graph::present`）；**§GPU = Topology B**（`--type=gpu` hub + `FrameComposer`）。L0–L2 语义共享；L3 按模式 remap。**统一规范图** [`render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)；Checklist 见 §GPU / Task 8。
 
@@ -2691,7 +2691,7 @@ bool record_and_present(render::rhi::Device* device,
 | --- | --- |
 | Name | **Scenic** |
 | Job | Same *job* as Vista: 2D map frame + 3D world present — **different engine** |
-| Host | Env on content (`prefer_map2d_scenic`). `SMT_MAP2D_ENGINE=scenic` attaches Scenic rhi2d on the Views map HWND (`ScenicRhi2dHost` / `Renderer2d`). `scenic::Engine` DrawItem is fallback. Copy internals stay in `scenic_impl` + port DLLs; product ↛ `src/legacy` |
+| Host | Env on content (`prefer_map2d_scenic`). `MAP2D_ENGINE=scenic` attaches Scenic rhi2d on the Views map HWND (`ScenicRhi2dHost` / `Renderer2d`). `scenic::Engine` DrawItem is fallback. Copy internals stay in `scenic_impl` + port DLLs; product ↛ `src/legacy` |
 | Disk target | **`src/scenic`** — peer of `src/vista`. Not under `vista/`, not under `src/render/rhi/` |
 | Disk layout | Root umbrellas **`engine.h`** + **`scenic_export.h`**. Product stubs in **`engine/`**. Copy shared **`render/{err,frame,scenic_impl_export}.h`** + `backend_dll.h`; Point/Rect/vectors from **`base/math`** (no scenic `geom.h`/`math.h`). **`render/{rhi2d,rhi3d}`**; **`scene3d/`**. No leftover dump at `scenic/detail/` or `scenic/render/detail/`. No forwarding headers at old root paths |
 | Strangler disk | **`src/legacy/render`** until a real extract |
@@ -2703,16 +2703,16 @@ bool record_and_present(render::rhi::Device* device,
 | Namespace | Public **`scenic`** only (detail `scenic::detail`). Directory `engine/` / `render/` / `scene3d/` do **not** create third public namespaces. Scenic-owned types drop `Smt` / `Rhi2d` / `Rhi3d` prefixes (`MapPainter`, `Object3d`, …). Errors are `scenic::detail::Err` (`kErrNone`, …) |
 | Not Scenic | FlyCube `src/render/rhi`; leftover MFC HWND host |
 
-**Vista mirror (directory):** Scenic 2D map paint stays under `scenic/render/rhi2d/.../paint/{map,carto}` (not a top-level `scenic/map` peer of `vista/map`); `scenic/scene3d` ↔ `vista/scene`; Scenic device backends stay under `scenic/render/` (Vista consumes FlyCube `src/render`).
+**Vista mirror (directory):** Scenic 2D map paint stays under `scenic/render/rhi2d/.../paint/{map,carto}` (not a top-level `scenic/map` peer of `vista/component/map`); `scenic/scene3d` ↔ `vista/scene`; Scenic device backends stay under `scenic/render/` (Vista consumes FlyCube `src/render`).
 
 **3D peer lock (do not invert):** `rhi3d/impl/common` is **only** GL+D3D FrameJob / CPU prep (`frame/{scheduler,prep_runner,frame_request}`). It is **not** the Scenic peer of `vista/scene`. Scene graph, HWND stereo (`stereo_hwnd_view` owns `Scene`+seed), and Object3d deferred partition (`d3d_deferred_objects.h`) stay in `scene3d/`. The D3D **context pool** stays in `rhi3d/impl/d3d/host/deferred_draw.*`. Moving the scene tree under `impl/common` would make device TUs `#include` `Object3d` / `Scene` (layer invert) and break the Vista mirror.
 
-**完备功能 (content):** Vista+FlyCube is the default MapFrame dual exit. Scenic rhi2d is the equal-compare / opt-in map stack (`SMT_MAP2D_ENGINE=scenic`, `SMT_RHI2D_PORT`). `scenic::Engine` DrawItem remains fallback. Env: `SMT_SCENE3D_ENGINE=scenic`, `SMT_MAP2D_ENGINE=scenic`.
+**完备功能 (content):** Vista+FlyCube is the default MapFrame dual exit. Scenic rhi2d is the equal-compare / opt-in map stack (`MAP2D_ENGINE=scenic`, `RHI2D_PORT`). `scenic::Engine` DrawItem remains fallback. Env: `SCENE3D_ENGINE=scenic`, `MAP2D_ENGINE=scenic`.
 
 ### Checklist (this umbrella — no dated plan)
 
 - [x] Product façade `scenic::Engine` + Null + Map2d/Scene3d stubs + `scenic.dll` (`SCENIC_EXPORT`) + `scenic_engine_test`
-- [x] Content presenters host Scenic rhi2d (`ScenicRhi2dHost` / `Renderer2d` / `gis::Map` / port DLLs) when `SMT_MAP2D_ENGINE=scenic`; DrawItem `scenic::Engine` is fallback
+- [x] Content presenters host Scenic rhi2d (`ScenicRhi2dHost` / `Renderer2d` / `gis::Map` / port DLLs) when `MAP2D_ENGINE=scenic`; DrawItem `scenic::Engine` is fallback
 - [x] Compile isolation: `//src/scenic:scenic` GN-↛ leftover render (`assert_no_deps`); `ninja scenic` alone
 - [x] Working copy `src/legacy/render` → `src/scenic` (cp, leftover frozen)
 - [x] Subdir: merge `detail`+`rhi2d`+`rhi3d` → `scenic/render/`; map paint remains under `rhi2d/.../paint/{map,carto}` (not extracted to top-level `scenic/map`); `scene3d/scene/` hosts deferred helpers; no old-path forwarding headers
@@ -2838,7 +2838,7 @@ Edit overlay 继续走 impl host encoder；需要对外时另开 overlay part（
 | Conversion | Plugin / content / present bind the view **above** carto draw |
 | TIN | Still `OGRTriangulatedSurface*` (OGR, not plugin) |
 | GN | rhi2d device ports must **not** dep `//src/plugin/product/world3d:world3d_orthogrid_lattice` |
-| Leftover | Frozen `src/legacy/render` may keep `OrthoLattice*` on `SmtRenderDevice::DrawGrid` |
+| Leftover | Frozen `src/legacy/render` may keep `OrthoLattice*` on `RenderDevice2d::DrawGrid` |
 
 ### Call chain
 
@@ -2899,7 +2899,7 @@ plugin OrthoLattice  --bind LatticeView2d-->  MapRenderDevice::DrawGrid
 ## §Vista subdirectory tighten（2026-10-04）
 
 **Status:** active  
-**Diagram:** [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)（图已改为 **§Vista IR/GPU lanes** 的 IR/GPU 泳道。本 § 目录表里的 `frame/` / `scene/` 由该节取代）  
+**Diagram:** [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)（图已改为 **§Vista IR/Pass lanes** 的 IR/GPU 泳道。本 § 目录表里的 `frame/` / `scene/` 由该节取代）  
 **As-built:** [`../src-layout.md`](../src-layout.md) · [`../../../src/vista/README.md`](../../../src/vista/README.md)  
 **Precedent:** scene3d tighten [`../archive/plans/2026-10-01-scene3d-subdirectory-tighten.md`](../archive/plans/2026-10-01-scene3d-subdirectory-tighten.md) · atmosphere layout [`../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md`](../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md)  
 **GIS MapFrame 泳道（输入侧）：** [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html) · GDAL umbrella 不另开 dated spec。  
@@ -2913,10 +2913,10 @@ Vista 是视口所持的那一幅景象：正交 MapFrame 与透视 World 是同
 | --- | --- |
 | 产品真源 | `src/vista/**` + leftover `src/legacy/gis/vista` 编进 `//src/vista:vista` |
 | 孤儿树 | **已删**（2026-10-04）：磁盘无 `src/gis/vista/`、`src/effect/`。CBM 可能仍有旧路径直到 `/auto-cbm-gen` |
-| 模块 | CPU：`map`、`world`（节点图）、`assets`（模型 / 3D Tiles / 点云 codec）、`mesh`（CPU 三角化）、`terrain`（DEM，头文件无 `World`）、`atmosphere/session`。GPU：`frame`、`scene`、`atmosphere` |
+| 模块 | CPU：`map`、`world`（节点图）、`assets`（模型 / 3D Tiles / 点云 codec）、`mesh`（CPU 三角化）、`terrain`（DEM，头文件无 `World`）、`atmosphere`（session + cpu_waves）。GPU：`map_pass`、`world_pass`、`atmosphere_pass` |
 | 调用方 | `content` present（Map2d / Scene3d）、`app/views`、`plugin/product/world3d`、`gpu`、`legacy/render/scene3d`（leftover→product）。`gis/tile:tile_test` 与 `render/graph:frame_graph_test` **测试**可 deps `vista`；`gis.dll` / `graph_sources` 产品对象 **禁止** |
 | 平面/过深 | **P2 已收**：无 `ingest/io/`、无 `pointcloud/buffer/`、无 `frame/detail/collision/` 子目录、CPU atmosphere 平铺。GPU `atmosphere/{ocean,cloud,…}` 保持 |
-| God / 遗留气味 | `world.h` 仍前向 `SmtMap` / `SmtLayer`；GPU 头 include guard 仍 `EFFECT_*`；CPU `*_sources` 仍挂 `//build:legacy`；部分 test 复制 `.cc` + `RENDER_EXPORTS`/`VISTA_EXPORTS` 避开 DLL 锁 |
+| God / 遗留气味 | `world.h` 仍前向 `Map` / `SmtLayer`；GPU 头 include guard 仍 `EFFECT_*`；CPU `*_sources` 仍挂 `//build:legacy`；部分 test 复制 `.cc` + `RENDER_EXPORTS`/`VISTA_EXPORTS` 避开 DLL 锁 |
 | 产品↛leftover | `src/vista` 无 `#include "legacy/…"`（保持）。leftover adapters 可 deps `world_sources` |
 
 ### 目标分层（拥有 / 不拥有）
@@ -2926,7 +2926,7 @@ Vista 是视口所持的那一幅景象：正交 MapFrame 与透视 World 是同
 | `gis.dll` | Feature / MapLayer / Style / tile / geo kernels | MapFrame、World、RHI、HWND |
 | vista **CPU** | Layout、World、assets、DomainSession、CPU atmosphere 场 | `render::rhi`、Views、FlyCube 类型 |
 | vista **GPU** | Pass、GpuScene、AtmosphereFrame + 各 pass | 打开数据源、Style JSON 解析、chrome |
-| `render.dll` | rhi Facade、`graph::present` / Effect **vtable** | 编译 `vista/map|scene|atmosphere` 源 |
+| `render.dll` | rhi Facade、`graph::present` / Effect **vtable** | 编译 `vista/component/map|scene|atmosphere` 源 |
 | `content` present | MapScene→POD 边界、GDI/GPU 双出口、HWND host | 制图决策（留在 `Layout::build`） |
 | leftover `legacy/gis/vista` | DemHeightField / dem→World / Y-up | 产品新 API；不得被 product TU include |
 
@@ -2952,11 +2952,15 @@ product ↛ leftover
 | --- | --- |
 | `map/` | CPU 制图一次：`Layout::build` → `MapFrame` / `DrawItem`；hillshade bake 编排（U2 as-built） |
 | `map/layout/` | 按几何类 emit（fill/line/point/symbol/raster…） |
-| `map/` | `carto_filter`、`collision`、`place`（无 RHI） |
+| `map/detail/` | `carto_filter` ⊥ `batch_build`、`collision`、hillshade bake、MVT（无 RHI） |
+| `map/` | 公开 IR / `Layout` / `place` / `multiply` |
 | `world/` | 逻辑节点图 + AABB；`dem_seed` 把 DEM 写入 `kTerrain` |
 | `world/pointcloud/` | 节点上的 chunk / LOD（缓冲与文件加载在 `assets/pointcloud`） |
 | `assets/{model,tileset,pointcloud}/` | Assimp / 3D Tiles / LAS·LAZ·PDAL·文本。不依赖 `world` |
-| `mesh/` | OGR/GIS → xyz+indices。`map` 与 `scene` 直接依赖。不依赖 `world` |
+| `mesh/` | OGR/GIS → xyz+indices。公开 `"vista/mesh/tessellate.h"`。`map` 与 `world` 直接依赖。不依赖 `world` |
+| `mesh/fill/` | 多边形 / ring fill tess（`fill_tess`） |
+| `mesh/line/` | 描边 ribbon tess（`line_tess`；cap/join/dash） |
+| `mesh/detail/` | `mesh_types` / append / scratch pools / process-trace |
 | `terrain/{dem,process}/` | DEM 栅格、hillshade、land mask、bake cache。头文件不出现 `World` |
 | `domain/` | `DomainSession` 缝 |
 | `domain/atmosphere/` | CPU FieldStore / Environment / systems（文件平铺，去掉 `field/` `systems/`） |
@@ -2974,7 +2978,7 @@ product ↛ leftover
 
 | 目标 | 角色 |
 | --- | --- |
-| `//src/vista:vista` | `smt_shared_library` `dll_stem=vista`；`VISTA_EXPORTS` |
+| `//src/vista:vista` | `product_shared_library` `dll_stem=vista`；`VISTA_EXPORTS` |
 | `//src/vista/<mod>:*_sources` | 编进 DLL 的 source_set |
 | `//src/vista:vista_test_all` | 模块测试聚合 |
 | `//src/legacy/gis/vista:vista_sources` | leftover 对象进本 DLL |
@@ -3044,7 +3048,7 @@ product ↛ leftover
 ## §Vista logical/physical lanes（2026-10-04）
 
 **Status:** accepted  
-**Updated:** 2026-10-05 — 「逻辑 / 物理」词汇退役。目录以 **§Vista IR/GPU lanes** 为准。下表与 U0–U4 保留落地当时的用词。本 § 放宽「CPU 场与 GPU 大气必须分属两个顶层目录」：允许合成 `vista/atmosphere/`，两个 `source_set` 的编译墙保留。  
+**Updated:** 2026-10-05 — 「逻辑 / 物理」词汇退役。目录以 **§Vista IR/Pass lanes** 为准。下表与 U0–U4 保留落地当时的用词。CPU 场与 GPU 大气现已分属 `vista/component/atmosphere` 与 `vista/pass/atmosphere`（两个 `source_set` 的编译墙保留；GPU 不得依赖 `session_sources`）。  
 **Plan:** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) Task 8  
 **Diagram:** [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html) · 上一代 [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html)
 
@@ -3052,14 +3056,14 @@ product ↛ leftover
 
 | 角色 | 目标目录 | 磁盘现状 | 线程 |
 | --- | --- | --- | --- |
-| 逻辑 2D | `vista/map`（`Layout` → `MapFrame`） | `vista/map` | Emit 可并行；碰撞串行。CPU `source_set` 不依赖 `render` |
-| 逻辑 3D | `vista/world` | `vista/world` | 细分可并行。不依赖 `render` |
-| 逻辑场 | `vista/atmosphere/session` | `vista/atmosphere/session` | CPU。`session_sources`，`assert_no_deps` → `render`。GPU `atmosphere_sources` 不依赖它 |
+| 逻辑 2D | `vista/component/map`（`Layout` → `MapFrame`） | `vista/component/map` | Emit 可并行；碰撞串行。CPU `source_set` 不依赖 `render` |
+| 逻辑 3D | `vista/component/world` | `vista/component/world` | 细分可并行。不依赖 `render` |
+| 逻辑场 | `vista/component/atmosphere/session` | `vista/component/atmosphere/session` | CPU。`session_sources`，`assert_no_deps` → `render`。GPU `atmosphere_sources` 不依赖它 |
 | 物理 2D | `vista/frame`（`FramePass`） | `vista/frame` | GPU 设备线程 |
 | 物理 3D | `vista/scene`（`GpuScene`） | `vista/scene` | cull 在 CPU；Upload / Record 在 GPU |
-| 物理大气 | `vista/atmosphere` pass + FFT | `vista/atmosphere` | GPU。不依赖 `world` source_set |
+| 物理大气 | `vista/component/atmosphere` pass + FFT | `vista/component/atmosphere` | GPU。不依赖 `world` source_set |
 
-阶段：`stage` → Emit×N → Resolve → Upload → Compute（海洋 FFT）→ Record（pre-opaque → 不透明 → post-opaque → 2D 叠加）→ `graph::present`。`SMT_VISTA_LAYOUT_PARALLEL=0` 把 2D Emit 收成 N=1。`SMT_GPUSCENE_PREP_PARALLEL` 默认关。
+阶段：`stage` → Emit×N → Resolve → Upload → Compute（海洋 FFT）→ Record（pre-opaque → 不透明 → post-opaque → 2D 叠加）→ `graph::present`。`VISTA_LAYOUT_PARALLEL=0` 把 2D Emit 收成 N=1。`GPUSCENE_PREP_PARALLEL` 默认关。
 
 Scenic 对照（同一张上一代图）：`MapPainter` 与 `scene3d/Scene` 把逻辑和录制焊在一个类型里。rhi2d Raster×N 是 CPU 私有 HDC。rhi3d Prep×N 之后才是 GL Draw 或 D3D11 deferred。Scenic 的 `frame` 是 `cc/` 帧拍，Vista 的 `frame` 是物理 2D 录制。Scenic 设备在引擎内；Vista 的设备是 `src/render` FlyCube。
 
@@ -3087,9 +3091,9 @@ Vista 把「算什么」和「画上去」拆开。Scenic 把它们焊在同一�
 | --- | --- | --- | --- |
 | **U0** | 两代图、取舍、本表 | 文档与磁盘脱节 | 图与本 § 一致 |
 | **U1** | 编译墙：`scene` 的细分 / `FrustumPlanes` / `prep_cull` 进 `scene_cpu_sources`（`assert_no_deps` → `render`）。`CameraMatrices` 提取留在 GPU 侧，fan-out 之前写成 POD。`atmosphere/ocean/cpu_waves` 进 `atmosphere_cpu_sources`。`map/place` 进不依赖 `render` 的 CPU 集 | `GpuScene` 把 CPU 和 GPU 编进同一个目标 | 工人翻译单元不含 `render/rhi`。`record` 行为不变。`prep` 仍默认关 |
-| **U2** | 同一次改动、三步改名以免覆盖：`vista/map` → `vista/frame_pass`；`vista/frame` → `vista/map`；`vista/frame_pass` → `vista/frame`。`Pass` 改名为 `FramePass`。include、`BUILD.gn`、`content` / `app` 调用点一起改 | 2D 目录名和逻辑/物理相反 | `frame_sources` 依赖 `map_sources` + `render`。`map_sources` 不依赖 `render` |
+| **U2** | 同一次改动、三步改名以免覆盖：`vista/component/map` → `vista/frame_pass`；`vista/frame` → `vista/component/map`；`vista/frame_pass` → `vista/frame`。`Pass` 改名为 `FramePass`。include、`BUILD.gn`、`content` / `app` 调用点一起改 | 2D 目录名和逻辑/物理相反 | `frame_sources` 依赖 `map_sources` + `render`。`map_sources` 不依赖 `render` |
 | **U3** | `domain/atmosphere` → `atmosphere/session`。GN 目标改名为 `session_sources`。GPU `atmosphere_sources` 不依赖它。`domain/domain.h` 留下 | CPU 场和 GPU pass 分成两个顶层目录，读起来像两套大气 | 宿主仍投影 `float*` / `AtmosphereParams`。GPU 集不带上 `land_mask` |
-| **U4** | 脏区 Emit：只重算 `cache_key` 失效的 `DrawItem` 切片（C1 已有键）。失效片在设备线程上由 `FramePass` 上传。合成仍是 GPU 录制 | 冷帧整帧 IR + 上传；热帧没有脏区粒度 | `SMT_VISTA_LAYOUT_PARALLEL=0` 时墙钟不回退。画面门（山体阴影、注记）不变。产品路径没有 HDC |
+| **U4** | 脏区 Emit：只重算 `cache_key` 失效的 `DrawItem` 切片（C1 已有键）。失效片在设备线程上由 `FramePass` 上传。合成仍是 GPU 录制 | 冷帧整帧 IR + 上传；热帧没有脏区粒度 | `VISTA_LAYOUT_PARALLEL=0` 时墙钟不回退。画面门（山体阴影、注记）不变。产品路径没有 HDC |
 
 **U5** 不在本升级里打开。多 CommandList 仍是并行计划的 V5，默认保持一条。不把 D3D11 deferred 引进 FlyCube。
 
@@ -3121,7 +3125,7 @@ Vista 把「算什么」和「画上去」拆开。Scenic 把它们焊在同一�
 | 1 | Product scene+mesh spatial index lives in **`vista/scene/index`**, not leftover `SmtSceneOctTree`. Same unibn package as SP4b. |
 | 2 | Index **AABB centers** + stored extents. Radius query uses frustum **world AABB** half-diag + max mesh half-diag (conservative). Exact filter remains `aabb_intersects_frustum`. |
 | 3 | `prep_cull_meshes` builds a frame-local `AabbOctree` from `GpuMesh` AABBs (including point-cloud chunk boxes). Not stored on `GpuScene` (DLL layout). |
-| 4 | Render filter stays opt-in (`SMT_SCENE3D_FRUSTUM_CULL=1`). Invert failure → linear scan. Prep workers still never touch Device / CL. |
+| 4 | Render filter stays opt-in (`SCENE3D_FRUSTUM_CULL=1`). Invert failure → linear scan. Prep workers still never touch Device / CL. |
 | 5 | Do **not** include `Octree.hpp` from public headers. Do **not** add a second octree vendor. GPU BVH remains Deferred. |
 
 ### Flow
@@ -3151,7 +3155,7 @@ record_draws (cull on):
 **Hung off:** §Vista subdirectory tighten · §Vista logical/physical lanes U1 · §Vista scene unibn octree  
 **Code:** `src/vista/scene/**`
 
-Locks the GpuScene god-type split. Public `GpuScene` stays the present seam (`sync_from` / `ensure_meshes` / `record_draws`). Facade / IR / upload / record TUs live at the **`vista/scene` root** (peer of `vista/map/layout.h`). Specialized subdirs: `cull/` `index/`. Header next to `.cc`. No forwarding shims. Do **not** add `scene/gpu/` — content already uses `gpu/` vs `software/` for present backends; CPU tess TUs must not sit under a GPU-named folder. GN still splits `scene_cpu_sources` vs `scene_sources`.
+Locks the GpuScene god-type split. Public `GpuScene` stays the present seam (`sync_from` / `ensure_meshes` / `record_draws`). Facade / IR / upload / record TUs live at the **`vista/scene` root** (peer of `vista/component/map/layout.h`). Specialized subdirs: `cull/` `index/`. Header next to `.cc`. No forwarding shims. Do **not** add `scene/gpu/` — content already uses `gpu/` vs `software/` for present backends; CPU tess TUs must not sit under a GPU-named folder. GN still splits `scene_cpu_sources` vs `scene_sources`.
 
 | Layer | Disk | `assert_no_deps` → `render` |
 | --- | --- | --- |
@@ -3178,7 +3182,7 @@ Locks the GpuScene god-type split. Public `GpuScene` stays the present seam (`sy
 **Diagram:** [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)  
 **Hung off:** §Vista logical/physical lanes（U0–U4 as-built）· §RHI2D map-layer-feature paint strategy · §RHI2D cc frame-beat  
 **Plan:** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) Task 2 leftover tile grain + Task 8 follow-on  
-**Code:** `src/vista/map`（CPU `Layout` / `MapIR`）· `src/vista/map_gpu`（`MapPass`）· host `src/content/browser/present/map2d`
+**Code:** `src/vista/component/map`（CPU `Layout` / `MapIR`）· `src/vista/pass/map`（`MapPass`）· host `src/content/browser/present/map2d`
 
 对照 Scenic `paint/map` 升级产品 2D 的 **map（逻辑）/ frame（物理）** 缝。U2 目录对调已落地。本 § 不再搬路径，只锁下一刀语义。
 
@@ -3186,8 +3190,8 @@ Locks the GpuScene god-type split. Public `GpuScene` stays the present seam (`sy
 
 | 树 | 拥有 | 硬墙 |
 | --- | --- | --- |
-| `vista/map` | `Layout::build`、`emit_*`、`LabelGrid`、`place`、`SliceCache`、hillshade bake 编排 | `assert_no_deps` `//src/render:render` |
-| `vista/map_gpu` | `MapPass::record`、atlas、upload、encode、`DrawCache`、`upload_keyed_slices` | 设备线程；不进 `parallel_for` |
+| `vista/component/map` | `Layout::build`、`emit_*`、`LabelGrid`、`place`、`SliceCache`、hillshade bake 编排 | `assert_no_deps` `//src/render:render` |
+| `vista/pass/map` | `MapPass::record`、atlas、upload、encode、`DrawCache`、`upload_keyed_slices` | 设备线程；不进 `parallel_for` |
 | `content` Map2d | `stage_frame`、`layout_gen`、`layer_slices_`、`retained_slices` 注入 | UI 不 join Emit / GPU |
 
 公开签名保持：`Layout::build`、`FramePass::record`。禁止第三公共命名空间 `vista::frame`。
@@ -3210,7 +3214,7 @@ Locks the GpuScene god-type split. Public `GpuScene` stays the present seam (`sy
 
 ### 分阶（M0–M4）
 
-每一阶段单独可编译。scheme C。`SMT_VISTA_LAYOUT_PARALLEL=0` 时墙钟不回退。
+每一阶段单独可编译。scheme C。`VISTA_LAYOUT_PARALLEL=0` 时墙钟不回退。
 
 | 阶段 | 做什么 | 对标 Scenic | 验收 |
 | --- | --- | --- | --- |
@@ -3242,7 +3246,7 @@ scenic.dll 不编进 vista.dll
 
 ### 不做什么
 
-- 不把 `Rhi2dPainter` / leftover HDC 引进 `vista/map_gpu`。
+- 不把 `Rhi2dPainter` / leftover HDC 引进 `vista/pass/map`。
 - 不把 `MapFrame` 搬回 `gis.dll`。
 - 不新开 dated spec。
 - 不改 Scenic 为 FlyCube 第二条 CL。
@@ -3255,7 +3259,7 @@ scenic.dll 不编进 vista.dll
 **Updated:** 2026-10-05  
 **Diagram:** [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)（CPU 列补公开头 / emit 辅件；物理 `frame` 不变）  
 **Hung off:** §Vista map/frame scenic-peer · §Vista subdirectory tighten  
-**Code:** `src/vista/map/` · [`../../../src/vista/map/README.md`](../../../src/vista/map/README.md)
+**Code:** `src/vista/component/map/` · [`../../../src/vista/component/map/README.md`](../../../src/vista/component/map/README.md)
 
 M1–M4 语义已落地。本 § 只拆 **责任层**，不改 `Layout::build` / `MapFrame` 字段 / 画家 z。禁止第三公共命名空间 `vista::map`。无转发头：`frame.h` 是模块根 **umbrella**（允许），类型真源在并列头。
 
@@ -3268,9 +3272,9 @@ M1–M4 语义已落地。本 § 只拆 **责任层**，不改 `Layout::build` /
 | 覆盖 | `multiply.h` | hillshade luma coverage | emit tess |
 | 风格策略 | `detail/carto_filter.*` | scale / role / stem | `OGRGeometry` 构造 |
 | POD→OGR | `detail/batch_build.cc` | `LayerBatchSet` 生命周期 | Raster 上传 |
-| 阶段 | `detail/layout/{collect,emit,coalesce}.*` | 可见层、派发、同笔合并 | 单几何 tess 细节 |
-| 键 / 并行 / 走几何 / 网格 | `slice_key.h` `tess_grain.h` `geom_walk.h` `mesh_emit.*` | 各管一块 | 混进同一个 `geom_mesh` |
-| 按类 emit | `fill` `line` `point` `symbol` `raster` | 仍按几何类 | 再套 `internal/` |
+| 阶段 | `layout/{collect,emit,coalesce}.*` | 可见层、派发、同笔合并 | 单几何 tess 细节 |
+| 键 / 并行 / 走几何 / 网格 | `layout/{slice_key,tess_grain,geom_walk,mesh_emit}.*` | 各管一块 | 混进同一个 `geom_mesh` |
+| 按类 emit | `layout/{fill,line,point,symbol,raster}.*` | 仍按几何类 | 再套 `internal/` |
 
 ### 依赖方向（本模块内）
 
@@ -3290,9 +3294,10 @@ map_sources ↛ render
 
 ### Acceptance
 
-- [x] 公开类型拆头；`#include "vista/map/ir.h"` 仍编译
+- [x] 公开类型拆头；`#include "vista/component/map/ir.h"` 仍编译
 - [x] `geom_mesh` / `build_stages` 按职责拆走，无转发（2026-10-05 回归后 N0 再次删除 `geom_mesh`）
 - [x] `carto_filter` ⊥ `batch_build`；`multiply` 升到 `map/`
+- [x] 内部 TU 落 `map/detail/`（scheme C，无转发头）
 - [x] `frame_test` / `map_effect_test` 绿（本变更编译墙）
 
 ---
@@ -3303,7 +3308,7 @@ map_sources ↛ render
 **Updated:** 2026-10-05 — N0–N3 落地（脏瓦片 splice / `pack_geoms` / tess job abort）。  
 **Diagram:** [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)  
 **Hung off:** §Vista map/frame scenic-peer（M1–M4 as-built）· §Vista map deep split · §RHI2D map-layer-feature paint strategy · §RHI2D cc frame-beat  
-**Code:** `src/vista/map/layout/{geom_walk,mesh_emit,tess_grain,slice_key,pack,emit,coalesce}.*` · `src/vista/map_gpu` `MapPass` · host `content/.../map2d`
+**Code:** `src/vista/component/map/layout/{geom_walk,mesh_emit,tess_grain,slice_key,pack,emit,coalesce}.*` · `src/vista/pass/map` `MapPass` · host `content/.../map2d`
 
 M1–M4 的 collect / 层键 / CPU coalesce / `layout_gen` 层边界 abort 还在。N0 把走几何、网格和并行粒度拆回三份头。N1–N3 只借 Scenic 的脏瓦片、prep 剔除和帧内 abort，不借 HDC、`POINT`、`MapPainter`。
 
@@ -3320,7 +3325,7 @@ M1–M4 的 collect / 层键 / CPU coalesce / `layout_gen` 层边界 abort 还�
 
 ### 分阶（N0–N3）
 
-每一阶段单独可编译。`SMT_VISTA_LAYOUT_PARALLEL=0` 时墙钟不回退（`vista_layout_parallel_enabled()` 走串行 tess）。
+每一阶段单独可编译。`VISTA_LAYOUT_PARALLEL=0` 时墙钟不回退（`vista_layout_parallel_enabled()` 走串行 tess）。
 
 | 阶段 | 做什么 | 对标 Scenic | 验收 |
 | --- | --- | --- | --- |
@@ -3340,55 +3345,114 @@ M1–M4 的 collect / 层键 / CPU coalesce / `layout_gen` 层边界 abort 还�
 
 ---
 
-## §Vista IR/GPU lanes（2026-10-05）
+## §Vista IR/Pass lanes（2026-10-05）
 
 **Status:** active  
 **Updated:** 2026-10-05  
 **Hung off:** §Vista logical/physical lanes。该节与 §Vista subdirectory tighten 里的「逻辑 / 物理」词汇退役；`frame/`、`scene/` 不再是目标目录。目录以本节为准。  
 **Diagram:** [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)  
-**Code (target):** `src/vista/{map,map_gpu,world,world_gpu,atmosphere,mesh,terrain,assets,domain}`。代码可以仍在搬迁中；本节写的是目标名。
+**Code (target):** `src/vista/{component/{map,world,atmosphere},pass/{map,world,atmosphere},mesh,terrain,assets,domain}`。
 
-停用 logical / physical。磁盘和类型用同一对词：**IR**（CPU，`assert_no_deps` → `//src/render:render`）和 **GPU**（设备线程 Upload / Record）。公开命名空间仍是两层 `vista` / `vista::atmosphere`。不新增 `vista::map_gpu`。scheme C，不留转发头。`frame/` 与 `scene/` 在目标布局中删除。
+停用 logical / physical。磁盘模块用同一对词：**IR**（CPU，`assert_no_deps` → `//src/render:render`）和 **Pass**（设备线程 Upload / Record，跑在 GPU 上）。公开命名空间仍是两层 `vista` / `vista::atmosphere`。不新增 `vista::component` 或 `vista::pass`。scheme C，不留转发头。Include guard 与路径一致（`VISTA_COMPONENT_…` / `VISTA_PASS_…`）。`frame/` 与 `scene/` 在目标布局中删除。
 
 ### 目录
 
 | 目录 | 类型 | GN | 线程 |
 | --- | --- | --- | --- |
-| `vista/map` | `Layout` → `MapIR`（原 `MapFrame`）。伞头 `"vista/map/ir.h"`（原 `vista/map/frame.h`） | `map_sources` | CPU IR |
-| `vista/map_gpu` | `MapPass`（原 `vista/frame` 的 `FramePass`） | `map_gpu_sources`（原 `frame_sources`）→ `map_sources` + `render` | GPU 设备线程 |
-| `vista/world` | `World`；`Instance`（原 `GpuInstance`）；CPU sync / tess / cull / index | `world_sources` 依赖 `mesh`，`assert_no_deps` → `render` | CPU IR |
-| `vista/world_gpu` | `WorldPass`（原 `GpuScene`）。`sync_from` 与 `record_draws` 仍是本类型的方法 | `world_gpu_sources`（原 `scene_sources`）→ `world_sources` + `render` | GPU 设备线程 |
-| `vista/atmosphere` | `session/` 为 CPU 场；其余目录为 GPU pass + FFT | 目标名不变 | 不变 |
+| `vista/component/map` | `Layout` → `MapIR`（原 `MapFrame`）。伞头 `"vista/component/map/ir.h"`（原 `vista/component/map/frame.h`） | `map_sources` | CPU IR |
+| `vista/pass/map` | `MapPass`（原 `vista/frame` 的 `FramePass`） | `map_pass_sources`（原 `frame_sources`）→ `map_sources` + `render` | GPU 设备线程 |
+| `vista/component/world` | `World`；`Instance`（原 `GpuInstance`）；CPU sync / tess / cull / index | `world_sources` 依赖 `mesh`，`assert_no_deps` → `render` | CPU IR |
+| `vista/pass/world` | `WorldPass`（原 `GpuScene`）。`sync_from` 与 `record_draws` 仍是本类型的方法 | `world_pass_sources`（原 `scene_sources`）→ `world_sources` + `render` | GPU 设备线程 |
+| `vista/component/atmosphere` | CPU：根 `Environment` / `AtmosphereParams`；`field/` · `ocean/` · `cloud/`；`detail/math.h` | `session_sources` / `atmosphere_cpu_sources`，`assert_no_deps` → `render` | CPU IR |
+| `vista/pass/atmosphere` | GPU：根 `AtmosphereFrame` / effects；`ocean`/`cloud`/`sky`/`fog`/`globe`；`detail/{mesh,raster,field_texture}` | `atmosphere_pass_sources` → `atmosphere_cpu_sources` + `render`；不得依赖 `session_sources` | GPU 设备线程 |
 | `mesh` / `terrain` / `assets` / `domain` | 不改名，也不标成 IR 或 GPU | 不变 | 不变 |
 
-不建 `map/gpu` 或 `world/gpu`。`content` 的 `present/map2d`、`present/scene3d` 目录不动。
+不建 `map/gpu`、`world/gpu` 或 `atmosphere/gpu`。`content` 的 `present/map2d`、`present/scene3d` 目录不动。
 
 ### 文件归属
 
 进 `world/` 的 CPU 翻译单元（原 `scene_cpu_sources`）：`gpu_instance`（类型 `Instance`）、`sync`、`tessellate`、`kind_tess`、`paint`、`pipelines`、`envelope`、`cull/`（不含 `frustum_camera`）、`index/`。
 
-进 `world_gpu/` 的 GPU 翻译单元：`WorldPass`、`gpu_mesh`、`upload`、`tint`、`draw_pass`、`rebuild`、`scene_draw`、`opaque_effect`、`cull/frustum_camera`。`GpuMesh` 留在 `world_gpu`（它持有 Device buffer）。
+进 `world_pass/` 的 GPU 翻译单元：根 `WorldPass` / `gpu_mesh` / `opaque_effect`；`detail/{upload,tint,rebuild,draw,record}`；`cull/frustum_camera`。`GpuMesh` 留在 `world_pass`（它持有 Device buffer）。细则见 **§Vista world_pass deep split**。
 
-进 `map_gpu/` 的是原 `frame_sources`：atlas / encode / upload / glyph / `map_effect` / `pass`。`frame/detail/layout` 是已经活在 `vista/map/layout/` 的孤儿，删除，不带进 `map_gpu`。
+进 `map_pass/` 的是原 `frame_sources`：根 `pass` / `map_effect` / glyph；`detail/{atlas,encode,upload}`。`frame/detail/layout` 是已经活在 `vista/component/map/layout/` 的孤儿，删除，不带进 `map_pass`。
+
+进 `atmosphere/` 的 CPU：根 `Environment` / `AtmosphereParams`；`field/`（store / ingest / procedural）；`ocean/`（`OceanSystem` + `cpu_waves`）；`cloud/`（`CloudSystem`）；`detail/math.h`（无 Device）。进 `atmosphere_pass/` 的 GPU：根 `AtmosphereFrame` / effects；`cloud` / `fog` / `sky` / `globe` / `ocean`；`detail/{mesh,raster,field_texture}`。宿主把场投影成 pass 参数；GPU 目标不 `#include` 场头。
 
 ### 调用顺序
 
 公开签名的调用顺序保持。`content` 的 scene3d GPU present 持有一个长期 `WorldPass`，先 `sync_from` 再 `record_draws`。不把 `sync_from` 改成返回一份 IR 值再交给另一个对象。
 
-环境变量字面量 `SMT_GPUSCENE_PREP_PARALLEL`、`SMT_VISTA_LAYOUT_PARALLEL` 保持。它们驱动的是 `WorldPass` prep 与 `Layout` emit。
+环境变量字面量 `GPUSCENE_PREP_PARALLEL`、`VISTA_LAYOUT_PARALLEL` 保持。它们驱动的是 `WorldPass` prep 与 `Layout` emit。
 
 测试可执行文件 `output_name`（`map2d_pass_test`、`scene_gpu_test`、`unified_draw_test`）保持。GN 目标名随目录改。
 
-Scenic `scene3d/` 对照的是 `vista/world`（节点图）加 `vista/world_gpu`（`WorldPass`），不要下沉进 `rhi3d/impl/common`。
+Scenic `scene3d/` 对照的是 `vista/component/world`（节点图）加 `vista/pass/world`（`WorldPass`），不要下沉进 `rhi3d/impl/common`。
 
 ### 不做什么
 
 - 不把 `WorldPass::sync_from` 改成返回值，不改 content 里对象的持有方式。
-- 不拆 `atmosphere_gpu`。
+- 不新增 `vista::atmosphere_pass` 命名空间；公开仍是 `vista` / `vista::atmosphere`。
 - 不把 `mesh` / `terrain` / `assets` 标成 IR 或 GPU。
 - 不改 `SMT_*` 环境变量字面量，不改测试 exe 的 `output_name`。
 - 不新增第三层命名空间。
 - 不新开 dated spec。
+
+---
+
+## §Vista world_pass deep split（2026-10-05）
+
+**Status:** active  
+**Updated:** 2026-10-05  
+**Hung off:** §Vista IR/Pass lanes · §Vista map deep split（对等：根公开 + `detail/`）  
+**Diagram:** [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)（§4 目录表）  
+**Code:** `src/vista/pass/world/` · [`../../../src/vista/pass/world/README.md`](../../../src/vista/pass/world/README.md)
+
+对标 `map_pass`：公开类型留在模块根，设备线程辅件按职责进 `detail/`。禁止第三公共命名空间 `vista::world_pass`。无转发头。`sync_from` / `record_draws` 仍是 `WorldPass` 的方法（不拆成返回 IR 的第二类型）。
+
+### 目标分层
+
+| 层 | 磁盘 | 拥有 | 不拥有 |
+| --- | --- | --- | --- |
+| 公开 facade | `pass.h` / `pass.cc` | `WorldPass`：sync、pipelines、view/tint/depth setters | per-kind encode 细节 |
+| 公开 mesh | `gpu_mesh.h` | `GpuMesh` POD + `as_cull_item` | tess / upload 实现 |
+| 公开 graph 适配 | `opaque_effect.*` | `kOpaque` `Effect` | `pass.h` 进 `render.dll` |
+| 上传 | `detail/upload.*` | VB/IB/纹理、lit 开关 | 风格 RGBA 映射 |
+| 着色 | `detail/tint.*` | paint / 点云 / DEM 默认 tint 写到 `GpuMesh` | RHI create |
+| 重建 | `detail/rebuild.cc` | `rebuild_meshes`（CPU tess → upload） | 相机绑定 |
+| 按类录制 | `detail/draw.*` | `record_kind` / `mesh_culled` | frustum 平面提取 |
+| 编排录制 | `detail/record.cc` | `record_draws` / `record`（相机、prep_cull、按 kind 派发） | mesh rebuild 本体 |
+| 视锥相机 | `cull/frustum_camera.*` | `CameraMatrices` → `FrustumPlanes` | AABB 相交（在 `world/cull`） |
+
+### 依赖方向（本模块内）
+
+```
+pass.cc → detail/upload（pipelines / lit 探测）
+detail/rebuild → world/{kind_tess,envelope} + detail/{tint,upload}
+detail/record → detail/draw + cull/frustum_camera + world/cull/prep_cull
+detail/tint → world/paint（rgba_from_resolved_paint）
+opaque_effect → pass.h
+world_pass_sources → world_sources + render
+```
+
+### Paint API 归属
+
+`rgba_from_resolved_paint` 声明与实现在 **`vista/component/world/paint.h` / `paint.cc`**（CPU IR 侧）。不再挂在 `world_pass/pass.h`。GPU tint 只消费该函数。
+
+### 不做什么
+
+- 不把 `sync_from` 改成返回值，不改 content 持有方式。
+- 不新增 `vista::world_pass` 命名空间。
+- 不留 `draw_pass.h` / `scene_draw.cc` 转发头（`scene_*` 词已退役）。
+- 不改 `GPUSCENE_PREP_PARALLEL` 字面量，不改 `scene_gpu_test` / `unified_draw_test` 的 `output_name`。
+- 不新开 dated spec。
+
+### Acceptance
+
+- [x] 根公开三件套 + `detail/` 五件套 + `cull/`；GN `world_pass_sources` 列出新路径
+- [x] `rgba_from_resolved_paint` 仅从 `world/paint.h` 导出
+- [x] 外部仍 `#include "vista/pass/world/pass.h"`；无转发
+- [ ] `scene_gpu_test` / `unified_draw_test` 绿（本变更编译墙）
 
 ---
 

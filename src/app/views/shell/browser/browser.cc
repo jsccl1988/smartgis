@@ -145,19 +145,21 @@ bool seh_fit_map_extent(Browser* browser) {
 void Browser::show() {
   if (ui_) {
     // show_shell shows the shell and schedules the first map invalidate.
-    // Full first-map present wait is opt-in (SMT_SYNC_FIRST_MAP_PRESENT=1).
+    // Full first-map present wait is opt-in (SYNC_FIRST_MAP_PRESENT=1).
     ui_->show_shell();
   }
   // Fit after chrome is visible (final client size). Extent-only nudge;
   // init_shell already framed from SeedDocument (demo or sync China).
-  // Showcase / harness (SMT_SKIP_AMBOX_CATALOG): demo-only seed AVs inside
+  // Showcase / harness (SKIP_AMBOX_CATALOG): demo-only seed AVs inside
   // fit_map_extent (cdb world3d-early2 Browser::show). Scene3D framing is
   // applied later by apply_china_scene3d_product_defaults.
   const bool skip_fit = []() {
     const char* skip = base::switch_cstr("skip-ambox-catalog");
     return skip && skip[0] != '\0' && skip[0] != '0';
   }();
-  if (!skip_fit) {
+  const bool first_carto_ready =
+      map2d() && map2d()->layout_build_count() > 0;
+  if (!skip_fit && !first_carto_ready) {
     if (!seh_fit_map_extent(this)) {
       LOGGING(LOG_WARNING, "startup: Browser::show fit_map_extent SEH");
     }
@@ -165,7 +167,7 @@ void Browser::show() {
   // Sync China seed (default product path): drop any pre-china FlyCube latch
   // so the first interactive present records china carto — same face as
   // --ui-showcase=shell without forcing GDI overlay.
-  if (document() && document()->has_china_extent()) {
+  if (document() && document()->has_china_extent() && !first_carto_ready) {
     if (content::Map2dPresenter* map2d = this->map2d()) {
       map2d->note_surface_reset();
       map2d->invalidate_frame_cache();
@@ -181,7 +183,7 @@ void Browser::show() {
 
   // P1-2: open China/DEM after first interactive show (product path only).
   // SeedDocument already skipped bootstrap when defer_china_seed_ is set.
-  // SMT_SKIP_AMBOX_CATALOG also skips this timer: china city land-clip on the
+  // SKIP_AMBOX_CATALOG also skips this timer: china city land-clip on the
   // UI thread can run tens of seconds and makes WM_CLOSE look hung.
   const bool skip_deferred_china = []() {
     const char* skip = base::switch_cstr("skip-ambox-catalog");
@@ -191,14 +193,14 @@ void Browser::show() {
       !document()->has_china_extent()) {
     HWND shell = hwnd();
     if (shell && IsWindow(shell)) {
-      SetPropW(shell, L"SmtDeferChinaBrowser", reinterpret_cast<HANDLE>(this));
+      SetPropW(shell, L"DeferChinaBrowser", reinterpret_cast<HANDLE>(this));
       constexpr UINT_PTR kDeferChina = 0x43484E41u;  // 'CHNA'
       SetTimer(shell, kDeferChina, 1, [](HWND timer_hwnd, UINT, UINT_PTR id,
                                          DWORD) {
         KillTimer(timer_hwnd, id);
         auto* self = reinterpret_cast<Browser*>(
-            GetPropW(timer_hwnd, L"SmtDeferChinaBrowser"));
-        RemovePropW(timer_hwnd, L"SmtDeferChinaBrowser");
+            GetPropW(timer_hwnd, L"DeferChinaBrowser"));
+        RemovePropW(timer_hwnd, L"DeferChinaBrowser");
         if (!self || self->is_close_prepared() || !self->document() ||
             self->document()->has_china_extent()) {
           return;
@@ -215,7 +217,7 @@ void Browser::show() {
 #else
         setenv("skip-china-land-clip", "1", 1);
 #endif
-        LOGGING(LOG_INFO, "startup: SMT_SKIP_CHINA_LAND_CLIP=%s",
+        LOGGING(LOG_INFO, "startup: SKIP_CHINA_LAND_CLIP=%s",
                 base::switch_cstr("skip-china-land-clip")
                     ? base::switch_cstr("skip-china-land-clip")
                     : "(null)");
@@ -288,7 +290,7 @@ void Browser::show() {
           if (ui::views::MapViewport* map = self->map_viewport()) {
             map->invalidate_native();
           }
-          // Do not call select_map_tab here — SMT_VIEWS_START_MAP_TAB may
+          // Do not call select_map_tab here — VIEWS_START_MAP_TAB may
           // already be inside switch_map_tab's PeekMessage wait; nested select
           // deadlocks the China-seed timer. Post a one-shot re-select after.
           if (const char* tab = base::switch_cstr("views-start-map-tab")) {
@@ -327,6 +329,12 @@ void Browser::show() {
   }
 }
 
+void Browser::finish_deferred_shell_wiring() {
+  if (ui_) {
+    ui_->finish_deferred_shell_wiring();
+  }
+}
+
 int Browser::run_loop() {
   return ui_ ? ui_->run_shell_loop() : 1;
 }
@@ -342,7 +350,7 @@ void Browser::prepare_close() {
     if (IsWindow(shell)) {
       constexpr UINT_PTR kDeferChina = 0x43484E41u;  // 'CHNA'
       KillTimer(shell, kDeferChina);
-      RemovePropW(shell, L"SmtDeferChinaBrowser");
+      RemovePropW(shell, L"DeferChinaBrowser");
     }
   }
   // Detach MapViewport / join Display before abandon_mesh. Reversing that

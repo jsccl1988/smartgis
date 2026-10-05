@@ -9,7 +9,7 @@ All rights reserved.
 
 **Goal:** Shared GIS point-cloud load (LAS/LAZ + legacy txt) and visible 3D scene draw via `World`/`GpuScene`; `world3d` only registers commands.
 
-**Architecture:** Approach 2 — `vista/world/pointcloud` owns buffer + I/O; Browser/`World3dSceneWriter` commits; P0 LAS + txt + LAZ (`third_party/.src/LASzip`); P1 chunk/thin; P2 octree/LOD (`third_party/octree`).
+**Architecture:** Approach 2 — `vista/component/world/pointcloud` owns buffer + I/O; Browser/`World3dSceneWriter` commits; P0 LAS + txt + LAZ (`third_party/.src/LASzip`); P1 chunk/thin; P2 octree/LOD (`third_party/octree`).
 
 **Tech Stack:** ASPRS LAS 1.2/1.4 reader (P0), LASzip (vendored, LAZ), GN/`build.bat`, Views shell.
 
@@ -28,9 +28,9 @@ All rights reserved.
 ### Task 1 — `gis` PointCloud + LAS/txt I/O
 
 **Files:**
-- Create: `src/vista/world/pointcloud/{point_cloud,las_io,text_io,load}.{h,cc}`
-- Modify: `src/vista/world/BUILD.gn`
-- Create: `src/vista/world/pointcloud/pointcloud_test.cc` + sample `.las` fixture
+- Create: `src/vista/component/world/pointcloud/{point_cloud,las_io,text_io,load}.{h,cc}`
+- Modify: `src/vista/component/world/BUILD.gn`
+- Create: `src/vista/component/world/pointcloud/pointcloud_test.cc` + sample `.las` fixture
 
 - [x] Step 1: `PointCloud` buffer (xyz float, optional rgba, AABB)
 - [x] Step 2: ASPRS LAS reader (formats 0/2/3); LAZ via `load_las_via_laszip`
@@ -46,7 +46,7 @@ All rights reserved.
 **Files:**
 - Modify: `world.h` / `world.cc` (point payload on `kPointCloud`)
 - Modify: `tessellate.{h,cc}` (`tessellate_point_cloud`)
-- Modify: `vista/world_gpu/pass.{h,cc}` (sync + rebuild + `record_kind` for pointcloud)
+- Modify: `vista/pass/world/pass.{h,cc}` (sync + rebuild + `record_kind` for pointcloud)
 
 - [x] Step 1: `set_pointcloud_points` on World node
 - [x] Step 2: Tessellate points → tiny triangles
@@ -90,10 +90,10 @@ All rights reserved.
 
 **Files:**
 - Modify: `third_party/manifest.json` (+ `install.py` markers), `third_party/gn/BUILD.gn`, `third_party/BUILD.gn`, `build/smartgis.gni`
-- Create: `src/vista/world/pointcloud/pdal_io.{h,cc,stub.cc}` + test
+- Create: `src/vista/component/world/pointcloud/pdal_io.{h,cc,stub.cc}` + test
 - Modify: `world/BUILD.gn`, `world3d` scene_commands + manifest, Browser optional buffer attach
 
-- [x] Step 1: Manifest + CMake pin for PDAL; `smt_has_pdal` via `file_exists.py` on `.install/include/pdal/PipelineManager.hpp`
+- [x] Step 1: Manifest + CMake pin for PDAL; `has_pdal` via `file_exists.py` on `.install/include/pdal/PipelineManager.hpp`
 - [x] Step 2: `run_pdal_to_point_cloud` / `pdal_is_available`; stub returns `pdal_not_built`
 - [x] Step 3: Processing `world3d.pdal_read` + `world3d.pdal_pipeline`; scene attach via map layer
 - [x] Step 4: `pdal_io_test` green on stub (`pdal_not_built`); live PDAL optional via `build.bat t pdal` when network allows

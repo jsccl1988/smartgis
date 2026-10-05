@@ -4,7 +4,7 @@
 #ifndef PLUGIN_PYTHON_GIS_BINDINGS_H_
 #define PLUGIN_PYTHON_GIS_BINDINGS_H_
 
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
 struct _object;
 typedef struct _object PyObject;
 namespace plugin {

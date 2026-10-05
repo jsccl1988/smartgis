@@ -80,7 +80,14 @@ void ViewHost::release_exclusive() {
 }
 
 bool ViewHost::flashing() const {
-  return impl_ && impl_->workspace && impl_->workspace->flashing();
+  if (!impl_ || !impl_->workspace) {
+    return false;
+  }
+  const auto addr = reinterpret_cast<uintptr_t>(impl_->workspace.get());
+  if (addr < 0x10000ull || (addr >> 48) != 0) {
+    return false;
+  }
+  return impl_->workspace->flashing();
 }
 
 }  // namespace content

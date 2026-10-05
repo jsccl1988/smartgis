@@ -198,7 +198,7 @@ void MapViewport::paint_map_content(HDC target, const RECT& client_rc) {
     return false;
   }();
   // Keep the last SharedSurface blit when present briefly fails — but never
-  // skip GDI overlay under SMT_FORCE_GDI_MAP_OVERLAY. Ocean-only / stale
+  // skip GDI overlay under FORCE_GDI_MAP_OVERLAY. Ocean-only / stale
   // SharedSurface + early return left the embed near-black so pan looked dead.
   if (!presented && painted_generation_ > 0 && !force_gdi) {
     return;
@@ -271,7 +271,7 @@ void MapViewport::stop_present_timer() {
 }
 
 bool MapViewport::present_latest_frame(HDC hdc, const RECT& client_rc) {
-#ifdef SMT_HAS_CONTENT_MAP_SESSION
+#ifdef HAS_CONTENT_MAP_SESSION
   if (!hdc || !session_ || view_id_ == 0) {
     return false;
   }
@@ -362,7 +362,7 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
       }
     }
     if (self && self->mode_ == AttachMode::kContentMapView) {
-#ifdef SMT_HAS_CONTENT_MAP_SESSION
+#ifdef HAS_CONTENT_MAP_SESSION
       if (self->role_ == Role::kScene3d && IsWindowVisible(hwnd)) {
         // Leftover stereo / GDI SoT need continuous refresh (orbit + HUD).
         InvalidateRect(hwnd, nullptr, FALSE);
@@ -389,6 +389,11 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
       // token never advanced after async Init → navy clear + Fps0 forever
       // (browse / interact loop captures).
       self->request_frame();
+      return 0;
+    } else if (self && self->mode_ == AttachMode::kPlaceholder &&
+               self->role_ == Role::kScene3d && IsWindowVisible(hwnd)) {
+      // Scenic / software Scene3dPresenter::paint on the product HWND.
+      InvalidateRect(hwnd, nullptr, FALSE);
       return 0;
     }
     return 0;
@@ -483,14 +488,15 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
     // first, then shell overlay (stereo / HUD). Overlay must not treat the
     // DIB as leftover stereo. Skip GDI overlay_paint when a shell BGRA overlay
     // is already staged for DrawRequest.shell (U3 HUD-as-quad), unless
-    // SMT_FORCE_GDI_SHELL_OVERLAY=1.
+    // FORCE_GDI_SHELL_OVERLAY=1.
     if (self && self->role_ == Role::kScene3d &&
         self->mode_ == AttachMode::kContentMapView && scene_overlay &&
         *scene_overlay) {
       // Opaque underlay first — present_latest_frame failure must not leave a
       // hole (prefer_flycube_2d=0 ContentMapView fallback).
       fill_map_embed_opaque(hdc, rc, /*scene3d=*/true);
-      self->present_latest_frame(hdc, rc);
+      const bool presented = self->present_latest_frame(hdc, rc);
+      self->last_content_present_ok_.store(presented, std::memory_order_release);
       const bool force_gdi_shell = []() {
         if (const char* env = base::switch_cstr("force-gdi-shell-overlay")) {
           return env[0] == '1' && env[1] == '\0';

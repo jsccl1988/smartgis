@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "vista/terrain/dem/dem_frame.h"
-#include "vista/world/coord.h"
+#include "vista/component/world/coord.h"
 
 namespace scenic {
 namespace detail {
@@ -75,14 +75,14 @@ size_t seed_smt_scene_aabbs_into_world(vista::World* world,
   remove_empty_mirror_nodes(world);
   size_t added = 0;
   Object3dPtrs objs;
-  // const_cast: Get3DObjectPtrs is non-const on leftover ABI.
-  const_cast<Scene*>(scene)->Get3DObjectPtrs(objs);
+  // const_cast: objects is non-const on leftover ABI.
+  const_cast<Scene*>(scene)->objects(objs);
   for (size_t i = 0; i < objs.size(); ++i) {
     Object3d* obj = objs[i];
     if (!obj) {
       continue;
     }
-    const Aabb& aabb = obj->GetAabb();
+    const Aabb& aabb = obj->aabb();
     if (!aabb.is_init()) {
       continue;
     }
@@ -108,7 +108,7 @@ void set_smt_scene_world_mirror(vista::World* world) {
   g_scene_world_mirror = world;
 }
 
-vista::World* smt_scene_world_mirror() { return g_scene_world_mirror; }
+vista::World* scene_world_mirror() { return g_scene_world_mirror; }
 
 }  // namespace detail
 }  // namespace scenic

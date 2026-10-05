@@ -9,7 +9,7 @@ All rights reserved.
 
 **Goal:** Ship **Scheme 1** UI visual forensics — **Mode A** failure dumps under `out/ui_forensics/<run_id>/` and optional **Mode C** Python driver — per [`../specs/2026-09-27-views-desktop-shell-design.md`](../specs/2026-09-27-views-desktop-shell-design.md) §UI visual forensics (A+C).
 
-**Architecture:** Existing semantic / `layout_check` gates stay authoritative. On failure (or when `SMT_UI_FORENSICS=1`), shell offscreen WIC capture writes `frame_NNNN.png`, `manifest.json`, and `layout_issues.txt`. Mode C reuses DebugAgent `ui.*` for live `--record-all` and offline `--analyze` heuristics (AABB overlap, TabStrip, Ambox y-spacing, Gantt lane gaps). No map GPU pixel goldens.
+**Architecture:** Existing semantic / `layout_check` gates stay authoritative. On failure (or when `UI_FORENSICS=1`), shell offscreen WIC capture writes `frame_NNNN.png`, `manifest.json`, and `layout_issues.txt`. Mode C reuses DebugAgent `ui.*` for live `--record-all` and offline `--analyze` heuristics (AABB overlap, TabStrip, Ambox y-spacing, Gantt lane gaps). No map GPU pixel goldens.
 
 **Tech Stack:** C++23 test runners, Views shell capture, WIC, DebugAgent NDJSON, Python 3 at `tools/debug/scripts/ui_visual_forensics.py`.
 
@@ -46,7 +46,7 @@ All rights reserved.
 - [ ] **Step 3:** Hook L1 `views_interactive_tests` failure path.
 - [x] **Step 4:** Hook L1′ `SmartGIS.exe --self-test` failure path.
 - [ ] **Step 5:** Hook L2 `views_pixel_tests` failure path (shell PNG only; no map frame).
-- [x] **Step 6:** Implement `SMT_UI_FORENSICS=1` pass-through dump even on success (dev only).
+- [x] **Step 6:** Implement `UI_FORENSICS=1` pass-through dump even on success (dev only).
 
 ---
 
@@ -94,7 +94,7 @@ All rights reserved.
 REM Failure path (after implementation): force a layout_check fail → dir appears
 build.bat debug views_unittests
 REM Dev dump on pass
-set SMT_UI_FORENSICS=1
+set UI_FORENSICS=1
 out\views_unittests.exe
 REM Mode C (optional, not te)
 python tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run_id>

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_VISTA_WORLD_POINTCLOUD_POINT_CLOUD_H_
-#define GIS_VISTA_WORLD_POINTCLOUD_POINT_CLOUD_H_
+#ifndef VISTA_ASSETS_POINTCLOUD_POINT_CLOUD_H_
+#define VISTA_ASSETS_POINTCLOUD_POINT_CLOUD_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -46,4 +46,4 @@ struct PointCloud {
 
 }  // namespace vista
 
-#endif  // GIS_VISTA_WORLD_POINTCLOUD_POINT_CLOUD_H_
+#endif  // VISTA_ASSETS_POINTCLOUD_POINT_CLOUD_H_

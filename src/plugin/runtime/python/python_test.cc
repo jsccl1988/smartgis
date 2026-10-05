@@ -25,8 +25,8 @@ void expect(bool ok, const char* msg) {
   }
 }
 
-#ifndef SMT_PLUGIN_HELLO_DIR
-#define SMT_PLUGIN_HELLO_DIR ""
+#ifndef PLUGIN_HELLO_DIR
+#define PLUGIN_HELLO_DIR ""
 #endif
 
 bool write_text(const std::filesystem::path& path, const char* body) {
@@ -162,7 +162,7 @@ int main() {
   expect(reg.find("user.pyboom")->state == plugin::PluginState::kError,
          "kError after raise");
 
-  const char* hello_dir = SMT_PLUGIN_HELLO_DIR;
+  const char* hello_dir = PLUGIN_HELLO_DIR;
   if (hello_dir && hello_dir[0]) {
     const fs::path hello(hello_dir);
     if (fs::exists(hello / "plugin.py")) {

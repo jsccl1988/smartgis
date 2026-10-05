@@ -54,13 +54,13 @@ int main() {
 
   base::set_switch("map-backend", "a");
   expect(gpu::select_content_source() == gpu::ContentSource::kTile,
-         "SMT_MAP_BACKEND=a selects basemap");
+         "MAP_BACKEND=a selects basemap");
   expect(std::strcmp(gpu::content_source_name(gpu::ContentSource::kTile),
                      "tile") == 0,
          "basemap name");
   clear_backend_env();
 
-  // Runtime override (shell command / HostMsg). Beats SMT_MAP_BACKEND.
+  // Runtime override (shell command / HostMsg). Beats MAP_BACKEND.
   gpu::set_content_source(gpu::ContentSource::kTile);
   expect(gpu::select_content_source() == gpu::ContentSource::kTile,
          "runtime override basemap");
@@ -70,7 +70,7 @@ int main() {
   base::set_switch("map-backend", "a");
   gpu::set_content_source(gpu::ContentSource::kDirect);
   expect(gpu::select_content_source() == gpu::ContentSource::kDirect,
-         "override beats SMT_MAP_BACKEND");
+         "override beats MAP_BACKEND");
   gpu::clear_content_source_override();
   expect(gpu::select_content_source() == gpu::ContentSource::kTile,
          "cleared override uses env");

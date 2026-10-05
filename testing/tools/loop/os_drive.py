@@ -56,8 +56,8 @@ def _run_os_process(
     try:
         # Optional: wait for product SaveImage BMP before inject (showcase linger).
         # legacy.browse.2d captures via capture_hwnd_bmp_ex instead — do not set
-        # SMT_HARNESS_OS_WAIT_BMP for Edit-only OS suites.
-        wait_bmp = str(env.get("SMT_HARNESS_OS_WAIT_BMP", "")).strip().lower() in (
+        # HARNESS_OS_WAIT_BMP for Edit-only OS suites.
+        wait_bmp = str(env.get("HARNESS_OS_WAIT_BMP", "")).strip().lower() in (
             "1",
             "true",
             "yes",

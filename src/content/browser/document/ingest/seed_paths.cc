@@ -3,6 +3,8 @@
 
 #include "content/browser/document/ingest/seed_paths.h"
 
+#include <filesystem>
+
 namespace content {
 namespace detail {
 
@@ -49,6 +51,23 @@ std::vector<std::string> china_seed_relative_paths() {
       "..\\testing\\data\\china_plp.geojson",
       "..\\..\\testing\\data\\china_plp.geojson",
   };
+}
+
+bool try_resolve_china_seed_path(const std::string& exe_dir,
+                                 std::string* out_path) {
+  if (!out_path || exe_dir.empty()) {
+    return false;
+  }
+  std::filesystem::path root(exe_dir);
+  for (const std::string& rel : china_seed_relative_paths()) {
+    std::filesystem::path cand = root / rel;
+    std::error_code ec;
+    if (std::filesystem::is_regular_file(cand, ec)) {
+      *out_path = cand.lexically_normal().string();
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace content

@@ -58,15 +58,15 @@ bool Scene3dStereoSession::try_attach(HWND hwnd) {
     return false;
   }
   create_ = reinterpret_cast<CreateFn>(
-      GetProcAddress(module_, "smt_stereo_hwnd_create"));
+      GetProcAddress(module_, "stereo_hwnd_create"));
   destroy_ = reinterpret_cast<DestroyFn>(
-      GetProcAddress(module_, "smt_stereo_hwnd_destroy"));
+      GetProcAddress(module_, "stereo_hwnd_destroy"));
   resize_ = reinterpret_cast<ResizeFn>(
-      GetProcAddress(module_, "smt_stereo_hwnd_resize"));
+      GetProcAddress(module_, "stereo_hwnd_resize"));
   present_ = reinterpret_cast<PresentFn>(
-      GetProcAddress(module_, "smt_stereo_hwnd_present"));
+      GetProcAddress(module_, "stereo_hwnd_present"));
   blit_ =
-      reinterpret_cast<BlitFn>(GetProcAddress(module_, "smt_stereo_hwnd_blit"));
+      reinterpret_cast<BlitFn>(GetProcAddress(module_, "stereo_hwnd_blit"));
   if (!create_ || !destroy_ || !resize_ || !present_) {
     release();
     return false;

@@ -24,10 +24,10 @@ UI_EXPORT ShellCanvasBackend shell_canvas_backend();
 // Backend actually used for new Canvas instances after fallback.
 UI_EXPORT ShellCanvasBackend resolved_shell_canvas_backend();
 
-// True when this binary linked a real Skia paint TU (smt_has_skia + pin).
+// True when this binary linked a real Skia paint TU (has_skia + pin).
 UI_EXPORT bool is_skia_backend_available();
 
-// Resolve preference: non-empty |cli_value| wins; else env SMT_SHELL_CANVAS;
+// Resolve preference: non-empty |cli_value| wins; else env SHELL_CANVAS;
 // else gdi. Invalid tokens → gdi. Requested skia without capability → gdi and
 // one stderr line. Returns the resolved backend.
 UI_EXPORT ShellCanvasBackend apply_shell_canvas_preference(const char* cli_value);

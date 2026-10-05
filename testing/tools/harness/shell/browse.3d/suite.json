@@ -6,7 +6,9 @@
   ],
   "script": "browse.3d.il",
   "env": {
-    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+    "SKIP_MAP_CONTEXT_MENU": "1",
+    "SCENE3D_ENGINE": "flycube",
+    "SCENE3D_WIREFRAME": "0"
   },
   "window_title": "SmartGIS Views",
   "mark_leaf": "browse-3d-mark.txt",

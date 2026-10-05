@@ -7,7 +7,7 @@
 
 #include "base/core/log.h"
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 #include "ApiType/ApiType.h"
 #endif
 
@@ -17,7 +17,7 @@ namespace render {
 namespace rhi {
 
 namespace detail {
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 ApiType flycube_api(Backend backend) {
   return backend == Backend::kDx12 ? ApiType::kDX12 : ApiType::kVulkan;
@@ -350,10 +350,10 @@ void FlycubeDevice::destroy_pipeline(Pipeline* pipeline) {
     programs_.erase(pipeline);
 }
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 }  // namespace detail
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 Device* create_flycube_device(Backend backend) {
   return new detail::FlycubeDevice(backend);
@@ -397,7 +397,7 @@ Device* create_flycube_device(Backend backend) {
   return new detail::FlycubeDevice(backend);
 }
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace rhi
 }  // namespace render

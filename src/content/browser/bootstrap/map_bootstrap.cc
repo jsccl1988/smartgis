@@ -14,6 +14,8 @@ namespace {
 // Exe lives in out/Debug|Release, so ../data is the shared pack. Also try
 // data/ next to the exe, flat next-to-exe, and testing/data fallbacks.
 // Real china packs only — no views_ogr_sample / synthetic stub.
+// Order must stay aligned with content::china_seed_relative_paths() in
+// document/ingest/seed_paths.cc (MapScene::seed_default / ChinaBootstrap).
 const char* k_relative_candidates[] = {
     "../data/china_city.gpkg",
     "../data/china_city.geojson",

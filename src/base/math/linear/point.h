@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_POINT_H_
-#define SMT_RENDER_MATH_POINT_H_
+#ifndef BASE_MATH_LINEAR_POINT_H_
+#define BASE_MATH_LINEAR_POINT_H_
 
 #include "base/math/scalar/constants.h"
 
@@ -128,18 +128,51 @@ struct Rect {
   }
 };
 
-using lPoint = Point2<long>;
-using fPoint = Point2<float>;
-using dbfPoint = Point2<double>;
+using Point2l = Point2<long>;
+using Point2f = Point2<float>;
+using Point2d = Point2<double>;
+using Point3l = Point3<long>;
+using Point3f = Point3<float>;
+using Point3d = Point3<double>;
+using Rect2l = Rect<long>;
+using Rect2f = Rect<float>;
+using Rect2d = Rect<double>;
 
-using l3DPoint = Point3<long>;
-using f3DPoint = Point3<float>;
-using dbf3DPoint = Point3<double>;
-
-using lRect = Rect<long>;
-using fRect = Rect<float>;
-using dbfRect = Rect<double>;
+// Leftover GDI/carto spellings. New TUs use Point2f / Rect2f.
+using lPoint = Point2l;
+using fPoint = Point2f;
+using dbfPoint = Point2d;
+using l3DPoint = Point3l;
+using f3DPoint = Point3f;
+using dbf3DPoint = Point3d;
+using lRect = Rect2l;
+using fRect = Rect2f;
+using dbfRect = Rect2d;
 
 }  // namespace base
 
-#endif  // SMT_RENDER_MATH_POINT_H_
+namespace render {
+using ::base::Point2;
+using ::base::Point3;
+using ::base::Rect;
+using ::base::Point2l;
+using ::base::Point2f;
+using ::base::Point2d;
+using ::base::Point3l;
+using ::base::Point3f;
+using ::base::Point3d;
+using ::base::Rect2l;
+using ::base::Rect2f;
+using ::base::Rect2d;
+using ::base::lPoint;
+using ::base::fPoint;
+using ::base::dbfPoint;
+using ::base::l3DPoint;
+using ::base::f3DPoint;
+using ::base::dbf3DPoint;
+using ::base::lRect;
+using ::base::fRect;
+using ::base::dbfRect;
+}  // namespace render
+
+#endif  // BASE_MATH_LINEAR_POINT_H_

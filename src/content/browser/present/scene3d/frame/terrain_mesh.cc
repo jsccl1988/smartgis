@@ -6,7 +6,7 @@
 #include "content/browser/document/map_scene.h"
 #include "vista/terrain/dem/dem_bake_cache.h"
 #include "vista/terrain/dem/dem_raster.h"
-#include "vista/world/dem_seed.h"
+#include "vista/component/world/dem_seed.h"
 #include "vista/terrain/process/land_mask.h"
 
 #include <algorithm>

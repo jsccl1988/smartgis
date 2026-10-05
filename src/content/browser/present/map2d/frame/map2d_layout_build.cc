@@ -27,9 +27,9 @@
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
 #include "gis/style/document/style_document.h"
-#include "vista/map/ir.h"
-#include "vista/map_gpu/pass.h"
-#include "vista/map/hillshade_bake.h"
+#include "vista/component/map/ir.h"
+#include "vista/pass/map/pass.h"
+#include "vista/component/map/detail/hillshade_bake.h"
 #include "vista/terrain/dem/dem_raster.h"
 
 namespace content {

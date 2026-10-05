@@ -310,7 +310,7 @@ bool Store::install_from_index(const std::string& id) {
   if (!fetch_url(sig_url, &sig, &ferr) || sig.size() != 64) {
     return fail(StoreError::kBadSignature, "sig fetch failed");
   }
-  const fs::path tmp = fs::temp_directory_path() / ("smt_store_" + id);
+  const fs::path tmp = fs::temp_directory_path() / ("store_" + id);
   fs::create_directories(tmp);
   const fs::path zip_path = tmp / "plugin.zip";
   const fs::path sig_path = tmp / "plugin.zip.sig";

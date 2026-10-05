@@ -6,10 +6,10 @@
     "pointcloud"
   ],
   "env": {
-    "SMT_SCENE3D_SHOWCASE_LINGER_MS": "0",
-    "SMT_SCENE3D_SHOWCASE_D3D": "0",
-    "SMT_SCENE3D_SHOWCASE_MODE": "pointcloud",
-    "SMT_STEREO_API": "OpenGL"
+    "SCENE3D_SHOWCASE_LINGER_MS": "0",
+    "SCENE3D_SHOWCASE_D3D": "0",
+    "SCENE3D_SHOWCASE_MODE": "pointcloud",
+    "STEREO_API": "OpenGL"
   },
   "bmp": {
     "path": "legacy-scene3d-showcase-pointcloud.bmp",
@@ -33,6 +33,6 @@
       "mesh_silhouette_visible",
       "opengl_present_ok"
     ],
-    "expect_notes": "Smt3DPointCloud synthetic CSV; covers SmtSurfaceObject draw path; score_id=legacy_scene3d_points (sparse dots ok >0.10)"
+    "expect_notes": "PointCloud3d synthetic CSV; covers SmtSurfaceObject draw path; score_id=legacy_scene3d_points (sparse dots ok >0.10)"
   }
 }

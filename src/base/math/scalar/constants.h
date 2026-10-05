@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_CONSTANTS_H_
-#define SMT_RENDER_MATH_CONSTANTS_H_
+#ifndef BASE_MATH_SCALAR_CONSTANTS_H_
+#define BASE_MATH_SCALAR_CONSTANTS_H_
 
 namespace base {
 
@@ -11,7 +11,7 @@ inline constexpr double kHalfPi = 1.5707963;
 inline constexpr double kTwoPi = 6.2831853;
 inline constexpr float kEpsilon = 0.00001f;
 inline constexpr float kGravity = -32.174f;
-inline constexpr double kInvalidDbfValue = 1e10;
+inline constexpr double kInvalidCoord = 1e10;
 
 constexpr float deg_to_rad(float a) {
   return static_cast<float>(kPi / 180.0 * static_cast<double>(a));
@@ -40,8 +40,9 @@ using ::base::kHalfPi;
 using ::base::kTwoPi;
 using ::base::kEpsilon;
 using ::base::kGravity;
+using ::base::kInvalidCoord;
 using ::base::deg_to_rad;
 using ::base::rad_to_deg;
 }  // namespace render
 
-#endif  // SMT_RENDER_MATH_CONSTANTS_H_
+#endif  // BASE_MATH_SCALAR_CONSTANTS_H_

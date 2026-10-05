@@ -36,7 +36,7 @@ void exe_dir(wchar_t* out, size_t cap);
 HMODULE load_first(const wchar_t* const* names);
 bool init_device_seh(void* device, HWND hwnd);
 
-// Optional Scene3d swapchain downscale from SMT_SCENE3D_* env vars.
+// Optional Scene3d swapchain downscale from SCENE3D_* env vars.
 void clamp_scene3d_swapchain_size(uint32_t* w, uint32_t* h);
 
 }  // namespace detail

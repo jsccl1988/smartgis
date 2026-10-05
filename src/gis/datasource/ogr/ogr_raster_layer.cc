@@ -59,7 +59,7 @@ long image_code_from_path(const char* path) {
 
 namespace detail {
 
-constexpr char kImageCodeMeta[] = "SMT_IMAGE_CODE";
+constexpr char kImageCodeMeta[] = "IMAGE_CODE";
 
 void rect_to_geotransform(const Envelope& rect, int width, int height,
                           double* gt) {
@@ -111,7 +111,7 @@ OgrRasterLayer::OgrRasterLayer(GDALDataset* owner) : owner_ds_(owner) {
   }
 }
 
-OgrRasterLayer::~OgrRasterLayer() { Close(); }
+OgrRasterLayer::~OgrRasterLayer() { close(); }
 
 std::string OgrRasterLayer::blob_path() const {
   if (!vsimem_blob_.empty()) {
@@ -167,7 +167,7 @@ void OgrRasterLayer::sync_rect_from_dataset() {
   if (code && code[0]) {
     image_code_ = std::strtol(code, nullptr, 10);
   }
-  CalEnvelope();
+  cal_envelope();
 }
 
 void OgrRasterLayer::backfill_blob_from_path(const char* path) {
@@ -234,7 +234,7 @@ bool OgrRasterLayer::ensure_mem_dataset(int width, int height) {
   return true;
 }
 
-bool OgrRasterLayer::Create() {
+bool OgrRasterLayer::create() {
   if (open_ && owner_ds_ && owner_ds_->GetRasterCount() > 0) {
     return true;
   }
@@ -243,13 +243,13 @@ bool OgrRasterLayer::Create() {
     return false;
   }
   open_ = true;
-  CalEnvelope();
+  cal_envelope();
   return true;
 }
 
-bool OgrRasterLayer::Open(const char* szLayerArchiveName) {
+bool OgrRasterLayer::open(const char* szLayerArchiveName) {
   if (!szLayerArchiveName || !szLayerArchiveName[0]) {
-    return Create();
+    return create();
   }
   register_gdal_driver();
   release_owned_dataset();
@@ -268,14 +268,14 @@ bool OgrRasterLayer::Open(const char* szLayerArchiveName) {
   owns_dataset_ = true;
   name_ = szLayerArchiveName;
   sync_rect_from_dataset();
-  // GDI/CxImage still consume encoded blobs via GetRasterNoClone. Copy the
-  // source file into /vsimem so Open(path) matches CreaterRaster semantics.
+  // GDI/CxImage still consume encoded blobs via get_raster_no_clone. Copy the
+  // source file into /vsimem so open(path) matches create_raster semantics.
   backfill_blob_from_path(szLayerArchiveName);
   open_ = true;
   return true;
 }
 
-bool OgrRasterLayer::Close() {
+bool OgrRasterLayer::close() {
   unlink_blob();
   release_owned_dataset();
   image_code_ = -1;
@@ -283,32 +283,32 @@ bool OgrRasterLayer::Close() {
   return true;
 }
 
-bool OgrRasterLayer::Fetch() { return IsOpen(); }
+bool OgrRasterLayer::fetch() { return is_open(); }
 
-void OgrRasterLayer::CalEnvelope() { envelope_ = rect_; }
+void OgrRasterLayer::cal_envelope() { envelope_ = rect_; }
 
-void OgrRasterLayer::SetLayerName(const char* szName) {
+void OgrRasterLayer::set_name(const char* szName) {
   name_ = szName ? szName : "";
 }
 
-void OgrRasterLayer::SetLayerRect(const Envelope& lyr_rect) {
-  SetRasterRect(lyr_rect);
+void OgrRasterLayer::set_rect(const Envelope& lyr_rect) {
+  set_raster_rect(lyr_rect);
 }
 
-long OgrRasterLayer::SetRasterRect(const Envelope& fLocRect) {
+long OgrRasterLayer::set_raster_rect(const Envelope& fLocRect) {
   rect_ = fLocRect;
   apply_geotransform();
-  CalEnvelope();
+  cal_envelope();
   return k_raster_ok;
 }
 
-long OgrRasterLayer::CreaterRaster(const char* pRasterBuf, long lRasterBufSize,
+long OgrRasterLayer::create_raster(const char* pRasterBuf, long lRasterBufSize,
                                    const Envelope& fLocRect,
                                    long lImageCode) {
   if (lRasterBufSize < 0 || (lRasterBufSize > 0 && !pRasterBuf)) {
     return k_raster_invalid;
   }
-  if (!IsOpen() && !Create()) {
+  if (!is_open() && !create()) {
     return k_raster_fail;
   }
   if (!owner_ds_) {
@@ -351,17 +351,17 @@ long OgrRasterLayer::CreaterRaster(const char* pRasterBuf, long lRasterBufSize,
     GDALClose(decoded);
   }
 
-  CalEnvelope();
+  cal_envelope();
   return k_raster_ok;
 }
 
-long OgrRasterLayer::GetRaster(char*& pRasterBuf, long& lRasterBufSize,
+long OgrRasterLayer::get_raster(char*& pRasterBuf, long& lRasterBufSize,
                                Envelope& fLocRect, long& lImageCode) const {
   char* src = nullptr;
   long size = 0;
   Envelope loc;
   long code = 0;
-  const long rc = GetRasterNoClone(src, size, loc, code);
+  const long rc = get_raster_no_clone(src, size, loc, code);
   if (rc != k_raster_ok) {
     pRasterBuf = nullptr;
     lRasterBufSize = 0;
@@ -382,7 +382,7 @@ long OgrRasterLayer::GetRaster(char*& pRasterBuf, long& lRasterBufSize,
   return k_raster_ok;
 }
 
-long OgrRasterLayer::GetRasterNoClone(char*& pRasterBuf, long& lRasterBufSize,
+long OgrRasterLayer::get_raster_no_clone(char*& pRasterBuf, long& lRasterBufSize,
                                       Envelope& fLocRect,
                                       long& lImageCode) const {
   fLocRect = rect_;
@@ -404,7 +404,7 @@ long OgrRasterLayer::GetRasterNoClone(char*& pRasterBuf, long& lRasterBufSize,
   return k_raster_ok;
 }
 
-long OgrRasterLayer::GetRasterRect(Envelope& fLocRect) const {
+long OgrRasterLayer::get_raster_rect(Envelope& fLocRect) const {
   fLocRect = rect_;
   return k_raster_ok;
 }

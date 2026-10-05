@@ -21,8 +21,8 @@
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
 #include "content/public/map_types.h"
-#include "vista/world_gpu/pass.h"
-#include "vista/world/world.h"
+#include "vista/pass/world/pass.h"
+#include "vista/component/world/world.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
 
@@ -149,7 +149,7 @@ class Scene3dGpuPresent {
 
   // Last present/paint sets this for HUD badge (shared with software painter).
   mutable const char* render_engine_name = "pending";
-  // Present cadence for HUD "Fps%.3f" (legacy SmtScene::Render).
+  // Present cadence for HUD "Fps%.3f" (legacy Scene::Render).
   mutable float last_fps = 0.f;
   // Stable "EngineName  FpsN.NNN" for the bottom-right logo HWND.
   mutable char engine_fps_label_[96] = {};

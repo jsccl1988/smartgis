@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_TILE_XYZ_MATH_H_
-#define SDB_TILE_XYZ_MATH_H_
+#ifndef GIS_TILE_XYZ_MATH_H_
+#define GIS_TILE_XYZ_MATH_H_
 
 #include <cmath>
 #include <string>
@@ -128,4 +128,4 @@ inline std::vector<TileCoord> tiles_for_viewport(const Viewport& vp) {
 }  // namespace tile
 }  // namespace gis
 
-#endif  // SDB_TILE_XYZ_MATH_H_
+#endif  // GIS_TILE_XYZ_MATH_H_

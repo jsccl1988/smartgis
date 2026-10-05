@@ -3,7 +3,7 @@
 //
 // CPU-only DEM gradient bench (serial vs parallel_for).
 //
-//   set SMT_ANALYSIS_PROFILE=1
+//   set ANALYSIS_PROFILE=1
 //   out\Debug\analysis_dem_gradient_bench.exe
 // Artifacts: out/<config>/log/dem_gradient_bench.json
 //            out/<config>/captures/analysis/dem_gradient/dem_gradient_bench.json

@@ -9,11 +9,11 @@
   "script": "ui.interact.il",
   "window_title": "SmartGIS Views",
   "env": {
-    "SMT_UI_SHOWCASE_LINGER_MS": "0",
-    "SMT_UI_FORENSICS": "1",
-    "SMT_UI_THEME": "dark",
-    "SMT_HARNESS_RECORD": "1",
-    "SMT_HARNESS_RECORD_MODE": "bmp"
+    "UI_SHOWCASE_LINGER_MS": "0",
+    "UI_FORENSICS": "1",
+    "UI_THEME": "dark",
+    "HARNESS_RECORD": "1",
+    "HARNESS_RECORD_MODE": "bmp"
   },
   "bmp": {
     "path": "ui-showcase-interact.bmp",

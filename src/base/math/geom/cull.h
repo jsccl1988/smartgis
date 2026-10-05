@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_BASE_MATH_GEOM_CULL_H_
-#define SMT_BASE_MATH_GEOM_CULL_H_
+#ifndef BASE_MATH_GEOM_CULL_H_
+#define BASE_MATH_GEOM_CULL_H_
 
 namespace base {
 
@@ -35,4 +35,4 @@ using ::base::CullResult;
 using ::base::FrustumHit;
 }  // namespace render
 
-#endif  // SMT_BASE_MATH_GEOM_CULL_H_
+#endif  // BASE_MATH_GEOM_CULL_H_

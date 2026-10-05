@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_STYLE_STYLE_DOCUMENT_H_
-#define SDB_STYLE_STYLE_DOCUMENT_H_
+#ifndef GIS_STYLE_STYLE_DOCUMENT_H_
+#define GIS_STYLE_STYLE_DOCUMENT_H_
 
 #include <string>
 
@@ -24,4 +24,4 @@ GIS_EXPORT std::string serialize_style_document(const StyleDocument& doc);
 }  // namespace style
 }  // namespace gis
 
-#endif  // SDB_STYLE_STYLE_DOCUMENT_H_
+#endif  // GIS_STYLE_STYLE_DOCUMENT_H_

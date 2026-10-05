@@ -66,7 +66,7 @@ All rights reserved.
 | **不做** | 新渲染算法；改 FlyCube 公共 API |
 
 - [x] Phase 0.1：文档交叉链（spec ↔ 本 plan ↔ predecessor Deferred）  
-- [x] Phase 0.2：列出必跑单测目标名 + `SMT_RUN_FLYCUBE_GPU=1` 可选命令写入本 plan §6  
+- [x] Phase 0.2：列出必跑单测目标名 + `RUN_FLYCUBE_GPU=1` 可选命令写入本 plan §6  
 - [x] Phase 0.3：金标准 BMP 命名与存放约定（`out/` 或测试资产路径，实现时再定，禁止提交巨型二进制除非已有惯例）
 
 ### Phase 1 — 场数据产品化（约 1–2 人周）**【P0】**
@@ -170,7 +170,7 @@ API 缝：`ingest_gdal_field` / `ingest_gdal_field_series` → `FieldStore::uplo
 ### 6.2 GPU 可选门禁
 
 ```bat
-set SMT_RUN_FLYCUBE_GPU=1
+set RUN_FLYCUBE_GPU=1
 REM 例: build.bat src/app/views:scene3d_controller_test
 ```
 
@@ -196,7 +196,7 @@ REM 例: build.bat src/app/views:scene3d_controller_test
 - NVIDIA Earth-2 / Omniverse 数字孪生栈  
 - Cesium Native 或「引入 Shiva / two / bgfx」平行引擎  
 - 影视级碎浪、船尾全流体、完整焦散管线  
-- Vendor 第二套大气/海洋引擎；复活 leftover `SmtScene` / `scene3d` 大气  
+- Vendor 第二套大气/海洋引擎；复活 leftover `Scene` / `scene3d` 大气  
 - Qt；Skia 做 3D 大气；为大气新建 Device  
 - 完整多次散射体积云；业务级 GRIB/NetCDF 驱动矩阵（超出 GDAL 有则用）  
 

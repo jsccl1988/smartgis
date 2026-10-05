@@ -12,6 +12,8 @@
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "ui/views/map/map_viewport.h"
 
+#include "base/process/switches.h"
+
 #include <cstdio>
 #include <windows.h>
 
@@ -33,11 +35,11 @@ int run_map2d_present(Browser& browser,
     return 57;
   }
   // frame_china_map2d / orthogrid already invalidated when size/extent changed.
-  // Do not invalidate again immediately before timed present â€?that forces a
+  // Do not invalidate again immediately before timed present ï¿½?that forces a
   // cold layout+upload into the present_gpu wall clock.
   map2d_showcase_mark("cache-ready");
 
-  // Capture uses software export_bmp â€?do NOT UpdateWindow here. Sync GDI
+  // Capture uses software export_bmp ï¿½?do NOT UpdateWindow here. Sync GDI
   // paint through the HWND has AVd in Map2dSoftwarePainter / ContentMapView
   // under parallel harness (mark stops at bmp-path). Async InvalidateRect is
   // enough so the live HWND may refresh; BMP does not depend on it.
@@ -51,9 +53,14 @@ int run_map2d_present(Browser& browser,
 
   // Warm layout+hillshade AFTER HWND pump: a live paint at client size would
   // otherwise rebuild MapIR at ~2k and clobber the showcase 1280x720 cache.
-  // Scenic GDI SoT does not use MapIR — skip ensure_full (china layout can
-  // AV / hang on the leftover MapIR path while scenic is hosted).
-  if (!map2d->hosts_scenic_present()) {
+  // Scenic-only matrix cells skip MapIR. Product china export uses GDI carto
+  // (FORCE_GDI_MAP_OVERLAY / non-scenic) and must ensure_full so hillshade +
+  // gold roads land before BMP write.
+  const bool force_gdi_carto = []() {
+    const char* e = base::switch_cstr("force-gdi-map-overlay");
+    return e && e[0] == '1' && e[1] == '\0';
+  }();
+  if (!map2d->hosts_scenic_present() || force_gdi_carto) {
     if (!map2d->frame_cache().ensure_full(static_cast<uint32_t>(showcase_w),
                                           static_cast<uint32_t>(showcase_h))) {
       std::fprintf(stderr, "map2d-showcase: ensure_full layout failed\n");
@@ -64,7 +71,7 @@ int run_map2d_present(Browser& browser,
     map2d_showcase_mark("layout-warm-scenic-skip");
   }
 
-  // Software BMP first â€?carto gates / review-prep must not depend on optional
+  // Software BMP first ï¿½?carto gates / review-prep must not depend on optional
   // FlyCube smoke. Prior order (GPU then export) left bmp_missing when
   // present_gpu AVd on a second DXGI chain (ContentMapView HWND).
   if (const int rc =
@@ -81,7 +88,7 @@ int run_map2d_present(Browser& browser,
   run_optional_map2d_gpu_present(browser, map2d, showcase_w, showcase_h);
 
   // Optional FPS bench: keep maps live, request presents, sample HUD FPS.
-  // SMT_MAP2D_FPS_BENCH_MS=3000 (default off). Writes map2d-fps-bench.txt.
+  // MAP2D_FPS_BENCH_MS=3000 (default off). Writes map2d-fps-bench.txt.
   run_optional_map2d_fps_bench(browser, map2d);
   return 0;
 }

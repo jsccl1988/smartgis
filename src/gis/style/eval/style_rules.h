@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_STYLE_STYLE_RULES_H_
-#define SDB_STYLE_STYLE_RULES_H_
+#ifndef GIS_STYLE_STYLE_RULES_H_
+#define GIS_STYLE_STYLE_RULES_H_
 
 #include <vector>
 
@@ -29,4 +29,4 @@ GIS_EXPORT bool resolve(const StyleDocument& doc, const SymbolLibrary* library,
 }  // namespace style
 }  // namespace gis
 
-#endif  // SDB_STYLE_STYLE_RULES_H_
+#endif  // GIS_STYLE_STYLE_RULES_H_

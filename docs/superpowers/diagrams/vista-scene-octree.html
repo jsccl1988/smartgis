@@ -71,7 +71,7 @@ All rights reserved.
     <p>逻辑 <code>World</code> 与 GPU <code>GpuMesh</code> 各持一份 unibn 点 octree（AABB 中心）。录制前用视锥包围球做候选，再用平面精确过滤场景外物体。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista scene unibn octree</a>
-      · 代码：<code>src/vista/world/index/</code>
+      · 代码：<code>src/vista/component/world/index/</code>
       · 上游：<a href="https://github.com/jbehley/octree">jbehley/octree</a>（<code>unibn::Octree</code>）
     </div>
   </header>
@@ -158,7 +158,7 @@ All rights reserved.
       </thead>
       <tbody>
         <tr>
-          <td>产品 <code>vista/world/index</code> 适配器；leftover <code>SmtSceneOctTree</code> 不进本 DLL</td>
+          <td>产品 <code>vista/component/world/index</code> 适配器；leftover <code>SmtSceneOctTree</code> 不进本 DLL</td>
           <td>不把 <code>Octree.hpp</code> 放进公开头；不做 GPU BVH / occupancy</td>
         </tr>
         <tr>

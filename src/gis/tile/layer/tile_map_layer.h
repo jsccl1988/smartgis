@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_TILE_TILE_MAP_LAYER_H_
-#define SDB_TILE_TILE_MAP_LAYER_H_
+#ifndef GIS_TILE_TILE_MAP_LAYER_H_
+#define GIS_TILE_TILE_MAP_LAYER_H_
 
 #include <memory>
 #include <string>
@@ -33,4 +33,4 @@ make_wmts_map_layer_from_capabilities(const std::string& xml);
 }  // namespace tile
 }  // namespace gis
 
-#endif  // SDB_TILE_TILE_MAP_LAYER_H_
+#endif  // GIS_TILE_TILE_MAP_LAYER_H_

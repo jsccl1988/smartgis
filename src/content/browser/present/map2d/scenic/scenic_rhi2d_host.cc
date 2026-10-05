@@ -119,7 +119,7 @@ void ScenicRhi2dHost::shutdown() {
   width_px_ = 0;
   height_px_ = 0;
   last_ok_ = false;
-  map_.DeleteAll();
+  map_.clear();
   if (dataset_) {
     GDALClose(dataset_);
     dataset_ = nullptr;
@@ -131,7 +131,7 @@ bool ScenicRhi2dHost::is_ready() const {
 }
 
 bool ScenicRhi2dHost::ensure_map() {
-  if (map_.GetLayerCount() > 0) {
+  if (map_.layer_count() > 0) {
     return true;
   }
   GDALAllRegister();
@@ -155,14 +155,14 @@ bool ScenicRhi2dHost::ensure_map() {
   for (int i = 0; i < dataset_->GetLayerCount(); ++i) {
     OGRLayer* lyr = dataset_->GetLayer(i);
     if (lyr) {
-      map_.AddLayer(lyr);
+      map_.add_layer(lyr);
     }
   }
-  if (map_.GetLayerCount() < 1) {
+  if (map_.layer_count() < 1) {
     LOGGING(LOG_ERROR, "scenic rhi2d: no OGR layers in %s", path.c_str());
     return false;
   }
-  map_.CalEnvelope();
+  map_.cal_envelope();
   return true;
 }
 
@@ -191,22 +191,22 @@ bool ScenicRhi2dHost::attach(HWND hwnd, int width_px, int height_px) {
   }
   scenic::detail::LPRENDERDEVICE dev = device_->renderer.GetDevice();
   if (hwnd_ != hwnd) {
-    if (dev->host().init(hwnd, "map2d-scenic-rhi2d") !=
+    if (dev->Init(hwnd, "map2d-scenic-rhi2d") !=
         scenic::detail::kErrNone) {
-      LOGGING(LOG_ERROR, "scenic rhi2d: host.init failed hwnd=%p", hwnd);
+      LOGGING(LOG_ERROR, "scenic rhi2d: Init failed hwnd=%p", hwnd);
       return false;
     }
     scenic::detail::RenderOptions2d options = {};
-    options.show_mbr = false;
-    options.show_point = true;
-    options.point_radius = 3;
-    dev->host().set_render_options(options);
+    options.bShowMBR = false;
+    options.bShowPoint = true;
+    options.lPointRaduis = 3;
+    dev->SetRenderOptions(options);
     hwnd_ = hwnd;
     width_px_ = 0;
     height_px_ = 0;
   }
   if (width_px_ != width_px || height_px_ != height_px) {
-    if (dev->host().resize(0, 0, width_px, height_px) !=
+    if (dev->Resize(0, 0, width_px, height_px) !=
         scenic::detail::kErrNone) {
       LOGGING(LOG_ERROR, "scenic rhi2d: resize %dx%d failed", width_px,
               height_px);
@@ -238,7 +238,7 @@ bool ScenicRhi2dHost::apply_view(int width_px, int height_px,
   frt.lb.y = static_cast<float>(e.ymin);
   frt.rt.x = static_cast<float>(e.xmax);
   frt.rt.y = static_cast<float>(e.ymax);
-  return dev->interact().zoom_to_rect(&map_, frt, true) ==
+  return dev->ZoomToRect(&map_, frt, true) ==
          scenic::detail::kErrNone;
 }
 
@@ -250,7 +250,7 @@ bool ScenicRhi2dHost::refresh_frame(int width_px, int height_px,
   }
   scenic::detail::LPRENDERDEVICE dev = device_->renderer.GetDevice();
   if (width_px_ != width_px || height_px_ != height_px) {
-    if (dev->host().resize(0, 0, width_px, height_px) !=
+    if (dev->Resize(0, 0, width_px, height_px) !=
         scenic::detail::kErrNone) {
       last_ok_ = false;
       return false;
@@ -258,25 +258,25 @@ bool ScenicRhi2dHost::refresh_frame(int width_px, int height_px,
     width_px_ = width_px;
     height_px_ = height_px;
   }
-  const uint64_t gen0 = dev->present().published_generation();
+  const uint64_t gen0 = dev->map_published_generation();
   if (!apply_view(width_px, height_px, frame)) {
     last_ok_ = false;
     return false;
   }
-  if (dev->present().refresh() != scenic::detail::kErrNone) {
+  if (dev->Refresh() != scenic::detail::kErrNone) {
     last_ok_ = false;
     return false;
   }
-  (void)dev->host().on_timer();
+  (void)dev->Timer();
   if (settle_frame_job) {
-    // zoom_to_rect after a painted HWND baseline stages an async FrameJob.
-    // MAP save_image before publish is the ocean-clear key (170,211,223).
-    // Match scenic_gdi_map_paint_test: pump OnTimer until generation moves.
+    // ZoomToRect after a painted HWND baseline stages an async FrameJob.
+    // MAP SaveImage before publish is the ocean-clear key (170,211,223).
+    // Match scenic_gdi_map_paint_test: pump Timer until generation moves.
     for (int i = 0; i < 400; ++i) {
-      (void)dev->host().on_timer();
-      if (dev->present().published_generation() > gen0) {
+      (void)dev->Timer();
+      if (dev->map_published_generation() > gen0) {
         for (int j = 0; j < 8; ++j) {
-          (void)dev->host().on_timer();
+          (void)dev->Timer();
           ::Sleep(1);
         }
         break;
@@ -296,7 +296,7 @@ bool ScenicRhi2dHost::paint_hdc(HDC hdc, int width_px, int height_px,
     return false;
   }
   scenic::detail::LPRENDERDEVICE dev = device_->renderer.GetDevice();
-  last_ok_ = dev->present().blit_to_dc(hdc) == scenic::detail::kErrNone;
+  last_ok_ = dev->RenderMapToDC(hdc) == scenic::detail::kErrNone;
   return last_ok_;
 }
 
@@ -358,7 +358,7 @@ bool ScenicRhi2dHost::export_bmp(const std::string& path, int width_px,
     return false;
   }
   scenic::detail::LPRENDERDEVICE dev = device_->renderer.GetDevice();
-  if (dev->present().save_image(path.c_str(), false) !=
+  if (dev->SaveImage(path.c_str()) !=
       scenic::detail::kErrNone) {
     last_ok_ = false;
     return false;

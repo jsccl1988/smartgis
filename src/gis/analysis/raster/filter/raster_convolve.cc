@@ -117,7 +117,7 @@ bool write_float_geotiff(const std::string& path,
 }  // namespace
 
 bool analysis_profile_enabled() {
-  const char* e = std::getenv("SMT_ANALYSIS_PROFILE");
+  const char* e = std::getenv("ANALYSIS_PROFILE");
   if (!e || !e[0]) {
     return false;
   }

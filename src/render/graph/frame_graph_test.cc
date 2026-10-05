@@ -7,8 +7,8 @@
 #include <cstdlib>
 #include <memory>
 
-#include "vista/map_gpu/map_effect.h"
-#include "vista/map_gpu/pass.h"
+#include "vista/pass/map/map_effect.h"
+#include "vista/pass/map/pass.h"
 #include "render/rhi/rhi.h"
 
 namespace {

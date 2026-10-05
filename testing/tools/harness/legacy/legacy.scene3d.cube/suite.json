@@ -6,10 +6,10 @@
     "cube"
   ],
   "env": {
-    "SMT_SCENE3D_SHOWCASE_LINGER_MS": "0",
-    "SMT_SCENE3D_SHOWCASE_D3D": "0",
-    "SMT_SCENE3D_SHOWCASE_MODE": "cube",
-    "SMT_STEREO_API": "OpenGL"
+    "SCENE3D_SHOWCASE_LINGER_MS": "0",
+    "SCENE3D_SHOWCASE_D3D": "0",
+    "SCENE3D_SHOWCASE_MODE": "cube",
+    "STEREO_API": "OpenGL"
   },
   "bmp": {
     "path": "legacy-scene3d-showcase-cube.bmp",

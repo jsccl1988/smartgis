@@ -149,7 +149,7 @@ int main() {
       many.push_back(std::move(ring));
     }
     auto run_fill = [&](const char* backend) {
-      _putenv_s("SMT_BAKE_BACKEND", backend);
+      _putenv_s("BAKE_BACKEND", backend);
       std::vector<uint8_t> mask(static_cast<size_t>(320 * 200), 0);
       vista::reset_land_mask_bake_sample();
       const auto t0 = std::chrono::steady_clock::now();

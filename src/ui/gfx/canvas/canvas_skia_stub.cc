@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Linked when smt_has_skia is false so Canvas can always call Skia factories.
+// Linked when has_skia is false so Canvas can always call Skia factories.
 
 #include "ui/gfx/canvas/canvas_backend.h"
 

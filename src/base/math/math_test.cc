@@ -172,7 +172,7 @@ int main() {
     assert(xy_out[3] == static_cast<long>(100.f - 7));
 
     // Larger batch: batch path must match per-point transform_xy (scalar or
-    // AVX2 when smt_render_math_simd is on).
+    // AVX2 when base_math_simd is on).
     float big_in[16];
     long big_out[16] = {};
     long expect[16] = {};

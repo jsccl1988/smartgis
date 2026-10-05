@@ -61,7 +61,7 @@ source_set("process_switches_sources") {
 }
 
 # //src/base/math:{math,bounds} stay separate source_sets, outside this DLL.
-smt_shared_library("base") {
+product_shared_library("base") {
   dll_stem = "base"
   defines = [ "BASE_EXPORTS" ]
   deps = [

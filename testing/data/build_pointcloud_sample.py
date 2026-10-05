@@ -6,7 +6,7 @@
 Source: china_dem.tif (Mapzen/Nextzen terrain stack — SRTM/GMTED/NED/ETOPO
 derivatives; see china_city.LICENSE.txt). Not a survey product.
 
-Output format matches leftover Smt3DPointCloud::Read3DPointCloud:
+Output format matches leftover PointCloud3d::Read3DPointCloud:
   x,z,y,r,g,b   (comma; second column → leftover Z, third → Y; RGB 0–255)
 
 This third_party GDAL build often omits the XYZ writer. Prefer XYZ when
@@ -232,7 +232,7 @@ def write_pointcloud(
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="ascii", newline="\n") as f:
         f.write(
-            "# Public china_dem subsample for Smt3DPointCloud::Read3DPointCloud\n"
+            "# Public china_dem subsample for PointCloud3d::Read3DPointCloud\n"
         )
         f.write("# Format: x,z,y,r,g,b  (lon, elev_m, lat, RGB)\n")
         if note:

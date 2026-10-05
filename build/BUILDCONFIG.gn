@@ -63,12 +63,12 @@ declare_args() {
   # Install prefix is third_party/.install via `build.bat t`.
   is_build_third_party = false
   # Unused (MFC leftover exe removed). Kept so existing gn args still parse.
-  smt_build_app = false
+  build_app = false
   # Load Views chrome exe (//src/app/views). Off so ninja `all` stays src_all.
-  smt_build_views = false
+  build_views = false
   # Load GPU process (//src/gpu:gpu → SmartGisRender.exe). Off so `all` stays
   # the src_all DLL set. build.bat render sets this.
-  smt_build_render = false
+  build_render = false
 }
 
 declare_args() {

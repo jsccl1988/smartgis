@@ -22,7 +22,7 @@ Progressive disclosure for the skill. Read when parsing logs, diagnosing a red c
         │     software export_bmp + FlyCube present_gpu
         │     metrics: export_ms, paint_ms, present_gpu_{cold,warm}_ms, phase_*
         │
-        └─ Scenic Map2dEngine (SMT_MAP2D_ENGINE=scenic)
+        └─ Scenic Map2dEngine (MAP2D_ENGINE=scenic)
               content-hosted scenic::Engine GDI of the same china MapScene
               not a GDI+/Skia port peer
 ```
@@ -35,7 +35,7 @@ Progressive disclosure for the skill. Read when parsing logs, diagnosing a red c
 | --- | --- |
 | Compare Scenic rhi2d cells across parallel × port on `execute_ms_max` | Yes |
 | Compare Vista phases across runs (before/after opt) | Yes |
-| Equal-latitude: matrix `SMT_MAP2D_NO_HILLSHADE=1` (no DEM) vs Scenic IR | Yes |
+| Equal-latitude: matrix `MAP2D_NO_HILLSHADE=1` (no DEM) vs Scenic IR | Yes |
 | Treat Scenic `execute_ms` as equal work to `export_ms` / paint / present | **No** (FALSE-GAP) |
 | Claim “Vista is N× slower” from IR vs export | **No** |
 | Rank GDI+ / Skia against a frozen `src/legacy` port | **No** |
@@ -44,7 +44,7 @@ Progressive disclosure for the skill. Read when parsing logs, diagnosing a red c
 Sample `matrix_note` / `parallel_port_matrix_NOTE.txt` string:
 
 ```
-FALSE-GAP: scenic rhi2d execute_ms = IR replay only; NOT comparable to Vista paint_ms/export_ms/present_gpu_*; never claim execute_ms == export_ms; equal-latitude: SMT_MAP2D_NO_HILLSHADE=1 (Vista skips DEM shade; same carto axis as scenic rhi2d IR which has no hillshade)
+FALSE-GAP: scenic rhi2d execute_ms = IR replay only; NOT comparable to Vista paint_ms/export_ms/present_gpu_*; never claim execute_ms == export_ms; equal-latitude: MAP2D_NO_HILLSHADE=1 (Vista skips DEM shade; same carto axis as scenic rhi2d IR which has no hillshade)
 ```
 
 Scenic rhi2d paints from an IR command buffer (no DEM hillshade / MapFrame layout in `execute_ms`). Matrix equal-latitude turns off Vista DEM shade via env; Vista still pays MapFrame layout + software paint + optional GPU upload/present. Runner prints Scenic port grid (table A) + Vista phase table (table B) + Map2dEngine (table C) on every run.
@@ -56,9 +56,9 @@ Scenic rhi2d paints from an IR command buffer (no DEM hillshade / MapFrame layou
 | **P0** | Cold `upload_draws` merge | Chase Scenic IR as Vista paint |
 | **P1** | Layout / frame-cache incremental | Strip MapFrame |
 | **P2** | Software GDI batch (Scenic GDI + map2d software) | Permanent NO_HILLSHADE product default |
-| **P3** | `SMT_VISTA_LAYOUT_PARALLEL` + false-gap labels in harness | Treat FALSE-GAP as a bug |
+| **P3** | `VISTA_LAYOUT_PARALLEL` + false-gap labels in harness | Treat FALSE-GAP as a bug |
 
-Harness sets `SMT_VISTA_LAYOUT_PARALLEL=1` on the vista cell (`=0` opt-out). Product emitters must `getenv` that flag (parallel plan V1 / equal-profile P3a) — until then tess still keys off job count only.
+Harness sets `VISTA_LAYOUT_PARALLEL=1` on the vista cell (`=0` opt-out). Product emitters must `getenv` that flag (parallel plan V1 / equal-profile P3a) — until then tess still keys off job count only.
 
 ## Phase columns (Vista)
 
@@ -132,15 +132,15 @@ Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the
 - `out/Debug/captures/map2d/matrix/vista-china.inspect.png`
 - `out/Debug/captures/map2d/matrix/scenic-serial_gdi.inspect.png`
 
-说明（FALSE-GAP）：Scenic rhi2d execute_ms 为 IR-only，不可与 Vista paint/export/present 直接等同；equal-latitude `SMT_MAP2D_NO_HILLSHADE=1`。
+说明（FALSE-GAP）：Scenic rhi2d execute_ms 为 IR-only，不可与 Vista paint/export/present 直接等同；equal-latitude `MAP2D_NO_HILLSHADE=1`。
 ```
 
 ## Diagnose red cell
 
 1. Open matching `scenic_*.log` or `vista_china.log` / `scenic_china.log`.
 2. Confirm BMP exists and `bmp_bytes` > ~10KB.
-3. Scenic ports: check `SMT_RHI2D_PORT` DLL under `out/Debug` (`scenic_rhi2d_gdi_d.dll` / `_gdiplus_d` / `_skia_d` in Debug).
-4. vista: check GPU adapter / `SMT_MAP2D_SHOWCASE_GPU`; cold crash → plan Task 2 (device reuse, no timed invalidate).
+3. Scenic ports: check `RHI2D_PORT` DLL under `out/Debug` (`scenic_rhi2d_gdi_d.dll` / `_gdiplus_d` / `_skia_d` in Debug).
+4. vista: check GPU adapter / `MAP2D_SHOWCASE_GPU`; cold crash → plan Task 2 (device reuse, no timed invalidate).
 5. Rebuild only the failing PE; re-run full matrix for a consistent table.
 
 ## Optimize hotspots (plan map)

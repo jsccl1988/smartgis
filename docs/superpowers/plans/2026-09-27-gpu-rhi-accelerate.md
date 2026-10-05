@@ -45,7 +45,7 @@ All rights reserved.
 
 - Each `OutputSurface` / view is pinned to an `AdapterId`; unbound → `kAdapterPrimary`.
 
-- ~~Default compose backend remains `kSoftware` until explicitly opted in (`SMT_GPU_COMPOSE=rhi` or test override). Fallback is **per adapter**.~~ **Superseded** by **Follow-up: default RHI + monitor LUID (A+C)** below — default is now `kRhi`; `SMT_GPU_COMPOSE=software` is the escape; sticky fallback remains **per adapter**.
+- ~~Default compose backend remains `kSoftware` until explicitly opted in (`GPU_COMPOSE=rhi` or test override). Fallback is **per adapter**.~~ **Superseded** by **Follow-up: default RHI + monitor LUID (A+C)** below — default is now `kRhi`; `GPU_COMPOSE=software` is the escape; sticky fallback remains **per adapter**.
 
 - Wire command `view.backend.rhi` still means `ContentSource::kDirect` — do not overload it to mean FlyCube in this plan.
 
@@ -127,7 +127,7 @@ All rights reserved.
 
 
 
-- [x] **Step 4:** Implement `select_compose_backend` / `set_compose_backend` / `clear_compose_backend_override`. Read `SMT_GPU_COMPOSE=software|rhi` (case-insensitive). Unknown / unset → `kSoftware`. Until Task 4, `make_frame_composer(kRhi, …)` returns software with a one-time log — **display must never get a null composer**.
+- [x] **Step 4:** Implement `select_compose_backend` / `set_compose_backend` / `clear_compose_backend_override`. Read `GPU_COMPOSE=software|rhi` (case-insensitive). Unknown / unset → `kSoftware`. Until Task 4, `make_frame_composer(kRhi, …)` returns software with a one-time log — **display must never get a null composer**.
 
 
 
@@ -283,7 +283,7 @@ out\render_backend_test.exe
 
 REM optional:
 
-set SMT_GPU_COMPOSE=rhi
+set GPU_COMPOSE=rhi
 
 out\render_backend_test.exe
 
@@ -291,7 +291,7 @@ out\render_backend_test.exe
 
 
 
-Expected: default suite green; with `SMT_GPU_COMPOSE=rhi`, RhiComposer path runs (present still upload_bgra until FlyCube import).
+Expected: default suite green; with `GPU_COMPOSE=rhi`, RhiComposer path runs (present still upload_bgra until FlyCube import).
 
 
 
@@ -307,7 +307,7 @@ Expected: default suite green; with `SMT_GPU_COMPOSE=rhi`, RhiComposer path runs
 
 - Modify: `src/gpu/compositor/rhi_composer.*`
 
-- Test: extend `gpu_rhi_composer_test` + run tile cases under `SMT_GPU_COMPOSE=rhi`
+- Test: extend `gpu_rhi_composer_test` + run tile cases under `GPU_COMPOSE=rhi`
 
 
 
@@ -365,7 +365,7 @@ Expected: default suite green; with `SMT_GPU_COMPOSE=rhi`, RhiComposer path runs
 
 
 
-- [ ] **Step 3 (human):** XYZ mosaic hand-test (`SMT_MAP_BACKEND=a` + `SMT_XYZ_URL=...` + `SMT_GPU_COMPOSE=rhi`).
+- [ ] **Step 3 (human):** XYZ mosaic hand-test (`MAP_BACKEND=a` + `XYZ_URL=...` + `GPU_COMPOSE=rhi`).
 
 
 
@@ -403,7 +403,7 @@ Expected: default suite green; with `SMT_GPU_COMPOSE=rhi`, RhiComposer path runs
 
 
 
-- [ ] **Step 3:** effect/map: CPU `gis::vista::Layout` stays in gis; RHI Pass is `effect::map` (`src/vista/map`); bridge copies color target into compositor on the same `AdapterId` — deferred until offscreen readback.
+- [ ] **Step 3:** effect/map: CPU `gis::vista::Layout` stays in gis; RHI Pass is `effect::map` (`src/vista/component/map`); bridge copies color target into compositor on the same `AdapterId` — deferred until offscreen readback.
 
 
 
@@ -505,7 +505,7 @@ Plan complete when saved. Implementation continues on `master` under the multi-G
 
 
 
-**Locked:** default `ComposeBackend` = `kRhi` (unset `SMT_GPU_COMPOSE` → `kRhi`); `SMT_GPU_COMPOSE=software` escape; sticky per-adapter software fallback; Attach/Resize carry monitor LUID (+ optional `adapter_hint`); `HMONITOR` never on the wire; topology stays 1 gpu process × N adapters; shell never final-compose.
+**Locked:** default `ComposeBackend` = `kRhi` (unset `GPU_COMPOSE` → `kRhi`); `GPU_COMPOSE=software` escape; sticky per-adapter software fallback; Attach/Resize carry monitor LUID (+ optional `adapter_hint`); `HMONITOR` never on the wire; topology stays 1 gpu process × N adapters; shell never final-compose.
 
 
 
@@ -513,7 +513,7 @@ Plan complete when saved. Implementation continues on `master` under the multi-G
 
 
 
-- [x] Flip / verify `select_compose_backend` / env parse: unset / empty / unknown → `kRhi`; only `SMT_GPU_COMPOSE=software` → `kSoftware` (`src/gpu/compositor/composer/composer.cc`, `composer.h`).
+- [x] Flip / verify `select_compose_backend` / env parse: unset / empty / unknown → `kRhi`; only `GPU_COMPOSE=software` → `kSoftware` (`src/gpu/compositor/composer/composer.cc`, `composer.h`).
 - [x] Keep sticky per-adapter software fallback on RHI init / hard present failure (`src/gpu/device/gpu_device_hub.*`, `make_frame_composer`).
 - [x] Update unit tests expecting software-default (`src/gpu/*_test.cc` / `gpu_rhi_composer_test`).
 - [x] Align as-built wording: `src/gpu/README.md` Multi-GPU + living §GPU-process accelerate.

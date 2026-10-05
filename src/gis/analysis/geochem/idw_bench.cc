@@ -123,9 +123,9 @@ bool write_text(const std::filesystem::path& path, const std::string& body) {
 
 int main(int argc, char** argv) {
 #if defined(_WIN32)
-  _putenv_s("SMT_ANALYSIS_PROFILE", "1");
+  _putenv_s("ANALYSIS_PROFILE", "1");
 #else
-  setenv("SMT_ANALYSIS_PROFILE", "1", 1);
+  setenv("ANALYSIS_PROFILE", "1", 1);
 #endif
 
   const int ns[] = {10, 50, 200};

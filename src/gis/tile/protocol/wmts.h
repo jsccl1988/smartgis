@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_TILE_WMTS_H_
-#define SDB_TILE_WMTS_H_
+#ifndef GIS_TILE_WMTS_H_
+#define GIS_TILE_WMTS_H_
 
 #include <string>
 
@@ -30,4 +30,4 @@ GIS_EXPORT bool parse_wmts_capabilities(const std::string& xml,
 }  // namespace tile
 }  // namespace gis
 
-#endif  // SDB_TILE_WMTS_H_
+#endif  // GIS_TILE_WMTS_H_

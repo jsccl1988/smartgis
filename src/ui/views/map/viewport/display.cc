@@ -243,7 +243,7 @@ void MapViewport::display_run_begin_frame() {
 }
 
 void MapViewport::shutdown_rhi_on_display_thread() {
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
   render::rhi::Device* device = nullptr;
   {
     std::lock_guard<std::mutex> lock(display_mu_);
@@ -317,7 +317,7 @@ void MapViewport::display_thread_main() {
       display_run_begin_frame();
       continue;
     }
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
       if (task.op == DisplayOp::kInit) {
         LOGGING(LOG_INFO, "rhi.display Init hwnd=%p size=%ux%u", task.hwnd,
                 task.width_px, task.height_px);

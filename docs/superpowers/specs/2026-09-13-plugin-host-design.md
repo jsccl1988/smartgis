@@ -14,7 +14,7 @@ All rights reserved.
 
 ## Goal
 
-`src/plugin` today is six MFC `*.am` DLLs plus a leftover loader (`SmtPluginManager` scans `aux module\*.am`, `LoadLibrary`, `GetPluginVersion` / `StartPlugin` / `StopPlugin`) and a leftover runtime (`SmtAuxModule` + `SmtAModuleManager` singleton, `long` msgs, `AppendFuncItems` into menus and `ui/xambox`). Chrome reaches plugins through `SmtApp::InitSmtAuxModules` → `GetAppPath() + "aux module\\"`.
+`src/plugin` today is six MFC `*.am` DLLs plus a leftover loader (`SmtPluginManager` scans `aux module\*.am`, `LoadLibrary`, `GetPluginVersion` / `StartPlugin` / `StopPlugin`) and a leftover runtime (`SmtAuxModule` + `SmtAModuleManager` singleton, `long` msgs, `AppendFuncItems` into menus and `ui/xambox`). Chrome reaches plugins through `App::InitSmtAuxModules` → `GetAppPath() + "aux module\\"`.
 
 The replacement is a full extension platform:
 
@@ -71,7 +71,7 @@ Chrome (Views / leftover MFC)
         ��
         ��
 content::PluginHost          QgsInterface analogue
-  MapContents                (no SmtMap* on this header)
+  MapContents                (no Map* on this header)
   EventBus*                  (session-scoped; already specified)
   contribute_command ��������������? tool::CommandCatalog / CommandDispatcher
   contribute_menu / dock / dialog
@@ -100,9 +100,9 @@ Chrome map/session code includes only `content/public` (same rule as the tool sp
 
 Loader: `src/base/plugin.h` + `plugin.cpp` + `pluginmanager.cpp`. Scans `*.am`, `LoadLibrary`, resolves `GetPluginVersion` / `StartPlugin` / `StopPlugin`. Missing exports �� treat as non-plugin, `FreeLibrary`, leftover `MessageBox`.
 
-Runtime: `src/plugin/module.h` `SmtAuxModule` (a `SmtListener`) and `src/plugin/module_manager.h` `SmtAModuleManager` singleton. `AppendFuncItems` fills menus and `ui/xambox`. `long` msgs via `SMT_POST_AM_MSG`.
+Runtime: `src/plugin/module.h` `SmtAuxModule` (a `SmtListener`) and `src/plugin/module_manager.h` `SmtAModuleManager` singleton. `AppendFuncItems` fills menus and `ui/xambox`. `long` msgs via `POST_AM_MSG`.
 
-App load path: `SmtApp::InitSmtAuxModules` �� `SmtPluginManager::GetSingletonPtr()->LoadAllPlugin(GetAppPath() + "aux module\\")`.
+App load path: `App::InitSmtAuxModules` �� `SmtPluginManager::GetSingletonPtr()->LoadAllPlugin(GetAppPath() + "aux module\\")`.
 
 Five domain DLLs:
 
@@ -111,7 +111,7 @@ Five domain DLLs:
 | `plugin/dem` | `SmtAMDemCreater` | `CDlgTinLoader`, `CDlgGridLoader`, `CDlgAbout` | `dem.load_tin`, `dem.load_grid`, `dem.about` |
 | `plugin/proj` | `SmtAMMapProject` | `CDlgMapPrj` (tab host), `CDlgMapPrjDoXY`, `CDlgMapPrjDoGrid` | `proj.do_prj` |
 | `plugin/print` | `SmtAMMapPrint` | `CDlg2DXView` | `print.preview` |
-| `plugin/model3d` | `SmtAM3DModelCreater` | no custom `CDialog`; `CFileDialog` + `MessageBox` + scene mutations | `model3d.add_pointcloud` �� `model3d.layer_polygons_to_3d` (nine commands, leftover `SMT_MSG_3DMODELCREATER_1`�C`9`) |
+| `plugin/model3d` | `SmtAM3DModelCreater` | no custom `CDialog`; `CFileDialog` + `MessageBox` + scene mutations | `model3d.add_pointcloud` �� `model3d.layer_polygons_to_3d` (nine commands, leftover `MSG_3DMODELCREATER_1`�C`9`) |
 | `plugin/baogrid` | `SmtAMBAOGridCreater` | no custom `CDialog`; `CFileDialog` + `MessageBox` + leftover IA line tool | `baogrid.input_boundary_0`, `baogrid.input_boundary_2`, `baogrid.save_boundary`, `baogrid.load_boundary` |
 
 Leftover plugin `CDialog`s rewrite to `ui::views`. Shared `plugin::MapPreviewView` is the print preview canvas. model3d / baogrid extra UI is file picker + message box.
@@ -272,7 +272,7 @@ No marketplace accounts, comments, or ratings.
 
 `plugin::LegacyAmAdapter` is the only new code that includes leftover `src/base/plugin.h` / `pluginmanager.h`.
 
-- `scan(const char* aux_module_dir)` calls `SmtPluginManager::GetSingletonPtr()->LoadAllPlugin(aux_module_dir)` (same path `SmtApp` uses: `GetAppPath() + "aux module\\"`).
+- `scan(const char* aux_module_dir)` calls `SmtPluginManager::GetSingletonPtr()->LoadAllPlugin(aux_module_dir)` (same path `App` uses: `GetAppPath() + "aux module\\"`).
 - Maps leftover display names / file stems to builtin ids:
 
 | Leftover stem or `SmtAuxModule` name | id |
@@ -372,7 +372,7 @@ class PluginHost {
 
 `contribute_command` calls `commands()->add(command_id, handler)` and records the menu placement. Duplicate command ids fail (false), matching `CommandCatalog::add`. `execute` is `CommandDispatcher::execute`. `withdraw` removes that plugin's commands / menus / docks / dialogs / processing and does not touch other plugins.
 
-`MapContents` is the only map face plugins get on the new path. It wraps the existing `content::MapSession` (do not rename `MapSession` in this cycle). No `SmtMap*`, HWND, or `LPRENDERDEVICE` on this header.
+`MapContents` is the only map face plugins get on the new path. It wraps the existing `content::MapSession` (do not rename `MapSession` in this cycle). No `Map*`, HWND, or `LPRENDERDEVICE` on this header.
 
 `PluginHost` is constructed by chrome per app (one host). It is not a singleton accessor.
 
@@ -524,7 +524,7 @@ Chrome (`src/app/views`) hosts this view. It includes `content/public/plugin_hos
 1. Chrome menu or Plugin Manager runs `host->execute("dem.load_tin")`.
 2. Handler calls `host->open_dialog("world3d.trimesh_loader")`.
 3. Dialog factory builds `TrimeshLoaderDialog` (Views). OK collects JSON args and `host->run_processing("world3d.trimesh_from_xyz", args)`.
-4. Worker runs `tin::` / leftover loader. `done` on main thread. Success: chrome commits via `sdb::EditSession` if a feature was created, then `EventBus` (for example `ExtentChanged`). The dialog does not write `SmtMap`.
+4. Worker runs `tin::` / leftover loader. `done` on main thread. Success: chrome commits via `sdb::EditSession` if a feature was created, then `EventBus` (for example `ExtentChanged`). The dialog does not write `Map`.
 
 **Disable / unload**
 
@@ -810,7 +810,7 @@ L1  Capability substrate    �� always C++; grow via stable processing / tool
 | Orthogrid Laplace | `baogrid.create_orth_grid` / `orthogrid.create_orth_grid` | Session + `orthogrid/boundary_solve`; solver in `gis/geo/grid` |
 | Projection transforms | `proj.*` processing (when registered) | PROJ / GDAL stack |
 | OGR / GEOS operators | `native.*` via `plugin::` �� `gis/analysis/ops` | Kernels in `gis.dll`; no second GEOS / Shapely |
-| Surface / mesh write-back | `DemSurfaceWriter`-class host callbacks | Document consistency; no `SmtMap*` in Python |
+| Surface / mesh write-back | `DemSurfaceWriter`-class host callbacks | Document consistency; no `Map*` in Python |
 | 3D scene object writes | scene-device primitives | Point cloud / water / terrain / layer��3D |
 | Print preview canvas | `MapPreviewView` (+ export kernels) | Views/Skia composite control |
 | Boundary digitize | `tool` ids (e.g. `edit.append.linestring`) | Interaction state machine |
@@ -1027,7 +1027,7 @@ Every builtin under `src/plugin/product/` loads **shipped sample data** and prod
 
 **Status:** active  
 **Updated:** 2026-09-30  
-**Approach:** **2** �� shared `vista/world/pointcloud` module; `world3d` registers commands only.  
+**Approach:** **2** �� shared `vista/component/world/pointcloud` module; `world3d` registers commands only.  
 **Plan:** [`../plans/2026-09-30-world3d-pointcloud-las.md`](../plans/2026-09-30-world3d-pointcloud-las.md)  
 **Render draw:** [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md) ��Point cloud GPU draw
 
@@ -1040,9 +1040,9 @@ Load industry **LAS / LAZ** (and legacy sample `.txt`) into a shared point buffe
 | # | Choice |
 | --- | --- |
 | 1 | Formats P0: uncompressed **LAS** 1.2/1.4 (ASPRS) + leftover RGB txt. **LAZ** via vendored **LASzip** `LASunzipper` (`third_party/.src/LASzip` + `//third_party:laszip`). |
-| 2 | Reader stack: light **LASzip** first (default `load_point_cloud`); **PDAL** only via P3 processing (`smt_has_pdal` when `third_party/.install` has PDAL). |
-| 3 | Codec under `src/vista/assets/pointcloud/`; node buckets under `src/vista/world/pointcloud/`. Plugin does not embed parse. |
-| 4 | Viz path: `World3dSceneWriter` �� shared loader �� `World` / `GpuScene` (not leftover `Smt3DPointCloud` as default). Map2d may also show point features. |
+| 2 | Reader stack: light **LASzip** first (default `load_point_cloud`); **PDAL** only via P3 processing (`has_pdal` when `third_party/.install` has PDAL). |
+| 3 | Codec under `src/vista/assets/pointcloud/`; node buckets under `src/vista/component/world/pointcloud/`. Plugin does not embed parse. |
+| 4 | Viz path: `World3dSceneWriter` �� shared loader �� `World` / `GpuScene` (not leftover `PointCloud3d` as default). Map2d may also show point features. |
 | 5 | Scale: document P0�CP2 (full load �� chunk/thin �� octree/LOD); implement from P0. |
 | 6 | Prefer sample fixtures under `testing/data/` (tiny `.las` + existing `pointcloud_public_sample.txt`). |
 
@@ -1058,7 +1058,7 @@ Load industry **LAS / LAZ** (and legacy sample `.txt`) into a shared point buffe
 ### Non-goals
 
 - PDAL in the P0 link.
-- Leftover `Smt3DPointCloud` as the Views default path.
+- Leftover `PointCloud3d` as the Views default path.
 - Classification editing / full LiDAR analytics UI.
 
 ---
@@ -1258,7 +1258,7 @@ Unify **Import �� Run �� CommitLayer �� Export �� Playback** for
 | 3 | Writers (`TrafficPathWriter` / `FloodMaskWriter` / `OrthogridMeshWriter` / `HexGridWriter`) remain the seam; they also fill the session frame buffer. |
 | 4 | Playback: shared `frame_index` drives map2d + scene3d stand-ins; CapabilityHost verbs `analysis_set_frame` / `analysis_export_frames`. |
 | 5 | Frame export �� `out/<config>/captures/<run_id>/frame_XXXX.bmp` + `playback.json` (fps, product, params). |
-| 6 | Dialogs default sample paths via `SMT_PLUGIN_SAMPLE_DIR` or `out/data/plugin/`. |
+| 6 | Dialogs default sample paths via `PLUGIN_SAMPLE_DIR` or `out/data/plugin/`. |
 | 7 | Scope products: traffic, flood, orthogrid, orthogrid3d only (world3d/print later). |
 
 ### Pipeline

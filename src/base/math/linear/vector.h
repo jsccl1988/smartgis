@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_VECTOR_H_
-#define SMT_RENDER_MATH_VECTOR_H_
+#ifndef BASE_MATH_LINEAR_VECTOR_H_
+#define BASE_MATH_LINEAR_VECTOR_H_
 
 #include "base/math/detail/eigen.h"
 
@@ -30,9 +30,10 @@ class Vector4 {
       : x(x_in), y(y_in), z(z_in), w(w_in) {}
   Vector4(const Vector3& v);
 
-  using Map = Eigen::Map<EigenVec3, Eigen::Unaligned>;
-  using ConstMap = Eigen::Map<const EigenVec3, Eigen::Unaligned>;
+  using Map = Eigen::Map<detail::EigenVec3, Eigen::Unaligned>;
+  using ConstMap = Eigen::Map<const detail::EigenVec3, Eigen::Unaligned>;
 
+  // 3-component map of xyz (w is homogeneous and not part of the map).
   Map xyz() { return Map(&x); }
   ConstMap xyz() const { return ConstMap(&x); }
 
@@ -73,8 +74,8 @@ class Vector4 {
   void operator-=(const Vector4& v) { xyz() -= v.xyz(); }
   void operator*=(float f) { xyz() *= f; }
   void operator/=(float f) { xyz() /= f; }
-  void operator+=(float f) { xyz() += EigenVec3::Constant(f); }
-  void operator-=(float f) { xyz() -= EigenVec3::Constant(f); }
+  void operator+=(float f) { xyz() += detail::EigenVec3::Constant(f); }
+  void operator-=(float f) { xyz() -= detail::EigenVec3::Constant(f); }
   Vector4 operator*(float f) const { return Vector4(x * f, y * f, z * f); }
   Vector4 operator/(float f) const { return Vector4(x / f, y / f, z / f); }
   Vector4 operator+(float f) const { return Vector4(x + f, y + f, z + f); }
@@ -101,8 +102,8 @@ class Vector3 {
   Vector3(float x_in, float y_in, float z_in) : x(x_in), y(y_in), z(z_in) {}
   Vector3(const Vector4& v) : x(v.x), y(v.y), z(v.z) {}
 
-  using Map = Eigen::Map<EigenVec3, Eigen::Unaligned>;
-  using ConstMap = Eigen::Map<const EigenVec3, Eigen::Unaligned>;
+  using Map = Eigen::Map<detail::EigenVec3, Eigen::Unaligned>;
+  using ConstMap = Eigen::Map<const detail::EigenVec3, Eigen::Unaligned>;
 
   Map eigen() { return Map(&x); }
   ConstMap eigen() const { return ConstMap(&x); }
@@ -142,8 +143,8 @@ class Vector3 {
   void operator-=(const Vector3& v) { eigen() -= v.eigen(); }
   void operator*=(float f) { eigen() *= f; }
   void operator/=(float f) { eigen() /= f; }
-  void operator+=(float f) { eigen() += EigenVec3::Constant(f); }
-  void operator-=(float f) { eigen() -= EigenVec3::Constant(f); }
+  void operator+=(float f) { eigen() += detail::EigenVec3::Constant(f); }
+  void operator-=(float f) { eigen() -= detail::EigenVec3::Constant(f); }
   Vector3 operator*(float f) const { return Vector3(x * f, y * f, z * f); }
   Vector3 operator/(float f) const { return Vector3(x / f, y / f, z / f); }
   Vector3 operator+(float f) const { return Vector3(x + f, y + f, z + f); }
@@ -171,8 +172,8 @@ class Vector2 {
   Vector2() : x(0), y(0) {}
   Vector2(float x_in, float y_in) : x(x_in), y(y_in) {}
 
-  using Map = Eigen::Map<EigenVec2, Eigen::Unaligned>;
-  using ConstMap = Eigen::Map<const EigenVec2, Eigen::Unaligned>;
+  using Map = Eigen::Map<detail::EigenVec2, Eigen::Unaligned>;
+  using ConstMap = Eigen::Map<const detail::EigenVec2, Eigen::Unaligned>;
 
   Map eigen() { return Map(&x); }
   ConstMap eigen() const { return ConstMap(&x); }
@@ -215,8 +216,8 @@ class Vector2 {
   void operator-=(const Vector2& v) { eigen() -= v.eigen(); }
   void operator*=(float f) { eigen() *= f; }
   void operator/=(float f) { eigen() /= f; }
-  void operator+=(float f) { eigen() += EigenVec2::Constant(f); }
-  void operator-=(float f) { eigen() -= EigenVec2::Constant(f); }
+  void operator+=(float f) { eigen() += detail::EigenVec2::Constant(f); }
+  void operator-=(float f) { eigen() -= detail::EigenVec2::Constant(f); }
   Vector2 operator*(float f) const { return Vector2(x * f, y * f); }
   Vector2 operator/(float f) const { return Vector2(x / f, y / f); }
   Vector2 operator+(float f) const { return Vector2(x + f, y + f); }
@@ -253,4 +254,4 @@ using ::base::cross;
 using ::base::triangle_normal;
 }  // namespace render
 
-#endif  // SMT_RENDER_MATH_VECTOR_H_
+#endif  // BASE_MATH_LINEAR_VECTOR_H_

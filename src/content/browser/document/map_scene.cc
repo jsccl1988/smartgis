@@ -72,30 +72,37 @@ bool MapScene::style_colors_for_feature(const detail::MapLayer& layer,
                                          stroke_width);
 }
 
-bool MapScene::try_bootstrap_china_plp() {
-  char exe_dir[MAX_PATH] = {};
-  DWORD n = GetModuleFileNameA(nullptr, exe_dir, MAX_PATH);
+namespace {
+
+std::string module_exe_dir() {
+  char exe_path[MAX_PATH] = {};
+  const DWORD n = GetModuleFileNameA(nullptr, exe_path, MAX_PATH);
   if (n == 0 || n >= MAX_PATH) {
-    return false;
+    return {};
   }
   for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
-    if (exe_dir[i] == '\\' || exe_dir[i] == '/') {
-      exe_dir[i + 1] = '\0';
+    if (exe_path[i] == '\\' || exe_path[i] == '/') {
+      exe_path[i + 1] = '\0';
       break;
     }
   }
-  for (const std::string& rel : china_seed_relative_paths()) {
-    const std::string cand = std::string(exe_dir) + rel;
-    DWORD attr = GetFileAttributesA(cand.c_str());
-    if (attr == INVALID_FILE_ATTRIBUTES ||
-        (attr & FILE_ATTRIBUTE_DIRECTORY) != 0) {
-      continue;
-    }
-    if (open_path(cand)) {
-      return true;
-    }
+  return exe_path;
+}
+
+}  // namespace
+
+bool MapScene::try_bootstrap_china_plp() {
+  const std::string exe_dir = module_exe_dir();
+  if (exe_dir.empty()) {
+    return false;
   }
-  return false;
+  std::string path;
+  if (!try_resolve_china_seed_path(exe_dir, &path)) {
+    return false;
+  }
+  // Default china seed uses null StyleDocument + default_carto_style_json; skip
+  // accompanying *.style.json I/O (china_city.style.json is refused anyway).
+  return open_path(path, /*load_accompanying_style=*/false);
 }
 
 void MapScene::seed_default(bool allow_china_bootstrap) {
@@ -125,17 +132,24 @@ bool MapScene::has_china_extent() const {
 }
 
 bool MapScene::open_path(const std::string& path) {
+  return open_path(path, true);
+}
+
+bool MapScene::open_path(const std::string& path,
+                         bool load_accompanying_style) {
   const std::string stem = detail::path_stem(path);
   if (stem.empty()) {
     return false;
   }
   if (detail::ingest_ogr_path(&store_, path)) {
     store_.set_last_open_was_ogr(true);
-    detail::try_load_accompanying_style(
-        [this](const std::string& style_path) {
-          return load_style_path(style_path);
-        },
-        path);
+    if (load_accompanying_style) {
+      detail::try_load_accompanying_style(
+          [this](const std::string& style_path) {
+            return load_style_path(style_path);
+          },
+          path);
+    }
     return true;
   }
   // Real-data policy: do not invent sample features on OGR miss.

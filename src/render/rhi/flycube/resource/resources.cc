@@ -14,7 +14,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 Buffer* FlycubeDevice::create_buffer(uint32_t byte_size, BufferUsage usage) {
     if (byte_size == 0) {
@@ -259,7 +259,7 @@ bool FlycubeDevice::ensure_depth_buffer(uint32_t w, uint32_t h) {
     return true;
   }
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

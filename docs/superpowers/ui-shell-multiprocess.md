@@ -13,7 +13,7 @@ All rights reserved.
 - 产品在 `src/`：`app/`、`app/app_core`、`ui/{gui,mfc_ex,xview,xcatalog,xambox}`、`render/{gdi,gdi_simple,gl,render3d}`（D3D9 树已删；leftover 亦见 `legacy/render/`）、`gis/`、`sdb/datasource/{mgr,gdal,mem}`（`smf` / `ws` 已移除）、`map/`、`plugin/` + AM 子模块、`tool/`（终局 dispatch）+ `legacy/tool/`（leftover IATool：`bridge/{abi,msg}` + capability 顶层）。
 - 遗留 ABI 保留：`Smt_*` 命名空间、`Export_Smt*`、磁盘 DLL stem（`SmtGisCore`、`SmtRender`、`SmtGLRenderDevice`、`SmtXViewCore` …）。新公共命名空间最多两层。
 - 今日桌面是 **MFC + BCGControlBar Pro**（`CBCGPMDIFrameWnd`、dock catalog、AM toolbox）。机器上可以没有 BCG；**不要盗版 BCG**。MFC Feature Pack（`CMFC*`）只允许作为可选 bootstrap exe，**不是本文的上限**。
-- 今日地图视图是进程内 HWND：`SmtXView`（`CView`）→ `SmtRenderDevice::Init(HWND)`。交互工具是 `SmtIATool`（`Smt_IATool`），插件是 `SmtAuxModule`（`Smt_AM`）。地图文档是 `Smt_GIS::SmtMap`。
+- 今日地图视图是进程内 HWND：`SmtXView`（`CView`）→ `RenderDevice2d::Init(HWND)`。交互工具是 `SmtIATool`（`Smt_IATool`），插件是 `SmtAuxModule`（`Smt_AM`）。地图文档是 `Smt_GIS::Map`。
 - **禁止 Qt**（Widgets / Quick / QML / Network / Qt5/Qt6）。Skia 只当 canvas/render backend。
 - 未来渲染器不围绕 D3DX9。允许：现有 GL、未来 Skia canvas、可选 DXGI/D3D11+。
 
@@ -54,10 +54,10 @@ All rights reserved.
 
 | 进程 | 启动方式 | 职责 | 允许加载的现有 DLL（v1） | 禁止 |
 | --- | --- | --- | --- | --- |
-| **Browser / UI** | `SmartGIS.exe`（省略 `--type` 或 `--type=browser`；方案切换时可用 `SmartGisWinui.exe`；leftover MFC 为 `SmartGIS-Legacy.exe`） | 窗口、ribbon/tree/property/dialog、**仅 present** 共享表面、把输入经 host 转给 renderer | 仅 chrome + `content` 客户端 + 方案专用 UI。**不** Load `SmtGisCore` / `SmtSDEGdalDevice` | GDAL 连接串 / 数据集、`SmtRenderDevice::Init`、GL/D3D11 设备 |
-| **Renderer** | **同一 PE** `SmartGIS.exe --type=renderer` | `SmtMap` / `SmtIATool`、pick/hit-test、工具与 catalog 逻辑（CPU）；`Submit2d` / `Submit3d` 到 GPU | `SmtCore`、`SmtSysCore`、`SmtBaseLib`、`SmtGeoCore`、`SmtGisCore`、`SmtGisPrj`、`SmtToolCore`、`SmtGroupToolCore`、`SmtAuxModule` + 各 `SmtAM*`（UI-less 部分） | MFC `CView`、BCG dock、WebView2、WinUI 控件、**任何** GL/D3D11 设备 |
+| **Browser / UI** | `SmartGIS.exe`（省略 `--type` 或 `--type=browser`；方案切换时可用 `SmartGisWinui.exe`；leftover MFC 为 `SmartGIS-Legacy.exe`） | 窗口、ribbon/tree/property/dialog、**仅 present** 共享表面、把输入经 host 转给 renderer | 仅 chrome + `content` 客户端 + 方案专用 UI。**不** Load `SmtGisCore` / `GdalDevice` | GDAL 连接串 / 数据集、`RenderDevice2d::Init`、GL/D3D11 设备 |
+| **Renderer** | **同一 PE** `SmartGIS.exe --type=renderer` | `Map` / `SmtIATool`、pick/hit-test、工具与 catalog 逻辑（CPU）；`Submit2d` / `Submit3d` 到 GPU | `SmtCore`、`SmtSysCore`、`SmtBaseLib`、`SmtGeoCore`、`SmtGisCore`、`SmtGisPrj`、`SmtToolCore`、`SmtGroupToolCore`、`SmtAuxModule` + 各 `SmtAM*`（UI-less 部分） | MFC `CView`、BCG dock、WebView2、WinUI 控件、**任何** GL/D3D11 设备 |
 | **GPU**（**必需**独立子进程） | **同一 PE** `SmartGIS.exe --type=gpu` | **全部 2D 与 3D 绘制**：`kMapEdit` / `kMapData`（`SmtRender` + GL/GDI）与 `kScene3d`（`legacy/render/rhi3d` + `scene3d`）；共享 DXGI 句柄 + `FrameReady` | `SmtRender`、`SmtGLRenderDevice`、`SmtGdiRenderDevice`、`SmtGdiSimpleRenderDevice`、`Smt3DRenderer`、`scene3d`（含原 model/terrain/pointcloud） | 可见 chrome HWND、WebView2、WinUI、`SmtIATool` 输入路由 |
-| **Utility / IO**（可选，v1.5） | **同一 PE** `SmartGIS.exe --type=utility` | `sde/gdal`、`net`、目录枚举 | `SmtSDEDeviceMgr`、`SmtSDEGdalDevice`、`SmtSDEMemDevice`、`SmtNetCore`、`SmtMapService`（服务端读） | HWND、GPU 设备、chrome |
+| **Utility / IO**（可选，v1.5） | **同一 PE** `SmartGIS.exe --type=utility` | `sde/gdal`、`net`、目录枚举 | `SmtSDEDeviceMgr`、`GdalDevice`、`SmtSDEMemDevice`、`SmtNetCore`、`SmtMapService`（服务端读） | HWND、GPU 设备、chrome |
 
 **没有 `SmartGisRender.exe` 作为产品 GPU 映像。** 今日 `//src/gpu:gpu` / `build.bat render` 的独立 console exe 是过渡；终局是 `--type=gpu` 入口链进同一 `executable("smartgis")`。
 
@@ -87,7 +87,7 @@ flowchart LR
   end
 
   subgraph Renderer["SmartGIS.exe --type=renderer"]
-    MapW["SmtMap + SmtIATool"]
+    MapW["Map + SmtIATool"]
     Submit["Submit2d / Submit3d"]
     MapW --> Submit
   end
@@ -124,7 +124,7 @@ GPU paint internals (record quads → blend once → present): [`../../src/gpu/R
 | 建议 label | 树 | 产物 | 进 `src_all`？ |
 | --- | --- | --- | --- |
 | `//src/content:content` | `src/content` | source_set：`content::MapSession` / `MapView` + pipe 客户端。无 MFC | **可以**（无 MFC，不是 DLL） |
-| `//src/gpu:gpu` | `src/gpu` | `SmartGisRender.exe`（`smt_build_render` / `build.bat render`） | 否（exe，仿 `smt_build_app` 门闩） |
+| `//src/gpu:gpu` | `src/gpu` | `SmartGisRender.exe`（`build_render` / `build.bat render`） | 否（exe，仿 `build_app` 门闩） |
 | `//src/sde/host:io_host` | `src/sde/host` | `SmartGisIo.exe`（v1.5） | 否 |
 | `//src/app/winui:app_winui` | `src/app/winui` | 方案 2 exe | 否 |
 | `//src/app/views:views` | `src/app/views` | 方案 3 exe | 否 |
@@ -147,7 +147,7 @@ GPU paint internals (record quads → blend once → present): [`../../src/gpu/R
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `magic` | `u32` | `'SMT1'` |
+| `magic` | `u32` | `'GIS1'` |
 | `version` | `u16` | 协议主版本；不兼容则 render 拒绝启动 |
 | `type` | `u16` | 见下表 |
 | `flags` | `u16` | `kJson` / `kBinary` / `kNeedAck` |
@@ -161,7 +161,7 @@ GPU paint internals (record quads → blend once → present): [`../../src/gpu/R
 | --- | --- | --- |
 | `Hello` / `HelloAck` | 双向 | 协议版本、GPU 能力（GL / D3D11 / software）、DPI awareness |
 | `OpenView` / `ViewReady` | UI→R / R→UI | `kind`: `map_edit` / `map_data` / `scene_3d`（对齐今日 `OnWndMapedit` / `OnWndMapdata` / `OnWnd3d`） |
-| `CloseView` | UI→R | 释放 surface 与 `SmtMap` 引用 |
+| `CloseView` | UI→R | 释放 surface 与 `Map` 引用 |
 | `AttachSurface` | UI→R | `present_mode` + 可选已有 HWND 的跨进程窗口（仅 HWND 子窗口模式） |
 | `ResizeSurface` | UI→R | 物理像素 `w,h` + `dpi` + `monitor_id` |
 | `SetExtent` / `ExtentChanged` | 双向 | 地图窗口（世界坐标）。用户滚轮在 render 侧改 extent，再回推 chrome 比例尺 |
@@ -196,7 +196,7 @@ sequenceDiagram
   participant Host as ui::shell
   participant Pipe as IPC
   participant RH as render::host
-  participant Smt as SmtIATool + SmtRenderDevice
+  participant Smt as SmtIATool + RenderDevice2d
   participant GPU as Shared DXGI texture
   participant Present as Presenter
 
@@ -219,7 +219,7 @@ sequenceDiagram
 - Chrome 捕获鼠标/键盘/滚轮/触摸，**先**做 chrome 自己的命中（ribbon、树、对话框）。未命中 chrome 的事件才进 `IToolRouter`。
 - 方案 1 的 WebView2 不得成为 GL 的拥有者；地图是 sibling HWND 或 composition 目标。WebView 上的“穿透”用透明 CSS + 宿主把事件改送到地图 HWND。
 - IME：组合窗口留在 UI 进程（Win32 `Imm*` / WinUI `InputPane` / WebView2 内部）。`WM_IME_CHAR` / commit 后变成 `TextCommit` JSON，render 里的输入工具当键盘字符串。
-- DPI：Per-Monitor v2。`ResizeSurface` 带物理像素；render **不**用 `MM_TEXT` 假设 96 DPI。今日 `SmtRenderDevice::m_nMapMode` 留在适配器里换算。
+- DPI：Per-Monitor v2。`ResizeSurface` 带物理像素；render **不**用 `MM_TEXT` 假设 96 DPI。今日 `RenderDevice2d::m_nMapMode` 留在适配器里换算。
 
 **输出 / present 模式（三种 chrome 共用枚举）**
 
@@ -229,7 +229,7 @@ sequenceDiagram
 | `kChildHwnd` | Render 在 UI 提供的子 HWND 上 `Init(HWND)`（跨进程 HWND 可用，但 TDR 时更难恢复） | 仅 v0 过渡 / GDI 设备 |
 | `kSoftwareDib` | 共享 section；UI `StretchDIBits` | 无 GPU / 远程桌面回退 |
 
-**默认选 `kSharedTexture`。** `kChildHwnd` 等于把今日 `SmtRenderDevice::Init(HWND)` 搬进子窗口，隔离差，只当适配器的逃生舱。
+**默认选 `kSharedTexture`。** `kChildHwnd` 等于把今日 `RenderDevice2d::Init(HWND)` 搬进子窗口，隔离差，只当适配器的逃生舱。
 
 ### 0.6 Host ABI（C++，两层命名空间）
 
@@ -301,7 +301,7 @@ class IMapSession {
   virtual void set_selection(uint32_t view_id, const FeatureId* ids, size_t n) = 0;
   virtual void legend_snapshot(uint32_t view_id /*out JSON via callback*/) = 0;
 
-  // Catalog / map-doc ops that today live in xcatalog + SmtMap.
+  // Catalog / map-doc ops that today live in xcatalog + Map.
   virtual void catalog_call(const char* json_op) = 0;
 };
 
@@ -327,8 +327,8 @@ class ISmtAdapter {
   virtual ~ISmtAdapter() = default;
   // LoadLibrary the existing stems; do not rename Smt_* .
   virtual bool load_legacy_dlls() = 0;
-  virtual bool bind_view(uint32_t view_id, /*SmtMap* */ void* legacy_map) = 0;
-  virtual void* render_device(uint32_t view_id) = 0;  // SmtRenderDevice*
+  virtual bool bind_view(uint32_t view_id, /*Map* */ void* legacy_map) = 0;
+  virtual void* render_device(uint32_t view_id) = 0;  // RenderDevice2d*
 };
 
 // Owns the pipe server, GPU device, and N adapters.
@@ -347,14 +347,14 @@ int render_main(int argc, wchar_t** argv);
 
 今日路径（单进程）：
 
-`CSmartGisApp` → `CMainFrame`（BCG MDI）→ `SmtXView` / `Smt2DEditXView` / `Smt3DXView`（`CView`）→ `CreateRender()` → `SmtRenderer::CreateDevice("GL"|"GDI")` → `SmtRenderDevice::Init(HWND)` → 绘 `Smt_GIS::SmtMap`。工具：`SmtIATool::Init(HWND)`。目录：`SmtXCatalog` dock。插件：`SmtAuxModule` + `SmtAMBoxMgrDocBar`。
+`CSmartGisApp` → `CMainFrame`（BCG MDI）→ `SmtXView` / `Smt2DEditXView` / `Smt3DXView`（`CView`）→ `CreateRender()` → `SmtRenderer::CreateDevice("GL"|"GDI")` → `RenderDevice2d::Init(HWND)` → 绘 `Smt_GIS::Map`。工具：`SmtIATool::Init(HWND)`。目录：`SmtXCatalog` dock。插件：`SmtAuxModule` + `SmtAMBoxMgrDocBar`。
 
 v1 适配器路径：
 
 1. `SmartGisRender.exe` 启动后 `LoadLibrary` 上表 DLL（debug stem 带 `_d`，与今日 `dll_stem` 一致）。
 2. **不**创建 `CView` / `CMainFrame`。适配器自建一个 **隐藏 message-only 或 offscreen HWND**，满足 `Init(HWND)` 与 `SmtIATool::Init(HWND)`。真正像素走 FBO / D3D11 纹理，再拷到共享表面。
 3. `SmtRenderer::CreateDevice` 优先 `"GL"`。GDI / GDI Simple 仍可用，经 `kSoftwareDib` present。D3D9 不再接线。
-4. `SmtMap`、图层、选择、投影（`gis/geo/proj`）全部留在 render（或 IO）地址空间。Chrome 只看见 token 与 JSON。
+4. `Map`、图层、选择、投影（`gis/geo/proj`）全部留在 render（或 IO）地址空间。Chrome 只看见 token 与 JSON。
 5. `SmtIATool` / `SmtIAToolManager` 留在 leftover tool。`IToolRouter::activate("select")` 映射到今日 `gt_selecttool` 等 `legacy/tool/select` 类。
 6. `SmtAuxModule`：无 UI 的逻辑在 render 加载；要弹 MFC 对话框的 AM（`plugin/print`）v1 走两条路之一——**(A)** 对话框改 chrome（Views/WinUI），结果经 `PluginCall` 回来；**(B)** 临时仍由 render 弹跨进程 Win32 对话框（体验差，只许白名单）。
 7. 无窗口瓦片发布栈已删除；图层 I/O 走 `sdb` / GDAL。
@@ -459,7 +459,7 @@ WinAppSDK 版本钉在 `build/smartgis.gni` 一类变量里（设计：选一条
 | HWND Island（`DesktopWindowXamlSource` 的反向：XAML 里嵌 HWND） | 复用 `kChildHwnd` | 逃生舱；失去部分 Fluent 合成 |
 | Windows.UI.Composition | 可视树 + 共享表面 | v2，多地图叠置/动画时再上 |
 
-SwapChainPanel **仍然不运行** `SmtRenderDevice`。它只 present。Hit-test / 工具在 render。XAML 要 `PointerMoved` → `IToolRouter`（已是 DIP，转换到物理像素再发）。
+SwapChainPanel **仍然不运行** `RenderDevice2d`。它只 present。Hit-test / 工具在 render。XAML 要 `PointerMoved` → `IToolRouter`（已是 DIP，转换到物理像素再发）。
 
 ### 2.3 Dock / MDI / catalog：必须自建
 
@@ -512,8 +512,8 @@ UI 进程 = WinUI 3 / WinAppSDK。`IMapSession` / pipe / `SmartGisRender.exe` �
 | --- | --- | --- |
 | 工具箱 | `src/ui/views/` (`ui::views`) | `//src/ui/views:views` |
 | 画布 | `src/ui/gfx/`（无 Skia 树；fill/text） | `//src/ui/gfx:gfx` |
-| 产品壳 | `src/app/views/`（upstream Views shell） | `out/SmartGIS.exe`（`build.bat views` / `smt_build_views`） |
-| 地图挂接 | `MapViewport` 子 HWND：`content::MapView`（若 `src/content/public` 存在）→ `CreateProcess SmartGisRender.exe`（与兄弟壳同一 ABI）→ `LoadLibrary` + `SmtRenderDevice::Init` → 占位 |
+| 产品壳 | `src/app/views/`（upstream Views shell） | `out/SmartGIS.exe`（`build.bat views` / `build_views`） |
+| 地图挂接 | `MapViewport` 子 HWND：`content::MapView`（若 `src/content/public` 存在）→ `CreateProcess SmartGisRender.exe`（与兄弟壳同一 ABI）→ `LoadLibrary` + `RenderDevice2d::Init` → 占位 |
 
 `src/app/` 只保留 MFC `SmartGIS-Legacy.exe`。不要再开 `src/app/views/`。默认 `build.bat` 仍是 31 个 DLL。兄弟原型（WebView2 / WinUI）允许并存，但不是终局。
 
@@ -538,7 +538,7 @@ UI 进程 = WinUI 3 / WinAppSDK。`IMapSession` / pipe / `SmartGisRender.exe` �
 即使 chrome 与 Skia 同进程，**仍建议走 `SmartGisRender.exe`。** 这样：
 
 - 三种方案崩溃策略一致（Views 里一个 use-after-free 不杀 GPU 驱动会话，反之亦然）。
-- 合成：Aura-like 层只 **present** 共享纹理，不在 UI 进程跑 `SmtMap`。
+- 合成：Aura-like 层只 **present** 共享纹理，不在 UI 进程跑 `Map`。
 - 调试：可以先用无头假 chrome 测 render，再挂 Views。
 
 允许的例外：`--in-process-render` 把 adapter 链进 Views 进程，仅供开发。默认关。产品策略与方案 1/2 一致：**OOP render**。
@@ -604,7 +604,7 @@ flowchart LR
 
 三种方案 **共同做不到**（不要写进营销）：
 
-- 不重写 `SmtMap` 就让 chrome 直接绑要素对象。
+- 不重写 `Map` 就让 chrome 直接绑要素对象。
 - 用 WebView/WinUI/Views 的 GPU 进程代替 `SmartGisRender.exe`。
 - 在 UI 进程安全地跑 GDAL。
 - 用 D3DX9 当未来 3D 路径。
@@ -664,7 +664,7 @@ flowchart TB
 
 1. 冻结 pipe 消息表与 `ui::shell` 头（本节 0.4–0.6）。给一个假 chrome（控制台或空 HWND）+ `SmartGisRender.exe` 画清屏色。
 2. Adapter：`LoadLibrary` `SmtRender` + `SmtGLRenderDevice`，隐藏 HWND `Init`，拷到共享纹理。
-3. 接入一个 `ViewKind::kMapEdit`：打开空 `SmtMap`，滚轮改 extent。
+3. 接入一个 `ViewKind::kMapEdit`：打开空 `Map`，滚轮改 extent。
 4. `IToolRouter` → `SmtIAToolManager`（先 `gt_viewctrltool` / `gt_selecttool`）。
 5. 选一个 chrome 做 v1（建议 WinUI SwapChainPanel **或** WebView2 sibling HWND，不要同时开工两个壳）。
 6. Catalog JSON 包一层 `xcatalog` 能表达的 DS/map doc 操作；UI 进程不链 `SmtXCatalogCore`。

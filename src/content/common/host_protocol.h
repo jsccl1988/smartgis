@@ -15,7 +15,7 @@
 // Pipe: \\.\pipe\smartgis-host-<ui-pid>
 namespace content {
 
-inline constexpr uint32_t kHostMagic = 0x31544D53u;  // 'SMT1' LE
+inline constexpr uint32_t kHostMagic = 0x31534947u;  // 'GIS1' LE
 inline constexpr uint16_t kHostProtocolVersion = 3;
 
 enum class HostMsg : uint16_t {

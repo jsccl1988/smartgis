@@ -6,8 +6,8 @@
 #include "gpu/device/gpu_device_hub.h"
 #include "render/graph/frame_graph.h"
 #include "render/rhi/rhi.h"
-#include "vista/world_gpu/opaque_effect.h"
-#include "vista/world_gpu/pass.h"
+#include "vista/pass/world/opaque_effect.h"
+#include "vista/pass/world/pass.h"
 
 namespace gpu {
 namespace detail {

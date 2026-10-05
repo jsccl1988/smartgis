@@ -9,9 +9,9 @@ All rights reserved.
 
 **Goal:** Make China 2D basemap show readable dual-stroke roads (casing then fill) and a DEM hillshade underlay when Style enables `hillshade` — capability-aligned with MapLibre look, **without** copying MapLibre Native.
 
-**Architecture:** Extend existing StyleDocument → `ResolvedPaint` → `gis::vista` MapFrame layout → software/`vista/map` textured present. Line casing stays **two Style layers** (already in `default_carto_style_json`). Hillshade is **own** DEM slope/aspect → RGBA raster `DrawItem`, not a port of `hillshade_prepare` shaders. Bake clocks / CPU vs Thrust bench: living §DEM / hillshade bake profile.
+**Architecture:** Extend existing StyleDocument → `ResolvedPaint` → `gis::vista` MapFrame layout → software/`vista/component/map` textured present. Line casing stays **two Style layers** (already in `default_carto_style_json`). Hillshade is **own** DEM slope/aspect → RGBA raster `DrawItem`, not a port of `hillshade_prepare` shaders. Bake clocks / CPU vs Thrust bench: living §DEM / hillshade bake profile.
 
-**Tech Stack:** C++23, `gis::style`, `gis::vista`, `gis::DemRaster`, `vista/map`, `build.bat debug`, `map2d_china_loop` / `maplibre_align`.
+**Tech Stack:** C++23, `gis::style`, `gis::vista`, `gis::DemRaster`, `vista/component/map`, `build.bat debug`, `map2d_china_loop` / `maplibre_align`.
 
 **Spec:** [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) §Map2d richness P0 · §DEM / hillshade bake profile.  
 **Diagram:** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html)
@@ -31,12 +31,12 @@ All rights reserved.
 
 | File | Role |
 | --- | --- |
-| `src/vista/map/default_style.cc` | Road casing/fill `minzoom` + cream-safe colors for overview |
+| `src/vista/component/map/default_style.cc` | Road casing/fill `minzoom` + cream-safe colors for overview |
 | `third_party/maplibre/example/style_align.json` | Add `road-casing` before `road` for dual-still align |
 | `src/gis/style/style_types.h` / `paint_resolve.*` | Hillshade paint constants on `ResolvedPaint` (or small fields) |
-| `src/vista/world/terrain/` (new small helper next to dem) | `shade_dem_rgba(...)` — own Horn/finite-diff shade |
-| `src/vista/map/layout.cc` / `layout.h` | Emit hillshade raster `DrawItem` under vectors; keep Style layer order for lines |
-| `src/vista/map/map2d_test.cc` | Unit: casing order + hillshade item when DEM bound |
+| `src/vista/component/world/terrain/` (new small helper next to dem) | `shade_dem_rgba(...)` — own Horn/finite-diff shade |
+| `src/vista/component/map/layout.cc` / `layout.h` | Emit hillshade raster `DrawItem` under vectors; keep Style layer order for lines |
+| `src/vista/component/map/map2d_test.cc` | Unit: casing order + hillshade item when DEM bound |
 | `src/gis/style/style_test.cc` | Resolve hillshade paint keys |
 | `testing/tools/harness/map2d/map2d.china/map2d_china_loop.py` (or suite json) | Pixel gate: road casing contrast; optional hillshade variance |
 | `docs/superpowers/industry-gap-matrix.md` | One-line M1 richness note when landed |
@@ -46,9 +46,9 @@ All rights reserved.
 ### Task 1: Line casing overview readability
 
 **Files:**
-- Modify: `src/vista/map/default_style.cc` (`road-casing` / `road` minzoom + colors)
+- Modify: `src/vista/component/map/default_style.cc` (`road-casing` / `road` minzoom + colors)
 - Modify: `third_party/maplibre/example/style_align.json` (insert casing layer)
-- Test: `src/vista/map/map2d_test.cc` (layer order / zoom match)
+- Test: `src/vista/component/map/map2d_test.cc` (layer order / zoom match)
 - Gate: `testing/tools/harness/map2d/map2d.china/map2d_china_loop.py` or existing china suite
 
 **Interfaces:**
@@ -86,9 +86,9 @@ Paint key names may follow Style Spec strings for JSON compatibility; evaluation
 ### Task 3: DEM → shade RGBA helper
 
 **Files:**
-- Create: `src/vista/world/terrain/hillshade.h` + `hillshade.cc` (colocated; name may be `dem_hillshade.*` if clearer)
+- Create: `src/vista/component/world/terrain/hillshade.h` + `hillshade.cc` (colocated; name may be `dem_hillshade.*` if clearer)
 - Modify: terrain `BUILD.gn` / `src/gis` BUILD as needed
-- Test: `src/vista/world/terrain/dem/dem_raster_test.cc` or new `hillshade_test.cc`
+- Test: `src/vista/component/world/terrain/dem/dem_raster_test.cc` or new `hillshade_test.cc`
 
 **Interfaces:**
 - Consumes: `const DemRaster&`, illumination azimuth/altitude, exaggeration, output w/h
@@ -104,10 +104,10 @@ Algorithm: finite-difference slope/aspect (Horn or equivalent) + Lambertian-ish 
 ### Task 4: MapFrame layout emits hillshade underlay
 
 **Files:**
-- Modify: `src/vista/map/layout.h` (optional DEM bind / hillshade cache key)
-- Modify: `src/vista/map/layout.cc`
+- Modify: `src/vista/component/map/layout.h` (optional DEM bind / hillshade cache key)
+- Modify: `src/vista/component/map/layout.cc`
 - Modify: present path that builds MapFrame (showcase / MapViewport) to bind DEM when available
-- Test: `src/vista/map/map2d_test.cc`
+- Test: `src/vista/component/map/map2d_test.cc`
 
 **Interfaces:**
 - Consumes: Style hillshade layer + bound `DemRaster` + view extent
@@ -139,12 +139,12 @@ Algorithm: finite-difference slope/aspect (Horn or equivalent) + Lambertian-ish 
 **Spec:** living §DEM / hillshade bake profile + bench · **Diagram:** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html)
 
 **Files:**
-- Modify: `src/vista/map/hillshade_bake.{h,cc}` (`HillshadeBakeSample` + phase clocks)
-- Modify: `src/vista/world/terrain/process/dem_hillshade.*` (`SMT_BAKE_BACKEND`)
-- Modify: `src/vista/world/terrain/process/land_mask.*` (`LandMaskBakeSample`)
+- Modify: `src/vista/component/map/hillshade_bake.{h,cc}` (`HillshadeBakeSample` + phase clocks)
+- Modify: `src/vista/component/world/terrain/process/dem_hillshade.*` (`BAKE_BACKEND`)
+- Modify: `src/vista/component/world/terrain/process/land_mask.*` (`LandMaskBakeSample`)
 - Modify: `src/content/browser/present/map2d/frame/map2d_layout_build.cc` (`cat=bake` not `startup`)
 - Modify: `src/app/views/shell/harness/showcase/map2d/present/fps_bench.cc` (echo bake sample)
-- Test: `dem_raster_test` / `land_mask_test` when `SMT_BAKE_BENCH=1`
+- Test: `dem_raster_test` / `land_mask_test` when `BAKE_BENCH=1`
 - Create: `testing/tools/harness/map2d/run_hillshade_bake_bench.py`
 
 Locked profile: `china_dem`, `max_edge=768`, illumination 335/32, exaggeration 0.5. CUDA optional.
@@ -152,7 +152,7 @@ Locked profile: `china_dem`, `max_edge=768`, illumination 335/32, exaggeration 0
 - [x] **Step 1:** Living § + HTML diagram + this checklist (no twin plan).
 - [x] **Step 2:** Instrument `bake_hillshade_slot` / `shade_dem_rgba` / `fill_lonlat_mask`; `cat=bake` spans.
 - [x] **Step 3:** Equal-profile bench in existing test exes + harness JSON/table under `captures/analysis/hillshade_bake/`.
-- [ ] **Step 4:** Run `py -3 testing/tools/harness/map2d/run_hillshade_bake_bench.py` on a machine with `china_dem` (and CUDA when `smt_has_cuda`); paste table. Optional — agent loop / later.
+- [ ] **Step 4:** Run `py -3 testing/tools/harness/map2d/run_hillshade_bake_bench.py` on a machine with `china_dem` (and CUDA when `has_cuda`); paste table. Optional — agent loop / later.
 
 ---
 

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_DATASOURCE_GDAL_OGR_CONNECT_H_
-#define SDB_DATASOURCE_GDAL_OGR_CONNECT_H_
+#ifndef GIS_DATASOURCE_GDAL_OGR_CONNECT_H_
+#define GIS_DATASOURCE_GDAL_OGR_CONNECT_H_
 
 #include <string>
 
@@ -99,4 +99,4 @@ std::string sdbd_base_url(const ConnectionSpec& spec);
 }  // namespace datasource
 }  // namespace gis
 
-#endif  // SDB_DATASOURCE_GDAL_OGR_CONNECT_H_
+#endif  // GIS_DATASOURCE_GDAL_OGR_CONNECT_H_

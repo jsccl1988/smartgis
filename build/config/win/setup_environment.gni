@@ -7,10 +7,10 @@ declare_args() {
   vs_version = 180
   clang_installed = false
   msvc_installed = true
-  smt_run_vs_env_script = false
+  run_vs_env_script = false
 }
 
-if (smt_run_vs_env_script) {
+if (run_vs_env_script) {
   env = exec_script("setup_environment.py",
                     [
                       host_cpu,

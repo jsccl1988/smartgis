@@ -8,7 +8,7 @@ Fixes closed-loop review bugs:
   #2 Shell PrintWindow teal/navy embed — scored as views_shell_chrome (allowed).
   #3/#6 FlyCube Present — multi-pass TabStrip crop; reject near-black DXGI.
   #4 Catalog accent header + splitter reseed (product) remove grey mid slab.
-  #5 SMT_VIEWS_START_MAP_TAB; harness uses SMT_SYNC_CHINA_SEED for ready Present.
+  #5 VIEWS_START_MAP_TAB; harness uses SYNC_CHINA_SEED for ready Present.
 
 Usage:
   py -3 testing/tools/loop/plain_browse_capture.py
@@ -101,21 +101,21 @@ def _launch(
 ) -> tuple[subprocess.Popen[bytes], object]:
     env = os.environ.copy()
     for k in (
-        "SMT_HARNESS_SUITE",
-        "SMT_UI_INTERACT_SCRIPT",
-        "SMT_VIEWS_START_MAP_TAB",
-        "SMT_SKIP_AMBOX_CATALOG",
-        "SMT_SYNC_CHINA_SEED",
-        "SMT_DEFER_CHINA_SEED",
+        "HARNESS_SUITE",
+        "UI_INTERACT_SCRIPT",
+        "VIEWS_START_MAP_TAB",
+        "SKIP_AMBOX_CATALOG",
+        "SYNC_CHINA_SEED",
+        "DEFER_CHINA_SEED",
     ):
         env.pop(k, None)
     # Sync China before FlyCube attach: deferred open_path races Display and
     # can hang the UI thread (seed begin, never done). Sync still uses argv=[].
-    env["SMT_SYNC_CHINA_SEED"] = "1"
-    env["SMT_SKIP_CHINA_LAND_CLIP"] = "1"
+    env["SYNC_CHINA_SEED"] = "1"
+    env["SKIP_CHINA_LAND_CLIP"] = "1"
     # Hillshade bake + concurrent FlyCube present has AVd under DXGI settle;
     # carto gold still comes from vector layers / Present BitBlt.
-    env["SMT_MAP2D_NO_HILLSHADE"] = "1"
+    env["MAP2D_NO_HILLSHADE"] = "1"
     if env_extra:
         env.update(env_extra)
     err_f = open(err_path, "w", encoding="utf-8", errors="replace")
@@ -540,7 +540,7 @@ def main(argv: list[str] | None = None) -> int:
             log_dir=log_dir,
             phase="3d",
             settle_sec=args.settle_3d,
-            env_extra={"SMT_VIEWS_START_MAP_TAB": "scene3d"},
+            env_extra={"VIEWS_START_MAP_TAB": "scene3d"},
             shell_leaf="views-plain-3d-browse.bmp",
             present_leaf="views-plain-3d-flycube-present.bmp",
             do_wheel=False,
@@ -592,7 +592,7 @@ def main(argv: list[str] | None = None) -> int:
             "alive_after_tab2",
         ],
         expect_notes=(
-            "argv=[]; SMT_VIEWS_START_MAP_TAB=scene3d (env, not OS click); "
+            "argv=[]; VIEWS_START_MAP_TAB=scene3d (env, not OS click); "
             "present BitBlt crops TabStrip accent; DXGI opaque → "
             "scene3d.present dem log gold."
         ),

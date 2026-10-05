@@ -11,7 +11,7 @@ import("//testing/test.gni")
 # public/{device,resource,shader,texture,state,camera}; backends under
 # impl/gl/ (OpenGL) and impl/d3d/ (D3D11).
 # Leftover abstract 3D device; not modern src/render/rhi.
-# public/bridge (leftover_mesh / LeftoverRecorder / smt_leftover_session) removed.
+# public/bridge (leftover_mesh / LeftoverRecorder / leftover_session) removed.
 #
 # Public 3D types are mostly header-inline. Renderer3d loader lives here;
 # device factories live in the per-backend DLLs.

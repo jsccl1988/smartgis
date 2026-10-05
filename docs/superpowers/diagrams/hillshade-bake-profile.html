@@ -56,7 +56,7 @@ All rights reserved.
       <rect x="0" y="0" width="1040" height="92" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
       <text class="lane-label" x="16" y="22" fill="#2563a8">base / trace</text>
       <text class="box-sub" x="16" y="42">process_trace · ScopedTraceEvent · cat=bake（HillshadeBake / shade_cpu / shade_cuda / load_dem / disk_store / fill_lonlat_mask）</text>
-      <text class="box-sub" x="16" y="62">SMT_TRACE=1 或 SMT_BAKE_PROFILE=1 开录；SMT_TRACE_DUMP 写 Chrome JSON。startup_profile 只收 cat=startup</text>
+      <text class="box-sub" x="16" y="62">TRACE=1 或 BAKE_PROFILE=1 开录；TRACE_DUMP 写 Chrome JSON。startup_profile 只收 cat=startup</text>
 
       <rect x="0" y="106" width="1040" height="100" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
       <text class="lane-label" x="16" y="128" fill="#1d6b4f">vista map · C4 orchestration</text>
@@ -68,7 +68,7 @@ All rights reserved.
       <text class="lane-label" x="16" y="242" fill="#8a5a12">vista world · terrain process</text>
       <text class="box-sub" x="16" y="262">shade_dem_rgba：downsample（step_x/y）熔进 Horn；CPU parallel_for 或 try_shade_dem_thrust</text>
       <text class="box-sub" x="16" y="280">fill_lonlat_mask：even-odd PIP；CPU parallel_for 或 try_fill_lonlat_mask_thrust</text>
-      <text class="box-sub" x="16" y="298">SMT_BAKE_BACKEND=cpu|cuda|auto · CUDA 可选；无 Toolkit 走 stub（false → CPU）</text>
+      <text class="box-sub" x="16" y="298">BAKE_BACKEND=cpu|cuda|auto · CUDA 可选；无 Toolkit 走 stub（false → CPU）</text>
 
       <rect x="0" y="334" width="1040" height="86" rx="8" fill="#f7e8e8" stroke="#d8dee6"/>
       <text class="lane-label" x="16" y="356" fill="#8b3a3a">harness / tests</text>
@@ -100,7 +100,7 @@ All rights reserved.
       <path d="M506 72 L526 72" stroke="#5a6a7e" stroke-width="1.5"/>
       <path d="M716 72 L736 72" stroke="#5a6a7e" stroke-width="1.5"/>
       <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#5a6a7e"/></marker></defs>
-      <text class="box-sub" x="16" y="140" id="cap">命中 mem / disk 则跳过 load+shade。equal-profile 核对比：SMT_BAKE_DISK=0 且 reset cache。</text>
+      <text class="box-sub" x="16" y="140" id="cap">命中 mem / disk 则跳过 load+shade。equal-profile 核对比：BAKE_DISK=0 且 reset cache。</text>
       <text class="box-sub" x="16" y="168">PIP（land_mask）是并行车道，不插入 hillshade slot；同一 JSON 表第二组行。</text>
       <text class="box-sub" x="16" y="196">UI 线程不 join CUDA；Thrust 失败则 auto 回落 CPU。backend=cuda 时失败记 skip，不把 CPU 冒充 GPU。</text>
     </svg>
@@ -120,7 +120,7 @@ All rights reserved.
         <tr><td><code>cat=startup</code></td><td>startup_profile</td><td>冷启动到首图；bake 禁止记入此 cat</td></tr>
       </tbody>
     </table>
-    <p class="note">Equal-profile：同一 <code>china_dem</code>、<code>max_edge=768</code>、默认光照（335° / 32° / exaggeration 0.5）。CPU = <code>parallel_for</code>；CUDA = Thrust（<code>smt_has_cuda</code> 编译，运行期 <code>cuda_ready</code>）。</p>
+    <p class="note">Equal-profile：同一 <code>china_dem</code>、<code>max_edge=768</code>、默认光照（335° / 32° / exaggeration 0.5）。CPU = <code>parallel_for</code>；CUDA = Thrust（<code>has_cuda</code> 编译，运行期 <code>cuda_ready</code>）。</p>
   </section>
 </div>
 <script>

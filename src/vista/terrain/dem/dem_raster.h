@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_WORLD_DEM_RASTER_H_
-#define GIS_WORLD_DEM_RASTER_H_
+#ifndef VISTA_TERRAIN_DEM_DEM_RASTER_H_
+#define VISTA_TERRAIN_DEM_DEM_RASTER_H_
 
 #include <cstdint>
 #include <string>
@@ -166,4 +166,4 @@ VISTA_EXPORT int dem_seed_cache_key(float camera_distance);
 
 }  // namespace vista
 
-#endif  // GIS_WORLD_DEM_RASTER_H_
+#endif  // VISTA_TERRAIN_DEM_DEM_RASTER_H_

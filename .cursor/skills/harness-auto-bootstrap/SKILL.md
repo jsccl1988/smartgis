@@ -5,7 +5,7 @@ description: >-
   (startup_profile cat=startup spans) and drives targeted optimizations until
   wall_ms is within 200ms. Use when the user invokes /harness-auto-bootstrap,
   or says 启动到首地图, 启动->首地图渲染, startup_profile, WaitFirstMapPresent,
-  SMT_STARTUP_PROFILE, 冷启动 200ms, or asks to profile-then-optimize bootstrap
+  STARTUP_PROFILE, 冷启动 200ms, or asks to profile-then-optimize bootstrap
   until first carto present.
 ---
 
@@ -40,11 +40,11 @@ When this skill is invoked, attached (`@harness-auto-bootstrap` / `/harness-auto
 | Axis | Value |
 | --- | --- |
 | Entry | `out\Debug\SmartGIS.exe` (plain launch) |
-| Seed | `SMT_SYNC_CHINA_SEED=1` (China in init/show, not post-show timer) |
-| First map | `SMT_SYNC_FIRST_MAP_PRESENT=1` (`WaitFirstMapPresent` in the dump) |
-| Trace | `SMT_STARTUP_PROFILE=1` |
-| Dump | `SMT_STARTUP_PROFILE_DUMP=out\Debug\log\startup_profile.txt` |
-| OOP | `SMT_DISABLE_OOP_RENDER=1` (same as living §Startup profile product measure) |
+| Seed | `SYNC_CHINA_SEED=1` (China in init/show, not post-show timer) |
+| First map | `SYNC_FIRST_MAP_PRESENT=1` (`WaitFirstMapPresent` in the dump) |
+| Trace | `STARTUP_PROFILE=1` |
+| Dump | `STARTUP_PROFILE_DUMP=out\Debug\log\startup_profile.txt` |
+| OOP | `DISABLE_OOP_RENDER=1` (same as living §Startup profile product measure) |
 | **Done** | `wall_ms` ≤ **200** |
 | Visual | first present drew china carto (`WaitFirstMapPresent` returned before 15s cap) |
 
@@ -58,11 +58,11 @@ From repo root:
 
 ```bat
 .\build.bat debug src/app/views:views
-set SMT_DISABLE_OOP_RENDER=1
-set SMT_SYNC_CHINA_SEED=1
-set SMT_SYNC_FIRST_MAP_PRESENT=1
-set SMT_STARTUP_PROFILE=1
-set SMT_STARTUP_PROFILE_DUMP=out\Debug\log\startup_profile.txt
+set DISABLE_OOP_RENDER=1
+set SYNC_CHINA_SEED=1
+set SYNC_FIRST_MAP_PRESENT=1
+set STARTUP_PROFILE=1
+set STARTUP_PROFILE_DUMP=out\Debug\log\startup_profile.txt
 if exist out\Debug\log\startup_profile.txt del out\Debug\log\startup_profile.txt
 start /wait /b out\Debug\SmartGIS.exe
 ```
@@ -76,7 +76,7 @@ type out\Debug\log\startup_profile.txt
 type out\Debug\log\startup_profile.partial-post-init.txt
 ```
 
-Optional chrome JSON sibling: `startup_profile.json` (or `.chrome.json`). Deep spans: `SMT_TRACE=1`.
+Optional chrome JSON sibling: `startup_profile.json` (or `.chrome.json`). Deep spans: `TRACE=1`.
 
 Artifacts:
 
@@ -187,6 +187,6 @@ Debug product cold start, sync China, sync first present:
 
 - Living §: `docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md` §Startup profile
 - Dump: `src/base/trace/diag/startup_profile.*`
-- Wait: `BrowserView::show_shell` (`SMT_SYNC_FIRST_MAP_PRESENT`)
+- Wait: `BrowserView::show_shell` (`SYNC_FIRST_MAP_PRESENT`)
 - Warm-frame sibling: `.cursor/skills/harness-auto-map2d-frame-opt/SKILL.md`
 - Detail: [reference.md](reference.md)

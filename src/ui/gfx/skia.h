@@ -5,7 +5,7 @@
 #define UI_GFX_SKIA_H_
 
 // Shell paint umbrella. Runtime backend: shell_canvas_backend.h (GDI default;
-// optional Skia when smt_has_skia + pin). See docs/superpowers/ui-views-skia.md.
+// optional Skia when has_skia + pin). See docs/superpowers/ui-views-skia.md.
 
 #include "ui/ui_export.h"
 #include "ui/gfx/canvas/canvas.h"

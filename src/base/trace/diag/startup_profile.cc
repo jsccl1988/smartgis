@@ -227,7 +227,7 @@ void dump_startup_profile_impl(const char* path, bool claim_final) {
   if (spans.empty()) {
     std::fprintf(stderr,
                  "[startup-profile] no cat=startup events "
-                 "(enable always-on diagnostics or SMT_STARTUP_PROFILE=1)\n");
+                 "(enable always-on diagnostics or STARTUP_PROFILE=1)\n");
     LOGGING(LOG_INFO, "startup-profile: no cat=startup events");
     return;
   }

@@ -34,7 +34,7 @@ bool Scene3dPresenter::hosts_scenic_present() const {
 
 void Scene3dPresenter::ensure_scenic() const {
   // Drop a sticky scenic host when the selected engine is no longer scenic
-  // (matrix / menu can flip SMT_SCENE3D_ENGINE after construction).
+  // (matrix / menu can flip SCENE3D_ENGINE after construction).
   if (!prefer_scene3d_scenic()) {
     if (scenic_) {
       scenic_->shutdown();

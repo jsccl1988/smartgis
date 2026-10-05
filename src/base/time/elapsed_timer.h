@@ -8,7 +8,7 @@
 
 namespace base {
 
-// Steady-clock stopwatch (Phase 4 subset replacing SmtTimer frame clock).
+// Steady-clock stopwatch (Phase 4 subset replacing Timer frame clock).
 class ElapsedTimer {
  public:
   using clock = std::chrono::steady_clock;

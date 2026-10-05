@@ -7,11 +7,13 @@
   ],
   "script": "map2d.china.il",
   "env": {
-    "SMT_MAP2D_SHOWCASE_LINGER_MS": "0",
-    "SMT_MAP2D_FORCE_HILLSHADE": "1",
-    "SMT_MAP2D_NO_HILLSHADE": "0",
-    "SMT_MAP2D_SHOWCASE_W": "1280",
-    "SMT_MAP2D_SHOWCASE_H": "720"
+    "MAP2D_SHOWCASE_LINGER_MS": "0",
+    "MAP2D_FORCE_HILLSHADE": "1",
+    "MAP2D_NO_HILLSHADE": "0",
+    "MAP2D_SHOWCASE_W": "1280",
+    "MAP2D_SHOWCASE_H": "720",
+    "MAP2D_ENGINE": "",
+    "FORCE_GDI_MAP_OVERLAY": "1"
   },
   "bmp": {
     "path": "map2d-showcase-china.bmp",

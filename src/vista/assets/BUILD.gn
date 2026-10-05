@@ -26,7 +26,7 @@ source_set("assets_sources") {
     "tileset/tileset.h",
     "tileset/tileset_decode.cc",
   ]
-  if (smt_has_pdal) {
+  if (has_pdal) {
     sources += [ "pointcloud/pdal_io.cc" ]
   } else {
     sources += [ "pointcloud/pdal_io_stub.cc" ]
@@ -39,21 +39,21 @@ source_set("assets_sources") {
   ]
   assert_no_deps = [
     "//src/render:render",
-    "//src/vista/world:world_sources",
+    "//src/vista/component/world:world_sources",
   ]
   deps = [
     "//src/base:foundation",
     "//third_party:laszip",
   ]
-  if (smt_has_assimp) {
-    defines += [ "SMT_HAS_ASSIMP" ]
+  if (has_assimp) {
+    defines += [ "HAS_ASSIMP" ]
     deps += [ "//third_party:assimp" ]
   }
-  if (smt_has_tinygltf) {
-    defines += [ "SMT_HAS_TINYGLTF" ]
+  if (has_tinygltf) {
+    defines += [ "HAS_TINYGLTF" ]
     deps += [ "//third_party:tinygltf" ]
   }
-  if (smt_has_pdal) {
+  if (has_pdal) {
     deps += [ "//third_party:pdal" ]
   }
 }

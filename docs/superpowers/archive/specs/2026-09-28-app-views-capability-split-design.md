@@ -164,7 +164,7 @@ GN, after the split:
 
 | Label | Sources | Drops |
 | --- | --- | --- |
-| `:map_scene` | `document/map_scene.*` | GDI, RHI, `vista/map` |
+| `:map_scene` | `document/map_scene.*` | GDI, RHI, `vista/component/map` |
 | `:map_camera` | `camera/*` except tests | — |
 | `:map_present` | `present/map2d_presenter.*`, `present/blit_frame_cache.*` | — |
 | `:map_hwnd_gestures` | unchanged | — |

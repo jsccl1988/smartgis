@@ -28,7 +28,7 @@ All rights reserved.
 
 **Files:**
 - Create: `testing/tools/loop/record/hwnd.py`
-- Modify: `testing/tools/loop/runner.py` (honor `SMT_HARNESS_RECORD` / suite env; attach `record_path` to report)
+- Modify: `testing/tools/loop/runner.py` (honor `HARNESS_RECORD` / suite env; attach `record_path` to report)
 
 - [x] Implement find-window by title substring + start/stop record (ffmpeg `-f gdigrab` or PrintWindow BMP burst @ ~10 fps).
 - [x] Wire runner: if record env set, start before exe, stop after; write path into report JSON.
@@ -61,7 +61,7 @@ All rights reserved.
 - Modify: `docs/superpowers/ui-testing.md` (L1′ browse forensic + record env)
 - Modify: living § checklist when done
 
-- [x] Document suite ids, `SMT_HARNESS_RECORD`, symptom → artifact mapping.
+- [x] Document suite ids, `HARNESS_RECORD`, symptom → artifact mapping.
 - [x] Produce one recorded sample each: Views 2D, Views 3D, Legacy 2D, Legacy 3D (local; wipe-ok under captures).
 
 ## Done bar

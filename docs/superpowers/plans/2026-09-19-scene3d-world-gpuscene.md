@@ -92,7 +92,7 @@ All rights reserved.
 3. [x] `GpuScene`：sync 拷贝 mesh；rebuild 优先 mesh → geom_3d → AABB；draw `kTerrain`。  
 4. [x] Views：`rebuild_local_mesh` 经 World/dem_to_world 取 mesh（仍静态链 DEM 加载；SP5 再去 `dem_height_field_static`）。  
 5. [x] 相关 test + `build.bat`。  
-6. [x] 不改 bridge present；不搬 `SmtScene` octree。
+6. [x] 不改 bridge present；不搬 `Scene` octree。
 
 ---
 
@@ -120,5 +120,5 @@ All rights reserved.
 > 与业界差距钉死对齐：见 [`2026-09-30-map3d-gap-pin.md`](2026-09-30-map3d-gap-pin.md)（P0-A / P2-A）与 [`../industry-gap-matrix.md`](../industry-gap-matrix.md) §3.2.1。
 
 - [x] leftover `DemHeightField` 薄包装 `gis::DemRaster`（去重复实现）— **map3d-gap-pin P0-A**。  
-- [ ] `SmtScene` octree 查询路径进一步委托 World（当前仅 AABB 镜像）— **map3d-gap-pin P2-A**。  
+- [ ] `Scene` octree 查询路径进一步委托 World（当前仅 AABB 镜像）— **map3d-gap-pin P2-A**。  
 - [ ] SP5 编译闸门收口文档与 `test_shell` 再对齐。

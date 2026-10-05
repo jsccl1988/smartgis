@@ -24,7 +24,7 @@ int seed_atmosphere_legacy_mode(Browser& browser,
   }
   atmosphere_showcase_mark("legacy-china-open");
   // Prefer china_city vectors so coast content assert can pass.
-  // Under SMT_ATMOSPHERE_SHOWCASE_GPU=1, MapScene::open_path(china_city)
+  // Under ATMOSPHERE_SHOWCASE_GPU=1, MapScene::open_path(china_city)
   // AVs (ExitProcess -1 after legacy-open-path). DEM still comes from
   // seed_procedural land rings; BMP label composite runs after present.
   const bool skip_china_open = []() {
@@ -81,7 +81,7 @@ int seed_atmosphere_legacy_mode(Browser& browser,
     return 53;
   }
   // CPU label list only (no GPU attach). Must run before the count gate —
-  // apply_china may skip overlays under SMT_ATMOSPHERE_SHOWCASE_GPU=1.
+  // apply_china may skip overlays under ATMOSPHERE_SHOWCASE_GPU=1.
   (void)cam->gpu().ensure_legacy_overlays();
   if (cam->gpu().legacy_label_count() < 8) {
     std::fprintf(stderr, "atmosphere-showcase: legacy labels missing\n");

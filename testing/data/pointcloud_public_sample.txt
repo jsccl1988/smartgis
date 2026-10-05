@@ -1,4 +1,4 @@
-# Public china_dem subsample for Smt3DPointCloud::Read3DPointCloud
+# Public china_dem subsample for PointCloud3d::Read3DPointCloud
 # Format: x,z,y,r,g,b  (lon, elev_m, lat, RGB)
 # bbox=104.7,34.7,105.8,35.8 (china_dem public terrain; hypsometric RGB)
 104.73194,2040.96,35.80000,140,110,70

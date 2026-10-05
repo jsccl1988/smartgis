@@ -5,11 +5,11 @@
 
 #include <algorithm>
 
-#if defined(SMT_RENDER_MATH_SIMD) && (defined(__AVX2__) || defined(__AVX2))
+#if defined(BASE_MATH_SIMD) && (defined(__AVX2__) || defined(__AVX2))
 #include <immintrin.h>
-#define SMT_MATH_HAVE_AVX2 1
+#define BASE_MATH_HAVE_AVX2 1
 #else
-#define SMT_MATH_HAVE_AVX2 0
+#define BASE_MATH_HAVE_AVX2 0
 #endif
 
 namespace base {
@@ -38,7 +38,7 @@ void transform_xy_batch_scalar(const LpToDp2& a, std::span<const float> xy_in,
   }
 }
 
-#if SMT_MATH_HAVE_AVX2
+#if BASE_MATH_HAVE_AVX2
 // 4 points per iteration. Matches transform_xy: +0.5 then trunc-toward-zero,
 // then flip_y as static_cast<long>(view_h - Y) with Y promoted to float.
 void transform_xy_batch_avx2(const LpToDp2& a, const float* xy_in, long* xy_out,
@@ -95,7 +95,7 @@ void transform_xy_batch(const LpToDp2& a, std::span<const float> xy_in,
                         std::span<long> xy_out) {
   const size_t n = (std::min)(xy_in.size(), xy_out.size());
   const size_t pairs = n / 2;
-#if SMT_MATH_HAVE_AVX2
+#if BASE_MATH_HAVE_AVX2
   if (pairs >= 4) {
     transform_xy_batch_avx2(a, xy_in.data(), xy_out.data(), pairs);
     return;

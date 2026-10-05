@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_ASSETS_MODEL_H_
-#define GIS_ASSETS_MODEL_H_
+#ifndef VISTA_ASSETS_MODEL_MODEL_H_
+#define VISTA_ASSETS_MODEL_MODEL_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -27,7 +27,7 @@ struct ModelAsset {
 
 VISTA_EXPORT void load_unit_cube(ModelAsset& out);
 
-// Assimp when smt_has_assimp; otherwise only the built-in name "cube".
+// Assimp when has_assimp; otherwise only the built-in name "cube".
 // tileset.json / b3dm / i3dm / pnts / cmpt are never standalone files.
 VISTA_EXPORT bool load_file(const char* path, ModelAsset& out);
 
@@ -46,4 +46,4 @@ VISTA_EXPORT bool flatten_meshes(const ModelAsset& in, Mesh& out);
 
 }  // namespace vista
 
-#endif  // GIS_ASSETS_MODEL_H_
+#endif  // VISTA_ASSETS_MODEL_MODEL_H_

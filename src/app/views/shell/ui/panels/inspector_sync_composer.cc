@@ -34,7 +34,7 @@
 #include "content/public/map_types.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "vista/atmosphere/session/field_channel.h"
+#include "vista/component/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "gis/edit/session.h"
 #include "gis/tile/layer/tile_map_layer.h"
@@ -198,7 +198,7 @@ void InspectorSyncComposer::wire_edit_feedback() {
       host_->set_status_message("Selected " + token);
     });
   }
-  // Showcase / self-test set SMT_SKIP_AMBOX_CATALOG. Edit subscriptions are not
+  // Showcase / self-test set SKIP_AMBOX_CATALOG. Edit subscriptions are not
   // required for BMP export. A skewed Browser/MapSession layout (stale
   // shell_browser .obj under parallel ninja) makes edit_host() return
   // 0xCD-filled garbage 鈫?STATUS_HEAP_CORRUPTION in ViewHost::events().

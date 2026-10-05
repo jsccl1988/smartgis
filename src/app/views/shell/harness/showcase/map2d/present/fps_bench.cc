@@ -11,7 +11,7 @@
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "ui/views/map/map_viewport.h"
 
-#include "vista/map/hillshade_bake.h"
+#include "vista/component/map/detail/hillshade_bake.h"
 
 #include <cstdio>
 #include <cstdlib>

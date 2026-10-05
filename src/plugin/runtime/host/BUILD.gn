@@ -53,7 +53,7 @@ source_set("host_sources") {
 }
 
 # Product host API + shared widgets runtime. Disk: plugin_host.dll / _d.
-smt_shared_library("host") {
+product_shared_library("host") {
   dll_stem = "plugin_host"
   defines = [ "PLUGIN_HOST_EXPORTS" ]
   deps = [

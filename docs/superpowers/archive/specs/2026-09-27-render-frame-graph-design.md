@@ -39,12 +39,12 @@ All rights reserved.
 
 | 今天 | 终局 | 命名空间 | 链接 |
 | --- | --- | --- | --- |
-| `src/render/map2d`（`Pass`、`MapEffect`、glyph、`detail`） | `src/vista/map` | `effect::map`（内部 `effect::map::detail`） | `//src/vista/map:map_sources` |
-| `src/render/atmosphere`（ocean / cloud / sky / fog、`AtmosphereFrame`、大气 Effect） | `src/vista/atmosphere` | `effect::atmosphere`（内部 `effect::atmosphere::detail`） | `//src/vista/atmosphere:atmosphere_sources` |
+| `src/render/map2d`（`Pass`、`MapEffect`、glyph、`detail`） | `src/vista/component/map` | `effect::map`（内部 `effect::map::detail`） | `//src/vista/component/map:map_sources` |
+| `src/render/atmosphere`（ocean / cloud / sky / fog、`AtmosphereFrame`、大气 Effect） | `src/vista/component/atmosphere` | `effect::atmosphere`（内部 `effect::atmosphere::detail`） | `//src/vista/component/atmosphere:atmosphere_sources` |
 
-Include：`vista/map/pass.h`、`vista/atmosphere/frame/atmosphere_effects.h`。`src/render/` 下不留转发头。
+Include：`vista/component/map/pass.h`、`vista/component/atmosphere/frame/atmosphere_effects.h`。`src/render/` 下不留转发头。
 
-它们是 `source_set`，不是新 DLL。`//src/render:render` 不编译这些源文件，也不 `deps` 它们。调用方自己依赖：`src/app/views` 的 `MapScene`、`Scene3dController` 及其测试。`frame_graph_test` 仍依赖 `//src/render:render`；只有构造 `MapEffect` 的测试再依赖 `//src/vista/map`。
+它们是 `source_set`，不是新 DLL。`//src/render:render` 不编译这些源文件，也不 `deps` 它们。调用方自己依赖：`src/app/views` 的 `MapScene`、`Scene3dController` 及其测试。`frame_graph_test` 仍依赖 `//src/render:render`；只有构造 `MapEffect` 的测试再依赖 `//src/vista/component/map`。
 
 `render` 留下：
 
@@ -71,35 +71,35 @@ Include：`vista/map/pass.h`、`vista/atmosphere/frame/atmosphere_effects.h`。`
 
 留在 `scene/`、不进 graph 的：`GpuScene` 的网格数组、细分、数据面的视锥提取（`frustum_aabb`）。graph 可以调用一个窄的「画实例」入口。不新开 DLL。
 
-与 Effect tree 的关系：`vista/map` 与 `vista/atmosphere` 实现 `graph::Effect` 并离开 `render`。`GpuScene` 的不透明录制不是外部效果，而是 graph 自己的 `kOpaque` pass，因为 Render Scene 属于 render。不要把 `GpuScene` 放到 `src/vista`。
+与 Effect tree 的关系：`vista/component/map` 与 `vista/component/atmosphere` 实现 `graph::Effect` 并离开 `render`。`GpuScene` 的不透明录制不是外部效果，而是 graph 自己的 `kOpaque` pass，因为 Render Scene 属于 render。不要把 `GpuScene` 放到 `src/vista`。
 
 ## GIS
 
 `vista` 是视口所持的那一幅景象：正交或透视都是同一帧，不是第二颗行星，也不是 GPU scene。父目录不叫 `scene`：它和 `render/scene` 撞名，也像只装三维。
 
-磁盘上已完成：`src/gis/map2d` + `src/gis/scene` → `src/vista/{frame,world,assets,domain}`，且 `domain/atmosphere` 为唯一已实现会话包（旧 `vista/scene`、顶栏 `vista/atmosphere` 已不存在）。
+磁盘上已完成：`src/gis/map2d` + `src/gis/scene` → `src/vista/{frame,world,assets,domain}`，且 `domain/atmosphere` 为唯一已实现会话包（旧 `vista/scene`、顶栏 `vista/component/atmosphere` 已不存在）。
 
 | 路径（磁盘现状） | 状态 | 职责 |
 | --- | --- | --- |
 | `src/vista/frame/` | 已落地 | CPU `MapFrame`。正交是今天的地图；`ViewMode::kPerspective` 以后仍是这一帧。没有 RHI、HWND、`CameraMatrices`。网格在视图 CRS |
-| `src/vista/world/` | 已落地 | 节点图：`class gis::World`、地形、陆地掩膜。`world/terrain/` 下放 DEM / 掩膜。源文件是并列的 `world.h` / `world.cc`（不要 `world/world/`） |
+| `src/vista/component/world/` | 已落地 | 节点图：`class gis::World`、地形、陆地掩膜。`world/terrain/` 下放 DEM / 掩膜。源文件是并列的 `world.h` / `world.cc`（不要 `world/world/`） |
 | `src/vista/assets/` | 已落地 | CPU mesh / tileset |
 | `src/vista/domain/` | 已落地（`domain.h`） | `DomainKind` / `DomainSession`，类型仍在命名空间 `gis` |
 | `src/vista/domain/atmosphere/` | 已落地 | CPU `Environment`（`kAtmosphere` 会话包：field + systems）。不是 World 的兄弟，也不是第二套「环境 = 大气」顶栏 |
 
-**为什么 atmosphere 嵌在 `domain/` 下：** `Environment` 已经是 `DomainKind::kAtmosphere` 会话（`kind()` 返回 `kAtmosphere`；不强制继承 `DomainSession`）。挂在 `vista/atmosphere` 会让每个未来领域都变成 `vista/` 顶栏同伴，并复现「atmosphere = environment」的旧味。嵌在 `domain/atmosphere/` 后，factory / geology / offshore / storm / space 是 atmosphere 的兄弟，不是 World 的兄弟。
+**为什么 atmosphere 嵌在 `domain/` 下：** `Environment` 已经是 `DomainKind::kAtmosphere` 会话（`kind()` 返回 `kAtmosphere`；不强制继承 `DomainSession`）。挂在 `vista/component/atmosphere` 会让每个未来领域都变成 `vista/` 顶栏同伴，并复现「atmosphere = environment」的旧味。嵌在 `domain/atmosphere/` 后，factory / geology / offshore / storm / space 是 atmosphere 的兄弟，不是 World 的兄弟。
 
 **为什么节点图目录叫 `world` 不叫 `scene`：** 类已是 `gis::World`；`vista/scene` 与 `render/scene`（GpuScene）撞词，且 `scene/scene/` 是冗余嵌套。改名只动路径与文件名，不改类名。
 
 **拒绝的备选：**
 
-- 保留 `vista/atmosphere` 与 `vista/world` 平级：扁平，但 taxonomy 不是 domain。
+- 保留 `vista/component/atmosphere` 与 `vista/component/world` 平级：扁平，但 taxonomy 不是 domain。
 - 把 atmosphere 并进 `world/`：会话时钟 / FieldStore 与空间节点图混在一处。
 - 把 atmosphere 放进 `frame/`：`MapFrame` 是制图布局，不是领域会话。
 
 **路径与命名（11b 已落地）：**
 
-- 节点图：`vista/world/world.h`；guard `GIS_VISTA_WORLD_H_`；地形 `vista/world/terrain/`。
+- 节点图：`vista/component/world/world.h`；guard `GIS_VISTA_WORLD_H_`；地形 `vista/component/world/terrain/`。
 - 大气：`vista/domain/atmosphere/`（`field/`、`systems/`）。**不**引入 `gis::vista::atmosphere`。CPU 类型继续用 `gis::atmosphere`；**不改名 `Environment`**。
 - 帧头保持 `vista/frame/frame.h`。公开帧类型是 `gis::vista`（`Layout`、`MapFrame`、`View`、`ViewMode` 等）；`gis::vista::detail` 放碰撞等内部。`gis::World` 仍是 `gis::World`。不要引入 `gis::vista::frame`。
 
@@ -178,7 +178,7 @@ bool present(rhi::Device* device, const ViewInput& in);
 }  // namespace render
 ```
 
-终态 `OpaqueEffect` 在 `render::graph`（`src/render/graph/opaque_effect.h`）。今天的文件还在 `src/render/scene/opaque_effect.h`。`MapEffect` 在 `effect::map`（`src/vista/map/map_effect.h`）。`present` 所在的 `graph_sources` 仍只依赖 `rhi_sources`，不包含 map、atmosphere 或 `scene.h`。`OpaqueEffect` 另编进同一个 `render.dll`，调用 scene 的窄绘制入口。
+终态 `OpaqueEffect` 在 `render::graph`（`src/render/graph/opaque_effect.h`）。今天的文件还在 `src/render/scene/opaque_effect.h`。`MapEffect` 在 `effect::map`（`src/vista/component/map/map_effect.h`）。`present` 所在的 `graph_sources` 仍只依赖 `rhi_sources`，不包含 map、atmosphere 或 `scene.h`。`OpaqueEffect` 另编进同一个 `render.dll`，调用 scene 的窄绘制入口。
 
 云质量留在 `PostOpaqueEffect` 上，不进 `ViewInput`。`MapScene::present_gpu` 用视图范围的 `make_ortho_camera` 填 `camera`，`effects` 里只有一个 `record_all` 的 `MapEffect`。`Scene3dController` 在 `prepare_atmosphere_*` 之后按顺序推入前段效果、`OpaqueEffect(&gpu_scene_)`、后段效果；`backend == kNull` 时 `camera` 为空，避免 Null 上的视锥裁剪。
 

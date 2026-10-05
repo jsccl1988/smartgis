@@ -20,14 +20,14 @@ mogu-aligned Chrome Trace buffer for flow dump / render profiling.
 Dump: `{"traceEvents":[...]}` (Perfetto / chrome://tracing).
 
 Startup (SmartGisViews): `BASE_TRACE_EVENT(name, "startup")` spans; after first
-show, Debug builds (or `SMT_STARTUP_PROFILE=1`) print a phase table to stderr
+show, Debug builds (or `STARTUP_PROFILE=1`) print a phase table to stderr
 and write `out/Debug/log/startup_profile.txt` (+ sibling `.json`) by default.
-Override path with `SMT_STARTUP_PROFILE_DUMP=...`. Progressive dumps also fire
+Override path with `STARTUP_PROFILE_DUMP=...`. Progressive dumps also fire
 before FlyCube attach and after `Browser::init`.
 
 ```bat
 .\build.bat trace_test
-set SMT_STARTUP_PROFILE=1
+set STARTUP_PROFILE=1
 out\Debug\SmartGIS.exe --ui-showcase=shell
 type out\Debug\log\startup_profile.txt
 ```

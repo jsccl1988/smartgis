@@ -5,7 +5,7 @@ All rights reserved.
 
 # harness-auto-map2d-frame-opt — reference
 
-Progressive disclosure. Read when parsing logs, picking a hot phase, or wiring SMT_TRACE.
+Progressive disclosure. Read when parsing logs, picking a hot phase, or wiring TRACE.
 
 ## Frame model
 
@@ -22,7 +22,7 @@ SmartGIS.exe --map2d-showcase=china
         │     cold: upload + present
         │     warm StaticReuse: present_gpu_warm_ms · gpu_skip vs gpu_full
         │
-        └─ optional FPS bench (SMT_MAP2D_FPS_BENCH_MS)
+        └─ optional FPS bench (MAP2D_FPS_BENCH_MS)
               mean/peak fps · layout_builds_delta · action_r/i/s/st
 ```
 
@@ -53,14 +53,14 @@ Warm past dual-speed settle (~200–350 ms pump) before timed samples — alread
 
 | Env | Role |
 | --- | --- |
-| `SMT_MAP2D_SHOWCASE_W/H` | `1280` / `720` (locked) |
-| `SMT_MAP2D_SHOWCASE_GPU` | `1` = FlyCube present |
-| `SMT_MAP2D_FPS_BENCH_MS` | >0 enables FPS sample loop |
-| `SMT_MAP2D_EXPORT_REUSE` | `1` = bench-only warm paint/blit |
-| `SMT_TRACE` / `SMT_BAKE_PROFILE` | Chrome-trace / RenderTrace; bake spans use **`cat=bake`** (not `startup`) |
-| `SMT_BAKE_BACKEND` | `auto` \| `cpu` \| `cuda` — equal-profile bake bench |
-| `SMT_BAKE_BENCH` | `1` = `dem_raster_test` / `land_mask_test` write `captures/analysis/hillshade_bake/` |
-| `SMT_MAP_FPS_LOG` | Extra map FPS logging when wired |
+| `MAP2D_SHOWCASE_W/H` | `1280` / `720` (locked) |
+| `MAP2D_SHOWCASE_GPU` | `1` = FlyCube present |
+| `MAP2D_FPS_BENCH_MS` | >0 enables FPS sample loop |
+| `MAP2D_EXPORT_REUSE` | `1` = bench-only warm paint/blit |
+| `TRACE` / `BAKE_PROFILE` | Chrome-trace / RenderTrace; bake spans use **`cat=bake`** (not `startup`) |
+| `BAKE_BACKEND` | `auto` \| `cpu` \| `cuda` — equal-profile bake bench |
+| `BAKE_BENCH` | `1` = `dem_raster_test` / `land_mask_test` write `captures/analysis/hillshade_bake/` |
+| `MAP_FPS_LOG` | Extra map FPS logging when wired |
 
 ## Fix heuristics
 

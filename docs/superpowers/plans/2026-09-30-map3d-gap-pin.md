@@ -31,7 +31,7 @@ All rights reserved.
 
 ## P1 — product depth
 
-- [ ] **P1-A 点云生产路径：** shell/plugin open LAS/LAZ ≥1M with chunk cull + LOD thin stable; document PDAL optional (`smt_has_pdal`) vs in-tree LAS. Plan: [`2026-09-30-world3d-pointcloud-las.md`](2026-09-30-world3d-pointcloud-las.md). Spec: plugin-host §world3d.  
+- [ ] **P1-A 点云生产路径：** shell/plugin open LAS/LAZ ≥1M with chunk cull + LOD thin stable; document PDAL optional (`has_pdal`) vs in-tree LAS. Plan: [`2026-09-30-world3d-pointcloud-las.md`](2026-09-30-world3d-pointcloud-las.md). Spec: plugin-host §world3d.  
   **Accept:** `pointcloud_test` + plugin showcase / interact loads sample; >500k auto-thin; GpuScene draws non-empty `kPointCloud`.
 - [ ] **P1-B 大气总验收：** close atmosphere upgrade Phase 3.4 against §1.2 five criteria (field scrub, ocean mid-tier, timeline, wind overlay, RHI boundary). Plan: [`2026-09-20-atmosphere-ocean-cloud-upgrade.md`](2026-09-20-atmosphere-ocean-cloud-upgrade.md). Spec: render-rhi-scene Atmosphere.  
   **Accept:** `--atmosphere-showcase` (or self-test) documents pass/fail per criterion; `m3-atmosphere-ok` remains green.
@@ -42,7 +42,7 @@ All rights reserved.
 
 ## P2 — later
 
-- [ ] **P2-A `SmtScene` octree → World query：** further delegate leftover octree queries (today AABB mirror only). Plan: [`2026-09-19-scene3d-world-gpuscene.md`](2026-09-19-scene3d-world-gpuscene.md) Deferred.
+- [ ] **P2-A `Scene` octree → World query：** further delegate leftover octree queries (today AABB mirror only). Plan: [`2026-09-19-scene3d-world-gpuscene.md`](2026-09-19-scene3d-world-gpuscene.md) Deferred.
 - [ ] **P2-B 活 PDAL install：** optional `build.bat t pdal` CI/doc path when network allows (stub already green).
 - [ ] **P2-C 地形 LOD 观感：** clipmap / morph or equivalent mid-tier look without Cesium terrain pipeline.
 

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_VISTA_WORLD_POINTCLOUD_LAS_IO_H_
-#define GIS_VISTA_WORLD_POINTCLOUD_LAS_IO_H_
+#ifndef VISTA_ASSETS_POINTCLOUD_LAS_IO_H_
+#define VISTA_ASSETS_POINTCLOUD_LAS_IO_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -27,4 +27,4 @@ VISTA_EXPORT bool load_las_file(const char* path, const LasLoadOptions& options,
 
 }  // namespace vista
 
-#endif  // GIS_VISTA_WORLD_POINTCLOUD_LAS_IO_H_
+#endif  // VISTA_ASSETS_POINTCLOUD_LAS_IO_H_

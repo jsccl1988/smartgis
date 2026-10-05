@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-14  
-**Updated:** 2026-10-05 — §Math 分层（scalar/linear/traits/geom/xform/simd）。Prior: 2026-10-03 memory / codecs / trace archived; PA-E + execution still open; 2026-10-01 §Math Eigen.
+**Updated:** 2026-10-05 — §Math 命名（guards / snake_case / Point2f / `base_math_simd`）。Prior same day — §Math 分层（scalar/linear/traits/geom/xform/simd）。Prior: 2026-10-03 memory / codecs / trace archived; PA-E + execution still open; 2026-10-01 §Math Eigen.
 **Goal:** 将遗留 `src/base/core`（`Smt*`）对照 mogu **全部**替换到 foundation 树；制图 style / `sys` / `net` 留在产品层；分期 strangler，阶段末不留旧名转发壳。  
 **Related:** [`../src-layout.md`](../src-layout.md)、[`../mogu-mapping.md`](../mogu-mapping.md)、[`../abi-rename-map.md`](../abi-rename-map.md)、[`2026-09-13-code-style-include-abi-cutover-design.md`](../archive/specs/2026-09-13-code-style-include-abi-cutover-design.md)、[`2026-09-13-base-archive-design.md`](../archive/specs/2026-09-13-base-archive-design.md)、[`2026-09-13-base-ipc-mojom-design.md`](../archive/specs/2026-09-13-base-ipc-mojom-design.md)、[`2026-09-14-dll-reorganization-design.md`](../archive/specs/2026-09-14-dll-reorganization-design.md)  
 **Plan (Cursor):** `base_root_hybrid_fd0c40fd.plan.md`（会话外；本仓以本 spec + `docs/superpowers` 为准）；**§Memory:** [`../archive/plans/2026-09-28-base-memory.md`](../archive/plans/2026-09-28-base-memory.md)；**§PA-E:** [`../plans/2026-09-28-partition-alloc-everywhere.md`](../plans/2026-09-28-partition-alloc-everywhere.md)；**§Execution:** [`../plans/2026-09-28-base-execution.md`](../plans/2026-09-28-base-execution.md)
@@ -37,7 +37,7 @@ All rights reserved.
 | 手法 | **Hybrid**：薄面 port mogu header；厚/平台面按 mogu API 形状本仓 rewrite（Windows：`LoadLibrary`；无裸拷 `unistd`/`dlfcn`） |
 | 落点 | 终局 foundation = **`src/base/`**；仓库根**无**物理 `base/`、`core/`；兼容别名 `//:base` / `//:core` |
 | 边界 A — 进 foundation | `core`（headers）、`threading`、`files`、`memory`、`util`、`archive`、`ipc`、`synchronization` / `concurrency` / `execution`（见 [`2026-09-28-base-execution-design.md`](../archive/specs/2026-09-28-base-execution-design.md)）；按需 `string` / `time` / `traits` / `container` / `tuple` 子集 |
-| 边界 A — 留产品层 | 制图 pen/brush/`SmtStyle` → **`src/legacy/gis/present/carto`**（链入 **`gis.dll`**）；`gis::Envelope` → **`src/gis/envelope.h`**（header-only）；`sys`、`net` 不动 |
+| 边界 A — 留产品层 | 制图 pen/brush/`Style` → **`src/legacy/gis/present/carto`**（链入 **`gis.dll`**）；`gis::Envelope` → **`src/gis/envelope.h`**（header-only）；`sys`、`net` 不动 |
 | 硬排除 | 不搬 mogu `base::mutex`（新树 `std::mutex`）；不整棵搬 archive Json/Text/Yaml sink；不 vendor Chromium；不引入 Qt |
 | ABI | 破 `Smt*`；**阶段末不留**旧名转发壳；日常改动在 `master` |
 | 推进 | **分期 strangler**（每期绿再进下一期） |
@@ -245,7 +245,7 @@ All must hold before product PA-E may default on:
 | Piece | Path | DLL / linkage |
 | --- | --- | --- |
 | `gis::Envelope` | `src/gis/envelope.h`（header-only） | no export from `base.dll`；产品 `gis` / leftover 共用 |
-| `SmtStyle` / StyleManager / `style_api` | `src/legacy/gis/present/carto/` | `carto_sources` → **`gis.dll`**（`to_smt_style` 同 DLL） |
+| `Style` / StyleManager / `style_api` | `src/legacy/gis/present/carto/` | `carto_sources` → **`gis.dll`**（`to_smt_style` 同 DLL） |
 
 `src/legacy/carto` and `src/base/carto` removed. Do not confuse with GDI `legacy/render/.../gdi` carto paint (`MapCarto2d`).
 
@@ -298,9 +298,31 @@ Former hot specs are under `archive/specs/` (`superseded`). **Revise this file**
 | simd | `src/base/math/simd/` | batch float32 |
 | detail | `src/base/math/detail/` | Eigen Map aliases |
 
-GN: `:linear` (headers) · `:bounds` (geom cpp) · `:math` (facade + simd, `public_deps` bounds). Namespace stays **`base`** (no `base::math`). Preferred include `base/math/math.h`. Root `vector.h` etc. are leftover cutover aliases only.
+GN: `:linear` (headers) · `:bounds` (geom cpp) · `:math` (facade + simd, `public_deps` bounds). Namespace stays **`base`** (no `base::math`). Preferred include `base/math/math.h` (or a layered path such as `base/math/linear/vector.h`).
 
 Out of scope: glm; folding into `base.dll`; renaming leftover AABB fields; editing `src/legacy/` TUs.
+
+---
+
+## §Math 命名（2026-10-05）
+
+**Why not a new dated spec:** naming for `src/base/math` is owned by this living base row.
+
+**Diagram:** [`../diagrams/base-math-layers.html`](../diagrams/base-math-layers.html)
+
+| Kind | Rule |
+| --- | --- |
+| Include guards | `BASE_MATH_<LAYER>_<STEM>_H_` (drop former `SMT_` prefix) |
+| Types | `PascalCase` (`Vector3`, `LpToDp2`, `Point2f`) |
+| Functions | `snake_case` |
+| Constants | `kCamelCase` (`kPi`, `kInvalidCoord`) |
+| Enums | `enum class` + `kName` |
+| Private members | `snake_case_` |
+| Eigen | `base::detail::EigenVec*` / `EigenMat4`; `eigen()` maps full storage; `Vector4::xyz()` drops `w` |
+| SIMD | GN `base_math_simd` (default false) → `BASE_MATH_SIMD` |
+| Point/rect aliases | New TUs: `Point2f` / `Rect2f`. Leftover `fPoint` / `lRect` / `dbfPoint` stay as `using` |
+| POD fields | Leftover layout unchanged (`vcMin`, `m_vcN`, `_11`) |
+| `render::` | Type/`using` aliases until call-site cutover; no third public namespace |
 
 ---
 

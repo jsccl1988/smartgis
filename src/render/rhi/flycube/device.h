@@ -8,7 +8,7 @@
 
 #include "render/rhi/rhi.h"
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 #include "render/rhi/flycube/pipeline/program.h"
 
 #include "CommandList/CommandList.h"
@@ -35,7 +35,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 struct Pass;
 struct Dispatch;
@@ -135,7 +135,7 @@ class FlycubeDevice : public Device {
   std::unordered_map<Pipeline*, std::unique_ptr<FlycubeProgram>> programs_;
 };
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

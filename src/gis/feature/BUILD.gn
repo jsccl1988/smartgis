@@ -15,7 +15,7 @@ source_set("feature_sources") {
     # same-module symbols (LNK2019 on __imp_*).
   ]
   sources = [
-    "feature.cpp",
+    "feature.cc",
     "feature.h",
   ]
   include_dirs += [ "//src" ]

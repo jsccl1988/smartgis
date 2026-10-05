@@ -87,7 +87,7 @@ def main() -> int:
     repo = Path(__file__).resolve().parents[1]
     candidates: list[Path] = []
 
-    env = os.environ.get("SMT_PYTHON_ROOT", "").strip()
+    env = os.environ.get("PYTHON_ROOT", "").strip()
     if env:
         candidates.append(Path(env))
 

@@ -21,7 +21,7 @@
 namespace base {
 namespace ipc {
 
-inline constexpr uint32_t k_frame_magic = 0x31544D53u;  // 'SMT1' LE
+inline constexpr uint32_t k_frame_magic = 0x31534947u;  // 'GIS1' LE
 inline constexpr uint16_t k_frame_version = 3;           // seq + handle list
 inline constexpr uint16_t k_flag_binary = 2;
 inline constexpr uint16_t k_flag_has_handles = 8;

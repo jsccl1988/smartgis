@@ -8,8 +8,8 @@
   "driver": "inproc",
   "script": "ui.interact.combo.il",
   "env": {
-    "SMT_UI_SHOWCASE_LINGER_MS": "0",
-    "SMT_UI_THEME": "dark"
+    "UI_SHOWCASE_LINGER_MS": "0",
+    "UI_THEME": "dark"
   },
   "mark_leaf": "ui-showcase-mark.txt",
   "required_marks": [

@@ -27,7 +27,7 @@ struct AtmosphereGlobeFlyResult {
   int dumped_frames = 0;
 };
 
-// Space → high-altitude fly, BMP at high beat, optional SMT_HARNESS_RECORD
+// Space → high-altitude fly, BMP at high beat, optional HARNESS_RECORD
 // keyframe dump under captures/record/atmosphere_globe_fly/.
 AtmosphereGlobeFlyResult run_atmosphere_globe_fly_presents(
     AtmosphereShowcaseMode mode,

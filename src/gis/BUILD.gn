@@ -16,7 +16,7 @@
 
 import("//build/smartgis.gni")
 
-smt_shared_library("gis") {
+product_shared_library("gis") {
   dll_stem = "gis"
   assert_no_deps = [ "//src/vista:vista" ]
   defines = [
@@ -42,7 +42,7 @@ smt_shared_library("gis") {
   # TileProvider / Sdbd headers expose net::; consumers that include them need net.lib.
   # LOGGING / log_sink live in base.dll (not statically absorbed via foundation).
   # MVT gunzip needs zlib symbols on the DLL link line. CxImage.dll does not
-  # export inflate*; smt_shared_library also may not absorb CxImage:zlib static.
+  # export inflate*; product_shared_library also may not absorb CxImage:zlib static.
   public_deps = [
     "//src/base:base",
     "//src/net:net",

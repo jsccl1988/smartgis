@@ -3,7 +3,7 @@
 
 #include "vista/assets/model/model_internal.h"
 
-#ifdef SMT_HAS_ASSIMP
+#ifdef HAS_ASSIMP
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
@@ -13,7 +13,7 @@
 namespace vista {
 namespace detail {
 
-#ifdef SMT_HAS_ASSIMP
+#ifdef HAS_ASSIMP
 
 bool load_file_assimp(const char* path, ModelAsset& out) {
   out = ModelAsset();

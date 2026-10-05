@@ -48,12 +48,12 @@ Do **not** “helpfully” add sleeps or pumps into the timed loop.
 
 | Env | Role |
 | --- | --- |
-| `SMT_ATMOSPHERE_SHOWCASE_GPU` | `1` = FlyCube path |
-| `SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT` | Timed frames (1–600); >3 → pump 0 |
-| `SMT_ATMOSPHERE_SHOWCASE_LINGER_MS` | `0` for benches |
-| `SMT_SCENE3D_ENGINE` | Override engine (`flycube` / …) when needed |
-| `SMT_GPUSCENE_PREP_PARALLEL` | Prep parallel on/off |
-| `SMT_TRACE` | Chrome-trace / RenderTrace spans |
+| `ATMOSPHERE_SHOWCASE_GPU` | `1` = FlyCube path |
+| `ATMOSPHERE_SHOWCASE_PRESENT_COUNT` | Timed frames (1–600); >3 → pump 0 |
+| `ATMOSPHERE_SHOWCASE_LINGER_MS` | `0` for benches |
+| `SCENE3D_ENGINE` | Override engine (`flycube` / …) when needed |
+| `GPUSCENE_PREP_PARALLEL` | Prep parallel on/off |
+| `TRACE` | Chrome-trace / RenderTrace spans |
 
 ## Fix heuristics
 

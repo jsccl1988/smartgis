@@ -70,11 +70,11 @@ void write_profile_json(const std::filesystem::path& path,
 }  // namespace
 
 bool dem_gradient_profile_enabled() {
-  const char* dump = std::getenv("SMT_ANALYSIS_PROFILE_DUMP");
+  const char* dump = std::getenv("ANALYSIS_PROFILE_DUMP");
   if (dump && dump[0]) {
     return true;
   }
-  const char* e = std::getenv("SMT_ANALYSIS_PROFILE");
+  const char* e = std::getenv("ANALYSIS_PROFILE");
   if (!e || !e[0]) {
     return false;
   }
@@ -110,7 +110,7 @@ void record_dem_gradient_profile(const DemGradientProfile& snap) {
                snap.width, snap.height, snap.pixels, snap.threads,
                snap.dispatch_ms, snap.compute_ms,
                snap.backend ? snap.backend : "serial");
-  if (const char* dump = std::getenv("SMT_ANALYSIS_PROFILE_DUMP");
+  if (const char* dump = std::getenv("ANALYSIS_PROFILE_DUMP");
       dump && dump[0]) {
     write_profile_json(std::filesystem::path(dump), snap);
     return;

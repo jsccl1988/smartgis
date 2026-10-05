@@ -1,11 +1,10 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_MATRIX_H_
-#define SMT_RENDER_MATH_MATRIX_H_
+#ifndef BASE_MATH_LINEAR_MATRIX4_H_
+#define BASE_MATH_LINEAR_MATRIX4_H_
 
 #include "base/math/linear/vector.h"
-#include "base/math/scalar/constants.h"
 #include "base/math/scalar/constants.h"
 
 #include <cmath>
@@ -23,8 +22,8 @@ class Matrix {
 
   Matrix() = default;
 
-  using Map = Eigen::Map<EigenMat4, Eigen::Unaligned>;
-  using ConstMap = Eigen::Map<const EigenMat4, Eigen::Unaligned>;
+  using Map = Eigen::Map<detail::EigenMat4, Eigen::Unaligned>;
+  using ConstMap = Eigen::Map<const detail::EigenMat4, Eigen::Unaligned>;
 
   Map eigen() { return Map(&_11); }
   ConstMap eigen() const { return ConstMap(&_11); }
@@ -128,23 +127,23 @@ inline void Matrix::set_rotation3(const Eigen::Matrix3f& r) {
 }
 
 inline void Matrix::rotate_x(float a) {
-  set_rotation3(Eigen::AngleAxisf(a, EigenVec3::UnitX()).toRotationMatrix());
+  set_rotation3(Eigen::AngleAxisf(a, detail::EigenVec3::UnitX()).toRotationMatrix());
 }
 
 inline void Matrix::rotate_y(float a) {
-  set_rotation3(Eigen::AngleAxisf(a, EigenVec3::UnitY()).toRotationMatrix());
+  set_rotation3(Eigen::AngleAxisf(a, detail::EigenVec3::UnitY()).toRotationMatrix());
 }
 
 inline void Matrix::rotate_z(float a) {
-  set_rotation3(Eigen::AngleAxisf(a, EigenVec3::UnitZ()).toRotationMatrix());
+  set_rotation3(Eigen::AngleAxisf(a, detail::EigenVec3::UnitZ()).toRotationMatrix());
 }
 
 inline void Matrix::rotate_euler(const Vector4& vc) {
   // Intrinsic ZYX (roll/pitch/yaw) matching leftover mathlib.
   const Eigen::Matrix3f r =
-      (Eigen::AngleAxisf(vc.z, EigenVec3::UnitZ()) *
-       Eigen::AngleAxisf(vc.y, EigenVec3::UnitY()) *
-       Eigen::AngleAxisf(vc.x, EigenVec3::UnitX()))
+      (Eigen::AngleAxisf(vc.z, detail::EigenVec3::UnitZ()) *
+       Eigen::AngleAxisf(vc.y, detail::EigenVec3::UnitY()) *
+       Eigen::AngleAxisf(vc.x, detail::EigenVec3::UnitX()))
           .toRotationMatrix();
   set_rotation3(r);
 }
@@ -188,10 +187,10 @@ inline void Matrix::set_perspective(float fovy, float aspect, float z_near,
 }
 
 inline void Matrix::look_at(Vector4 pos, Vector4 look_at_pt, Vector4 world_up) {
-  const EigenVec3 dir = (look_at_pt.xyz() - pos.xyz()).normalized();
-  const EigenVec3 up =
+  const detail::EigenVec3 dir = (look_at_pt.xyz() - pos.xyz()).normalized();
+  const detail::EigenVec3 up =
       (world_up.xyz() - dir * world_up.xyz().dot(dir)).normalized();
-  const EigenVec3 right = up.cross(dir);
+  const detail::EigenVec3 right = up.cross(dir);
   identity();
   _11 = right.x();
   _21 = up.x();
@@ -209,21 +208,21 @@ inline void Matrix::look_at(Vector4 pos, Vector4 look_at_pt, Vector4 world_up) {
 
 inline void Matrix::view_look_at(Vector4 eye, Vector4 target,
                                  Vector4 world_up) {
-  EigenVec3 f = target.xyz() - eye.xyz();
+  detail::EigenVec3 f = target.xyz() - eye.xyz();
   const float fl = f.norm();
   if (fl < 1e-6f) {
     identity();
     return;
   }
   f /= fl;
-  EigenVec3 s = f.cross(world_up.xyz());
+  detail::EigenVec3 s = f.cross(world_up.xyz());
   const float sl = s.norm();
   if (sl < 1e-6f) {
     identity();
     return;
   }
   s /= sl;
-  const EigenVec3 u = s.cross(f);
+  const detail::EigenVec3 u = s.cross(f);
   identity();
   // Row-vector view: columns are s, u, -f (matches leftover D3D SetViewLookAt).
   _11 = s.x();
@@ -241,10 +240,10 @@ inline void Matrix::view_look_at(Vector4 eye, Vector4 target,
 }
 
 inline void Matrix::billboard(Vector4 pos, Vector4 dir_v, Vector4 world_up) {
-  const EigenVec3 dir = dir_v.xyz().normalized();
-  const EigenVec3 up =
+  const detail::EigenVec3 dir = dir_v.xyz().normalized();
+  const detail::EigenVec3 up =
       (world_up.xyz() - dir * world_up.xyz().dot(dir)).normalized();
-  const EigenVec3 right = up.cross(dir);
+  const detail::EigenVec3 right = up.cross(dir);
   identity();
   _11 = right.x();
   _21 = up.x();
@@ -284,7 +283,7 @@ inline Vector4 Matrix::transform_vector(const Vector4& vc) const {
 
 namespace render {
 using Matrix = ::base::Matrix;
-using EigenMat4 = ::base::EigenMat4;
+using EigenMat4 = ::base::detail::EigenMat4;
 }  // namespace render
 
-#endif  // SMT_RENDER_MATH_MATRIX_H_
+#endif  // BASE_MATH_LINEAR_MATRIX4_H_

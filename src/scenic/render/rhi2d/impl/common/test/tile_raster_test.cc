@@ -164,7 +164,7 @@ void test_tile_raster_env_fallback() {
   base::set_switch("rhi2d-tile-raster", "1");
 #if defined(_DEBUG)
   // Debug defaults PARALLEL unset → serial (browse stability); TILE_RASTER=1
-  // alone does not override that floor — set SMT_RHI2D_PARALLEL=tile to opt in.
+  // alone does not override that floor — set RHI2D_PARALLEL=tile to opt in.
   expect(scenic::detail::rhi2d_parallel_mode() ==
              scenic::detail::Rhi2dParallelMode::kSerial,
          "Debug: TILE_RASTER=1 without PARALLEL => serial");

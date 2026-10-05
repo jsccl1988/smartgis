@@ -12,14 +12,14 @@
 
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
 #include "content/public/map_types.h"
-#include "vista/atmosphere/cloud/cloud_pass.h"
-#include "vista/atmosphere/fog/fog_pass.h"
-#include "vista/atmosphere/frame/atmosphere_frame.h"
-#include "vista/atmosphere/globe/globe_pass.h"
-#include "vista/atmosphere/globe/sat_cloud_pass.h"
-#include "vista/atmosphere/ocean/ocean_pass.h"
-#include "vista/atmosphere/sky/sky_pass.h"
-#include "vista/atmosphere/session/environment.h"
+#include "vista/pass/atmosphere/cloud/cloud_pass.h"
+#include "vista/pass/atmosphere/fog/fog_pass.h"
+#include "vista/pass/atmosphere/atmosphere_frame.h"
+#include "vista/pass/atmosphere/globe/globe_pass.h"
+#include "vista/pass/atmosphere/globe/sat_cloud_pass.h"
+#include "vista/pass/atmosphere/ocean/ocean_pass.h"
+#include "vista/pass/atmosphere/sky/sky_pass.h"
+#include "vista/component/atmosphere/environment.h"
 
 namespace content {
 

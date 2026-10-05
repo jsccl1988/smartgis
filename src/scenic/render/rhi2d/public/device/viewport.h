@@ -5,6 +5,7 @@
 #define SCENIC_RENDER_RHI2D_PUBLIC_DEVICE_VIEWPORT_H_
 
 // 2D viewport / windowport POD for scenic rhi2d (LP/DP device ports).
+// Copy-engine field names stay leftover-shaped (not snake_case).
 
 namespace scenic {
 namespace detail {

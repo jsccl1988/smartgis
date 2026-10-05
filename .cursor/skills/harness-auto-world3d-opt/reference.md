@@ -11,7 +11,7 @@ All rights reserved.
 同等渲染物料  (all rows: SmartGIS.exe --plugin-showcase=world3d)
         │
         ├─ FlyCube/DX12
-        │     SMT_PLUGIN_WORLD3D_PERF_BARE=1
+        │     PLUGIN_WORLD3D_PERF_BARE=1
         │     parallel ∈ {prep_default, prep_0, prep_on}
         │     role = perf
         │
@@ -19,14 +19,14 @@ All rights reserved.
         │     role = smoke  ← not a performance peer
         │
         ├─ Scenic/GL     (row gl_scenic)
-        │     SMT_SCENE3D_ENGINE=stereo_gl  → scenic_impl + scenic_render_gl
+        │     SCENE3D_ENGINE=stereo_gl  → scenic_impl + scenic_render_gl
         │     role = perf
         │
         ├─ Scenic/D3D11  (row d3d_scenic)
-        │     SMT_SCENE3D_ENGINE=stereo_d3d → scenic_impl + scenic_render_d3d
+        │     SCENE3D_ENGINE=stereo_d3d → scenic_impl + scenic_render_d3d
         │     role = perf
         │
-        └─ Scenic/GDI    (row scenic; SMT_SCENE3D_ENGINE=scenic)
+        └─ Scenic/GDI    (row scenic; SCENE3D_ENGINE=scenic)
               scenic.dll software Engine
               role = scenic  ← not a GPU peer
 
@@ -37,7 +37,7 @@ Product app: **View → Engine** wires the same stack (`view.engine.scenic_gl` /
 `scenic_d3d` / `scenic`). `Scene3dStereoSession` LoadLibrary `scenic_impl`, never
 `leftover_render`.
 
-## Perf bare (`SMT_PLUGIN_WORLD3D_PERF_BARE=1`)
+## Perf bare (`PLUGIN_WORLD3D_PERF_BARE=1`)
 
 | Off | Still on |
 | --- | --- |
@@ -62,13 +62,13 @@ Product app: **View → Engine** wires the same stack (`view.engine.scenic_gl` /
 | --- | --- | --- |
 | All Views world3d | `captures/plugin/plugin-showcase-world3d-perf.json` | Primary: warm `ms_per_present`. FlyCube adds `cold_phase`. |
 
-## SMT_SCENE3D_ENGINE
+## SCENE3D_ENGINE
 
 | Value | Engine | Also sets |
 | --- | --- | --- |
 | `flycube` / `dx12` | `kFlyCube` | — |
-| `stereo_gl` / `scenic_gl` / `gl` | `kStereoGl` | `SMT_STEREO_API=OpenGL` |
-| `stereo_d3d` / `scenic_d3d` / `d3d11` | `kStereoGl` | `SMT_STEREO_API=Direct3D` |
+| `stereo_gl` / `scenic_gl` / `gl` | `kStereoGl` | `STEREO_API=OpenGL` |
+| `stereo_d3d` / `scenic_d3d` / `d3d11` | `kStereoGl` | `STEREO_API=Direct3D` |
 | `gdi` | `kGdi` | not a GPU peer |
 | `scenic` | `kScenic` | scenic.dll software (not a GPU peer) |
 

@@ -6,7 +6,7 @@
   ],
   "script": "plugin.orthogrid3d.il",
   "env": {
-    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+    "SKIP_MAP_CONTEXT_MENU": "1"
   },
   "mark_leaf": "plugin-showcase-mark.txt",
   "required_marks": [

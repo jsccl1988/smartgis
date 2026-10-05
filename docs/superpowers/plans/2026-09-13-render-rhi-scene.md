@@ -9,9 +9,9 @@ All rights reserved.
 
 **Goal:** Land a FlyCube-shaped `render::rhi` (DX12 + Vulkan create paths), move logical models/scenes into `sdb`, and sync a GPU scene that records 2D and 3D into one command list.
 
-**Architecture:** Public Facade in `src/render/rhi` (FlyCube private). CPU assets and World in `src/sdb/{model,scene}`. `src/render/scene` is the GPU cache. Leftover GDI/GL/`SmtRenderDevice` keep HWND present.
+**Architecture:** Public Facade in `src/render/rhi` (FlyCube private). CPU assets and World in `src/sdb/{model,scene}`. `src/render/scene` is the GPU cache. Leftover GDI/GL/`RenderDevice2d` keep HWND present.
 
-**Tech Stack:** C++20, GN/Ninja (`build.bat`), FlyCube (optional), Assimp, tinygltf, existing `SmtMap` / `SmtLog` leftover.
+**Tech Stack:** C++20, GN/Ninja (`build.bat`), FlyCube (optional), Assimp, tinygltf, existing `Map` / `SmtLog` leftover.
 
 ## Global Constraints
 
@@ -25,7 +25,7 @@ All rights reserved.
 - No FlyCube / Assimp / tinygltf includes in public `src/` headers.
 - Product C++20. Do not force `cc_std` onto third_party CMake.
 - Output only under repo-root `out/`. Tests use `testing/test.gni` `test()` + `expect`/`main` like `sde_gdal_test`.
-- `SmtRenderDevice::Init` + `BindRhiPresent` must keep compiling.
+- `RenderDevice2d::Init` + `BindRhiPresent` must keep compiling.
 - Exact APIs: copy from `docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`.
 
 ## File map
@@ -37,7 +37,7 @@ All rights reserved.
 | `src/render/rhi/null_rhi.cc` | Null device + stub lists |
 | `src/render/rhi/gdi_rhi.cc` | Leftover HWND present |
 | `src/render/rhi/gl_rhi.cc` | Leftover HWND present |
-| `src/render/rhi/flycube_rhi.cc` | DX12/Vulkan stub (real FlyCube when `smt_has_flycube`) |
+| `src/render/rhi/flycube_rhi.cc` | DX12/Vulkan stub (real FlyCube when `has_flycube`) |
 | `src/render/rhi/rhi_test.cc` | Null + backend identity |
 | `src/sdb/model/model.h` `.cc` | CPU mesh + cube + `load_file` |
 | `src/sdb/model/tileset.h` `.cc` | tileset.json + `select_tiles` |
@@ -130,12 +130,12 @@ class StubCommandList : public CommandList {
 - Modify: `BUILD.gn` (`test_all`)
 
 **Interfaces:**
-- Consumes: `SmtMap` / `SmtLayer` from `//src/sdb/map:gis` for `attach_map` only
+- Consumes: `Map` / `SmtLayer` from `//src/sdb/map:gis` for `attach_map` only
 - Produces: `World` as spec
 
 - [x] **Step 1: Implement World** with `std::vector<Node>`, `next_id_` starting at 1, `generation_` starting at 1. `add_node` appends and increments generation. `remove_node` erases and increments. `query_aabb` inclusive overlap: `!(a.max < b.min || b.max < a.min)` per axis.
 
-- [x] **Step 2: `attach_map`** — remove existing kVectorLayer/kRasterLayer nodes, then for each layer `GetLayerCount` / iterate `SmtMap` (use `MoveFirst`/`GetNext` or index API if present). If the map API is iterator-only, walk it. Name = `GetLayerName` if available, else `"layer"`. Kind: raster if class name / type says raster, else vector. Envelope: `GetEnvelope` / `GetRect` if those exist; else zeros.
+- [x] **Step 2: `attach_map`** — remove existing kVectorLayer/kRasterLayer nodes, then for each layer `GetLayerCount` / iterate `Map` (use `MoveFirst`/`GetNext` or index API if present). If the map API is iterator-only, walk it. Name = `GetLayerName` if available, else `"layer"`. Kind: raster if class name / type says raster, else vector. Envelope: `GetEnvelope` / `GetRect` if those exist; else zeros.
 
 - [x] **Step 3: Tests without a real map** — add two overlapping/non-overlapping nodes; query; remove; generation; `attach_map(nullptr)` does not bump generation.
 
@@ -195,12 +195,12 @@ Original Task 3 (`sdb::scene::World`) is landed. Remaining product gap under `sr
 - [x] `LeftoverRecorder::ensure_device` prefers `preferred_gpu_backend()` **when HWND is set** (DX12), else null; `set_native_window` + GDI/GDI-simple/thread pass `m_hWnd`.
 - [x] `bind_rhi_present` creates preferred GPU first, GDI leftover fallback.
 - [x] RHI `CommandList::set_solid_color` + FlyCube `ColorCB` solid PS; default brush cyan via `GpuScene::set_solid_color_from_colorref`.
-- [x] `GpuScene::set_view_ortho` / map envelope from `SmtMap::get_envelope` in `record_map` (zoom/camera seam).
+- [x] `GpuScene::set_view_ortho` / map envelope from `Map::get_envelope` in `record_map` (zoom/camera seam).
 - [x] `GpuInstance` syncs `model` / `tileset`; `rebuild_meshes` uploads `ModelAsset` via `flatten_meshes`; tileset draws AABB bridge (`tessellate_aabb`) until content decode feeds meshes.
-- [x] **MapViewport**: `try_flycube_device()` before LoadLibrary GDI; `SMT_PREFER_GDI_DEVICE=1` opt-out for leftover DLL.
+- [x] **MapViewport**: `try_flycube_device()` before LoadLibrary GDI; `PREFER_GDI_DEVICE=1` opt-out for leftover DLL.
 - [x] **Layer style brush**: `record_map` resolves first `MapLayer::style_name` via `SmtStyleManager` into GpuScene default solid (cyan fallback). Per-layer Node brush + per-feature `Feature::style()` during tessellate still TODO (avoided style DLL in sdb/scene).
 - [x] **Tileset content**: `visible_uris` → `decode_content_file` → flatten into GpuScene mesh; AABB fallback; `scene_gpu_test` fixture (null backend).
-- [x] **FlyCube test stability**: `rhi_test` null path green; skips HWND GPU unless `SMT_RUN_FLYCUBE_GPU=1`; ColorCB BindingSet cached; `NullDevice` destroy_* leaks stubs (FlyCube-linked CRT hang); `scene_gpu_test` / `leftover_record_test` / `unified_draw_test` default null-only.
+- [x] **FlyCube test stability**: `rhi_test` null path green; skips HWND GPU unless `RUN_FLYCUBE_GPU=1`; ColorCB BindingSet cached; `NullDevice` destroy_* leaks stubs (FlyCube-linked CRT hang); `scene_gpu_test` / `leftover_record_test` / `unified_draw_test` default null-only.
 
 Depth/blend Facade growth deferred.
 

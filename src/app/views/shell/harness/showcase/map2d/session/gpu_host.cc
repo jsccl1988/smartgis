@@ -18,7 +18,7 @@ bool map2d_want_gpu_present() {
   if (base::switch_is_one("map2d-showcase-gpu")) {
     return true;
   }
-  if (const char* ev = std::getenv("SMT_MAP2D_SHOWCASE_GPU");
+  if (const char* ev = std::getenv("MAP2D_SHOWCASE_GPU");
       ev && ev[0] == '1' && ev[1] == '\0') {
     return true;
   }

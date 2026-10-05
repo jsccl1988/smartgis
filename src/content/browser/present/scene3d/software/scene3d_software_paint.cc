@@ -9,8 +9,8 @@
 
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/map_scene.h"
-#include "vista/atmosphere/session/atmosphere_params.h"
-#include "vista/atmosphere/session/field_channel.h"
+#include "vista/component/atmosphere/atmosphere_params.h"
+#include "vista/component/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "base/trace/event/process_trace.h"
 
@@ -629,12 +629,15 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   }
 
   // Continuous DEM: draw all tris up to a high cap. Sparse stride left
-  // fragmented olive ribbons (not leftover hypsometric land).
+  // fragmented olive ribbons / green spikes (browse.3d inspect). Atmosphere
+  // product face raises the cap so East-China DEM stays a filled surface.
   HPEN mesh_pen = CreatePen(PS_NULL, 0, RGB(0, 0, 0));
   HGDIOBJ old_pen = SelectObject(hdc, mesh_pen);
   HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
   const size_t total_tris = gpu_->local_idx().size() / 3;
-  constexpr size_t kMaxDraw = 24000;
+  const bool atmosphere_face =
+      gpu_->look_preset() == Scene3dLookPreset::kAtmosphere;
+  const size_t kMaxDraw = atmosphere_face ? 96000 : 24000;
   const size_t step =
       total_tris > kMaxDraw ? (total_tris + kMaxDraw - 1) / kMaxDraw : 1;
 

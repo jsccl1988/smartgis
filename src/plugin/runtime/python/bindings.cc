@@ -1,16 +1,16 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
 #define PY_SSIZE_T_CLEAN
 #ifdef _DEBUG
-#define SMT_PYTHON_RESTORE_DEBUG
+#define PYTHON_RESTORE_DEBUG
 #undef _DEBUG
 #endif
 #include <Python.h>
-#ifdef SMT_PYTHON_RESTORE_DEBUG
+#ifdef PYTHON_RESTORE_DEBUG
 #define _DEBUG
-#undef SMT_PYTHON_RESTORE_DEBUG
+#undef PYTHON_RESTORE_DEBUG
 #endif
 #endif
 
@@ -42,7 +42,7 @@
 namespace plugin {
 namespace {
 
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
 
 content::PluginHost* g_bound_host = nullptr;
 std::vector<PyObject*> g_held_callables;
@@ -734,11 +734,11 @@ PyObject* PyInit_smartgis_impl() {
   return m;
 }
 
-#endif  // SMT_HAS_PYTHON
+#endif  // HAS_PYTHON
 
 }  // namespace
 
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
 extern "C" PyObject* PyInit_smartgis() {
   return PyInit_smartgis_impl();
 }
@@ -772,7 +772,7 @@ void unbind_python_host() {
 #endif
 
 void register_smartgis_bindings() {
-#if defined(SMT_HAS_PYTHON)
+#if defined(HAS_PYTHON)
   // Module is registered via PyImport_AppendInittab in PythonRuntime::init.
 #endif
 }

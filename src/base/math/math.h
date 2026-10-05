@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_MATH_H_
-#define SMT_RENDER_MATH_MATH_H_
+#ifndef BASE_MATH_MATH_H_
+#define BASE_MATH_MATH_H_
 
 // Aggregator for product scene math. Types live in `namespace base`.
 // Physical layers: scalar → linear → traits → geom → xform → simd.
@@ -24,4 +24,4 @@
 #include "base/math/xform/interpolate.h"
 #include "base/math/simd/simd.h"
 
-#endif  // SMT_RENDER_MATH_MATH_H_
+#endif  // BASE_MATH_MATH_H_

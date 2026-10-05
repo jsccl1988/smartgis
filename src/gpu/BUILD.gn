@@ -3,7 +3,7 @@
 
 # GPU process payload. Linked into the shell PE so
 # --type=gpu relaunches the same image. Optional leftover console exe still
-# builds as SmartGisRender.exe when smt_build_render is set.
+# builds as SmartGisRender.exe when build_render is set.
 
 import("//testing/test.gni")
 
@@ -110,7 +110,7 @@ test("render_backend_test") {
   data_deps = [ "//src/render:render" ]
 }
 
-if (smt_build_render) {
+if (build_render) {
   console_app("gpu") {
     output_name = "SmartGisRender"
     sources = [ "gpu_exe.cc" ]

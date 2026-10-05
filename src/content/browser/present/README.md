@@ -7,7 +7,7 @@ All rights reserved.
 
 Facade (`map2d_presenter` / `scene3d_presenter`) presents Vista/FlyCube and leftover
 stereo/GDI session flags. `src/scenic` is exploratory and is **not** linked from
-this stack; `SMT_MAP2D_ENGINE=scenic` / `SMT_SCENE3D_ENGINE=scenic` do not compile
+this stack; `MAP2D_ENGINE=scenic` / `SCENE3D_ENGINE=scenic` do not compile
 or load `scenic.dll` on the default product graph.
 
 Layout mirrors Chromium **compositor / software / gpu** adapted to this repo’s

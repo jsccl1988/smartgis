@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_STYLE_STYLE_TYPES_H_
-#define SDB_STYLE_STYLE_TYPES_H_
+#ifndef GIS_STYLE_STYLE_TYPES_H_
+#define GIS_STYLE_STYLE_TYPES_H_
 
 #include <cstdint>
 #include <map>
@@ -147,4 +147,4 @@ GIS_EXPORT const char* layer_type_to_string(LayerType t);
 }  // namespace style
 }  // namespace gis
 
-#endif  // SDB_STYLE_STYLE_TYPES_H_
+#endif  // GIS_STYLE_STYLE_TYPES_H_

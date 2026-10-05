@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_SCENIC_ENGINE_H_
-#define SMT_SCENIC_ENGINE_H_
+#ifndef SCENIC_ENGINE_H_
+#define SCENIC_ENGINE_H_
 
 #include <cstdint>
 
@@ -103,4 +103,4 @@ SCENIC_EXPORT Engine* create_scene3d_engine();
 
 }  // namespace scenic
 
-#endif  // SMT_SCENIC_ENGINE_H_
+#endif  // SCENIC_ENGINE_H_

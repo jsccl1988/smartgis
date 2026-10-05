@@ -16,7 +16,7 @@
 namespace content {
 
 // Hosted map viewport. Shell presents Latest() into its HWND.
-// GPU owns SmtRenderDevice. Do not include sdb or render device headers.
+// GPU owns RenderDevice2d. Do not include sdb or render device headers.
 class CONTENT_EXPORT MapWidgetHostView {
  public:
   struct CreateParams {

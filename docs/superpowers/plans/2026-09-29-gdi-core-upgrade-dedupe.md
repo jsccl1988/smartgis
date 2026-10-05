@@ -16,7 +16,7 @@ All rights reserved.
 ## Global Constraints
 
 - Work on **`master`** only; parallel agents use **non-overlapping paths**.
-- Keep `SmtRhi2dRenderDevice` / `SmtGdiRenderThread` / CreateDevice string + `SmtRenderDevice` virtuals.
+- Keep `SmtRhi2dRenderDevice` / `SmtGdiRenderThread` / CreateDevice string + `RenderDevice2d` virtuals.
 - Do **not** grow `GdiPaintCanvas` with members that shift `SmtRhi2dRenderDevice::render_thread_` offsets.
 - Single GDI play lane; comments English; new helpers `snake_case`.
 - **Do not** `git commit` unless the user asks.

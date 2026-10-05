@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_WORLD_TESSELLATE_H_
-#define GIS_WORLD_TESSELLATE_H_
+#ifndef VISTA_MESH_TESSELLATE_H_
+#define VISTA_MESH_TESSELLATE_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -176,4 +176,4 @@ VISTA_EXPORT void flush_tess_trace_stats();
 
 }  // namespace vista
 
-#endif  // GIS_WORLD_TESSELLATE_H_
+#endif  // VISTA_MESH_TESSELLATE_H_

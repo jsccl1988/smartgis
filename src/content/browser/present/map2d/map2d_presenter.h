@@ -86,7 +86,7 @@ class Map2dPresenter {
   const MapScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
   // Nested WM_PAINT under show/UpdateWindow re-enters paint/sync when
-  // SMT_MAP2D_ENGINE=scenic. Product paint skips this lock. Same sizeof as
+  // MAP2D_ENGINE=scenic. Product paint skips this lock. Same sizeof as
   // std::mutex on MSVC x64 (80) so member offsets stay layout-compatible.
   mutable std::recursive_mutex scenic_mu_;
   mutable std::unique_ptr<scenic::Engine> scenic_;

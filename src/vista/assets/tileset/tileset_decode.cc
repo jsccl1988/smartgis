@@ -7,7 +7,7 @@
 
 #include "vista/assets/model/model_internal.h"
 
-#ifdef SMT_HAS_TINYGLTF
+#ifdef HAS_TINYGLTF
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -30,7 +30,7 @@ namespace vista {
 namespace detail {
 namespace {
 
-#ifdef SMT_HAS_TINYGLTF
+#ifdef HAS_TINYGLTF
 
 std::string ascii_lower(const char* s) {
   std::string out;
@@ -230,14 +230,14 @@ bool load_tiny_model(const unsigned char* data, size_t size, bool binary,
   return extract_model(model, out);
 }
 
-#endif  // SMT_HAS_TINYGLTF
+#endif  // HAS_TINYGLTF
 
 }  // namespace
 
 bool decode_gltf_bytes(const char* uri, const void* data, size_t size,
                        ModelAsset& out) {
   out = ModelAsset();
-#ifndef SMT_HAS_TINYGLTF
+#ifndef HAS_TINYGLTF
   (void)uri;
   (void)data;
   (void)size;

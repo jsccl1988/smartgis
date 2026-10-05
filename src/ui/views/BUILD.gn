@@ -278,7 +278,7 @@ source_set("views_sources") {
   libs = _views_layer_libs
 }
 
-smt_shared_library("ui_views") {
+product_shared_library("ui_views") {
   dll_stem = "ui_views"
   defines = [ "UI_EXPORTS" ]
   deps = [
@@ -298,7 +298,7 @@ smt_shared_library("ui_views") {
     ":views_config",
     "//src/ui/gfx:skia_config",
   ]
-  if (smt_has_skia) {
+  if (has_skia) {
     public_configs += [ "//src/ui/gfx:skia_real_config" ]
   }
   libs = [

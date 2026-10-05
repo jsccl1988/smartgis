@@ -70,7 +70,7 @@ struct DrawRequest {
 // shell threads, enqueue via PresentMailbox::submit (display/present_mailbox.h)
 // instead of calling this on the UI thread.
 // 2D kinds follow select_content_source. set_content_source beats the
-// environment. SMT_MAP_BACKEND=a|track_a|maplibre selects tile; every other
+// environment. MAP_BACKEND=a|track_a|maplibre selects tile; every other
 // value selects direct. Scene3d is direct content inside this call: the demo
 // frame is drawn and the function returns true. It is not a failure and not
 // a third mode. If tile fails because the surface is null or its size is 0,

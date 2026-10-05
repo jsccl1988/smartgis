@@ -16,11 +16,6 @@
 #include "scenic/scene3d/primitive/mesh/northarray.h"
 #include "scenic/scene3d/scene/object.h"
 
-using namespace base;
-using namespace scenic::detail;
-using namespace scenic::detail;
-using namespace scenic::detail;
-
 namespace scenic {
 namespace detail {
 
@@ -33,16 +28,16 @@ class SCENIC_IMPL_EXPORT Scene {
   virtual ~Scene(void);
 
  public:
-  inline LP3DRENDERDEVICE Get3DRenderDevice() { return m_p3DRenderDevice; }
-  inline void Set3DRenderDevice(LP3DRENDERDEVICE p3DRenderDevice) {
+  inline LP3DRENDERDEVICE render_device() { return m_p3DRenderDevice; }
+  inline void set_render_device(LP3DRENDERDEVICE p3DRenderDevice) {
     m_p3DRenderDevice = p3DRenderDevice;
   }
 
-  inline PerspCamera *GetSceneCamera() { return m_pCamera; }
-  inline void SetSceneCamera(PerspCamera *pCamera);
+  inline PerspCamera *camera() { return m_pCamera; }
+  inline void set_camera(PerspCamera *pCamera);
 
-  inline ::base::Aabb &GetAabb() { return m_aAbb; }
-  inline void SetAabb(::base::Aabb &aabb) { m_aAbb = aabb; }
+  inline ::base::Aabb &aabb() { return m_aAbb; }
+  inline void set_aabb(const ::base::Aabb &aabb) { m_aAbb = aabb; }
 
  public:
   long Setup(void);
@@ -55,31 +50,31 @@ class SCENIC_IMPL_EXPORT Scene {
   long Transform3DTo2D(const ::base::Vector3 &ver3D, lPoint &point);
 
  public:
-  void Add3DObject(Object3d *p3DObject);
-  Object3d *Get3DObject(int index);
-  const Object3d *Get3DObject(int index) const;
-  void Remove3DObject(Object3d *p3DObject);
-  void Remove3DObject(int index);
-  void Get3DObjectPtrs(Object3dPtrs &v3DObjectPtrs);
+  void add_object(Object3d *p3DObject);
+  Object3d *object_at(int index);
+  const Object3d *object_at(int index) const;
+  void remove_object(Object3d *p3DObject);
+  void remove_object(int index);
+  void objects(Object3dPtrs &v3DObjectPtrs);
 
-  void CreateOctTreeSceneMgr(void);
+  void create_octree(void);
 
  public:
-  void SetShowNodeBox(bool bShowNodeBox = true) {
+  void set_show_node_box(bool bShowNodeBox = true) {
     m_bShowNodeBox = bShowNodeBox;
   }
-  bool IsShowNodeBox(void) { return m_bShowNodeBox; }
+  bool show_node_box(void) { return m_bShowNodeBox; }
 
  public:
-  long TransModel3DObjects(::base::Matrix &matTransform);
+  long transform_model_objects(::base::Matrix &matTransform);
 
-  long TransWorld3DObjects(::base::Matrix &matTransform);
+  long transform_world_objects(::base::Matrix &matTransform);
 
-  // ʰȡ
-  long Select3DObject(Object3dPtrs &vSelected3DObjects, lPoint point);
+  // Screen pick: objects whose projected AABB contains |point|.
+  long select_objects(Object3dPtrs &vSelected3DObjects, lPoint point);
 
  protected:
-  bool Update3DObjCatalog(void);
+  bool update_object_catalog(void);
 
  private:
   LP3DRENDERDEVICE m_p3DRenderDevice;
@@ -93,8 +88,8 @@ class SCENIC_IMPL_EXPORT Scene {
   PerspCamera *m_pCamera;
   NorthArray *m_pNorthArray;
 
-  Vector3 m_vOrgPos;
-  Aabb m_aAbb;
+  ::base::Vector3 m_vOrgPos;
+  ::base::Aabb m_aAbb;
 
   uint m_nHelpInfoFont;
   uint m_nRenderInfoFont;

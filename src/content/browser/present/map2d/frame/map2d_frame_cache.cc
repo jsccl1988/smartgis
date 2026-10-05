@@ -23,11 +23,11 @@
 #include "base/memory/arena.h"
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
-#include "vista/map_gpu/pass.h"
+#include "vista/pass/map/pass.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/eval/style_rules.h"
-#include "vista/map/ir.h"
-#include "vista/map/hillshade_bake.h"
+#include "vista/component/map/ir.h"
+#include "vista/component/map/detail/hillshade_bake.h"
 #include "vista/terrain/dem/dem_raster.h"
 
 namespace content {
@@ -291,11 +291,11 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   in.metrics = &windows_rasterizer;
   in.tiles = {};
 
-  // Soft-gate: SMT_MAP2D_NO_HILLSHADE=1 skips bake.
+  // Soft-gate: MAP2D_NO_HILLSHADE=1 skips bake.
   // Product cold start (defer_china_seed) still finds china_dem.tif on disk
   // via find_sample_dem_path even with a demo-only document — that paid
   // ~0.4s HillshadeBake inside WaitFirstMapPresent. Skip until the scene
-  // has China extent (real PLP/city seed). Force with SMT_MAP2D_FORCE_HILLSHADE=1
+  // has China extent (real PLP/city seed). Force with MAP2D_FORCE_HILLSHADE=1
   // (harness / agents that need shade before china open).
   // Bake into locals first and install into members only after Layout::build
   // succeeds so a failed / aborted rebuild cannot leave a half-swapped
@@ -306,10 +306,10 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   };
   const bool force_hillshade =
       base::switch_is_one("map2d-force-hillshade") ||
-      env_flag_one("SMT_MAP2D_FORCE_HILLSHADE");
+      env_flag_one("MAP2D_FORCE_HILLSHADE");
   const bool skip_hillshade =
       base::switch_is_one("map2d-no-hillshade") ||
-      env_flag_one("SMT_MAP2D_NO_HILLSHADE") ||
+      env_flag_one("MAP2D_NO_HILLSHADE") ||
       (!force_hillshade && scene_ && !scene_->has_china_extent());
   std::vector<uint8_t> baked_rgba;
   int baked_w = 0;
@@ -330,17 +330,29 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
         }
         if (baked.ok && baked.width > 0 && baked.height > 0 &&
             !baked.rgba.empty()) {
-          in.hillshade_tiles.push_back(baked.slot);
+          // First china layout: bake/cache DEM shade but do not emit the
+          // raster DrawItem. force-GDI blit_rgba_quad (kMultiply at full
+          // viewport) dominated cold ShowWindow (~4s+ Debug). Next rebuild
+          // after show invalidate attaches shade. MAP2D_FORCE_HILLSHADE=1
+          // keeps shade on frame 0 for harnesses that require it.
+          if (force_hillshade || layout_build_count_ > 0) {
+            in.hillshade_tiles.push_back(baked.slot);
+          }
           baked_w = baked.width;
           baked_h = baked.height;
           baked_rgba = std::move(baked.rgba);
           std::fprintf(stderr,
                        "map2d: hillshade baked %dx%d from %s tiles=%zu "
-                       "opacity=%.2f key=0x%08x\n",
+                       "opacity=%.2f key=0x%08x defer_first=%d\n",
                        baked_w, baked_h, dem_path.c_str(),
                        in.hillshade_tiles.size(),
-                       in.hillshade_tiles.back().opacity,
-                       in.hillshade_tiles.back().texture_key);
+                       in.hillshade_tiles.empty()
+                           ? 0.f
+                           : in.hillshade_tiles.back().opacity,
+                       in.hillshade_tiles.empty()
+                           ? 0u
+                           : in.hillshade_tiles.back().texture_key,
+                       (force_hillshade || layout_build_count_ > 0) ? 0 : 1);
         }
         hillshade_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                            std::chrono::steady_clock::now() - hs_t0)

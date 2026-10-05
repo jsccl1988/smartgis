@@ -26,17 +26,17 @@ wWinMain
 
 | Env | Role |
 | --- | --- |
-| `SMT_STARTUP_PROFILE=1` | Enable tracing + dump (Release too) |
-| `SMT_STARTUP_PROFILE_DUMP=<path>` | Text table + sibling chrome JSON |
-| `SMT_SYNC_CHINA_SEED=1` | China OGR in init/show (not 1ms timer) |
-| `SMT_SYNC_FIRST_MAP_PRESENT=1` | Block show until first carto present |
-| `SMT_DISABLE_OOP_RENDER=1` | Locked product measure |
-| `SMT_DEFER_CHINA_SEED=1` | **Forbidden** for this bench (hides first map) |
-| `SMT_SKIP_AMBOX_CATALOG` | **Forbidden** (skips WaitFirstMapPresent) |
-| `SMT_MAP2D_NO_HILLSHADE=1` | **Forbidden** as a 200ms cheat |
-| `SMT_SYNC_FLYCUBE_INIT=1` | Optional attribution; **not** required (async Init still counted inside the wait pump) |
+| `STARTUP_PROFILE=1` | Enable tracing + dump (Release too) |
+| `STARTUP_PROFILE_DUMP=<path>` | Text table + sibling chrome JSON |
+| `SYNC_CHINA_SEED=1` | China OGR in init/show (not 1ms timer) |
+| `SYNC_FIRST_MAP_PRESENT=1` | Block show until first carto present |
+| `DISABLE_OOP_RENDER=1` | Locked product measure |
+| `DEFER_CHINA_SEED=1` | **Forbidden** for this bench (hides first map) |
+| `SKIP_AMBOX_CATALOG` | **Forbidden** (skips WaitFirstMapPresent) |
+| `MAP2D_NO_HILLSHADE=1` | **Forbidden** as a 200ms cheat |
+| `SYNC_FLYCUBE_INIT=1` | Optional attribution; **not** required (async Init still counted inside the wait pump) |
 
-Debug builds dump even without `SMT_STARTUP_PROFILE=1`; still set it so Release/agent runs match.
+Debug builds dump even without `STARTUP_PROFILE=1`; still set it so Release/agent runs match.
 
 ## Hang vs slow
 

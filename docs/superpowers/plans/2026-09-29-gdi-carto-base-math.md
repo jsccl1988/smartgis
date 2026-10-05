@@ -17,7 +17,7 @@ All rights reserved.
 
 - Work on **`master`** only; non-overlapping paths with other agents.
 - Do **not** change carto colors / LOD / priority / budget policy.
-- Do **not** enable `smt_render_math_simd` by default.
+- Do **not** enable `base_math_simd` by default.
 - Do **not** multi-thread GDI feature drawing.
 - Comments in English on touched code.
 - Do **not** `git commit` unless the user asks.
@@ -26,9 +26,9 @@ All rights reserved.
 
 | Path | Role |
 | --- | --- |
-| `src/base/math/affine2.h` | `LpToDp2` + single-point `transform_xy` |
-| `src/base/math/simd.h` `.cc` | `transform_xy_batch` |
-| `src/base/math/math.h` | include `affine2.h` |
+| `src/base/math/linear/affine2.h` | `LpToDp2` + single-point `transform_xy` |
+| `src/base/math/simd/simd.h` `.cc` | `transform_xy_batch` |
+| `src/base/math/math.h` | include `linear/affine2.h` |
 | `src/base/math/math_test.cc` | LPToDP-equivalent rounding |
 | `…/gdi/carto/map_carto2d.*` | Vector2 geometry; point grid |
 | `…/gdi/device|thread/*` | batch LPToDP on multi-point draws |

@@ -6,8 +6,8 @@
   ],
   "script": "plugin.stormsurge.il",
   "env": {
-    "SMT_SKIP_MAP_CONTEXT_MENU": "1",
-    "SMT_PLUGIN_STORMSURGE_GPU": "1"
+    "SKIP_MAP_CONTEXT_MENU": "1",
+    "PLUGIN_STORMSURGE_GPU": "1"
   },
   "mark_leaf": "plugin-showcase-mark.txt",
   "required_marks": [

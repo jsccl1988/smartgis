@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_TRANSFORM_H_
-#define SMT_RENDER_MATH_TRANSFORM_H_
+#ifndef BASE_MATH_XFORM_TRANSFORM_STACK_H_
+#define BASE_MATH_XFORM_TRANSFORM_STACK_H_
 
 #include "base/math/linear/matrix4.h"
 #include "base/math/linear/quat.h"
@@ -95,4 +95,4 @@ using ::base::Transform;
 using ::base::TransformStack;
 }  // namespace render
 
-#endif  // SMT_RENDER_MATH_TRANSFORM_H_
+#endif  // BASE_MATH_XFORM_TRANSFORM_STACK_H_

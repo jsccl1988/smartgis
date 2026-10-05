@@ -21,7 +21,7 @@ bool object_aabb_in_frustum(const Frustum& frustum, Object3d* obj) {
   if (!obj) {
     return false;
   }
-  return frustum.intersects(obj->GetAabb());
+  return frustum.intersects(obj->aabb());
 }
 
 }  // namespace
@@ -53,7 +53,7 @@ long SceneOctree::clear() {
 void SceneOctree::merge_aabb() {
   for (Object3d* obj : objects_) {
     if (obj) {
-      aabb_.merge(obj->GetAabb());
+      aabb_.merge(obj->aabb());
     }
   }
   aabb_.vcCenter = (aabb_.vcMax + aabb_.vcMin) / 2.;
@@ -102,7 +102,7 @@ long SceneOctree::Render(LP3DRENDERDEVICE device) {
     prep.ensure_workers(rhi3d_prep_worker_count());
     prep.run_jobs(n, [&](size_t i) {
       Object3d* obj = objects_[i];
-      if (!obj || !obj->IsVisible()) {
+      if (!obj || !obj->is_visible()) {
         return;
       }
       if (object_aabb_in_frustum(frustum, obj)) {
@@ -158,16 +158,16 @@ long SceneOctree::select_objects(Object3dPtrs& selected,
 
 void SceneOctree::multiply_object_model_matrices(Matrix& transform) {
   for (Object3d* obj : objects_) {
-    if (obj && obj->IsVisible()) {
-      obj->ModelTransMatrixMultiply(transform);
+    if (obj && obj->is_visible()) {
+      obj->multiply_model_matrix(transform);
     }
   }
 }
 
 void SceneOctree::multiply_object_world_matrices(Matrix& transform) {
   for (Object3d* obj : objects_) {
-    if (obj && obj->IsVisible()) {
-      obj->WorldTransMatrixMultiply(transform);
+    if (obj && obj->is_visible()) {
+      obj->multiply_world_matrix(transform);
     }
   }
 }

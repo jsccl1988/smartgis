@@ -618,7 +618,7 @@ void LayerTree::set_layers(const std::vector<LayerDesc>& layers) {
   // Silent select: clear_rows already wiped selected_id_, so select_id() would
   // always fire selection_changed_. After OGR replace that cascades into
   // CatalogCall + fill_attribute_rows over every MapLayer feature (AV / hang
-  // under showcase SMT_SKIP_AMBOX_CATALOG). Host callers sync inspectors
+  // under showcase SKIP_AMBOX_CATALOG). Host callers sync inspectors
   // explicitly when they need it (on_open / deferred China seed).
   if (!active_id.empty()) {
     selected_id_ = active_id;

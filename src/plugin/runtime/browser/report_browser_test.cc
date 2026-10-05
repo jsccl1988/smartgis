@@ -33,7 +33,7 @@ int main() {
   expect(!ReportBrowser::is_blocked_navigation_url("file:///C:/tmp/index.html"),
          "allow file");
 
-  const auto tmp = std::filesystem::temp_directory_path() / "smt_report_browser_test";
+  const auto tmp = std::filesystem::temp_directory_path() / "report_browser_test";
   std::error_code ec;
   std::filesystem::create_directories(tmp, ec);
   {

@@ -5,7 +5,7 @@
 
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
-#include "vista/atmosphere/globe/globe_pass.h"
+#include "vista/pass/atmosphere/globe/globe_pass.h"
 
 #include <algorithm>
 #include <cmath>

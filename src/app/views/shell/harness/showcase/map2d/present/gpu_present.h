@@ -14,7 +14,7 @@ class Browser;
 
 namespace detail {
 
-// Optional FlyCube present_gpu cold+warm smoke (SMT_MAP2D_SHOWCASE_GPU=1).
+// Optional FlyCube present_gpu cold+warm smoke (MAP2D_SHOWCASE_GPU=1).
 // Skips quietly when unset or when no Device is available.
 void run_optional_map2d_gpu_present(Browser& browser,
                                     content::Map2dPresenter* map2d,

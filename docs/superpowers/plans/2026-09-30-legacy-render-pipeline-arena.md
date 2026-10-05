@@ -56,7 +56,7 @@ All rights reserved.
 
 ### Task 3: scene3d key paths
 
-- [x] `SmtScene::Update` / `Render` spans under `scene3d`
+- [x] `Scene::Update` / `Render` spans under `scene3d`
 - [x] `DemHeightField::build_mesh` span + Arena for `vert_of` scratch
 
 ### Task 4: Legacy Console + RenderTrace docks

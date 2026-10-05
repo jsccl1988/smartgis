@@ -10,7 +10,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 // DXC must sit beside the exe; CompileShader aborts otherwise.
 bool file_exists(const char* path);
@@ -18,7 +18,7 @@ bool copy_if_needed(const char* src, const char* dest);
 bool ensure_dxc_beside_exe();
 bool write_temp_hlsl(const char* name, const char* source, std::string* path);
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

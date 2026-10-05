@@ -6,7 +6,7 @@ description: >-
   until equal-profile budgets. Use when the user invokes
   /harness-auto-map2d-frame-opt, or says map2d 逐帧 profile, 每一帧性能,
   src/render 2d 优化 loop, present_gpu warm, StaticReuse, layout_ms /
-  hillshade_ms, SMT_MAP2D_FPS_BENCH_MS, or asks to profile-then-optimize
+  hillshade_ms, MAP2D_FPS_BENCH_MS, or asks to profile-then-optimize
   Map2d frame by frame.
 ---
 
@@ -41,9 +41,9 @@ When this skill is invoked, attached (`@harness-auto-map2d-frame-opt` / `/harnes
 | Axis | Value |
 | --- | --- |
 | Entry | `SmartGIS.exe --map2d-showcase=china` |
-| Viewport | `SMT_MAP2D_SHOWCASE_W/H=1280/720` |
-| GPU | `SMT_MAP2D_SHOWCASE_GPU=1` |
-| Warm FPS window | `SMT_MAP2D_FPS_BENCH_MS=3000` (optional) |
+| Viewport | `MAP2D_SHOWCASE_W/H=1280/720` |
+| GPU | `MAP2D_SHOWCASE_GPU=1` |
+| Warm FPS window | `MAP2D_FPS_BENCH_MS=3000` (optional) |
 | Warm `present_gpu_ms` | ≤ **80** |
 | `paint_ms` | ≤ **100** |
 | Cold first present | ≤ **400** after layout warm |
@@ -57,23 +57,23 @@ From repo root:
 
 ```bat
 .\build.bat debug //src/app/views:views
-set SMT_MAP2D_SHOWCASE_W=1280
-set SMT_MAP2D_SHOWCASE_H=720
-set SMT_MAP2D_SHOWCASE_GPU=1
-set SMT_MAP2D_FPS_BENCH_MS=3000
+set MAP2D_SHOWCASE_W=1280
+set MAP2D_SHOWCASE_H=720
+set MAP2D_SHOWCASE_GPU=1
+set MAP2D_FPS_BENCH_MS=3000
 .\out\Debug\SmartGIS.exe --map2d-showcase=china
 ```
 
 Optional fair cold/warm export (bench-only reuse):
 
 ```bat
-set SMT_MAP2D_EXPORT_REUSE=1
+set MAP2D_EXPORT_REUSE=1
 ```
 
 Deep spans (when phase clocks are not enough):
 
 ```bat
-set SMT_TRACE=1
+set TRACE=1
 rem chrome-trace dump under out/Debug/captures/ (see base::trace / RenderTrace panel)
 ```
 
@@ -139,7 +139,7 @@ From stderr / files, fill:
 | Hot phase | Prefer code under |
 | --- | --- |
 | `layout_ms` / builds | `content/browser/present/map2d/**` (`Map2dFrameCache`, presenter) |
-| `hillshade_ms` | `vista/map/**`, DEM shade cache |
+| `hillshade_ms` | `vista/component/map/**`, DEM shade cache |
 | `software_paint_ms` | map2d software export / paint path |
 | `gpu_upload_ms` | `content/.../map2d/gpu/**`, `render/graph/**`, `render/rhi/**` |
 | `gpu_present_ms` / low `skip_pct` | `Map2dGpuPresent`, StaticReuse / dual-speed settle |

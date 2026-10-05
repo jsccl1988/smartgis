@@ -353,11 +353,11 @@ void main() {}
 
   expect(preferred_gpu_backend() == Backend::kDx12, "preferred DX12");
 
-#ifndef SMT_HAS_FLYCUBE
-  expect(false, "FlyCube must be linked (SMT_HAS_FLYCUBE) for DX12 present");
+#ifndef HAS_FLYCUBE
+  expect(false, "FlyCube must be linked (HAS_FLYCUBE) for DX12 present");
 #else
   // Identity-only by default. HWND init/execute/present can hang headless;
-  // set SMT_RUN_FLYCUBE_GPU=1 to exercise the real path.
+  // set RUN_FLYCUBE_GPU=1 to exercise the real path.
   const char* run_gpu = base::switch_cstr("run-flycube-gpu");
   const bool want_gpu = run_gpu && run_gpu[0] == '1' && run_gpu[1] == '\0';
 
@@ -373,7 +373,7 @@ void main() {}
   if (!want_gpu) {
     std::fprintf(stdout,
                  "rhi_test: skip FlyCube HWND init "
-                 "(set SMT_RUN_FLYCUBE_GPU=1)\n");
+                 "(set RUN_FLYCUBE_GPU=1)\n");
   } else {
     HWND hwnd = CreateWindowExW(0, L"STATIC", L"rhi_present", WS_POPUP, 0, 0,
                                 64, 64, nullptr, nullptr,

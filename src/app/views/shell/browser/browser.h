@@ -59,6 +59,7 @@ using content::kScene3dDefaultYaw;
 using content::Scene3dEngine;
 using content::prefer_scene3d_flycube;
 using content::prefer_scene3d_gdi;
+using content::prefer_scene3d_scenic;
 using content::prefer_scene3d_stereo_gl;
 using content::scene3d_engine;
 using content::set_scene3d_engine;
@@ -85,10 +86,11 @@ class Browser : public content::MapContentsObserver {
   // Out-of-line: parallel ninja + Browser layout churn must not skew callers.
   void set_defer_china_seed(bool defer);
   bool defer_china_seed() const;
-  // Opt-in OOP GPU at Session.init_hosts (also SMT_ENABLE_OOP_RENDER=1).
+  // Opt-in OOP GPU at Session.init_hosts (also ENABLE_OOP_RENDER=1).
   void set_enable_oop_render(bool enable);
   bool enable_oop_render() const;
   void show();
+  void finish_deferred_shell_wiring();
   int run_loop();
 
   // Tear down map HWND / FlyCube before Widget DestroyWindow.

@@ -19,16 +19,16 @@ All rights reserved.
 The replacement is:
 
 1. **Session-scoped dispatch** (not `GetSingletonPtr()`).
-2. **Event and operation decoupled** from interaction: a tool never writes `SmtMap`; it yields a draft, `sdb::EditSession` commits, `content::EventBus` reports what already happened.
+2. **Event and operation decoupled** from interaction: a tool never writes `Map`; it yields a draft, `sdb::EditSession` commits, `content::EventBus` reports what already happened.
 
 ## Non-goals
 
 - Do not rewrite leftover `SmtIATool` / `SmtGroupTool` classes or change `dll_stem` (`SmtToolCore`, `SmtGroupToolCore`).
 - Do not add a fourth `*Manager` singleton.
 - Do not put `EventBus` under `src/tool` (events follow the document / session).
-- Do not use the bus as RPC (`GT_MSG_GET_*`, `SMT_MSG_GET_SYS_2DVIEW`). Queries are methods on `MapSession` / `MapContents`.
+- Do not use the bus as RPC (`GT_MSG_GET_*`, `MSG_GET_SYS_2DVIEW`). Queries are methods on `MapSession` / `MapContents`.
 - Do not ship an OpenLayers-style arbitrary interaction stack in v1 (only exclusive current + two always-on handlers).
-- Do not put HWND, `SmtMap*`, or `LPRENDERDEVICE` on new public headers.
+- Do not put HWND, `Map*`, or `LPRENDERDEVICE` on new public headers.
 - Do not vendor Qt signals, Boost.Signals2, or eventpp.
 - Qt is banned.
 - Do not change Mojo / `--type=` (existing `content::ToolRouter` stays the IPC face).
@@ -71,7 +71,7 @@ Chrome (Views / leftover MFC)
 
 Chrome includes only `content/public`. It must not include `t_iatool.h`.
 
-`content::ViewHost` is the per-view composition (owns `tool::Workspace` + `EventBus` + `sdb::EditSession`). `content::LocalToolRouter` is the in-process `ToolRouter`: command/interaction ids hit Workspace first; leftover OOP/web still send `HostMsg::kActivateTool` / `kPointerEvent` JSON when the named pipe is open. Leftover MFC `src/ui/xview` owns a `ViewHost` on `SmtXView` (Memory, or `MapEditSession` on the edit view). Mapped `GT_MSG_*` do not broadcast `SMT_POST_IATOOL_MSG`.
+`content::ViewHost` is the per-view composition (owns `tool::Workspace` + `EventBus` + `sdb::EditSession`). `content::LocalToolRouter` is the in-process `ToolRouter`: command/interaction ids hit Workspace first; leftover OOP/web still send `HostMsg::kActivateTool` / `kPointerEvent` JSON when the named pipe is open. Leftover MFC `src/ui/xview` owns a `ViewHost` on `SmtXView` (Memory, or `MapEditSession` on the edit view). Mapped `GT_MSG_*` do not broadcast `POST_IATOOL_MSG`.
 
 ## Components
 
@@ -273,7 +273,7 @@ class MemoryEditSession : public EditSession {
 }  // namespace sdb
 ```
 
-`commit` records the mutation and clears redo. `undo` / `redo` move the last mutation between stacks. New code does not call `SmtMap::AppendFeature` from an `Interaction`. A later `SmtMapEditSession` (out of v1) wraps leftover `SmtCommandManager`.
+`commit` records the mutation and clears redo. `undo` / `redo` move the last mutation between stacks. New code does not call `Map::AppendFeature` from an `Interaction`. A later `SmtMapEditSession` (out of v1) wraps leftover `SmtCommandManager`.
 
 `EditSession` does **not** publish events. The caller publishes `SelectionChanged` after a successful selection command. That is the decoupling.
 
@@ -326,13 +326,13 @@ const char* command_id_from_gt_msg(long msg);  // nullptr if unknown
 
 1. Chrome hit-tests chrome first. Misses go to `ToolRouter::dispatch`.
 2. `InputRouter`: `hover.cursor` sees `kMouseMove` (returns false); current `select.rect` sees `kLDown`/`kLUp`.
-3. Rubber-band lives in the Interaction. No `SMT_POST_IATOOL_MSG`.
+3. Rubber-band lives in the Interaction. No `POST_IATOOL_MSG`.
 
 **Gesture complete**
 
 1. Interaction yields a draft (envelope or ring) to the command handler / Workspace callback.
 2. Selection: Workspace updates selection ids and `events->publish(SelectionChanged{...})`.
-3. Digitizing: `edits->commit({kAppend, id})`. Interaction does not touch `SmtMap`.
+3. Digitizing: `edits->commit({kAppend, id})`. Interaction does not touch `Map`.
 
 **Nested draw (legacy delegate)**
 
@@ -370,7 +370,7 @@ Same change set: `docs/README.md` index, `docs/superpowers/src-layout.md` tool r
 
 ## Leftover plugin menus
 
-Leftover `AppendFuncItems` / `Notify` longs resolve through `plugin::command_id_from_am_msg`: `GT_MSG_*` (including `SMT_MSG_KEY` LOWORD) via `command_id_from_gt_msg` to `view.*` / `selection.*` / `edit.append.*` / `flash.*` / `view3d.*`; plugin `AM_MSG_*` to `dem.*` / `proj.do_prj` / `print.preview` / `model3d.*` / `baogrid.*` (leftover BAOGrid AM numbers). No third int bus. Mapped menu commands `execute` on `ViewHost` **and** leftover `Notify` (camera / dialogs / `SetActive`). Unmapped menu ids do **not** `SMT_IATOOL_MSG_BROADCAST` / `SMT_AM_MSG_BROADCAST`. Pointer and wheel go only through `Workspace`; leftover tools implement `apply_draft` and do not own a second Interaction. Rubber-band geometry lives on `Interaction::aux_draw` / `aux_overlay`; leftover chrome paints that overlay. 3D camera objects are constructed in `src/render/render3d` (`make_view3d_camera`); leftover tools bind ETU / scene / FPS win center. The new Views command may execute `edit.append.linestring` when leftover is not loaded.
+Leftover `AppendFuncItems` / `Notify` longs resolve through `plugin::command_id_from_am_msg`: `GT_MSG_*` (including `MSG_KEY` LOWORD) via `command_id_from_gt_msg` to `view.*` / `selection.*` / `edit.append.*` / `flash.*` / `view3d.*`; plugin `AM_MSG_*` to `dem.*` / `proj.do_prj` / `print.preview` / `model3d.*` / `baogrid.*` (leftover BAOGrid AM numbers). No third int bus. Mapped menu commands `execute` on `ViewHost` **and** leftover `Notify` (camera / dialogs / `SetActive`). Unmapped menu ids do **not** `IATOOL_MSG_BROADCAST` / `AM_MSG_BROADCAST`. Pointer and wheel go only through `Workspace`; leftover tools implement `apply_draft` and do not own a second Interaction. Rubber-band geometry lives on `Interaction::aux_draw` / `aux_overlay`; leftover chrome paints that overlay. 3D camera objects are constructed in `src/render/render3d` (`make_view3d_camera`); leftover tools bind ETU / scene / FPS win center. The new Views command may execute `edit.append.linestring` when leftover is not loaded.
 
 ## Out of v1 (later tasks, not this plan)
 
@@ -406,7 +406,7 @@ DLL export naming (no `SMT_*` prefix):
 | `tool.dll`（`//src/tool:tool`） | `TOOL_EXPORTS` | `TOOL_EXPORT` | `src/tool/tool_export.h` |
 | `legacy_tool.dll` | `LEGACY_TOOL_EXPORTS` | `LEGACY_TOOL_EXPORT` | `src/legacy/tool/tool_export.h` |
 
-Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-built: [`docs/superpowers/abi-rename-map.md`](../abi-rename-map.md). Do not reintroduce `SMT_TOOL_EXPORT`.
+Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-built: [`docs/superpowers/abi-rename-map.md`](../abi-rename-map.md). Do not reintroduce `TOOL_EXPORT`.
 
 ---
 
@@ -446,4 +446,4 @@ Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-b
 
 - `src/tool/**` builds with **no C4251** on tool types
 - `tool_dispatch_test` / `draft_test` / `view_host_test` green
-- README + `docs/superpowers/src-layout.md` / abi-rename-map say `dll_stem=tool` + `TOOL_EXPORT` (not source_set / not `SMT_TOOL_*`)
+- README + `docs/superpowers/src-layout.md` / abi-rename-map say `dll_stem=tool` + `TOOL_EXPORT` (not source_set / not `TOOL_*`)

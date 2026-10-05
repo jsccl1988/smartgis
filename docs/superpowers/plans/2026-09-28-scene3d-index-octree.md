@@ -12,7 +12,7 @@ All rights reserved.
 
 **Goal:** Under `src/legacy/render/scene3d` only, drop `bl3d_` basenames, add `index/` (no RHI device includes in headers), vendor MIT header-only [jbehley/octree](https://github.com/jbehley/octree) (`unibn`), and keep exported `SmtSceneOctTree` / `SmtVertexOctTree` behavior via a thin adapter.
 
-**Architecture:** Scheme A. Spatial index TUs live in `scene3d/index/`; `scene/` keeps `SmtScene` / `Smt3DObject` / `vertex3d`. Adapter `.cpp` files include `Octree.hpp` and own a heap `unibn::Octree` of point centers (scene object AABB centers / vertex positions) while the exported node walk (frustum render/select) stays behavior-compatible. GN: `//third_party/octree` 鈫?`.src/octree` include; `scene3d_sources` deps that label.
+**Architecture:** Scheme A. Spatial index TUs live in `scene3d/index/`; `scene/` keeps `Scene` / `Smt3DObject` / `vertex3d`. Adapter `.cpp` files include `Octree.hpp` and own a heap `unibn::Octree` of point centers (scene object AABB centers / vertex positions) while the exported node walk (frustum render/select) stays behavior-compatible. GN: `//third_party/octree` 鈫?`.src/octree` include; `scene3d_sources` deps that label.
 
 **Tech Stack:** C++23 MSVC, GN/Ninja (`out/`), leftover `legacy_render` DLL, unibn `Octree.hpp` (MIT, header-only).
 
@@ -342,7 +342,7 @@ Set spec metadata `Plan:` to `docs/superpowers/plans/2026-09-28-scene3d-index-oc
 - Modify: `index/vertex_octree.h|.cpp`, `surface/pointcloud.h|.cpp`, umbrella §13, README
 
 - [x] **P0** — `build` / `hit_test` / `find_nearest` / `radius_neighbors`; index has no VB
-- [x] **P1** — `Smt3DPointCloud` owns VB + draw; index query-only via `m_point_index`
+- [x] **P1** — `PointCloud3d` owns VB + draw; index query-only via `m_point_index`
 - [x] **P2** — N≥200k reorder into spatial chunks; frustum cull per chunk draw range
 
 ---

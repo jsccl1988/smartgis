@@ -95,19 +95,19 @@ def run_one(engine_id: str, label: str, cmd: list[str], src_name: str) -> dict:
     env = os.environ.copy()
     # Product default is D3D; GL shots must force OpenGL.
     if engine_id == "legacy-scene3d-gl":
-        env["SMT_STEREO_API"] = "OpenGL"
-        env["SMT_SCENE3D_SHOWCASE_D3D"] = "0"
+        env["STEREO_API"] = "OpenGL"
+        env["SCENE3D_SHOWCASE_D3D"] = "0"
     elif engine_id == "legacy-scene3d-d3d":
-        env["SMT_STEREO_API"] = "Direct3D"
-        env["SMT_SCENE3D_SHOWCASE_D3D"] = "1"
+        env["STEREO_API"] = "Direct3D"
+        env["SCENE3D_SHOWCASE_D3D"] = "1"
     else:
-        env.pop("SMT_STEREO_API", None)
-        env.pop("SMT_SCENE3D_SHOWCASE_D3D", None)
-    env.pop("SMT_SCENE3D_SHOWCASE_LINGER_MS", None)
-    env.pop("SMT_MAP2D_SHOWCASE_LINGER_MS", None)
+        env.pop("STEREO_API", None)
+        env.pop("SCENE3D_SHOWCASE_D3D", None)
+    env.pop("SCENE3D_SHOWCASE_LINGER_MS", None)
+    env.pop("MAP2D_SHOWCASE_LINGER_MS", None)
     env["PYTHONUNBUFFERED"] = "1"
 
-    log(f"\n######## ENGINE {engine_id} ï¿?{label} ########")
+    log(f"\n######## ENGINE {engine_id} ï¿½?{label} ########")
     log("CMD: " + " ".join(cmd))
     t0 = time.time()
     try:
@@ -162,7 +162,7 @@ def main() -> int:
     for item in ENGINES:
         try:
             results.append(run_one(*item))
-        except Exception as exc:  # noqa: BLE001 ï¿?keep suite going
+        except Exception as exc:  # noqa: BLE001 ï¿½?keep suite going
             log(f"EXCEPTION {item[0]}: {exc!r}")
             results.append({"engine_id": item[0], "label": item[1], "ok": False, "error": repr(exc)})
         kill_apps()

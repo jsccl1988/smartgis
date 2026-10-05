@@ -75,7 +75,7 @@ int export_map2d_showcase_bmp(content::Map2dPresenter* map2d,
   if (!map2d) {
     return 56;
   }
-  // Bench: SMT_MAP2D_EXPORT_REUSE=1 warms present-cache off-clock, then the
+  // Bench: MAP2D_EXPORT_REUSE=1 warms present-cache off-clock, then the
   // timed export reports paint_ms (blit) vs export_ms (paint + bmp_io).
   if (want_export_reuse()) {
     map2d_showcase_mark("export-warm");

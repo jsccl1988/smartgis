@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_TILE_SOURCE_REGISTRY_H_
-#define SDB_TILE_SOURCE_REGISTRY_H_
+#ifndef GIS_TILE_SOURCE_REGISTRY_H_
+#define GIS_TILE_SOURCE_REGISTRY_H_
 
 #include <map>
 #include <memory>
@@ -44,4 +44,4 @@ class GIS_EXPORT SourceRegistry {
 }  // namespace tile
 }  // namespace gis
 
-#endif  // SDB_TILE_SOURCE_REGISTRY_H_
+#endif  // GIS_TILE_SOURCE_REGISTRY_H_

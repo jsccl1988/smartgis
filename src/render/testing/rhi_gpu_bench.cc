@@ -3,7 +3,7 @@
 
 // Optional DX12 / preferred-GPU google/benchmark. Skips cleanly without
 // adapter. Not part of default //:benchmark_all.
-//   set SMT_RUN_FLYCUBE_GPU=1
+//   set RUN_FLYCUBE_GPU=1
 //   ninja -C out/Debug rhi_gpu_bench && out\Debug\rhi_gpu_bench.exe
 
 #include "render/testing/scenarios.h"
@@ -73,7 +73,7 @@ BENCHMARK(BM_gpu_compute_smoke);
 
 int main(int argc, char** argv) {
   if (!env_wants_gpu()) {
-    std::printf("rhi_gpu_bench: skip (set SMT_RUN_FLYCUBE_GPU=1)\n");
+    std::printf("rhi_gpu_bench: skip (set RUN_FLYCUBE_GPU=1)\n");
     return 0;
   }
 

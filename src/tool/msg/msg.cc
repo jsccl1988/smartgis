@@ -63,7 +63,7 @@ const char* command_id_from_gt_msg(long msg) {
     case kGtMsg3dViewFull:
       return "view3d.full";
     default: {
-      // Leftover plugins post SMT_MSG_KEY(GT_MSG_*, HWND) = MAKELONG(msg,
+      // Leftover plugins post MSG_KEY(GT_MSG_*, HWND) = MAKELONG(msg,
       // hwnd).
       const long low =
           static_cast<long>(static_cast<unsigned long>(msg) & 0xffffu);

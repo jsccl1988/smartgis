@@ -139,23 +139,23 @@ int main() {
   }
 
   gis::Map map;
-  expect(map.AddLayer(ds->GetLayer(0)), "AddLayer china_plp");
+  expect(map.add_layer(ds->GetLayer(0)), "add_layer china_plp");
 
   ScratchLayer point_hits = make_scratch();
   expect(point_hits.layer != nullptr, "point scratch");
   gis::GeomQueryDesc gq;
-  // Beijing city point in china_plp (slightly offset; needs fSmargin).
-  gq.pQueryGeom = new OGRPoint(116.40, 39.91);
-  gq.fSmargin = 0.05f;
+  // Beijing city point in china_plp (slightly offset; needs GeomQueryDesc::margin).
+  gq.geometry = new OGRPoint(116.40, 39.91);
+  gq.margin = 0.05f;
   gis::AttrQueryDesc pq;
   int fea_type = static_cast<int>(wkbUnknown);
-  expect(map.QueryFeature(&gq, &pq, point_hits.layer, fea_type),
-         "point QueryFeature");
+  expect(map.query_feature(&gq, &pq, point_hits.layer, fea_type),
+         "point query_feature");
   expect(ogr_count(point_hits.layer) >= 1, "point-select hits china_plp");
   expect(layer_has_geom(point_hits.layer, wkbPoint),
          "point-select includes Beijing point");
-  delete gq.pQueryGeom;
-  gq.pQueryGeom = nullptr;
+  delete gq.geometry;
+  gq.geometry = nullptr;
 
   ScratchLayer box_hits = make_scratch();
   expect(box_hits.layer != nullptr, "box scratch");
@@ -167,16 +167,16 @@ int main() {
   ring->closeRings();
   OGRPolygon* box = new OGRPolygon();
   box->addRingDirectly(ring);
-  gq.pQueryGeom = box;
-  gq.fSmargin = 0.0f;
+  gq.geometry = box;
+  gq.margin = 0.0f;
   fea_type = static_cast<int>(wkbUnknown);
-  expect(map.QueryFeature(&gq, &pq, box_hits.layer, fea_type),
-         "box QueryFeature");
+  expect(map.query_feature(&gq, &pq, box_hits.layer, fea_type),
+         "box query_feature");
   expect(ogr_count(box_hits.layer) >= 1, "box-select hits china_plp");
   expect(layer_has_geom(box_hits.layer, wkbPolygon),
          "box-select includes Huabei polygon");
-  delete gq.pQueryGeom;
-  gq.pQueryGeom = nullptr;
+  delete gq.geometry;
+  gq.geometry = nullptr;
 
   ScratchLayer flash = make_scratch();
   expect(flash.layer != nullptr, "flash scratch");

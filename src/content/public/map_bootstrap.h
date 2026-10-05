@@ -12,7 +12,7 @@
 namespace content {
 
 // HWND-free sample / china map path policy (SP3 host extract).
-// Leftover SmtApp and Views open paths share these helpers; opening GDAL /
+// Leftover App and Views open paths share these helpers; opening GDAL /
 // registering leftover mapmgr stays at the call site.
 
 // Relative candidates under each search root, preferred order first.

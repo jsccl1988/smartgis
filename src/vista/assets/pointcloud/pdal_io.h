@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_VISTA_WORLD_POINTCLOUD_PDAL_IO_H_
-#define GIS_VISTA_WORLD_POINTCLOUD_PDAL_IO_H_
+#ifndef VISTA_ASSETS_POINTCLOUD_PDAL_IO_H_
+#define VISTA_ASSETS_POINTCLOUD_PDAL_IO_H_
 
 #include <cstddef>
 #include <string>
@@ -20,7 +20,7 @@ struct PdalReadOptions {
   size_t max_points = 500000;
 };
 
-// True when this binary was linked against installed PDAL (smt_has_pdal).
+// True when this binary was linked against installed PDAL (has_pdal).
 VISTA_EXPORT bool pdal_is_available();
 
 // Run a PDAL pipeline JSON document into |out|.
@@ -34,4 +34,4 @@ VISTA_EXPORT bool run_pdal_read(const char* path, const PdalReadOptions& options
 
 }  // namespace vista
 
-#endif  // GIS_VISTA_WORLD_POINTCLOUD_PDAL_IO_H_
+#endif  // VISTA_ASSETS_POINTCLOUD_PDAL_IO_H_

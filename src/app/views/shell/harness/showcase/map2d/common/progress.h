@@ -13,7 +13,7 @@ inline constexpr int kMap2dShowcaseDefaultH = 720;
 // Appends a progress step to map2d-showcase-mark.txt (captures/).
 void map2d_showcase_mark(const char* step);
 
-// Optional SMT_MAP2D_SHOWCASE_W / SMT_MAP2D_SHOWCASE_H (matrix uses 1280x720).
+// Optional MAP2D_SHOWCASE_W / MAP2D_SHOWCASE_H (matrix uses 1280x720).
 void map2d_showcase_pixel_size(int* out_w, int* out_h);
 
 }  // namespace detail

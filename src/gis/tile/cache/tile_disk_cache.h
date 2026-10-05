@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_TILE_TILE_DISK_CACHE_H_
-#define SDB_TILE_TILE_DISK_CACHE_H_
+#ifndef GIS_TILE_TILE_DISK_CACHE_H_
+#define GIS_TILE_TILE_DISK_CACHE_H_
 
 #include <cstdint>
 #include <filesystem>
@@ -46,4 +46,4 @@ class GIS_EXPORT TileDiskCache {
 }  // namespace tile
 }  // namespace gis
 
-#endif  // SDB_TILE_TILE_DISK_CACHE_H_
+#endif  // GIS_TILE_TILE_DISK_CACHE_H_

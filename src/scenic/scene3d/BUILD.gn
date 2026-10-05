@@ -6,7 +6,7 @@ import("//testing/test.gni")
 
 # Compiled into //src/scenic:scenic_impl (dll_stem = scenic_impl).
 # Layout: host/ scene/ primitive/{mesh,feature,surface}/ test/.
-# Device-free DEM/World: //src/vista/world; feature tess: primitive/feature.
+# Device-free DEM/World: //src/vista/component/world; feature tess: primitive/feature.
 source_set("scene3d_sources") {
   sources = [
     "scene/scene.cpp",

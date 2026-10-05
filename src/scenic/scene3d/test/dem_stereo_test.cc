@@ -12,12 +12,12 @@
 #include "base/math/geom/aabb.h"
 #include "gdal_priv.h"
 #include "vista/terrain/dem/dem_frame.h"
-#include "vista/world/world.h"
+#include "vista/component/world/world.h"
 #include "scenic/scene3d/scene/map_to_scene.h"
 #include "scenic/scene3d/scene/scene_to_world.h"
-#include "vista/world/coord.h"
+#include "vista/component/world/coord.h"
 #include "vista/terrain/dem/dem_height_field.h"
-#include "vista/world/dem_seed.h"
+#include "vista/component/world/dem_seed.h"
 #include "scenic/scene3d/primitive/surface/terrain.h"
 
 namespace {
@@ -342,7 +342,7 @@ int main() {
     expect(scenic::detail::leftover_has_scene_dem(), "framing cache after first seed");
     const render::DemHeightField* field_a = nullptr;
     if (auto* terrain =
-            static_cast<scenic::detail::Terrain*>(scene_a.Get3DObject(0))) {
+            static_cast<scenic::detail::Terrain*>(scene_a.object_at(0))) {
       field_a = terrain->height_field();
     }
     expect(field_a != nullptr && !field_a->empty(),
@@ -352,7 +352,7 @@ int main() {
     expect(added_b > 0, "second scene DEM seed");
     const render::DemHeightField* field_b = nullptr;
     if (auto* terrain =
-            static_cast<scenic::detail::Terrain*>(scene_b.Get3DObject(0))) {
+            static_cast<scenic::detail::Terrain*>(scene_b.object_at(0))) {
       field_b = terrain->height_field();
     }
     expect(field_b != nullptr && !field_b->empty(),

@@ -26,7 +26,7 @@ namespace detail {
 
 // True Scene3D path: China DEM terrain + colored pointcloud overlay + HWND BMP.
 // Map2d export_bmp (plugin.world3d.il) is intentionally not used here.
-// SMT_PLUGIN_WORLD3D_PERF_BARE=1 strips atmosphere + overlay for timing.
+// PLUGIN_WORLD3D_PERF_BARE=1 strips atmosphere + overlay for timing.
 // Unset PERF_BARE = M4 full-materials (atmo on); pointcloud soft-fails.
 int run_world3d_scene3d(Browser& browser) {
   std::fprintf(stderr, "plugin-showcase: world3d Scene3D path\n");
@@ -41,7 +41,7 @@ int run_world3d_scene3d(Browser& browser) {
     plugin_showcase_mark("full-materials");
   }
 
-  // Default FlyCube lit DEM. Explicit SMT_SCENE3D_ENGINE=scenic must win so
+  // Default FlyCube lit DEM. Explicit SCENE3D_ENGINE=scenic must win so
   // the content-hosted scenic::Engine matrix row can present-proof GDI.
   if (!content::apply_scene3d_engine_from_env()) {
     content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);

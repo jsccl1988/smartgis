@@ -1,8 +1,8 @@
 // Copyright (c) 2010 CCL. All rights reserved.
 // Abstract 2D map render device. Buffer layers (eRDBufferLayer):
 // Map=0, Dynamic=1, Quick=2, Direct=immediate DC (no persistent buffer).
-#ifndef _RD_RENDERDEVICE_H
-#define _RD_RENDERDEVICE_H
+#ifndef SCENIC_RENDER_RHI2D_PUBLIC_DEVICE_RENDER_DEVICE_H_
+#define SCENIC_RENDER_RHI2D_PUBLIC_DEVICE_RENDER_DEVICE_H_
 
 #include <cstdint>
 
@@ -253,4 +253,4 @@ typedef HRESULT (*_DestroyRenderDevice)(LPRENDERDEVICE &pMrdDevice);
 #endif
 #endif
 
-#endif  //_RD_RENDERDEVICE_H
+#endif  // SCENIC_RENDER_RHI2D_PUBLIC_DEVICE_RENDER_DEVICE_H_

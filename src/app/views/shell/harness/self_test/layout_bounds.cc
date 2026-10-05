@@ -70,7 +70,7 @@ const bool force_dump = [] {
   return v && v[0] && !(v[0] == '0' && v[1] == '\0');
 }();
 if (layout_fails > 0 || force_dump) {
-  // Mode A: dump text forensics on failure (or SMT_UI_FORENSICS=1).
+  // Mode A: dump text forensics on failure (or UI_FORENSICS=1).
   // Product binary stays free of testonly dump_ui_forensics; write the
   // layout issues + a minimal manifest (no shell PNG / view tree).
   namespace fs = std::filesystem;

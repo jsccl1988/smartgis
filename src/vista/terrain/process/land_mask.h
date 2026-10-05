@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_WORLD_LAND_MASK_H_
-#define GIS_WORLD_LAND_MASK_H_
+#ifndef VISTA_TERRAIN_PROCESS_LAND_MASK_H_
+#define VISTA_TERRAIN_PROCESS_LAND_MASK_H_
 
 #include <cstdint>
 #include <vector>
@@ -51,4 +51,4 @@ void reset_land_mask_bake_sample();
 
 }  // namespace vista
 
-#endif  // GIS_WORLD_LAND_MASK_H_
+#endif  // VISTA_TERRAIN_PROCESS_LAND_MASK_H_

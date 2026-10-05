@@ -35,12 +35,12 @@ class MapSession {
   MapSession& operator=(const MapSession&) = delete;
 
   // Create ViewHosts + MapContents::Create. StartRenderProcess is deferred
-  // until ensure_oop_render_process() unless SMT_ENABLE_OOP_RENDER=1.
+  // until ensure_oop_render_process() unless ENABLE_OOP_RENDER=1.
   // OOP failure clears map_contents() only for the opt-in-at-init path.
   void init_hosts();
 
   // Lazily start the OOP GPU child. No-op when already running or when
-  // SMT_DISABLE_OOP_RENDER=1. Returns true when IsOopRender().
+  // DISABLE_OOP_RENDER=1. Returns true when IsOopRender().
   bool ensure_oop_render_process();
 
   // Detach gestures / abandon mesh / release stereo before HWND teardown.

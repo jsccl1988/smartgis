@@ -7,7 +7,7 @@ import("//testing/test.gni")
 # Compiled into //src/scenic:scenic_render_gl (dll_stem = scenic_render_gl).
 # OpenGL leftover impl under rhi3d/impl/gl/ (parallel to impl/d3d/).
 # Layout: host/resource/paint/caps/ext. File basenames drop the gl_ prefix
-# (types/SmtGL* unchanged). Former label: //src/scenic/gl:render_gl_sources.
+# (types/GL* unchanged). Former label: //src/scenic/gl:render_gl_sources.
 source_set("gl_sources") {
   sources = [
     # ext/*_func*.h are header-only loaders; util accessors live in host/.

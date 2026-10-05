@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_TILE_PROVIDER_TILE_LAYER_H_
-#define SDB_TILE_PROVIDER_TILE_LAYER_H_
+#ifndef GIS_TILE_PROVIDER_TILE_LAYER_H_
+#define GIS_TILE_PROVIDER_TILE_LAYER_H_
 
 #include <memory>
 #include <vector>
@@ -27,23 +27,23 @@ class GIS_EXPORT ProviderTileLayer {
   bool refresh_visible(const Viewport& viewport, int timeout_sec = 5);
   void set_images(std::vector<TileImage> images);
 
-  bool Create();
-  bool Open(const char* szLayerArchiveName);
-  bool Close();
-  bool Fetch();
-  bool IsOpen() const { return open_; }
-  void CalEnvelope();
+  bool create();
+  bool open(const char* archive_name);
+  bool close();
+  bool fetch();
+  bool is_open() const { return open_; }
+  void cal_envelope();
   void get_envelope(Envelope& env) const { env = envelope_; }
 
-  void SetLayerName(const char* szName);
-  const char* GetLayerName() const { return name_; }
-  void SetSRS(const char* szSrs);
-  const char* GetSRS() const { return srs_; }
-  void SetLayerRect(const Envelope& lyr_rect);
-  LayerType GetLayerType() const { return LYR_TITLE; }
+  void set_name(const char* name);
+  const char* name() const { return name_; }
+  void set_srs(const char* srs);
+  const char* srs() const { return srs_; }
+  void set_rect(const Envelope& lyr_rect);
+  LayerType layer_type() const { return LayerType::kTile; }
 
-  int GetTileCount() const;
-  const TileImage* GetTile(int index) const;
+  int tile_count() const;
+  const TileImage* tile_at(int index) const;
   const std::vector<TileImage>& images() const { return images_; }
 
  private:
@@ -61,4 +61,4 @@ class GIS_EXPORT ProviderTileLayer {
 }  // namespace tile
 }  // namespace gis
 
-#endif  // SDB_TILE_PROVIDER_TILE_LAYER_H_
+#endif  // GIS_TILE_PROVIDER_TILE_LAYER_H_

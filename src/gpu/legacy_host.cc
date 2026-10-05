@@ -61,7 +61,7 @@ bool load_one(const wchar_t* stem, bool debug, std::vector<HMODULE>* loaded) {
   return false;
 }
 
-// Matches the leading vtable of SmtRenderDevice (virtual dtor + Init).
+// Matches the leading vtable of RenderDevice2d (virtual dtor + Init).
 class LegacyDevice {
  public:
   virtual ~LegacyDevice() = default;

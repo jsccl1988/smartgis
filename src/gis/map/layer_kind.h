@@ -9,10 +9,10 @@
 
 namespace gis {
 
-enum LayerType {
-  LYR_VECTOR,
-  LYR_RASTER,
-  LYR_TITLE,
+enum class LayerType {
+  kVector,
+  kRaster,
+  kTile,
 };
 
 // Extra vector schemas that are not OGRwkbGeometryType. Product Feature

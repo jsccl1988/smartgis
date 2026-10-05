@@ -6,7 +6,7 @@ All rights reserved.
 # src_render Scene3d equal-profile optimize — Implementation Plan
 
 > Checklist hung off living [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) §src_render Scene3d equal-profile optimize.  
-> **Parallel / prep default-off:** [`2026-10-02-src-render-vista-parallel-accelerate.md`](2026-10-02-src-render-vista-parallel-accelerate.md) Task 4 (`prep_cull_parallel` · `SMT_GPUSCENE_PREP_PARALLEL`).  
+> **Parallel / prep default-off:** [`2026-10-02-src-render-vista-parallel-accelerate.md`](2026-10-02-src-render-vista-parallel-accelerate.md) Task 4 (`prep_cull_parallel` · `GPUSCENE_PREP_PARALLEL`).  
 > **Diagram:** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html) §8 Scene3d cold vs warm.
 
 **Goal:** Keep atmosphere-showcase=legacy **warm** present in leftover order; drive **world3d** equal-profile matrix so FlyCube **cold** first-frame matches leftover order without dropping DEM / stripping materials on smoke rows.
@@ -24,7 +24,7 @@ All rights reserved.
 | Smoke | `null` only (full materials; never a performance peer) |
 | Warm status | Already peer ~**5–6.5 ms** — protect |
 | Cold P0 | FlyCube ~**1.8–2 s** vs leftover ~**90 ms** |
-| Prep | `prep_par_on` currently slower; product `SMT_GPUSCENE_PREP_PARALLEL` **default off** until frustum cull |
+| Prep | `prep_par_on` currently slower; product `GPUSCENE_PREP_PARALLEL` **default off** until frustum cull |
 | Artifacts | `out/Debug/captures/analysis/world3d_opt/matrix/` |
 
 ```bat
@@ -60,7 +60,7 @@ Artifact: `out/Debug/captures/atmosphere/atmosphere-showcase-perf.json`.
 ### M3 — Prep honesty
 
 - [ ] `prep_par_on` not slower than `prep_par_off` without real frustum work
-- [ ] Product default: `SMT_GPUSCENE_PREP_PARALLEL` **off** until `SMT_SCENE3D_FRUSTUM_CULL` + §vista parallel Task 4
+- [ ] Product default: `GPUSCENE_PREP_PARALLEL` **off** until `SCENE3D_FRUSTUM_CULL` + §vista parallel Task 4
 - [ ] Cross-check [`2026-10-02-src-render-vista-parallel-accelerate.md`](2026-10-02-src-render-vista-parallel-accelerate.md) Task 4 checkboxes
 
 ### M4 — Non-bare budgets
@@ -85,7 +85,7 @@ Artifact: `out/Debug/captures/atmosphere/atmosphere-showcase-perf.json`.
 ### Task 3: Warm acceptance
 
 - [x] Timed frames `rebuild_count=0` (Null RHI bench 2026-10-01 23:45 — phase mesh/sync/rebuild=0)
-- [x] `SMT_ATMOSPHERE_SHOWCASE_GPU=1` + `LINGER_MS=0` + `PRESENT_COUNT=30` warm `ms_per_present` ≈ leftover order (**14.2 ms**, was 160–444; leftover ~10)
+- [x] `ATMOSPHERE_SHOWCASE_GPU=1` + `LINGER_MS=0` + `PRESENT_COUNT=30` warm `ms_per_present` ≈ leftover order (**14.2 ms**, was 160–444; leftover ~10)
 - [x] Visual: legacy PASS (landish / black-clear) on GPU path
 - [x] Timed loop: skip `pump_messages` when `present_pump_ms==0` (was dispatching main map2d GDI paint ~160 ms/frame)
 - [x] Hot path: stop double Gerstner (`OceanPass::record` after `prepare_gpu`); warm skip `prepare_gpu` once `dem_gpu_synced_after_ocean_`
@@ -101,9 +101,9 @@ Artifact: `out/Debug/captures/atmosphere/atmosphere-showcase-perf.json`.
 | 2026-10-03 solid-cache + no timed marks | 1 | **10.1** | **0** | albedo/`_putenv_s` cached; timed mark I/O off; record≈5 swap=1; PASS |
 
 ```bat
-set SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT=30
-set SMT_ATMOSPHERE_SHOWCASE_GPU=1
-set SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=0
+set ATMOSPHERE_SHOWCASE_PRESENT_COUNT=30
+set ATMOSPHERE_SHOWCASE_GPU=1
+set ATMOSPHERE_SHOWCASE_LINGER_MS=0
 out\Debug\SmartGIS.exe --atmosphere-showcase=legacy
 type out\Debug\captures\atmosphere\atmosphere-showcase-perf.json
 ```
@@ -113,6 +113,6 @@ type out\Debug\captures\atmosphere\atmosphere-showcase-perf.json
 - Matching leftover by deleting ocean / hypsometric DEM
 - Ranking matrix rows by process `wall_ms`
 - Treating `null` / GDI as performance peers
-- Enabling `SMT_GPUSCENE_PREP_PARALLEL` by default before frustum cull honesty (M3)
+- Enabling `GPUSCENE_PREP_PARALLEL` by default before frustum cull honesty (M3)
 - Full atmosphere.full warm diet in the same slice as M2 cold upload (M4 follow-up)
 - Sub-10 ms Debug warm while Gerstner+upload still run every animated ocean frame (follow-up: cheaper wave step / lower mesh_n)

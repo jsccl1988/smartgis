@@ -25,14 +25,14 @@ config("legacy") {
   cflags = [
     "/UUNICODE",
     "/U_UNICODE",
-    "/FIsmt_compat.h",
+    "/FIwin_compat.h",
     # Override default execution-charset:utf-8. Leftover MFC is MBCS and
     # talks ANSI (CP936 on zh-CN); emit narrow literals accordingly.
     "/execution-charset:.936",
   ]
   include_dirs = []
   include_dirs += [
-    smt_vs,  # //build — forced include smt_compat.h
+    win_vs,  # //build — forced include win_compat.h
     "//src",
     "//",
     "//third_party/.src/eigen",

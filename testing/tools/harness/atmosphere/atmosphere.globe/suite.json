@@ -6,10 +6,10 @@
     "globe"
   ],
   "env": {
-    "SMT_ATMOSPHERE_SHOWCASE_GPU": "1",
-    "SMT_ATMOSPHERE_SHOWCASE_LINGER_MS": "0",
-    "SMT_HARNESS_RECORD": "1",
-    "SMT_HARNESS_RECORD_MODE": "bmp"
+    "ATMOSPHERE_SHOWCASE_GPU": "1",
+    "ATMOSPHERE_SHOWCASE_LINGER_MS": "0",
+    "HARNESS_RECORD": "1",
+    "HARNESS_RECORD_MODE": "bmp"
   },
   "window_title": "Atmosphere Showcase",
   "bmp": {

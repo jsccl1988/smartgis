@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_STAT_VALUE_TRAITS_H
-#define SMT_STAT_VALUE_TRAITS_H
+#ifndef STAT_VALUE_TRAITS_H
+#define STAT_VALUE_TRAITS_H
 
 #ifndef _CRT_DECLARE_NONSTDC_NAMES
 #define _CRT_DECLARE_NONSTDC_NAMES 0
@@ -56,4 +56,4 @@ concept real_range = requires(const R& r) {
 
 }  // namespace stat
 
-#endif  // SMT_STAT_VALUE_TRAITS_H
+#endif  // STAT_VALUE_TRAITS_H

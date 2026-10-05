@@ -8,7 +8,7 @@ All rights reserved.
 > Hung off living [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) **§src_render + vista parallel accelerate**.  
 > **Directory tighten (landed, not this plan):** living **§Vista subdirectory tighten**.  
 > **Upgrade U0–U4 (landed):** living **§Vista logical/physical lanes**. Follow-on **M1–M4:** living **§Vista map/frame scenic-peer** · [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html). 借 Scenic 脏区 / 帧拍 / prep 语义；不搬 HDC、D3D11 deferred、焊死的 `MapPainter`。  
-> **IR/GPU 目录（权威）：** living **§Vista IR/GPU lanes**。逻辑/物理词汇退役。目标磁盘是 `vista/map`（`MapIR`）+ `vista/map_gpu`（`MapPass`），`vista/world`（`World` + `Instance`）+ `vista/world_gpu`（`WorldPass`）。下文文件表和任务勾选仍用勾选当时的 `vista/frame` / `vista/scene` 名字，不改写。  
+> **IR/GPU 目录（权威）：** living **§Vista IR/Pass lanes**。逻辑/物理词汇退役。目标磁盘是 `vista/component/map`（`MapIR`）+ `vista/pass/map`（`MapPass`），`vista/component/world`（`World` + `Instance`）+ `vista/pass/world`（`WorldPass`）。下文文件表和任务勾选仍用勾选当时的 `vista/frame` / `vista/scene` 名字，不改写。  
 > **Diagram (normative visual):** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html) — **A×B 深度整合**；Topology A 见 §2–§3（`stage_frame` → `build_layout_parallel` → `prep_cull_parallel` → `record_and_present`）。  
 > **CPU boundary:** [`gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html).  
 > **Related:** [`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · [`ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)  
@@ -30,7 +30,7 @@ All rights reserved.
 | L2 CPU | `gis::vista` (+ prep) | `build_layout_parallel` / `prep_cull_parallel` |
 | L3 GPU | Display · `graph` / `vista` GPU passes | `record_and_present` ≡ `graph::present` · 1 CL |
 
-Env (product): `SMT_VISTA_LAYOUT_PARALLEL`; `SMT_GPUSCENE_PREP_PARALLEL` **default off** until frustum cull honesty (`=0` → N=1; opt-in `=1` after `SMT_SCENE3D_FRUSTUM_CULL`) — see Scene3d equal-profile **M3** [`2026-10-01-src-render-scene3d-equal-profile-optimize.md`](2026-10-01-src-render-scene3d-equal-profile-optimize.md). Leftover `SMT_RHI2D_*` / `SMT_RHI3D_*` must not drive product path.
+Env (product): `VISTA_LAYOUT_PARALLEL`; `GPUSCENE_PREP_PARALLEL` **default off** until frustum cull honesty (`=0` → N=1; opt-in `=1` after `SCENE3D_FRUSTUM_CULL`) — see Scene3d equal-profile **M3** [`2026-10-01-src-render-scene3d-equal-profile-optimize.md`](2026-10-01-src-render-scene3d-equal-profile-optimize.md). Leftover `RHI2D_*` / `RHI3D_*` must not drive product path.
 
 ## Global Constraints
 
@@ -46,12 +46,12 @@ Env (product): `SMT_VISTA_LAYOUT_PARALLEL`; `SMT_GPUSCENE_PREP_PARALLEL` **defau
 
 | Path | Role | API / symbol |
 | --- | --- | --- |
-| `vista/map/frame.h` | Types | `LayoutInput` · `LayerBatch` · `MapFrame` · `Layout` |
-| `vista/map/layout.cc` | CPU orchestrator | `Layout::build` |
-| `vista/map/layout/fill.cc` · `line.cc` | Tess grain | `emit_fills` / `emit_lines` + `parallel_for` |
-| `vista/map/layout/{point,symbol}.cc` | Unify V1 | `emit_circles` / `emit_heatmap` / `emit_symbols` |
-| `vista/map/layout/tess_grain.h` | Thresholds | `kParallelTessMinGeoms` · `kParallelTessGrain` |
-| `vista/world/terrain/mesh/*` | TLS scratch | tess helpers |
+| `vista/component/map/frame.h` | Types | `LayoutInput` · `LayerBatch` · `MapFrame` · `Layout` |
+| `vista/component/map/layout.cc` | CPU orchestrator | `Layout::build` |
+| `vista/component/map/layout/fill.cc` · `line.cc` | Tess grain | `emit_fills` / `emit_lines` + `parallel_for` |
+| `vista/component/map/layout/{point,symbol}.cc` | Unify V1 | `emit_circles` / `emit_heatmap` / `emit_symbols` |
+| `vista/component/map/layout/tess_grain.h` | Thresholds | `kParallelTessMinGeoms` · `kParallelTessGrain` |
+| `vista/component/world/terrain/mesh/*` | TLS scratch | tess helpers |
 | `content/.../map2d/frame/map2d_frame_cache.*` | L1 cache | `prepare_for_present` · `rebuild_layout` → V2 `stage_frame` |
 | `content/.../map2d/frame/map2d_batches.cc` | Layer jobs | `batches_via_parallel_for` · `merge_parts` |
 | `content/.../map2d/gpu/map2d_gpu_present.cc` | Warm/cold GPU | `present` · `present_frame` → `graph::present` |
@@ -59,7 +59,7 @@ Env (product): `SMT_VISTA_LAYOUT_PARALLEL`; `SMT_GPUSCENE_PREP_PARALLEL` **defau
 | `content/.../scene3d/gpu/scene3d_gpu_present.cc` | 3D present | `Scene3dGpuPresent::present` |
 | `vista/frame/pass.*` | Upload + record | `FramePass::record` · `invalidate_uploaded` |
 | `vista/scene/scene_draw.cc` · `detail/draw_pass.cc` | 3D draw | `GpuScene::record_draws` · `record_kind` · frustum |
-| `vista/atmosphere/ocean/gpu_fields.cc` | Compute FFT | Device-thread only |
+| `vista/pass/atmosphere/ocean/gpu_fields.cc` | Compute FFT | Device-thread only |
 | `render/graph/frame_graph.*` | 1 CL contract | `render::graph::present` |
 | `base/execution/parallel/for.h` | Pool grain | `parallel_for` · latch |
 | `docs/superpowers/diagrams/render-accelerate-topology.html` | Normative SVG（A×B） | Named stages + GPU process |
@@ -77,9 +77,9 @@ Env (product): `SMT_VISTA_LAYOUT_PARALLEL`; `SMT_GPUSCENE_PREP_PARALLEL` **defau
 ### Task 2: Vista layout grain (Map2d CPU) — V1
 
 - [x] Fill / line tess `parallel_for` + per-worker scratch (as-built)
-- [x] Wire `SMT_VISTA_LAYOUT_PARALLEL` helper（`vista_layout_parallel_enabled()`）in `tess_grain.h` / emitters；`=0` → N=1
+- [x] Wire `VISTA_LAYOUT_PARALLEL` helper（`vista_layout_parallel_enabled()`）in `tess_grain.h` / emitters；`=0` → N=1
 - [x] Unify circle / heatmap / extrusion under job→merge (preserve painter z). Symbol/label stay serial (`LabelGrid`)
-- [x] Optional viewport **tile layout** grain (device-pixel AABB) for full-damage china — peer of leftover `tile`; GPU compose = `vista/map` (not TransparentBlt). N1: `enumerate_layout_tiles` + layer×tile `cache_key` splice.
+- [x] Optional viewport **tile layout** grain (device-pixel AABB) for full-damage china — peer of leftover `tile`; GPU compose = `vista/component/map` (not TransparentBlt). N1: `enumerate_layout_tiles` + layer×tile `cache_key` splice.
 - [x] Collision / label resolve **serial** after parallel emit (document + assert in `emit_symbols` / `Layout::build`)
 - [x] Default on when `jobs >= kParallelTessMinGeoms`
 
@@ -94,8 +94,8 @@ Env (product): `SMT_VISTA_LAYOUT_PARALLEL`; `SMT_GPUSCENE_PREP_PARALLEL` **defau
 ### Task 4: GpuScene / 3D prep — V3
 
 - [x] Extract `prep_cull_parallel`（`vista/scene` + `frustum_aabb`）；workers write `visible[]` only
-- [x] Gate behind `SMT_SCENE3D_FRUSTUM_CULL=1`（as-built default off）+ `SMT_GPUSCENE_PREP_PARALLEL`
-- [x] Product **default off** for `SMT_GPUSCENE_PREP_PARALLEL` until cull honesty（world3d matrix: `prep_par_on` slower — equal-profile **M3**）
+- [x] Gate behind `SCENE3D_FRUSTUM_CULL=1`（as-built default off）+ `GPUSCENE_PREP_PARALLEL`
+- [x] Product **default off** for `GPUSCENE_PREP_PARALLEL` until cull honesty（world3d matrix: `prep_par_on` slower — equal-profile **M3**）
 - [x] When enabled: `=0` → serial；`=1` → clamp 2–4
 - [x] Workers must **not** touch `rhi::Device` / CommandList
 - [x] Serial `GpuScene::record_draws` / `graph::present` on GPU thread only
@@ -109,7 +109,7 @@ Env (product): `SMT_VISTA_LAYOUT_PARALLEL`; `SMT_GPUSCENE_PREP_PARALLEL` **defau
 
 ### Task 6: Acceptance harness
 
-- [ ] Map2d china 1280×720: warm StaticReuse per equal-profile；layout parallel cut vs `SMT_VISTA_LAYOUT_PARALLEL=0`
+- [ ] Map2d china 1280×720: warm StaticReuse per equal-profile；layout parallel cut vs `VISTA_LAYOUT_PARALLEL=0`
 - [ ] Scene3d `--atmosphere-showcase=legacy`: warm leftover-order；prep scales with N when cull on
 - [ ] Visual gates unchanged (hillshade / labels / legacy landish)
 - [ ] Keep HTML diagram in sync when phases land (revise in place)
@@ -124,7 +124,7 @@ Hung off **§content present accelerate**. Do not open a twin plan.
 - [x] E1: `stage_frame` mailbox posts layout on `base::execution`; Display presents previous published (no settle join). One-time cv wait only when there is no published MapFrame (not HWND paint; WaitFirstMapPresent / tests). No same-tick `async`+`get`.
 - [x] G1: `Pass::UploadPolicy::kIncremental` reuses DrawCache when world+overlay identity hashes match; mismatch is one Display-thread place+upload (no split overlay Device objects — prior split path AVed). Optional CPU pack `parallel_for` not wired
 - [x] G2: raster/hillshade already textured quads via `load_raster` / `emit_hillshade`. Topology B CF emit **skipped** (would be multiprocess `--type=gpu`; do not dual-compose A+B in-process)
-- [x] E2: circle / heatmap / extrusion job→`parallel_for`→ordered merge; `vista_layout_parallel_enabled()` (`SMT_VISTA_LAYOUT_PARALLEL=0` serial). Scene3d `prep_cull_meshes` already gated on frustum honesty + `SMT_GPUSCENE_PREP_PARALLEL` default OFF
+- [x] E2: circle / heatmap / extrusion job→`parallel_for`→ordered merge; `vista_layout_parallel_enabled()` (`VISTA_LAYOUT_PARALLEL=0` serial). Scene3d `prep_cull_meshes` already gated on frustum honesty + `GPUSCENE_PREP_PARALLEL` default OFF
 - [x] Keep [`../diagrams/content-present-accelerate.html`](../diagrams/content-present-accelerate.html) in sync
 - [x] Map2d present layers (2026-10-04): split `frame/` mailbox + `layout_build` + `map2d_carto`; `std::mutex`; hillshade `shared_ptr`; delete dead C1 / `mutex()` / `frame()`; Scenic sources under `map2d/scenic/` (Presenter product path does not include `scenic/engine.h`)
 
@@ -136,7 +136,7 @@ Borrow from Scenic: frame-beat discard (already `stage_frame`), prep-before-draw
 
 - [x] U0 tradeoff + upgrade table in the living § and both generation diagrams
 - [x] U1 `map_sources` `assert_no_deps` render；`place` 在 CPU 集。`scene_cpu_sources` 仍可再收
-- [x] U2 `vista/map` 逻辑、`vista/frame` 物理、`FramePass`
+- [x] U2 `vista/component/map` 逻辑、`vista/frame` 物理、`FramePass`
 - [x] U3 `domain/atmosphere` → `atmosphere/session` (`session_sources`). GPU atmosphere target does not depend on it. `domain.h` stays
 - [x] U4 re-emit `DrawItem` slices whose `cache_key` missed (`retained_slices`). `FramePass::upload_keyed_slices` on the device thread. No HDC
 
@@ -159,6 +159,6 @@ U5 / multi-CL stays Task 5. Do not start it from this task.
 
 - **Task 8** is the logical/physical upgrade (U1 compile wall, U2 rename, U3 atmosphere session, U4 dirty-slice emit). Scenic stays the compare/GDI lane
 - Product-track reuse of §rhi2d tile-raster / §rhi3d parallel-frame **semantics**
-- Complements §Vista Map2d / §src_render Scene3d equal-profile (budgets vs architecture；world3d **M1–M4** + `SMT_GPUSCENE_PREP_PARALLEL` default-off)
+- Complements §Vista Map2d / §src_render Scene3d equal-profile (budgets vs architecture；world3d **M1–M4** + `GPUSCENE_PREP_PARALLEL` default-off)
 - Views §compositor thread owns L0/L3 thread roles
 - **§GPU-process accelerate** (Topology B): when shell runs `--type=gpu`, L3 remaps from Display `graph::present` to **submit IR / DrawRequest → GPU process** (`GpuDeviceHub` + `FrameComposer`). Open bridge checkboxes live only in [`2026-09-27-gpu-rhi-accelerate.md`](2026-09-27-gpu-rhi-accelerate.md) **Task 8**.

@@ -109,7 +109,7 @@ void apply_orbit_camera(StereoHwndView* v, float yaw, float pitch,
   if (scenic::detail::leftover_dem_aabb(&dem) && dem.is_init()) {
     use = dem;
   } else if (v->scene) {
-    use = v->scene->GetAabb();
+    use = v->scene->aabb();
   }
   Vector3 base_eye;
   Vector3 target;
@@ -315,7 +315,7 @@ void ensure_frame_scheduler(StereoHwndView* v) {
 
 extern "C" {
 
-void* smt_stereo_hwnd_create(HWND hwnd) {
+void* stereo_hwnd_create(HWND hwnd) {
   if (!hwnd || !IsWindow(hwnd)) {
     return nullptr;
   }
@@ -325,7 +325,7 @@ void* smt_stereo_hwnd_create(HWND hwnd) {
   HMODULE self = nullptr;
   if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                          reinterpret_cast<LPCWSTR>(&smt_stereo_hwnd_create),
+                          reinterpret_cast<LPCWSTR>(&stereo_hwnd_create),
                           &self) ||
       !self) {
     return nullptr;
@@ -374,7 +374,7 @@ void* smt_stereo_hwnd_create(HWND hwnd) {
   setup_device_lights(device);
 
   view->scene = std::make_unique<Scene>();
-  view->scene->Set3DRenderDevice(device);
+  view->scene->set_render_device(device);
   if (view->scene->Setup() != kErrNone) {
     std::fputs("stereo_create: scene Setup fail\n", stderr);
     view->renderer.reset();
@@ -407,8 +407,8 @@ void* smt_stereo_hwnd_create(HWND hwnd) {
 
   view->camera = std::make_unique<PerspCamera>(device, vp);
   scenic::detail::frame_persp_camera_to_aabb(view->camera.get(), &vp,
-                                     view->scene->GetAabb());
-  view->scene->SetSceneCamera(view->camera.get());
+                                     view->scene->aabb());
+  view->scene->set_camera(view->camera.get());
   view->width = w;
   view->height = h;
   apply_orbit_camera(view.get(), vista::kDemDefaultOrbitYaw, 0.4f, 3.2f);
@@ -421,7 +421,7 @@ void* smt_stereo_hwnd_create(HWND hwnd) {
   return view.release();
 }
 
-void smt_stereo_hwnd_destroy(void* view) {
+void stereo_hwnd_destroy(void* view) {
   auto* v = static_cast<StereoHwndView*>(view);
   if (!v) {
     return;
@@ -438,13 +438,13 @@ void smt_stereo_hwnd_destroy(void* view) {
   delete v;
 }
 
-int smt_stereo_hwnd_resize(void* view, int width_px, int height_px) {
+int stereo_hwnd_resize(void* view, int width_px, int height_px) {
   return resize_view(static_cast<StereoHwndView*>(view), width_px, height_px)
              ? 1
              : 0;
 }
 
-int smt_stereo_hwnd_present(void* view, float yaw, float pitch,
+int stereo_hwnd_present(void* view, float yaw, float pitch,
                             float distance) {
   auto* v = static_cast<StereoHwndView*>(view);
   if (!v || !v->device || !v->scene || !v->camera) {
@@ -487,7 +487,7 @@ int smt_stereo_hwnd_present(void* view, float yaw, float pitch,
   return v->scheduler->wait_idle(60000) ? 1 : 0;
 }
 
-int smt_stereo_hwnd_blit(void* view, HDC hdc, int width_px, int height_px) {
+int stereo_hwnd_blit(void* view, HDC hdc, int width_px, int height_px) {
   auto* v = static_cast<StereoHwndView*>(view);
   if (!v || !hdc || !v->hwnd || width_px <= 0 || height_px <= 0) {
     return 0;
@@ -504,7 +504,7 @@ int smt_stereo_hwnd_blit(void* view, HDC hdc, int width_px, int height_px) {
   return ok ? 1 : 0;
 }
 
-int smt_stereo_hwnd_capture_bgr24(void* view, unsigned char* out_bgr24,
+int stereo_hwnd_capture_bgr24(void* view, unsigned char* out_bgr24,
                                   int width_px, int height_px) {
   auto* v = static_cast<StereoHwndView*>(view);
   if (!v || !v->device || !out_bgr24 || width_px <= 0 || height_px <= 0) {

@@ -121,7 +121,7 @@ def run_product() -> Path:
         raise FileNotFoundError(f"missing {EXE}; build SmartGisViews first")
     ensure_china_data()
     env = os.environ.copy()
-    env["SMT_MAP2D_SHOWCASE_LINGER_MS"] = "0"
+    env["MAP2D_SHOWCASE_LINGER_MS"] = "0"
     cmd = [str(EXE), "--map2d-showcase=align"]
     print(" ".join(cmd), flush=True)
     completed = subprocess.run(cmd, cwd=str(OUT), env=env)

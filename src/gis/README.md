@@ -5,7 +5,29 @@ All rights reserved.
 
 # `src/gis`
 
-Product GIS library (`dll_stem = gis`). Public namespaces stay two layers (`gis`, `gis::datasource`, helpers in `gis::detail` / `gis::datasource`). `gis::style` / `gis::tile` are grouping namespaces still to hoist.
+Product GIS library (`dll_stem = gis`). Public namespaces stay two layers:
+`gis`, `gis::datasource`, `gis::style`, `gis::tile` (helpers in `…::detail`).
+Spatial kernels use the sibling public namespace `geo` (not a third `gis::geo`
+layer).
+
+## Naming (product API)
+
+| Kind | Convention |
+| --- | --- |
+| Types / enums | `PascalCase` (`Map`, `MapLayer`, `LayerType`) |
+| Enum enumerators | `k` + `PascalCase` (`LayerType::kTile`) |
+| Functions / methods | `snake_case` (`add_layer`, `cal_envelope`) |
+| Members | `snake_case_` (`layers_`, `active_`) |
+| Constants | `k_snake_case` (`k_map_name_max`) |
+| Include guards | `GIS_<PATH>_H_` (not `SDB_`) |
+| Sources | prefer `.cc` next to `.h` |
+
+Do **not** keep Hungarian prefixes (`sz`, `p`, `m_`) on new or touched product
+API. GDAL/OGR override names (`GetLayerCount`, `ResetReading`, …) stay as the
+external ABI requires.
+
+Anchor peers: `gis::Feature` and `gis::MapLayer` already follow this style;
+`gis::Map`, raster/tile wrappers, and query POD are aligned to the same rules.
 
 ## Layout (no `model/` parent; no one-file `layer/` / `crs/`)
 
@@ -16,10 +38,11 @@ Product GIS library (`dll_stem = gis`). Public namespaces stay two layers (`gis`
 | `edit/` | Mutation types, `UndoLog`, command / memory / map sessions, optimistic store |
 | `envelope.h` | Header-only MBR |
 | `datasource/` | `session/` · `provider/` · `pipeline/` · `ogr/` · `sdbd/` · `gdal/` |
-| `carto/{style,tile}` | StyleDocument + tiles (tile files colocated; no cache/protocol/provider wrappers) |
+| `style/` · `tile/` | StyleDocument + tiles (tile files colocated) |
 | `geo/` `stat/` `analysis/` | Spatial kernels (`stat/` files colocated) |
 
-Leftover catalog / PascalCase Feature / carto POD: `src/legacy/gis/{layer,feature,datasource,present/carto}`. Leftover may include product; product must not include leftover. Leftover TUs still compile into `gis.dll` (singleton StyleManager / DataSourceMgr ABI) — strangler debt.
+Leftover catalog / PascalCase Feature / carto POD: leftover trees only.
+Leftover may include product; product must not include leftover.
 
 ## `edit/` (composed, not nested `session/` + `map_edit/`)
 

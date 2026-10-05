@@ -90,7 +90,7 @@ Launch sets `SG_DEBUG=1` so DebugAgent can emit `select_map_tab` etc. into the I
 Suite dirs contain **`suite.json` + optional `*.il` only** (no colocated `*_loop.py` / `*.args.json`).
 Inline processing args: `run_processing(id="…", args="{\"k\":\"$var\"}")`.
 
-UI chrome visual suites (BMP + `ui_shell_dark` gates; force `SMT_UI_THEME=dark`):
+UI chrome visual suites (BMP + `ui_shell_dark` gates; force `UI_THEME=dark`):
 
 | Suite | `--ui-showcase` | BMP |
 | --- | --- | --- |

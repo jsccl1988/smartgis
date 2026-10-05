@@ -17,10 +17,10 @@
 #include "content/browser/present/scene3d/frame/terrain_mesh.h"
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
 #include "content/browser/present/scene3d/scene3d_phase_profile.h"
-#include "vista/atmosphere/frame/atmosphere_effects.h"
-#include "vista/world_gpu/opaque_effect.h"
-#include "vista/world_gpu/pass.h"
-#include "vista/atmosphere/session/environment.h"
+#include "vista/pass/atmosphere/atmosphere_effects.h"
+#include "vista/pass/world/opaque_effect.h"
+#include "vista/pass/world/pass.h"
+#include "vista/component/atmosphere/environment.h"
 #include "render/graph/frame_graph.h"
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
@@ -778,7 +778,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     }
     gpu_scene_.set_light(light);
   }
-  // Verbose DEM / AABB dump once (or when SMT_SCENE3D_PRESENT_LOG=1). Scanning
+  // Verbose DEM / AABB dump once (or when SCENE3D_PRESENT_LOG=1). Scanning
   // every vertex each frame was a measurable FPS tax in Debug builds.
   {
     static bool logged_once = false;
@@ -869,7 +869,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     LOGGING(LOG_ERROR, "scene3d.present fail: atmosphere.prepare_for_present");
     return false;
   }
-  // Optional isolate: SMT_ATMOSPHERE_SKIP_OCEAN=1 keeps sky/DEM without ocean
+  // Optional isolate: ATMOSPHERE_SKIP_OCEAN=1 keeps sky/DEM without ocean
   // (debug atmosphere.full near-black China). Skip prepare_gpu too  height
   // texture alloc still recycles FlyCube SRVs and blacks DEM albedo.
   const bool skip_ocean = []() {

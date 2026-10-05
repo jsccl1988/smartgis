@@ -37,7 +37,7 @@ All rights reserved.
 
 ## 1. 问题与目标
 
-物理拆分已把 2010 leftover 赶到 `src/legacy/**`，终局树边界清晰。行为仍大量穿过 leftover：`SmtIATool` / `SmtRenderDevice` / MFC `CView` 与 `scene3d` 相互牵制。
+物理拆分已把 2010 leftover 赶到 `src/legacy/**`，终局树边界清晰。行为仍大量穿过 leftover：`SmtIATool` / `RenderDevice2d` / MFC `CView` 与 `scene3d` 相互牵制。
 
 目标（A+B+C）：
 
@@ -152,7 +152,7 @@ Chrome 只 include `content/public`。不新增 `render` 终局 → `legacy_rend
 
 **Goal:** MFC HWND present 仍归 GDI/GL/D3D `Init`（BitBlt / SwapBuffers / Present）。Views/gpu 用独立 HWND + `preferred_gpu_backend()`。
 
-**Landed (2026-10-01):** `rhi3d/public/bridge` 已物理删除（`leftover_mesh` / `LeftoverRecorder` / `leftover_session` / `smt_leftover_session` / `bind_rhi_present`）。Leftover Init 不再接 Null 录制会话。
+**Landed (2026-10-01):** `rhi3d/public/bridge` 已物理删除（`leftover_mesh` / `LeftoverRecorder` / `leftover_session` / `leftover_session` / `bind_rhi_present`）。Leftover Init 不再接 Null 录制会话。
 
 **Locked:**
 
@@ -160,7 +160,7 @@ Chrome 只 include `content/public`。不新增 `render` 终局 → `legacy_rend
 | --- | --- |
 | Present | 双轨：MFC 独占其 HWND；Views/gpu 独立 HWND + `preferred_gpu_backend()` |
 | Leftover → modern RHI | **无** process-wide leftover recorder；终局像素只走 `src/render` / Views |
-| ABI | `bind_rhi_present` / `smt_leftover_session` **已退役**（不再导出） |
+| ABI | `bind_rhi_present` / `leftover_session` **已退役**（不再导出） |
 
 **Layout (folded, dual-run + rhi2d landed; bridge removed):**
 
@@ -356,7 +356,7 @@ legacy/ui/shell/
 | Scope | `legacy/app/**` only (+ include/GN / as-built call sites) |
 | Technique | Scheme C — break includes, **no** old-path shim |
 | Layout | `bootstrap/` · `shell/{frame,catalog,dock,showcase}` · `views/{document,viewport,helper}` · `res/` |
-| Class ABI | Keep `SmtApp` / `CSmartGisApp` / `CMainFrame` / `CChildFrame` / `CSmartGisDoc` / `CSmart*View` + `APP_CORE_EXPORT` / DYNCREATE |
+| Class ABI | Keep `App` / `CSmartGisApp` / `CMainFrame` / `CChildFrame` / `CSmartGisDoc` / `CSmart*View` + `APP_CORE_EXPORT` / DYNCREATE |
 | Nesting | Cap `legacy/app/<capability>/<role>/`; peer of `legacy/ui/inspect/<role>/` and `legacy/ui/map/<role>/` |
 | Naming | Role stems: `bootstrap` · `win_app` · `main_frame` · `child_frame` · `mdi_tab_options` · `catalog_pane` · `debug_console` · `dock_child` · `document` · `edit_view` · `data_view` · `scene3d_view` · `mdi_menu` · `status_coord` · `self_test_mark` · `showcase_host` · `map2d_showcase` · `scene3d_showcase` |
 | Behavior | Out of this wave — no new present facade / no content extract |
@@ -367,7 +367,7 @@ Target:
 ```
 legacy/app/
   bootstrap/
-    bootstrap.*          # SmtApp (app_core DLL; was core/)
+    bootstrap.*          # App (app_core DLL; was core/)
     sample_map.*         # china / sample GeoJSON open helpers
   shell/
     frame/               # CSmartGisApp · CMainFrame · CChildFrame · CMDITabOptions
@@ -494,7 +494,7 @@ Checklist: [`../plans/2026-09-29-legacy-core-subdirectory-layout.md`](../plans/2
 
 ### 11b.2 util fold — types/macros own geometry + eps（2026-09-29）
 
-**Goal:** Member-first dedupe — `Rect::{normalize,contains,cast_to}`; move `dEPSILON`/`dPI`/`is_equal` into `macros/macros.h` (`SMT_EQUAL` uses them); drop PascalCase `GetAppPath` aliases; delete unused `util/{geom,math,variant}.h` (no call sites for `var_to_*`). Keep `util/` for path/string/color/image/menu only. Scheme C — update call sites in the same change; **no** shim.
+**Goal:** Member-first dedupe — `Rect::{normalize,contains,cast_to}`; move `dEPSILON`/`dPI`/`is_equal` into `macros/macros.h` (`EQUAL` uses them); drop PascalCase `GetAppPath` aliases; delete unused `util/{geom,math,variant}.h` (no call sites for `var_to_*`). Keep `util/` for path/string/color/image/menu only. Scheme C — update call sites in the same change; **no** shim.
 
 ---
 
@@ -514,8 +514,8 @@ Checklist: [`../plans/2026-09-29-legacy-core-subdirectory-layout.md`](../plans/2
 | Technique | Scheme C — break includes, **no** old-path shim |
 | scene3d layout | `scene/` `index/` `primitive/` `seed/` `test/` |
 | `primitive/` | 原 primitive + feature + surface + stereo_* + `map_label_batch` |
-| `seed/` | `map_to_scene` + `seed_smt_scene_aabbs_into_world` 壳（可持 `LP3DRENDERDEVICE` / `SmtScene`） |
-| `legacy/gis/vista` | `dem_height_field` `dem_to_world` `coord`（`leftover_yup_to_gis` / `attach_gis_aabb`）；**禁止** `SmtScene` / device |
+| `seed/` | `map_to_scene` + `seed_smt_scene_aabbs_into_world` 壳（可持 `LP3DRENDERDEVICE` / `Scene`） |
+| `legacy/gis/vista` | `dem_height_field` `dem_to_world` `coord`（`leftover_yup_to_gis` / `attach_gis_aabb`）；**禁止** `Scene` / device |
 | Export | vista → `GIS_EXPORT`；scene3d 种子/图元 → `LEGACY_RENDER_EXPORT` |
 | Behavior | 本波只搬家 + include/GN；不解耦 `seed_*_into_scene` device 参数 |
 | Nesting | Cap `legacy/render/scene3d/<module>/`；`legacy/gis/vista/` flat |
@@ -531,22 +531,22 @@ Checklist: [`../plans/2026-10-01-scene3d-subdirectory-tighten.md`](../archive/pl
 | Scope | `scene3d/**` + `legacy/gis/feature/**` |
 | Technique | Scheme C — break includes, **no** shim / 无 `Smt2D*` 别名 |
 | scene3d layout | `scene/` `index/` `primitive/{mesh,feature,surface}/` `seed/` `test/` |
-| `scene/` | `SmtScene` / object / `stereo_hwnd_view`（HWND present C ABI）/ deferred D3D helper |
+| `scene/` | `Scene` / object / `stereo_hwnd_view`（HWND present C ABI）/ deferred D3D helper |
 | `primitive/mesh/` | cube / sphere / water / northarray |
 | `primitive/feature/` | `SmtGeoObject` + `map_label_batch` |
-| `primitive/surface/` | `SmtSurfaceObject` · `SmtTerrain` (surface+DEM) · pointcloud |
-| `legacy/gis/feature` | `FeatureMesh` + `tess_map` / `tess_world`；**禁止** device / `SmtScene` |
-| Type | `SmtGeoObject`（`GeoObjectFrame::kMap` \| `kWorld`）；`SmtTerrain` 兼 surface / DEM |
+| `primitive/surface/` | `SmtSurfaceObject` · `Terrain` (surface+DEM) · pointcloud |
+| `legacy/gis/feature` | `FeatureMesh` + `tess_map` / `tess_world`；**禁止** device / `Scene` |
+| Type | `SmtGeoObject`（`GeoObjectFrame::kMap` \| `kWorld`）；`Terrain` 兼 surface / DEM |
 | Export | feature → `GIS_EXPORT`；scene3d → `LEGACY_RENDER_EXPORT` |
 | Nesting | Cap `scene3d/<module>/`；仅 `primitive/<sub>/` 允第二层；`legacy/gis/feature/` flat |
 
 Checklist: [`../plans/2026-10-01-scene3d-primitive-deep-layer.md`](../archive/plans/2026-10-01-scene3d-primitive-deep-layer.md).
 
-**Updated 2026-10-02:** 顶层收紧 — 取消独立 `host/` / `detail/`，并入 `scene/`；`StereoTerrain` 并入 `SmtTerrain`。
+**Updated 2026-10-02:** 顶层收紧 — 取消独立 `host/` / `detail/`，并入 `scene/`；`StereoTerrain` 并入 `Terrain`。
 
 ### 12d. scene3d surface base + modern C++ / hot-path（2026-10-02）
 
-**Goal:** `primitive/surface` 抽出 `SmtSurfaceObject`（VB/IB + AABB Select）；`SmtTerrain` / `Smt3DPointCloud` 现代 C++23 + 绘制热点去冗余。
+**Goal:** `primitive/surface` 抽出 `SmtSurfaceObject`（VB/IB + AABB Select）；`Terrain` / `PointCloud3d` 现代 C++23 + 绘制热点去冗余。
 
 | Lock | Choice |
 | --- | --- |
@@ -563,9 +563,9 @@ Checklist: [`../plans/2026-10-02-scene3d-surface-base-modern-cpp.md`](../archive
 
 ## 13. SP4b — scene3d `index/` + open-source octree
 
-**Goal (scheme A):** 仅 `legacy/render/scene3d/**`；去 `bl3d_`；`index/` 无 `LP3DRENDERDEVICE`；MIT header-only vendor + 薄适配；保留 `SmtScene` / `SmtSceneOctTree` 导出；无 shim。
+**Goal (scheme A):** 仅 `legacy/render/scene3d/**`；去 `bl3d_`；`index/` 无 `LP3DRENDERDEVICE`；MIT header-only vendor + 薄适配；保留 `Scene` / `SmtSceneOctTree` 导出；无 shim。
 
-**Locked (2026-09-29, approach A + point-cloud upgrade):** 删除手写 `Smt*OctTreeNode` 八叉细分；`SmtSceneOctTree` 扁平物体列表 + unibn；**`SmtVertexOctTree` 仅查询**（`hit_test` / `find_nearest` / `radius_neighbors` + leftover `HitTestOctNode`）；**`Smt3DPointCloud` 拥有 VB**，N≥20万时按空间网格分块并 frustum cull。大场景物体无层级裁剪、点云分块渲染是接受的 leftover 权衡。
+**Locked (2026-09-29, approach A + point-cloud upgrade):** 删除手写 `Smt*OctTreeNode` 八叉细分；`SmtSceneOctTree` 扁平物体列表 + unibn；**`SmtVertexOctTree` 仅查询**（`hit_test` / `find_nearest` / `radius_neighbors` + leftover `HitTestOctNode`）；**`PointCloud3d` 拥有 VB**，N≥20万时按空间网格分块并 frustum cull。大场景物体无层级裁剪、点云分块渲染是接受的 leftover 权衡。
 
 **Non-goals:** 不 rewrite SP4 Success；不 wholesale 删 octree 换 World；不破 `dll_stem`；不加深嵌套；不引入 PCL/OpenVDB。
 

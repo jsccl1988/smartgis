@@ -50,6 +50,8 @@ class BrowserUiDelegate {
 
   virtual bool init_shell() = 0;
   virtual void show_shell() = 0;
+  // Catalog / inspector / tools / gestures after the startup_profile dump.
+  virtual void finish_deferred_shell_wiring() = 0;
   virtual int run_shell_loop() = 0;
   virtual void prepare_shell_close() = 0;
 

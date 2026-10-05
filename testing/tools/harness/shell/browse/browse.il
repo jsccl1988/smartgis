@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 // Browse navigate stage (pan / browse stress / wheel-cursor).
-// Optional forensic record: set SMT_HARNESS_RECORD=1 on the suite / shell.
+// Optional forensic record: set HARNESS_RECORD=1 on the suite / shell.
 
 script "browse" {
   seq @inproc {

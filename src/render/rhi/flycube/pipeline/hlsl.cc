@@ -3,7 +3,7 @@
 
 #include "render/rhi/flycube/pipeline/hlsl.h"
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -14,7 +14,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 bool file_exists(const char* path) {
   return path && path[0] && GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES;
@@ -80,7 +80,7 @@ bool write_temp_hlsl(const char* name, const char* source, std::string* path) {
   return static_cast<bool>(out);
 }
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

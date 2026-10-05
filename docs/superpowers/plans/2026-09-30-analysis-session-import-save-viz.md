@@ -37,7 +37,7 @@ All rights reserved.
 ### Task 3 � Export commands + sample import
 
 - [x] `traffic.export_path` / `flood.export_mask` (+ orthogrid export already) copy/verify last output
-- [x] Dialogs default sample paths from `SMT_PLUGIN_SAMPLE_DIR` / `out/data/plugin`
+- [x] Dialogs default sample paths from `PLUGIN_SAMPLE_DIR` / `out/data/plugin`
 
 ### Task 4 � Orthogrid / 3d session + harness
 

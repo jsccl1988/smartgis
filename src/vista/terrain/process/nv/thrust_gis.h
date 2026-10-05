@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_WORLD_THRUST_GIS_H_
-#define GIS_WORLD_THRUST_GIS_H_
+#ifndef VISTA_TERRAIN_PROCESS_NV_THRUST_GIS_H_
+#define VISTA_TERRAIN_PROCESS_NV_THRUST_GIS_H_
 
 #include <cstdint>
 
@@ -32,4 +32,4 @@ bool thrust_gis_cuda_built();
 
 }  // namespace vista
 
-#endif  // GIS_WORLD_THRUST_GIS_H_
+#endif  // VISTA_TERRAIN_PROCESS_NV_THRUST_GIS_H_

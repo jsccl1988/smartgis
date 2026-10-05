@@ -14,6 +14,7 @@ from . import build as build_mod
 from . import process as process_mod
 from .gates import (
     _score_click_gate,
+    _score_fps_gate,
     _score_motion_gate,
     _score_round,
     _score_zoom_gate,
@@ -121,21 +122,27 @@ def _wait_exe_ready(suite: Suite, *, config: str) -> bool:
 
 def _prepare_env(suite: Suite) -> dict[str, str]:
     env = process_mod.merge_env(suite.env)
-    env["SMT_HARNESS_SUITE"] = suite.id
-    # Parent shells often leave SMT_FORCE_GDI_* set from prior self-test /
+    env["HARNESS_SUITE"] = suite.id
+    # Parent shells often leave FORCE_GDI_* set from prior self-test /
     # map2d runs; that forces views-scene3d.gdi and breaks 3D suites.
     # Also drop map2d matrix bench flags so map2d.china review-prep does not
-    # inherit SMT_MAP2D_SHOWCASE_GPU=1 and crash before writing the BMP.
+    # inherit MAP2D_SHOWCASE_GPU=1 and crash before writing the BMP.
     for key in (
-        "SMT_FORCE_GDI_MAP_OVERLAY",
-        "SMT_FORCE_CONTENT_MAPVIEW_2D",
-        "SMT_PREFER_FLYCUBE_2D",
-        "SMT_PREFER_GDI_DEVICE",
-        "SMT_MAP2D_SHOWCASE_GPU",
-        "SMT_MAP2D_EXPORT_REUSE",
-        "SMT_MAP2D_FPS_BENCH_MS",
-        "SMT_MAP2D_ENGINE",
-        "SMT_MAP2D_NO_HILLSHADE",
+        "FORCE_GDI_MAP_OVERLAY",
+        "FORCE_CONTENT_MAPVIEW_2D",
+        "PREFER_FLYCUBE_2D",
+        "PREFER_GDI_DEVICE",
+        "MAP2D_SHOWCASE_GPU",
+        "MAP2D_EXPORT_REUSE",
+        "MAP2D_FPS_BENCH_MS",
+        "MAP2D_ENGINE",
+        "MAP2D_NO_HILLSHADE",
+        # Parent matrix shells leave scenic / world3d bare / wireframe on;
+        # that yields red-ball HWND BMPs and flat PERF_BARE disks for product
+        # suites that expect FlyCube + full materials / GDI carto.
+        "SCENE3D_ENGINE",
+        "SCENE3D_WIREFRAME",
+        "PLUGIN_WORLD3D_PERF_BARE",
     ):
         env.pop(key, None)
     # Suite.env wins (re-apply after scrub).
@@ -145,21 +152,21 @@ def _prepare_env(suite: Suite) -> dict[str, str]:
     # product ContentMapView + GDI overlay face (browser_main bare/browse-2d) —
     # do not force FlyCube here or shell BitBlt records a black clip-children hole.
     if suite.id in ("browse.3d", "ui.scene"):
-        env["SMT_FORCE_CONTENT_MAPVIEW_2D"] = "0"
-        env["SMT_PREFER_FLYCUBE_2D"] = "1"
-        env["SMT_FORCE_GDI_MAP_OVERLAY"] = "0"
+        env["FORCE_CONTENT_MAPVIEW_2D"] = "0"
+        env["PREFER_FLYCUBE_2D"] = "1"
+        env["FORCE_GDI_MAP_OVERLAY"] = "0"
     elif suite.id == "browse":
-        env["SMT_FORCE_CONTENT_MAPVIEW_2D"] = "1"
-        env["SMT_PREFER_FLYCUBE_2D"] = "0"
-        env["SMT_FORCE_GDI_MAP_OVERLAY"] = "1"
+        env["FORCE_CONTENT_MAPVIEW_2D"] = "1"
+        env["PREFER_FLYCUBE_2D"] = "0"
+        env["FORCE_GDI_MAP_OVERLAY"] = "1"
     script = suite.script_path()
     if script is not None and script.is_file():
-        env["SMT_UI_INTERACT_SCRIPT"] = str(script.resolve())
+        env["UI_INTERACT_SCRIPT"] = str(script.resolve())
     if suite.driver == "os":
-        env["SMT_UI_INTERACT_DRIVER"] = "os"
-        env.setdefault("SMT_UI_INTERACT_OS_WAIT_MS", "8000")
+        env["UI_INTERACT_DRIVER"] = "os"
+        env.setdefault("UI_INTERACT_OS_WAIT_MS", "8000")
         # Capture after OS inject window; linger not needed.
-        env.setdefault("SMT_UI_SHOWCASE_LINGER_MS", "0")
+        env.setdefault("UI_SHOWCASE_LINGER_MS", "0")
     return env
 
 
@@ -188,7 +195,7 @@ def _attach_recorder(
     if not record_enabled(env):
         return None
     fps = 10.0
-    raw_fps = str(env.get("SMT_HARNESS_RECORD_FPS", "")).strip()
+    raw_fps = str(env.get("HARNESS_RECORD_FPS", "")).strip()
     if raw_fps:
         try:
             fps = float(raw_fps)
@@ -323,9 +330,9 @@ def run_suite(
         run_exe = exe
         private_lock = None
         scenic_env = (
-            env.get("SMT_MAP2D_ENGINE", "").lower() == "scenic"
-            or env.get("SMT_SCENE3D_ENGINE", "").lower() == "scenic"
-            or os.environ.get("SMT_HARNESS_PRIVATE_EXE", "").strip() in (
+            env.get("MAP2D_ENGINE", "").lower() == "scenic"
+            or env.get("SCENE3D_ENGINE", "").lower() == "scenic"
+            or os.environ.get("HARNESS_PRIVATE_EXE", "").strip() in (
                 "1",
                 "on",
                 "true",
@@ -520,6 +527,26 @@ def run_suite(
                         f"frac={mg.get('unique_frac')}",
                         flush=True,
                     )
+        if suite.fps_gate is not None:
+            fg = _score_fps_gate(suite, captures_root=captures_root)
+            last["fps_gate"] = fg
+            last["gates"]["fps_ok"] = bool(fg.get("ok"))
+            if not fg.get("ok"):
+                last["ok"] = False
+                print(
+                    f"FAIL {suite.id} fps_gate "
+                    f"mean={fg.get('mean_fps')} "
+                    f"min={fg.get('min_mean_fps')} "
+                    f"{fg.get('error') or ''}",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"PASS {suite.id} fps_gate "
+                    f"mean={fg.get('mean_fps')} "
+                    f"soft_fail={fg.get('soft_fail', False)}",
+                    flush=True,
+                )
         if bmp is not None and bmp.exists():
             last["bmp_age_s"] = round(time.time() - bmp.stat().st_mtime, 3)
             if review_prep or suite.is_reviewable():

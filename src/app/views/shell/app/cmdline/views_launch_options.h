@@ -73,13 +73,13 @@ struct ViewsLaunchOptions {
   PluginShowcaseMode plugin_showcase = PluginShowcaseMode::kNone;
   UiShowcaseMode ui_showcase = UiShowcaseMode::kNone;
   std::string atmosphere_fields;
-  // Empty = unset (caller may fall back to env SMT_SHELL_CANVAS).
+  // Empty = unset (caller may fall back to env SHELL_CANVAS).
   std::string shell_canvas;
   // Product plugin resource root. Empty → default <exe>/../plugins.
   // Each plugin loads from <plugins_dir>/<package>/ (e.g. world3d/).
   std::string plugins_dir;
   // Opt-in OOP GPU child at Session.init_hosts (--enable-oop-render or
-  // SMT_ENABLE_OOP_RENDER=1). Default is deferred until MapViewport needs it.
+  // ENABLE_OOP_RENDER=1). Default is deferred until MapViewport needs it.
   bool enable_oop_render = false;
   bool ok = true;
   int exit_code = 0;

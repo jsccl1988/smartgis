@@ -6,7 +6,7 @@
 
 // Paint surface for the Views shell. Process preference selects GDI or Skia
 // (shell_canvas_backend.h). Both backends may be linked; consumers must not
-// #ifdef on SMT_HAS_SKIA. See docs/superpowers/ui-views-skia.md.
+// #ifdef on HAS_SKIA. See docs/superpowers/ui-views-skia.md.
 
 #include "ui/ui_export.h"
 #include <windows.h>

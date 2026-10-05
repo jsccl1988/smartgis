@@ -15,6 +15,7 @@
 #include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/harness/common/pump/pump.h"
 #include "app/views/shell/harness/self_test/probe.h"
+#include "app/views/shell/harness/showcase/map2d/present/fps_bench.h"
 #include "app/views/shell/harness/showcase/plugin/seed/world3d_seed.h"
 #include "app/views/shell/runtime/capability/run_script.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
@@ -37,8 +38,8 @@
 namespace app {
 namespace {
 
-// Suite id for Interact IL: SMT_HARNESS_SUITE, else browse.3d when the
-// SMT_UI_INTERACT_SCRIPT leaf names it, else "browse".
+// Suite id for Interact IL: HARNESS_SUITE, else browse.3d when the
+// UI_INTERACT_SCRIPT leaf names it, else "browse".
 const char* resolve_browse_suite_id() {
   if (const char* env = base::switch_cstr("harness-suite")) {
     if (env[0]) {
@@ -83,7 +84,7 @@ void browse_viewport_size(ui::views::MapViewport* pane, int* vw, int* vh) {
   }
 }
 
-// SMT_SKIP_AMBOX_CATALOG (set for browse-showcase) forces demo-only SeedDocument
+// SKIP_AMBOX_CATALOG (set for browse-showcase) forces demo-only SeedDocument
 // and skips Browser::show deferred China. Without an explicit china_city open,
 // MapIR paints a cream AABB + ocean clear (unique≈2, no roads/rivers).
 // Same opener as map2d.china / ui china_seed; do this BEFORE browse.il stress
@@ -123,7 +124,7 @@ bool ensure_browse_china_map(Browser& browser, const wchar_t* mark_leaf) {
     return false;
   }
   ensure_china_maplibre_carto(browser);
-  // init/show skipped fit under SMT_SKIP_AMBOX_CATALOG.
+  // init/show skipped fit under SKIP_AMBOX_CATALOG.
   browser.fit_map_extent();
   browse_mark(mark_leaf, "china-seed-ok");
   std::fprintf(stderr, "browse-showcase: china seeded features=%zu\n",
@@ -240,6 +241,12 @@ bool capture_browse_3d_export(Browser& browser) {
   // Hypsometric filled DEM is the browse.3d SoT. Forced wireframe washed the
   // inspect frame into green edges on black and hid land fills / sky clear.
   cam->gpu().set_wireframe_enabled(false);
+  // Pull camera back so sky clear is visible — dist=1.45 fills the frame with
+  // DEM and trips plugin_scene3d landish_frac<0.85 (flat wash).
+  if (content::OrbitFrame* orbit = browser.orbit_frame()) {
+    orbit->set_distance(2.35f);
+    orbit->set_pitch(0.62f);
+  }
 
   HDC screen = GetDC(nullptr);
   if (!screen) {
@@ -269,7 +276,10 @@ bool capture_browse_3d_export(Browser& browser) {
   HGDIOBJ old = SelectObject(mem, dib);
   bool painted = false;
   try {
-    cam->paint(mem, kExportW, kExportH, true);
+    // Always software hypsometric SoT — Scene3dPresenter::paint prefers
+    // scenic MemFrame when SCENE3D_ENGINE=scenic (matrix residue), which
+    // landed a solid red ball + gray label debris on browse-showcase-3d.bmp.
+    cam->software().paint(mem, kExportW, kExportH, true);
     painted = true;
   } catch (...) {
     painted = false;
@@ -399,8 +409,8 @@ void capture_browse_shell_bmp(Browser& browser, bool is_3d) {
   // Prefer software export while present may still be live. Stopping timers
   // after china_city stress has hung the UI thread waiting on Display (rc=124
   // / suite timeout). Map2d showcase also exports without KillTimer first.
-  constexpr int kExportW = 640;
-  constexpr int kExportH = 480;
+  constexpr int kExportW = 1280;
+  constexpr int kExportH = 720;
   if (capture_browse_2d_export(browser, kExportW, kExportH,
                                detail::kSelfTestMarkLeaf)) {
     return;
@@ -436,14 +446,18 @@ int run_browse_showcase(Browser& browser) {
     // Pause FlyCube present before software export — concurrent GPU present +
     // MapIR rebuild under china_city ExitProcess(-1) mid export_bmp.
     detail::stop_map_present_timers(browser);
-    constexpr int kExportW = 640;
-    constexpr int kExportH = 480;
+    // Match map2d.china carto gate resolution (min_1280x720).
+    constexpr int kExportW = 1280;
+    constexpr int kExportH = 720;
     browse_2d_bmp_ok =
         capture_browse_2d_export(browser, kExportW, kExportH, mark_leaf);
     // Resume present so browse.il pan/stress UpdateWindow + HWND record /
     // motion_gate see ContentMapView + FORCE_GDI carto (not a dead dark hole).
     detail::resume_map_present_timers(browser);
     detail::pump_messages(100);
+    // Soft stutter guard: MAP2D_FPS_BENCH_MS writes map2d-fps-bench.txt
+    // for suite fps_gate (mean FPS during InvalidateRect settle).
+    detail::run_optional_map2d_fps_bench(browser, browser.map2d());
   } else {
     browse_mark(mark_leaf, "suite-browse3d");
     detail::pump_messages(200);
@@ -485,8 +499,8 @@ int run_browse_showcase(Browser& browser) {
   // 2D BMP already written pre-stress when china seeded; avoid post-stress
   // export AV. Re-try only if pre-stress export missed.
   if (!browse_2d_bmp_ok) {
-    constexpr int kExportW = 640;
-    constexpr int kExportH = 480;
+    constexpr int kExportW = 1280;
+    constexpr int kExportH = 720;
     (void)capture_browse_2d_export(browser, kExportW, kExportH, mark_leaf);
   }
   detail::stop_map_present_timers(browser);

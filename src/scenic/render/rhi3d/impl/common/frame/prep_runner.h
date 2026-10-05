@@ -16,7 +16,7 @@ namespace scenic {
 namespace detail {
 
 // Default resident worker count for leftover 3D CPU prep.
-// SMT_RHI3D_PREP_PARALLEL=0 → 1; else clamp(2, 4, hardware_concurrency/2).
+// RHI3D_PREP_PARALLEL=0 → 1; else clamp(2, 4, hardware_concurrency/2).
 int rhi3d_prep_worker_count();
 
 // Resident workers that pull prep job indices (TaskGraphRunner-slim).

@@ -4,10 +4,10 @@
 """Run plugin.world3d equal-profile backend/parallel matrix.
 
 Same China DEM Scene3D on SmartGIS.exe --plugin-showcase=world3d with
-SMT_PLUGIN_WORLD3D_PERF_BARE=1 (sky/ocean/cloud/fog + pointcloud overlay
+PLUGIN_WORLD3D_PERF_BARE=1 (sky/ocean/cloud/fog + pointcloud overlay
 off; pump_ms=0). Primary metric is warm ms_per_present (discard first cold
 and last DXGI-tail frame; n=6 → warm=4). Scenic rhi3d GL + D3D11 use the
-same Views entry + present count/discard (SMT_SCENE3D_ENGINE=stereo_gl|
+same Views entry + present count/discard (SCENE3D_ENGINE=stereo_gl|
 stereo_d3d). Leftover/legacy hosts are frozen — do not launch
 SmartGIS-Legacy.exe.
 
@@ -35,17 +35,17 @@ MARK_LEAF = "plugin-showcase-mark.txt"
 
 # FlyCube perf rows: DEM-only bare profile (no atmo / pointcloud overlay).
 _FLYCUBE_PERF_ENV: dict[str, str | None] = {
-    "SMT_PLUGIN_WORLD3D_GPU": "1",
-    "SMT_PLUGIN_WORLD3D_PERF_BARE": "1",
-    "SMT_PREFER_GDI_DEVICE": None,
-    "SMT_SCENE3D_ENGINE": None,
+    "PLUGIN_WORLD3D_GPU": "1",
+    "PLUGIN_WORLD3D_PERF_BARE": "1",
+    "PREFER_GDI_DEVICE": None,
+    "SCENE3D_ENGINE": None,
 }
 
 _SCENIC_GPU_PERF_ENV: dict[str, str | None] = {
     **_FLYCUBE_PERF_ENV,
-    "SMT_GPUSCENE_PREP_PARALLEL": None,
-    "SMT_RHI3D_FRAME_JOB": "0",
-    "SMT_RHI3D_PREP_PARALLEL": "0",
+    "GPUSCENE_PREP_PARALLEL": None,
+    "RHI3D_FRAME_JOB": "0",
+    "RHI3D_PREP_PARALLEL": "0",
 }
 
 # row_id, backend_label, parallel_label, kind, role, env overlays
@@ -53,7 +53,7 @@ _SCENIC_GPU_PERF_ENV: dict[str, str | None] = {
 # role: perf (performance table) | smoke (run + gate only; not a perf peer)
 # leftover/legacy hosts are frozen — GL/D3D peers are scenic rhi3d on Views.
 ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
-    # Views world3d: leave SMT_SCENE3D_ENGINE unset so plugin-showcase keeps
+    # Views world3d: leave SCENE3D_ENGINE unset so plugin-showcase keeps
     # the GDI shell default; FlyCube is acquired on the showcase HWND only.
     # GDI is not a 3D GPU peer — omitted from this matrix.
     (
@@ -64,7 +64,7 @@ ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
         "perf",
         {
             **_FLYCUBE_PERF_ENV,
-            "SMT_GPUSCENE_PREP_PARALLEL": None,
+            "GPUSCENE_PREP_PARALLEL": None,
         },
     ),
     (
@@ -75,10 +75,10 @@ ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
         "perf",
         {
             **_FLYCUBE_PERF_ENV,
-            "SMT_GPUSCENE_PREP_PARALLEL": "0",
+            "GPUSCENE_PREP_PARALLEL": "0",
             # Cull stays off: prep_cull_meshes is a no-op without frustum, so
             # prep_par alone would not exercise the parallel path.
-            "SMT_SCENE3D_FRUSTUM_CULL": None,
+            "SCENE3D_FRUSTUM_CULL": None,
         },
     ),
     (
@@ -89,10 +89,10 @@ ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
         "perf",
         {
             **_FLYCUBE_PERF_ENV,
-            "SMT_GPUSCENE_PREP_PARALLEL": "1",
+            "GPUSCENE_PREP_PARALLEL": "1",
             # Honesty: parallel prep only runs when frustum cull is active
             # (see effect/scene/detail/prep_cull.cc).
-            "SMT_SCENE3D_FRUSTUM_CULL": "1",
+            "SCENE3D_FRUSTUM_CULL": "1",
         },
     ),
     (
@@ -103,11 +103,11 @@ ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
         "smoke",
         {
             # Smoke keeps full product materials (not bare).
-            "SMT_PLUGIN_WORLD3D_GPU": "0",
-            "SMT_PLUGIN_WORLD3D_PERF_BARE": None,
-            "SMT_PREFER_GDI_DEVICE": None,
-            "SMT_GPUSCENE_PREP_PARALLEL": None,
-            "SMT_SCENE3D_ENGINE": None,
+            "PLUGIN_WORLD3D_GPU": "0",
+            "PLUGIN_WORLD3D_PERF_BARE": None,
+            "PREFER_GDI_DEVICE": None,
+            "GPUSCENE_PREP_PARALLEL": None,
+            "SCENE3D_ENGINE": None,
         },
     ),
     (
@@ -118,9 +118,9 @@ ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
         "perf",
         {
             **_SCENIC_GPU_PERF_ENV,
-            "SMT_SCENE3D_ENGINE": "stereo_gl",
-            "SMT_STEREO_API": "OpenGL",
-            "SMT_SCENE3D_SHOWCASE_D3D": "0",
+            "SCENE3D_ENGINE": "stereo_gl",
+            "STEREO_API": "OpenGL",
+            "SCENE3D_SHOWCASE_D3D": "0",
         },
     ),
     (
@@ -131,10 +131,10 @@ ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
         "perf",
         {
             **_SCENIC_GPU_PERF_ENV,
-            "SMT_SCENE3D_ENGINE": "stereo_d3d",
-            "SMT_STEREO_API": "Direct3D",
-            "SMT_SCENE3D_SHOWCASE_D3D": "1",
-            "SMT_RHI3D_D3D_DEFERRED": "0",
+            "SCENE3D_ENGINE": "stereo_d3d",
+            "STEREO_API": "Direct3D",
+            "SCENE3D_SHOWCASE_D3D": "1",
+            "RHI3D_D3D_DEFERRED": "0",
         },
     ),
     (
@@ -144,11 +144,11 @@ ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
         "views_world3d",
         "scenic",
         {
-            "SMT_PLUGIN_WORLD3D_GPU": "1",
-            "SMT_PLUGIN_WORLD3D_PERF_BARE": "1",
-            "SMT_PREFER_GDI_DEVICE": None,
-            "SMT_SCENE3D_ENGINE": "scenic",
-            "SMT_GPUSCENE_PREP_PARALLEL": None,
+            "PLUGIN_WORLD3D_GPU": "1",
+            "PLUGIN_WORLD3D_PERF_BARE": "1",
+            "PREFER_GDI_DEVICE": None,
+            "SCENE3D_ENGINE": "scenic",
+            "GPUSCENE_PREP_PARALLEL": None,
         },
     ),
 ]
@@ -161,8 +161,8 @@ def _apply_env(base: dict[str, str], overlay: dict[str, str | None]) -> dict[str
             env.pop(k, None)
         else:
             env[k] = v
-    env["SMT_SKIP_MAP_CONTEXT_MENU"] = "1"
-    env["SMT_SYNC_FLYCUBE_INIT"] = env.get("SMT_SYNC_FLYCUBE_INIT", "1")
+    env["SKIP_MAP_CONTEXT_MENU"] = "1"
+    env["SYNC_FLYCUBE_INIT"] = env.get("SYNC_FLYCUBE_INIT", "1")
     env["PATH"] = str(OUT) + os.pathsep + env.get("PATH", "")
     # PYTHONUNBUFFERED so matrix progress appears while a row runs.
     env["PYTHONUNBUFFERED"] = "1"
@@ -441,7 +441,7 @@ def run_views_world3d(row_id: str, backend: str, parallel: str,
     views_exe = VIEWS
     lock_path = OUT.parent / "scratch" / "scenic_review.lock"
     got_lock = False
-    scenic_row = (overlay.get("SMT_SCENE3D_ENGINE") or "").lower() == "scenic"
+    scenic_row = (overlay.get("SCENE3D_ENGINE") or "").lower() == "scenic"
     if scenic_row:
         sys.path.insert(0, str(ROOT / "testing" / "tools"))
         from loop.private_runtime import (  # noqa: E402
@@ -527,7 +527,7 @@ def run_views_world3d(row_id: str, backend: str, parallel: str,
         MATRIX / row_id,
     )
     note = (
-        "china DEM; SMT_PLUGIN_WORLD3D_PERF_BARE strips sky/ocean/cloud/fog + "
+        "china DEM; PLUGIN_WORLD3D_PERF_BARE strips sky/ocean/cloud/fog + "
         "pointcloud; prefer ms_per_present over wall_ms"
     )
     if row_id == "null":
@@ -648,11 +648,11 @@ def main(argv: list[str] | None = None) -> int:
         "",
         "同等渲染物料及效果 · 并行策略×图像驱动（GL D3D FlyCube等）",
         "",
-        "Env: `SMT_SCENE3D_ENGINE` + `SMT_STEREO_API` (scenic rhi3d GL/D3D).",
+        "Env: `SCENE3D_ENGINE` + `STEREO_API` (scenic rhi3d GL/D3D).",
         "GDI omitted (not a 3D GPU peer). Null is smoke-only.",
         "",
-        "**Primary metric: warm `ms_per_present`** "
-        "(discard first cold + last DXGI-tail frame).",
+        "**Primary metric: warm `ms_per_present` = median** "
+        "(discard first cold + last DXGI-tail; mean also in JSON).",
         "`ms/p_all` includes cold upload; `wall_ms` is process wall — do not rank by them.",
         "FlyCube bare = DEM-only 640x480 ×6 (discard cold+DXGI tail); Scenic same.",
         "Cold attribution (FlyCube): `dem_load` / `tess` / `hypso` / `upload` / `pso` "

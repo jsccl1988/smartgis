@@ -7,7 +7,7 @@ All rights reserved.
 
 > **For agentic workers:** implement task-by-task; checkbox tracking. Spec § in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) (§rhi2d modern C++ / base harden).
 
-**Goal:** Harden leftover `rhi2d` like §rhi3d: loader/`FreeLibrary`/`LOGGING`, full-tree safe `nullptr`, paint hot-path `base` alloc + light modern C++. Freeze `SmtRenderDevice` ABI.
+**Goal:** Harden leftover `rhi2d` like §rhi3d: loader/`FreeLibrary`/`LOGGING`, full-tree safe `nullptr`, paint hot-path `base` alloc + light modern C++. Freeze `RenderDevice2d` ABI.
 
 **Architecture:** Built sources live under `impl/common/` + port `create_player` / players in `impl/{gdi,gdiplus,skia}/`. `detail/renderer.cpp` LoadLibrary by API name. Do not re-enable TLS POINT pools.
 
@@ -16,7 +16,7 @@ All rights reserved.
 ## Global Constraints
 
 - Work on **`master`** only.
-- Keep Create/Destroy export names and `SmtRenderDevice` virtuals.
+- Keep Create/Destroy export names and `RenderDevice2d` virtuals.
 - Preserve `NULL_BRUSH` / `NULL_PEN` / `BS_NULL` / `GetStockObject(NULL_BRUSH)`.
 - Comments English; new helpers `snake_case`.
 - **Do not** `git commit` unless the user asks.

@@ -522,10 +522,10 @@ wWinMain → parse_views_launch_options → ContentMainParams{process_type_set}
 
 | # | Decision |
 | --- | --- |
-| C1 | Interactive bare launch keeps **FlyCube / RHI** (no `SMT_FORCE_CONTENT_MAPVIEW_2D` / GDI force). Showcase/self-test may still force GDI for BMP gates. |
+| C1 | Interactive bare launch keeps **FlyCube / RHI** (no `FORCE_CONTENT_MAPVIEW_2D` / GDI force). Showcase/self-test may still force GDI for BMP gates. |
 | C2 | Shared helpers: `ensure_china_maplibre_carto`, `frame_china_map2d`, `apply_china_map2d_product_defaults`, `apply_china_scene3d_atmosphere` / `_orbit` / `_product_defaults`. |
 | C3 | China 2D: clear `china_city.style.json` → default MapLibre carto; frame `kChinaLonLatExtent` at the given pixel size. |
-| C4 | China 3D: seed procedural + ocean/cloud/sky/**fog** (match atmosphere.full); orbit distance `2.55`. Opt out: `SMT_SCENE3D_ATMO=0` / `SMT_SCENE3D_LAND_ONLY=1`. |
+| C4 | China 3D: seed procedural + ocean/cloud/sky/**fog** (match atmosphere.full); orbit distance `2.55`. Opt out: `SCENE3D_ATMO=0` / `SCENE3D_LAND_ONLY=1`. |
 | C5 | Sample paths stay **exe-relative** (`out/Debug` → `../data/…`); not cwd. |
 
 ### Checklist
@@ -1157,7 +1157,7 @@ Chromium-style **dual layer** for Views UI validation: in-process C++ harness (s
 | Mode | Trigger | Output | Default `te` |
 | --- | --- | --- | --- |
 | **A — failure capture** | Any L0/L1/L1′/L2 gate fails on semantic or `layout_check` | `out/ui_forensics/<run_id>/` | On failure only |
-| **A (dev override)** | `SMT_UI_FORENSICS=1` | Same directory layout even when gates **pass** | Opt-in local |
+| **A (dev override)** | `UI_FORENSICS=1` | Same directory layout even when gates **pass** | Opt-in local |
 | **C — record / analyze** | `tools/debug/scripts/ui_visual_forensics.py` | Reads last run dir or drives live Agent loop | **Not** in default `te` |
 
 ### Mode A artifact layout (`out/ui_forensics/<run_id>/`)
@@ -1204,7 +1204,7 @@ Path: `tools/debug/scripts/ui_visual_forensics.py` (**not** wired into default `
 | --- | --- |
 | 1 | **Default gates unchanged:** semantic + `layout_check` remain the pass/fail authority; forensics is diagnostic, not a new mandatory gate for `te`. |
 | 2 | **Mode A on failure:** any qualifying test failure triggers dump under `out/ui_forensics/<run_id>/` with the three artifact types above. |
-| 3 | **`SMT_UI_FORENSICS=1`:** forces dump on pass for local dev; must not be required in CI. |
+| 3 | **`UI_FORENSICS=1`:** forces dump on pass for local dev; must not be required in CI. |
 | 4 | **Shell-only pixels:** offscreen capture of Views chrome; map GPU surface excluded from forensics goldens and from default L2 map baselines. |
 | 5 | **Mode C optional:** Python script + flags documented in as-built; **not** part of default `build.bat te`. |
 | 6 | **Scheme 1 only:** no separate dated design twin; requirements live in this § and the linked plan. |
@@ -1219,7 +1219,7 @@ Path: `tools/debug/scripts/ui_visual_forensics.py` (**not** wired into default `
 ### Implementation checklist (summary)
 
 - [x] Wire Mode A dump on failure from L0/L1/L1′/L2 runners (shared `run_id` + manifest schema).
-- [x] Honor `SMT_UI_FORENSICS=1` pass-through dump in dev builds.
+- [x] Honor `UI_FORENSICS=1` pass-through dump in dev builds.
 - [x] Add `tools/debug/scripts/ui_visual_forensics.py` with `--record`, `--record-all`, `--analyze`.
 - [x] Export manifest metrics for TabStrip, Ambox Tools, DiagnosticTools Gantt where available.
 - [x] Document L1c + runbook in [`ui-testing.md`](../ui-testing.md).
@@ -1241,7 +1241,7 @@ Unify outer Python rebuild/retry loops and in-process harness paths under a shar
 | Outer runner | kill → build → run → score → report | `testing/tools/loop_runner.py` + `loop/` |
 | Inner registry | static `id → run(Browser&)` | `shell/harness/scenario_registry.*` + `scenario_builtins.cc` |
 
-**Probes:** `marks` and `bmp` (`score_id`: `ui_shell_dark` / `map2d_china` / `atmosphere_full`). `forensics` via suite env (`SMT_UI_FORENSICS=1` on `ui.shell`). Trace / live `debug_agent` still optional later.
+**Probes:** `marks` and `bmp` (`score_id`: `ui_shell_dark` / `map2d_china` / `atmosphere_full`). `forensics` via suite env (`UI_FORENSICS=1` on `ui.shell`). Trace / live `debug_agent` still optional later.
 
 ### Decisions
 
@@ -1288,7 +1288,7 @@ Authoring is **Interact DSL** (`.il`). Approach C: ANTLR **visitor → AST → d
 
 | # | Decision |
 | --- | --- |
-| 1 | Suite JSON may name `script` / `driver` / `os_inject_default`; exe does **not** parse suite JSON. Script path via `SMT_UI_INTERACT_SCRIPT`. |
+| 1 | Suite JSON may name `script` / `driver` / `os_inject_default`; exe does **not** parse suite JSON. Script path via `UI_INTERACT_SCRIPT`. |
 | 2 | Steps/blocks may use `@inproc` / `@os` / `@drivers(...)`; unsupported on current driver → skip. |
 | 3 | OS inject modes: `postmessage` (default) and `@inject=sendinput`. |
 | 4 | No FlaUI / UIA Provider requirement. |
@@ -1404,11 +1404,11 @@ Locate **SmartGIS.exe** cold-start wall time from `wWinMain` through first inter
 | Piece | Role |
 | --- | --- |
 | `BASE_TRACE_EVENT(name, "startup")` | Existing process_trace RAII spans (always-on diagnostics already enable recording) |
-| `maybe_dump_startup_profile()` | Once after `Browser::show`: final table to `startup_profile.txt` (or `SMT_STARTUP_PROFILE_DUMP`) |
+| `maybe_dump_startup_profile()` | Once after `Browser::show`: final table to `startup_profile.txt` (or `STARTUP_PROFILE_DUMP`) |
 | `dump_startup_profile_partial(tag)` | Mid snapshots → `startup_profile.partial-<tag>.txt` (does **not** overwrite final / claim the once-slot) |
 | `wall_ms` | Prefer `wWinMain`/`BrowserMain` dur; else **first→last** span coverage (file dump matches stderr) |
-| `SMT_STARTUP_PROFILE=1` | Force-enable tracing + dump (also in Release) |
-| `SMT_STARTUP_PROFILE_DUMP=<path>` | Write text table + sibling chrome JSON |
+| `STARTUP_PROFILE=1` | Force-enable tracing + dump (also in Release) |
+| `STARTUP_PROFILE_DUMP=<path>` | Write text table + sibling chrome JSON |
 | Debug builds | Dump table to stderr/LOGGING after first show by default |
 
 Phases covered (non-exhaustive): `wWinMain`, `ParseLaunchOptions`, `ContentMain` / `BrowserMain`, `Browser.ctor` / `init` / `show`, `Session.init_hosts` (`MapContents.Create`; optional `StartRenderProcess` / `HelloWait`), `PluginShell.*`, `InitShell` subphases (`Widget.init`, `BuildContents`, `SeedDocument` / `try_open_china` / `SeedDocument.ChinaBootstrap`, `BindPresenters`, `AttachViewports`, `MapEdit.FlyCubeAttach` / `FlyCube.Init`, `WireShell`), `ShowShell` / `WaitFirstMapPresent`, `HillshadeBake`, `LoadMarkup` when hit.
@@ -1418,14 +1418,14 @@ Phases covered (non-exhaustive): `wWinMain`, `ParseLaunchOptions`, `ContentMain`
 | ID | Change |
 | --- | --- |
 | **P0-3** | Final dump after first show; mid dumps are `*.partial-*`; `wall_ms` first→last fallback; named spans above |
-| **P0-1** | `MapSession::init_hosts` only `Create`s MapContents; OOP via `ensure_oop_render_process()` / first ContentMapView. Opt-in at init: `--enable-oop-render` or `SMT_ENABLE_OOP_RENDER=1`. Hard off: `SMT_DISABLE_OOP_RENDER=1` |
+| **P0-1** | `MapSession::init_hosts` only `Create`s MapContents; OOP via `ensure_oop_render_process()` / first ContentMapView. Opt-in at init: `--enable-oop-render` or `ENABLE_OOP_RENDER=1`. Hard off: `DISABLE_OOP_RENDER=1` |
 | **P0-2** | Inspector first-show = FeatureInfo + AttributeTable; Measure/Report/Atmosphere/… on first tab select. `load_markup` path→XML process cache |
 | **P1-1** | Data/3D FlyCube attach already deferred to `switch_map_tab` (as-built) |
-| **P1-2** | Product path may `set_defer_china_seed(true)` (idle open after show). Harness/self-test stay sync; `SMT_SYNC_CHINA_SEED=1` / `SMT_DEFER_CHINA_SEED=1` override |
+| **P1-2** | Product path may `set_defer_china_seed(true)` (idle open after show). Harness/self-test stay sync; `SYNC_CHINA_SEED=1` / `DEFER_CHINA_SEED=1` override |
 | **P1-3** | Report WebView2 created in `wire_report_panel` only when Report tab is materialized |
-| **P2-1** | `WaitFirstMapPresent` opt-in only (`SMT_SYNC_FIRST_MAP_PRESENT=1`). Product show returns after shell paint + map invalidate — does not block on full carto/GPU token |
-| **P2-2** | `HillshadeBake` skipped until `MapScene::has_china_extent()` (demo/defer seed no longer pays ~0.4s GDAL shade). Force: `SMT_MAP2D_FORCE_HILLSHADE=1`; hard off: `SMT_MAP2D_NO_HILLSHADE=1` |
-| **P2-3** | `FlyCube.Init` async by default (UI wait 0). Opt-in sync: `SMT_SYNC_FLYCUBE_INIT=1` (MapEdit/Data 800ms, Scene3d 2500ms) |
+| **P2-1** | `WaitFirstMapPresent` opt-in only (`SYNC_FIRST_MAP_PRESENT=1`). Product show returns after shell paint + map invalidate — does not block on full carto/GPU token |
+| **P2-2** | `HillshadeBake` skipped until `MapScene::has_china_extent()` (demo/defer seed no longer pays ~0.4s GDAL shade). Force: `MAP2D_FORCE_HILLSHADE=1`; hard off: `MAP2D_NO_HILLSHADE=1` |
+| **P2-3** | `FlyCube.Init` async by default (UI wait 0). Opt-in sync: `SYNC_FLYCUBE_INIT=1` (MapEdit/Data 800ms, Scene3d 2500ms) |
 | **P3-1** | `DiagnosticToolsPanel`: Output + Trace eager (LogSink / default tab); Console + Memory `load_markup` on first tab select (`replace_page`) |
 
 Product cold-start measure (no `--ui-showcase=shell`):
@@ -1441,14 +1441,14 @@ Product cold-start measure (no `--ui-showcase=shell`):
 ### How to read
 
 ```bat
-set SMT_DISABLE_OOP_RENDER=1
-set SMT_STARTUP_PROFILE=1
-set SMT_STARTUP_PROFILE_DUMP=out\Debug\log\startup_profile.txt
+set DISABLE_OOP_RENDER=1
+set STARTUP_PROFILE=1
+set STARTUP_PROFILE_DUMP=out\Debug\log\startup_profile.txt
 REM product path — do NOT pass --ui-showcase=shell
 out\Debug\SmartGIS.exe
 ```
 
-stderr lines: `[startup-profile] …`. Full chrome buffer still via `SMT_TRACE_DUMP` if needed.
+stderr lines: `[startup-profile] …`. Full chrome buffer still via `TRACE_DUMP` if needed.
 
 ### Non-goals
 
@@ -1519,7 +1519,7 @@ Reproduce and **analyze** map-browse failures on **both** product shells (Views 
 | --- | --- |
 | 1 | Approach **A+B**: suite scripts (Interact DSL / existing showcases) + optional OS inject + sidecar **record**. |
 | 2 | Suite matrix: extend `browse`; add `browse.3d`; add `legacy.browse.2d` / `legacy.browse.3d` (or reuse `legacy.scene3d.china` + linger + inject). |
-| 3 | Record gate: `SMT_HARNESS_RECORD=1` (or suite `env`). Prefer `ffmpeg`; else N fps BMP sequence. Not a CI hard fail if ffmpeg missing. |
+| 3 | Record gate: `HARNESS_RECORD=1` (or suite `env`). Prefer `ffmpeg`; else N fps BMP sequence. Not a CI hard fail if ffmpeg missing. |
 | 4 | Report JSON lists `steps[]` with `t_ms` + marks + `record_path` so video timeline aligns to script. |
 | 5 | Hang: timeout + dump (existing loop timeout / optional cdb). Crash: `windbg-crash-diagnose` / `run_and_catch`. Visual: BMP score gates + human video review. Lag: optional step timestamps vs paint/mark latency in report. |
 | 6 | No Qt; no new widget kit; Legacy stays freeze except harness/path fixes. |
@@ -1564,7 +1564,7 @@ Reproduce and **analyze** map-browse failures on **both** product shells (Views 
 
 ### Intent
 
-Open (or attach) the product app, record a human repro session, and emit a replayable Interact `.il` (OS verbs + semantic upgrades) for bug reproduction — complementary to HWND video (`SMT_HARNESS_RECORD`).
+Open (or attach) the product app, record a human repro session, and emit a replayable Interact `.il` (OS verbs + semantic upgrades) for bug reproduction — complementary to HWND video (`HARNESS_RECORD`).
 
 ### Decisions
 

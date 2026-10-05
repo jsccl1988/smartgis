@@ -24,7 +24,7 @@ bool route_view_host_input(content::ViewHost* host,
                            WPARAM wparam,
                            LPARAM lparam,
                            bool suppress_mouse) {
-#ifdef SMT_HAS_VIEW_HOST
+#ifdef HAS_VIEW_HOST
   if (!host) {
     return false;
   }
@@ -132,7 +132,7 @@ bool route_view_host_pointer(content::ViewHost* host,
                              UINT message,
                              WPARAM wparam,
                              TouchMultitouchTracker* tracker) {
-#ifdef SMT_HAS_VIEW_HOST
+#ifdef HAS_VIEW_HOST
   if (!host || !tracker || !hwnd) {
     return false;
   }

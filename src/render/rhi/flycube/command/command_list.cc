@@ -8,7 +8,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 namespace {
 
@@ -110,7 +110,7 @@ void FlycubeCommandList::draw_indexed(uint32_t index_count,
                                 vertex_offset, first_instance);
 }
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

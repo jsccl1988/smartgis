@@ -1,0 +1,95 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# CPU Layout → MapIR. place has no RHI and compiles here.
+# Ortho is the current camera; perspective uses the same Layout.
+# Compiled into //src/vista:vista. Not a second scene.
+source_set("map_sources") {
+  sources = [
+    "batch.h",
+    "detail/batch_build.cc",
+    "detail/carto_filter.cc",
+    "detail/carto_filter.h",
+    "detail/collision.cc",
+    "detail/collision.h",
+    "color.h",
+    "detail/default_style.cc",
+    "draw.h",
+    "ir.h",
+    "detail/hillshade_bake.cc",
+    "detail/hillshade_bake.h",
+    "layout.cc",
+    "layout.h",
+    "layout/attrs.cc",
+    "layout/attrs.h",
+    "layout/coalesce.cc",
+    "layout/coalesce.h",
+    "layout/collect.cc",
+    "layout/collect.h",
+    "layout/emit.cc",
+    "layout/emit.h",
+    "layout/fill.cc",
+    "layout/fill.h",
+    "layout/geom_walk.cc",
+    "layout/geom_walk.h",
+    "layout/line.cc",
+    "layout/line.h",
+    "layout/mesh_emit.cc",
+    "layout/mesh_emit.h",
+    "layout/pack.cc",
+    "layout/pack.h",
+    "layout/point.cc",
+    "layout/point.h",
+    "layout/raster.cc",
+    "layout/raster.h",
+    "layout/slice_key.h",
+    "layout/symbol.cc",
+    "layout/symbol.h",
+    "layout/tess_grain.h",
+    "layout/view_metrics.cc",
+    "layout/view_metrics.h",
+    "multiply.cc",
+    "multiply.h",
+    "detail/mvt_layout.cc",
+    "detail/mvt_layout.h",
+    "place.cc",
+    "place.h",
+    "view.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  assert_no_deps = [
+    "//src/render:render",
+  ]
+  deps = [
+    "//src/base:foundation",
+    "//src/base:base",
+    "//src/gis:gis",
+    "//src/vista/mesh:mesh_sources",
+    "//src/vista/terrain:terrain_sources",
+  ]
+}
+
+group("map") {
+  public_deps = [ "//src/vista:vista" ]
+}
+
+test("frame_test") {
+  output_name = "frame_test"
+  sources = [ "map2d_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":map",
+    "//src/base:base",
+    "//third_party:gdal",
+  ]
+}

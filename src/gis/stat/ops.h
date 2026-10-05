@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_STAT_DETAIL_OPS_H
-#define SMT_STAT_DETAIL_OPS_H
+#ifndef STAT_DETAIL_OPS_H
+#define STAT_DETAIL_OPS_H
 
 #ifndef _CRT_DECLARE_NONSTDC_NAMES
 #define _CRT_DECLARE_NONSTDC_NAMES 0
@@ -35,4 +35,4 @@ std::string field_name(std::string_view token);
 
 }  // namespace stat::detail
 
-#endif  // SMT_STAT_DETAIL_OPS_H
+#endif  // STAT_DETAIL_OPS_H

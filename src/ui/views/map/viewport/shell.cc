@@ -209,7 +209,7 @@ void MapViewport::sync_identity_frame() {
   wchar_t engine_id[48] = {};
   wchar_t engine[96] = {};
   if (role_ == Role::kScene3d) {
-#if defined(SMT_HAS_SCENE3D_ENGINE)
+#if defined(HAS_SCENE3D_ENGINE)
     if (content::prefer_scene3d_flycube() && mode_ == AttachMode::kFlyCube) {
       wcscpy_s(engine_id, L"views-scene3d-dx12");
       wcscpy_s(engine, L"Views Scene3D (FlyCube/DX12)");

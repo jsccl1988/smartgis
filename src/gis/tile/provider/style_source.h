@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_TILE_STYLE_SOURCE_H_
-#define SDB_TILE_STYLE_SOURCE_H_
+#ifndef GIS_TILE_STYLE_SOURCE_H_
+#define GIS_TILE_STYLE_SOURCE_H_
 
 #include <string>
 #include <vector>
@@ -95,4 +95,4 @@ GIS_EXPORT MapLayer make_xyz_map_layer_from_source(const StyleSourceDesc& desc);
 }  // namespace tile
 }  // namespace gis
 
-#endif  // SDB_TILE_STYLE_SOURCE_H_
+#endif  // GIS_TILE_STYLE_SOURCE_H_

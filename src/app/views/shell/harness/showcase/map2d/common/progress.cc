@@ -34,8 +34,8 @@ void map2d_showcase_pixel_size(int* out_w, int* out_h) {
       }
     }
   };
-  apply_dim(&w, 320, 3840, "map2d-showcase-w", "SMT_MAP2D_SHOWCASE_W");
-  apply_dim(&h, 240, 2160, "map2d-showcase-h", "SMT_MAP2D_SHOWCASE_H");
+  apply_dim(&w, 320, 3840, "map2d-showcase-w", "MAP2D_SHOWCASE_W");
+  apply_dim(&h, 240, 2160, "map2d-showcase-h", "MAP2D_SHOWCASE_H");
   if (out_w) {
     *out_w = w;
   }

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_DATASOURCE_GDAL_OGR_RASTER_LAYER_H_
-#define SDB_DATASOURCE_GDAL_OGR_RASTER_LAYER_H_
+#ifndef GIS_DATASOURCE_OGR_RASTER_LAYER_H_
+#define GIS_DATASOURCE_OGR_RASTER_LAYER_H_
 
 #include <string>
 
@@ -27,26 +27,26 @@ class GIS_EXPORT OgrRasterLayer {
   GDALDataset* dataset() { return owner_ds_; }
   const GDALDataset* dataset() const { return owner_ds_; }
 
-  bool Create();
-  bool Open(const char* szLayerArchiveName);
-  bool Close();
-  bool Fetch();
-  bool IsOpen() const { return open_; }
-  void CalEnvelope();
+  bool create();
+  bool open(const char* archive_name);
+  bool close();
+  bool fetch();
+  bool is_open() const { return open_; }
+  void cal_envelope();
 
-  void SetLayerName(const char* szName);
-  const char* GetLayerName() const { return name_.c_str(); }
+  void set_name(const char* name);
+  const char* name() const { return name_.c_str(); }
   void get_envelope(Envelope& env) const { env = envelope_; }
-  void SetLayerRect(const Envelope& lyr_rect);
+  void set_rect(const Envelope& lyr_rect);
 
-  long CreaterRaster(const char* pRasterBuf, long lRasterBufSize,
-                     const Envelope& loc, long lImageCode);
-  long SetRasterRect(const Envelope& loc);
-  long GetRaster(char*& pRasterBuf, long& lRasterBufSize, Envelope& loc,
-                 long& lImageCode) const;
-  long GetRasterNoClone(char*& pRasterBuf, long& lRasterBufSize, Envelope& loc,
-                        long& lImageCode) const;
-  long GetRasterRect(Envelope& loc) const;
+  long create_raster(const char* buf, long buf_size, const Envelope& loc,
+                     long image_code);
+  long set_raster_rect(const Envelope& loc);
+  long get_raster(char*& buf, long& buf_size, Envelope& loc,
+                  long& image_code) const;
+  long get_raster_no_clone(char*& buf, long& buf_size, Envelope& loc,
+                           long& image_code) const;
+  long get_raster_rect(Envelope& loc) const;
 
  private:
   void release_owned_dataset();
@@ -70,4 +70,4 @@ class GIS_EXPORT OgrRasterLayer {
 }  // namespace datasource
 }  // namespace gis
 
-#endif  // SDB_DATASOURCE_GDAL_OGR_RASTER_LAYER_H_
+#endif  // GIS_DATASOURCE_OGR_RASTER_LAYER_H_

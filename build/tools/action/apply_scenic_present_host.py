@@ -140,7 +140,7 @@ MAP_CC_TEXT = r"""// Copyright (c) 2026 The Mogu Authors.
 namespace content {
 
 bool prefer_map2d_scenic() {
-  const char* raw = std::getenv("SMT_MAP2D_ENGINE");
+  const char* raw = std::getenv("MAP2D_ENGINE");
   return raw && raw[0] && _stricmp(raw, "scenic") == 0;
 }
 
@@ -411,7 +411,7 @@ S3_CC_TEXT = r"""// Copyright (c) 2026 The Mogu Authors.
 namespace content {
 
 Scene3dPresenter::Scene3dPresenter() {
-  if (const char* env = std::getenv("SMT_SCENE3D_WIREFRAME")) {
+  if (const char* env = std::getenv("SCENE3D_WIREFRAME")) {
     if (env[0] == '1' && env[1] == '\0') {
       gpu_.set_wireframe_enabled(true);
     }

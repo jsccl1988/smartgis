@@ -28,7 +28,7 @@ mogu 对齐 foundation 真源仅在 [`src/base/`](src/base/)（`//src/base:found
 | 壳 | Chromium-style **Views**（widget / layout / events）+ **Skia**（canvas，不是 widget kit） |
 | 树 | [`src/app/views/`](src/app/views/README.md) + [`src/ui/views`](src/ui/views/README.md) + [`src/ui/gfx`](src/ui/gfx/README.md) |
 | 二进制 | `out/<config>/SmartGIS.exe` |
-| 构建 | `build.bat debug app` 或 `build.bat debug views`（`smt_build_views`） |
+| 构建 | `build.bat debug app` 或 `build.bat debug views`（`build_views`） |
 | 运行 | `out\Debug\SmartGIS.exe`；`--self-test` / `--map2d-showcase=china` / `--plugin-showcase=world3d` |
 | UI | `ui_views` + `plugin_host`（Views builtin） |
 

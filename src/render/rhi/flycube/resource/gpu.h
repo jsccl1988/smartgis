@@ -4,7 +4,7 @@
 #ifndef RENDER_RHI_FLYCUBE_RESOURCE_GPU_H_
 #define RENDER_RHI_FLYCUBE_RESOURCE_GPU_H_
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 #include "Resource/Resource.h"
 #include "View/View.h"
 
@@ -17,7 +17,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 // Upload-heap buffer. No RHI facade type.
 class GpuBuffer {
@@ -64,7 +64,7 @@ class GpuTexture {
   uint32_t bytes_ = 0;
 };
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

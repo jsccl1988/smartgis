@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Real Skia backend for ui::gfx::Canvas. Compiled when smt_has_skia=true and
+// Real Skia backend for ui::gfx::Canvas. Compiled when has_skia=true and
 // the local pin is present. Same paint ops as canvas_gdi.cc via CanvasBackend.
 
 #include "ui/gfx/canvas/canvas_backend.h"
@@ -17,7 +17,7 @@
 
 #if !__has_include("include/core/SkCanvas.h")
 #error \
-    "SMT_HAS_SKIA requires a local Skia pin at third_party/.src/skia " \
+    "HAS_SKIA requires a local Skia pin at third_party/.src/skia " \
     "(junction/symlink). See src/ui/gfx/README.md — do not GitHub-clone into git."
 #endif
 

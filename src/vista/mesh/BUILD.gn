@@ -6,20 +6,26 @@ import("//testing/test.gni")
 
 # CPU tessellation of GIS geometry into xyz + indices. No RHI, no World.
 # Compiled into //src/vista:vista (dll_stem = vista).
+#
+# Layout by responsibility (one level under mesh/):
+#   tessellate.*     — public API + dispatch
+#   fill/            — polygon / ring fill tess
+#   line/            — stroked ribbon tess
+#   detail/          — types, append, scratch pools, process-trace
 
 source_set("mesh_sources") {
   sources = [
-    "fill_tess.cc",
-    "fill_tess.h",
-    "line_tess.cc",
-    "line_tess.h",
-    "mesh_append.cc",
-    "mesh_append.h",
-    "mesh_scratch.cc",
-    "mesh_scratch.h",
-    "mesh_types.h",
-    "tess_trace.cc",
-    "tess_trace.h",
+    "detail/mesh_append.cc",
+    "detail/mesh_append.h",
+    "detail/mesh_scratch.cc",
+    "detail/mesh_scratch.h",
+    "detail/mesh_types.h",
+    "detail/tess_trace.cc",
+    "detail/tess_trace.h",
+    "fill/fill_tess.cc",
+    "fill/fill_tess.h",
+    "line/line_tess.cc",
+    "line/line_tess.h",
     "tessellate.cc",
     "tessellate.h",
   ]
@@ -32,7 +38,7 @@ source_set("mesh_sources") {
   ]
   assert_no_deps = [
     "//src/render:render",
-    "//src/vista/world:world_sources",
+    "//src/vista/component/world:world_sources",
   ]
   public_deps = [
     "//src/gis:gis",

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_NET_PICKLE_H
-#define SMT_NET_PICKLE_H
+#ifndef NET_PICKLE_H
+#define NET_PICKLE_H
 
 #include "base/archive/archive.h"
 
@@ -86,4 +86,4 @@ class Pickle {
 
 }  // namespace net
 
-#endif  // SMT_NET_PICKLE_H
+#endif  // NET_PICKLE_H

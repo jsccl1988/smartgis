@@ -66,16 +66,16 @@ void collect_visible_map_layers(
   if (!map || !ogr_batches || !rasters || !tiles) {
     return;
   }
-  const int n = map->GetLayerCount();
+  const int n = map->layer_count();
   ogr_batches->reserve(static_cast<size_t>(n));
   for (int i = 0; i < n; ++i) {
     if (aborted && aborted()) {
       break;
     }
-    if (!map->IsLayerVisible(i)) {
+    if (!map->is_layer_visible(i)) {
       continue;
     }
-    if (OGRLayer* ogr = const_cast<OGRLayer*>(map->GetOgrLayer(i))) {
+    if (OGRLayer* ogr = const_cast<OGRLayer*>(map->ogr_layer(i))) {
       OgrLayerBatch batch;
       batch.layer = ogr;
       Envelope env_layer;
@@ -86,7 +86,7 @@ void collect_visible_map_layers(
         collect_ogr_features(ogr, &batch);
       }
       ogr_batches->push_back(std::move(batch));
-    } else if (const MapLayer* ml = map->GetMapLayer(i)) {
+    } else if (const MapLayer* ml = map->map_layer(i)) {
       if (ml->raster()) {
         rasters->push_back(ml->raster());
       } else if (ml->tile()) {
@@ -245,8 +245,8 @@ int paint_raster_layer(Rhi2dCartoDraw* carto, const RenderContext& ctx,
     return kErrInvalidParam;
   }
 
-  const std::string name = layer->GetLayerName()
-                               ? std::string("gdi.raster.") + layer->GetLayerName()
+  const std::string name = layer->name()
+                               ? std::string("gdi.raster.") + layer->name()
                                : std::string("gdi.raster");
   BASE_TRACE_EVENT(name, "gdi.layer");
 
@@ -266,8 +266,8 @@ int paint_raster_layer(Rhi2dCartoDraw* carto, const RenderContext& ctx,
   GeomTraceScope geom;
   const auto t0 = base::trace::Trace::time_point::clock::now();
   if (datasource::k_raster_ok ==
-      layer->GetRasterNoClone(raster_buf, raster_buf_size, loc_env,
-                              code_type)) {
+      layer->get_raster_no_clone(raster_buf, raster_buf_size, loc_env,
+                                 code_type)) {
     stretch_layer_image(carto, raster_buf, static_cast<int>(raster_buf_size),
                         loc_env, code_type);
   }
@@ -284,8 +284,8 @@ int paint_tile_layer(Rhi2dCartoDraw* carto, const RenderContext& ctx,
     return kErrInvalidParam;
   }
 
-  const std::string name = layer->GetLayerName()
-                               ? std::string("gdi.tile.") + layer->GetLayerName()
+  const std::string name = layer->name()
+                               ? std::string("gdi.tile.") + layer->name()
                                : std::string("gdi.tile");
   BASE_TRACE_EVENT(name, "gdi.layer");
 

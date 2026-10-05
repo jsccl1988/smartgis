@@ -4,7 +4,7 @@
 import("//build/python.gni")
 import("//testing/test.gni")
 
-# smt_has_python / smt_python_root: see build/python.gni.
+# has_python / python_root: see build/python.gni.
 # Stub compiles when Python 3.12 headers+libs are absent, the arg is false,
 # or the current config is Debug (Release CPython /MD must not link into /MDd).
 
@@ -23,24 +23,24 @@ source_set("python") {
     "//src/plugin/runtime/processing:processing_ops",
     "//src/ui/views:views",
   ]
-  if (smt_python_enabled) {
-    include_dirs += [ smt_python_include ]
+  if (python_enabled) {
+    include_dirs += [ python_include ]
     defines += [
-      "SMT_HAS_PYTHON=1",
-      "SMT_PYTHON_HOME=\"" + smt_python_prefix + "\"",
+      "HAS_PYTHON=1",
+      "PYTHON_HOME=\"" + python_prefix + "\"",
     ]
     libs += [ "python312.lib" ]
-    lib_dirs += [ smt_python_libdir ]
+    lib_dirs += [ python_libdir ]
   }
 }
 
-if (smt_python_enabled && smt_python_dll != "") {
+if (python_enabled && python_dll != "") {
   copy("python312_dll") {
-    sources = [ rebase_path(smt_python_dll) ]
+    sources = [ rebase_path(python_dll) ]
     outputs = [ "$root_out_dir/python312.dll" ]
   }
   copy("python3_dll") {
-    sources = [ rebase_path(smt_python_prefix + "/python3.dll") ]
+    sources = [ rebase_path(python_prefix + "/python3.dll") ]
     outputs = [ "$root_out_dir/python3.dll" ]
   }
 }
@@ -51,12 +51,12 @@ test("plugin_python_test") {
   include_dirs += [ "//src" ]
   deps = [ ":python" ]
   # Samples live under //src/plugin/runtime/samples/{hello,analysis,product_orchestrate}.
-  # Tests load hello only; do not retarget SMT_PLUGIN_HELLO_DIR without updating python_test.cc.
-  defines += [ "SMT_PLUGIN_HELLO_DIR=\"" +
+  # Tests load hello only; do not retarget PLUGIN_HELLO_DIR without updating python_test.cc.
+  defines += [ "PLUGIN_HELLO_DIR=\"" +
                rebase_path("//src/plugin/runtime/samples/hello") + "\"" ]
-  if (smt_python_enabled) {
-    defines += [ "SMT_HAS_PYTHON=1" ]
-    if (smt_python_dll != "") {
+  if (python_enabled) {
+    defines += [ "HAS_PYTHON=1" ]
+    if (python_dll != "") {
       data_deps = [
         ":python312_dll",
         ":python3_dll",

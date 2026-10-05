@@ -10,11 +10,11 @@
   "script": "../ui.interact/ui.interact.il",
   "window_title": "SmartGIS Views",
   "env": {
-    "SMT_UI_SHOWCASE_LINGER_MS": "0",
-    "SMT_UI_INTERACT_OS_WAIT_MS": "10000",
-    "SMT_UI_FORENSICS": "1",
-    "SMT_UI_THEME": "dark",
-    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+    "UI_SHOWCASE_LINGER_MS": "0",
+    "UI_INTERACT_OS_WAIT_MS": "10000",
+    "UI_FORENSICS": "1",
+    "UI_THEME": "dark",
+    "SKIP_MAP_CONTEXT_MENU": "1"
   },
   "bmp": {
     "path": "ui-showcase-interact.bmp",

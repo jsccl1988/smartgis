@@ -8,16 +8,16 @@ All rights reserved.
 > **For agentic workers:** implement task-by-task; checkbox tracking. Spec § in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) (§rhi2d leftover tile-raster).  
 > **Diagram:** [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html)
 
-**Goal:** Expose Chromium-like **viewport tile** and **per-GIS-layer** parallel execute on leftover rhi2d so wall-clock can be compared (`SMT_RHI2D_PARALLEL`), without changing `SmtRenderDevice` ABI or merging into `src/gpu`.
+**Goal:** Expose Chromium-like **viewport tile** and **per-GIS-layer** parallel execute on leftover rhi2d so wall-clock can be compared (`RHI2D_PARALLEL`), without changing `RenderDevice2d` ABI or merging into `src/gpu`.
 
-**Architecture:** HWND commits via `Rhi2dScheduler` (`NThreadPoolExecutor(1)` = Impl). Encode stays serial (no concurrent OGR). `Rhi2dTileGraphRunner` pulls jobs for tile or layer execute into private DIBs. Layer compose = ocean clear + ocean **color-key** (TransparentBlt). Tile size adapts toward ≤~4 tiles unless `SMT_RHI2D_TILE_SIZE` is set. Default mode **tile**.
+**Architecture:** HWND commits via `Rhi2dScheduler` (`NThreadPoolExecutor(1)` = Impl). Encode stays serial (no concurrent OGR). `Rhi2dTileGraphRunner` pulls jobs for tile or layer execute into private DIBs. Layer compose = ocean clear + ocean **color-key** (TransparentBlt). Tile size adapts toward ≤~4 tiles unless `RHI2D_TILE_SIZE` is set. Default mode **tile**.
 
 **Tech Stack:** C++23, Win32, `render::detail`, existing `cc/` / `paint/map` / `surface/`, ports GDI·GDI+·Skia.
 
 ## Global Constraints
 
 - Work on **`master`** only.
-- Freeze Create/Destroy exports and `SmtRenderDevice` virtuals.
+- Freeze Create/Destroy exports and `RenderDevice2d` virtuals.
 - No per-job `PostTask` storm; resident workers + pull queue.
 - No shared HDC across threads; no FlyCube on leftover HWND this plan.
 - Comments English; helpers `snake_case`; types `PascalCase` in `render::detail`.
@@ -47,10 +47,10 @@ All rights reserved.
 
 ### Task 5: Dual-mode + layer grain (compose = ocean color-key)
 
-- [x] `SMT_RHI2D_PARALLEL=serial|tile|layer` (+ legacy `TILE_RASTER=0`)
+- [x] `RHI2D_PARALLEL=serial|tile|layer` (+ legacy `TILE_RASTER=0`)
 - [x] Layer: seal per-GIS-layer command buffers → parallel `execute` → ocean color-key compose
 - [x] Adaptive tile size (≤~4 tiles) + worker cap 8
-- [x] `SMT_RHI2D_PARALLEL_LOG=1` prints execute wall-clock
+- [x] `RHI2D_PARALLEL_LOG=1` prints execute wall-clock
 - [x] Unit coverage for mode env + layer color-key compose
 - [ ] PLP / showcase wall-clock compare notes (serial vs tile vs layer)
 

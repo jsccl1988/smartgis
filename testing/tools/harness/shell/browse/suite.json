@@ -6,9 +6,12 @@
   ],
   "script": "browse.il",
   "env": {
-    "SMT_SKIP_MAP_CONTEXT_MENU": "1",
-    "SMT_HARNESS_RECORD": "1",
-    "SMT_HARNESS_RECORD_MODE": "bmp"
+    "SKIP_MAP_CONTEXT_MENU": "1",
+    "HARNESS_RECORD": "1",
+    "HARNESS_RECORD_MODE": "bmp",
+    "MAP2D_ENGINE": "",
+    "FORCE_GDI_MAP_OVERLAY": "1",
+    "MAP2D_FPS_BENCH_MS": "1200"
   },
   "mark_leaf": "self-test-mark.txt",
   "required_marks": [
@@ -28,6 +31,11 @@
   "motion_gate": {
     "min_unique_frac": 0.015,
     "min_unique_frames": 8
+  },
+  "fps_gate": {
+    "report_leaf": "map2d-fps-bench.txt",
+    "min_mean_fps": 8.0,
+    "soft": true
   },
   "report_name": "browse_loop_report.json",
   "probes": [

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_INTERPOLATE_H_
-#define SMT_RENDER_MATH_INTERPOLATE_H_
+#ifndef BASE_MATH_XFORM_INTERPOLATE_H_
+#define BASE_MATH_XFORM_INTERPOLATE_H_
 
 #include "base/math/linear/quat.h"
 #include "base/math/linear/vector.h"
@@ -52,4 +52,4 @@ using ::base::nlerp;
 using ::base::slerp;
 }  // namespace render
 
-#endif  // SMT_RENDER_MATH_INTERPOLATE_H_
+#endif  // BASE_MATH_XFORM_INTERPOLATE_H_

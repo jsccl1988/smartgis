@@ -192,9 +192,9 @@ int main() {
         lyr->CreateField(&color);
         lyr->CreateField(&angle);
         lyr->CreateField(&style);
-        OGRPoint smt_pt(1.5, 2.5);
+        OGRPoint pt(1.5, 2.5);
         OGRFeature ogr(lyr->GetLayerDefn());
-        expect(gis::datasource::encode_ogr_geometry(&smt_pt, &ogr, wkbPoint, VectorSchema::kAnno),
+        expect(gis::datasource::encode_ogr_geometry(&pt, &ogr, wkbPoint, VectorSchema::kAnno),
                "smt geom->ogr anno");
         ogr.SetField("anno", "hi");
         ogr.SetField("color", 9);
@@ -310,8 +310,8 @@ int main() {
     expect(lyr != nullptr, "create dots");
     if (lyr) {
       OGRFeature feat(lyr->GetLayerDefn());
-      OGRPoint smt_pt(3.0, 4.0);
-      expect(gis::datasource::encode_ogr_geometry(&smt_pt, &feat, wkbPoint),
+      OGRPoint pt(3.0, 4.0);
+      expect(gis::datasource::encode_ogr_geometry(&pt, &feat, wkbPoint),
              "encode point");
       expect(lyr->CreateFeature(&feat) == OGRERR_NONE, "append point");
       GDALClose(gdal_ds);
@@ -500,18 +500,18 @@ int main() {
     auto* ras = new gis::datasource::OgrRasterLayer(nullptr);
     expect(ras != nullptr, "raster layer object");
     if (ras) {
-      expect(ras->Create(), "raster MEM Create");
+      expect(ras->create(), "raster MEM create");
       const char payload[] = "ras-bytes";
-      const long cr = ras->CreaterRaster(
+      const long cr = ras->create_raster(
           payload, static_cast<long>(sizeof(payload)), rect, 7);
-      expect(cr == gis::datasource::k_raster_ok, "raster CreaterRaster");
+      expect(cr == gis::datasource::k_raster_ok, "raster create_raster");
       char* got = nullptr;
       long got_size = 0;
       long got_code = -1;
       gis::Envelope got_rect;
-      expect(ras->GetRasterNoClone(got, got_size, got_rect, got_code) ==
+      expect(ras->get_raster_no_clone(got, got_size, got_rect, got_code) ==
                  gis::datasource::k_raster_ok,
-             "GetRasterNoClone");
+             "get_raster_no_clone");
       expect(got && got_size == static_cast<long>(sizeof(payload)) &&
                  std::memcmp(got, payload, sizeof(payload)) == 0,
              "raster blob round-trip");
@@ -550,9 +550,9 @@ int main() {
       std::fprintf(stderr, "SKIP: MEM raster driver missing\n");
     } else {
       auto* ras = new gis::datasource::OgrRasterLayer(nullptr);
-      expect(ras->Create(), "standalone MEM raster Create");
-      expect(ras->CreaterRaster(nullptr, 0, rrect, 0) == gis::datasource::k_raster_ok,
-             "empty CreaterRaster ok");
+      expect(ras->create(), "standalone MEM raster create");
+      expect(ras->create_raster(nullptr, 0, rrect, 0) == gis::datasource::k_raster_ok,
+             "empty create_raster ok");
       delete ras;
     }
   }
@@ -571,7 +571,7 @@ int main() {
       expect(scratch.ogr()->GetFeatureCount() >= 1, "scratch count");
     }
 
-    // Open(file) must backfill /vsimem so GetRasterNoClone works for GDI.
+    // open(file) must backfill /vsimem so get_raster_no_clone works for GDI.
     {
       GDALDriver* gtiff = GetGDALDriverManager()->GetDriverByName("GTiff");
       if (!gtiff) {
@@ -593,16 +593,16 @@ int main() {
           band->RasterIO(GF_Write, 0, 0, 2, 2, px, 2, 2, GDT_Byte, 0, 0);
           GDALClose(created);
           auto* file_ras = new gis::datasource::OgrRasterLayer(nullptr);
-          expect(file_ras->Open(tif.string().c_str()),
-                 "OgrRasterLayer Open tif");
+          expect(file_ras->open(tif.string().c_str()),
+                 "OgrRasterLayer open tif");
           char* blob = nullptr;
           long blob_n = 0;
           long blob_code = -1;
           gis::Envelope blob_r;
-          expect(file_ras->GetRasterNoClone(blob, blob_n, blob_r, blob_code) ==
+          expect(file_ras->get_raster_no_clone(blob, blob_n, blob_r, blob_code) ==
                          gis::datasource::k_raster_ok &&
                      blob && blob_n > 0,
-                 "Open file GetRasterNoClone has bytes");
+                 "open file get_raster_no_clone has bytes");
           delete file_ras;
         }
         fs::remove_all(dir, ec);
@@ -646,7 +646,7 @@ int main() {
     pgi.service = host + ":" + port;
     GDALDataset* pgds = gis::datasource::open_sdbd_dataset(
         pgi);
-    expect(pgds != nullptr, "SMT_PG_DSN Open");
+    expect(pgds != nullptr, "PG_DSN Open");
     if (pgds) {
       expect(gis::datasource::as_sdbd_dataset(pgds) != nullptr,
              "PG open returns SdbdDataset");

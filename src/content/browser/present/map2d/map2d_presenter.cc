@@ -25,7 +25,7 @@ Map2dPresenter::Map2dPresenter() {
 Map2dPresenter::~Map2dPresenter() = default;
 
 void Map2dPresenter::ensure_scenic() const {
-  // Drop sticky scenic when SMT_MAP2D_ENGINE is no longer scenic so product
+  // Drop sticky scenic when MAP2D_ENGINE is no longer scenic so product
   // Vista/FlyCube present is not permanently hijacked after a matrix cell.
   if (!prefer_map2d_scenic()) {
     if (scenic_) {
@@ -161,7 +161,15 @@ void Map2dPresenter::paint_flash_overlay(HDC hdc, int width_px,
 
 bool Map2dPresenter::export_bmp(const std::string& path, int width_px,
                                 int height_px) const {
-  if (prefer_map2d_scenic()) {
+  // Product carto / hillshade gates (map2d.china, browse soft score) use the
+  // MapIR+GDI path. Scenic Map2dEngine fill is a matrix cell — flat green +
+  // black strokes without hillshade/gold roads — and must not overwrite the
+  // showcase BMP when FORCE_GDI_MAP_OVERLAY (browser_main showcase default).
+  const bool force_gdi_carto = []() {
+    const char* e = base::switch_cstr("force-gdi-map-overlay");
+    return e && e[0] == '1' && e[1] == '\0';
+  }();
+  if (prefer_map2d_scenic() && !force_gdi_carto) {
     std::lock_guard<std::recursive_mutex> lock(scenic_mu_);
     ensure_scenic();
     if (scenic_) {

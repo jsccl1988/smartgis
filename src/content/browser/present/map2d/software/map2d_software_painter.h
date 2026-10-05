@@ -55,6 +55,7 @@ class Map2dSoftwarePainter {
   void store_present_cache(HDC src, int width_px, int height_px,
                            uint64_t layout_gen,
                            const Map2dFrameCache::CameraKey& cam) const;
+  bool ensure_present_cache_dib(int width_px, int height_px) const;
   void clear_present_cache() const;
 
   const MapScene* scene_ = nullptr;

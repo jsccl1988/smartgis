@@ -29,12 +29,12 @@ When this skill is invoked, attached (`@harness-auto-world3d-opt` / `/harness-au
 
 ## Hard rules
 
-1. **Equal profile (locked) on FlyCube perf rows:** `--plugin-showcase=world3d` with **`SMT_PLUGIN_WORLD3D_PERF_BARE=1`** (sky/ocean/cloud/fog off, no pointcloud overlay, warmup `pump_ms=0`). Primary metric = **warm `ms_per_present`** (5 frames, discard first cold). Do **not** strip DEM. Product smoke (`null`) keeps full materials.
+1. **Equal profile (locked) on FlyCube perf rows:** `--plugin-showcase=world3d` with **`PLUGIN_WORLD3D_PERF_BARE=1`** (sky/ocean/cloud/fog off, no pointcloud overlay, warmup `pump_ms=0`). Primary metric = **warm `ms_per_present`** (5 frames, discard first cold). Do **not** strip DEM. Product smoke (`null`) keeps full materials.
 2. **Image-driven gate:** non-trivial BMP required (except documented `null`). Prefer `*.inspect.png` for `Read`.
 3. **Axes (perf):** FlyCube/DX12 · **Scenic/GL** (`scenic_render_gl` / `Create3DRenderDevice`) · **Scenic/D3D11** (`scenic_render_d3d` / `CreateD3DRenderDevice`); FlyCube prep parallel on/off. **No GDI row** (not a 3D GPU peer). **`null` = smoke-only** — run + gate, never a performance peer. **`scenic` role = scenic.dll software GDI** — same china document, **not** a GPU peer vs FlyCube / Scenic GL / Scenic D3D.
 4. Prefer `build.bat debug src/app/views:views` (pulls scenic_impl + scenic_render_gl/d3d beside SmartGisViews). Compile lock **OFF**. Stay on **`master`**. Do **not** build or launch leftover `SmartGIS-Legacy.exe`.
 5. CBM first (`smartgis`). Product default remains **FlyCube/DX12**.
-6. Fairness: all GPU peers use `--plugin-showcase=world3d` + PERF_BARE + same present_count/discard. Scenic GL/D3D select `SMT_SCENE3D_ENGINE=stereo_gl|stereo_d3d`. Compare `ms_per_present` / phases, not process wall.
+6. Fairness: all GPU peers use `--plugin-showcase=world3d` + PERF_BARE + same present_count/discard. Scenic GL/D3D select `SCENE3D_ENGINE=stereo_gl|stereo_d3d`. Compare `ms_per_present` / phases, not process wall.
 
 ## Entry commands
 
@@ -47,7 +47,7 @@ Artifacts: `out/Debug/captures/analysis/world3d_opt/matrix/`
 
 ### M4 full-materials (separate table — not bare peers)
 
-Product atmo/ocean/sky + pointcloud (`SMT_PLUGIN_WORLD3D_PERF_BARE` **unset**). Writes under `matrix/full_materials/` with `role=full_materials`. **Never** fold these rows into the bare warm peer ranking.
+Product atmo/ocean/sky + pointcloud (`PLUGIN_WORLD3D_PERF_BARE` **unset**). Writes under `matrix/full_materials/` with `role=full_materials`. **Never** fold these rows into the bare warm peer ranking.
 
 ```bat
 py -3 testing/tools/harness/plugin/run_world3d_full_materials_matrix.py
@@ -60,14 +60,14 @@ Artifacts: `out/Debug/captures/analysis/world3d_opt/matrix/full_materials/` (`MA
 
 | Env | Values | Effect |
 | --- | --- | --- |
-| `SMT_SCENE3D_ENGINE` | `flycube` / `stereo_gl` / `stereo_d3d` / `scenic` | `apply_scene3d_engine_from_env` — wins over showcase GDI default. `stereo_gl`/`stereo_d3d` select **scenic rhi3d** GL/D3D. `scenic` = software Engine (not a GPU peer). |
-| `SMT_STEREO_API` | `OpenGL` / `Direct3D` | Stereo HWND factory: `scenic_render_gl` vs `scenic_render_d3d` (also forced by `stereo_gl` / `stereo_d3d`) |
-| `SMT_SCENE3D_SHOWCASE_D3D` | `0` / `1` | D3D vs GL alias for the stereo HWND host |
-| `SMT_PLUGIN_WORLD3D_GPU` | `0` = Null smoke | Views world3d GPU gate |
-| `SMT_PLUGIN_WORLD3D_PERF_BARE` | `1` | Bare peer ranking: DEM-only (no sky/ocean/cloud/fog / pointcloud); `pump_ms=0` |
-| `SMT_PLUGIN_WORLD3D_PERF_BARE` | *(unset)* | M4 full-materials sibling only — product materials; **not** a bare peer |
-| `SMT_GPUSCENE_PREP_PARALLEL` | `0` / `1` | FlyCube prep parallel |
-| `SMT_SCENE3D_FRUSTUM_CULL` | `1` on `prep_par_on` only | Required for honest prep parallel (`prep_cull` no-ops when cull off); `prep_par_off` leaves cull unset/off |
+| `SCENE3D_ENGINE` | `flycube` / `stereo_gl` / `stereo_d3d` / `scenic` | `apply_scene3d_engine_from_env` — wins over showcase GDI default. `stereo_gl`/`stereo_d3d` select **scenic rhi3d** GL/D3D. `scenic` = software Engine (not a GPU peer). |
+| `STEREO_API` | `OpenGL` / `Direct3D` | Stereo HWND factory: `scenic_render_gl` vs `scenic_render_d3d` (also forced by `stereo_gl` / `stereo_d3d`) |
+| `SCENE3D_SHOWCASE_D3D` | `0` / `1` | D3D vs GL alias for the stereo HWND host |
+| `PLUGIN_WORLD3D_GPU` | `0` = Null smoke | Views world3d GPU gate |
+| `PLUGIN_WORLD3D_PERF_BARE` | `1` | Bare peer ranking: DEM-only (no sky/ocean/cloud/fog / pointcloud); `pump_ms=0` |
+| `PLUGIN_WORLD3D_PERF_BARE` | *(unset)* | M4 full-materials sibling only — product materials; **not** a bare peer |
+| `GPUSCENE_PREP_PARALLEL` | `0` / `1` | FlyCube prep parallel |
+| `SCENE3D_FRUSTUM_CULL` | `1` on `prep_par_on` only | Required for honest prep parallel (`prep_cull` no-ops when cull off); `prep_par_off` leaves cull unset/off |
 
 Cold first-present (empty DEM seed/hypso bake cache) still lands ~0.8–1.1s (`tess`/`hypso`); warm ms/p is the peer metric. Do not chase cold ocean unless budgets require it.
 
@@ -123,5 +123,5 @@ Separate from bare peer table. Do **not** compare full-materials `ms_per_present
 - Bare runner: `testing/tools/harness/plugin/run_world3d_backend_matrix.py`
 - Full-materials runner: `testing/tools/harness/plugin/run_world3d_full_materials_matrix.py`
 - Policy: `src/content/browser/present/scene3d/session/scene3d_rhi_session.*`
-- Scenic rhi3d factories: `Create3DRenderDevice` (`scenic_render_gl`) · `CreateD3DRenderDevice` (`scenic_render_d3d`); stereo HWND: `smt_stereo_hwnd_create` in `scenic_impl` (LoadLibrary from Views, not leftover_render)
+- Scenic rhi3d factories: `Create3DRenderDevice` (`scenic_render_gl`) · `CreateD3DRenderDevice` (`scenic_render_d3d`); stereo HWND: `stereo_hwnd_create` in `scenic_impl` (LoadLibrary from Views, not leftover_render)
 - Detail: [reference.md](reference.md)

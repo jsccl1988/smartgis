@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_ASSETS_TILESET_H_
-#define GIS_ASSETS_TILESET_H_
+#ifndef VISTA_ASSETS_TILESET_TILESET_H_
+#define VISTA_ASSETS_TILESET_TILESET_H_
 
 #include <cstddef>
 #include <list>
@@ -124,4 +124,4 @@ VISTA_EXPORT void ensure_tileset_content(
 
 }  // namespace vista
 
-#endif  // GIS_ASSETS_TILESET_H_
+#endif  // VISTA_ASSETS_TILESET_TILESET_H_

@@ -27,7 +27,7 @@ source_set("net_sources") {
 }
 
 # Product net DLL. Disk stem: net.dll / net_d.dll. Import-linked (not LoadLibrary).
-smt_shared_library("net") {
+product_shared_library("net") {
   dll_stem = "net"
   defines = [ "NET_EXPORTS" ]
   deps = [ ":net_sources" ]

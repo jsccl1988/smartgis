@@ -305,9 +305,9 @@ REM ---------------------------------------------------------------------------
 set "OUT_NAME=%~1"
 set "IS_DEBUG=%~2"
 set "OUT_DIR=out\%OUT_NAME%"
-set "GN_ARGS=is_debug=%IS_DEBUG% is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_render=!BUILD_RENDER!"
+set "GN_ARGS=is_debug=%IS_DEBUG% is_build_third_party=false run_vs_env_script=false vs_version=180 msvc_installed=true build_app=!BUILD_APP! build_views=!BUILD_VIEWS! build_render=!BUILD_RENDER!"
 
-REM Scenic present is content-hosted (SMT_*_ENGINE=scenic). Pre-gen hook keeps
+REM Scenic present is content-hosted (SCENE3D_ENGINE / MAP2D_ENGINE=scenic). Pre-gen hook keeps
 REM map_present/scene3d_present wired to //src/scenic:scenic (idempotent).
 if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
   "%LocalAppData%\Programs\Python\Python312\python.exe" "%~dp0build\tools\action\apply_scenic_exclusion.py"

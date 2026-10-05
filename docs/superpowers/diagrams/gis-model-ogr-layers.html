@@ -84,7 +84,7 @@ All rights reserved.
 
       <rect x="8" y="90" width="1044" height="88" rx="8" fill="#dce8f4" stroke="#d8dee6"/>
       <text class="lane-label" fill="#1e4a78" x="24" y="114">产品 gis/model + datasource（KEEP）</text>
-      <text class="box-sub" x="24" y="134">gis::Map（今日 SmtMap）≈ dataset of layers · gis::MapLayer wraps OGRLayer* · gis::Feature wraps OGRFeature* {FID + Geometry* + fields}</text>
+      <text class="box-sub" x="24" y="134">gis::Map（今日 Map）≈ dataset of layers · gis::MapLayer wraps OGRLayer* · gis::Feature wraps OGRFeature* {FID + Geometry* + fields}</text>
       <text class="box-sub" x="24" y="154">DataSession / DatasetHandle 打开 · EditSession 写 OGR · Envelope / CrsId · 禁止 #include leftover</text>
 
       <rect x="8" y="188" width="520" height="72" rx="8" fill="#e6e2f4" stroke="#d8dee6"/>
@@ -95,7 +95,7 @@ All rights reserved.
       <text class="lane-label" fill="#7a4a18" x="556" y="212">leftover src/legacy（MOVE 目标）</text>
       <text class="box-sub" x="556" y="232">SmtLayer* 虚树 · SmtDataSource · PascalCase Feature · DataSourceMgr · catalog/rhi2d 适配</text>
 
-      <text class="box-sub" x="24" y="286">gis/style · gis/tile：StyleDocument / TileProvider（瓦片不是 OGRLayer）。leftover carto POD（SmtStyle）已链 gis.dll — 另轨缩小，不进 Feature 属性袋。</text>
+      <text class="box-sub" x="24" y="286">gis/style · gis/tile：StyleDocument / TileProvider（瓦片不是 OGRLayer）。leftover carto POD（Style）已链 gis.dll — 另轨缩小，不进 Feature 属性袋。</text>
       <text class="box-sub" x="24" y="306">硬墙：product ↛ leftover。箭头只允许从橙泳道指向蓝/绿。</text>
     </svg>
   </section>
@@ -163,7 +163,7 @@ All rights reserved.
       <tbody>
         <tr><td><code>Feature</code> / <code>MapLayer</code> / <code>Envelope</code> / edit sessions</td><td class="k">KEEP</td><td>content、tool、app/views、DataSession、codec</td></tr>
         <tr><td><code>SmtLayer*</code> 虚树、<code>SmtDataSource</code>、<code>leftover_append_feature</code>、PascalCase Feature</td><td class="m">MOVE leftover</td><td>catalog、rhi2d painter、chart、leftover 插件</td></tr>
-        <tr><td><code>SmtMap</code> → <code>gis::Map</code>（产品头 <code>using SmtMap = Map</code>）；<code>SmtFeatureType</code>；<code>CrsId</code>；Grid sidecar</td><td class="a">ADAPT</td><td>Map 已改名；仍混 leftover 层槽；CRS 未接 OGR SRS</td></tr>
+        <tr><td><code>Map</code> → <code>gis::Map</code>（产品头 <code>using Map = Map</code>）；<code>SmtFeatureType</code>；<code>CrsId</code>；Grid sidecar</td><td class="a">ADAPT</td><td>Map 已改名；仍混 leftover 层槽；CRS 未接 OGR SRS</td></tr>
       </tbody>
     </table>
     <p class="note">完整表与分阶段步骤见 living §。现有债：<code>feature_api.h</code> 已 include <code>legacy/core/macros</code> — 收口时删除，禁止再加一条产品→leftover 边。</p>

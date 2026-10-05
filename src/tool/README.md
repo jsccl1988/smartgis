@@ -21,7 +21,7 @@ SmartGIS 工具终局树：session 作用域的 Command / Interaction / Workspac
 
 根目录仅 `BUILD.gn` + `README.md` + `tool_export.h`（**无**伞头 `tool/*.h`）。
 
-GN：`//src/tool:tool`（`smt_shared_library`）；稳定组 `:dispatch` / `:command` / … 转发到 `:tool`。`GT_MSG` 适配：`//src/legacy/tool/msg:adapter`（不在 `:tool` 内）。leftover DLL 另编 `//src/legacy/tool:legacy_tool_all`（默认不进 `src_all`）。
+GN：`//src/tool:tool`（`product_shared_library`）；稳定组 `:dispatch` / `:command` / … 转发到 `:tool`。`GT_MSG` 适配：`//src/legacy/tool/msg:adapter`（不在 `:tool` 内）。leftover DLL 另编 `//src/legacy/tool:legacy_tool_all`（默认不进 `src_all`）。
 
 ## 依赖方向
 

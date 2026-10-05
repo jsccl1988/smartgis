@@ -7,7 +7,7 @@
   "script": "legacy.browse.3d.il",
   "window_title": "SmartGis",
   "env": {
-    "SMT_STEREO_API": "OpenGL"
+    "STEREO_API": "OpenGL"
   },
   "bmp": {
     "path": "legacy-browse-3d-edit.bmp",

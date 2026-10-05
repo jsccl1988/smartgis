@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_AABB_H_
-#define SMT_RENDER_MATH_AABB_H_
+#ifndef BASE_MATH_GEOM_AABB_H_
+#define BASE_MATH_GEOM_AABB_H_
 
 #include "base/math/detail/eigen.h"
 #include "base/math/geom/cull.h"
@@ -30,8 +30,8 @@ class Aabb {
   }
   void from_eigen(const Box& box) {
     // Parenthesize to defeat Win32 min/max macros when windows.h is included.
-    const EigenVec3 mn = (box.min)();
-    const EigenVec3 mx = (box.max)();
+    const detail::EigenVec3 mn = (box.min)();
+    const detail::EigenVec3 mx = (box.max)();
     vcMin.set(mn.x(), mn.y(), mn.z());
     vcMax.set(mx.x(), mx.y(), mx.z());
     vcCenter = (vcMax + vcMin) * 0.5f;
@@ -58,4 +58,4 @@ namespace render {
 using Aabb = ::base::Aabb;
 }  // namespace render
 
-#endif  // SMT_RENDER_MATH_AABB_H_
+#endif  // BASE_MATH_GEOM_AABB_H_

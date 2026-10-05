@@ -11,7 +11,7 @@ Living spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](..
 
 ## FrameJob (leftover parallel P1)
 
-Same contract as D3D for FrameJob/prep. **No** D3D deferred on GL — P3 is D3D-only (`SMT_RHI3D_D3D_DEFERRED` ignored). Living §: **§rhi3d leftover parallel frame**.
+Same contract as D3D for FrameJob/prep. **No** D3D deferred on GL — P3 is D3D-only (`RHI3D_D3D_DEFERRED` ignored). Living §: **§rhi3d leftover parallel frame**.
 
 ## Present
 
@@ -78,7 +78,7 @@ GL was already ahead of D3D on texture/FBO/font/frustum. This slice is primarily
 py -3 testing\tools\harness\legacy\legacy.scene3d.china\legacy_scene3d_china_loop.py --rounds 1
 ```
 
-Omit `--d3d` (or set `SMT_STEREO_API=OpenGL`) for GL. Product may default to D3D11 elsewhere; this loop defaults to GL.
+Omit `--d3d` (or set `STEREO_API=OpenGL`) for GL. Product may default to D3D11 elsewhere; this loop defaults to GL.
 
 **Unit smoke:**
 

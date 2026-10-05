@@ -18,7 +18,7 @@ the final frame.
    (`frame_sink.h`). Callers never include `compositor/` or `raster/` headers.
 2. **Record then present — compose only here.** Raster TUs append `DrawQuad`s
    into a `RenderPass`; display wraps that into one `CompositorFrame`; a
-   `FrameComposer` (default **RHI**; `SMT_GPU_COMPOSE=software` escape) blends
+   `FrameComposer` (default **RHI**; `GPU_COMPOSE=software` escape) blends
    the root pass and presents onto `OutputSurface` **once** per frame. Software
    compose is a **per-adapter** sticky fallback inside this process, never in
    shell.
@@ -28,7 +28,7 @@ the final frame.
 4. **Two content sources, not three.** **Direct** (default): demo grid for 2D,
    Scene3d DEM underlay in the same call (returns true — not a third mode).
    **Tile**: Style JSON + XYZ via `gis::style` / `gis::tile`. Selection:
-   `set_content_source` > `SMT_MAP_BACKEND=a|track_a|maplibre` >
+   `set_content_source` > `MAP_BACKEND=a|track_a|maplibre` >
    command `view.backend.maplibre` / `view.backend.rhi`.
 5. **Compositor is display IR + compose, not a second engine.** Split under
    `compositor/`: `frame/` (IR), `composer/` (`FrameComposer` + software/rhi),
@@ -44,7 +44,7 @@ Process entry stays `gpu/gpu.h`.
 ### Leftover GDI → compose IR (as-built)
 
 `legacy_render` map buffers (`SmtRenderBuf`) compose in-process via
-`//src/gpu:compositor_cpu_blend`. On publish, optional `SmtRhi2dSetBgraSubmit`
+`//src/gpu:compositor_cpu_blend`. On publish, optional `Rhi2dSetBgraSubmit`
 hands BGRA to the GPU process. `gpu_main` binds that sink to
 `make_frame_composer` → `draw_frame` on the active `OutputSurface` (NN-scale
 when sizes differ). Shell never final-blends.
@@ -136,9 +136,9 @@ sequenceDiagram
 Layout note: as-built in this README; historical layout design in
 [`docs/superpowers/archive/specs/2026-09-27-gpu-subdirectory-layout-design.md`](../../docs/superpowers/archive/specs/2026-09-27-gpu-subdirectory-layout-design.md).
 
-Wire names `SMT_MAP_BACKEND=…maplibre` and `view.backend.maplibre` still select
+Wire names `MAP_BACKEND=…maplibre` and `view.backend.maplibre` still select
 `ContentSource::kTile` (StyleDocument + TileProvider). They do **not** mean
-MapLibre Native is linked. Native pin / `smt_enable_maplibre` / `maplibre_link`
+MapLibre Native is linked. Native pin / `enable_maplibre` / `maplibre_link`
 were **removed** (2026-09-27); see archived
 [`docs/superpowers/archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](../../docs/superpowers/archive/specs/2026-09-27-maplibre-out-of-gpu-design.md).
 
@@ -148,8 +148,8 @@ were **removed** (2026-09-27); see archived
 processes. Shell / browser never compose; they consume NT shared handles /
 DIB from this process only. **No** single-frame multi-GPU split.
 
-**Default compose:** `ComposeBackend::kRhi` when `SMT_GPU_COMPOSE` is unset /
-empty / unknown. Escape hatch: `SMT_GPU_COMPOSE=software` (case-insensitive).
+**Default compose:** `ComposeBackend::kRhi` when `GPU_COMPOSE` is unset /
+empty / unknown. Escape hatch: `GPU_COMPOSE=software` (case-insensitive).
 Hard RHI failure → sticky **software** for **that adapter only**.
 
 **Monitor affinity:** `AttachSurfaceBody` / `ResizeSurfaceBody` carry
@@ -222,12 +222,12 @@ sequenceDiagram
   Main->>Raster: record RenderPass quads
   Raster-->>Main: CompositorFrame
   Main->>Comp: make_frame_composer(backend, AdapterId)
-  alt default kRhi (or SMT_GPU_COMPOSE unset) and device live
+  alt default kRhi (or GPU_COMPOSE unset) and device live
     Comp->>Hub: ensure_rhi_device(adapter)
     Hub-->>Comp: Device (adapter_index)
     Comp->>RHI: import_shared_nt_handle / GPU compose
     RHI-->>Surf: composed_into_imported_shared or copy_bgra
-  else SMT_GPU_COMPOSE=software / sticky fallback
+  else GPU_COMPOSE=software / sticky fallback
     Comp->>Surf: blend + upload_bgra
   end
   Main-->>Shell: SharedHandle + FrameReady
@@ -240,12 +240,12 @@ sequenceDiagram
 | `CompositorFrame` IR | **As-built** |
 | Compose only in `--type=gpu` (not shell) | **As-built** (normative) |
 | `FrameComposer` seam + `SoftwareComposer` | **As-built** |
-| Default compose `kRhi`; `SMT_GPU_COMPOSE=software` escape | **Normative (A+C)** |
+| Default compose `kRhi`; `GPU_COMPOSE=software` escape | **Normative (A+C)** |
 | Sticky per-adapter software fallback | **As-built** |
 | `GpuDeviceHub` + `AdapterId` pin | **As-built** |
 | DXGI enumerate + `D3D11CreateDevice` on pin | **As-built** |
 | Per-adapter `ensure_rhi_device` (`adapter_index`) | **As-built** (Dx12 preferred; Null / sticky software fallback) |
-| FlyCube `import_shared_nt_handle` / compose-into-shared | **As-built** when `SMT_HAS_FLYCUBE` + DXGI shared (`READ\|WRITE` NT) |
+| FlyCube `import_shared_nt_handle` / compose-into-shared | **As-built** when `HAS_FLYCUBE` + DXGI shared (`READ\|WRITE` NT) |
 | `copy_bgra_to_imported_shared` | **As-built** (CPU blend → GPU copy when compose-direct fails) |
 | GPU compose `kSolid` / `kBgra` / `replaces` | **As-built**; import path sets `composed_into_imported_shared` |
 | Per-adapter texture cache | **As-built** |
@@ -283,27 +283,27 @@ sequenceDiagram
    otherwise `tile_url_templates` (one per unbound raster layer in order), or
    legacy single `tile_url_template`. If the style has no `raster` layers but
    request templates are set, each template is composited as an opaque raster
-   pass (keeps `SMT_XYZ_URL` / callers working).
+   pass (keeps `XYZ_URL` / callers working).
 6. No network / no `fetch`: background-only frames still succeed.
 
 `DrawRequest::fetch` is the TileProvider hook at the call site — do not add a
 second HTTP cache inside gpu. `--type=gpu` (`gpu_main`) injects
 `make_net_tile_fetch()` (wraps `net::HttpClient::get`, same stack as
-`TileProvider` default) when `SMT_XYZ_URL` / `tile_url_templates` or Style
+`TileProvider` default) when `XYZ_URL` / `tile_url_templates` or Style
 `sources` are present. Fetch failures return `ok=false`; paint keeps background.
 
 ### Hand-test real XYZ over `--type=gpu`
 
 ```bat
-set SMT_MAP_BACKEND=a
-set SMT_XYZ_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
+set MAP_BACKEND=a
+set XYZ_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
 REM launch shell / views host that spawns --type=gpu as usual
 ```
 
 Expect: basemap paint draws the background, then composites the **viewport XYZ set**
 (from the surface extent via `tiles_for_viewport`) over HTTP(S). Before the
 host sets a non-degenerate extent, basemap paint uses a single
-`z/x/y = 0/0/0` tile. Unset `SMT_XYZ_URL` → background only, process stays up.
+`z/x/y = 0/0/0` tile. Unset `XYZ_URL` → background only, process stays up.
 Bad template or offline → same background fallback (no crash).
 
 ## Tests

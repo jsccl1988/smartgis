@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_NET_RPC_WIRE_H
-#define SMT_NET_RPC_WIRE_H
+#ifndef NET_RPC_WIRE_H
+#define NET_RPC_WIRE_H
 
 #include "net/pack/pickle.h"
 
@@ -168,4 +168,4 @@ inline bool decode_string_result_body(std::string_view body, uint16_t* err,
 }  // namespace detail
 }  // namespace net
 
-#endif  // SMT_NET_RPC_WIRE_H
+#endif  // NET_RPC_WIRE_H

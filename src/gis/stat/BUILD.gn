@@ -18,7 +18,7 @@ antlr_library("stat_expr_parser") {
 }
 
 # Hand-written evaluator. Keep //build:legacy off so
-# _HAS_STD_BYTE=0 / smt_compat.h do not break the C++ runtime.
+# _HAS_STD_BYTE=0 / win_compat.h do not break the C++ runtime.
 source_set("stat_eval") {
   sources = [
     "ops.cc",

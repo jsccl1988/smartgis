@@ -13,8 +13,8 @@ namespace scenic {
 namespace detail {
 
 // Parallel map-paint mode for leftover rhi2d (perf A/B).
-// SMT_RHI2D_PARALLEL=serial|tile|layer (default tile).
-// Legacy: SMT_RHI2D_TILE_RASTER=0 maps to serial when PARALLEL unset.
+// RHI2D_PARALLEL=serial|tile|layer (default tile).
+// Legacy: RHI2D_TILE_RASTER=0 maps to serial when PARALLEL unset.
 enum class Rhi2dParallelMode : uint8_t {
   kSerial = 0,
   kTile = 1,
@@ -42,11 +42,11 @@ inline int raster_tile_height(const Rhi2dRasterTile& t) {
   return t.paint.bottom - t.paint.top;
 }
 
-// Default 256; override via SMT_RHI2D_TILE_SIZE (128..1024).
+// Default 256; override via RHI2D_TILE_SIZE (128..1024).
 int rhi2d_tile_pixel_size();
 
 // Picks a larger tile when the viewport would otherwise exceed ~4 tiles
-// (full-IR replay cost). Honors SMT_RHI2D_TILE_SIZE when set.
+// (full-IR replay cost). Honors RHI2D_TILE_SIZE when set.
 int rhi2d_adaptive_tile_pixel_size(int viewport_w, int viewport_h);
 
 // Default 16px skirt.

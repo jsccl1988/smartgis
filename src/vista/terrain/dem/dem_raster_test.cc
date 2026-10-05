@@ -18,10 +18,10 @@
 #include <windows.h>
 
 #include "gis/style/style_types.h"
-#include "vista/map/hillshade_bake.h"
+#include "vista/component/map/detail/hillshade_bake.h"
 #include "vista/terrain/dem/dem_frame.h"
 #include "vista/terrain/dem/dem_raster.h"
-#include "vista/world/dem_seed.h"
+#include "vista/component/world/dem_seed.h"
 #include "vista/terrain/process/bake_backend.h"
 #include "vista/terrain/process/dem_hillshade.h"
 #include "vista/terrain/process/land_mask.h"
@@ -271,7 +271,7 @@ int main() {
   }
 
   if (vista::bake_bench_wanted_from_env()) {
-    _putenv_s("SMT_BAKE_DISK", "0");
+    _putenv_s("BAKE_DISK", "0");
     vista::HillshadeParams hs;
     hs.max_edge = 768;
     struct Cell {
@@ -286,7 +286,7 @@ int main() {
     auto run_cell = [&](const char* backend) {
       Cell c;
       c.name = backend;
-      _putenv_s("SMT_BAKE_BACKEND", backend);
+      _putenv_s("BAKE_BACKEND", backend);
       vista::reset_last_shade_used_cuda();
       std::vector<uint8_t> rgba;
       int w = 0;
@@ -323,7 +323,7 @@ int main() {
     gis::style::StyleLayer layer;
     layer.type = gis::style::LayerType::kHillshade;
     auto run_slot = [&](const char* backend) {
-      _putenv_s("SMT_BAKE_BACKEND", backend);
+      _putenv_s("BAKE_BACKEND", backend);
       vista::reset_hillshade_bake_cache();
       vista::reset_hillshade_bake_sample();
       const auto t0 = std::chrono::steady_clock::now();

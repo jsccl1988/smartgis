@@ -25,7 +25,7 @@ namespace gis {
 namespace datasource {
 
 // Forwards used by map_painter / map_to_scene. Distinct from
-// copy_smt_style_to_ogr(base::SmtStyle*) in ogr_feature_codec (leftover ABI).
+// copy_smt_style_to_ogr(base::Style*) in ogr_feature_codec (leftover ABI).
 inline void copy_style_to_ogr(const base::Style* src, OGRFeature* dst) {
   ::scenic::detail::copy_style_to_ogr(src, dst);
 }

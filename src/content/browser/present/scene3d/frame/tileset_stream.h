@@ -11,7 +11,7 @@
 
 #include "content/browser/camera/orbit_frame.h"
 #include "vista/assets/tileset/tileset.h"
-#include "vista/world/world.h"
+#include "vista/component/world/world.h"
 
 namespace content {
 

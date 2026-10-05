@@ -17,8 +17,8 @@
 #include "gis/style/paint_resolve.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/eval/style_rules.h"
-#include "vista/map/carto_filter.h"
-#include "vista/map/ir.h"
+#include "vista/component/map/detail/carto_filter.h"
+#include "vista/component/map/ir.h"
 #include "vista/terrain/process/land_mask.h"
 #include "tool/draft/draft.h"
 
@@ -317,7 +317,7 @@ int main() {
     }
 
     // Phase 2b: inspector lists ResolvedPaint before legacy GDI hints.
-    // Style dumps are opt-in (SMT_FEATURE_INFO_STYLE_DEBUG) for Identify UX.
+    // Style dumps are opt-in (FEATURE_INFO_STYLE_DEBUG) for Identify UX.
     base::set_switch("feature-info-style-debug", "1");
     content::MapScene inspector_scene;
     inspector_scene.set_style_document(doc);

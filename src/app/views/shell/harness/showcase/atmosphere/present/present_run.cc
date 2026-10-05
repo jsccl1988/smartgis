@@ -78,7 +78,7 @@ int run_atmosphere_present(Browser& browser,
 
   const uint32_t kW = kAtmosphereShowcaseW;
   const uint32_t kH = kAtmosphereShowcaseH;
-  // Default 3 warmup frames; raise via SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT
+  // Default 3 warmup frames; raise via ATMOSPHERE_SHOWCASE_PRESENT_COUNT
   // for equal-profile benches vs leftover scene3d (same 640x480 HWND).
   int present_count = 3;
   if (const char* pc = base::switch_cstr("atmosphere-showcase-present-count")) {
@@ -129,7 +129,7 @@ int run_atmosphere_present(Browser& browser,
   // Full descent to surface skim is done gently during timed linger only —
   // a long continuous dolly into the unit globe AVed under FlyCube.
   // DX12 flip-model HWNDs often BitBlt black — dump frames via the same
-  // capture_hwnd_bmp path as the showcase BMP when SMT_HARNESS_RECORD=1.
+  // capture_hwnd_bmp path as the showcase BMP when HARNESS_RECORD=1.
   if (want_gpu && globe_flythrough) {
     const AtmosphereGlobeFlyResult fly = run_atmosphere_globe_fly_presents(
         mode, name, cam, orbit, device, owned_present_hwnd, globe_china_yaw,

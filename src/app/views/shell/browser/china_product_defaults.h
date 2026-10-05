@@ -31,7 +31,7 @@ void apply_china_map2d_product_defaults(Browser& browser, int view_w,
                                         int view_h);
 
 // Seed procedural rings + atmosphere.full toggles (no orbit). Honors
-// SMT_SCENE3D_ATMO=0 and SMT_SCENE3D_LAND_ONLY=1.
+// SCENE3D_ATMO=0 and SCENE3D_LAND_ONLY=1.
 ChinaScene3dAtmoFlags apply_china_scene3d_atmosphere(Browser& browser);
 
 // China orbit reset + distance 2.55 (call after view3d.trackball activate).

@@ -270,12 +270,12 @@ bool MapViewport::try_flycube_device() {
   // Opt-out: MFC / leftover GDI still required for some hosts.
   if (const char* prefer = base::switch_cstr("prefer-gdi-device")) {
     if (prefer[0] == '1' && prefer[1] == '\0') {
-      LOGGING(LOG_INFO, "rhi.flycube skipped: SMT_PREFER_GDI_DEVICE=1");
+      LOGGING(LOG_INFO, "rhi.flycube skipped: PREFER_GDI_DEVICE=1");
       return false;
     }
   }
-#ifndef SMT_HAS_FLYCUBE
-  LOGGING(LOG_ERROR, "rhi.flycube skipped: SMT_HAS_FLYCUBE not defined");
+#ifndef HAS_FLYCUBE
+  LOGGING(LOG_ERROR, "rhi.flycube skipped: HAS_FLYCUBE not defined");
   return false;
 #else
   HWND embed = native_view();
@@ -350,7 +350,7 @@ bool MapViewport::try_flycube_device() {
   // adapter enum often ~0.4–0.8s+). Keep FlyCube attach and finish Init on
   // the Display thread; reveal when ready. Falling through to ContentMapView
   // would dual-SoT flash. Opt-in sync wait (harness / agents):
-  //   SMT_SYNC_FLYCUBE_INIT=1  — MapEdit/Data 800ms, Scene3d 2500ms budget.
+  //   SYNC_FLYCUBE_INIT=1  — MapEdit/Data 800ms, Scene3d 2500ms budget.
   {
     BASE_TRACE_EVENT("FlyCube.Init", "startup");
     std::unique_lock<std::mutex> lock(display_mu_);
@@ -406,7 +406,7 @@ bool MapViewport::try_flycube_device() {
 
 bool MapViewport::try_local_device() {
   // Leftover 2D device DLL (traits paint lane). CreateRenderDevice export.
-  // SMT_RHI2D_PORT=gdi|gdiplus|skia selects the LoadLibrary stem (default gdi).
+  // RHI2D_PORT=gdi|gdiplus|skia selects the LoadLibrary stem (default gdi).
   const wchar_t* names_gdi[] = {
       L"legacy_rhi2d_gdi_d.dll",
       L"legacy_rhi2d_gdi.dll",

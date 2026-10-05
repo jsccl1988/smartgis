@@ -5,7 +5,7 @@
 // test/executable raster_convolve_bench; add raster_convolve_profile.cc to
 // analysis_sources (symbols already live in raster_convolve.cc).
 //
-//   set SMT_ANALYSIS_PROFILE=1
+//   set ANALYSIS_PROFILE=1
 //   out\Debug\raster_convolve_bench.exe
 // Artifacts: out/<config>/log/raster_convolve_bench.json
 //            out/<config>/captures/analysis/convolve/raster_convolve_bench.json

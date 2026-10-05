@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Product host for Views + Skia. Loaded when smt_build_views=true.
+# Product host for Views + Skia. Loaded when build_views=true.
 # Output: out/SmartGIS.exe. Capability dirs live under //src/content
 # (document/camera/present/input) and //src/render:present_paint 脙垄脗聙脗聰 see
 # docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md 脙聜脗搂Content sink.
@@ -403,7 +403,7 @@ win32_app("views") {
     "//third_party:gdal_runtime_dlls",
     "//src/ui/views:markup_resources",
   ]
-  if (smt_python_enabled && smt_python_dll != "") {
+  if (python_enabled && python_dll != "") {
     data_deps += [
       "//src/plugin/runtime/python:python312_dll",
       "//src/plugin/runtime/python:python3_dll",

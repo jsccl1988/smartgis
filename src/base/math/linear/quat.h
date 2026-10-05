@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_QUAT_H_
-#define SMT_RENDER_MATH_QUAT_H_
+#ifndef BASE_MATH_LINEAR_QUAT_H_
+#define BASE_MATH_LINEAR_QUAT_H_
 
 #include "base/math/linear/matrix.h"
 
@@ -28,9 +28,9 @@ class Quat {
   }
 
   void from_euler(float pitch, float yaw, float roll) {
-    from_eigen(Eigen::AngleAxisf(yaw, EigenVec3::UnitY()) *
-               Eigen::AngleAxisf(pitch, EigenVec3::UnitX()) *
-               Eigen::AngleAxisf(roll, EigenVec3::UnitZ()));
+    from_eigen(Eigen::AngleAxisf(yaw, detail::EigenVec3::UnitY()) *
+               Eigen::AngleAxisf(pitch, detail::EigenVec3::UnitX()) *
+               Eigen::AngleAxisf(roll, detail::EigenVec3::UnitZ()));
   }
   void normalize() {
     Eigen::Quaternionf q = eigen();
@@ -39,7 +39,7 @@ class Quat {
   }
   void conjugate(const Quat& q) { from_eigen(q.eigen().conjugate()); }
   void to_euler(float* pitch, float* yaw, float* roll) const {
-    const EigenVec3 e = eigen().toRotationMatrix().eulerAngles(1, 0, 2);
+    const detail::EigenVec3 e = eigen().toRotationMatrix().eulerAngles(1, 0, 2);
     if (yaw) {
       *yaw = e[0];
     }
@@ -66,7 +66,7 @@ class Quat {
     m->_32 = r(2, 1);
     m->_33 = r(2, 2);
   }
-  float magnitude() const { return eigen().norm(); }
+  float length() const { return eigen().norm(); }
 
   void operator/=(float f) {
     x /= f;
@@ -107,7 +107,7 @@ class Quat {
     from_eigen(q1.eigen() * q2.eigen());
   }
   Vector4 rotate_vector(const Vector4& v) const {
-    const EigenVec3 r = eigen() * v.xyz();
+    const detail::EigenVec3 r = eigen() * v.xyz();
     return Vector4(r.x(), r.y(), r.z());
   }
 };
@@ -128,4 +128,4 @@ namespace render {
 using ::base::Quat;
 }  // namespace render
 
-#endif  // SMT_RENDER_MATH_QUAT_H_
+#endif  // BASE_MATH_LINEAR_QUAT_H_

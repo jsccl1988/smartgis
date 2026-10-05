@@ -23,7 +23,7 @@ struct Case {
   const wchar_t* title;  // nullptr = console / no shell window
   DWORD timeout_ms;
   bool close_when_visible;  // MFC can sit on a modal after ShowWindow
-  bool optional;            // e.g. CEF — skip unless SMT_SMOKE_CEF=1
+  bool optional;            // e.g. CEF — skip unless SMOKE_CEF=1
 };
 
 const Case kCases[] = {
@@ -283,9 +283,9 @@ int wmain(int argc, wchar_t** argv) {
     if (c.optional) {
       // Default e2e/te leave CEF off; leftover SmartGisCef.exe has been
       // observed to STATUS_HEAP_CORRUPTION the smoke parent. Opt in via env.
-      const char* want = std::getenv("SMT_SMOKE_CEF");
+      const char* want = std::getenv("SMOKE_CEF");
       if (!want || want[0] != '1') {
-        std::fprintf(stdout, "SKIP  %ls: optional (set SMT_SMOKE_CEF=1)\n",
+        std::fprintf(stdout, "SKIP  %ls: optional (set SMOKE_CEF=1)\n",
                      c.file);
         ++skipped;
         continue;

@@ -11,7 +11,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 // Facade buffer. The FlyCube object is GpuBuffer.
 class FlycubeBuffer : public Buffer {
@@ -57,7 +57,7 @@ inline GpuTexture* as_gpu_texture(Texture* texture) {
   return owned ? &owned->gpu() : nullptr;
 }
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

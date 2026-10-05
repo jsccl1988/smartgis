@@ -6,7 +6,7 @@
     "china"
   ],
   "env": {
-    "SMT_MAP2D_SHOWCASE_LINGER_MS": "0"
+    "MAP2D_SHOWCASE_LINGER_MS": "0"
   },
   "bmp": {
     "path": "legacy-map2d-showcase-china.bmp",

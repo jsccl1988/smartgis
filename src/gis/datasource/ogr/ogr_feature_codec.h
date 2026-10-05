@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SDB_DATASOURCE_GDAL_OGR_FEATURE_CODEC_H_
-#define SDB_DATASOURCE_GDAL_OGR_FEATURE_CODEC_H_
+#ifndef GIS_DATASOURCE_GDAL_OGR_FEATURE_CODEC_H_
+#define GIS_DATASOURCE_GDAL_OGR_FEATURE_CODEC_H_
 
 #include "ogrsf_frmts.h"
 #include "gis/datasource/ogr/ogr_feature_kind.h"
@@ -50,4 +50,4 @@ OGRLayer* create_scratch_layer(GDALDataset* ds, const char* name);
 }  // namespace datasource
 }  // namespace gis
 
-#endif  // SDB_DATASOURCE_GDAL_OGR_FEATURE_CODEC_H_
+#endif  // GIS_DATASOURCE_GDAL_OGR_FEATURE_CODEC_H_

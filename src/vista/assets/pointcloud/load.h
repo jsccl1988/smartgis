@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_VISTA_WORLD_POINTCLOUD_LOAD_H_
-#define GIS_VISTA_WORLD_POINTCLOUD_LOAD_H_
+#ifndef VISTA_ASSETS_POINTCLOUD_LOAD_H_
+#define VISTA_ASSETS_POINTCLOUD_LOAD_H_
 
 #include "vista/vista_export.h"
 #include "vista/assets/pointcloud/las_io.h"
@@ -17,4 +17,4 @@ VISTA_EXPORT bool load_point_cloud(const char* path, PointCloud* out);
 
 }  // namespace vista
 
-#endif  // GIS_VISTA_WORLD_POINTCLOUD_LOAD_H_
+#endif  // VISTA_ASSETS_POINTCLOUD_LOAD_H_

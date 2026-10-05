@@ -9,12 +9,12 @@ namespace app {
 class Browser;
 
 // Applies Interact DSL (.il); optional legacy JSON if path ends in .json.
-// Script path: SMT_UI_INTERACT_SCRIPT (suite / discovery prefers *.il).
+// Script path: UI_INTERACT_SCRIPT (suite / discovery prefers *.il).
 // Returns true when the script path was found and executed (or OS driver wait
 // path ran). Returns false so the caller can fall back to hardcoded steps.
 bool try_apply_interact_script(Browser& browser);
 
-// True when SMT_UI_INTERACT_DRIVER=os (outer Python injects HWND events).
+// True when UI_INTERACT_DRIVER=os (outer Python injects HWND events).
 bool interact_script_os_driver();
 
 }  // namespace app

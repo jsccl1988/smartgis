@@ -11,7 +11,7 @@ All rights reserved.
 **Status:** superseded (2026-09-28 merge B)
 **Date:** 2026-09-27  
 **Updated:** 2026-09-28 — §MapFrame-unified software present (B/B2/C1/D2): shared `Map2dFrameCache`, GDI rasters `MapFrame`; heuristics stay in `content/.../map2d/frame`. Earlier: present composition under `gpu/`/`software/`; §Shell HUD-in-frame; §Perf dual-speed.  
-**Note:** Product RHI Pass under **`src/vista/map`**. CPU layout under `src/vista/frame` (`gis::vista`). MapLibre Native pin removed (deferred) — [`../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](2026-09-27-maplibre-out-of-gpu-design.md).  
+**Note:** Product RHI Pass under **`src/vista/component/map`**. CPU layout under `src/vista/frame` (`gis::vista`). MapLibre Native pin removed (deferred) — [`../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](2026-09-27-maplibre-out-of-gpu-design.md).  
 **Related:** RHI living [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)；desktop shell [`2026-09-27-views-desktop-shell-design.md`](../../specs/2026-09-27-views-desktop-shell-design.md)；archived RHI-present twin [`../archive/specs/2026-09-27-views-2d-map-rhi-design.md`](2026-09-27-views-2d-map-rhi-design.md)。  
 **Plan:** [`../plans/2026-09-27-map2d-frame.md`](../plans/2026-09-27-map2d-frame.md)
 
@@ -29,7 +29,7 @@ gis::vista::Layout     pure CPU, no RHI, no HWND, no legacy includes
 MapFrame               POD
         |
         v
-effect::map::Pass      product RHI pass (src/vista/map; was render/map2d)
+effect::map::Pass      product RHI pass (src/vista/component/map; was render/map2d)
 ```
 
 `gis` 不 `#include` `render` / `effect`，不链接 GDI DLL。字形像素光栅化属于 effect map pass（Windows 光栅器）。本模块只消费注入的 `GlyphMetrics`。

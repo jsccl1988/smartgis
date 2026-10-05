@@ -16,9 +16,9 @@
 #include <vector>
 
 #include "base/core/log.h"
-#include "vista/map_gpu/map_effect.h"
-#include "vista/map_gpu/pass.h"
-#include "vista/map/ir.h"
+#include "vista/pass/map/map_effect.h"
+#include "vista/pass/map/pass.h"
+#include "vista/component/map/ir.h"
 #include "render/graph/frame_graph.h"
 #include "render/rhi/rhi.h"
 #include "base/trace/event/process_trace.h"

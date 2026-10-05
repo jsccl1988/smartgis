@@ -3,7 +3,7 @@
 
 #include "render/rhi/flycube/pipeline/program.h"
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 #include "render/rhi/flycube/pipeline/hlsl.h"
 #include "base/core/log.h"
 
@@ -21,7 +21,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 namespace {
 
@@ -511,7 +511,7 @@ bool FlycubeProgram::replay_dispatch(::CommandList* list, const Dispatch& item) 
   return true;
 }
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

@@ -154,7 +154,7 @@ int main() {
   // ~Terrain::release_gpu_buffers AVs on a freed GL device.
   {
     scenic::detail::Scene scene;
-    scene.Set3DRenderDevice(dev);
+    scene.set_render_device(dev);
     expect(scene.Setup() == kErrNone, "Scene::Setup");
 
     int n_region = 0;
@@ -198,16 +198,16 @@ int main() {
     const int seeded =
         scenic::detail::seed_geojson_into_scene(dev, &scene, path.c_str());
     // china_city: polygons/points skipped for mesh; lines are opt-in
-    // (SMT_SCENE3D_SEED_LINES). Terrain DEM underlay still counts as one seed.
+    // (SCENE3D_SEED_LINES). Terrain DEM underlay still counts as one seed.
     // Kind counts above already validated the pack contents.
     expect(seeded >= 1, "seed China DEM underlay into 3D scene");
     std::fprintf(stderr, "step: seeded=%d\n", seeded);
     std::fflush(stderr);
 
     scenic::detail::PerspCamera camera(dev, vp);
-    scenic::detail::frame_persp_camera_to_aabb(&camera, &vp, scene.GetAabb());
+    scenic::detail::frame_persp_camera_to_aabb(&camera, &vp, scene.aabb());
     camera.set_viewport(vp);
-    scene.SetSceneCamera(&camera);
+    scene.set_camera(&camera);
     expect(dev->SetViewport(vp) == kErrNone, "SetViewport after frame");
 
     dev->SetClearColor(scenic::detail::Color(0.f, 0.f, 0.f, 1.f));
@@ -216,10 +216,10 @@ int main() {
     expect(camera.apply() == kErrNone, "camera.apply");
     {
       scenic::detail::Object3dPtrs objs;
-      scene.Get3DObjectPtrs(objs);
+      scene.objects(objs);
       expect(!objs.empty(), "scene has seeded 3D objects");
       for (scenic::detail::Object3d* obj : objs) {
-        if (obj && obj->IsVisible()) {
+        if (obj && obj->is_visible()) {
           obj->Render(dev);
         }
       }

@@ -117,7 +117,7 @@ orthogrid / orthogrid3d 插件只保留边界数字化、VTK / MapScene 写出�
 
 | 核 | 路径 | Vista 仍拥有 |
 | --- | --- | --- |
-| Horn Lambert 因子 | `gis/analysis/raster/dem/hillshade.h`（`horn_lambert_shade` / `horn_lambert_shade_grid`） | `shade_dem_rgba` 的 RGBA、对比度、海洋 alpha、`DemRaster`、`SMT_BAKE_*` |
+| Horn Lambert 因子 | `gis/analysis/raster/dem/hillshade.h`（`horn_lambert_shade` / `horn_lambert_shade_grid`） | `shade_dem_rgba` 的 RGBA、对比度、海洋 alpha、`DemRaster`、`BAKE_*` |
 | 偶奇环掩膜 | `gis/analysis/raster/mask/ring_mask.h`（`point_in_ring` / `fill_ring_mask`） | `LonLatRing`、bbox 预处理、烘焙时钟 |
 
 `dem_gradient` 的坡度/坡向（度、GeoTIFF）与 Horn 着色因子不是同一公式，不合并。CUDA Thrust（`vista/terrain/process/nv/thrust_gis.cu`）是这两条核的设备副本，公式与 CPU 核对齐，不进 `gis.dll`。无新的 `native.*` / `OpsRunner` 入口。测试：`analysis_terrain_kernel_test`。
@@ -276,7 +276,7 @@ analysis / geo::ops / geo::delaunay / geo::solve_laplace / geo::compute_orthogon
 
 TIN：**只包装 `geos_c`。** 2D 点集 → `GEOSDelaunayTriangulation_r`（`geo::delaunay`）；约束环 → `GEOSConstrainedDelaunayTriangulation_r`（`geo::delaunay_constrained`）。不提供 3D 四面体、不 vendor TetGen/CGAL、不保留 `namespace tin` / traits 后端 / XYZ 解析器 / Div/Inc。`analysis/geology/stratum_tin` 走 `geo::delaunay_triangles`。
 
-错误面（保持既有约定）：DLL 边界不抛异常；PROJ 失败返回 `false`；GDAL/XYZ 失败返回 `SMT_ERR_*` 并打日志；缺 `geos_c.h`/`proj.h` 则编译失败，不做软件 Gauss 回退。
+错误面（保持既有约定）：DLL 边界不抛异常；PROJ 失败返回 `false`；GDAL/XYZ 失败返回 `ERR_*` 并打日志；缺 `geos_c.h`/`proj.h` 则编译失败，不做软件 Gauss 回退。
 
 ---
 

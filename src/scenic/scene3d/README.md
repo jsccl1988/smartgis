@@ -10,7 +10,7 @@ library (`Scene`, objects, octree). Product World / GpuScene path is separate
 (`vista::World` / `vista::GpuScene`).
 
 **As-built layout:** `host/` `scene/` `primitive/{mesh,feature,surface}/` `test/`.  
-Device-free DEM / World adapters: `//src/vista/world` → **`vista.dll`**.  
+Device-free DEM / World adapters: `//src/vista/component/world` → **`vista.dll`**.  
 Device-free feature tess: `scene3d/primitive/feature/tess_{map,world}.cc`.  
 Aggregate GN: `//src/scenic/scene3d:scene3d_sources` → `//src/scenic:scenic_impl`.  
 Includes: `scenic/scene3d/<module>/…` (e.g. `primitive/feature/geo_object.h`,
@@ -25,7 +25,7 @@ Scene object list: `scene/octree.*` (flat AABB frustum cull; no per-point index)
 | `host/` (stereo HWND) | (HWND glue; not a GpuScene type) |
 | `scene/` (Scene, map attach, octree) | `scene.h` / `scene_draw` / sync |
 | `primitive/feature/` (geo objects + OGR tess) | `detail/` (draw_pass, paint, upload…) |
-| `primitive/surface/` (terrain, pointcloud) | (`vista/terrain`, `vista/assets/pointcloud`, `vista/world`) |
+| `primitive/surface/` (terrain, pointcloud) | (`vista/terrain`, `vista/assets/pointcloud`, `vista/component/world`) |
 
 ## Namespace
 

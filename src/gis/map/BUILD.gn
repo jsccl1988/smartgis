@@ -5,7 +5,7 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Map document. Feature objects compile in //src/gis/feature:feature_sources.
-# No deps on legacy_render / render3d (SmtMaterial stays opaque in feature.cpp).
+# No deps on legacy_render / render3d (Material stays opaque in feature.cc).
 source_set("gis_sources") {
   configs += [ "//build:legacy" ]
   defines = [
@@ -13,8 +13,8 @@ source_set("gis_sources") {
     "GIS_EXPORTS",
   ]
   sources = [
-    "map.cpp",
-    "map_layer.cpp",
+    "map.cc",
+    "map_layer.cc",
   ]
   include_dirs += [ "//src" ]
   public_deps = [ "//third_party:gdal" ]

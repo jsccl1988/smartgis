@@ -52,6 +52,56 @@ def _score_zoom_gate(
 
 
 
+def _score_fps_gate(
+    suite: Suite,
+    *,
+    captures_root: Path,
+) -> dict:
+    """Parse map2d-fps-bench.txt mean_fps (soft by default)."""
+    assert suite.fps_gate is not None
+    fg = suite.fps_gate
+    from .suite import with_capture_scenario
+
+    rel = with_capture_scenario(fg.report_leaf, suite.scenario_dir())
+    path = captures_root / Path(rel)
+    out: dict = {
+        "path": str(path),
+        "min_mean_fps": fg.min_mean_fps,
+        "soft": fg.soft,
+        "ok": False,
+    }
+    if not path.is_file():
+        # Flat leaf fallback (older binaries).
+        flat = captures_root / fg.report_leaf
+        if flat.is_file():
+            path = flat
+            out["path"] = str(path)
+        else:
+            out["error"] = "fps_report_missing"
+            out["ok"] = bool(fg.soft)
+            return out
+    mean = None
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("mean_fps="):
+                mean = float(line.split("=", 1)[1].strip())
+                break
+    except (OSError, ValueError) as exc:
+        out["error"] = f"fps_parse: {exc}"
+        out["ok"] = bool(fg.soft)
+        return out
+    if mean is None:
+        out["error"] = "mean_fps_missing"
+        out["ok"] = bool(fg.soft)
+        return out
+    out["mean_fps"] = round(mean, 3)
+    out["ok"] = mean >= float(fg.min_mean_fps)
+    if not out["ok"] and fg.soft:
+        out["soft_fail"] = True
+        out["ok"] = True
+    return out
+
+
 def _score_motion_gate(
     suite: Suite,
     *,

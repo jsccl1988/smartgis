@@ -7,7 +7,7 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Land session-scoped Command / Input / EditSession / EventBus so new map chrome does not go through `SMT_POST_IATOOL_MSG`.
+**Goal:** Land session-scoped Command / Input / EditSession / EventBus so new map chrome does not go through `POST_IATOOL_MSG`.
 
 **Architecture:** `content::EventBus` is typed pub/sub. `tool::Workspace` owns catalog, dispatcher, interaction stack, and input router (per view). `sdb::MemoryEditSession` is the v1 write log. Leftover `SmtIATool` DLLs stay; `command_id_from_gt_msg` is the only bridge.
 
@@ -21,7 +21,7 @@ All rights reserved.
 - Public namespaces: two levels (`content`, `tool`, `sdb`). Deeper = `detail` or anonymous.
 - New functions `snake_case`. Types PascalCase.
 - Comments in English. Class purpose in one or two sentences.
-- No Qt. No HWND / `SmtMap*` / `LPRENDERDEVICE` on new public headers.
+- No Qt. No HWND / `Map*` / `LPRENDERDEVICE` on new public headers.
 - No new `*Manager` singleton. No EventBus under `src/tool`.
 - Product C++20. Output only under repo-root `out/`.
 - Exact APIs: copy from `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`.

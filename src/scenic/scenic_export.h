@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_SCENIC_SCENIC_EXPORT_H_
-#define SMT_SCENIC_SCENIC_EXPORT_H_
+#ifndef SCENIC_SCENIC_EXPORT_H_
+#define SCENIC_SCENIC_EXPORT_H_
 
 // GN defines SCENIC_EXPORTS when building //src/scenic:scenic (dll_stem = scenic).
 #if defined(SCENIC_EXPORTS)
@@ -19,4 +19,4 @@
 #endif
 #endif
 
-#endif  // SMT_SCENIC_SCENIC_EXPORT_H_
+#endif  // SCENIC_SCENIC_EXPORT_H_

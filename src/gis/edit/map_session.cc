@@ -90,7 +90,7 @@ OGRFeature* MapEditSession::build_feature_from_geom(const FeatureGeom& geom) {
   if (!map_ || geom.empty()) {
     return nullptr;
   }
-  OGRLayer* lyr = map_->GetActiveOgrLayer();
+  OGRLayer* lyr = map_->active_ogr_layer();
   if (!lyr) {
     return nullptr;
   }
@@ -172,11 +172,11 @@ bool MapEditSession::apply_map(const FeatureMutation& mutation, bool undo) {
   OGRFeature* feature = it->second;
   switch (mutation.op) {
     case EditOp::kAppend:
-      return undo ? map_->DeleteFeature(feature) : map_->AppendFeature(feature);
+      return undo ? map_->delete_feature(feature) : map_->append_feature(feature);
     case EditOp::kDelete:
-      return undo ? map_->AppendFeature(feature) : map_->DeleteFeature(feature);
+      return undo ? map_->append_feature(feature) : map_->delete_feature(feature);
     case EditOp::kModify:
-      return map_->UpdateFeature(feature);
+      return map_->update_feature(feature);
   }
   return false;
 }

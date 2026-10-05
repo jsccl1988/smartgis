@@ -99,7 +99,7 @@ All rights reserved.
       <!-- four tops: render (rhi2d+rhi3d) / map / scene3d -->
       <rect x="20" y="10" width="240" height="70" rx="8" fill="#e8f1fa" stroke="#2563a8" stroke-width="1.5"/>
       <text class="box-title" x="140" y="36" text-anchor="middle">render/rhi2d</text>
-      <text class="box-sub" x="140" y="56" text-anchor="middle">SmtRenderDevice · tile|layer</text>
+      <text class="box-sub" x="140" y="56" text-anchor="middle">RenderDevice2d · tile|layer</text>
 
       <rect x="280" y="10" width="240" height="70" rx="8" fill="#f8efe4" stroke="#b06a1a" stroke-width="1.5"/>
       <text class="box-title" x="400" y="36" text-anchor="middle">render/rhi3d</text>
@@ -269,7 +269,7 @@ All rights reserved.
   <details class="appendix">
     <summary>附录：模式 / Env / 产品对照</summary>
     <table class="map">
-      <thead><tr><th>SMT_RHI2D_PARALLEL</th><th>Execute</th><th>Compose</th></tr></thead>
+      <thead><tr><th>RHI2D_PARALLEL</th><th>Execute</th><th>Compose</th></tr></thead>
       <tbody>
         <tr><td><code>tile</code></td><td>execute_tile + AABB</td><td>blit dirty centers</td></tr>
         <tr><td><code>layer</code></td><td>每层 full buffer</td><td>ocean color-key</td></tr>

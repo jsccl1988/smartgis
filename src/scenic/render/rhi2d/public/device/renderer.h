@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-#ifndef _RD_RENDERER_H
-#define _RD_RENDERER_H
+#ifndef SCENIC_RENDER_RHI2D_PUBLIC_DEVICE_RENDERER_H_
+#define SCENIC_RENDER_RHI2D_PUBLIC_DEVICE_RENDERER_H_
 
 #include "scenic/render/err.h"
 #include "scenic/render/scenic_impl_export.h"
@@ -40,4 +40,4 @@ typedef Renderer2d* LPRENDERER;
 #endif
 #endif
 
-#endif  //_RD_RENDERER_H
+#endif  // SCENIC_RENDER_RHI2D_PUBLIC_DEVICE_RENDERER_H_

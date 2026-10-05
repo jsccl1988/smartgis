@@ -14,7 +14,7 @@ namespace render {
 namespace rhi {
 namespace detail {
 
-#ifdef SMT_HAS_FLYCUBE
+#ifdef HAS_FLYCUBE
 
 // One begin/end pass, in FlyCube terms. No RHI pass descriptor.
 struct PassDesc {
@@ -122,7 +122,7 @@ class Recorder {
   std::vector<TextureBind> uavs_;
 };
 
-#endif  // SMT_HAS_FLYCUBE
+#endif  // HAS_FLYCUBE
 
 }  // namespace detail
 }  // namespace rhi

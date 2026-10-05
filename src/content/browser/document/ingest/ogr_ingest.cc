@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -210,13 +211,42 @@ bool path_looks_like_china_city(const std::string& path) {
 // Drop china_city river/road stubs that sit in the lon/lat bbox but outside
 // admin land polygons (the bbox includes Bohai / ECS / SCS so bbox-only clip
 // still paints blue scribble over "ocean" background).
+bool vertex_bbox_overlaps_any_ring_bbox(
+    const MapFeature& f, const std::vector<vista::LonLatRing>& rings) {
+  if (f.points.empty() || rings.empty()) {
+    return false;
+  }
+  double min_x = f.points[0].x;
+  double max_x = min_x;
+  double min_y = f.points[0].y;
+  double max_y = min_y;
+  for (size_t i = 1; i < f.points.size(); ++i) {
+    const Vertex& p = f.points[i];
+    min_x = (std::min)(min_x, p.x);
+    max_x = (std::max)(max_x, p.x);
+    min_y = (std::min)(min_y, p.y);
+    max_y = (std::max)(max_y, p.y);
+  }
+  for (const vista::LonLatRing& ring : rings) {
+    if (!ring.has_bbox) {
+      ring.prepare_bbox();
+    }
+    if (max_x < ring.minx || min_x > ring.maxx || max_y < ring.miny ||
+        min_y > ring.maxy) {
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
 void clip_china_city_lines_to_land_polygons(LayerStore* store) {
   if (!store) {
     return;
   }
   // Full land-clip is O(lines×rings) and can freeze the UI thread for tens of
   // seconds (deferred China seed). Harness / deferred path sets
-  // SMT_SKIP_CHINA_LAND_CLIP=1; sync showcase keeps the clip for ocean cleanup.
+  // SKIP_CHINA_LAND_CLIP=1; sync showcase keeps the clip for ocean cleanup.
   if (const char* skip = base::switch_cstr("skip-china-land-clip")) {
     if (skip[0] == '1' && skip[1] == '\0') {
       // Intentional: deferred / harness path must not freeze the UI thread.
@@ -255,6 +285,9 @@ void clip_china_city_lines_to_land_polygons(LayerStore* store) {
             [&](MapFeature& f) {
               if (f.kind != GeomKind::kLine || f.points.size() < 2) {
                 return false;
+              }
+              if (!vertex_bbox_overlaps_any_ring_bbox(f, rings)) {
+                return true;
               }
               // Keep on-land runs; drop ocean-only stubs. Require ≥25% of
               // samples on land (bbox-only still paints blue over Bohai/ECS).
@@ -716,9 +749,10 @@ bool ingest_ogr_path(LayerStore* store, const std::string& path) {
   if (!store) {
     return false;
   }
-  GDALAllRegister();
+  static std::once_flag gdal_register_once;
+  std::call_once(gdal_register_once, [] { GDALAllRegister(); });
   GDALDatasetUniquePtr ds(GDALDataset::Open(
-      path.c_str(), GDAL_OF_VECTOR | GDAL_OF_READONLY | GDAL_OF_VERBOSE_ERROR));
+      path.c_str(), GDAL_OF_VECTOR | GDAL_OF_READONLY));
   if (!ds) {
     return false;
   }

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_RENDER_MATH_FRUSTUM_H_
-#define SMT_RENDER_MATH_FRUSTUM_H_
+#ifndef BASE_MATH_GEOM_FRUSTUM_H_
+#define BASE_MATH_GEOM_FRUSTUM_H_
 
 #include "base/math/geom/cull.h"
 #include "base/math/geom/plane.h"
@@ -91,4 +91,4 @@ namespace render {
 using ::base::Frustum;
 }  // namespace render
 
-#endif  // SMT_RENDER_MATH_FRUSTUM_H_
+#endif  // BASE_MATH_GEOM_FRUSTUM_H_

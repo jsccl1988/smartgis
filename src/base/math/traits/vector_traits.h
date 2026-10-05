@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SMT_BASE_MATH_TRAITS_VECTOR_TRAITS_H_
-#define SMT_BASE_MATH_TRAITS_VECTOR_TRAITS_H_
+#ifndef BASE_MATH_TRAITS_VECTOR_TRAITS_H_
+#define BASE_MATH_TRAITS_VECTOR_TRAITS_H_
 
 #include "base/math/linear/point.h"
 #include "base/math/linear/vector.h"
@@ -24,4 +24,4 @@ concept vector_like = requires {
 
 }  // namespace base
 
-#endif  // SMT_BASE_MATH_TRAITS_VECTOR_TRAITS_H_
+#endif  // BASE_MATH_TRAITS_VECTOR_TRAITS_H_

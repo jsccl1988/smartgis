@@ -95,7 +95,7 @@ ENGINES: list[tuple[str, str, list[str], str]] = [
 
 
 def kill_apps() -> None:
-    # Only showcase/self-test instances ï¿?never interactive double-click.
+    # Only showcase/self-test instances ï¿½?never interactive double-click.
     if str(CASE) not in sys.path:
         sys.path.insert(0, str(CASE))
     from kill_showcase import kill_showcase_apps
@@ -124,18 +124,18 @@ def run_one(engine_id: str, label: str, cmd: list[str], src_bmp: str) -> dict:
     # Product default is D3D; GL shots must force OpenGL. D3D engine leaves
     # env to the --d3d shot-loop path (or inherits Direct3D).
     if engine_id == "legacy-scene3d-gl":
-        env["SMT_STEREO_API"] = "OpenGL"
-        env["SMT_SCENE3D_SHOWCASE_D3D"] = "0"
+        env["STEREO_API"] = "OpenGL"
+        env["SCENE3D_SHOWCASE_D3D"] = "0"
     elif engine_id == "legacy-scene3d-d3d":
-        env["SMT_STEREO_API"] = "Direct3D"
-        env["SMT_SCENE3D_SHOWCASE_D3D"] = "1"
+        env["STEREO_API"] = "Direct3D"
+        env["SCENE3D_SHOWCASE_D3D"] = "1"
     else:
-        env.pop("SMT_STEREO_API", None)
-        env.pop("SMT_SCENE3D_SHOWCASE_D3D", None)
-    env.pop("SMT_SCENE3D_SHOWCASE_LINGER_MS", None)
-    env.pop("SMT_MAP2D_SHOWCASE_LINGER_MS", None)
+        env.pop("STEREO_API", None)
+        env.pop("SCENE3D_SHOWCASE_D3D", None)
+    env.pop("SCENE3D_SHOWCASE_LINGER_MS", None)
+    env.pop("MAP2D_SHOWCASE_LINGER_MS", None)
 
-    print(f"\n######## ENGINE {engine_id} ï¿?{label} ########", flush=True)
+    print(f"\n######## ENGINE {engine_id} ï¿½?{label} ########", flush=True)
     print("CMD:", " ".join(cmd), flush=True)
     started = time.time()
     proc = subprocess.run(

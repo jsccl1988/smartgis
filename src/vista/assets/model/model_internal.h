@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_ASSETS_MODEL_INTERNAL_H_
-#define GIS_ASSETS_MODEL_INTERNAL_H_
+#ifndef VISTA_ASSETS_MODEL_MODEL_INTERNAL_H_
+#define VISTA_ASSETS_MODEL_MODEL_INTERNAL_H_
 
 #include <cstddef>
 
@@ -18,4 +18,4 @@ bool decode_gltf_bytes(const char* uri, const void* data, size_t size,
 }  // namespace detail
 }  // namespace vista
 
-#endif  // GIS_ASSETS_MODEL_INTERNAL_H_
+#endif  // VISTA_ASSETS_MODEL_MODEL_INTERNAL_H_

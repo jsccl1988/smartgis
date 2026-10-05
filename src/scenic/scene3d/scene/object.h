@@ -19,11 +19,11 @@ class Renderable3d {
   virtual ~Renderable3d() {}
 
  public:
-  bool IsVisible(void) { return m_bVisible; }
-  void SetVisible(bool bVisible = true) { m_bVisible = bVisible; }
+  bool is_visible(void) { return m_bVisible; }
+  void set_visible(bool bVisible = true) { m_bVisible = bVisible; }
 
-  double GetTransparent(void) { return m_dbfTransparent; }
-  void SetTransparent(double dbfTransparent = 1.) {
+  double transparent(void) { return m_dbfTransparent; }
+  void set_transparent(double dbfTransparent = 1.) {
     m_dbfTransparent = dbfTransparent;
   }
 
@@ -32,11 +32,11 @@ class Renderable3d {
     return false;
   }
 
-  inline Aabb& GetAabb() { return m_aAbb; }
-  inline void SetAabb(Aabb& aabb) { m_aAbb = aabb; }
+  inline Aabb& aabb() { return m_aAbb; }
+  inline void set_aabb(Aabb& aabb) { m_aAbb = aabb; }
 
-  inline Material& GetMaterial() { return m_matMaterial; }
-  inline void SetMaterial(Material& matMaterial) {
+  inline Material& material() { return m_matMaterial; }
+  inline void set_material(Material& matMaterial) {
     m_matMaterial = matMaterial;
   }
 
@@ -55,11 +55,11 @@ class Movable3d {
   virtual ~Movable3d() {}
 
  public:
-  inline Matrix& GetModelTransMatrix() { return m_mtxModel; }
-  inline void SetModelTransMatrix(Matrix& vTransform) {
+  inline Matrix& model_matrix() { return m_mtxModel; }
+  inline void set_model_matrix(Matrix& vTransform) {
     m_mtxModel = vTransform;
   }
-  void ModelTransMatrixMultiply(Matrix& matTransform) {
+  void multiply_model_matrix(Matrix& matTransform) {
     m_mtxModel = m_mtxModel * matTransform;
   }
 
@@ -95,11 +95,11 @@ class SCENIC_IMPL_EXPORT Object3d : public Renderable3d,
   // (LNK2001). MapLabelBatch overrides to true.
   virtual bool prefers_immediate_context() const { return false; }
 
-  inline Matrix& GetWorldTransMatrix() { return m_mtxWorld; }
-  inline void SetWorldTransMatrix(Matrix& vTransform) {
+  inline Matrix& world_matrix() { return m_mtxWorld; }
+  inline void set_world_matrix(Matrix& vTransform) {
     m_mtxWorld = vTransform;
   }
-  void WorldTransMatrixMultiply(Matrix& matTransform) {
+  void multiply_world_matrix(Matrix& matTransform) {
     m_mtxWorld = m_mtxWorld * matTransform;
   }
 

@@ -16,6 +16,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <vector>
 
@@ -86,13 +87,28 @@ void write_plugin_present_perf_json(const char* leaf,
   const int warm_begin = head;
   const int warm_end = present_count - tail;
   const int warm_count = warm_end - warm_begin;
+  std::vector<double> warm_sorted;
+  warm_sorted.reserve(static_cast<size_t>(warm_count > 0 ? warm_count : 0));
   for (int i = warm_begin; i < warm_end; ++i) {
-    present_ms_warm += frame_ms[static_cast<size_t>(i)];
+    const double ms = frame_ms[static_cast<size_t>(i)];
+    present_ms_warm += ms;
+    warm_sorted.push_back(ms);
   }
   const double ms_all =
       present_ms_all / static_cast<double>(present_count);
-  const double ms_warm =
+  const double ms_warm_mean =
       warm_count > 0 ? present_ms_warm / static_cast<double>(warm_count) : 0.0;
+  // Median resists a single mid-loop DXGI hitch (~20 ms) that mean cannot.
+  double ms_warm = ms_warm_mean;
+  if (warm_count > 0) {
+    std::sort(warm_sorted.begin(), warm_sorted.end());
+    const size_t mid = warm_sorted.size() / 2;
+    if ((warm_sorted.size() % 2) != 0) {
+      ms_warm = warm_sorted[mid];
+    } else {
+      ms_warm = 0.5 * (warm_sorted[mid - 1] + warm_sorted[mid]);
+    }
+  }
   const double ms_cold = frame_ms[0];
 
   const content::Scene3dColdPhaseSample cold =
@@ -108,7 +124,8 @@ void write_plugin_present_perf_json(const char* leaf,
         "\"present_count\":%d,\"discard_cold\":%d,\"discard_tail\":%d,"
         "\"warm_count\":%d,"
         "\"present_ms\":%.3f,\"present_ms_warm\":%.3f,"
-        "\"ms_per_present\":%.3f,\"ms_per_present_all\":%.3f,"
+        "\"ms_per_present\":%.3f,\"ms_per_present_mean\":%.3f,"
+        "\"ms_per_present_all\":%.3f,"
         "\"ms_per_present_cold\":%.3f,\"gpu\":%d,"
         "\"mesh_ms\":%lld,\"sync_ms\":%lld,\"rebuild_ms\":%lld,"
         "\"rebuild_count\":%d,\"ocean_prep_ms\":%lld,"
@@ -122,8 +139,8 @@ void write_plugin_present_perf_json(const char* leaf,
         "\"present_ms\":%lld,\"load_cache_hit\":%d,\"hypso_cache_hit\":%d"
         "},\"frame_ms\":[",
         mode && mode[0] ? mode : "plugin", present_count, head, tail,
-        warm_count, present_ms_all, present_ms_warm, ms_warm, ms_all, ms_cold,
-        want_gpu, static_cast<long long>(phase.mesh_ms),
+        warm_count, present_ms_all, present_ms_warm, ms_warm, ms_warm_mean,
+        ms_all, ms_cold, want_gpu, static_cast<long long>(phase.mesh_ms),
         static_cast<long long>(phase.sync_ms),
         static_cast<long long>(phase.rebuild_ms), phase.rebuild_count,
         static_cast<long long>(phase.ocean_prep_ms),
@@ -154,9 +171,11 @@ void write_plugin_present_perf_json(const char* leaf,
   }
   std::fprintf(stderr,
                "plugin-showcase: present_count=%d discard_cold=%d "
-               "discard_tail=%d ms/p_warm=%.2f ms/p_all=%.2f ms/p_cold=%.2f "
+               "discard_tail=%d ms/p_warm(med)=%.2f ms/p_mean=%.2f "
+               "ms/p_all=%.2f ms/p_cold=%.2f "
                "cold(dem=%lld tess=%lld hypso=%lld upload=%lld pso=%lld)\n",
-               present_count, head, tail, ms_warm, ms_all, ms_cold,
+               present_count, head, tail, ms_warm, ms_warm_mean, ms_all,
+               ms_cold,
                static_cast<long long>(cold.dem_load_ms),
                static_cast<long long>(cold.tess_ms),
                static_cast<long long>(cold.hypso_ms),

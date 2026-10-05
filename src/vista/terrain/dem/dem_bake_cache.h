@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef GIS_VISTA_WORLD_TERRAIN_DEM_DEM_BAKE_CACHE_H_
-#define GIS_VISTA_WORLD_TERRAIN_DEM_DEM_BAKE_CACHE_H_
+#ifndef VISTA_TERRAIN_DEM_DEM_BAKE_CACHE_H_
+#define VISTA_TERRAIN_DEM_DEM_BAKE_CACHE_H_
 
 #include <cstdint>
 #include <string>
@@ -84,4 +84,4 @@ VISTA_EXPORT void dem_view_seed_cache_put(const char* path, int lod_key,
 
 }  // namespace vista
 
-#endif  // GIS_VISTA_WORLD_TERRAIN_DEM_DEM_BAKE_CACHE_H_
+#endif  // VISTA_TERRAIN_DEM_DEM_BAKE_CACHE_H_

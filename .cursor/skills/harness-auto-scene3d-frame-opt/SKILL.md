@@ -35,7 +35,7 @@ When this skill is invoked, attached (`@harness-auto-scene3d-frame-opt` / `/harn
 4. CBM first (`user-codebase-memory-mcp`, project `smartgis`) before repo-wide Grep.
 5. Prefer `*.inspect.png` for visual gate (`Read`).
 6. Hypothesis first — one hot phase per iteration; no shotgun edits.
-7. Timed benches: `SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=0` and `PRESENT_COUNT>3` (pump_ms forced **0** — do not reintroduce PeekMessage/map2d paint into the timed window).
+7. Timed benches: `ATMOSPHERE_SHOWCASE_LINGER_MS=0` and `PRESENT_COUNT>3` (pump_ms forced **0** — do not reintroduce PeekMessage/map2d paint into the timed window).
 
 ## Locked profile + budgets (Debug)
 
@@ -43,9 +43,9 @@ When this skill is invoked, attached (`@harness-auto-scene3d-frame-opt` / `/harn
 | --- | --- |
 | Entry | `SmartGIS.exe --atmosphere-showcase=legacy` |
 | Viewport | 640×480 (`kAtmosphereShowcaseW/H`) |
-| GPU | `SMT_ATMOSPHERE_SHOWCASE_GPU=1` |
-| Timed frames | `SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT=30` |
-| Linger | `SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=0` |
+| GPU | `ATMOSPHERE_SHOWCASE_GPU=1` |
+| Timed frames | `ATMOSPHERE_SHOWCASE_PRESENT_COUNT=30` |
+| Linger | `ATMOSPHERE_SHOWCASE_LINGER_MS=0` |
 | Warm `ms_per_present` | leftover order **~10 ms** (Debug); current bar ~**14 ms** acceptable while Gerstner on |
 | `rebuild_count` | **0** on timed frames |
 | Visual | legacy landish / black-clear gate still PASS |
@@ -58,9 +58,9 @@ From repo root:
 
 ```bat
 .\build.bat debug //src/app/views:views
-set SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT=30
-set SMT_ATMOSPHERE_SHOWCASE_GPU=1
-set SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=0
+set ATMOSPHERE_SHOWCASE_PRESENT_COUNT=30
+set ATMOSPHERE_SHOWCASE_GPU=1
+set ATMOSPHERE_SHOWCASE_LINGER_MS=0
 .\out\Debug\SmartGIS.exe --atmosphere-showcase=legacy
 type .\out\Debug\captures\atmosphere\atmosphere-showcase-perf.json
 ```
@@ -82,7 +82,7 @@ Phase fields (`ocean_prep_ms` / `record_ms` / `present_swap_ms` / `rebuild_count
 Deep spans:
 
 ```bat
-set SMT_TRACE=1
+set TRACE=1
 ```
 
 Artifacts:

@@ -9,8 +9,8 @@ GN helpers for unit tests and google/benchmark targets.
 
 | File | Role |
 | --- | --- |
-| `test.gni` | `test("name")` ¡ú executable£¨gtest ÉÐÎ´½ÓÈë£© |
-| `benchmark.gni` | `benchmark("name")` ¡ú executable + `//third_party:gbenchmark` (+ `gbenchmark_main` by default) |
+| `test.gni` | `test("name")` ï¿½ï¿½ executableï¿½ï¿½gtest ï¿½ï¿½Î´ï¿½ï¿½ï¿½ë£© |
+| `benchmark.gni` | `benchmark("name")` ï¿½ï¿½ executable + `//third_party:gbenchmark` (+ `gbenchmark_main` by default) |
 
 ## Register a benchmark
 
@@ -48,9 +48,9 @@ Then add `"//<module>:<name>"` to root `//:test_all` (`BUILD.gn`).
 
 ## GUI / Views testing
 
-·Ö²ã·½°¸£¨¹¤¾ßÏäµ¥²â¡¢`--self-test`¡¢L2 ¿ÇÏñËØ¡¢`exe` Ã°ÑÌ£©¼û
-[`docs/superpowers/ui-testing.md`](../docs/superpowers/ui-testing.md)¡£L2 »ùÏßÎ»ÓÚ
-[`src/ui/views/testdata/`](../src/ui/views/testdata/)¡£
+ï¿½Ö²ã·½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½äµ¥ï¿½â¡¢`--self-test`ï¿½ï¿½L2 ï¿½ï¿½ï¿½ï¿½ï¿½Ø¡ï¿½`exe` Ã°ï¿½Ì£ï¿½ï¿½ï¿½
+[`docs/superpowers/ui-testing.md`](../docs/superpowers/ui-testing.md)ï¿½ï¿½L2 ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½
+[`src/ui/views/testdata/`](../src/ui/views/testdata/)ï¿½ï¿½
 
 ## End-to-end (product exes)
 
@@ -68,7 +68,7 @@ build.bat e2e
 build.bat te
 ```
 
-`e2e` sets the remaining `smt_build_*` flags, builds the chrome / GPU exes + `exe_smoke`, then runs `out\exe_smoke.exe --require-all` with cwd `out/`. `te` sets `smt_build_app` so leftover `SmartGIS-Legacy.exe` is rebuilt against the current GeoCore/GisCore ABI; other missing chrome exes are still skipped.
+`e2e` sets the remaining `smt_build_*` flags, builds the chrome / GPU exes + `exe_smoke`, then runs `out\exe_smoke.exe --require-all` with cwd `out/`. `te` sets `build_app` so leftover `SmartGIS-Legacy.exe` is rebuilt against the current GeoCore/GisCore ABI; other missing chrome exes are still skipped.
 
 ## Run
 
@@ -81,4 +81,4 @@ Aliases match mogu: `te` = `//:test_all`, `a` = `//:all_with_tests`, `b` = `//:b
 
 ---
 
-**×îºó¸üÐÂ£º** 2026-09-28
+**ï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½** 2026-09-28

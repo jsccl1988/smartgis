@@ -108,6 +108,15 @@ class MotionGate:
 
 
 @dataclass(frozen=True)
+class FpsGate:
+    """Soft/hard mean FPS from map2d-fps-bench.txt (browse stutter guard)."""
+
+    report_leaf: str = "map2d-fps-bench.txt"
+    min_mean_fps: float = 8.0
+    soft: bool = True
+
+
+@dataclass(frozen=True)
 class ClickGate:
     """Require click/dblclick inject + non-black after-click shell BMP."""
 
@@ -130,6 +139,7 @@ class Suite:
     visual_review: VisualReview | None = None
     zoom_gate: ZoomGate | None = None
     motion_gate: MotionGate | None = None
+    fps_gate: FpsGate | None = None
     click_gate: ClickGate | None = None
     # Forgive ExitProcess heap corruption when required marks already landed.
     accept_nonzero_rc_if_marks: bool = False
@@ -355,6 +365,15 @@ def load_suite(suite_id: str) -> Suite:
             min_unique_frames=int(mg_raw.get("min_unique_frames", 12)),
         )
 
+    fps_gate: FpsGate | None = None
+    fg_raw = raw.get("fps_gate")
+    if isinstance(fg_raw, dict):
+        fps_gate = FpsGate(
+            report_leaf=str(fg_raw.get("report_leaf") or "map2d-fps-bench.txt"),
+            min_mean_fps=float(fg_raw.get("min_mean_fps", 8.0)),
+            soft=bool(fg_raw.get("soft", True)),
+        )
+
     click_gate: ClickGate | None = None
     cg_raw = raw.get("click_gate")
     if isinstance(cg_raw, dict) and bool(cg_raw.get("enabled", True)):
@@ -390,6 +409,7 @@ def load_suite(suite_id: str) -> Suite:
         visual_review=visual_review,
         zoom_gate=zoom_gate,
         motion_gate=motion_gate,
+        fps_gate=fps_gate,
         click_gate=click_gate,
         accept_nonzero_rc_if_marks=bool(
             raw.get("accept_nonzero_rc_if_marks", False)

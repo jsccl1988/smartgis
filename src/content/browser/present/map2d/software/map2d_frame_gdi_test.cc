@@ -7,7 +7,7 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "vista/map/ir.h"
+#include "vista/component/map/ir.h"
 
 #include <chrono>
 #include <cstdio>

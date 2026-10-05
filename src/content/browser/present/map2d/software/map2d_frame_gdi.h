@@ -13,7 +13,7 @@
 #include <functional>
 #include <vector>
 
-#include "vista/map/ir.h"
+#include "vista/component/map/ir.h"
 
 namespace content {
 namespace detail {

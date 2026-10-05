@@ -59,6 +59,7 @@ class MapScene {
   // layer per OGR layer). Returns false without inventing sample features
   // when the file cannot be opened as a vector source.
   bool open_path(const std::string& path);
+  bool open_path(const std::string& path, bool load_accompanying_style);
 
   // Write the active visible layer to |path| as GeoJSON (OGR "GeoJSON" driver).
   // Falls back to the first visible non-empty layer. Returns false if no

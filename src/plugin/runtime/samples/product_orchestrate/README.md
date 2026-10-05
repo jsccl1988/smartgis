@@ -14,7 +14,7 @@ It does **not** reimplement TIN / Laplace kernels. Builtin C++ UI under `src/plu
 
 ## Enable
 
-1. Ensure embeddable CPython is available (`SMT_HAS_PYTHON`) and Diagnostic Tools / PluginShell has initialized `PythonRuntime`.
+1. Ensure embeddable CPython is available (`HAS_PYTHON`) and Diagnostic Tools / PluginShell has initialized `PythonRuntime`.
 2. Install this folder (with `plugin.json` + `plugin.py`) via Plugin Manager zip/index, **or** register the directory on `plugin::Registry` (`add_manifest` + set `directory` + `set_enabled`).
 3. Trust unsigned packages if required, then enable `smartgis.sample_product_orchestrate`.
 4. Tools menu: **Orchestrate trimesh from XYZ** / **Orchestrate orth grid**. Cancel on the file picker is a no-op success.

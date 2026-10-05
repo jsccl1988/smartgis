@@ -37,7 +37,7 @@ def record_mode_pref(env: dict[str, str] | None = None) -> str:
     import os
 
     src = env if env is not None else os.environ
-    v = _env_get(src, "harness-record-mode", "SMT_HARNESS_RECORD_MODE", default="auto").strip().lower()
+    v = _env_get(src, "harness-record-mode", "HARNESS_RECORD_MODE", default="auto").strip().lower()
     if v in ("bmp", "bmp_burst", "burst"):
         return "bmp"
     if v in ("ffmpeg", "mp4", "video"):
@@ -49,7 +49,7 @@ def record_enabled(env: dict[str, str] | None = None) -> bool:
     import os
 
     src = env if env is not None else os.environ
-    v = _env_get(src, "harness-record", "SMT_HARNESS_RECORD").strip().lower()
+    v = _env_get(src, "harness-record", "HARNESS_RECORD").strip().lower()
     return v in ("1", "true", "yes", "on")
 
 

@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "content/browser/present/map2d/frame/map2d_frame_cache.h"
-#include "vista/map/ir.h"
+#include "vista/component/map/ir.h"
 
 namespace base {
 struct Arena;
