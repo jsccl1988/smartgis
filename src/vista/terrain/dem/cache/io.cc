@@ -139,6 +139,43 @@ void warmup_dem_bake_cache() {
   });
 }
 
+bool read_all_baseline(const std::string& path, std::vector<uint8_t>* out) {
+  if (!out || path.empty()) {
+    return false;
+  }
+  warmup_dem_bake_cache();
+  const HANDLE h =
+      CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (h == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+  LARGE_INTEGER li = {};
+  if (!GetFileSizeEx(h, &li) || li.QuadPart <= 0) {
+    CloseHandle(h);
+    out->clear();
+    return false;
+  }
+  const size_t bytes = static_cast<size_t>(li.QuadPart);
+  out->resize(bytes);
+  uint8_t* p = out->data();
+  size_t remaining = bytes;
+  while (remaining > 0) {
+    const DWORD want = static_cast<DWORD>(
+        (std::min)(remaining, static_cast<size_t>(kIoWriteChunk)));
+    DWORD got = 0;
+    if (!ReadFile(h, p, want, &got, nullptr) || got == 0) {
+      CloseHandle(h);
+      out->clear();
+      return false;
+    }
+    p += got;
+    remaining -= got;
+  }
+  CloseHandle(h);
+  return true;
+}
+
 bool read_all_mapped_chunked(const std::string& path, std::vector<uint8_t>* out) {
   if (!out || path.empty()) {
     return false;
@@ -170,6 +207,8 @@ bool read_all_file_loader(const std::string& path, std::vector<uint8_t>* out,
 bool read_all(const std::string& path, std::vector<uint8_t>* out,
               DemIoReadMode mode) {
   switch (mode) {
+    case DemIoReadMode::kBaseline:
+      return read_all_baseline(path, out);
     case DemIoReadMode::kFileLoader:
       return read_all_file_loader(path, out);
     case DemIoReadMode::kMappedChunked:

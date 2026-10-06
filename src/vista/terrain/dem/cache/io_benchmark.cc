@@ -1,8 +1,10 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// google/benchmark: dem bake cache IO —
-//   MappedFile + io_pipeline chunk steal  vs  FileMMap + FileLoader.
+// google/benchmark: dem bake cache IO — three-way:
+//   Baseline (serial ReadFile)
+//   MappedFile + io_pipeline chunk steal
+//   FileMMap + FileLoader
 
 #include "vista/terrain/dem/cache/io.h"
 
@@ -20,6 +22,9 @@
 #include <vector>
 
 namespace {
+
+constexpr size_t kLoaderParallel = 4;
+constexpr size_t kLoaderBlock = 512 << 10;
 
 std::string scratch_dir() {
   char module[MAX_PATH] = {};
@@ -75,43 +80,15 @@ uint64_t checksum(const std::vector<uint8_t>& v) {
   return h;
 }
 
-void BM_DemIo_MappedChunked(benchmark::State& state) {
-  const size_t bytes = static_cast<size_t>(state.range(0));
-  const std::string path = ensure_fixture(bytes);
-  if (path.empty()) {
-    state.SkipWithError("fixture create failed");
-    return;
-  }
-  // Touch once so OS page cache is warm for steady-state iterations.
-  {
-    std::vector<uint8_t> warm;
-    if (!vista::detail::read_all_mapped_chunked(path, &warm) ||
-        warm.size() != bytes) {
-      state.SkipWithError("warmup mapped read failed");
-      return;
-    }
-    benchmark::DoNotOptimize(checksum(warm));
-  }
+using ReadFn = bool (*)(const std::string&, std::vector<uint8_t>*);
 
-  for (auto _ : state) {
-    std::vector<uint8_t> out;
-    const bool ok = vista::detail::read_all_mapped_chunked(path, &out);
-    benchmark::DoNotOptimize(ok);
-    benchmark::DoNotOptimize(checksum(out));
-    if (!ok || out.size() != bytes) {
-      state.SkipWithError("mapped_chunked read failed");
-      break;
-    }
-  }
-  state.SetBytesProcessed(static_cast<int64_t>(state.iterations()) *
-                          static_cast<int64_t>(bytes));
-  state.SetLabel("MappedFile+io_pipeline");
+bool read_loader_fixed(const std::string& path, std::vector<uint8_t>* out) {
+  return vista::detail::read_all_file_loader(path, out, kLoaderParallel,
+                                             kLoaderBlock, /*warmup=*/true);
 }
 
-void BM_DemIo_FileLoader(benchmark::State& state) {
+void run_read_bench(benchmark::State& state, ReadFn read_fn, const char* label) {
   const size_t bytes = static_cast<size_t>(state.range(0));
-  const size_t parallel = static_cast<size_t>(state.range(1));
-  const size_t block = static_cast<size_t>(state.range(2));
   const std::string path = ensure_fixture(bytes);
   if (path.empty()) {
     state.SkipWithError("fixture create failed");
@@ -119,10 +96,8 @@ void BM_DemIo_FileLoader(benchmark::State& state) {
   }
   {
     std::vector<uint8_t> warm;
-    if (!vista::detail::read_all_file_loader(path, &warm, parallel, block,
-                                             /*warmup=*/true) ||
-        warm.size() != bytes) {
-      state.SkipWithError("warmup file_loader read failed");
+    if (!read_fn(path, &warm) || warm.size() != bytes) {
+      state.SkipWithError("warmup read failed");
       return;
     }
     benchmark::DoNotOptimize(checksum(warm));
@@ -130,40 +105,43 @@ void BM_DemIo_FileLoader(benchmark::State& state) {
 
   for (auto _ : state) {
     std::vector<uint8_t> out;
-    const bool ok = vista::detail::read_all_file_loader(path, &out, parallel,
-                                                       block, /*warmup=*/true);
+    const bool ok = read_fn(path, &out);
     benchmark::DoNotOptimize(ok);
     benchmark::DoNotOptimize(checksum(out));
     if (!ok || out.size() != bytes) {
-      state.SkipWithError("file_loader read failed");
+      state.SkipWithError("read failed");
       break;
     }
   }
   state.SetBytesProcessed(static_cast<int64_t>(state.iterations()) *
                           static_cast<int64_t>(bytes));
-  char label[96] = {};
-  std::snprintf(label, sizeof(label), "FileLoader p=%llu blk=%lluKiB",
-                static_cast<unsigned long long>(parallel),
-                static_cast<unsigned long long>(block / 1024));
   state.SetLabel(label);
 }
 
-// Same sizes for head-to-head: 1 / 8 / 32 / 64 MiB.
-BENCHMARK(BM_DemIo_MappedChunked)
-    ->Arg(1 << 20)
-    ->Arg(8 << 20)
-    ->Arg(32 << 20)
-    ->Arg(64 << 20)
-    ->Unit(benchmark::kMillisecond);
+void BM_DemIo_Baseline(benchmark::State& state) {
+  run_read_bench(state, &vista::detail::read_all_baseline,
+                 "Baseline ReadFile");
+}
 
-// FileLoader: (bytes, parallel, block_size)
-BENCHMARK(BM_DemIo_FileLoader)
-    ->Args({1 << 20, 4, 512 << 10})
-    ->Args({8 << 20, 4, 512 << 10})
-    ->Args({32 << 20, 4, 512 << 10})
-    ->Args({64 << 20, 4, 512 << 10})
-    ->Args({32 << 20, 8, 512 << 10})
-    ->Args({32 << 20, 4, 1 << 20})
-    ->Unit(benchmark::kMillisecond);
+void BM_DemIo_MappedChunked(benchmark::State& state) {
+  run_read_bench(state, &vista::detail::read_all_mapped_chunked,
+                 "MappedFile+io_pipeline");
+}
+
+void BM_DemIo_FileLoader(benchmark::State& state) {
+  run_read_bench(state, &read_loader_fixed, "FileLoader p=4 blk=512KiB");
+}
+
+// Head-to-head sizes: 1 / 8 / 32 / 64 MiB (warm page cache).
+#define DEM_IO_SIZE_ARGS          \
+  ->Arg(1 << 20)                  \
+      ->Arg(8 << 20)              \
+      ->Arg(32 << 20)             \
+      ->Arg(64 << 20)             \
+      ->Unit(benchmark::kMillisecond)
+
+BENCHMARK(BM_DemIo_Baseline) DEM_IO_SIZE_ARGS;
+BENCHMARK(BM_DemIo_MappedChunked) DEM_IO_SIZE_ARGS;
+BENCHMARK(BM_DemIo_FileLoader) DEM_IO_SIZE_ARGS;
 
 }  // namespace

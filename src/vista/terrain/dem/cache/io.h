@@ -62,4 +62,12 @@ bool read_all_file_loader(const std::string& path, std::vector<uint8_t>* out,
                           size_t block_size = 512 * 1024,
                           bool warmup = true);
 
-bool read_all(const std::str
+bool read_all(const std::string& path, std::vector<uint8_t>* out,
+              DemIoReadMode mode);
+
+bool write_all(const std::string& path, const void* data, size_t bytes);
+
+}  // namespace detail
+}  // namespace vista
+
+#endif  // VISTA_TERRAIN_DEM_CACHE_IO_H_
