@@ -142,7 +142,7 @@ std::string sibling_chrome_json_path(const char* out_path) {
       (json_path.ends_with(".txt") || json_path.ends_with(".TXT"))) {
     json_path.replace(json_path.size() - 4, 4, ".json");
   } else {
-    json_path += ".chrome.json";
+    json_path += ".horizon.json";
   }
   return json_path;
 }
@@ -180,7 +180,7 @@ void write_chrome_json(const char* out_path) {
   if (out) {
     out << process_trace().dump();
   }
-  std::fprintf(stderr, "[startup-profile] text=%s chrome=%s\n", out_path,
+  std::fprintf(stderr, "[startup-profile] text=%s horizon=%s\n", out_path,
                json_path.c_str());
   std::fflush(stderr);
 }

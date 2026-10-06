@@ -15,7 +15,7 @@ S3_CC = ROOT / "src/content/browser/present/scene3d/scene3d_presenter.cc"
 BUILD = ROOT / "src/content/BUILD.gn"
 MAP_TEST = ROOT / "src/content/browser/present/map2d/map2d_presenter_test.cc"
 S3_TEST = ROOT / "src/content/browser/present/scene3d/scene3d_presenter_test.cc"
-CAPTURE = ROOT / "src/app/views/shell/harness/common/capture/scene3d_capture.cc"
+CAPTURE = ROOT / "src/app/views/harness/common/capture/scene3d_capture.cc"
 
 FILES = [MAP_H, MAP_CC, S3_H, S3_CC, BUILD, MAP_TEST, S3_TEST, CAPTURE]
 
@@ -297,7 +297,7 @@ S3_H_TEXT = r"""// Copyright (c) 2026 The Mogu Authors.
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
 #include "content/browser/present/scene3d/software/scene3d_software_painter.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "render/rhi/rhi.h"
 #include "scenic/engine.h"
 #include "tool/draft/draft.h"

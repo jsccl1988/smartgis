@@ -1,0 +1,19 @@
+{
+  "id": "smartgis.report",
+  "name": "分析报告",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "builtin",
+  "author": "The Mogu Authors",
+  "description": "Open a local HTML report sample in the inspector Report dock",
+  "contributes": {
+    "commands": [
+      {"id": "report.open", "title": "打开报告", "menu": "tools"},
+      {"id": "report.post", "title": "推送报告数据", "menu": "tools"}
+    ],
+    "processing": [
+      {"id": "report.open", "title": "Open local HTML report directory"},
+      {"id": "report.post", "title": "Post JSON to the report dock"}
+    ]
+  }
+}

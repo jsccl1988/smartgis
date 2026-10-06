@@ -13,11 +13,11 @@ views dialogs).
 | --- | --- |
 | `toolkit/` | `input_text`, `select_one` |
 | `catalog/` | CatalogView (tabs host); CreateMap/Layer/Datasource, AddBasemap modals |
-| `shell/` | StatusBar, AtmospherePanel, AmboxView (scroll shell), ChartView (title), **main_app** (SmartGisViews chrome skeleton — product via `ShellLayoutComposer`) |
+| `shell/` | StatusBar, AtmospherePanel, AmboxView (scroll shell), ChartView (title), **main_app** (SmartGisViews horizon skeleton — product via `ShellLayoutComposer`) |
 | `inspect/` | Measure, Selection, FeatureInfo, AttributeTable; AttributeSchema modal |
 | `style/` | Legend, Symbology, LayerProperties |
 | `analysis/` | SpatialAnalysis, Processing, GeoprocessingHistory, ResultPlayback |
-| `debug/` | DebugConsole, RenderTrace, DiagnosticTools (chrome + tabs_host), Memory page |
+| `debug/` | DebugConsole, RenderTrace, DiagnosticTools (horizon + tabs_host), Memory page |
 
 GN `:markup_resources` copies each area to shared **`out/ui/<area>/`**
 (sibling of Debug/Release, same pattern as `out/data/`). Runtime:

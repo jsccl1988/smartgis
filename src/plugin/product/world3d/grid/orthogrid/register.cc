@@ -246,6 +246,13 @@ bool register_world3d_orthogrid(content::PluginHost* host) {
           })) {
     return false;
   }
+  if (!contribute_prefixed_commands(
+          host, prefixes, "create_orth_grid", "Create orth grid", kMenuId,
+          [host](const tool::CommandArgs& args) {
+            return create_orth_grid_processing(host, args.payload);
+          })) {
+    return false;
+  }
   if (!contribute_prefixed_processing(
           host, prefixes, "create_orth_grid", "Create orth grid",
           create_orth_grid_processing)) {

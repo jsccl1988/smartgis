@@ -61,11 +61,6 @@ class PluginHostImpl final : public PluginHost {
   MapContents* map_contents() override { return maps_; }
   EventBus* events() override { return events_; }
   tool::CommandCatalog* commands() override { return catalog_; }
-  plugin::ProcessingPool* processing_pool() override { return pool_; }
-
-  void set_processing_pool(plugin::ProcessingPool* pool) override {
-    pool_ = pool;
-  }
 
   void set_processing_enqueue(ProcessingEnqueue fn) override {
     enqueue_ = std::move(fn);
@@ -282,9 +277,28 @@ class PluginHostImpl final : public PluginHost {
 
   void set_gis_document(GisDocument* doc) override { gis_doc_ = doc; }
 
-  Scene3dSink* scene3d_sink() override { return &scene3d_sink_; }
-
   Playback* playback() override { return &playback_; }
+
+  bool set_capability(std::string_view capability_id, void* iface) override {
+    if (capability_id.empty()) {
+      return false;
+    }
+    const std::string id(capability_id);
+    if (!iface) {
+      capabilities_.erase(id);
+      return true;
+    }
+    capabilities_[id] = iface;
+    return true;
+  }
+
+  void* query_capability(std::string_view capability_id) const override {
+    auto it = capabilities_.find(std::string(capability_id));
+    if (it == capabilities_.end()) {
+      return nullptr;
+    }
+    return it->second;
+  }
 
   bool contribute_export_frame(std::string_view plugin_id,
                                const ExportFrameContribution& frame) override {
@@ -380,49 +394,17 @@ class PluginHostImpl final : public PluginHost {
     }
   }
 
-  void set_report_bridge(ReportOpenFn open,
-                         ReportPostFn post,
-                         ReportCloseFn close) override {
-    report_open_ = std::move(open);
-    report_post_ = std::move(post);
-    report_close_ = std::move(close);
-  }
-
-  bool open_report(std::string_view report_dir) override {
-    if (!report_open_) {
-      return false;
-    }
-    return report_open_(report_dir);
-  }
-
-  bool post_to_report(std::string_view json) override {
-    if (!report_post_) {
-      return false;
-    }
-    return report_post_(json);
-  }
-
-  void close_report() override {
-    if (report_close_) {
-      report_close_();
-    }
-  }
-
  private:
   tool::CommandCatalog* catalog_ = nullptr;
   EventBus* events_ = nullptr;
   MapContents* maps_ = nullptr;
-  plugin::ProcessingPool* pool_ = nullptr;
   ProcessingEnqueue enqueue_;
   UiWithdrawHook ui_withdraw_hook_;
-  ReportOpenFn report_open_;
-  ReportPostFn report_post_;
-  ReportCloseFn report_close_;
   PresentDatasetFn present_dataset_;
   int present_surface_ = 0;
   GisDocument* gis_doc_ = nullptr;
-  Scene3dSink scene3d_sink_;
   Playback playback_;
+  std::map<std::string, void*> capabilities_;
 
   std::map<std::string, tool::CommandHandler> handlers_;
   std::map<std::string, std::string> command_owners_;
@@ -437,62 +419,6 @@ class PluginHostImpl final : public PluginHost {
 };
 
 }  // namespace
-
-void PluginHost::Scene3dSink::set_bridges(AddStandinMeshFn mesh,
-                                          AttachTilesetFn tileset,
-                                          InvalidateFn invalidate) {
-  add_mesh_ = std::move(mesh);
-  attach_tileset_ = std::move(tileset);
-  invalidate_ = std::move(invalidate);
-}
-
-void PluginHost::Scene3dSink::invalidate() const {
-  if (invalidate_) {
-    invalidate_();
-  }
-}
-
-void PluginHost::Scene3dSink::set_overlay_bridges(SetOverlayTinMeshFn mesh,
-                                                  SetOverlayTinDrapeFn drape,
-                                                  ClearOverlayTinFn clear) {
-  overlay_tin_mesh_fn_ = std::move(mesh);
-  overlay_tin_drape_fn_ = std::move(drape);
-  clear_overlay_tin_fn_ = std::move(clear);
-}
-
-void PluginHost::Scene3dSink::set_earth_bridges(
-    OpenEarthFn open_earth, FlyToFn fly_to, LoadGlobalDemFn load_global_dem,
-    SetSatelliteCloudFn set_satellite_cloud, SetAtmosphereFn set_atmosphere) {
-  open_earth_ = std::move(open_earth);
-  fly_to_ = std::move(fly_to);
-  load_global_dem_ = std::move(load_global_dem);
-  set_satellite_cloud_ = std::move(set_satellite_cloud);
-  set_atmosphere_ = std::move(set_atmosphere);
-  earth_bridges_installed_ = static_cast<bool>(open_earth_);
-}
-
-bool PluginHost::Scene3dSink::set_overlay_tin_mesh(
-    const float* xyz_lon_lat_elev, int point_count, const unsigned* indices,
-    int index_count, const uint8_t* albedo_rgba) const {
-  return overlay_tin_mesh_fn_
-             ? overlay_tin_mesh_fn_(xyz_lon_lat_elev, point_count, indices,
-                                    index_count, albedo_rgba)
-             : false;
-}
-
-bool PluginHost::Scene3dSink::set_overlay_tin_drape(
-    const uint8_t* rgba, uint32_t width, uint32_t height, const float* uv,
-    int uv_float_count) const {
-  return overlay_tin_drape_fn_
-             ? overlay_tin_drape_fn_(rgba, width, height, uv, uv_float_count)
-             : false;
-}
-
-void PluginHost::Scene3dSink::clear_overlay_tin_mesh() const {
-  if (clear_overlay_tin_fn_) {
-    clear_overlay_tin_fn_();
-  }
-}
 
 PluginHost* create_plugin_host(tool::CommandCatalog* catalog,
                                EventBus* events,

@@ -18,9 +18,7 @@
 
 #include "content/browser/document/store/layer_store.h"
 #include "content/browser/document/style/style_bind.h"
-#include "content/public/catalog_layers.h"
-#include "content/public/feature_attrs.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "gis/style/style_types.h"
 #include "gis/tile/provider/tile_provider.h"
 #include "vista/terrain/process/land_mask.h"
@@ -75,6 +73,9 @@ class MapScene {
   bool has_style_document() const { return style_.has_style_document(); }
   const gis::style::StyleDocument* style_document() const {
     return style_.style_document();
+  }
+  std::shared_ptr<gis::style::StyleDocument> style_document_shared() const {
+    return style_.style_document_shared();
   }
 
   // Optional XYZ/WMTS TileProvider drawn under vectors (mockable via set_fetch_fn).

@@ -258,9 +258,9 @@ All rights reserved.
   </p>
   <div class="meta">
     <span class="chip"><b>范围</b> Views 终局</span>
-    <span class="chip"><b>入口</b> src/app/views/main.cc</span>
+    <span class="chip"><b>入口</b> src/app/views/app/main.cc</span>
     <span class="chip"><b>产物</b> out/Debug|Release/SmartGIS.exe</span>
-    <span class="chip"><b>更新</b> 2026-09-28</span>
+    <span class="chip"><b>更新</b> 2026-10-06</span>
   </div>
 </header>
 
@@ -353,8 +353,8 @@ All rights reserved.
     <tbody>
       <tr>
         <td>Product shell</td>
-        <td><code>src/app/views/</code></td>
-        <td>PE 入口、Browser、BrowserView、PluginShell</td>
+        <td><code>src/app/views/{app,browser,ui,harness,runtime}</code></td>
+        <td>PE 入口、Browser、BrowserView、PluginShell（无额外 <code>shell/</code> 目录）</td>
       </tr>
       <tr>
         <td>Views toolkit</td>
@@ -397,7 +397,7 @@ All rights reserved.
   </p>
 
   <div class="diagram">
-<pre class="flow">wWinMain (src/app/views/main.cc)
+<pre class="flow">wWinMain (src/app/views/app/main.cc)
   │  parse_views_launch_options  →  ViewsLaunchOptions
   │  apply_shell_canvas_preference
   ▼
@@ -647,12 +647,12 @@ content::content_main(params, ViewsContentHost)
     <tbody>
       <tr>
         <td><code>wWinMain</code></td>
-        <td class="file">src/app/views/main.cc</td>
+        <td class="file">src/app/views/app/main.cc</td>
         <td>PE 入口</td>
       </tr>
       <tr>
         <td><code>ViewsContentHost</code></td>
-        <td class="file">src/app/views/shell/app/views_content_host.h</td>
+        <td class="file">src/app/views/app/host/content_host.h</td>
         <td>四角色桥接</td>
       </tr>
       <tr>
@@ -667,27 +667,27 @@ content::content_main(params, ViewsContentHost)
       </tr>
       <tr>
         <td><code>run_browser_main</code></td>
-        <td class="file">src/app/views/shell/app/browser_main.cc</td>
+        <td class="file">src/app/views/app/process/browser_main.cc</td>
         <td>Browser 装配与 run_loop</td>
       </tr>
       <tr>
         <td><code>Browser</code></td>
-        <td class="file">src/app/views/shell/browser/browser.{h,cc}</td>
+        <td class="file">src/app/views/browser/browser.{h,cc}</td>
         <td>壳控制器；MapContentsObserver</td>
       </tr>
       <tr>
         <td><code>BrowserUiDelegate</code></td>
-        <td class="file">src/app/views/shell/browser/ui_delegate.h</td>
+        <td class="file">src/app/views/browser/ui_delegate.h</td>
         <td>chrome 抽象面</td>
       </tr>
       <tr>
         <td><code>BrowserView</code></td>
-        <td class="file">src/app/views/shell/ui/browser_view.{h,cc}</td>
+        <td class="file">src/app/views/ui/browser_view.{h,cc}</td>
         <td>Widget + 面板装配</td>
       </tr>
       <tr>
         <td><code>PluginShell</code></td>
-        <td class="file">src/app/views/shell/browser/plugin/plugin_shell.h</td>
+        <td class="file">src/app/views/browser/plugin/plugin_shell.h</td>
         <td>插件宿主</td>
       </tr>
       <tr>

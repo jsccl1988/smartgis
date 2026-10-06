@@ -5,13 +5,14 @@
 
 #include "content/public/gis_document.h"
 #include "plugin/product/world3d/scene/present/style.h"
+#include "plugin/runtime/host/capability/scene3d/sink.h"
 
 #include <cstring>
 
 namespace plugin {
 
 bool present_world3d_surface(content::GisDocument* doc,
-                             content::PluginHost::Scene3dSink* sink,
+                             Scene3dSink* sink,
                              const double* xyz,
                              int point_count,
                              const int* triangles,

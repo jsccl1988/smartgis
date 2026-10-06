@@ -730,7 +730,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
 
   const int cloud_quality = (env && cloud_on) ? env->params().quality : 1;
   vista::OpaqueEffect opaque(&gpu_scene_);
-  // This HWND is the swapchain. Parent chrome is painted on the widget, not
+  // This HWND is the swapchain. Parent horizon is painted on the widget, not
   // here. A fullscreen shell quad replaces the terrain a frame later
   // (correct flash, then a shifted / flat cover). Do not composite it.
   (void)shell;

@@ -42,6 +42,18 @@ int main() {
   expect(vista::terrain_lod_surface_edge(1.0f) ==
              vista::terrain_lod_max_edge(1.0f),
          "surface edge aliases raster edge");
+  expect(vista::terrain_lod_nested_rings(0.5f) >
+             vista::terrain_lod_nested_rings(5.0f),
+         "near camera more nested rings");
+  expect(vista::terrain_lod_nested_edge(1.0f, 0) >=
+             vista::terrain_lod_nested_edge(1.0f, 1),
+         "inner nested ring denser");
+  expect(vista::terrain_lod_tin_stride_at(0.5f, 0.1f, 8.f) <=
+             vista::terrain_lod_tin_stride_at(0.5f, 8.f, 8.f),
+         "spatial TIN stride near <= far");
+  expect(vista::terrain_lod_morph_weight(0.5f, 0) <=
+             vista::terrain_lod_morph_weight(5.0f, 3),
+         "outer far patch morphs more");
 
   vista::World world;
   vista::Node* node = world.attach_terrain("tin_like", 0, 0, 0, 1, 1, 0.2);

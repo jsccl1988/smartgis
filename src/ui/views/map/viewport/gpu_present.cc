@@ -143,7 +143,7 @@ void DrawHost::reveal_gpu_present_if_ready() {
     return;
   }
   // Init may have used a pre-layout client (multi-k px). Re-sync to the embed
-  // before ShowWindow so the DXGI popup cannot cover Catalog / chrome.
+  // before ShowWindow so the DXGI popup cannot cover Catalog / horizon.
   RECT rc = {};
   if (HWND embed = native_view()) {
     GetClientRect(embed, &rc);
@@ -205,7 +205,7 @@ void DrawHost::sync_gpu_present_hwnd(uint32_t width_px,
   ClientToScreen(embed, &tl);
   // Present HWND must stay map-embed-sized. TabStrip (Map/Data/3D) lives on
   // the shell above the embed; an oversized popup covers those headers and
-  // steals OS SendInput clicks meant for chrome.
+  // steals OS SendInput clicks meant for horizon.
   RECT erc = {};
   GetClientRect(embed, &erc);
   int w = erc.right > 0 ? erc.right : (width_px > 0 ? static_cast<int>(width_px) : 1);

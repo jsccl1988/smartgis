@@ -7,7 +7,7 @@
 namespace ui {
 namespace gfx {
 
-// Integer padding on four sides (shell layout / chrome). Not a transform.
+// Integer padding on four sides (shell layout / horizon). Not a transform.
 struct Insets {
   int top = 0;
   int left = 0;

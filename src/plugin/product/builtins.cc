@@ -9,8 +9,11 @@
 #include "content/public/plugin_host.h"
 #include "plugin/product/flood/commands.h"
 #include "plugin/product/geochem/commands.h"
+#include "plugin/product/map2d/commands.h"
 #include "plugin/product/mine/commands.h"
 #include "plugin/product/print/commands.h"
+#include "plugin/product/report/commands.h"
+#include "plugin/product/self_test/commands.h"
 #include "plugin/product/stormsurge/commands.h"
 #include "plugin/product/traffic/commands.h"
 #include "plugin/product/world3d/commands.h"
@@ -70,6 +73,8 @@ void install_product_resource_roots(const std::string& plugins_dir) {
   set_resource_root("smartgis.mine", join_package(plugins_dir, "mine"));
   set_resource_root("smartgis.geochem",
                     join_package(plugins_dir, "geochem"));
+  set_resource_root("smartgis.map2d", join_package(plugins_dir, "map2d"));
+  set_resource_root("smartgis.report", join_package(plugins_dir, "report"));
 }
 
 bool register_builtin_plugins(Registry* registry, content::PluginHost* host) {
@@ -83,7 +88,7 @@ bool register_builtin_plugins(Registry* registry, content::PluginHost* host) {
     bool (*start)(content::PluginHost*);
   };
   // Display names match leftover AuxModule Ambox labels (UTF-8).
-  // Product packs only + shared processing catalog — chrome never lists these.
+  // Product packs only + shared processing catalog — horizon never lists these.
   const Builtin builtins[] = {
       {"smartgis.world3d", "DEM生成", register_world3d},
       {"smartgis.traffic", "城市交通最佳路径", register_traffic},
@@ -92,6 +97,9 @@ bool register_builtin_plugins(Registry* registry, content::PluginHost* host) {
       {"smartgis.mine", "矿山地层插值", register_mine},
       {"smartgis.geochem", "地球化学分析", register_geochem},
       {"smartgis.print", "地图打印", register_print},
+      {"smartgis.map2d", "二维地图样例", register_map2d},
+      {"smartgis.report", "分析报告", register_report},
+      {"smartgis.self_test", "Views self-test", register_self_test},
       {"smartgis.processing", "Processing", register_builtin_processing},
   };
 

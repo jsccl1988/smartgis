@@ -144,7 +144,7 @@ void test_nested_hover_via_generator() {
   expect(gen.move_to(35, 35), "move onto inner");
   expect(inner->is_hovered(), "inner hovered");
   expect(host.widget.hovered_view() == inner, "widget hover inner");
-  expect(gen.move_to(5, 5), "move to root chrome");
+  expect(gen.move_to(5, 5), "move to root horizon");
   expect(!inner->is_hovered(), "inner unhovered");
 }
 

@@ -28,7 +28,7 @@ class ThemeObserver;
 // Top-level native HWND that owns a View tree and dispatches input / paint.
 class UI_EXPORT Widget {
  public:
-  // kSystem keeps OS non-client chrome. kCustom uses a caption-less HWND
+  // kSystem keeps OS non-client horizon. kCustom uses a caption-less HWND
   // (WS_POPUP + thickframe) and collapses NC into the client so FrameView
   // can paint the caption (CSD). Do not combine kCustom with WS_CAPTION —
   // DWM would still draw a second OS title bar.
@@ -110,7 +110,7 @@ class UI_EXPORT Widget {
   // wake paint after async raster). |dirty| is the client rect rastered for
   // that generation. Hosts should copy_shell_raster() into
   // MapViewport::commit_shell_overlay / DrawRequest.shell — prefer skipping
-  // when |dirty| does not intersect map panes (chrome hover).
+  // when |dirty| does not intersect map panes (horizon hover).
   // Cleared automatically in fire_will_close before host teardown.
   using OnShellPublished = std::function<void(const Rect& dirty)>;
   void set_on_shell_published(OnShellPublished fn);
@@ -118,7 +118,7 @@ class UI_EXPORT Widget {
   void layout_contents();
   // Pump the UI queue until a compositor generation is published, or
   // |timeout_ms| elapses. First ShowWindow otherwise BitBlts an empty front
-  // (near-black chrome + map hole) until the worker's first raster.
+  // (near-black horizon + map hole) until the worker's first raster.
   void pump_until_shell_published(unsigned timeout_ms);
   // Full-client invalidate (resize / theme). Prefer schedule_paint_rect for
   // hover / local control updates so mouse-move does not dirty the whole HWND.

@@ -152,7 +152,7 @@ void DesignerShell::build_ui() {
     palette->set_preferred_size({140, 22 + tag_rows * 32});
   }
   auto palette_scroll = std::make_unique<ScrollView>();
-  // Match main_app.ui.css shell (~620x480) plus a little chrome margin so
+  // Match main_app.ui.css shell (~620x480) plus a little horizon margin so
   // Yoga is not forced to stack Map/Data/3D under a squeezed map_edit.
   palette_scroll->set_preferred_size({148, 500});
   palette_scroll->add_child(std::move(palette));

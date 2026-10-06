@@ -18,7 +18,7 @@ product packages). Layout:
 | `grid/dem/` | Heightmap/trimesh `loader/` + Views `dialog/` (+ markup) + `tests/` |
 | `grid/orthogrid/` | 2D `lattice/` `session/` `solve/` |
 | `grid/hexgrid/` | 3D `lattice/` `sample/` `io/` `solve/` |
-| `scene/` | True-Earth + leftover `model3d.*` (`register.cc`) |
+| `scene/` | True-Earth looks + globe fly + leftover `model3d.*` (`register.cc`) |
 | `resources/data/` | Data stub README (copy → `out/plugins/world3d/data`) |
 | `detail/contribute.h` | Command/processing alias helper |
 
@@ -32,6 +32,8 @@ Shell includes only `plugin/product/world3d/commands.h`.
 | `world3d.load_global_dem` | JSON `{path?}` — custom/global DEM GeoTIFF; empty → resolve defaults then China stand-in |
 | `world3d.set_satellite_cloud` | JSON `{path?,enabled?}` — satellite cloud cover field or procedural deck |
 | `world3d.set_atmosphere` | JSON `{sky?,ocean?,cloud?,fog?}` — explicit atmosphere pass toggles |
+| `world3d.apply_look` | JSON `{mode}` — `land` / `ocean` / `full` / `coast` / `globe` / `legacy` / `east_china` (former `--atmosphere-showcase` looks) |
+| `world3d.fly_globe` | JSON `{t?}` — cinematic globe fly-in beat in `[0,1]` (space→clouds→DEM→ocean) |
 | `world3d.fly_to` | JSON `{lon,lat,distance?,span_deg?}` — local orbit reframe |
 | `world3d.attach_city_tileset` | JSON `{path?}` — 3D Tiles JSON (empty → `m3_city_tileset.json`) |
 | `world3d.add_pointcloud` / LAS | Existing pointcloud hook |
@@ -69,9 +71,9 @@ non-China extents are not forced back to the China box.
 `Browser::install_plugin_host_bridges` sets `PluginHost::gis_document()` and
 `Scene3dSink` (`set_bridges` + `set_earth_bridges` for
 `open_earth` / `load_global_dem` / `set_satellite_cloud` / `set_atmosphere` /
-`fly_to` / `attach_tileset`). Unset → `no_scene_device`. Orthogrid / hexgrid
-commit through `gis_document()` + `orthogrid.present_frame` /
-`orthogrid3d.present_frame`.
+`fly_to` / `attach_tileset`; `set_look_bridges` for `apply_look` / `fly_globe`).
+Unset → `no_scene_device`. Orthogrid / hexgrid commit through `gis_document()` +
+`orthogrid.present_frame` / `orthogrid3d.present_frame`.
 
 Satellite cloud with a path calls
 `AtmosphereSession::load_fields("<path>:cloud_cover")`.
@@ -101,4 +103,6 @@ Interactive: Tools → **打开真三维地球** / **加载全球DEM** / **卫�
 - Satellite cloud without a GeoTIFF uses procedural atmosphere clouds, not
   live meteorological imagery streaming.
 - City tiles = local fixture stream, not production city coverage.
-- Fly-to is extent reframe, not cinematic path animation.
+- Fly-to is extent reframe. Cinematic globe fly lives on `world3d.fly_globe`
+  (`scene/fly/globe_fly.*`); `--atmosphere-showcase=globe` is a harness HWND
+  capture of that product path.

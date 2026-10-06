@@ -1,0 +1,17 @@
+{
+  "id": "smartgis.map2d",
+  "name": "二维地图样例",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "builtin",
+  "author": "The Mogu Authors",
+  "description": "China carto, MapLibre align style, and orthogrid mesh seed for map2d harness suites",
+  "contributes": {
+    "commands": [
+      {"id": "map2d.seed", "title": "加载二维样例", "menu": "tools"}
+    ],
+    "processing": [
+      {"id": "map2d.seed", "title": "Seed map2d showcase document"}
+    ]
+  }
+}

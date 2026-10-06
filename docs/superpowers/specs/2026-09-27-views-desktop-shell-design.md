@@ -7,8 +7,8 @@ All rights reserved.
 
 **Status:** active  
 **Date:** 2026-09-27  
-**Updated:** 2026-10-06 — `plugin/product/builtins` façade; PluginShell opaque register. Prior same day — Scene3dSink install folded into `plugin_host_wiring.cc`; runtime seams `plugin_present` · `plugin_playback`. Prior same day — plugin host seams at `runtime/` root; chrome no product stores. Prior 2026-10-05 — drop `map/` root include forwards. Same day — **§DrawHost naming** (UI primary canvas; no map/flycube vocabulary). Same day — **§Views primitives composition** (radio tree exclusivity, TreeView/ScrollView hit+wheel, markup attrs). Same day — **§Views kernel seams** (layout drain, CommitGate, caption cancel). Same day — **§UI chrome equal-profile harness** (`harness-auto-ui-opt`). Same day — **§DrawHost paint composition** (2D ContentMapView leftover SharedSurface is not SoT; viewport paint split by responsibility). Prior 2026-10-04 — **§Content browser subdirectory tighten** (C11: fold thin `browser/` siblings; flatten `document/` helpers). Prior same day — C10 remaining root TUs into `{bootstrap,contents,catalog,attrs,plugin,session}/` (scheme C; public/ unchanged). Prior 2026-10-03 — `content/browser/present/scene3d/{policy,stereo}` folded into `session/` (scheme C as-built). Prior 2026-10-02 — GIS product modals colocated under `ui/gis/catalog|inspect` (drop flat `dialogs/`; `AttStruct` → `AttributeSchema`). Prior same-day §Horizon product brand; `*Chrome` → `*Composer` / `init_shell` / `ui/views/map/frame` batch rename. Prior same-day §Debug Console D1–D7; UI Views shell HTML; §shell/ui composers; §Shell chrome layout; §Declarative markup; §Startup profile; 2026-10-01 — §Visual review; `ui/views/map` nest; §Chromium Browser plugin writers; §IL interaction recorder. Prior 2026-09-30 — §Shell perf / compositor; §UI visual forensics; §Harness suite loop. Do not open new dated twins.  
-**Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · [`../diagrams/map-viewport-paint.html`](../diagrams/map-viewport-paint.html) · [`../diagrams/content-browser-layers.html`](../diagrams/content-browser-layers.html) · [`../diagrams/debug-console-agent.html`](../diagrams/debug-console-agent.html) · as-built process [`../diagrams/views-window-process.html`](../diagrams/views-window-process.html)
+**Updated:** 2026-10-06 — harness `--self-test` dispatches `smartgis.self_test` commands (`contribute_command`); chrome keeps adapter + CLI only. Prior same day — as-built lock: `src/app/views/{app,browser,ui,harness,runtime,util}` peers (no extra `shell/` dir; GIS capabilities stay in `content/browser`). Prior same day — merge `content/public/{map_types,catalog_layers,feature_attrs}.h` → `map_layer_types.h`. Prior same day — `runtime/interact/` by concern (`wire`/`policy`/`io`/`host`/`exec`; façade `apply.*`). Prior same day — `runtime/` peers `capability/` · `interact/` · `plugin/`. Prior same day — `app/` process-entry subdirs (`host/` · `process/` · `cmdline/` · `startup/`; `main.cc` under `app/`). Prior same day — product chrome → **horizon** in `src/` (Interact `exec/horizon`; Chrome Trace / Chromium `chrome/` unchanged). Prior same day — drop extra `shell/` nesting (`app/views/{app,browser,ui,harness,runtime}`). Prior same day — `plugin/product/builtins` façade; PluginShell opaque register. Prior same day — Scene3dSink install folded into `plugin_host_wiring.cc`; runtime seams `plugin_present` · `plugin_playback`. Prior same day — plugin host seams at `runtime/` root; chrome no product stores. Prior 2026-10-05 — drop `map/` root include forwards. Same day — **§DrawHost naming** (UI primary canvas; no map/flycube vocabulary). Same day — **§Views primitives composition** (radio tree exclusivity, TreeView/ScrollView hit+wheel, markup attrs). Same day — **§Views kernel seams** (layout drain, CommitGate, caption cancel). Same day — **§UI chrome equal-profile harness** (`harness-auto-ui-opt`). Same day — **§DrawHost paint composition** (2D ContentMapView leftover SharedSurface is not SoT; viewport paint split by responsibility). Prior 2026-10-04 — **§Content browser subdirectory tighten** (C11: fold thin `browser/` siblings; flatten `document/` helpers). Prior same day — C10 remaining root TUs into `{bootstrap,contents,catalog,attrs,plugin,session}/` (scheme C; public/ unchanged). Prior 2026-10-03 — `content/browser/present/scene3d/{policy,stereo}` folded into `session/` (scheme C as-built). Prior 2026-10-02 — GIS product modals colocated under `ui/gis/catalog|inspect` (drop flat `dialogs/`; `AttStruct` → `AttributeSchema`). Prior same-day §Horizon product brand; `*Chrome` → `*Composer` / `init_shell` / `ui/views/map/frame` batch rename. Prior same-day §Debug Console D1–D7; UI Views shell HTML; §shell/ui composers; §Shell chrome layout; §Declarative markup; §Startup profile; 2026-10-01 — §Visual review; `ui/views/map` nest; §Chromium Browser plugin writers; §IL interaction recorder. Prior 2026-09-30 — §Shell perf / compositor; §UI visual forensics; §Harness suite loop. Do not open new dated twins.  
+**Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · [`../diagrams/views-runtime-layers.html`](../diagrams/views-runtime-layers.html) · [`../diagrams/map-viewport-paint.html`](../diagrams/map-viewport-paint.html) · [`../diagrams/content-browser-layers.html`](../diagrams/content-browser-layers.html) · [`../diagrams/debug-console-agent.html`](../diagrams/debug-console-agent.html) · as-built process [`../diagrams/views-window-process.html`](../diagrams/views-window-process.html)
 **Plans:** [`../plans/2026-09-20-m0-views-main-path.md`](../plans/2026-09-20-m0-views-main-path.md) · [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md) · compositor / markup / forensics / harness on later § Plan lines
 **Related:**
 
@@ -21,7 +21,7 @@ All rights reserved.
 | SP3 host extract | [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP3 | HWND-free content |
 | Archived capability twin | [`../archive/specs/2026-09-28-app-views-capability-split-design.md`](../archive/specs/2026-09-28-app-views-capability-split-design.md) | superseded |
 | As-built | [`../../../src/app/views/README.md`](../../../src/app/views/README.md) | update when landing |
-| Product brand | **§Horizon product brand** (this file) | SmartGIS Horizon; tree stays `shell/` |
+| Product brand | **§Horizon product brand** (this file) | SmartGIS Horizon; tree is `app/views/{app,browser,ui,harness,runtime}` |
 | Stack layering | **§Chromium-style app/views layering** (this file) | Chromium map + deps + gaps |
 
 ---
@@ -30,7 +30,7 @@ All rights reserved.
 
 ### 1.1 Goal
 
-1. **Directory = responsibility** under `src/app/views/{shell,document,camera,present,input}/`. No root forwarding headers.
+1. **Directory = responsibility** under `src/app/views/{app,browser,ui,harness,runtime}/`. GIS capabilities (`document/` `camera/` `present/` `input/`) live in `src/content/browser/`. No root forwarding headers.
 2. **Top bar** is four dropdown menus: File, Edit, View, Layer. `MenuBar::add_item` remains for other callers.
 3. **View navigation** is one command table shared by the View menu and the map-canvas right-click. AM Box does not list those commands.
 4. **Navigation gaps** in this cycle: extent history, zoom to active layer, zoom to selection, session bookmarks, status-bar scale, identify.
@@ -55,7 +55,7 @@ All rights reserved.
 | 1 | Physical tree in §3. Includes move with the files. No shim headers at `src/app/views/*.h`. |
 | 2 | `ui::views::MenuBar::add_menu(label, items)` opens `show_context_menu` under that top item. Existing `add_item` stays. |
 | 3 | Product shell uses only `add_menu`. Flat Open/Save/Map/… buttons go away. |
-| 4 | `shell/browser/commands/view_commands` owns the navigation table. View menu and map right-click both render it. |
+| 4 | `browser/commands/view_commands` owns the navigation table. View menu and map right-click both render it. |
 | 5 | Map right-click is the navigation table only. Render backends are View-menu-only, after a separator. |
 | 6 | AM Box grouping drops every `view.*` id and the placeholder Pan item. Select, Edit, and plugin Tools stay. Placeholder Identify is removed from AM Box. |
 | 7 | New navigation ids are handled in the shell. They are not added to `tool::CommandCatalog`, so AM Box cannot list them. |
@@ -65,7 +65,7 @@ All rights reserved.
 | 11 | Empty active layer, empty selection, or exhausted extent stack: the command runs, the status bar explains, the extent does not change. |
 | 12 | Git: work on `master`. No feature branch. |
 | 13 | Tests in §6. Do not add new `--self-test` scenes. Existing self-test assertions stay; only include paths change. |
-| 14 | Product brand for the destination Views shell is **Horizon** (SmartGIS Horizon). Engineering tree stays `src/app/views/shell/` — do **not** introduce `src/chrome/`. See §Horizon product brand. |
+| 14 | Product brand for the destination Views shell is **Horizon** (SmartGIS Horizon). Engineering tree stays `src/app/views/` — do **not** introduce `src/chrome/`. See §Horizon product brand. |
 
 ---
 
@@ -77,13 +77,13 @@ All rights reserved.
 | --- | --- | --- |
 | Product brand | **SmartGIS Horizon** | External / docs / release talk track for the Views + Skia destination shell |
 | Binary (today) | `SmartGIS.exe` | Official product PE (2026-10-04; was `SmartGIS.exe`). Leftover MFC is `SmartGIS-Legacy.exe` |
-| Engineering tree | `src/app/views/shell/` | Maps Chromium’s `chrome/browser` role; directory stays `shell` |
+| Engineering tree | `src/app/views/` | Maps Chromium’s `chrome/browser` role; peers `app/` `browser/` `ui/` `harness/` `runtime/` (no extra `shell/` dir) |
 | Toolkit | `src/ui/views` + `src/ui/gis` | Unchanged |
-| Common noun “chrome” | UI frame around the map | Code uses `*Composer` / `init_shell` / `ui/views/map/frame`; common noun “shell chrome” may remain in prose |
+| Common noun | UI frame around the map | Product frame is **horizon** in code/comments (`exec/horizon`, `*Composer`). Chromium tree `chrome/` and Chrome Trace format keep those names. |
 
 **Non-goals**
 
-- Do not rename `shell/` → `horizon/` or `chrome/` in this lock.
+- Do not rename `app/views/` → `horizon/` or `chrome/` in this lock.
 - `*Chrome` composer types and files were renamed to `*Composer` (2026-10-02 batch).
 - Do not reintroduce `src/chrome/` or a WebView2 / `src/web` stack.
 
@@ -91,64 +91,73 @@ All rights reserved.
 
 ## 3. Target tree
 
-Capability ownership for `document/` / `camera/` / `present/` / `input/` is locked in §Capability split (archived twin [`2026-09-28-app-views-capability-split-design.md`](../archive/specs/2026-09-28-app-views-capability-split-design.md)). Those modules stay outside `shell/`. **`shell/`** follows the Chromium Browser / BrowserView layout in §Chromium Browser / BrowserView (Approach 1).
+Capability ownership for `document/` / `camera/` / `present/` / `input/` is locked in §Capability split (archived twin [`2026-09-28-app-views-capability-split-design.md`](../archive/specs/2026-09-28-app-views-capability-split-design.md)). Those modules stay in `src/content/browser/`. Product horizon lives as **peers under `src/app/views/`** (Chromium Browser / BrowserView layout in §Chromium Browser / BrowserView).
 
 ```
 src/app/views/
   BUILD.gn
   README.md
-  main.cc                         # wWinMain glue only (parse → content_main)
 
-  shell/
-    app/                          # process entry + content host
-      browser_main.h / .cc
-      views_content_host.h
-      cmdline/
-        views_launch_options.h / .cc
-        views_launch_options_test.cc
-    browser/                      # controller (no concrete UI widgets)
-      browser.h / .cc             # session ownership + public controller API
-      commands/
-        app_commands.h / .cc
-        catalog_commands.cc
-        view_commands.h / .cc     # navigation table + menu item builder
-        view_commands_test.cc
-      nav/
-        draft_nav.cc
-      plugin/
-        plugin_shell.h / .cc
-    ui/                           # Widget tree only
-      browser_view.h / .cc        # layout + thin forwards; owns *Composer helpers
-      shell_layout_composer.h / .cc  # ShellLayoutComposer (markup + imperative layout)
-      pages/
-        map_pages_composer.h / .cc  # MapPagesComposer (tabs/viewports/gestures)
-      panels/
-        processing_composer.h / .cc
-        inspect_composer.h / .cc
-        inspector_sync_composer.h / .cc
-        debug_console_composer.h / .cc
-        atmosphere_composer.h / .cc
-        report_panel.h / .cc      # ReportPanel View (not a BrowserView method TU)
-    harness/
-      showcase/
-        atmosphere/
-        map2d/
-        ui/
-        input/
-      self_test/
-        self_test.h
-        probe.h / .cc
-        run_self_test.cc
-        console_self_test.cc
-        shell_ready.cc
-        edit_m0.cc
-        layers_m1.cc
-        navigate.cc
-        present.cc
-        layout_bounds.cc
-        milestones.cc
-    util/
-      exe_sidecar_path.h
+  app/                          # process entry + content host (≈ chrome/app)
+    main.cc                     # wWinMain glue (parse → content_main)
+    host/
+      content_host.h            # ViewsContentHost (four process roles)
+    process/
+      browser_main.h / .cc      # run_browser_main
+    cmdline/
+      launch_entry.h / .cc      # CLI flags → scenario_id registry
+      views_launch_options.h / .cc
+      views_launch_options_test.cc
+    startup/
+      policy.h / .cc            # Scene3d/Map2d gates before Browser::init
+  browser/                      # controller (no concrete UI widgets)
+    browser.h / .cc             # session ownership + public controller API
+    commands/
+      app_commands.h / .cc
+      catalog_commands.cc
+      view_commands.h / .cc     # navigation table + menu item builder
+      view_commands_test.cc
+    nav/
+      draft_nav.cc
+    plugin/
+      plugin_shell.h / .cc
+  ui/                           # Widget tree only
+    browser_view.h / .cc        # layout + thin forwards; owns *Composer helpers
+    shell_layout_composer.h / .cc  # ShellLayoutComposer (markup + imperative layout)
+    pages/
+      map_pages_composer.h / .cc  # MapPagesComposer (tabs/viewports/gestures)
+    panels/
+      processing_composer.h / .cc
+      inspect_composer.h / .cc
+      inspector_sync_composer.h / .cc
+      debug_console_composer.h / .cc
+      atmosphere_composer.h / .cc
+      report_panel.h / .cc      # ReportPanel View (not a BrowserView method TU)
+  harness/
+    showcase/
+      atmosphere/
+      map2d/
+      ui/
+      input/
+    self_test/
+      self_test.h
+      probe.h / .cc
+      run_self_test.cc
+      console_self_test.cc
+      shell_ready.cc
+      edit_m0.cc
+      layers_m1.cc
+      navigate.cc
+      present.cc
+      layout_bounds.cc
+      milestones.cc
+  runtime/
+    capability/                 # fill_host + run_script
+    interact/                   # apply façade; concerns: wire / policy / io / host / exec
+      exec/                     # horizon / document / plugin / showcase / input
+    plugin/                     # present / playback / preview_host (host seams)
+  util/
+    exe_sidecar_path.h
 
 # Landed under content (Approach 2):
 #   src/content/browser/document/   MapScene
@@ -158,9 +167,9 @@ src/app/views/
 
 Include examples after the shell reshape:
 
-- `app/views/shell/app/browser_main.h`
-- `app/views/shell/browser/browser.h`
-- `app/views/shell/ui/browser_view.h`
+- `app/views/app/process/browser_main.h`
+- `app/views/browser/browser.h`
+- `app/views/ui/browser_view.h`
 - `content/browser/session/map_session.h`
 - `content/browser/document/map_scene.h`
 - `content/browser/camera/view_frame.h`
@@ -292,45 +301,51 @@ Maps SmartGIS product host layers to Chromium habits. This section is the **stac
 | compositor / viz frame | `present/*/frame`, `paint/`, `host/` | Frame prep, software paint, present-surface helpers |
 | viewport / transform helpers | `camera/` | **Sibling** of shell — shared by present, document (hit-test coords), and shell |
 | input routing | `input/` | **Sibling** — HWND gesture adapters only |
-| browser process entry | `shell/app` | `browser_main`, `ViewsContentHost`, CLI11 cmdline |
+| browser process entry | `app/` | `main.cc`, `process/browser_main`, `host/content_host`, CLI11 `cmdline/` |
 
 ### Target tree (locked shape)
 
-Physical directories already match this tree (2026-09-28 as-built). No new capability roots. No forwarding headers at `src/app/views/*.h`.
+Physical directories match this tree (2026-10-06 as-built). No extra `shell/` nesting. GIS capability roots are **not** under `app/views` (see §Content sink). No forwarding headers at `src/app/views/*.h`.
 
 ```
 src/app/views/
-  main.cc                         # wWinMain glue only
-  shell/
-    app/                          # process entry (≈ browser process host)
-      browser_main.*
-      views_content_host.h
-      cmdline/
-    browser/                      # Browser controller (≈ chrome/browser)
-      browser.*                   # owns session; public controller API
-      commands/                   # pure tables / builders (no Widget)
-      nav/                        # draft / extent navigation helpers on Browser
-      plugin/                  # PluginShell + plugin_host_wiring (bridges only)
-    ui/                           # BrowserView only (≈ chrome/browser/ui)
-      browser_view.*              # Widget tree + thin forwards; holds Browser*
-      pages/                      # MapPagesComposer
-      panels/                     # *Composer helpers + ReportPanel
-    harness/
-      showcase/
-      self_test/
-  document/                       # MapScene — layers/features (≈ content data)
-  camera/                         # ViewFrame, OrbitFrame, ViewNavigation — SIBLING
-  present/                        # map2d / scene3d present stack (see §Present)
-  input/                          # MapHwndGestures — SIBLING
+  app/                            # process entry (≈ chrome/app)
+    main.cc                       # wWinMain glue
+    host/content_host.h
+    process/browser_main.*
+    cmdline/
+    startup/policy.*
+  browser/                        # Browser controller (≈ chrome/browser)
+    browser.*                     # owns MapSession; public controller API
+    commands/                     # pure tables / builders (no Widget)
+    nav/                          # draft / extent navigation helpers on Browser
+    plugin/                       # PluginShell + plugin_host_wiring (bridges only)
+  ui/                             # BrowserView only (≈ chrome/browser/ui)
+    browser_view.*                # Widget tree + thin forwards; holds Browser*
+    pages/                        # MapPagesComposer
+    panels/                       # *Composer helpers + ReportPanel
+  harness/
+    common/                       # capture / io / mark / present / pump
+    showcase/
+    self_test/
+  runtime/
+    capability/
+    interact/
+    plugin/
+  util/
+    exe_sidecar_path.h
+
+# GIS capabilities (not under app/views):
+#   src/content/browser/{document,camera,present,input,session,…}
 ```
 
 ### Ownership
 
 | Layer | Owns | Must not own |
 | --- | --- | --- |
-| `shell/app` | Process entry, launch options, content host glue | Session objects, Widget tree, paint |
-| `shell/browser` (`Browser`) | `MapScene`, `ViewFrame`, `OrbitFrame`, `ViewNavigation`, presenters + stereo session, `BlitFrameCache`, `MapHwndGestures`×3, `MapContents` / `ViewHost`s, `PluginShell`, `unique_ptr<BrowserView>` | Concrete Widget layout code; GDI/RHI paint TUs |
-| `shell/ui` (`BrowserView`) | Widget tree (MenuBar, splitters, TabStrip, DrawHost chrome, status); `Browser*` | Session members listed above; camera types as owned fields |
+| `app/` | Process entry, launch options, content host glue | Session objects, Widget tree, paint |
+| `browser/` (`Browser`) | `MapScene`, `ViewFrame`, `OrbitFrame`, `ViewNavigation`, presenters + stereo session, `BlitFrameCache`, `MapHwndGestures`×3, `MapContents` / `ViewHost`s, `PluginShell`, `unique_ptr<BrowserView>` | Concrete Widget layout code; GDI/RHI paint TUs |
+| `ui/` (`BrowserView`) | Widget tree (MenuBar, splitters, TabStrip, DrawHost chrome, status); `Browser*` | Session members listed above; camera types as owned fields |
 | `document/` | Layer/feature/OGR state | View transform, HDC, rhi Device |
 | `camera/` | Extents, orbit, navigation stack | Shell chrome, present paint |
 | `present/` | Facade + frame/paint/session/host (see §Present) | Shell menus; camera ownership |
@@ -339,18 +354,20 @@ src/app/views/
 ### Allowed dependencies (hard)
 
 ```
-shell/ui  →  shell/browser  →  { document, camera, present, input }
-shell/app →  shell/browser     (constructs Browser; thin content_main host)
+ui/  →  browser/  →  content/browser/{document,camera,present,input,session}
+app/ →  browser/     (constructs Browser; thin content_main host)
 ```
+
+Role nicknames `shell/ui` / `shell/browser` in older slices mean these physical dirs (no extra `src/app/views/shell/`).
 
 | Edge | Rule |
 | --- | --- |
-| `shell/ui` → `shell/browser` | Required. UI talks to controller via `Browser*`. |
-| `shell/browser` → `{document,camera,present,input}` | Required. Browser owns / orchestrates those capabilities. |
-| `shell/browser` → concrete `shell/ui` widgets | **Forbidden** (target). Prefer `BrowserWindow`-like abstract surface or callbacks; today `browser.cc` still includes `browser_view.h` for lifecycle — harden in next slices. |
-| `present` → `shell` | **Forbidden.** |
-| `camera` under `shell/` | **Forbidden.** Camera stays a **sibling** of `shell/`. |
-| `document` / `input` → `shell` | **Forbidden.** |
+| `ui/` → `browser/` | Required. UI talks to controller via `Browser*`. |
+| `browser/` → `content/browser/{document,camera,present,input}` | Required. Browser owns `MapSession`, which orchestrates those capabilities. |
+| `browser/` → concrete `ui/` widgets | **Forbidden** (target). Prefer `BrowserUiDelegate`; `browser.cc` must not include `browser_view.h`. |
+| `present` → `app/views` | **Forbidden.** |
+| `camera/` under `app/views/` | **Forbidden.** Camera lives in `content/browser/camera/`. |
+| `document` / `input` → `app/views` | **Forbidden.** |
 | Compat / forwarding shims at old paths | **Forbidden.** Colocate `.h` with `.cc`; update includes in the same change. |
 
 Shell may include only present **facades** + `session/` + `host/` headers it needs — not deep `paint/` internals.
@@ -359,9 +376,9 @@ Shell may include only present **facades** + `session/` + `host/` headers it nee
 
 | Area | As-built | Target gap |
 | --- | --- | --- |
-| Capability dirs | `document/` `camera/` `present/` under `content/browser/`; `input/` may still be under `app/views` until sink lands | Finish `input/` move per §Content sink |
+| Capability dirs | `document/` `camera/` `present/` `input/` under `content/browser/` | None for chrome paths (C11 content tighten is a separate §) |
 | `present/` Chromium split | facade / frame / paint / session / host | None for layout; see present README |
-| `shell/{app,browser,ui}` dirs | Present | None for paths |
+| `app/views/{app,browser,ui,harness,runtime}` dirs | Present (no extra `shell/`) | None for paths |
 | Session ownership | Fields live on `Browser` | Done for members |
 | Controller logic | Nav / tool / catalog / file / extent on `Browser` (`commands/`, `nav/`); product present/compute in `src/plugin/product` | Residual: some pages/panels TUs still carry wide UI includes |
 | Fat `browser_view.cc` | Shell + menus/ambox/status; controller moved; panel/page wire in `*Composer` helpers | Optional: `ShellLayoutComposer` for `build_contents`; `detail/ptr_guard.h` |
@@ -394,21 +411,18 @@ Shell may include only present **facades** + `session/` + `host/` headers it nee
 4. [x] S4 — `browser_view.*` is Widget chrome + thin wire; pages/panels UI accessors + forwards.
 5. [x] S5 — `BrowserUiDelegate` / `create_browser_ui`; GN `:shell_ui` → `:shell_browser` only.
 6. [x] Sync as-built blurbs in `src/app/views/README.md` / `docs/superpowers/src-layout.md` (no new dated specs).
-7. [x] S6 — product present moved to `src/plugin/product` processing; chrome keeps `plugin_shell` + `plugin_host_wiring` + `runtime/plugin_{present,playback}`; `browser.cc` is lifecycle/chrome only.
+7. [x] S6 — product present moved to `src/plugin/product` processing; chrome keeps `plugin_shell` + `plugin_host_wiring` + `runtime/plugin/{present,playback}`; `browser.cc` is lifecycle/chrome only.
 
 ---
 
 ## §Capability split（merged 2026-09-28）
 
-Directory = capability. Supersedes earlier §3 buckets `document/` + `input/` + `scene3d/` for ownership of transform/paint. Stack contract: **§Chromium-style app/views layering**.
+Directory = capability. **Physical chrome** is §3 / §Chromium-style (no extra `shell/` dir). GIS trees below were **moved** to `src/content/browser/` (§Content sink). Stack contract: **§Chromium-style app/views layering**.
 
 ```
-src/app/views/
-  document/     # MapScene — layers/features/OGR; no view transform, HDC, or rhi Device
-  camera/       # ViewFrame, OrbitFrame, ViewNavigation, map_host_extent
-  present/      # Chromium-style present stack (see §Present layering below)
-  input/        # MapHwndGestures only (HWND adapter)
-  shell/        # Chromium Browser / BrowserView — see §Chromium Browser / BrowserView
+# Historical (pre-sink) sketch — do not recreate under app/views:
+#   document/ camera/ present/ input/   →  content/browser/{…}
+#   shell/                              →  app/views/{app,browser,ui,harness,runtime}
 ```
 
 | Locked | Choice |
@@ -479,20 +493,20 @@ Shell includes only facades + `session/` + `host/` headers it needs.
 ### Goal
 
 1. Parse Views PE switches with **CLI11** (third_party header-only), not hand-rolled `wcsstr`.
-2. Keep `main.cc` as thin glue: argv → `ViewsLaunchOptions` → `ContentMainParams` → `content_main`.
-3. Split browser assembly, atmosphere showcase, and self-test dispatch into `shell/` modules.
+2. Keep `app/main.cc` as thin glue: argv → `ViewsLaunchOptions` → `ContentMainParams` → `content_main`.
+3. Split browser assembly, atmosphere showcase, and self-test dispatch into `app/` + `harness/` modules.
 
 ### Locked decisions
 
 | # | Decision |
 | --- | --- |
 | P1 | Library: CLI11 under `third_party/.src/CLI11` (manifest pin, `install_skip`, thin GN like octree). |
-| P2 | App options: `app::ViewsLaunchOptions` + `parse_views_launch_options(argc, argv)` in `shell/app/cmdline/`. |
+| P2 | App options: `app::ViewsLaunchOptions` + `parse_views_launch_options(argc, argv)` in `app/cmdline/`. |
 | P3 | Switches: `--type`, `--self-test`, `--atmosphere-showcase`, `--atmosphere-fields` (CLI11 accepts `=` and space forms). |
 | P4 | `--type` is parsed in app; set `ContentMainParams::process_type` + `process_type_set=true`. |
 | P5 | `content_main`: if `process_type_set` use the field; else fall back to `ProcessTypeFromCommandLine` (tests / legacy). |
-| P6 | `ViewsContentHost` holds `ViewsLaunchOptions`; `shell/app/browser_main` calls `run_browser_main(params, options)` which constructs `Browser` (§Chromium Browser / BrowserView). |
-| P7 | Showcase body stays in `shell/harness/showcase/`; self-test in `shell/harness/self_test/`; both take `Browser&` after P2. Behavior and exit codes unchanged. |
+| P6 | `ViewsContentHost` holds `ViewsLaunchOptions`; `app/process/browser_main` calls `run_browser_main(params, options)` which constructs `Browser` (§Chromium Browser / BrowserView). |
+| P7 | Showcase body stays in `harness/showcase/`; self-test in `harness/self_test/`; both take `Browser&` after P2. Behavior and exit codes unchanged. |
 | P8 | No global CommandLine singleton. Public namespace stays `app` (two layers). |
 | P9 | Git: work on `master`. |
 
@@ -516,7 +530,7 @@ wWinMain → parse_views_launch_options → ContentMainParams{process_type_set}
 ## §China product defaults（interactive ↔ showcase, 2026-09-30）
 
 **Status:** active  
-**As-built:** `shell/browser/china_product_defaults.{h,cc}`; callers: `Browser::fit_map_extent`, `BrowserView::switch_map_tab`, `--map2d-showcase=china`, `--atmosphere-showcase=full`.
+**As-built:** `browser/china_product_defaults.{h,cc}`; callers: `Browser::fit_map_extent`, `BrowserView::switch_map_tab`, `--map2d-showcase=china`, `--atmosphere-showcase=full`.
 
 ### Locked decisions
 
@@ -550,19 +564,19 @@ Split the product shell like Chromium: a **`Browser`** controller owns session s
 
 | # | Decision |
 | --- | --- |
-| B1 | Target tree under `shell/` is Directory A (below). `document/` / `camera/` / `present/` / `input/` unchanged **siblings**. No shim headers. **Camera must not move under shell.** |
+| B1 | Target tree under `src/app/views/` is Directory A (below). `document/` / `camera/` / `present/` / `input/` stay in `content/browser`. No shim headers. **Camera must not move under app/views.** |
 | B2 | Ownership A: `Browser` owns session objects listed below; `BrowserView` owns only the Widget tree and holds `Browser*`. |
 | B3 | Lifecycle: `run_browser_main` → `Browser` → owns `BrowserView`. |
-| B4 | Deps: `shell/ui` → `shell/browser` → `{document,camera,present,input}`. Never `present` → `shell`. `browser` must not include concrete UI widget headers (`BrowserWindow` abstract / callbacks OK). |
+| B4 | Deps: `ui/` → `browser/` → `{document,camera,present,input}`. Never `present` → `app/views`. `browser` must not include concrete UI widget headers (`BrowserWindow` abstract / callbacks OK). |
 | B5 | Public API A: controller accessors and command/session APIs live on `Browser`. `BrowserView` exposes UI accessors only. Public namespace stays `app`. |
 | B6 | Scope C: reshape covers process entry (`app/`), controller (`browser/`), UI (`ui/`), plus `harness/{showcase,self_test}/`. Menus / AM Box / paint rules stay as §2–§4 and map2d-frame. |
 | B7 | Git: work on `master`. No feature branch. No new dated twin for this split. |
 
-### Target `shell/` tree
+### Target `app/views/` tree
 
 ```
-src/app/views/shell/
-  app/          # browser_main, ViewsContentHost, cmdline/
+src/app/views/
+  app/          # main + host/ + process/ + cmdline/ + startup/
   browser/      # Browser controller + commands/ + nav/ + plugin/
   ui/           # BrowserView + pages/ + panels/
   harness/
@@ -570,7 +584,7 @@ src/app/views/shell/
     self_test/  # probe + stage TUs + run_self_test
 ```
 
-Matches §3 and §Chromium-style app/views layering. Capability dirs stay siblings of `shell/`.
+Matches §3 and §Chromium-style app/views layering. Capability dirs stay in `content/browser`.
 
 ### Ownership
 
@@ -586,11 +600,11 @@ Public controller API on `Browser` (illustrative): `document()`, `view_frame()`,
 ### Dependency direction
 
 ```
-shell/ui  →  shell/browser  →  document/ | camera/ | present/ | input/
-shell/app →  shell/browser  (constructs Browser; thin content_main host)
+ui  →  browser  →  document/ | camera/ | present/ | input/
+app →  browser  (constructs Browser; thin content_main host)
 ```
 
-`browser` does not depend on concrete `shell/ui` widget types (target; see Gaps in §Chromium-style app/views layering). Prefer a `BrowserWindow`-like abstract surface or callbacks for UI notifications.
+`browser` does not depend on concrete `ui` widget types (target; see Gaps in §Chromium-style app/views layering). Prefer a `BrowserWindow`-like abstract surface or callbacks for UI notifications.
 
 ### Migration phases
 
@@ -625,7 +639,7 @@ Phases may land in parallel where paths do not conflict; serialize edits to `bro
 
 | # | Decision |
 | --- | --- |
-| C1 | End-state: `src/app/views` ≈ Chromium `chrome` — only `main.cc` + `shell/`. |
+| C1 | End-state: `src/app/views` ≈ Chromium `chrome` — peers `app/` `browser/` `ui/` `harness/` `runtime/` (no extra `shell/` dir; `main.cc` under `app/`). |
 | C2 | `document/` + `camera/` + present facade/frame/session/host + `input/` → `src/content/browser/{document,camera,present,input}/`. |
 | C3 | Software **paint** TUs stay under `content/browser/present/*/software/` (member TUs of presenters / painters). GPU under `*/gpu/`. **Forbidden:** `src/render` including or depending on `content`. |
 | C4 | Public namespaces for moved types: `content` (internals `content::detail`). `app` keeps shell only (`Browser`, `BrowserView`, commands chrome, PluginShell, cmdline). |
@@ -640,14 +654,13 @@ Phases may land in parallel where paths do not conflict; serialize edits to `bro
 
 ```
 src/app/views/
-  main.cc
-  shell/                    # chrome only (Browser owns MapSession)
+  app/ browser/ ui/ harness/ runtime/ util/   # chrome only (Browser owns MapSession)
 
 src/content/browser/
   bootstrap/                # sample / china map path policy (public/map_bootstrap.h)
   contents/                 # MapContents OOP/GPU pipe (public/map_contents.h)
-  catalog/                  # LayerDesc JSON (public/catalog_layers.h)
-  attrs/                    # feature tokens (public/feature_attrs.h)
+  catalog/                  # LayerDesc JSON (public/map_layer_types.h)
+  attrs/                    # feature tokens (public/map_layer_types.h)
   plugin/                   # PluginHost impl (public/plugin_host.h)
   session/                  # MapSession owns document/camera/present/input + MapContents*
   document/                 # MapScene
@@ -664,7 +677,7 @@ src/content/browser/
 ### Dependencies
 
 ```
-shell/ui → shell/browser → //src/content:map_session
+ui/ → browser/ → //src/content:map_session
 map_session → {map_scene, map_camera, map_present, scene3d_present, map_hwnd_gestures, view_host}
 present → shell          FORBIDDEN
 app/views capability roots FORBIDDEN after land
@@ -696,7 +709,7 @@ C10 把 `browser/` 根上 TU 按 public 头 1:1 拆成 12 个同级目录。职�
 | --- | --- |
 | C10 as-built | `browser/{bootstrap,contents,catalog,attrs,plugin,session,document,camera,present,input,capability,debug}`；根上无 TU |
 | 薄 DLL 实现 | `bootstrap/` `catalog/` `attrs/` `plugin/` 各一对 `.cc`+test（`plugin/` 无 test）；`contents/` 仅 `map_contents.cc`。全部进 `:content`，对应 `public/` 头（头本身不搬家） |
-| 薄 session 卫星 | `input/` 仅 `MapHwndGestures`；调用方是 `session/map_session.h` + `app/views/shell/ui/browser_view.cc` |
+| 薄 session 卫星 | `input/` 仅 `MapHwndGestures`；调用方是 `session/map_session.h` + `app/views/ui/browser_view.cc` |
 | `document/` 过深 | 门面 `map_scene.*` + 五个子目录各 1–3 对文件。`detail::MapLayer` 在 `store/map_layer.h`，易与 `gis/map/map_layer.h` / `gis::MapLayer` 撞名（类型仍分属 hosted vs GIS） |
 | 保持 | `camera/` 已平铺；`present/{map2d,scene3d}/{frame,gpu,software}` + `scene3d/{session,atmosphere}` + `present/host`（C3）；`debug/{wire,policy,schema,cmd}` 已有体量；`capability/host.h` 头文件、GN `:capability` 隔离 |
 | 禁止混淆 | `content::MapSession` ≠ `gis::MapEditSession`；hosted `detail::MapLayer` ≠ `gis::MapLayer`。不要把 document 折进 `gis/edit` |
@@ -752,7 +765,7 @@ gis::Map ↛ content::MapScene
 
 `contents/map_contents.cc` 不动。`BUILD.gn` `:content` / 三个 `*_test` 改 sources。Grep `"content/browser/{bootstrap,catalog,attrs,plugin}/` 必须空。
 
-- [ ] **P2 `input/` → `session/`** `map_hwnd_gestures.{h,cc}`；改 `session/map_session.h`、`app/views/shell/ui/browser_view.cc`。
+- [ ] **P2 `input/` → `session/`** `map_hwnd_gestures.{h,cc}`；改 `session/map_session.h`、`app/views/ui/browser_view.cc`。
 
 - [ ] **P3 `document/` 拍平**
 
@@ -994,7 +1007,7 @@ Archive twin: [`../archive/specs/2026-09-28-views-declarative-markup-design.md`]
 | `FrameView` / `CaptionButton` | `src/ui/views/kernel/frame/` | Caption strip, drag region, window buttons; client slot below |
 | `Theme` + `ThemeService` | `src/ui/views/kernel/shell/` | Color snapshot + pack registry / observers / persist |
 | `Widget::InitParams::frame_kind` | `kernel/widget/` | `kSystem` (default, tests) / `kCustom` (`WM_NCCALCSIZE` client=window + `WM_NCHITTEST`) |
-| Product shell | `app/views/shell/ui/browser_view.*` | Root is `FrameView`; menus invoke theme commands |
+| Product shell | `app/views/ui/browser_view.*` | Root is `FrameView`; menus invoke theme commands |
 | Dialogs | `ui/views/dialogs/dialog.*` | `frame_kind=custom`; caption without maximize when owned |
 
 **Hit-test contract:** Edges → resize HTs; caption (excluding buttons) → `HTCAPTION`; caption buttons / client → `HTCLIENT` so Views receives clicks. Custom-frame CreateWindow size equals client size (no `AdjustWindowRect` expansion).
@@ -1239,7 +1252,7 @@ Unify outer Python rebuild/retry loops and in-process harness paths under a shar
 | --- | --- | --- |
 | Suite contract | id / argv / env / marks / bmp / loop | `testing/tools/harness/<family>/<id>/suite.json` (JSON for stdlib; no PyYAML) |
 | Outer runner | kill → build → run → score → report | `testing/tools/loop_runner.py` + `loop/` |
-| Inner registry | static `id → run(Browser&)` | `shell/harness/scenario_registry.*` + `scenario_builtins.cc` |
+| Inner registry | static `id → run(Browser&)` | `harness/scenario_registry.*` + `scenario_builtins.cc` |
 
 **Probes:** `marks` and `bmp` (`score_id`: `ui_shell_dark` / `map2d_china` / `atmosphere_full`). `forensics` via suite env (`UI_FORENSICS=1` on `ui.shell`). Trace / live `debug_agent` still optional later.
 
@@ -1313,7 +1326,8 @@ Authoring is **Interact DSL** (`.il`). Approach C: ANTLR **visitor → AST → d
 
 **Status:** active (Wave 2: atomic Host verbs + full `.il` suite bodies — edit scripts without rebuild).  
 **Plan:** [`../plans/2026-09-30-harness-capability-runtime.md`](../archive/plans/2026-09-30-harness-capability-runtime.md)  
-**As-built:** `content/browser/capability/` Host; `app/views/shell/runtime/{capability,interact}/` + root plugin seams (`plugin_present` / `plugin_playback`); Interact verbs via Host (`map2d_run` / `atmosphere_run` / `console_run` / browse / digitize / `run_processing`); Wave 2 adds `resolve_data` / `capture_path` / `sidecar_path` / `doc_clear` / `fit_extent` / `export_bmp` / `apply_style_file` / `suppress_dialogs` / `require_plugins` with `$var` bind via `as=` (no grammar change). DebugAgent `script.run` thin wrap. Suite scripts colocated under `testing/tools/harness/<family>/<suite_id>/*.il`. Product payload stores live under `src/plugin/product` (chrome `runtime/analysis/*` deleted).
+**As-built:** `content/browser/capability/` Host; `app/views/runtime/{capability,interact,plugin}/`; Interact verbs via Host (`map2d_run` / `atmosphere_run` / `console_run` / browse / digitize / `run_processing`); Wave 2 adds `resolve_data` / `capture_path` / `sidecar_path` / `doc_clear` / `fit_extent` / `export_bmp` / `apply_style_file` / `suppress_dialogs` / `require_plugins` with `$var` bind via `as=` (no grammar change). DebugAgent `script.run` thin wrap. Suite scripts colocated under `testing/tools/harness/<family>/<suite_id>/*.il`. Product payload stores live under `src/plugin/product` (chrome `runtime/analysis/*` deleted).  
+**Diagram:** [`../diagrams/views-runtime-layers.html`](../diagrams/views-runtime-layers.html)
 
 ### Intent
 
@@ -1324,11 +1338,11 @@ Deepen the Interact DSL from **UI-only** into a **shared scenario language** for
 | Layer | Path | Owns |
 | --- | --- | --- |
 | Capability Host | `src/content/browser/capability/` | Callback bag + core verb helpers (`pump` / `mark` / `wait_ready` / `load_sample` / `detach_maps` / map input). No dep on `app::Browser`. |
-| Shell runtime | `src/app/views/shell/runtime/` | Peer trees `capability/` · `interact/` plus **plugin host seams** at the runtime root (`plugin_present` / `plugin_playback`). |
-| → capability | `runtime/capability/` | `fill_host` + `run_interact_script` / `try_run_suite_script`. |
-| → interact | `runtime/interact/` | ANTLR gen + `try_apply_interact` / `is_interact_path` (`:interact`). |
-| → plugin seams | `runtime/plugin_present.*` · `plugin_playback.*` · `browser/plugin/plugin_host_wiring.cc` | Tab/dataset present; plugin-agnostic ResultPlayback; Scene3dSink install (file-local in wiring). No flood/traffic/orthogrid payload. |
-| Harness | `src/app/views/shell/harness/` | `ScenarioRegistry` + suite adapters; showcase/self_test become thin or deleted as scripts land. |
+| Shell runtime | `src/app/views/runtime/` | Peer trees `capability/` · `interact/` · `plugin/`. |
+| → capability | `runtime/capability/` | `fill_host` composes `shell_bind` / `session_bind` / `host_paths` / `export_frame` / `plugin_bind`. `run_script` resolves suite `*.il`. |
+| → interact | `runtime/interact/` | ANTLR gen + `try_apply_interact` / `is_interact_path` (`:interact`). Façade `apply.*`; concerns `wire/` (AST + parse) · `policy/` (args) · `io/` (utf8 files + `os_inject`) · `host/` (CapabilityHost adapters) · `exec/{horizon,document,plugin,showcase,input}`. |
+| → plugin | `runtime/plugin/{present,playback,preview_host}` · `browser/plugin/plugin_host_wiring.cc` | Tab/dataset present; plugin-agnostic ResultPlayback; Scene3dSink install (file-local in wiring). No flood/traffic/orthogrid payload. |
+| Harness | `src/app/views/harness/` | `ScenarioRegistry` + suite adapters; showcase/self_test become thin or deleted as scripts land. |
 | Authoring | `testing/tools/harness/<family>/<suite_id>/*.il` | Source of truth for suite bodies (full migration). |
 | DebugAgent | `content/browser/debug` | `script.run` / `:script` → Host `script_run` callback only. |
 
@@ -1343,15 +1357,20 @@ Deepen the Interact DSL from **UI-only** into a **shared scenario language** for
 | 4b | Wave 2 (2026-09-30): atomic verbs + `$var`/`as=` in DSL; `plugin.*` suites are full `.il` bodies; C++ showcase body removed. |
 | 5 | No Qt; no FlaUI; OS driver path unchanged (`@os` / `loop/interact/os_inject.py`). |
 | 6 | Do not expand product Python DSL in Wave 1. |
-| 7 | Runtime layout (2026-10-06): `capability/` · `interact/` plus plugin host seams `plugin_present` / `plugin_playback`; Scene3dSink install lives in `plugin_host_wiring.cc`. Product payload stores live in `src/plugin/product`. |
+| 7 | Runtime layout (2026-10-06): peers `capability/` · `interact/` · `plugin/`; Scene3dSink install lives in `plugin_host_wiring.cc`. Product payload stores live in `src/plugin/product`. |
+| 8 | Interact subdirectory (2026-10-06): compose by concern — `wire/` (AST + parse) · `policy/` (args) · `io/` (files + HWND inject) · `host/` (CapabilityHost) · `exec/` verbs. Public façade stays `apply.*` at `interact/` root. Dispatch is a lane table in `exec/exec.cc`. |
+| 9 | Capability fill (2026-10-06): `fill_host` only sequences binders — `shell_bind` / `session_bind` / `host_paths` / `export_frame` / `plugin_bind`. Suite path search shares `find_named_under`. |
 
 ### Checklist
 
 - [x] `content::CapabilityHost` + core helpers; GN `//src/content:capability`.
-- [x] `shell/runtime` fill Host + `run_script`; DSL uses Host for shared verbs.
+- [x] `runtime/` fill Host + `run_script`; DSL uses Host for shared verbs.
 - [x] DebugAgent `script.run` + `:script <path>` wired from `BrowserView::bind_debug_agent_host`.
-- [x] Move Interact under `shell/runtime/interact/` (`apply.*`; was `dsl/`).
-- [x] Split `runtime/` into `capability/` + `interact/` + plugin host seams (`plugin_present` / `plugin_playback`; Scene3dSink install in `plugin_host_wiring`). Product stores are not chrome.
+- [x] Move Interact under `runtime/interact/` (`apply.*`; was `dsl/`).
+- [x] Split `interact/` into parse / args / io / exec lanes / host / inject (drop `exec_shell` god TU).
+- [x] Split interact by concern (`wire` / `policy` / `io` / `host` / `exec`); keep `apply.*` at module root; `horizon` not leftover `chrome`.
+- [x] Split `runtime/` into `capability/` + `interact/` + `plugin/` (`present` / `playback` / `preview_host`; Scene3dSink install in `plugin_host_wiring`). Product stores are not chrome.
+- [x] `fill_host` composes shell / session / paths / export / plugin binders; suite search shares `find_named_under`.
 - [x] Migrate suite scripts: `ui.*` → `input` → `browse` → `map2d.*` → `atmosphere.*` → `console`.
 - [x] Update `docs/superpowers/ui-testing.md` as-built once Wave 1 compiles green.
 - [ ] Wave 2 atomic verbs + migrate `plugin.*` `.il` full bodies; delete C++ showcase bodies when marks/BMP match.
@@ -1705,7 +1724,7 @@ Host an inspector **Report** tab that embeds `plugin::ReportBrowser` (v1 WebView
 | # | Choice |
 | --- | --- |
 | 1 | `ui::views::ReportPanel` in inspector TabStrip (`Report`), peer to Playback / Analysis. |
-| 2 | Browser installs `PluginHost::set_report_bridge` → panel `open` / `post` / `close`. |
+| 2 | Browser fills `plugin::ReportBridge` (`plugin.report` capability) → panel `open` / `post` / `close`. |
 | 3 | Panel owns child HWND for WebView2; layout syncs bounds with the Views node. |
 | 4 | Soft-fail when Runtime / loader missing; panel shows status, shell stays up. |
 | 5 | Archived CEF product shell remains **rejected**; optional later `CefReportBrowser` only as ReportBrowser backend. |
@@ -1832,7 +1851,7 @@ Checklist:
 
 **Status:** active  
 **Updated:** 2026-10-02  
-**Owns:** deep split of `src/app/views/shell/ui` after S1–S5 file-only multi-TU landed.
+**Owns:** deep split of `src/app/views/ui` after S1–S5 file-only multi-TU landed.
 
 ### Before → after
 

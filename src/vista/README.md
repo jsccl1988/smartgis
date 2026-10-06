@@ -18,7 +18,7 @@ Target names below are authoritative even while sources are mid-move. `frame/` a
 | Owns | Does not own |
 | --- | --- |
 | `vista::Layout` → `MapIR` / `DrawItem` | `gis::style` / `gis::tile` / OGR open (those stay `gis.dll`) |
-| `vista::World` node graph; CPU `Instance`, sync, tess, cull, index; DEM domain; CPU mesh; point-cloud codecs | HWND, Views chrome, `ui/gfx` widgets |
+| `vista::World` node graph; CPU `Instance`, sync, tess, cull, index; DEM domain; CPU mesh; point-cloud codecs | HWND, Views horizon, `ui/gfx` widgets |
 | CPU `vista::atmosphere` (`FieldStore` / `Environment`) | Vista types in public headers |
 | GPU `vista::MapPass`, `WorldPass`, `AtmosphereFrame` | Frame-graph vtable (`render/graph/frame_graph.h`) |
 | Leftover adapters compiled **in** (`legacy/gis/vista`) | `#include "legacy/…"` from product TUs here |

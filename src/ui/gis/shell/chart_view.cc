@@ -39,7 +39,7 @@ void draw_segment(ui::gfx::Canvas* canvas,
   canvas->draw_line(x0, y0, x1, y1, color, stroke);
 }
 
-// Series plot surface; title chrome lives in markup.
+// Series plot surface; title horizon lives in markup.
 class ChartPlotView : public View {
  public:
   explicit ChartPlotView(ChartView* owner) : owner_(owner) {}

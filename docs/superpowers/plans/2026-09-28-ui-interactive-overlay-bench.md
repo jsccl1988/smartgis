@@ -113,7 +113,7 @@ All rights reserved.
 
 **Files:**
 - Modify: `src/content/browser/debug/debug_agent.h`, `debug_agent.cc`
-- Modify: `src/app/views/shell/ui/panels/shell_panels.cc` (bind hooks)
+- Modify: `src/app/views/ui/panels/shell_panels.cc` (bind hooks)
 - Test: `src/content/browser/debug/debug_agent_test.cc`
 
 **Interfaces:**

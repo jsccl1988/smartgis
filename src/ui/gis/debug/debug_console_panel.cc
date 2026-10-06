@@ -744,7 +744,7 @@ void DebugConsolePanel::paint_self(ui::gfx::Canvas* canvas) {
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
-  // Top hairline separates console from host chrome (catalog/layer density).
+  // Top hairline separates console from host horizon (catalog/layer density).
   const int hair = dip_to_px(kHairlineDip, scale_factor());
   if (hair > 0 && b.width > 0) {
     canvas->fill_rect(b.x, b.y, b.width, hair, t.panel_header);

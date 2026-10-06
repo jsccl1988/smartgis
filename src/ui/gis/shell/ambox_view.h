@@ -36,7 +36,7 @@ class UI_EXPORT AmboxView : public View {
     kHorizontal,
   };
 
-  // Chip chrome density. Horizontal defaults to icon+label; icon-only is
+  // Chip horizon density. Horizontal defaults to icon+label; icon-only is
   // available for narrow hosts.
   enum class ChipStyle {
     kIconText,
@@ -85,7 +85,7 @@ class UI_EXPORT AmboxView : public View {
       const std::vector<tool::CommandCatalog*>& catalogs,
       std::vector<Group> extra_groups = {});
 
-  // Highlights the matching tool button (horizontal chrome selected plate).
+  // Highlights the matching tool button (horizontal horizon selected plate).
   void set_active_command(std::string id);
   const std::string& active_command() const { return active_id_; }
 

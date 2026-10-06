@@ -28,6 +28,9 @@ struct TerrainPayload {
   uint32_t tex_h = 0;
   int lod_key = 0;
   TerrainSource source = TerrainSource::kUnknown;
+  // Optional per-vertex CDLOD morph [0,1] (size == positions/3). Empty = none.
+  // CPU IR only; TerrainPass does not bind a morph vertex channel.
+  std::vector<float> morph;
 
   bool has_mesh() const {
     return positions.size() >= 9 && (positions.size() % 3) == 0 &&
@@ -44,6 +47,7 @@ struct TerrainPayload {
     positions.clear();
     indices.clear();
     uvs.clear();
+    morph.clear();
   }
 
   void clear_texture() {

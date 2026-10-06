@@ -44,7 +44,7 @@ struct Theme {
 UI_EXPORT std::wstring utf8_to_wide(const std::string& u8);
 UI_EXPORT std::string wide_to_utf8(const wchar_t* w);
 
-// Shell chrome body face (DIP). Commit + measure + GDI raster share this.
+// Shell horizon body face (DIP). Commit + measure + GDI raster share this.
 // 13 DIP is desktop-normal at 96 DPI; HiDPI scales via dip_to_px (was 20,
 // which overcrowded Diagnostic Tools / inspector after row heights scaled).
 inline constexpr int kShellBodyFontDip = 13;

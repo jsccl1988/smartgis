@@ -9,6 +9,7 @@
 
 #include <cstddef>
 
+#include "vista/component/world/terrain/lod.h"
 #include "vista/terrain/dem/dem_height_field.h"
 #include "vista/terrain/dem/dem_raster.h"
 #include "vista/vista_export.h"
@@ -39,6 +40,22 @@ VISTA_EXPORT size_t seed_dem_view_tiles_into_world(
     double view_maxx, double view_maxy, float camera_distance,
     int max_total_vertices = 65536, const char* name_prefix = "dem_tile");
 
+// Nested-grid / CPU-CDLOD: concentric rings around the view center. Each
+// tile's max_edge comes from patch-camera distance (radial from view center)
+// then DemRaster::build_mesh_window. CPU morph weights + Y-up edge skirts
+// hide T-junctions. Not GPU tess or geometry clipmap.
+VISTA_EXPORT size_t seed_dem_nested_grid_into_world(
+    World* world, const DemRaster& dem, double view_minx, double view_miny,
+    double view_maxx, double view_maxy, float camera_distance,
+    int max_total_vertices = 65536, const char* name_prefix = "nested");
+
+// Same nested seed, rings centered on |focus_x,focus_y| (lon/lat, clamped).
+VISTA_EXPORT size_t seed_dem_nested_grid_into_world(
+    World* world, const DemRaster& dem, double view_minx, double view_miny,
+    double view_maxx, double view_maxy, float camera_distance,
+    int max_total_vertices, const char* name_prefix, double focus_x,
+    double focus_y);
+
 // Views / shell helper: load sample DEM, optional land mask, seed World.
 VISTA_EXPORT Node* seed_china_dem_into_world(
     World* world, const LonLatRing* rings, size_t ring_count, const char* name,
@@ -64,12 +81,29 @@ VISTA_EXPORT Node* seed_tin_into_world(World* world,
                                        const OGRTriangulatedSurface* tin,
                                        const char* name);
 
-// Tessellate |tin| then thin triangles by terrain_lod_tin_stride(distance).
-// Writes TerrainPayload on a kTerrain node (same upload path as raster).
+// Tessellate |tin| then thin triangles. Without camera XYZ this is discrete
+// keep-every-Nth via terrain_lod_tin_stride(|camera_distance|).
 VISTA_EXPORT Node* seed_tin_lod_into_world(World* world,
                                            const OGRTriangulatedSurface* tin,
                                            const char* name,
                                            float camera_distance);
+
+// Spatial thin: triangle-centroid distance to |camera_x,y,z| (same space as
+// tessellate_3d_surface positions). Near triangles stay denser than far in
+// one seed. |camera_distance| is the near-bucket floor.
+VISTA_EXPORT Node* seed_tin_lod_into_world(World* world,
+                                           const OGRTriangulatedSurface* tin,
+                                           const char* name,
+                                           float camera_distance,
+                                           float camera_x, float camera_y,
+                                           float camera_z);
+
+// Same spatial thin using a tileset ViewState already in world units.
+VISTA_EXPORT Node* seed_tin_lod_into_world(World* world,
+                                           const OGRTriangulatedSurface* tin,
+                                           const char* name,
+                                           float camera_distance,
+                                           const ViewState& view);
 
 }  // namespace vista
 

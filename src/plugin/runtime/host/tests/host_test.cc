@@ -9,6 +9,7 @@
 #include "plugin/runtime/host/manifest/manifest.h"
 #include "plugin/product/print/commands.h"
 #include "plugin/runtime/host/signature/official_key.h"
+#include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/processing/processing.h"
 #include "plugin/runtime/host/registry/registry.h"
 #include "plugin/runtime/host/signature/signature.h"
@@ -111,6 +112,12 @@ int main() {
     tool::CommandCatalog catalog;
     content::PluginHost* host =
         content::create_plugin_host(&catalog, &bus, nullptr);
+    int token = 7;
+    expect(host->set_capability("test.cap", &token), "set capability");
+    expect(host->query_capability("test.cap") == &token, "query capability");
+    expect(host->set_capability("test.cap", nullptr), "clear capability");
+    expect(host->query_capability("test.cap") == nullptr, "query after clear");
+    expect(!host->set_capability("", &token), "empty capability id");
     int n = 0;
     expect(host->contribute_command(
                "test.fixture", "test.ping", "Ping", "tools",
@@ -451,7 +458,7 @@ int main() {
            "present_dataset with bridge");
 
     // Do not execute world3d/print dialog openers here: suppressed
-    // Dialog::run_modal still constructs Views chrome; registration is enough;
+    // Dialog::run_modal still constructs Views horizon; registration is enough;
     // am_msg → command_id checks below cover the AM surface.
 
     // Former model3d ids (owned by world3d): no scene device -> false.
@@ -517,6 +524,8 @@ int main() {
     tool::CommandCatalog catalog;
     content::PluginHost* host =
         content::create_plugin_host(&catalog, &bus, nullptr);
+    plugin::HostCapabilities caps;
+    caps.attach(host);
     class StubGis : public content::GisDocument {
      public:
       bool create_layer(std::string_view name, std::string_view) override {
@@ -552,8 +561,8 @@ int main() {
                         "gis layer in present");
                  expect(host->present_dataset("test.fixture", "", 0),
                         "present_dataset in present");
-                 expect(host->scene3d_sink() != nullptr, "scene3d sink");
-                 expect(!host->scene3d_sink()->add_standin_mesh("x", 0, 0, 1),
+                 expect(plugin::scene3d_sink(host) != nullptr, "scene3d sink");
+                 expect(!plugin::scene3d_sink(host)->add_standin_mesh("x", 0, 0, 1),
                         "sink default no-op");
                  host->playback()->push_frame("{\"i\":0}");
                  expect(host->playback()->frame_count() == 1, "playback frame");

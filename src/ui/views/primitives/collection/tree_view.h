@@ -45,7 +45,7 @@ class UI_EXPORT TreeView : public View {
                                     float new_scale) override;
   std::string_view paint_role() const override;
 
-  // Row / chrome metrics in device pixels (DIP × widget scale).
+  // Row / horizon metrics in device pixels (DIP × widget scale).
   int row_height() const;
 
  protected:

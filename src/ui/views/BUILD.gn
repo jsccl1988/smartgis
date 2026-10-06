@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Views toolkit + shell gfx + product GIS chrome → one DLL (dll_stem = ui_views).
+# Views toolkit + shell gfx + product GIS horizon → one DLL (dll_stem = ui_views).
 # Product exe is //src/app/views (import/link, not LoadLibrary).
 # Not in //src:src_all or //src/ui:ui (MFC).
 # Single export: UI_EXPORT / UI_EXPORTS (ui/ui_export.h) for all of //src/ui.

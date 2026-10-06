@@ -7,9 +7,9 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** CLI11-parse Views PE switches; slim `main.cc` via `shell/{cmdline,browser_main,showcase}`.
+**Goal:** CLI11-parse Views PE switches; slim `main.cc` via `app/{cmdline,process,host}` + `harness/{showcase,self_test}`.
 
-**Architecture:** App owns `ViewsLaunchOptions`; content dispatches on `ContentMainParams.process_type` when set. Showcase/self-test stay feature modules under `shell/`.
+**Architecture:** App owns `ViewsLaunchOptions`; content dispatches on `ContentMainParams.process_type` when set. Showcase/self-test stay feature modules under `harness/`.
 
 **Tech Stack:** CLI11 (header-only), GN, existing `content::content_main`, `app::BrowserView`.
 
@@ -28,11 +28,11 @@ All rights reserved.
 | --- | --- |
 | `third_party/manifest.json` + `third_party/CLI11/BUILD.gn` | Vendor CLI11 |
 | `src/content/app/content_main.h` | `process_type` / `process_type_set` |
-| `src/app/views/shell/app/cmdline/*` | Parse API + unit test |
-| `src/app/views/shell/app/browser_main.*` | Browser process body |
-| `src/app/views/shell/app/views_content_host.h` | Host adapter |
-| `src/app/views/shell/harness/showcase/*` | Atmosphere / map2d / ui / input showcase |
-| `src/app/views/main.cc` | Thin `wWinMain` |
+| `src/app/views/app/cmdline/*` | Parse API + unit test |
+| `src/app/views/app/process/browser_main.*` | Browser process body |
+| `src/app/views/app/host/content_host.h` | Host adapter |
+| `src/app/views/harness/showcase/*` | Atmosphere / map2d / ui / input showcase |
+| `src/app/views/app/main.cc` | Thin `wWinMain` |
 | `src/app/views/BUILD.gn` | Sources + `//third_party:CLI11` |
 
 ---

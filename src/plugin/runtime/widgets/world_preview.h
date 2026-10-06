@@ -14,7 +14,7 @@
 
 namespace plugin {
 
-// Shared Scene3d / globe preview for world3d-style product chrome. Owns a
+// Shared Scene3d / globe preview for world3d-style product horizon. Owns a
 // DrawHost (Role::kScene3d) plus a StatusBar for attach / document text.
 class PLUGIN_HOST_EXPORT WorldPreviewView : public ui::views::View {
  public:

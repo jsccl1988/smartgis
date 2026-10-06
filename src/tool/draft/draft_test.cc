@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/public/event_bus.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "gis/edit/memory_session.h"
 #include "tool/draft/draft.h"
 #include "tool/workspace/workspace.h"

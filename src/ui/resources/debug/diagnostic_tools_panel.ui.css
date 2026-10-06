@@ -1,5 +1,5 @@
-/* DiagnosticToolsPanel — chrome + tabs_host for Output/Console/Trace/Memory.
- * Heights/widths are DIP preferred sizes applied in C++ (apply_chrome_metrics).
+/* DiagnosticToolsPanel — horizon + tabs_host for Output/Console/Trace/Memory.
+ * Heights/widths are DIP preferred sizes applied in C++ (apply_horizon_metrics).
  * Do not pin CSS height/width in px: Yoga treated them as physical pixels while
  * shell body glyphs use dip_to_px, so title/toolbar clipped under the Console
  * tab strip (ui.shell: diagnostic console obscured). */

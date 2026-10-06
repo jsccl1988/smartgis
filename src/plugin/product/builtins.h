@@ -14,7 +14,7 @@ namespace plugin {
 
 class Registry;
 
-// Chrome PluginShell must not include product commands.h. This façade owns the
+// Horizon PluginShell must not include product commands.h. This façade owns the
 // shipped builtin table (product packs + smartgis.processing) and resource
 // roots under --plugins-dir.
 bool register_builtin_plugins(Registry* registry, content::PluginHost* host);

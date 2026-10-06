@@ -3,7 +3,7 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# `src/ui/gis` — Product GIS chrome
+# `src/ui/gis` — Product GIS horizon
 
 GIS panels and product dialogs layered **above** `//src/ui/views` and **below** `//src/app/views`.
 
@@ -36,10 +36,10 @@ Toolkit-only dialogs (`Dialog`, `MessageBox`, `FilePicker`, `InputText`, `Select
 
 Wave1–3 panels load markup from
 `resources/{shell,inspect,style,analysis,catalog,debug}/`.
-Debug chrome (DebugConsole / RenderTrace / DiagnosticTools shell + `tabs_host`)
-and Memory tab page chrome are markup-driven; tab pages still mount C++ children
+Debug horizon (DebugConsole / RenderTrace / DiagnosticTools shell + `tabs_host`)
+and Memory tab page horizon are markup-driven; tab pages still mount C++ children
 (Output/Console/Trace + Memory chart paint). Ambox scroll shell and ChartView
-title chrome are markup; dynamic tool buttons and series plot stay C++.
+title horizon are markup; dynamic tool buttons and series plot stay C++.
 LayerTree stays custom paint (CatalogView already hosts it).
 
 ## Layering

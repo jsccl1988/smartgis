@@ -6,6 +6,7 @@
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/public/gis_document.h"
 #include "plugin/runtime/host/present/gis_present.h"
+#include "plugin/runtime/host/capability/scene3d/sink.h"
 
 #include <algorithm>
 #include <cmath>
@@ -118,7 +119,7 @@ bool paint_surge_mask_cells(content::GisDocument* doc,
 }  // namespace
 
 bool present_stormsurge_mask(content::GisDocument* doc,
-                             content::PluginHost::Scene3dSink* sink,
+                             Scene3dSink* sink,
                              content::Scene3dPresenter* scene3d,
                              const unsigned char* mask,
                              int width,

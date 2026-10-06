@@ -12,7 +12,7 @@ class PluginHost;
 
 namespace plugin {
 
-// Print chrome: Save exports a composed page. The map face is the main Views
+// Print horizon: Save exports a composed page. The map face is the main Views
 // Map tab (PluginHost::present_dataset), not a nested MapPreviewView.
 class PrintPreviewDialog : public ui::views::View {
  public:

@@ -8,6 +8,7 @@
 #include "gis/analysis/geology/borehole.h"
 #include "gis/analysis/geology/stratum_tin.h"
 #include "plugin/runtime/host/present/gis_present.h"
+#include "plugin/runtime/host/capability/scene3d/sink.h"
 
 #include <algorithm>
 #include <cmath>
@@ -519,7 +520,7 @@ bool build_mine_volume_mesh(const gis::detail::BoreholeSet& holes,
 // Borehole sticks (map LineString footprint) + stratum TIN (map2d polygons) +
 // scene3d overlay: layered prism volume, textured sides, borehole cylinders.
 bool present_mine_stratum(content::GisDocument* doc,
-                          content::PluginHost::Scene3dSink* sink,
+                          Scene3dSink* sink,
                           content::Scene3dPresenter* scene3d,
                          const gis::detail::StratumTin& tin,
                          const gis::detail::BoreholeSet& holes,

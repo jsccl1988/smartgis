@@ -1,0 +1,179 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>app/views/runtime — 子目录与流水线</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --cap: #2563a8; --dsl: #2f7d62; --plug: #b06a1a; --host: #6b5ea8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  @media (max-width: 960px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2); min-height: 180px;
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.78rem; color: var(--muted); }
+  .lane.cap { border-top: 3px solid var(--cap); }
+  .lane.dsl { border-top: 3px solid var(--dsl); }
+  .lane.plug { border-top: 3px solid var(--plug); }
+  .lane.host { border-top: 3px solid var(--host); }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 11px; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .note { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .pulse { stroke-dasharray: 7 5; animation: dash 0.9s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>app/views/runtime — 子目录与流水线</h1>
+    <p>Views 壳 runtime 三个对等目录：<code>capability/</code> 填 Host 并跑脚本；
+      <code>interact/</code> 解析并执行 Interact.g4；<code>plugin/</code> 是插件无关的 present / playback / preview 缝。
+      产品 payload 仍在 <code>src/plugin/product</code>，不进本树。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Harness capability runtime</a>
+      · 插件缝：<a href="../specs/2026-09-13-plugin-host-design.md">plugin-host-design</a>
+      · As-built：<a href="../src-layout.md">src-layout</a>
+    </div>
+    <div class="rel">相关图：
+      <a href="./ui-views-shell-architecture.html">Views shell</a>
+      <a href="./content-browser-layers.html">content/browser</a>
+      <a href="./plugin-analysis-processing.html">analysis processing</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层</h2>
+    <div class="lanes">
+      <div class="lane cap">
+        <h3>capability/ — 入口</h3>
+        <ul>
+          <li><code>fill_host</code> 只编排 binder：shell / session / paths / export / plugin</li>
+          <li><code>run_script</code>：解析 suite <code>*.il</code> 路径并调用 apply</li>
+          <li>DebugAgent <code>script.run</code> 只走 Host 回调</li>
+        </ul>
+      </div>
+      <div class="lane dsl">
+        <h3>interact/ — DSL</h3>
+        <ul>
+          <li>根：<code>apply</code>（公共入口，组合各层）</li>
+          <li><code>wire/</code> AST+parse · <code>policy/</code> args · <code>io/</code> 文件+HWND · <code>host/</code> Host 适配</li>
+          <li><code>exec/</code>：horizon / document / plugin / showcase / input</li>
+          <li>ANTLR gen 在 <code>out/*/gen</code>，不入库</li>
+        </ul>
+      </div>
+      <div class="lane plug">
+        <h3>plugin/ — 壳缝</h3>
+        <ul>
+          <li><code>present</code>：主视图 / preview 数据集</li>
+          <li><code>playback</code>：插件无关 ResultPlayback 时钟</li>
+          <li><code>preview_host</code>：surface=1 Map/World preview</li>
+          <li>不出现 flood / traffic / orthogrid 名字</li>
+        </ul>
+      </div>
+      <div class="lane host">
+        <h3>content Host — 动词袋</h3>
+        <ul>
+          <li><code>content/browser/capability/</code></li>
+          <li>无 <code>app/views</code> 依赖</li>
+          <li>Scene3dSink 安装在 <code>browser/plugin/plugin_host_wiring.cc</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（parse → exec → present）</h2>
+    <svg class="diagram" viewBox="0 0 1080 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="runtime pipeline">
+      <rect x="16" y="24" width="200" height="88" rx="8" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="28" y="50">1. capability</text>
+      <text class="box-sub" x="28" y="70">fill_host / run_script</text>
+      <text class="box-sub" x="28" y="88">suite *.il 路径</text>
+
+      <rect x="248" y="24" width="220" height="88" rx="8" fill="#e6f4ee" stroke="#2f7d62"/>
+      <text class="box-title" x="260" y="50">2. interact parse</text>
+      <text class="box-sub" x="260" y="70">io/ + wire/ + apply</text>
+      <text class="box-sub" x="260" y="88">try_apply_interact</text>
+
+      <rect x="500" y="24" width="240" height="88" rx="8" fill="#e6f4ee" stroke="#2f7d62"/>
+      <text class="box-title" x="512" y="50">3. interact exec</text>
+      <text class="box-sub" x="512" y="70">exec/* 动词车道</text>
+      <text class="box-sub" x="512" y="88">host/ + io/os_inject</text>
+
+      <rect x="772" y="24" width="288" height="88" rx="8" fill="#f7efe4" stroke="#b06a1a"/>
+      <text class="box-title" x="784" y="50">4. plugin seams</text>
+      <text class="box-sub" x="784" y="70">present / playback / preview</text>
+      <text class="box-sub" x="784" y="88">产品 store 在 plugin/product</text>
+
+      <path class="pulse" d="M216 68 L248 68" fill="none" stroke="#2563a8" stroke-width="2"/>
+      <path class="pulse" d="M468 68 L500 68" fill="none" stroke="#2f7d62" stroke-width="2"/>
+      <path class="pulse" d="M740 68 L772 68" fill="none" stroke="#b06a1a" stroke-width="2"/>
+
+      <rect x="16" y="148" width="1048" height="108" rx="8" fill="#f0f3f7" stroke="#d8dee6"/>
+      <text class="lane-label" x="28" y="172" fill="#5a6a7e">谁等谁</text>
+      <text class="box-sub" x="28" y="196">content::CapabilityHost 是回调袋：interact 只调 Host，从不 #include Browser。</text>
+      <text class="box-sub" x="28" y="216">capability 填袋并选脚本；plugin/ 由 Browser / PluginShell 持有，Harness 只消费 Host 动词。</text>
+      <text class="box-sub" x="28" y="236">ANTLR 工人在 gen；exec 车道并行于职责而非线程 — 同一次 apply 串行走 stmt。</text>
+    </svg>
+    <p class="note">动画虚线表示控制流，不是 GPU 提交。runtime 不加入 <code>content.dll</code>。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 路径对照</h2>
+    <table class="map">
+      <thead>
+        <tr><th>职责</th><th>路径</th><th>不要放</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Host 填充 / 跑脚本</td><td><code>runtime/capability/</code></td><td>产品插件名、showcase mode</td></tr>
+        <tr><td>DSL 前端 + 动词</td><td><code>runtime/interact/{apply,wire,policy,io,host,exec}</code></td><td>Browser / PluginShell</td></tr>
+        <tr><td>Present / Playback</td><td><code>runtime/plugin/{present,playback,preview_host}</code></td><td>flood/traffic/orthogrid payload</td></tr>
+        <tr><td>Host 动词实现</td><td><code>content/browser/capability/</code></td><td><code>app/views</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

@@ -314,7 +314,7 @@ void test_gantt_lane_geom_spaced() {
   GanttLaneGeom g{};
   expect(compute_gantt_lane_geom(0, 200, 8, 5, &g), "geom ok");
   expect(g.lane_h >= 14, "min lane height");
-  expect(g.lane_top == 8, "chrome inset");
+  expect(g.lane_top == 8, "horizon inset");
   // Five labels must not share the same y.
   const int y0 = g.lane_top;
   const int y1 = g.lane_top + g.lane_h;

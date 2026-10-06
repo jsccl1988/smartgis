@@ -1,0 +1,124 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PluginHost 能力表 — 内容宿主不识别具体插件</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #e8f0f8; --cpu: #eaf4ee; --gpu: #f4eee6;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  @media (max-width: 800px) { .lanes { grid-template-columns: 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    min-height: 150px;
+  }
+  .lane.ui { background: var(--ui); }
+  .lane.cpu { background: var(--cpu); }
+  .lane.gpu { background: var(--gpu); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; }
+  .lane p, .lane li { margin: 0 0 4px; font-size: 0.8rem; color: var(--muted); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    font-size: 0.82rem;
+  }
+  .step {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; min-width: 120px;
+  }
+  .step strong { display: block; color: var(--accent); font-size: 0.75rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+  .step.active { animation: pulse 2.4s ease-in-out infinite; border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1><code>content::PluginHost</code> 通用能力表</h1>
+    <p class="meta">内容公共 API 只做贡献点 + 不透明 <code>set_capability</code> / <code>query_capability</code>。产品插件名与 Scene3D / Report 门面在 <code>plugin_host.dll</code> 与 chrome 注册，不进 <code>content/public/plugin_host.h</code>。</p>
+  </header>
+
+  <section class="panel">
+    <h2>分层（谁拥有什么）</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>content.dll</h3>
+        <p><code>PluginHost</code>：command / menu / dock / dialog / processing / painter / present_dataset / playback / export_frame</p>
+        <p>能力表：<code>id → void*</code>，不解读 id，不向下转型</p>
+      </div>
+      <div class="lane cpu">
+        <h3>plugin_host.dll + chrome</h3>
+        <p>表：<code>plugin/runtime/host/capability/capability.h</code>（<code>HostCapabilities::attach</code>）</p>
+        <p>门面：<code>capability/scene3d/sink.h</code> · <code>capability/report/bridge.h</code></p>
+        <p>池：<code>processing/processing.h</code> → <code>plugin.processing_pool</code></p>
+        <p>Gis 辅助仍在 <code>host/present/gis_present.h</code>（不是能力 id）</p>
+      </div>
+      <div class="lane gpu">
+        <h3>产品包</h3>
+        <p><code>plugin::scene3d_sink(host)</code> / <code>report_bridge(host)</code></p>
+        <p>world3d / mine / stormsurge / <code>smartgis.self_test</code> 只依赖门面或 <code>contribute_command</code>，不出现在 content 公共头</p>
+        <p>chrome <code>app/views/runtime/capability/</code> 保持扁平 binder，不是这张表</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原则流（注册 → 查询 → 撤回）</h2>
+    <div class="flow">
+      <div class="step active"><strong>1</strong>PluginShell::init 创建 Host，attach 能力袋</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>2</strong>chrome 安装 bridges（earth / look / report dock）</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>3</strong>产品 <code>contribute_command</code>（含 <code>self_test.*</code>）+ processing 按 id 查询门面</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>4</strong>harness 发布 <code>app.views.self_test</code> 后 <code>execute</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>5</strong>shutdown detach；content 仍不知道产品名</div>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var steps = document.querySelectorAll(".step");
+  var i = 0;
+  setInterval(function () {
+    steps.forEach(function (el) { el.classList.remove("active"); });
+    steps[i % steps.length].classList.add("active");
+    i += 1;
+  }, 1800);
+})();
+</script>
+</body>
+</html>

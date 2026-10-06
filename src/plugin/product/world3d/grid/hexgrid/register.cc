@@ -7,6 +7,7 @@
 #include <string_view>
 
 #include "content/public/plugin_host.h"
+#include "plugin/runtime/host/capability/capability.h"
 #include "plugin/product/world3d/commands.h"
 #include "plugin/product/world3d/detail/contribute.h"
 #include "plugin/product/world3d/grid/hexgrid/present/mesh.h"
@@ -114,7 +115,7 @@ bool commit_solved(content::PluginHost* host,
       set_operation_result("{\"error\":\"no_hexgrid_seam\"}");
       return false;
     }
-    if (!present_hex_grid_mesh(gis, host->scene3d_sink(), nullptr, commit)) {
+    if (!present_hex_grid_mesh(gis, plugin::scene3d_sink(host), nullptr, commit)) {
       set_operation_result("{\"error\":\"mesh_commit_failed\"}");
       return false;
     }
@@ -151,7 +152,7 @@ bool orthogrid3d_present_frame(content::PluginHost* host,
   commit.cell_orth =
       g_last_hex.cell_orth.empty() ? nullptr : g_last_hex.cell_orth.data();
   commit.cell_orth_count = static_cast<int>(g_last_hex.cell_orth.size());
-  if (!present_hex_grid_mesh(gis, host->scene3d_sink(), nullptr, commit)) {
+  if (!present_hex_grid_mesh(gis, plugin::scene3d_sink(host), nullptr, commit)) {
     set_operation_result(
         "{\"error\":\"present_failed\",\"op\":\"orthogrid3d.present_frame\"}");
     return false;
@@ -219,7 +220,7 @@ bool publish_hex_grid(const HexGridCommit& commit) {
     return false;
   }
   return present_hex_grid_mesh(g_present_host->gis_document(),
-                               g_present_host->scene3d_sink(), nullptr,
+                               plugin::scene3d_sink(g_present_host), nullptr,
                                commit);
 }
 

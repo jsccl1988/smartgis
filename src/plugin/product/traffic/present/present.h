@@ -11,7 +11,7 @@ class GisDocument;
 namespace plugin {
 
 // Map2d land blocks + network + path. |anim_prefix_points| is the playback
-// prefix length (product session owns the frame buffer; chrome ticks
+// prefix length (product session owns the frame buffer; horizon ticks
 // traffic.present_frame).
 bool present_traffic_path(content::GisDocument* doc,
                           const double* xy,

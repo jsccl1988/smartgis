@@ -1,5 +1,5 @@
 /* DebugConsolePanel — toolbar + scrollable log + optional input.
- * Heights applied in C++ (apply_chrome_metrics). Omit width/height:100%. */
+ * Heights applied in C++ (apply_horizon_metrics). Omit width/height:100%. */
 
 .panel {
   display: flex;

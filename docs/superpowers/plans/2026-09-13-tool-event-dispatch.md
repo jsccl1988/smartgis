@@ -56,7 +56,7 @@ Tasks 1–3 have **no shared files** and may run in parallel. Task 4 depends on 
 - Modify: `src/content/BUILD.gn` (add headers to `source_set("content")` sources)
 
 **Interfaces:**
-- Consumes: `content::FeatureId`, `Extent2` from `map_types.h`
+- Consumes: `content::FeatureId`, `Extent2` from `map_layer_types.h`
 - Produces: spec `EventBus` / `Connection` / `SelectionChanged` / `ExtentChanged`
 
 - [x] **Step 1: Add `events.h` and `event_bus.h` as specified in the spec.** Connection is move-only. `publish` copies the matching slot list before invoking. Empty `std::function` subscribe returns a disengaged Connection.

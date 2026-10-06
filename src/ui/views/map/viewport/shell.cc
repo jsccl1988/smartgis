@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Shell overlay staging + on-client identity HUD chrome for DrawHost.
+// Shell overlay staging + on-client identity HUD horizon for DrawHost.
 
 #include "ui/views/map/viewport/draw_host.h"
 
@@ -97,7 +97,7 @@ void DrawHost::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
     // Native draw HWNDs are skipped in shell paint; parents still bleed opaque
     // panel/shell fills into the HWND rect. Src-over of those fills on GPU present
     // briefly shows a correct GPU map then covers it. Zero alpha for every
-    // Theme chrome fill that can land in the map crop; keep real HUD pixels.
+    // Theme horizon fill that can land in the map crop; keep real HUD pixels.
     auto punch = [](uint8_t* px, uint32_t argb) {
       if (argb == 0) {
         return;

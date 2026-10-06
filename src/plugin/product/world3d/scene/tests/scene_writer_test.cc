@@ -8,6 +8,8 @@
 
 #include "content/public/gis_document.h"
 #include "content/public/plugin_host.h"
+#include "plugin/product/world3d/scene/look/look.h"
+#include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 
 namespace {
@@ -42,7 +44,7 @@ class StubGisDocument final : public content::GisDocument {
 
 void install_scene_stubs(content::PluginHost* host, StubGisDocument* doc) {
   host->set_gis_document(doc);
-  content::PluginHost::Scene3dSink* sink = host->scene3d_sink();
+  plugin::Scene3dSink* sink = plugin::scene3d_sink(host);
   expect(sink != nullptr, "scene3d_sink");
   if (!sink) {
     return;
@@ -73,6 +75,25 @@ void install_scene_stubs(content::PluginHost* host, StubGisDocument* doc) {
       [](bool sky, bool ocean, bool cloud, bool fog) {
         return sky || ocean || cloud || fog || true;
       });
+  sink->set_look_bridges(
+      [](std::string_view mode, std::string* result) {
+        if (mode.empty()) {
+          return false;
+        }
+        if (result) {
+          *result = "{\"ok\":true,\"op\":\"world3d.apply_look\",\"mode\":\"stub\"}";
+        }
+        return true;
+      },
+      [](float t, std::string* result) {
+        if (t < 0.f) {
+          return false;
+        }
+        if (result) {
+          *result = "{\"ok\":true,\"op\":\"world3d.fly_globe\"}";
+        }
+        return true;
+      });
 }
 
 }  // namespace
@@ -81,7 +102,18 @@ int main() {
   content::PluginHost* host =
       content::create_plugin_host(nullptr, nullptr, nullptr);
   expect(host != nullptr, "create_plugin_host");
+  plugin::HostCapabilities caps;
+  caps.attach(host);
   expect(plugin::register_world3d(host), "register_world3d");
+
+  plugin::World3dLook parsed = plugin::World3dLook::kLand;
+  expect(plugin::parse_world3d_look("globe", &parsed) &&
+             parsed == plugin::World3dLook::kGlobe,
+         "parse globe look");
+  expect(plugin::parse_world3d_look("east_china", &parsed) &&
+             parsed == plugin::World3dLook::kEastChina,
+         "parse east_china look");
+  expect(!plugin::parse_world3d_look("nope", &parsed), "parse rejects unknown");
 
   expect(!host->run_processing("model3d.add_sphere", "{}"),
          "add_sphere refuses without gis/sink");
@@ -102,6 +134,11 @@ int main() {
          "set_satellite_cloud refuses without earth bridges");
   expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
          "set_satellite_cloud structured no_scene_device");
+
+  expect(!host->run_processing("world3d.apply_look", "{\"mode\":\"globe\"}"),
+         "apply_look refuses without look bridges");
+  expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
+         "apply_look structured no_scene_device");
 
   expect(!host->run_processing("model3d.add_pointcloud", "{}"),
          "add_pointcloud bad_args without path");
@@ -142,6 +179,10 @@ int main() {
              "world3d.set_atmosphere",
              "{\"sky\":true,\"ocean\":true,\"cloud\":true,\"fog\":true}"),
          "set_atmosphere with sink stubs");
+  expect(host->run_processing("world3d.apply_look", "{\"mode\":\"globe\"}"),
+         "apply_look with look stubs");
+  expect(host->run_processing("world3d.fly_globe", "{\"t\":0.42}"),
+         "fly_globe with look stubs");
 
   expect(!host->run_processing("world3d.fly_to", "{}"),
          "fly_to refuses without lon/lat");
@@ -149,8 +190,9 @@ int main() {
          "fly_to structured bad_args");
 
   host->set_gis_document(nullptr);
-  if (content::PluginHost::Scene3dSink* sink = host->scene3d_sink()) {
+  if (plugin::Scene3dSink* sink = plugin::scene3d_sink(host)) {
     sink->set_earth_bridges(nullptr, nullptr, nullptr, nullptr, nullptr);
+    sink->set_look_bridges(nullptr, nullptr);
   }
   expect(!host->run_processing("model3d.add_water", "{}"),
          "add_water refuses after gis cleared");
@@ -164,6 +206,10 @@ int main() {
          "set_satellite_cloud refuses after bridges cleared");
   expect(!host->run_processing("world3d.set_atmosphere", "{}"),
          "set_atmosphere refuses after bridges cleared");
+  expect(!host->run_processing("world3d.apply_look", "{\"mode\":\"globe\"}"),
+         "apply_look refuses after look bridges cleared");
+  expect(!host->run_processing("world3d.fly_globe", "{}"),
+         "fly_globe refuses after look bridges cleared");
 
   delete host;
 

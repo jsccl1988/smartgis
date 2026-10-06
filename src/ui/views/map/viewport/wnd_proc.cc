@@ -43,6 +43,9 @@ void DrawHost::publish_display_client_size(uint32_t width_px,
 }
 
 void DrawHost::handle_present_timer(HWND hwnd) {
+  if (present_paused_.load(std::memory_order_acquire)) {
+    return;
+  }
   note_hud_frame();
   maybe_sync_identity_hud();
   if (mode_ == AttachMode::kContentMapView) {

@@ -4,17 +4,16 @@
 #ifndef PLUGIN_WORLD3D_DEM_PRESENT_SURFACE_H_
 #define PLUGIN_WORLD3D_DEM_PRESENT_SURFACE_H_
 
-#include "content/public/plugin_host.h"
-
 namespace content {
 class GisDocument;
 }
 
 namespace plugin {
+class Scene3dSink;
 
 // DEM tin/grid triangle layer + world3d mesh style.
 bool present_world3d_surface(content::GisDocument* doc,
-                             content::PluginHost::Scene3dSink* sink,
+                             Scene3dSink* sink,
                              const double* xyz,
                              int point_count,
                              const int* triangles,

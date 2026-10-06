@@ -125,16 +125,16 @@ class UI_EXPORT DrawHost : public View {
   // Stage pane-sized shell overlay (DrawRequest.shell). Generation skips
   // full re-copy when unchanged. When pixels actually change, requests a map
   // frame so GPU present can fold HUD in-GPU. Callers must filter
-  // chrome-only dirty (BrowserView) so menu hover does not wake maps.
+  // horizon-only dirty (BrowserView) so menu hover does not wake maps.
   // |hole_clear| pixels (ARGB) matching the shell clear under native map holes
-  // get alpha forced to 0 so opaque chrome clear does not src-over the GPU map.
+  // get alpha forced to 0 so opaque horizon clear does not src-over the GPU map.
   void commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
                             uint32_t height_px, uint32_t stride_bytes,
                             uint64_t generation,
                             uint32_t hole_clear_argb = 0,
                             uint32_t hole_clear_argb_alt = 0);
   // Drop staged shell overlay (resize / move). Stale pane-sized BGRA can
-  // ghost Feature/Identify chrome onto the map until the next shell publish.
+  // ghost Feature/Identify horizon onto the map until the next shell publish.
   void clear_shell_overlay();
   // HWND title + on-client identity HUD (engine name + FPS, legacy-style).
   void sync_identity_frame();
@@ -170,8 +170,9 @@ class UI_EXPORT DrawHost : public View {
   // Show/hide the owned DXGI present popup with the embed pane (tab switch).
   // Inactive Map-Edit present must not cover Scene3d.
   void set_gpu_present_visible(bool show);
-  // Hide the DXGI popup, KillTimer(kPresentTimerId), and drain queued
-  // WM_TIMER so LayerStore replace cannot race Display present.
+  // Hide the DXGI popup and KillTimer(kPresentTimerId). Queued present ticks
+  // are ignored via present_paused_ (do not PeekMessage — that processes
+  // sent Display messages and deadlocks UI↔Display on tab switch).
   void pause_present();
   // Restart the 16ms present WM_TIMER after harness stop_map_present_timers
   // or pause_present() so the HWND is not stuck on a single ocean clear.
@@ -224,7 +225,7 @@ class UI_EXPORT DrawHost : public View {
   LRESULT handle_paint(HWND hwnd);
   void handle_size(HWND hwnd, int cx, int cy);
   void handle_embed_move(HWND hwnd);
-  // True when the message is fully consumed (chrome retarget).
+  // True when the message is fully consumed (horizon retarget).
   bool handle_mouse_capture(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
   void publish_display_client_size(uint32_t width_px, uint32_t height_px);
 
@@ -308,6 +309,7 @@ class UI_EXPORT DrawHost : public View {
   // Tab wants the DXGI popup visible; stay hidden until Init has Present'd
   // once (WS_EX_NOREDIRECTIONBITMAP is a desktop hole before that).
   std::atomic<bool> gpu_present_want_visible_{false};
+  std::atomic<bool> present_paused_{false};
 
   // Display / present mailbox (P4) + DWM/vblank BeginFrame (P5).
   // kPending while kInit runs. Queue-empty is not failure: the task is popped

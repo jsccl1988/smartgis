@@ -19,7 +19,7 @@ class UI_EXPORT Button : public View {
  public:
   // Visual hierarchy for dialog / form actions (ArcGIS / Fluent-like).
   enum class Style {
-    kDefault,      // Neutral chrome button
+    kDefault,      // Neutral horizon button
     kPrimary,      // Accent fill — OK / affirmative
     kDestructive,  // Danger fill — delete / remove
   };

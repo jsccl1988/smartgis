@@ -145,7 +145,7 @@ Fill from the table (`offset_ms` / `dur_ms`; `wall_ms` is the gate):
 | `SeedDocument` / `ChinaBootstrap` / `try_open_china` | `content/browser/bootstrap/**`, `content/browser/document/**` |
 | `HillshadeBake` | map2d DEM shade; cache / defer until extent (do not delete shade) |
 | `FlyCube.Init` / attach | `ui/views/map/viewport/flycube*`, MapEdit attach |
-| `AttachViewports` / `BindPresenters` | `app/views/shell/ui/browser_view.*`, presenters |
+| `AttachViewports` / `BindPresenters` | `app/views/ui/browser_view.*`, presenters |
 | `LoadMarkup` | markup loader cache; lazy Diagnostic Tools tabs |
 | `Session.init_hosts` / OOP | `content/browser/session/**` — keep OOP off for this bench |
 | `WaitFirstMapPresent` (real work, not timeout) | first china layout + GPU present: `content/.../map2d/**`, `Map2dFrameCache` |

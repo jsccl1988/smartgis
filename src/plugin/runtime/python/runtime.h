@@ -17,7 +17,7 @@ namespace plugin {
 
 class Registry;
 
-// Map-document + chrome hooks for Console / plugins (no GIS headers in Agent).
+// Map-document + horizon hooks for Console / plugins (no GIS headers in Agent).
 struct GisConsoleBridge {
   std::function<bool(const std::string& path)> write_active_geojson;
   std::function<bool(const std::string& path)> load_result_geojson;

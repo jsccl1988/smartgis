@@ -7,7 +7,7 @@ All rights reserved.
 
 **Diagram:** [`docs/superpowers/diagrams/ui-views-shell-architecture.html`](../../../docs/superpowers/diagrams/ui-views-shell-architecture.html)（shell / compositor 泳道 + 流水线）
 
-**Brand:** **SmartGIS Horizon**（次世代桌面 GIS）。工程目录仍是 `shell/`，不是 Chromium 的 `chrome/`。Living lock: [`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../../../docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md) §Horizon product brand.
+**Brand:** **SmartGIS Horizon**（次世代桌面 GIS）。工程目录是 `src/app/views/`（`app/` · `browser/` · `ui/` · `harness/` · `runtime/`），不是 Chromium 的 `chrome/`。Living lock: [`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../../../docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md) §Horizon product brand.
 
 Product shell for **Views + Skia**。`SmartGIS.exe` 是宿主：`Widget` +
 layout + 公开 `ui::views` 控件 + 命令接线。不手绘 catalog / feature / status。
@@ -44,22 +44,27 @@ Debug Console / LogSink / Agent / Python worker：见 living shell
 `kScene3d`。3D 若无法挂接则保持 native 占位，鼠标不崩。
 
 源码按职责分目录（无根目录转发头）。Chromium 分层见 living shell spec
-**§Content sink**：`app/views` 只留 `shell/`（≈ chrome）。`Browser` 持有
+**§Content sink**：`app/views` 根下直接是壳子树（≈ horizon）。`Browser` 持有
 `content::MapSession`（≈ WebContents：拥有 `MapScene` / camera / present /
 gestures / ViewHosts / `MapContents*`）；能力实现在
 `src/content/browser/{document,camera,present,input}`；GDI paint 在
-`content/browser/present/*/software/`。`shell/ui` → `shell/browser` →
-`//src/content:map_session`；**禁止** `present` → `shell`。`shell/`：`app/`、
-`browser/`、`ui/`、`harness/{showcase,self_test}/`。`shell/ui`：`BrowserView`
+`content/browser/present/*/software/`。`ui/` → `browser/` →
+`//src/content:map_session`；**禁止** `present` → `app/views`。对等目录：`app/`、
+`browser/`、`ui/`、`harness/{common,showcase,self_test}/`、`runtime/`、`util/`。
+`runtime/interact/` 按职责：根上 `apply`（公共入口）；`wire/`（AST + ANTLR parse）；
+`policy/`（call args / `$var`）；`io/`（UTF-8 文件 + HWND inject）；`host/`
+（CapabilityHost 适配）；`exec/`（horizon / document / plugin / showcase / input 动词）。
+`runtime/capability/` 填 Host 并 `run_script`；`runtime/plugin/` 是 present / playback / preview 缝。
+图：[`docs/superpowers/diagrams/views-runtime-layers.html`](../../../docs/superpowers/diagrams/views-runtime-layers.html)。`ui/`：`BrowserView`
 持有 Widget 树，并把 map/panel 接线组合进 `ShellLayoutComposer`（`main_app.ui.xml`）/
 `MapPagesComposer` /
 `ProcessingComposer` / `InspectComposer` / `InspectorSyncComposer` /
 `DebugConsoleComposer` / `AtmosphereComposer`（见 living shell
-**§shell/ui composers**）。`main.cc` 仅 `wWinMain` 胶水。
+**§shell/ui composers**）。`app/main.cc` 仅 `wWinMain` 胶水。
 Present README：
 [`../../content/browser/present/README.md`](../../content/browser/present/README.md)。
 
-`wWinMain` → CLI11 解析 → `content::content_main`（`process_type_set`），
+`wWinMain`（`app/main.cc`）→ CLI11 解析 → `content::content_main`（`process_type_set`），
 再进 `browser_main` / `gpu_main` / `renderer_main`。同一 PE 以 `--type=gpu`
 / `--type=renderer` 再拉起。地图挂接仍走 `DrawHost::attach()`；原生 HWND
 把鼠标 / 键 / 滚轮转给 `ViewHost::dispatch_input`。
@@ -96,7 +101,7 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 手势：滚轮对光标缩放、平移；HWND 允许时双指捏合（`WM_GESTURE` / 指针）。
 
 **启动默认与 showcase 对齐（观感，非 GDI 强制）**：`china_product_defaults`
-（`shell/browser/`）供交互 shell 与 `--map2d-showcase=china` /
+（`browser/`）供交互 shell 与 `--map2d-showcase=china` /
 `--atmosphere-showcase=full` 共用——中国样例清掉 `china_city.style.json`（默认
 carto）、mainland 取景、`kChinaLonLatExtent` + orbit `distance=2.55`、3D 大气
 ocean/cloud/sky/**fog**（`SCENE3D_ATMO=0` / `SCENE3D_LAND_ONLY=1` 可关）。
@@ -193,9 +198,9 @@ py -3 testing\tools\loop_runner.py --list
 
 Harness suites：契约在 `testing/tools/harness/<family>/<suite_id>/suite.json`，
 专属 script/`*_loop.py` 与 JSON 同目录；跨 suite 工具在 `harness/_shared/`。与
-`shell/harness/scenario_registry` id 对齐。详见
+`harness/scenario_registry` id 对齐。详见
 [`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md) L1′。
-Chrome PaintCounters matrix：`py -3 testing/tools/harness/ui/run_ui_profile_matrix.py`（skill `harness-auto-ui-opt`）。
+Horizon PaintCounters matrix：`py -3 testing/tools/harness/ui/run_ui_profile_matrix.py`（skill `harness-auto-ui-opt`）。
 
 样例也可直接 Open：`out\views_ogr_sample.geojson`（构建后可从
 `testing/data/` 复制）或仓库内 `testing/data/views_ogr_sample.geojson`。
@@ -213,4 +218,4 @@ Chrome PaintCounters matrix：`py -3 testing/tools/harness/ui/run_ui_profile_mat
 （`maplibre` 为 tile 的历史别名，非 MapLibre Native；热切换，不重启 GPU
 子进程）。CEF HTML 同命令 id（`ActivateTool` / `tool.command` topic）。
 
-**最后更新：** 2026-10-05
+**最后更新：** 2026-10-06

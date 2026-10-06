@@ -1,0 +1,138 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Showcase 族 → 产品插件载荷</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #e8f0f8; --cpu: #eaf4ee; --gpu: #f4eee6;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  @media (max-width: 800px) { .lanes { grid-template-columns: 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+  }
+  .lane.ui { background: var(--ui); }
+  .lane.cpu { background: var(--cpu); }
+  .lane.gpu { background: var(--gpu); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; }
+  .lane p, .lane li { margin: 0 0 4px; font-size: 0.8rem; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th, td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+  th { background: #eef2f6; font-weight: 600; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .step {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; min-width: 130px; font-size: 0.82rem;
+  }
+  .step strong { display: block; color: var(--accent); font-size: 0.75rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+  .step.active { animation: pulse 2.4s ease-in-out infinite; border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Harness showcase → <code>plugin/product</code></h1>
+    <p class="meta">GIS 样例载荷在产品插件；chrome harness 只做 HWND / pump / BMP / marks。<code>ui</code> / <code>browse</code> / <code>input</code> 仍是壳测试，不扩 <code>content/public</code>。</p>
+  </header>
+
+  <section class="panel">
+    <h2>分层</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>Harness（chrome）</h3>
+        <p>场景 id：<code>map2d.*</code> <code>atmosphere.*</code> <code>plugin.*</code></p>
+        <p>设备会话、present 计时、导出 BMP、进度 mark</p>
+        <p>CLI 开关名保持不变（skills / equal-profile）</p>
+      </div>
+      <div class="lane cpu">
+        <h3>PluginHost</h3>
+        <p><code>run_processing</code> / <code>present_dataset</code> / <code>contribute_export_frame</code></p>
+        <p><code>ReportBridge</code> · <code>Scene3dSink</code> 不透明能力</p>
+        <p>不新增 <code>GisDocument::open_path</code></p>
+      </div>
+      <div class="lane gpu">
+        <h3>产品包</h3>
+        <p><code>smartgis.map2d</code> — <code>map2d.seed</code></p>
+        <p><code>smartgis.world3d</code> — look / fly / orthogrid / preview</p>
+        <p><code>smartgis.report</code> — <code>report.open</code> / <code>post</code></p>
+        <p>mine / flood / traffic / geochem / stormsurge / print 复用</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原则流（seed → present → capture）</h2>
+    <div class="flow">
+      <div class="step active"><strong>1</strong>CLI 解析为 scenario id</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>2</strong>产品 <code>run_processing</code> 填文档 / 外观</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>3</strong>harness 拥有 HWND 与帧时钟</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>4</strong>export_frame + BMP + marks</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>对照表</h2>
+    <table>
+      <thead>
+        <tr><th>Harness</th><th>产品</th><th>备注</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>map2d.*</code></td><td><code>smartgis.map2d</code></td><td>新包；orthogrid 委托 world3d</td></tr>
+        <tr><td><code>atmosphere.*</code></td><td><code>smartgis.world3d</code></td><td>look / fly 已在 scene/</td></tr>
+        <tr><td><code>plugin.world3d</code> 等</td><td>既有包</td><td>不复制</td></tr>
+        <tr><td><code>plugin.report</code></td><td><code>smartgis.report</code></td><td>新包，桥接 ReportBridge</td></tr>
+        <tr><td><code>ui.*</code> / browse / input</td><td>—</td><td>缺公共 UI API，保留 chrome</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+(function () {
+  var steps = document.querySelectorAll(".step");
+  var i = 0;
+  setInterval(function () {
+    steps.forEach(function (el) { el.classList.remove("active"); });
+    steps[i % steps.length].classList.add("active");
+    i += 1;
+  }, 1800);
+})();
+</script>
+</body>
+</html>

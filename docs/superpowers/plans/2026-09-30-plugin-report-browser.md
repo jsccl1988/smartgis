@@ -36,7 +36,7 @@ All rights reserved.
 | `src/ui/gis/shell/report_panel.*` | Inspector Report tab |
 | `src/ui/resources/shell/report_panel.ui.*` | Markup |
 | `src/content/public/plugin_host.h` + `plugin_host.cc` | Host bridge API |
-| `src/app/views/shell/ui/*` | Wire tab + set_report_bridge |
+| `src/app/views/ui/*` | Wire tab + set_report_bridge |
 | `src/plugin/runtime/python/bindings.cc` | Python Host methods |
 | `testing/data/plugin/report/sample/` | Sample index.html + data.json |
 

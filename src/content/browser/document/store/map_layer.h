@@ -8,9 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "content/public/catalog_layers.h"
-#include "content/public/feature_attrs.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 
 namespace content {
 namespace detail {

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "content/public/plugin_host.h"
+#include "plugin/runtime/host/capability/capability.h"
 #include "gis/geo/ops/geometry_traits.h"
 #include "gis/geo/ops/indexed_tin.h"
 #include "plugin/product/world3d/commands.h"
@@ -72,7 +73,7 @@ bool commit_surface(content::PluginHost* host, const OGRTriangulatedSurface& sur
   if (!host->gis_document()) {
     return false;
   }
-  if (!present_world3d_surface(host->gis_document(), host->scene3d_sink(),
+  if (!present_world3d_surface(host->gis_document(), plugin::scene3d_sink(host),
                                xyz.data(), live * 3, triangles.data(), live,
                                op)) {
     return false;

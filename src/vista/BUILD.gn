@@ -62,6 +62,7 @@ group("vista_test_all") {
     "//src/vista/terrain:dem_raster_test",
     "//src/vista/terrain:land_mask_test",
     "//src/vista/component/world:pointcloud_test",
+    "//src/vista/component/world:seed_tin_test",
     "//src/vista/component/world:world_test",
   ]
 }

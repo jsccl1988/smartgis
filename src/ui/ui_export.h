@@ -5,7 +5,7 @@
 #define UI_UI_EXPORT_H_
 
 // Single export for //src/ui (dll_stem = ui_views).
-// Covers ui::views, ui::gfx, and product GIS chrome under ui/gis (one PE).
+// Covers ui::views, ui::gfx, and product GIS horizon under ui/gis (one PE).
 // GN sets UI_EXPORTS on the source_sets compiled into that DLL.
 
 #if defined(UI_EXPORTS)

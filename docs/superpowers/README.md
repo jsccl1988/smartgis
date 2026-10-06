@@ -43,12 +43,15 @@ Living specs, open plans, HTML diagrams, and as-built product notes live here. P
 | [`diagrams/ui-views-shell-architecture.html`](diagrams/ui-views-shell-architecture.html) | Views shell / compositor 泳道 |
 | [`diagrams/map-viewport-paint.html`](diagrams/map-viewport-paint.html) | DrawHost paint 分层 + 2D SoT（不 blit leftover SharedSurface） |
 | [`diagrams/content-browser-layers.html`](diagrams/content-browser-layers.html) | `content/browser` 责任层 + C11 收紧 + MapSession / content.dll |
+| [`diagrams/views-runtime-layers.html`](diagrams/views-runtime-layers.html) | `app/views/runtime`：capability / interact / plugin |
 | [`diagrams/views-window-process.html`](diagrams/views-window-process.html) | Views 窗口体系 / 进程体系 |
 | [`diagrams/legacy-render-architecture.html`](diagrams/legacy-render-architecture.html) | Scenic 上一代：CPU Raster×N / Prep×N · GPU 仅 rhi3d · 与 Vista 的优缺点 |
 | [`diagrams/rhi2d-device-api.html`](diagrams/rhi2d-device-api.html) | RHI2D `render_device.h` 组合 `Device2d*` + thin `RenderDevice2d`（与 rhi3d 同形） |
 | [`diagrams/rhi2d-paint-map-strategy.html`](diagrams/rhi2d-paint-map-strategy.html) | rhi2d 帧拍（Scheduler×Runner 组合）+ `paint/map` 策略；升级只在 scenic/content |
 | [`diagrams/rhi3d-public-api-lanes.html`](diagrams/rhi3d-public-api-lanes.html) | Scenic `RenderDevice3d` 组合部件（`render_device.h`；几何源 XOR / 着色 XOR） |
 | [`diagrams/debug-console-agent.html`](diagrams/debug-console-agent.html) | Debug console agent |
+| [`diagrams/plugin-host-capabilities.html`](diagrams/plugin-host-capabilities.html) | PluginHost：贡献点 + 不透明能力表（不识别具体插件） |
+| [`diagrams/plugin-product-showcase.html`](diagrams/plugin-product-showcase.html) | Harness showcase 族 → `plugin/product` 载荷；HWND 仍在 chrome |
 | [`diagrams/plugin-product-world3d.html`](diagrams/plugin-product-world3d.html) | world3d 包：DEM + 2D orthogrid + 3D hex |
 | [`diagrams/plugin-analysis-processing.html`](diagrams/plugin-analysis-processing.html) | 产品分析：chrome writer → 插件 compute/present processing |
 
@@ -74,4 +77,4 @@ Open milestone: [`plans/2026-09-20-m1-carto-style-tile-export.md`](plans/2026-09
 
 Landed / superseded / fold-B children: [`archive/`](archive/).
 
-**最后更新:** 2026-10-05（living 仍 9 行；§Analysis present in plugin：[`specs/2026-09-13-plugin-host-design.md`](specs/2026-09-13-plugin-host-design.md)；无新 dated spec）
+**最后更新:** 2026-10-06（living 仍 9 行；PluginHost 能力表 [`diagrams/plugin-host-capabilities.html`](diagrams/plugin-host-capabilities.html)）

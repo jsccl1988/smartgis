@@ -4,19 +4,18 @@
 #ifndef PLUGIN_STORMSURGE_PRESENT_MASK_H_
 #define PLUGIN_STORMSURGE_PRESENT_MASK_H_
 
-#include "content/public/plugin_host.h"
-
 namespace content {
 class GisDocument;
 class Scene3dPresenter;
 }
 
 namespace plugin {
+class Scene3dSink;
 
 // Wet-cell polygons on GisDocument. Optional Scene3dPresenter overlay clear
-// is chrome-only (sink has no TIN API).
+// is horizon-only (sink has no TIN API).
 bool present_stormsurge_mask(content::GisDocument* doc,
-                             content::PluginHost::Scene3dSink* sink,
+                             Scene3dSink* sink,
                              content::Scene3dPresenter* scene3d,
                              const unsigned char* mask,
                              int width,

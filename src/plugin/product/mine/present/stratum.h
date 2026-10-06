@@ -6,8 +6,6 @@
 
 #include <string>
 
-#include "content/public/plugin_host.h"
-
 namespace content {
 class GisDocument;
 class Scene3dPresenter;
@@ -21,10 +19,11 @@ struct BoreholeSet;
 }
 
 namespace plugin {
+class Scene3dSink;
 
 // Map2d TIN + borehole sticks. Volume overlay still needs Scene3dPresenter.
 bool present_mine_stratum(content::GisDocument* doc,
-                          content::PluginHost::Scene3dSink* sink,
+                          Scene3dSink* sink,
                           content::Scene3dPresenter* scene3d,
                           const gis::detail::StratumTin& tin,
                           const gis::detail::BoreholeSet& holes,

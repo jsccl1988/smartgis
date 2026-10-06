@@ -25,12 +25,12 @@ enum class ProcessingMode { kThread, kUtilityStub };
 // Thread split (locked):
 // - Compute: |factory| / |compute| runs on a pool worker. Do not touch
 //   MapScene, Views, HWND, Browser*, or PluginHost present APIs
-//   (gis_document / scene3d_sink / playback / present_dataset).
+//   (gis_document / scene3d capability / playback / present_dataset).
 // - Present: only from |present| (optional 5-arg submit) or the |done|
 //   callback. Those run on the thread that calls flush_for_test (UI drain).
 // attach_host_processing injects compute=factory(nullptr) then
 // present=factory(host) on drain. Factories must skip gis_document /
-// scene3d_sink / playback / present_dataset when |host| is null.
+// scene3d / playback / present_dataset when |host| is null.
 class PLUGIN_HOST_EXPORT ProcessingPool {
  public:
   explicit ProcessingPool(ProcessingMode mode);

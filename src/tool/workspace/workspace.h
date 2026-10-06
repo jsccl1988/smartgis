@@ -9,7 +9,7 @@
 #include <memory>
 #include <string_view>
 
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
 #include "tool/interaction/interaction.h"

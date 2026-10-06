@@ -263,7 +263,7 @@ void Splitter::clamp_primary() {
     return;
   }
   // Preference-0 secondary (DiagnosticToolsPanel collapsed): keep secondary at
-  // 0px. Forcing kMinPanePx here left a ~40px chrome strip that painted over
+  // 0px. Forcing kMinPanePx here left a ~40px horizon strip that painted over
   // the status bar (Diagnostic Tools / tab bleed).
   if (resize_policy_ == ResizePolicy::kSecondaryFixed &&
       fixed_secondary_px_ <= 0) {
@@ -390,7 +390,7 @@ void Splitter::paint_self(ui::gfx::Canvas* canvas) {
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
   const Rect bar = bar_rect();
-  // Idle seam stays near panel chrome; accent only while dragging/hover.
+  // Idle seam stays near panel horizon; accent only while dragging/hover.
   ui::gfx::Color fill = t.panel_header;
   if (dragging_ || is_pressed()) {
     fill = t.accent;

@@ -698,7 +698,7 @@ void AmboxView::paint_self(ui::gfx::Canvas* canvas) {
   const Rect& b = bounds();
   const float scale = scale_factor();
   if (orientation_ == Orientation::kHorizontal) {
-    // Pack chip chrome to content width; leftover rail is not panel_bg
+    // Pack chip horizon to content width; leftover rail is not panel_bg
     // (that empty dark strip failed map_nav_toolbar / dark_chrome gates).
     const int packed = std::min(b.width, measure_content_width(scale));
     if (packed > 0) {

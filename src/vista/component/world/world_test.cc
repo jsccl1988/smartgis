@@ -3,6 +3,9 @@
 
 #include "vista/component/world/world.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -11,7 +14,10 @@
 #include "gis/map/layer_kind.h"
 #include "vista/assets/model/model.h"
 #include "vista/assets/tileset/tileset.h"
+#include "vista/component/world/terrain/lod.h"
+#include "vista/component/world/terrain/seed.h"
 #include "vista/mesh/tessellate.h"
+#include "vista/terrain/dem/dem_raster.h"
 
 namespace {
 
@@ -211,6 +217,134 @@ int main() {
   expect(handles.find(terrain_id) &&
              handles.find(terrain_id)->kind == vista::NodeKind::kTerrain,
          "terrain still findable");
+
+  expect(vista::select_nested_grid_tiles(0, 0, 0, 1, 0.5f, nullptr) == 0,
+         "nested reject null out");
+  {
+    std::vector<vista::NestedGridTile> far_tiles;
+    expect(vista::select_nested_grid_tiles(0, 0, 8, 8, 5.0f, &far_tiles) == 1,
+           "far nested is one ring");
+    expect(far_tiles[0].ring == 0 && far_tiles[0].maxx > far_tiles[0].minx,
+           "far nested covers box");
+    std::vector<vista::NestedGridTile> near_tiles;
+    const size_t near_n =
+        vista::select_nested_grid_tiles(0, 0, 8, 8, 0.5f, &near_tiles);
+    expect(near_n > far_tiles.size(), "near nested more tiles");
+    expect(vista::terrain_lod_nested_rings(0.5f) == 4, "near four rings");
+    expect(near_tiles[0].ring == 0, "first tile inner ring");
+    int outer_edge = near_tiles[0].max_edge;
+    for (const auto& t : near_tiles) {
+      if (t.ring > 0 && t.max_edge < outer_edge) {
+        outer_edge = t.max_edge;
+      }
+    }
+    expect(near_tiles[0].max_edge > outer_edge,
+           "same seed inner max_edge denser than outer");
+    expect(vista::terrain_lod_patch_distance(0.5f, 0, 0, 8, 8, 3, 3, 5, 5) <
+               vista::terrain_lod_patch_distance(0.5f, 0, 0, 8, 8, 0, 0, 8, 1),
+           "center patch closer than edge patch");
+  }
+  {
+    vista::DemRaster dem;
+    std::vector<float> heights(65 * 65, 80.f);
+    for (int i = 0; i < 65 * 65; ++i) {
+      heights[static_cast<size_t>(i)] = 40.f + static_cast<float>(i % 65);
+    }
+    std::vector<uint8_t> land(65 * 65, 1);
+    expect(dem.adopt_bake_cache(65, 65, 0, 0, 8, 8, 40.f, 72.f, 1.f,
+                                std::move(heights), std::move(land), ""),
+           "nested fixture dem");
+    vista::World nested_far;
+    vista::World nested_near;
+    const size_t far_n = vista::seed_dem_nested_grid_into_world(
+        &nested_far, dem, 0, 0, 8, 8, 5.0f, 65536, "f");
+    const size_t near_n = vista::seed_dem_nested_grid_into_world(
+        &nested_near, dem, 0, 0, 8, 8, 0.5f, 65536, "n");
+    expect(far_n == 1, "far nested seed one tile");
+    expect(near_n > far_n, "near nested seed more rings");
+    expect(nested_near.node_at(0) &&
+               nested_near.node_at(0)->terrain.source ==
+                   vista::TerrainSource::kRaster,
+           "nested raster source");
+    std::vector<vista::NestedGridTile> seeded_tiles;
+    vista::select_nested_grid_tiles(0, 0, 8, 8, 0.5f, &seeded_tiles);
+    expect(!seeded_tiles.empty() && nested_near.node_at(0) &&
+               nested_near.node_at(0)->terrain.lod_key ==
+                   vista::terrain_lod_nested_tile_key(
+                       seeded_tiles[0].ring, seeded_tiles[0].max_edge),
+           "nested inner tile key");
+    int inner_edge = 0;
+    int outer_ring = -1;
+    int outer_edge = 0;
+    for (size_t i = 0; i < nested_near.node_count(); ++i) {
+      const vista::Node* n = nested_near.node_at(i);
+      if (!n || !n->has_terrain_mesh()) {
+        continue;
+      }
+      const int key = n->terrain.lod_key - 2000000;
+      const int ring = key / 10000;
+      const int edge = key % 10000;
+      if (ring == 0) {
+        inner_edge = edge;
+      } else if (ring > outer_ring) {
+        outer_ring = ring;
+        outer_edge = edge;
+      } else if (ring == outer_ring && edge < outer_edge) {
+        outer_edge = edge;
+      }
+    }
+    expect(inner_edge > 0 && outer_edge > 0 && inner_edge > outer_edge,
+           "seeded inner patch denser max_edge than outer");
+    bool have_morph = false;
+    bool have_skirt = false;
+    for (size_t i = 0; i < nested_near.node_count(); ++i) {
+      const vista::Node* n = nested_near.node_at(i);
+      if (!n || !n->has_terrain_mesh()) {
+        continue;
+      }
+      if (n->terrain.morph.size() == n->terrain.positions.size() / 3 &&
+          !n->terrain.morph.empty()) {
+        have_morph = true;
+      }
+      float ymin = n->terrain.positions[1];
+      float ymax = ymin;
+      for (size_t k = 1; k < n->terrain.positions.size(); k += 3) {
+        ymin = (std::min)(ymin, n->terrain.positions[k]);
+        ymax = (std::max)(ymax, n->terrain.positions[k]);
+      }
+      if (ymin < 39.5f) {
+        have_skirt = true;
+      }
+    }
+    expect(have_morph, "nested CPU morph weights");
+    expect(have_skirt, "nested edge skirts drop Y");
+    std::vector<vista::NestedGridTile> focused;
+    vista::select_nested_grid_tiles(0, 0, 8, 8, 0.5f, 1.0, 1.0, &focused);
+    expect(!focused.empty() && focused[0].ring == 0, "focus inner ring");
+    const double fcx = 0.5 * (focused[0].minx + focused[0].maxx);
+    const double fcy = 0.5 * (focused[0].miny + focused[0].maxy);
+    expect(std::hypot(fcx - 1.0, fcy - 1.0) < std::hypot(fcx - 4.0, fcy - 4.0),
+           "focus inner closer to camera than AABB center");
+    expect(focused[0].morph_weight >= 0.f && focused[0].morph_weight <= 1.f,
+           "tile morph in range");
+  }
+  {
+    std::vector<float> xyz = {0.f, 2.f, 0.f, 1.f, 2.f, 0.f, 1.f, 2.f, 1.f,
+                              0.f, 2.f, 1.f};
+    std::vector<uint32_t> idx = {0, 1, 2, 0, 2, 3};
+    std::vector<float> uvs = {0.f, 0.f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f};
+    const size_t added =
+        vista::append_terrain_edge_skirts(&xyz, &idx, &uvs, 0.5f);
+    expect(added > 0 && xyz.size() > 12 && idx.size() > 6, "skirt extra tris");
+    bool dropped = false;
+    for (size_t i = 1; i < xyz.size(); i += 3) {
+      if (xyz[i] < 1.6f) {
+        dropped = true;
+      }
+    }
+    expect(dropped, "skirt verts lower Y");
+    expect(uvs.size() == (xyz.size() / 3) * 2u, "skirt uvs follow verts");
+  }
 
   if (g_fails) {
     std::fprintf(stderr, "world_test: %d failed\n", g_fails);

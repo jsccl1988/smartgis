@@ -8,7 +8,7 @@
 #ifndef CONTENT_BROWSER_MAP_HOST_EXTENT_H_
 #define CONTENT_BROWSER_MAP_HOST_EXTENT_H_
 
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 
 namespace content {
 

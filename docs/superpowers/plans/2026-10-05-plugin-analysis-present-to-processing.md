@@ -7,7 +7,7 @@ All rights reserved.
 
 > **For agentic workers:** Implement task-by-task. Spec: [`../specs/2026-09-13-plugin-host-design.md`](../specs/2026-09-13-plugin-host-design.md) **§Analysis present in plugin**. Diagram: [`../diagrams/plugin-analysis-processing.html`](../diagrams/plugin-analysis-processing.html).
 
-**Goal:** Move chrome `app/views/shell/browser/plugin/analysis_writer_*` into product plugins. Callers keep `PluginShell::run_processing(id, args)`. Compute stays on the pool; present runs on the UI-thread done callback via `PluginHost` GIS/Scene3D seams. Delete `set_*_writer` globals.
+**Goal:** Move chrome `app/views/browser/plugin/analysis_writer_*` into product plugins. Callers keep `PluginShell::run_processing(id, args)`. Compute stays on the pool; present runs on the UI-thread done callback via `PluginHost` GIS/Scene3D seams. Delete `set_*_writer` globals.
 
 **Architecture:** Invert the writer callback. Chrome keeps `plugin_shell` + generic `present_dataset` / ResultPlayback UI. Product packages own paint/mesh/commit.
 
@@ -35,7 +35,7 @@ All rights reserved.
 ### Task 1 — Shared present helpers
 
 - [x] Move `append_map_polygon` / `append_map_polyline` / `apply_style_json` / stand-in mesh off `analysis_writer_common` into `src/plugin/runtime/host/present/gis_present.*` (GisDocument only; Map2d + Scene3d).
-- [x] Shell `present_plugin_map2d/scene3d` live under `shell/runtime/plugin_present.*`; `present_dataset` bridge only for tab switch.
+- [x] Shell `present_plugin_map2d/scene3d` live under `runtime/plugin/present.*`; `present_dataset` bridge only for tab switch.
 
 ### Task 2 — Dual-run per product (one plugin per change)
 
@@ -53,7 +53,7 @@ Keep `set_*_writer` as a shim to the moved function until that plugin's showcase
 
 - [x] `Browser::install_plugin_host_bridges` binds `PluginPlayback` → `PluginHost::playback()` (`push_frame` / `frame_count` / `set_index`). No `set_playback` (Host owns the list).
 - [x] Re-present is `"<id>.present_frame"` looked up from the contributing plugin (no chrome product switch).
-- [x] Product payload stays in `src/plugin/product` (`g_last_*`). Chrome `runtime/analysis/*_store` deleted; `plugin_playback.*` sits next to `plugin_present.*`.
+- [x] Product payload stays in `src/plugin/product` (`g_last_*`). Chrome `runtime/analysis/*_store` deleted; `runtime/plugin/playback.*` sits next to `present.*`.
 
 ### Task 4 — Delete chrome writers
 

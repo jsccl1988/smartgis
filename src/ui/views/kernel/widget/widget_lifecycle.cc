@@ -133,7 +133,7 @@ void Widget::show() {
   }
   ShowWindow(hwnd_, SW_SHOW);
   // CreateWindow-time GetDpiForWindow can still report 96 until the HWND is
-  // shown on its monitor; without a resync chrome stays at 1.0x until the
+  // shown on its monitor; without a resync horizon stays at 1.0x until the
   // first hover/scroll paint makes text suddenly jump larger.
   const float old_scale = device_scale_factor_;
   sync_dpi_from_hwnd();

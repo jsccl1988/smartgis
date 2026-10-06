@@ -16,7 +16,7 @@ namespace views {
 namespace {
 
 // DIPs — must scale with Widget::device_scale_factor. A fixed 20px row at 250%
-// DPI (font ~45px) clips catalog labels so chrome looks "tiny".
+// DPI (font ~45px) clips catalog labels so horizon looks "tiny".
 constexpr int kRowHeightDip = 24;
 constexpr int kDepthIndentDip = 16;
 constexpr int kTwistyWDip = 14;

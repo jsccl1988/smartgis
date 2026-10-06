@@ -21,7 +21,7 @@
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
 #include "content/browser/present/scene3d/frame/scene3d_overlays.h"
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "vista/pass/world/pass.h"
 #include "vista/component/world/world.h"
 #include "render/rhi/rhi.h"

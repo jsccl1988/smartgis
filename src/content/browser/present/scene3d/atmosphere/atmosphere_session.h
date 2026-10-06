@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "vista/pass/atmosphere/cloud/cloud_pass.h"
 #include "vista/pass/atmosphere/fog/fog_pass.h"
 #include "vista/pass/atmosphere/atmosphere_frame.h"

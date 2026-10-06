@@ -80,7 +80,7 @@ class Layout {
 
 VISTA_EXPORT std::string default_carto_style_json();
 
-// Default carto without symbol / label layers — print layout chrome uses this
+// Default carto without symbol / label layers — print layout horizon uses this
 // so city glyphs cannot twin-draw under MapLibre label slots.
 VISTA_EXPORT std::string print_carto_style_json();
 

@@ -33,8 +33,8 @@ All rights reserved.
 | `src/ui/views/kernel/frame/caption_button.{h,cc}` | Min / max / close |
 | `src/ui/views/kernel/widget/widget.{h,cc}` | `frame_kind`, NC messages |
 | `src/ui/views/dialogs/dialog.cc` | Custom frame for modals |
-| `src/app/views/shell/ui/browser_view.*` | Root FrameView; theme commands |
-| `src/app/views/shell/browser/commands/view_commands.*` | View → Theme / Preferences rows |
+| `src/app/views/ui/browser_view.*` | Root FrameView; theme commands |
+| `src/app/views/browser/commands/view_commands.*` | View → Theme / Preferences rows |
 | `src/ui/views/BUILD.gn` | New sources |
 | `src/ui/views/testing/unit/views_unittests.cc` | ThemeService + FrameView smoke |
 

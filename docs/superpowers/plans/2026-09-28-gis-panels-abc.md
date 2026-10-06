@@ -73,8 +73,8 @@ All rights reserved.
 ### Task 4: Shell inspector wiring
 
 **Files:**
-- Modify: `src/app/views/shell/ui/browser_view.cc`, `browser_view.h`
-- Modify: `src/app/views/shell/ui/panels/shell_panels.cc`
+- Modify: `src/app/views/ui/browser_view.cc`, `browser_view.h`
+- Modify: `src/app/views/ui/panels/shell_panels.cc`
 - Modify: `inspector_sync.cc` if selection/legend sync hooks exist
 
 - [x] **Step 1:** Construct M1–M3 panels; add inspector tabs; keep ProcessingPanel for delegate API (may hide or keep tab).

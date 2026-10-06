@@ -1,0 +1,25 @@
+{
+  "id": "smartgis.self_test",
+  "name": "Views self-test",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "builtin",
+  "author": "The Mogu Authors",
+  "description": "Harness self-test milestones contributed as plugin commands",
+  "contributes": {
+    "commands": [
+      {"id": "self_test.run", "title": "Views self-test", "menu": "tools"},
+      {"id": "self_test.console", "title": "Console self-test", "menu": "tools"},
+      {"id": "self_test.shell_ready", "title": "Self-test shell_ready", "menu": "tools"},
+      {"id": "self_test.edit_m0", "title": "Self-test edit_m0", "menu": "tools"},
+      {"id": "self_test.layers_m1", "title": "Self-test layers_m1", "menu": "tools"},
+      {"id": "self_test.navigate", "title": "Self-test navigate", "menu": "tools"},
+      {"id": "self_test.present", "title": "Self-test present", "menu": "tools"},
+      {"id": "self_test.layout_bounds", "title": "Self-test layout_bounds", "menu": "tools"},
+      {"id": "self_test.milestones", "title": "Self-test milestones", "menu": "tools"}
+    ],
+    "processing": [
+      {"id": "self_test.run", "title": "Run Views harness self-test"}
+    ]
+  }
+}

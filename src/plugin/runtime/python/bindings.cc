@@ -21,6 +21,7 @@
 #include "base/trace/event/process_trace.h"
 #include "content/public/event_bus.h"
 #include "content/public/plugin_host.h"
+#include "plugin/runtime/host/capability/capability.h"
 #include "tool/command/command.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/dialogs/message_box.h"
@@ -224,7 +225,8 @@ PyObject* host_open_report(HostObject* self, PyObject* args) {
   if (!self->host || !path) {
     Py_RETURN_FALSE;
   }
-  if (!self->host->open_report(path)) {
+  plugin::ReportBridge* report = plugin::report_bridge(self->host);
+  if (!report || !report->open(path)) {
     Py_RETURN_FALSE;
   }
   Py_RETURN_TRUE;
@@ -238,7 +240,8 @@ PyObject* host_post_to_report(HostObject* self, PyObject* args) {
   if (!self->host || !json) {
     Py_RETURN_FALSE;
   }
-  if (!self->host->post_to_report(json)) {
+  plugin::ReportBridge* report = plugin::report_bridge(self->host);
+  if (!report || !report->post(json)) {
     Py_RETURN_FALSE;
   }
   Py_RETURN_TRUE;
@@ -248,7 +251,11 @@ PyObject* host_close_report(HostObject* self, PyObject* /*args*/) {
   if (!self->host) {
     Py_RETURN_FALSE;
   }
-  self->host->close_report();
+  plugin::ReportBridge* report = plugin::report_bridge(self->host);
+  if (!report) {
+    Py_RETURN_FALSE;
+  }
+  report->close();
   Py_RETURN_TRUE;
 }
 

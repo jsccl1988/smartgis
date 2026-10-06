@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "content/browser/document/store/layer_store.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "tool/draft/draft.h"
 
 namespace content {

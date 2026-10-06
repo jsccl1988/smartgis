@@ -18,7 +18,7 @@
 namespace ui {
 namespace views {
 
-// Bar + polyline series chart: title chrome via markup, plot via Skia paint.
+// Bar + polyline series chart: title horizon via markup, plot via Skia paint.
 // Replaces leftover Chart / CDlg2DXChartView (StaDiagram).
 class UI_EXPORT ChartView : public View {
  public:

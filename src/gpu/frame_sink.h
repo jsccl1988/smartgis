@@ -4,7 +4,7 @@
 #ifndef GPU_FRAME_SINK_H_
 #define GPU_FRAME_SINK_H_
 
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "gpu/display/output_surface.h"
 #include "ui/gfx/raster/shell_raster.h"
 

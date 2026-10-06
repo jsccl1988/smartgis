@@ -16,6 +16,7 @@
 
 #include "content/browser/document/ingest/seed_paths.h"
 #include "gdal_priv.h"
+#include "gis/datasource/gdal/gdal_driver.h"
 #include "gis/datasource/ogr/ogr_text_encoding.h"
 #include "gis/datasource/pipeline/feature_load_pipeline.h"
 #include "vista/terrain/process/land_mask.h"
@@ -749,8 +750,12 @@ bool ingest_ogr_path(LayerStore* store, const std::string& path) {
   if (!store) {
     return false;
   }
+  // register_gdal_driver sets GDAL_DRIVER_PATH so AutoLoadDrivers does not
+  // LoadLibrary CRT DLLs from the harness cwd (heap-corrupt / failed GPKG).
   static std::once_flag gdal_register_once;
-  std::call_once(gdal_register_once, [] { GDALAllRegister(); });
+  std::call_once(gdal_register_once, [] {
+    (void)gis::datasource::register_gdal_driver();
+  });
   GDALDatasetUniquePtr ds(GDALDataset::Open(
       path.c_str(), GDAL_OF_VECTOR | GDAL_OF_READONLY));
   if (!ds) {

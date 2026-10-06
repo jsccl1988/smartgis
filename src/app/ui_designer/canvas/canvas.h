@@ -42,7 +42,7 @@ class CanvasHitLayer : public ui::views::View {
   ui::views::Rect drop_line_{};
 };
 
-// Hosts markup content under a hit overlay for selection and drag chrome.
+// Hosts markup content under a hit overlay for selection and drag horizon.
 class CanvasHost : public ui::views::View {
  public:
   using MouseFn = std::function<bool(const ui::views::MouseEvent&)>;

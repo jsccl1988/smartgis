@@ -25,7 +25,7 @@ class UI_EXPORT RenderTracePanel : public View {
   RenderTracePanel();
   ~RenderTracePanel() override;
 
-  // When embedded in DiagnosticToolsPanel, host owns chrome; reserved for layout.
+  // When embedded in DiagnosticToolsPanel, host owns horizon; reserved for layout.
   void set_embedded(bool embedded);
   bool is_embedded() const { return embedded_; }
 

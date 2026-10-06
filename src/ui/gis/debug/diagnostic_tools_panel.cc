@@ -33,7 +33,7 @@ namespace ui {
 namespace views {
 namespace {
 
-// Compact bottom dock: chrome rows + Output body. Keep below ~1/4 of a
+// Compact bottom dock: horizon rows + Output body. Keep below ~1/4 of a
 // 720p work area so the map viewport stays the primary surface.
 constexpr int kDiagPreferredDip = 200;
 constexpr int kTabsHostMinDip = 110;
@@ -41,7 +41,7 @@ constexpr int kToolbarHeightDip = 26;
 constexpr int kTitleHeightDip = 22;
 constexpr int kStatusHeightDip = 20;
 
-// Memory counter sparkline; page chrome (stats + host) is markup.
+// Memory counter sparkline; page horizon (stats + host) is markup.
 class MemoryChartView : public View {
  public:
   void refresh(bool schedule = true) {
@@ -293,7 +293,7 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
   last_auto_refresh_ = std::chrono::steady_clock::now();
   update_status();
   on_refresh();
-  // Start collapsed: hide chrome children so a thin splitter remnant cannot
+  // Start collapsed: hide horizon children so a thin splitter remnant cannot
   // paint "Diagnostic Tools" / tabs into the status-bar band.
   for (size_t i = 0; i < child_count(); ++i) {
     if (View* c = child_at(i)) {
@@ -360,7 +360,7 @@ void DiagnosticToolsPanel::set_visible_tools(bool on) {
       widget() ? widget()->device_scale_factor() : 1.f;
   set_preferred_size(on ? Size{0, dip_to_px(kDiagPreferredDip, scale)}
                         : Size{0, 0});
-  // Hide chrome while collapsed so children cannot paint into a remnant strip.
+  // Hide horizon while collapsed so children cannot paint into a remnant strip.
   // Output keeps LogSink subscription even while collapsed so RHI / present
   // LOGGING still accumulates and snapshot_tail is not the only recovery path.
   for (size_t i = 0; i < child_count(); ++i) {

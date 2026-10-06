@@ -67,7 +67,7 @@ unsigned dpi_from_monitor(HMONITOR mon) {
 
 unsigned dpi_for_hwnd(HWND hwnd) {
   // Prefer the monitor's effective DPI. GetDpiForWindow can still report 96
-  // right after CreateWindow on PMV2 hosts; trusting that left chrome at 1×
+  // right after CreateWindow on PMV2 hosts; trusting that left horizon at 1×
   // physical pixels (tiny glyphs on 200–250% displays).
   if (hwnd && IsWindow(hwnd)) {
     const unsigned mon_dpi =

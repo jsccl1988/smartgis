@@ -321,7 +321,7 @@ void Scene3dSoftwarePainter::paint_hud(HDC hdc, int width_px, int height_px) con
     return;
   }
   gpu_->remember_view_size(width_px, height_px);
-  // Place-names before compass/chrome so leftover stereo labels sit on DEM.
+  // Place-names before compass/horizon so leftover stereo labels sit on DEM.
   paint_legacy_place_labels(hdc, width_px, height_px);
   paint_wind_arrows(hdc, width_px, height_px);
 

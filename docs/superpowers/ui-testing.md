@@ -109,7 +109,7 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 
 ### L1′ — `SmartGIS.exe --self-test`
 
-- 实现：`src/app/views/main.cc`（`BrowserMain`）。
+- 实现：`src/app/views/app/process/browser_main.cc`（`run_browser_main`）。
 - 真 HWND：泵消息 → 检查壳 → Map / Data / 3D 切换 → `wait_ready`（`kContentMapView` 时）→ 断言 `HostView::Latest` 出帧（marks：`map-frame-ok` / `scene-frame-ok`）→ 3D trackball 输入 → 编辑点 / 选择 / 清选（`input-point-ok`：`FeatureMutation.geom` 为 point）→ M0 折线 + FeatureGeom（`input-line-ok` / `m0-line-ok`）→ 多边形 digitize（`input-poly-ok` / `input-ok`）→ OGR China PLP 进层（`china-plp-ok`）→ `view.pan`（`pan-ok`）→ 浏览压力（`browse-ok`：多次 LMB pan + wheel，RMB 不被 pan 吞掉；`SKIP_MAP_CONTEXT_MENU=1` 跳过模态菜单）→ 光标处滚轮（`wheel-cursor-ok`）→ 轨道相机矩阵 → `layout_check` → 地图 HWND 与 View bounds 对齐。
 - 由 `exe_smoke` 拉起；窗口标题 `SmartGIS Views`。
 - 浏览回归 loop：`py -3 testing/tools/loop_runner.py --suite browse`（可 `--no-build`）。
@@ -125,7 +125,7 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 - 输入/数字化回归 loop：`py -3 testing/tools/loop_runner.py --suite input`（脚本 `harness/shell/input/input.il`；缺省或失败时回退 C++）。
 - Suite 契约：`testing/tools/harness/<family>/<suite_id>/` 只留 `suite.json` + 可选 `*.il`（id 与 C++ `ScenarioRegistry` 对齐）；`--list` 列出可用 id。共享 case 在 `harness/_shared/case/`。入口统一 `loop_runner --suite <id>`（已移除同目录 `*_loop.py` / 旁路 `*.args.json`）。
 - 算子参数：`run_processing(..., args="{\"k\":\"$var\"}")` 内联（Interact.g4 支持 `\"` / `\\` 转义 + `$var` 展开）。
-- UI 交互脚本（A+C）：**Interact DSL** 与 suite 同目录的 `*.il`（grammar `harness/_shared/scripts/grammar/Interact.g4`；ANTLR gen → `out/*/gen`）；经 `content::CapabilityHost` + `shell/runtime`（`capability/` + `interact/`）执行；`ui.*` / `input` / `browse` / `map2d.*` / `atmosphere.*` / `console` / `plugin.*` 均优先跑对应 `.il`（失败回退 C++ body）。DebugAgent：`script.run` / `:script <path>`。详见 living §Harness capability runtime + §UI interact script。
+- UI 交互脚本（A+C）：**Interact DSL** 与 suite 同目录的 `*.il`（grammar `harness/_shared/scripts/grammar/Interact.g4`；ANTLR gen → `out/*/gen`）；经 `content::CapabilityHost` + `app/views/runtime`（`capability/` + `interact/` + `plugin/`）执行；`ui.*` / `input` / `browse` / `map2d.*` / `atmosphere.*` / `console` / `plugin.*` 均优先跑对应 `.il`（失败回退 C++ body）。DebugAgent：`script.run` / `:script <path>`。详见 living §Harness capability runtime + §UI interact script。
 - **IL 操作录制（复现问题，2026-10-01）：** 打开/附着 app → 人工操作 → 生成可回放 `.il`。
   - 入口：`py -3 testing/tools/loop_runner.py --record-il`（或 `loop/record/il_recorder.py`）；`--attach` 附着已开窗口；停录 **Ctrl+Shift+F9** / 控制台 Enter / Ctrl+C。
   - 混合：OS 低级钩子（client 坐标）→ `events.jsonl` → 压缩 `path`/`pan_burst`/`wheel_burst`/`drag`/`click`/`key`；可选 DebugAgent `record.poll` 升成 `@inproc`（如 `select_map_tab`）。无 Agent 时仍产出纯 `@os` `.il`。

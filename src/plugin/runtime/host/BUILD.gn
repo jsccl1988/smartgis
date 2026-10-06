@@ -3,7 +3,9 @@
 
 # Plugin host / shared runtime DLL (dll_stem = plugin_host).
 # Role subdirs: registry / manifest / store / signature / processing /
-# resources / ui / tests. Export macro stays at host root.
+# resources / ui / tests / capability / present. Export macro stays at host
+# root. Capability facades nest under capability/{scene3d,report}; GisDocument
+# helpers stay in present/.
 # Product *_views stay source_sets (Phase-2 per-stem DLLs later).
 
 import("//build/smartgis.gni")
@@ -25,6 +27,11 @@ source_set("host_sources") {
     "processing/operation_result.h",
     "processing/processing.cc",
     "processing/processing.h",
+    "capability/capability.h",
+    "capability/report/bridge.cc",
+    "capability/report/bridge.h",
+    "capability/scene3d/sink.cc",
+    "capability/scene3d/sink.h",
     "present/gis_present.cc",
     "present/gis_present.h",
     "registry/registry.cc",

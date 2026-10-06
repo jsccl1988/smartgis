@@ -42,7 +42,7 @@ class Trace {
     time_point end{};
     std::string name;
     std::string cat;
-    // kComplete → Chrome ph "X"; kCounter → ph "C" (counter_value).
+    // kComplete → Horizon ph "X"; kCounter → ph "C" (counter_value).
     enum class Kind : uint8_t { kComplete = 0, kCounter = 1 };
     Kind kind = Kind::kComplete;
     int64_t counter_value = 0;

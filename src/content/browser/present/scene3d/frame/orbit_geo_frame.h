@@ -8,7 +8,7 @@
 #include <cmath>
 #include <vector>
 
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "vista/terrain/dem/dem_frame.h"
 
 namespace content {

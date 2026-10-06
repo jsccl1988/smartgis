@@ -1,4 +1,4 @@
-/* FeatureInfo — identify results chrome (ArcGIS / QGIS style).
+/* FeatureInfo — identify results horizon (ArcGIS / QGIS style).
    Prefer min-height / flex-grow over fixed CSS px so a short TabStrip body
    does not Yoga-overflow labels/table outside the panel (ui.shell layout-fail). */
 

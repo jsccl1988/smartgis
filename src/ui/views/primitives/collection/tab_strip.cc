@@ -225,7 +225,7 @@ void TabStrip::paint_self(ui::gfx::Canvas* canvas) {
     return;
   }
   // Subtler active tab: muted plate + accent edge (not a flat neon slab).
-  // Accent bar keeps ui_shell_dark score samples while matching QGIS chrome.
+  // Accent bar keeps ui_shell_dark score samples while matching QGIS horizon.
   const ui::gfx::Color accent_label = ui::gfx::color_rgb(255, 255, 255);
   const int accent_bar = std::max(2, dip_to_px(3, scale));
   for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {

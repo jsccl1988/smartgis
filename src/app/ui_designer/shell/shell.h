@@ -22,7 +22,7 @@
 
 namespace app {
 
-// Root editor chrome: palette, canvas, props, tree, diagnostics, and document
+// Root editor horizon: palette, canvas, props, tree, diagnostics, and document
 // session (load/save/hot-reload, selection, drag-reorder, text2ui).
 class DesignerShell : public ui::views::View {
  public:

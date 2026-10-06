@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "content/public/plugin_host.h"
+#include "plugin/runtime/host/capability/capability.h"
 #include "plugin/product/world3d/commands.h"
 #include "plugin/product/world3d/detail/contribute.h"
 #include "plugin/product/world3d/scene/present/contour.h"
@@ -32,12 +33,12 @@ constexpr const char* kPluginId = "smartgis.world3d";
 
 content::PluginHost* g_host = nullptr;
 
-content::PluginHost::Scene3dSink* scene_sink(content::PluginHost* host) {
-  return host ? host->scene3d_sink() : nullptr;
+plugin::Scene3dSink* scene_sink(content::PluginHost* host) {
+  return plugin::scene3d_sink(host);
 }
 
 bool earth_sink_ready(content::PluginHost* host) {
-  content::PluginHost::Scene3dSink* sink = scene_sink(host);
+  plugin::Scene3dSink* sink = scene_sink(host);
   return sink && sink->earth_bridges_installed();
 }
 
@@ -67,6 +68,8 @@ bool process_set_satellite_cloud(content::PluginHost* host,
                                  std::string_view args_json);
 bool process_set_atmosphere(content::PluginHost* host,
                             std::string_view args_json);
+bool process_apply_look(content::PluginHost* host, std::string_view args_json);
+bool process_fly_globe(content::PluginHost* host, std::string_view args_json);
 
 bool fail_no_scene(const char* command) {
   set_operation_result(std::string("{\"error\":\"no_scene_device\",\"command\":\"") +
@@ -257,6 +260,22 @@ bool handle_set_atmosphere(const tool::CommandArgs& args) {
     return fail_no_scene("world3d.set_atmosphere");
   }
   return process_set_atmosphere(g_host, args.payload);
+}
+
+bool handle_apply_look(const tool::CommandArgs& args) {
+  if (!g_host || !scene_sink(g_host) ||
+      !scene_sink(g_host)->look_bridges_installed()) {
+    return fail_no_scene("world3d.apply_look");
+  }
+  return process_apply_look(g_host, args.payload);
+}
+
+bool handle_fly_globe(const tool::CommandArgs& args) {
+  if (!g_host || !scene_sink(g_host) ||
+      !scene_sink(g_host)->look_bridges_installed()) {
+    return fail_no_scene("world3d.fly_globe");
+  }
+  return process_fly_globe(g_host, args.payload);
 }
 
 bool handle_add_terrain_heightmap(const tool::CommandArgs&) {
@@ -520,7 +539,7 @@ bool process_open_earth(content::PluginHost* host,
   if (!earth_sink_ready(host)) {
     return fail_no_scene_processing("world3d.open_earth");
   }
-  if (!host->scene3d_sink()->open_earth()) {
+  if (!scene_sink(host)->open_earth()) {
     set_operation_result("{\"error\":\"open_failed\",\"op\":\"world3d.open_earth\"}");
     return false;
   }
@@ -552,7 +571,7 @@ bool process_fly_to(content::PluginHost* host, std::string_view args_json) {
   double span_deg = 4.0;
   (void)scene_json_get_double(args, "distance", &distance);
   (void)scene_json_get_double(args, "span_deg", &span_deg);
-  if (!host->scene3d_sink()->fly_to(lon, lat, static_cast<float>(distance),
+  if (!scene_sink(host)->fly_to(lon, lat, static_cast<float>(distance),
                                     span_deg)) {
     set_operation_result("{\"error\":\"fly_failed\",\"op\":\"world3d.fly_to\"}");
     return false;
@@ -574,7 +593,7 @@ bool process_attach_city_tileset(content::PluginHost* host,
   }
   std::string path;
   (void)scene_json_get_string(args, "path", &path);
-  if (!host->scene3d_sink()->attach_tileset(path)) {
+  if (!scene_sink(host)->attach_tileset(path)) {
     set_operation_result(
         "{\"error\":\"attach_failed\",\"op\":\"world3d.attach_city_tileset\"}");
     return false;
@@ -597,7 +616,7 @@ bool process_load_global_dem(content::PluginHost* host,
   std::string path;
   (void)scene_json_get_string(args, "path", &path);
   std::string result;
-  if (!host->scene3d_sink()->load_global_dem(path, &result)) {
+  if (!scene_sink(host)->load_global_dem(path, &result)) {
     if (result.empty()) {
       set_operation_result(
           "{\"error\":\"load_failed\",\"op\":\"world3d.load_global_dem\"}");
@@ -630,7 +649,7 @@ bool process_set_satellite_cloud(content::PluginHost* host,
   bool enabled = true;
   (void)scene_json_get_bool(args, "enabled", &enabled);
   std::string result;
-  if (!host->scene3d_sink()->set_satellite_cloud(path, enabled, &result)) {
+  if (!scene_sink(host)->set_satellite_cloud(path, enabled, &result)) {
     if (result.empty()) {
       set_operation_result(
           "{\"error\":\"cloud_failed\",\"op\":\"world3d.set_satellite_cloud\"}");
@@ -667,12 +686,77 @@ bool process_set_atmosphere(content::PluginHost* host,
   (void)scene_json_get_bool(args, "ocean", &ocean);
   (void)scene_json_get_bool(args, "cloud", &cloud);
   (void)scene_json_get_bool(args, "fog", &fog);
-  if (!host->scene3d_sink()->set_atmosphere(sky, ocean, cloud, fog)) {
+  if (!scene_sink(host)->set_atmosphere(sky, ocean, cloud, fog)) {
     set_operation_result(
         "{\"error\":\"atmo_failed\",\"op\":\"world3d.set_atmosphere\"}");
     return false;
   }
   set_operation_result("{\"ok\":true,\"op\":\"world3d.set_atmosphere\"}");
+  return true;
+}
+
+bool process_apply_look(content::PluginHost* host, std::string_view args_json) {
+  plugin::Scene3dSink* sink = scene_sink(host);
+  if (!sink || !sink->look_bridges_installed()) {
+    return fail_no_scene_processing("world3d.apply_look");
+  }
+  rapidjson::Document args;
+  if (!parse_scene_args(args_json, &args)) {
+    set_operation_result(
+        "{\"error\":\"bad_args\",\"op\":\"world3d.apply_look\"}");
+    return false;
+  }
+  std::string mode;
+  if (!scene_json_get_string(args, "mode", &mode) || mode.empty()) {
+    set_operation_result(
+        "{\"error\":\"bad_args\",\"op\":\"world3d.apply_look\",\"need\":\"mode\"}");
+    return false;
+  }
+  std::string result;
+  if (!sink->apply_look(mode, &result)) {
+    if (result.empty()) {
+      set_operation_result(
+          "{\"error\":\"look_failed\",\"op\":\"world3d.apply_look\"}");
+    } else {
+      set_operation_result(result);
+    }
+    return false;
+  }
+  if (result.empty()) {
+    set_operation_result("{\"ok\":true,\"op\":\"world3d.apply_look\"}");
+  } else {
+    set_operation_result(result);
+  }
+  return true;
+}
+
+bool process_fly_globe(content::PluginHost* host, std::string_view args_json) {
+  plugin::Scene3dSink* sink = scene_sink(host);
+  if (!sink || !sink->look_bridges_installed()) {
+    return fail_no_scene_processing("world3d.fly_globe");
+  }
+  rapidjson::Document args;
+  if (!parse_scene_args(args_json, &args)) {
+    set_operation_result("{\"error\":\"bad_args\",\"op\":\"world3d.fly_globe\"}");
+    return false;
+  }
+  double t = 0.48;
+  (void)scene_json_get_double(args, "t", &t);
+  std::string result;
+  if (!sink->fly_globe(static_cast<float>(t), &result)) {
+    if (result.empty()) {
+      set_operation_result(
+          "{\"error\":\"fly_failed\",\"op\":\"world3d.fly_globe\"}");
+    } else {
+      set_operation_result(result);
+    }
+    return false;
+  }
+  if (result.empty()) {
+    set_operation_result("{\"ok\":true,\"op\":\"world3d.fly_globe\"}");
+  } else {
+    set_operation_result(result);
+  }
   return true;
 }
 
@@ -732,6 +816,12 @@ bool register_world3d_scene(content::PluginHost* host) {
          contribute_command_aliases(
              host, {{"world3d.set_atmosphere", "大气层开关"}}, "tools",
              handle_set_atmosphere) &&
+         contribute_command_aliases(
+             host, {{"world3d.apply_look", "地球外观预设"}}, "tools",
+             handle_apply_look) &&
+         contribute_command_aliases(
+             host, {{"world3d.fly_globe", "地球飞入"}}, "tools",
+             handle_fly_globe) &&
          contribute_processing_aliases(
              host,
              {{"model3d.add_pointcloud", "Add point cloud"},
@@ -783,7 +873,12 @@ bool register_world3d_scene(content::PluginHost* host) {
              process_set_satellite_cloud) &&
          contribute_processing_aliases(
              host, {{"world3d.set_atmosphere", "大气层开关"}},
-             process_set_atmosphere);
+             process_set_atmosphere) &&
+         contribute_processing_aliases(
+             host, {{"world3d.apply_look", "地球外观预设"}},
+             process_apply_look) &&
+         contribute_processing_aliases(
+             host, {{"world3d.fly_globe", "地球飞入"}}, process_fly_globe);
 }
 
 }  // namespace detail

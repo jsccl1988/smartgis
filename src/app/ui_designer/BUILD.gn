@@ -5,7 +5,7 @@ import("//build/config/win/application.gni")
 
 # Layout (directory partitions; namespace stays app):
 #   app/       — process bootstrap (Widget + FrameView)
-#   shell/     — editor chrome (palette/canvas/props/tree)
+#   shell/     — editor horizon (palette/canvas/props/tree)
 #   canvas/    — markup preview host + hit overlay
 #   document/  — XML DOM helpers + markup edit/reorder
 #   io/        — UTF-8 path file helpers

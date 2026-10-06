@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "vista/component/world/world.h"
 
 namespace content {

@@ -16,7 +16,7 @@ namespace views {
 
 class CaptionButton;
 
-// Custom window chrome: caption strip + client content slot.
+// Custom window horizon: caption strip + client content slot.
 class UI_EXPORT FrameView : public View {
  public:
   FrameView();

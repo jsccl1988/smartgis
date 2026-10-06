@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-#include "content/public/feature_attrs.h"
+#include "content/public/map_layer_types.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/eval/style_rules.h"
 #include "base/process/switches.h"

@@ -1,0 +1,48 @@
+---
+description: src/content/public is the stable UI↔impl contract; keep lean; do not edit without explicit user confirmation this turn
+alwaysApply: true
+globs: src/content/public/**
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# `src/content/public` is a stable UI↔impl contract
+
+**This rule is always on.** `src/content/public/` is the lean embedder/product C++ surface between the UI product (`app/views`, Views shell, plugin-host consumers) and implementations (`src/content/browser`, gis, render, scenic, plugin impl). Product TUs include **only** these headers. Do **not** leak impl types into public headers.
+
+## Gate (hard)
+
+Agents **must not** add, edit, or delete files under `src/content/public/` unless the user’s **current** message explicitly asks to change that public API, or explicitly confirms a proposed delta. If a task seems to need a public change: **STOP**, propose the **minimal** signature/file delta in chat, and wait. Implementing behind **existing** public methods is OK.
+
+**Stable** without confirmation: no rename, signature change, remove, default-arg or behavior change, include-path change, or new header/method/type/overload.
+
+## Do
+
+- Extend `src/content/browser/` (or other impl trees) behind existing public methods (`PluginHost`, `GisDocument`, `MapContents` / `MapWidgetHostView`, `MapContentsObserver`).
+- Prefer existing public headers over adding files. Keep two-layer namespaces; new-tree functions `snake_case`; C++23.
+
+```cpp
+// GOOD — thicken the browser impl, keep the public virtual as-is
+#include "content/public/gis_document.h"
+// GisDocument::create_layer stays unchanged; extra work lives in content/browser/
+```
+
+## Don’t
+
+- **Don’t** kitchen-sink `PluginHost` / `GisDocument` / `MapContents` with convenience methods for one caller.
+- **Don’t** duplicate gis/render types in public headers, or move impl into `content/public/`.
+- **Don’t** infer confirmation from an earlier turn, a plan, or “the shell needs it.”
+
+```cpp
+// BAD — drive-by public thickening
+class PluginHost {
+  virtual void export_bmp_for_showcase(const char* path) = 0;  // one caller
+};
+```
+
+## Relation
+
+**`.cursor/rules/repo/ui-views-skia.mdc`**, **`docs/superpowers/src-layout.md`**, **`docs/superpowers/specs/2026-09-13-plugin-host-design.md`**, **`.cursor/rules/style/refactoring.mdc`**, **`.cursor/rules/style/snake-case-functions.mdc`**, **`.cursor/rules/style/namespace.mdc`**.

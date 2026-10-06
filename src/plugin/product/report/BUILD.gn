@@ -1,0 +1,27 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+copy("report_resources") {
+  sources = [ "manifest/plugin.json" ]
+  outputs = [ "$root_out_dir/../plugins/report/{{source_file_part}}" ]
+}
+
+source_set("report_views") {
+  sources = [
+    "commands.cc",
+    "commands.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+    "//src/tool:dispatch",
+    "//third_party:rapidjson",
+  ]
+  data_deps = [ ":report_resources" ]
+}

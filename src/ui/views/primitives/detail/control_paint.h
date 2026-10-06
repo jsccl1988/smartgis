@@ -29,7 +29,7 @@ inline int centered_text_y(const Rect& b, int ink_h) {
   return b.y + (b.height - ink_h) / 2;
 }
 
-// Draw UTF-16 text clipped to |clip| so chrome does not bleed into siblings.
+// Draw UTF-16 text clipped to |clip| so horizon does not bleed into siblings.
 inline void draw_clipped_text(ui::gfx::Canvas* canvas, const Rect& clip, int x,
                               int y, const wchar_t* text, ui::gfx::Color color) {
   if (!canvas || !text || clip.width <= 0 || clip.height <= 0) {

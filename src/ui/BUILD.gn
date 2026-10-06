@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Product GIS chrome aliases. MFC leftover_ui was deleted with leftover/app.
+# Product GIS horizon aliases. MFC leftover_ui was deleted with leftover/app.
 
 group("gis") {
   public_deps = [ "//src/ui/gis:gis" ]

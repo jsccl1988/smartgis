@@ -26,6 +26,10 @@
 
       {"id": "world3d.set_atmosphere", "title": "大气层开关", "menu": "tools"},
 
+      {"id": "world3d.apply_look", "title": "地球外观预设", "menu": "tools"},
+
+      {"id": "world3d.fly_globe", "title": "地球飞入", "menu": "tools"},
+
       {"id": "world3d.fly_to", "title": "飞行到", "menu": "tools"},
 
       {"id": "world3d.attach_city_tileset", "title": "挂载城市瓦片", "menu": "tools"},
@@ -94,6 +98,10 @@
       {"id": "world3d.set_satellite_cloud", "title": "卫星云图"},
 
       {"id": "world3d.set_atmosphere", "title": "大气层开关"},
+
+      {"id": "world3d.apply_look", "title": "地球外观预设"},
+
+      {"id": "world3d.fly_globe", "title": "地球飞入"},
 
       {"id": "world3d.fly_to", "title": "飞行到"},
 

@@ -140,7 +140,7 @@ void View::set_bounds(const Rect& bounds) {
   }
   sync_native_bounds();
   // Layout growth/shrink must invalidate old+new — otherwise newly exposed
-  // chrome stays stale until a hover schedule_paint_rect hits it.
+  // horizon stays stale until a hover schedule_paint_rect hits it.
   if (widget_) {
     if (old.width > 0 && old.height > 0) {
       widget_->schedule_paint_rect(old);
@@ -180,7 +180,7 @@ void View::set_widget(Widget* widget) {
     child->set_widget(widget);
   }
   // Controls measure at scale 1.f in their ctor (no widget yet). When the
-  // tree attaches to a DPI-scaled Widget, rebuild DIP metrics once so chrome
+  // tree attaches to a DPI-scaled Widget, rebuild DIP metrics once so horizon
   // text is not stuck tiny until a later hover/scroll paint.
   if (widget_ && widget_->device_scale_factor() > 0.f) {
     const float scale = widget_->device_scale_factor();
@@ -311,7 +311,7 @@ void View::layout() {
   for (auto& child : children_) {
     if (!child->visible_) {
       // Invisible native hosts (inactive Map/Scene3d) must still hide HWND;
-      // skipping left embed/DXGI covering chrome after tab switch + resize.
+      // skipping left embed/DXGI covering horizon after tab switch + resize.
       child->sync_native_bounds();
       continue;
     }
@@ -358,7 +358,7 @@ void View::append_commands_to(ui::gfx::DisplayList* out,
   }
   ensure_commands_recorded();
   // Match View::paint: clip each subtree so compositor commits cannot bleed
-  // sibling chrome (UiDesigner canvas / shell panels).
+  // sibling horizon (UiDesigner canvas / shell panels).
   const bool clip = bounds_.width > 0 && bounds_.height > 0;
   if (clip) {
     out->save();

@@ -1,0 +1,39 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+copy("map2d_resources") {
+  sources = [ "manifest/plugin.json" ]
+  outputs = [ "$root_out_dir/../plugins/map2d/{{source_file_part}}" ]
+}
+
+source_set("map2d_views") {
+  sources = [
+    "commands.cc",
+    "commands.h",
+    "seed/seed.cc",
+    "seed/seed.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    "//src/content:content",
+    "//src/plugin/product/world3d:world3d_views",
+    "//src/plugin/runtime/host:host",
+    "//src/tool:dispatch",
+    "//third_party:rapidjson",
+  ]
+  libs = [ "user32.lib" ]
+  data_deps = [ ":map2d_resources" ]
+}
+
+test("map2d_seed_test") {
+  output_name = "map2d_seed_test"
+  sources = [ "tests/seed_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":map2d_views" ]
+}

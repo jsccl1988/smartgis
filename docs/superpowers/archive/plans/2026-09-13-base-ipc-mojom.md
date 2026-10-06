@@ -41,8 +41,7 @@ All rights reserved.
 | `src/app/winui/BUILD.gn` | drop `/std:c++17` |
 | `src/content/public/process_type.h` | `ProcessType` enum + switch names |
 | `src/content/app/content_main.h/.cc` | `ContentMain` / `ContentMainParams` |
-| `src/content/public/map_contents.h` | replaces `map_session.h` |
-| `src/content/public/map_contents_observer.h` | replaces client |
+| `src/content/public/map_contents.h` | replaces `map_session.h` (observer types live here) |
 | `src/content/public/map_widget_host_view.h` | replaces `map_view.h` |
 | `src/gpu/gpu_main.cc` | `GpuMain` from `--type=gpu` |
 | `src/app/views/main.cc` | BrowserMain via `ContentMain` |
@@ -162,7 +161,7 @@ Use `GetModuleFileNameW(nullptr)` for `exe`. `CREATE_NO_WINDOW` on children. Job
 ### Task 5: Chromium public names
 
 **Files:**
-- Create: `map_contents.h`, `map_contents_observer.h`, `map_widget_host_view.h`
+- Create: `map_contents.h` (includes observer), `map_widget_host_view.h`
 - Modify: hosts under `src/app/{views,winui}` includes
 - Delete: `map_session.h`, `map_view.h`, `tool_router.h` after hosts compile
 

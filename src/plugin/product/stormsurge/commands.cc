@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "content/public/plugin_host.h"
+#include "plugin/runtime/host/capability/capability.h"
 #include "gis/analysis/raster/dem/storm_surge.h"
 #include "gis/analysis/raster/dem/storm_surge_stats.h"
 #include "plugin/product/stormsurge/present/mask.h"
@@ -99,7 +100,7 @@ bool stormsurge_present(content::PluginHost* host) {
   const gis::detail::StormSurgeResult& result = g_last_surge;
   const double water_level = result_water_level(result);
   content::GisDocument* gis = host->gis_document();
-  content::PluginHost::Scene3dSink* sink = host->scene3d_sink();
+  plugin::Scene3dSink* sink = plugin::scene3d_sink(host);
   const int frame_count =
       result.frame_masks.empty()
           ? 1
@@ -203,7 +204,7 @@ bool stormsurge_present_frame(content::PluginHost* host,
       result.frame_masks.empty()
           ? result.mask.data()
           : result.frame_masks[static_cast<size_t>(index)].data();
-  content::PluginHost::Scene3dSink* sink = host->scene3d_sink();
+  plugin::Scene3dSink* sink = plugin::scene3d_sink(host);
   if (!present_stormsurge_mask(gis, sink, nullptr, mask, result.width,
                                result.height, result.geotransform,
                                /*begin_session=*/false, frame_level)) {

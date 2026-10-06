@@ -93,8 +93,8 @@ All rights reserved.
         <h3>IR — component/world/terrain</h3>
         <ul>
           <li><code>TerrainPayload</code> 嵌在 Node / Instance</li>
-          <li>lod：max_edge · TIN stride · surface edge</li>
-          <li>seed：raster / view tiles / surface / TIN</li>
+          <li>lod：max_edge · TIN stride/空间抽稀 · nested + morph/skirt</li>
+          <li>seed：raster / view tiles / nested / surface / TIN</li>
           <li><code>assert_no_deps</code> render</li>
         </ul>
       </div>
@@ -125,7 +125,7 @@ All rights reserved.
 
       <rect class="stage" data-i="1" x="200" y="40" width="180" height="90" rx="7" fill="#e5f3ec" stroke="#2f7d62"/>
       <text class="box-title" x="212" y="68">terrain/seed + lod</text>
-      <text class="box-sub" x="212" y="88">raster · TIN · surface</text>
+      <text class="box-sub" x="212" y="88">raster · TIN · nested</text>
       <text class="box-sub" x="212" y="108">→ TerrainPayload</text>
 
       <rect class="stage" data-i="2" x="410" y="50" width="150" height="70" rx="7" fill="#e5f3ec" stroke="#2f7d62"/>
@@ -146,7 +146,7 @@ All rights reserved.
       <line class="pulse" x1="560" y1="85" x2="590" y2="85" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
       <line class="pulse" x1="770" y1="85" x2="800" y2="85" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
 
-      <text x="20" y="180" class="box-sub">Gap：无 clipmap / CDLOD / GPU tess（本波离散桶）</text>
+      <text x="20" y="180" class="box-sub">Gap：RHI 无 hull tess / GPU clipmap。CPU nested = 环 + 径向 lod_max_edge + morph IR + 边裙；TIN 可按质心到相机抽稀。</text>
     </svg>
     <p class="note">阶段高亮循环表示「谁产出、谁上传、谁录制」——CPU seed 永不 join 设备线程。</p>
   </section>
@@ -157,8 +157,9 @@ All rights reserved.
       <thead><tr><th>源</th><th>离散策略</th><th>Seed API</th></tr></thead>
       <tbody>
         <tr><td>Raster</td><td><code>lod_max_edge</code> + view tiles</td><td><code>seed_dem_raster_lod_into_world</code></td></tr>
+        <tr><td>Nested grid</td><td>CPU CDLOD rings；<code>max_edge(patch_distance)</code> + morph + skirts</td><td><code>seed_dem_nested_grid_into_world</code></td></tr>
         <tr><td>Surface</td><td><code>terrain_lod_surface_edge</code></td><td><code>seed_dem_surface_lod_into_world</code></td></tr>
-        <tr><td>TIN</td><td><code>terrain_lod_tin_stride</code></td><td><code>seed_tin_lod_into_world</code></td></tr>
+        <tr><td>TIN</td><td>stride fallback，或质心到相机空间抽稀</td><td><code>seed_tin_lod_into_world</code></td></tr>
       </tbody>
     </table>
   </section>

@@ -17,7 +17,7 @@
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
 #include "content/browser/present/scene3d/scenic_engine_host.h"
 #include "content/browser/present/scene3d/software/scene3d_software_painter.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "render/rhi/rhi.h"
 #include "tool/draft/draft.h"
 #include "ui/gfx/raster/shell_raster.h"

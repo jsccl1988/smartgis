@@ -9,7 +9,6 @@
 #include "base/process/switches.h"
 #include "base/trace/event/process_trace.h"
 #include "content/public/map_contents.h"
-#include "content/public/map_contents_observer.h"
 #include "content/public/view_host.h"
 
 namespace content {

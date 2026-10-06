@@ -4,7 +4,7 @@
 #ifndef UI_GIS_GIS_H_
 #define UI_GIS_GIS_H_
 
-// Product GIS chrome on //src/ui/views (panels + GIS dialogs).
+// Product GIS horizon on //src/ui/views (panels + GIS dialogs).
 // Includes are "ui/gis/<area>/…". Namespace stays ui::views for now.
 // See docs/superpowers/ui-views-skia.md and
 // docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md.

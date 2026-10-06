@@ -49,7 +49,7 @@ All rights reserved.
 ### Task 2 — Browser seams
 
 **Files:**
-- Modify: `src/app/views/shell/browser/browser.cc` (world3d writer install only)
+- Modify: `src/app/views/browser/browser.cc` (world3d writer install only)
 
 - [x] Step 1: `open_earth` → select Scene3D tab + `apply_china_scene3d_product_defaults`
 - [x] Step 2: `fly_to(lon,lat,distance,span_deg)` → local orbit extent + distance
@@ -62,7 +62,7 @@ All rights reserved.
 ### Task 3 — Plugin showcase Earth path
 
 **Files:**
-- Modify: `src/app/views/shell/harness/showcase/plugin/plugin_showcase.cc`
+- Modify: `src/app/views/harness/showcase/plugin/plugin_showcase.cc`
 - Create: `src/plugin/product/world3d/README.md`
 
 - [x] Step 1: Showcase uses atmosphere product defaults (not land-only off) + DEM orbit + pointcloud overlay
@@ -90,7 +90,7 @@ All rights reserved.
 
 **Files:**
 - Modify: `src/plugin/product/world3d/commands.h` / `scene_commands.cc` / `manifest/plugin.json` / `README.md` / `BUILD.gn`
-- Modify: `src/app/views/shell/browser/plugin/analysis_writer_world3d.cc`
+- Modify: `src/app/views/browser/plugin/analysis_writer_world3d.cc`
 - Modify: `src/vista/component/world/terrain/dem/dem_raster.{h,cc}` (`set_sample_dem_path_override`)
 - Modify: `src/content/browser/present/scene3d/frame/terrain_mesh.cc`
 - Modify: living § under plugin-host + render-rhi-scene

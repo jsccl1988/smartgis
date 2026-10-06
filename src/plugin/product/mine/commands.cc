@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "content/public/plugin_host.h"
+#include "plugin/runtime/host/capability/capability.h"
 #include "gis/analysis/geology/borehole.h"
 #include "gis/analysis/geology/prism_volume.h"
 #include "gis/analysis/geology/stratum_tin.h"
@@ -67,7 +68,7 @@ bool publish_viz(content::PluginHost* host,
     return false;
   }
   std::string err;
-  if (!present_mine_stratum(host->gis_document(), host->scene3d_sink(),
+  if (!present_mine_stratum(host->gis_document(), plugin::scene3d_sink(host),
                             nullptr, tin, holes, &err)) {
     set_operation_result(
         std::string("{\"error\":\"") +

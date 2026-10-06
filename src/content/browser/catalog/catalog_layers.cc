@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/public/catalog_layers.h"
+#include "content/public/map_layer_types.h"
 
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>

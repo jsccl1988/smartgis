@@ -54,7 +54,7 @@ struct GanttLaneGeom {
 };
 bool compute_gantt_lane_geom(int panel_y,
                              int panel_bottom,
-                             int chrome_bottom,
+                             int horizon_bottom,
                              int lane_count,
                              GanttLaneGeom* out);
 

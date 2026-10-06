@@ -22,7 +22,7 @@ Missing `gis_document()` → structured `no_stormsurge_seam` JSON.
 
 **Playback:** `Browser::apply_plugin_frame` runs `stormsurge.present_frame`.
 
-**Scene3D tab:** Chrome `select_map_tab(2)` seeds atmosphere **before** lazy
+**Scene3D tab:** Horizon `select_map_tab(2)` seeds atmosphere **before** lazy
 Vista attach and `abandon()`s leftover stereo (no `destroy_` under Vista) so
 overlay TIN sessions do not AV / heap-corrupt on tab switch.
 
@@ -40,10 +40,10 @@ downsampled like flood paint). P2 metrics: `native.storm_surge_stats` /
 ```bat
 build.bat debug analysis_storm_surge_test
 build.bat debug stormsurge_run_test
-REM Suite (GPU HWND BMP + playback-water-tin + tab3d-chrome); prefer --no-build when exe fresh
+REM Suite (GPU HWND BMP + playback-water-tin + tab3d-horizon); prefer --no-build when exe fresh
 py -3 testing/tools/loop_runner.py --suite plugin.stormsurge --no-build
 ```
 
 `--plugin-showcase=stormsurge` runs `run_stormsurge_scene3d` (owned present, peer of
-world3d/mine). Required marks include `playback-water-tin` and `tab3d-chrome`.
+world3d/mine). Required marks include `playback-water-tin` and `tab3d-horizon`.
 Optional map2d script: `testing/tools/harness/plugin/plugin.stormsurge/plugin.stormsurge.il`.

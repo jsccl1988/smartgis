@@ -34,7 +34,7 @@ All rights reserved.
 | `src/content/browser/debug/*` | Agent, protocol, commands, python spawn |
 | `src/content/BUILD.gn` | sources + `debug_agent_test` |
 | `src/ui/gis/debug/debug_console_panel.{h,cc}` | Bottom panel widget |
-| `src/app/views/shell/ui/*`, `view_commands*`, `browser_view*` | Dock + menu toggle + enablement |
+| `src/app/views/ui/*`, `view_commands*`, `browser_view*` | Dock + menu toggle + enablement |
 | `tools/debug/` | worker + `smartgis` RPC + `.pyi` |
 | `.vscode/launch.json` (sample under `tools/debug/vscode/`) | DAP sample (do not clobber user `.vscode` blindly — ship under package) |
 
@@ -189,7 +189,7 @@ git commit -m "feat(debug): add out-of-process Python tools/debug worker"
 
 **Files:**
 - Create: `src/content/browser/debug/debug_agent.h`, `debug_agent.cc`, `debug_protocol.h`, `debug_commands.h`, `debug_commands.cc`, `debug_agent_test.cc`
-- Modify: `src/content/BUILD.gn`, enablement hooks in `src/app/views/shell/app/` cmdline (`views_launch_options`) and/or `browser_main`
+- Modify: `src/content/BUILD.gn`, enablement hooks in `src/app/views/app/` cmdline (`views_launch_options`) and/or `browser_main`
 
 **Interfaces:**
 - Consumes: `base::log_sink()`, `gis::datasource::SdbdClient`, Browser callbacks injected via `DebugAgentHost` interface (narrow: `refresh_map`, `extent_string`, `layer_names`)
@@ -219,7 +219,7 @@ git commit -m "feat(content): add DebugAgent loopback JSON-RPC and sdbd/py bridg
 
 **Files:**
 - Create: `src/ui/gis/debug/debug_console_panel.h`, `debug_console_panel.cc`
-- Modify: `src/ui/views` BUILD for panel sources; `src/app/views/shell/ui/browser_view.*`, panels wiring, `view_commands` / menu for Toggle Debug Console
+- Modify: `src/ui/views` BUILD for panel sources; `src/app/views/ui/browser_view.*`, panels wiring, `view_commands` / menu for Toggle Debug Console
 - Match peers: `render_trace_panel`, `atmosphere_panel`
 
 - [ ] **Step 1: Panel UI — multiline log `Label`/custom paint or existing text view if any; `Textfield` input; history**

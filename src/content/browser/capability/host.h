@@ -7,12 +7,12 @@
 #include <functional>
 #include <string>
 
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 
 namespace content {
 
 // Callback bag for shared harness / DebugAgent scenario verbs.
-// Filled by the shell (`app/views/shell/runtime`); content must not depend on
+// Filled by the shell (`app/views/runtime`); content must not depend on
 // `app::Browser`. Same pattern as DebugAgentHost.
 struct CapabilityHost {
   // Message-loop pump for |ms| milliseconds.
@@ -38,7 +38,7 @@ struct CapabilityHost {
   std::function<void()> detach_maps;
   std::function<void()> stop_map_present_timers;
 
-  // Window chrome (activate / resize). |w|/|h| used when action is resize.
+  // Window horizon (activate / resize). |w|/|h| used when action is resize.
   std::function<bool(const std::string& action, int w, int h)> window;
   std::function<bool(unsigned vk)> key;
 
@@ -63,7 +63,7 @@ struct CapabilityHost {
   // |mode|: "land" | "ocean" | "full" | "coast"
   std::function<bool(const std::string& mode)> atmosphere_run;
   // Plugin ProcessingPool: id + JSON args (empty object ok).
-  // Product showcases use run_processing(id) — not a chrome product switch.
+  // Product showcases use run_processing(id) — not a horizon product switch.
   std::function<bool(const std::string& id, const std::string& args_json)>
       run_processing;
   // Short DebugAgent console self-test body.
@@ -84,7 +84,7 @@ struct CapabilityHost {
   std::function<bool()> doc_clear;
   std::function<bool()> fit_extent;
   // |frame|: shell china_product | unit_square | document_extent, or a
-  // PluginHost contribute_export_frame id (product extents are not chrome).
+  // PluginHost contribute_export_frame id (product extents are not horizon).
   std::function<bool(const std::string& leaf, const std::string& frame)>
       export_bmp;
   std::function<bool(bool on)> suppress_dialogs;

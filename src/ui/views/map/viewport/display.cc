@@ -312,6 +312,11 @@ void DrawHost::display_thread_main() {
           continue;
         }
       }
+      // pause_present must stop this mailbox BeginFrame: MapScene/style
+      // mutations on UI otherwise race GPU present (china-ok 0xC0000005).
+      if (present_paused_.load(std::memory_order_acquire)) {
+        continue;
+      }
       display_run_begin_frame();
       continue;
     }
@@ -445,7 +450,8 @@ void DrawHost::display_thread_main() {
         // initialize() rebuilds the flip swapchain (navy clear). Redraw
         // immediately — waiting for a later BeginFrame token left Map2d on
         // the clear after the post-attach WM_SIZE shrink.
-        if (has_gpu_cb_.load(std::memory_order_acquire)) {
+        if (has_gpu_cb_.load(std::memory_order_acquire) &&
+            !present_paused_.load(std::memory_order_acquire)) {
           const uint32_t token =
               frame_request_.fetch_add(1, std::memory_order_acq_rel) + 1;
           display_run_present(desc.width, desc.height, token);

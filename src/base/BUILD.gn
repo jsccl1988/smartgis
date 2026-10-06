@@ -31,6 +31,9 @@ source_set("foundation") {
     "util/type_utils.h",
     "tuple/tuple.h",
     "tuple/algorithm.h",
+    "tuple/fixed_string.h",
+    "tuple/named_tuple.h",
+    "tuple/tagged_tuple.h",
     # Memory / concurrency / sync / trace live in dedicated source_sets.
   ]
   public_configs = [ ":foundation_config" ]
@@ -89,4 +92,12 @@ group("base_all") {
     ":foundation",
     ":base",
   ]
+}
+
+import("//testing/test.gni")
+
+test("tuple_test") {
+  output_name = "tuple_test"
+  sources = [ "tuple/tuple_test.cc" ]
+  include_dirs += [ "//src" ]
 }

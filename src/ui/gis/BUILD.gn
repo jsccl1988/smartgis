@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Product GIS chrome on top of //src/ui/views (panels + GIS dialogs).
+# Product GIS horizon on top of //src/ui/views (panels + GIS dialogs).
 # Layering: gfx → views → ui/gis → app.
 # Same PE as //src/ui/views:ui_views (dll_stem = ui_views); UI_EXPORT only.
 # Namespace stays ui::views for now; includes are "ui/gis/...".

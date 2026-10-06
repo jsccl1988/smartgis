@@ -35,7 +35,7 @@ inline bool is_blank(std::string_view in) {
   return trim_ascii(in).empty();
 }
 
-// Apply industry-style validation chrome: muted hint vs danger status.
+// Apply industry-style validation horizon: muted hint vs danger status.
 inline void set_status_label(Label* label, bool ok, const std::string& message) {
   if (!label) {
     return;

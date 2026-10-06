@@ -54,7 +54,7 @@ class UI_EXPORT ShellCompositor {
   void notify_when_published(std::uint64_t generation, HWND hwnd);
 
   // UI thread / tests: block until |generation| is published or shutdown.
-  // Product WM_PAINT must not call this (chrome hover stays non-blocking).
+  // Product WM_PAINT must not call this (horizon hover stays non-blocking).
   bool wait_published(std::uint64_t generation);
 
   // UI thread: BitBlt the published front buffer into |hdc| for |dest|.
@@ -87,7 +87,7 @@ class UI_EXPORT ShellCompositor {
 
   // Published front DIB size (0×0 when empty). UI uses this to detect a client
   // that grew past the last Commit so resize cannot keep presenting a lagging
-  // front (NULL_BRUSH desktop show-through / stale chrome).
+  // front (NULL_BRUSH desktop show-through / stale horizon).
   void front_buffer_size(int* width_px, int* height_px) const;
 
   // Drop worker DIBs (minimize / zero size). Safe on UI thread after shutdown

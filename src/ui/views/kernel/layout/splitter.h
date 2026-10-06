@@ -27,7 +27,7 @@ class UI_EXPORT Splitter : public View {
   // Clear the one-shot seed and lay out again from child preferred sizes.
   void reseed();
 
-  // 5px seam matches QGIS/ArcGIS Pro chrome (was 8 — read as a bright slab).
+  // 5px seam matches QGIS/ArcGIS Pro horizon (was 8 — read as a bright slab).
   static constexpr int kBarPx = 5;
 
   void layout() override;

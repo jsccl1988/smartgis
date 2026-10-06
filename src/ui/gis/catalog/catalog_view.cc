@@ -73,7 +73,7 @@ CatalogView::CatalogView() {
   View* tabs_host = loaded.ids.find("tabs_host");
 
   // Keep Map/Data/3D and Layers/Sources/Maps on one horizontal band — a separate
-  // Catalog title row used to push source tabs down into the map chrome.
+  // Catalog title row used to push source tabs down into the map horizon.
   // Preferred width must fit three tab labels (Layers/Sources/Maps) without
   // clipping into the Map tab accent (visual_review: Sources obscured).
   if (title_) {

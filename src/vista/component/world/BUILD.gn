@@ -108,6 +108,19 @@ test("world_test") {
   ]
 }
 
+test("seed_tin_test") {
+  output_name = "seed_tin_test"
+  sources = [ "terrain/seed_tin_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":world",
+    "//src/gis/geo:geo",
+    "//src/base:base",
+    "//third_party:gdal",
+  ]
+}
+
 test("pointcloud_test") {
   output_name = "pointcloud_test"
   sources = [ "pointcloud/pointcloud_test.cc" ]

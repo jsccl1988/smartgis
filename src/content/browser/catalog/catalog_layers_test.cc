@@ -3,7 +3,7 @@
 
 #include "content/browser/document/store/layer_store.h"
 #include "content/browser/document/map_scene.h"
-#include "content/public/catalog_layers.h"
+#include "content/public/map_layer_types.h"
 #include "gis/tile/provider/tile_provider.h"
 
 #include <cstdio>

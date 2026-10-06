@@ -5,11 +5,12 @@
 
 #include "content/public/gis_document.h"
 #include "plugin/runtime/host/present/gis_present.h"
+#include "plugin/runtime/host/capability/scene3d/sink.h"
 
 namespace plugin {
 
 bool present_world3d_standin_mesh(content::GisDocument* doc,
-                                  content::PluginHost::Scene3dSink* sink,
+                                  Scene3dSink* sink,
                                   const char* name,
                                   double lon,
                                   double lat,

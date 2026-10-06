@@ -202,7 +202,7 @@ std::uint64_t ShellCompositor::present(HDC hdc,
 
   // BitBlt first, then fill only uncovered margins. Filling the whole |dest|
   // before the blit flashed shell_bg on every mouse-move WM_PAINT (NULL_BRUSH
-  // + no erase) and looked like hollow self-drawn chrome. Resize/move still
+  // + no erase) and looked like hollow self-drawn horizon. Resize/move still
   // needs opaque fill where the published front lags the client size.
   std::uint64_t presented_gen = 0;
   int copied_w = 0;
@@ -500,7 +500,7 @@ void ShellCompositor::raster_dirty_into(HDC dc,
   canvas.fill_rect(clip_l, clip_t, clip_r - clip_l, clip_b - clip_t,
                    frame.clear_color);
   // Never unclipped replay: skip cmds that miss dirty intersect DIB (hover
-  // chrome and tall TableView rows below the window).
+  // horizon and tall TableView rows below the window).
   frame.display_list.replay_clipped(&canvas, clip_l, clip_t, clip_r, clip_b);
   canvas.restore();
   const std::uint64_t pixels = static_cast<std::uint64_t>(clip_r - clip_l) *

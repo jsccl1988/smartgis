@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <map>
 
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 #include "gis/edit/mutation.h"
 #include "gis/gis_export.h"
 

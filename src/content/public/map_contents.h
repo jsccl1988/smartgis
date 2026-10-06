@@ -8,12 +8,20 @@
 #include <cstdint>
 
 #include "content/content_export.h"
-#include "content/public/map_contents_observer.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 
 // Browser-process session: relaunch this PE with --type=gpu, N
 // MapWidgetHostView surfaces. Hosts include only content/public.
 namespace content {
+
+// Shell implements this. MapContents does not include mojo.
+class MapContentsObserver {
+ public:
+  virtual ~MapContentsObserver() = default;
+  virtual void OnFrameReady(uint32_t view_id, uint32_t generation) {}
+  virtual void OnExtentChanged(uint32_t view_id, const Extent2& e) {}
+  virtual void OnRenderDied() {}
+};
 
 // Hosted map viewport. Shell presents Latest() into its HWND.
 // GPU owns RenderDevice2d. Do not include sdb or render device headers.

@@ -32,25 +32,18 @@ void DrawHost::start_present_timer() {
   if (hud_fps_.load(std::memory_order_relaxed) < 1.0e-3f) {
     hud_fps_.store(60.f, std::memory_order_relaxed);
   }
+  present_paused_.store(false, std::memory_order_release);
   SetTimer(hwnd, kPresentTimerId, 16, nullptr);
 }
 
 void DrawHost::pause_present() {
+  present_paused_.store(true, std::memory_order_release);
   set_gpu_present_visible(false);
   stop_present_timer();
-  HWND hwnd = native_view();
-  if (!hwnd || !IsWindow(hwnd)) {
-    return;
-  }
-  MSG msg;
-  while (PeekMessageW(&msg, hwnd, WM_TIMER, WM_TIMER, PM_REMOVE)) {
-    if (msg.wParam != kPresentTimerId) {
-      PostMessageW(hwnd, msg.message, msg.wParam, msg.lParam);
-    }
-  }
 }
 
 void DrawHost::resume_present_timer() {
+  present_paused_.store(false, std::memory_order_release);
   start_present_timer();
   request_frame();
 }

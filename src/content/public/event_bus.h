@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 
 // Domain facts that already happened, and the session bus that publishes them.
 // Not RPC and not pointer routing. The bus is not a process singleton.

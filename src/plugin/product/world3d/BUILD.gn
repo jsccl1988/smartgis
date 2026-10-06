@@ -191,6 +191,10 @@ source_set("world3d_views") {
     "scene/present/standin.h",
     "scene/present/style.cc",
     "scene/present/style.h",
+    "scene/fly/globe_fly.cc",
+    "scene/fly/globe_fly.h",
+    "scene/look/look.cc",
+    "scene/look/look.h",
     "scene/register.cc",
     "scene/register.h",
   ]
@@ -210,6 +214,7 @@ source_set("world3d_views") {
     "//src/gis/geo:tin",
     "//src/base:core",
     "//src/content:content",
+    "//src/content:scene3d_present",
     "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/widgets:widgets",
     "//src/tool:tool",

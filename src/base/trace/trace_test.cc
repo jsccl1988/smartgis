@@ -73,10 +73,10 @@ int main() {
 
     rec.add_instant("mark", "map2d");
     rec.set_counter("draw_items", 42);
-    const std::string chrome = base::trace::export_chrome_trace(rec);
-    assert(chrome.find("\"traceEvents\":[") != std::string::npos);
-    assert(chrome.find("\"ph\":\"i\"") != std::string::npos);
-    assert(chrome.find("\"ph\":\"C\"") != std::string::npos);
+    const std::string json = base::trace::export_chrome_trace(rec);
+    assert(json.find("\"traceEvents\":[") != std::string::npos);
+    assert(json.find("\"ph\":\"i\"") != std::string::npos);
+    assert(json.find("\"ph\":\"C\"") != std::string::npos);
   }
 
   {

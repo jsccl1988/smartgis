@@ -401,7 +401,7 @@ void FeatureInfo::paint_self(ui::gfx::Canvas* canvas) {
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
-  // Calm top hairline so the identify chrome separates from the host tab strip.
+  // Calm top hairline so the identify horizon separates from the host tab strip.
   float scale = 1.f;
   if (widget()) {
     scale = widget()->device_scale_factor();

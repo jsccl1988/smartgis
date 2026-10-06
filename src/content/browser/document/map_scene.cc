@@ -20,7 +20,7 @@
 #include "content/browser/document/ingest/seed_paths.h"
 #include "content/browser/document/query/extent_query.h"
 #include "content/browser/document/query/inspector.h"
-#include "content/public/feature_attrs.h"
+#include "content/public/map_layer_types.h"
 #include "base/trace/event/process_trace.h"
 #include "gis/style/document/style_document.h"
 

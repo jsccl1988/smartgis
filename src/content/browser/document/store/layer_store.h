@@ -9,8 +9,7 @@
 #include <vector>
 
 #include "content/browser/document/store/map_layer.h"
-#include "content/public/catalog_layers.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 
 namespace content {
 namespace detail {

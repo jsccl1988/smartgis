@@ -27,7 +27,7 @@ struct DebugAgentHost {
   std::function<std::string(const std::string& utf8)> ui_type;
   std::function<std::string()> ui_dump_tree;
   std::function<std::string()> ui_overlay_stats;
-  // Optional: capture shell chrome to a PNG/BMP path (forensics Mode C).
+  // Optional: capture shell horizon to a PNG/BMP path (forensics Mode C).
   std::function<std::string(const std::string& path)> ui_capture_shell;
   // Prefer in-process CPython when set; else OOP spawn fallback.
   std::function<std::string(const std::string& code)> py_eval;

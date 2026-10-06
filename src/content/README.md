@@ -12,7 +12,7 @@ exported Scene3d engine SoT — see `browser/present/scene3d/session/`).
 
 ```
 content/
-  public/          # 9 embedder headers
+  public/          # 7 embedder headers (`map_contents.h` includes MapContentsObserver)
   app/             # ContentMain + process-type switch
   browser/         # C10: 12 siblings. C11 tighten: contents/session/document/camera/present/capability/debug
   renderer/        # --type=renderer child

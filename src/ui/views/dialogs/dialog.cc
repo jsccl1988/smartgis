@@ -81,7 +81,7 @@ class DialogShell : public View {
     }
     const Theme& t = Theme::current();
     const Rect& b = bounds();
-    // Hairline above the button row (Fluent / ArcGIS dialog chrome).
+    // Hairline above the button row (Fluent / ArcGIS dialog horizon).
     if (child_count() >= 2) {
       if (View* footer = child_at(1)) {
         const int y = footer->bounds().y;

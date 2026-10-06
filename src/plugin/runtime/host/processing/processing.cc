@@ -3,6 +3,7 @@
 
 #include "plugin/runtime/host/processing/processing.h"
 
+#include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 
 #ifndef NOMINMAX
@@ -158,12 +159,12 @@ void attach_host_processing(content::PluginHost* host, ProcessingPool* pool) {
   if (!host || !pool) {
     return;
   }
-  host->set_processing_pool(pool);
+  host->set_capability(kCapabilityProcessingPool, pool);
   host->set_processing_enqueue(
       [host, pool](std::string processing_id, std::string args_json,
                    content::ProcessingFactory factory) {
         // Compute with a null host so factories skip gis_document /
-        // present_dataset / chrome writers. Present re-enters with the real
+        // present_dataset / horizon writers. Present re-enters with the real
         // host on the flush / UI drain thread (ProcessingPool 5-arg submit).
         return pool->submit(
             std::move(processing_id), std::move(args_json),

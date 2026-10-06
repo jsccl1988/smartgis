@@ -64,7 +64,7 @@ All rights reserved.
 ### Task 2 — Browser installs `set_world3d_scene_writer`
 
 **Files:**
-- Modify: `src/app/views/shell/browser/browser.cc`
+- Modify: `src/app/views/browser/browser.cc`
 - Possibly: thin helpers to ingest pointcloud txt → map points / triangle stand-ins; sphere/water P0 stand-ins
 
 - [x] Step 1: Wire scene writer next to surface writer in `Browser::init`

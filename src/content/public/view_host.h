@@ -9,7 +9,7 @@
 #include <string_view>
 
 #include "content/content_export.h"
-#include "content/public/map_types.h"
+#include "content/public/map_layer_types.h"
 
 namespace gis {
 class EditSession;

@@ -184,6 +184,6 @@ Debug legacy 640×480 GPU:
 - Matrix sibling: `.cursor/skills/harness-auto-world3d-opt/SKILL.md`
 - Map2d frame sibling: `.cursor/skills/harness-auto-map2d-frame-opt/SKILL.md`
 - Visual review: `.cursor/skills/harness-visual-review/SKILL.md`
-- Timed present: `src/app/views/shell/harness/showcase/atmosphere/present/present_run.cc`
+- Timed present: `src/app/views/harness/showcase/atmosphere/present/present_run.cc`
 - Phase clocks: `src/content/browser/present/scene3d/scene3d_phase_profile.*`
 - Detail: [reference.md](reference.md)

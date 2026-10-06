@@ -66,13 +66,13 @@ std::filesystem::path ui_forensics_root_dir() {
 
 bool compute_gantt_lane_geom(int panel_y,
                              int panel_bottom,
-                             int chrome_bottom,
+                             int horizon_bottom,
                              int lane_count,
                              GanttLaneGeom* out) {
   if (!out || lane_count <= 0) {
     return false;
   }
-  const int lane_top = (std::max)(panel_y, chrome_bottom);
+  const int lane_top = (std::max)(panel_y, horizon_bottom);
   const int lane_bottom = panel_bottom - 6;
   if (lane_bottom <= lane_top + 8) {
     return false;

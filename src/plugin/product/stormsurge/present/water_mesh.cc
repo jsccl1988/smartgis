@@ -5,6 +5,7 @@
 
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/public/gis_document.h"
+#include "plugin/runtime/host/capability/scene3d/sink.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -13,7 +14,7 @@
 namespace plugin {
 namespace {
 
-void commit_water_overlay(content::PluginHost::Scene3dSink* sink,
+void commit_water_overlay(Scene3dSink* sink,
                           content::Scene3dPresenter* scene3d,
                           const double* xyz,
                           int point_count,
@@ -87,7 +88,7 @@ void commit_water_overlay(content::PluginHost::Scene3dSink* sink,
 }  // namespace
 
 bool present_stormsurge_water_mesh(content::GisDocument* doc,
-                                   content::PluginHost::Scene3dSink* sink,
+                                   Scene3dSink* sink,
                                    content::Scene3dPresenter* scene3d,
                                    const double* xyz,
                                    int point_count,

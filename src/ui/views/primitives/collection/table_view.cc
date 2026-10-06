@@ -451,7 +451,7 @@ void TableView::rebuild_row_cache(int begin, int end) {
       row_cache_.restore();
       x += w;
     }
-    // Hairline under header separates chrome from data rows.
+    // Hairline under header separates horizon from data rows.
     row_cache_.fill_rect(b.x, b.y + header_height() - 1, b.width, 1,
                          t.control_border);
   }

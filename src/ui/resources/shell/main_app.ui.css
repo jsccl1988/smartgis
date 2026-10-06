@@ -1,4 +1,4 @@
-/* SmartGisViews main chrome — §Shell chrome layout (2026-10-02).
+/* SmartGisViews main horizon — §Shell horizon layout (2026-10-02).
    Designer may open at ~640x480; product fills the FrameView client.
    Do not pin shell/menu/split widths to 640px — that starved the catalog
    splitter (kMinPanePx) and Yoga-overflowed CatalogView children. */
@@ -42,7 +42,7 @@
 }
 
 /* Compact chip row above Catalog|Map. Do not pin width:100% — unused
-   chrome was a full-column dark strip (ui.shell toolbar gate). Packed
+   horizon was a full-column dark strip (ui.shell toolbar gate). Packed
    chips paint only content width; leftover is map_placeholder. */
 .tool_bar {
   min-height: 48px;

@@ -7,9 +7,9 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-06 — **§Chrome runtime: execution only** (`contribute_export_frame`; drop `plugin_run` / `PluginShowcaseMode`; recursive harness leaf; `plugin/product/builtins` façade so `PluginShell` does not `#include` product `commands.h`). Same day — **§Main View dataset** allows `present_surface` main|{map|world}_preview. Prior same day — chrome `PluginPlayback` is plugin-agnostic; product payload stays in `src/plugin/product`. Prior 2026-10-05 — **§Analysis present in plugin** (kill chrome `analysis_writer_*`; compute+present are processing steps). Prior same day — **§Main View dataset** (`PluginHost::present_dataset`; product 2D/3D/model results in the shell Map / Scene3D tab). Prior same day — **§Showcase 3D HWND** (main Scene3D pane; `--plugin-showcase=report`). Prior same day — Views `--plugin-showcase` bodies nested under `app/views/shell/harness/showcase/plugin/{product,seed,session,present,capture,common}` (same lanes as map2d/atmosphere; `device_session` keeps HWND+RHI+teardown). Prior same day — flatten attempt withdrawn. Prior same day — `PluginHost::open_dock` append-only after `close_report`; `for_each_command` / `for_each_processing` / `for_each_dialog` / `for_each_dock` stay public. Prior 2026-10-04 — world3d top-level: `grid/` holds DEM + orthogrid + hexgrid; `scene/` stays; `register_world3d_grid`. Prior: sink inner `loader/dialog` / lattice/session/solve. Prior: tighten flattened `dem/views`/`dem/resources`. Prior: domain subdirs (`dem/` `scene/` `orthogrid/` `hexgrid/`; no root `scene_commands.cc` / `processing/` / `views/`). Prior: command stack layered (`register_world3d` façade + `detail::contribute_*` aliases). Prior: product `orthogrid` + `orthogrid3d` merged into `smartgis.world3d`; leftover `plugin_orthogrid` AM stem maps to `smartgis.world3d`. Prior: world3d DEM loaders renamed (`heightmap` / `trimesh`); orthogrid3d ABI: `geo::HexGrid` deleted from gis.dll; 3D structured grid is `OGRMultiPoint` XYZ + nx/ny/nz owned by `world3d/grid/hexgrid` (`HexLattice` non-exported). Prior 2026-10-03 — v1 host checklist archived; follow-on product plugins (world3d / stormsurge / analysis) still open. Prior 2026-10-02 — world3d True Earth P0b (global DEM / satellite / atmosphere); geochem; mine/stratum; traffic+flood; `runtime/host` role subdirs; leftover `legacy/plugin` layout; product Python / gis analysis ownership.  
+**Updated:** 2026-10-06 — **§Builtin self_test plugin** (`smartgis.self_test` owns milestones; `contribute_command` `self_test.*`). Prior same day — **§Showcase product counterparts** (`smartgis.map2d` / `smartgis.report`; atmosphere looks stay in world3d; ui/browse/input remain chrome HWND). Prior same day — **§PluginHost capabilities** (`runtime/host/capability/{capability.h,scene3d,report}`; `present/` is GisDocument helpers only). Prior same day — `set_capability` / `query_capability`; Scene3dSink + ReportBridge + ProcessingPool leave `content/public/plugin_host.h`. Prior same day — **§Atmosphere showcase looks in world3d** (`scene/look` + `scene/fly`; `world3d.apply_look` / `world3d.fly_globe`). Prior same day — **§Chrome runtime: execution only** (`contribute_export_frame`; drop `plugin_run` / `PluginShowcaseMode`; recursive harness leaf; `plugin/product/builtins` façade so `PluginShell` does not `#include` product `commands.h`). Same day — **§Main View dataset** allows `present_surface` main|{map|world}_preview. Prior same day — chrome `PluginPlayback` is plugin-agnostic; product payload stays in `src/plugin/product`. Prior 2026-10-05 — **§Analysis present in plugin** (kill chrome `analysis_writer_*`; compute+present are processing steps). Prior same day — **§Main View dataset** (`PluginHost::present_dataset`; product 2D/3D/model results in the shell Map / Scene3D tab). Prior same day — **§Showcase 3D HWND** (main Scene3D pane; `--plugin-showcase=report`). Prior same day — Views `--plugin-showcase` bodies nested under `app/views/harness/showcase/plugin/{product,seed,session,present,capture,common}` (same lanes as map2d/atmosphere; `device_session` keeps HWND+RHI+teardown). Prior same day — flatten attempt withdrawn. Prior same day — `PluginHost::open_dock` append-only after `close_report`; `for_each_command` / `for_each_processing` / `for_each_dialog` / `for_each_dock` stay public. Prior 2026-10-04 — world3d top-level: `grid/` holds DEM + orthogrid + hexgrid; `scene/` stays; `register_world3d_grid`. Prior: sink inner `loader/dialog` / lattice/session/solve. Prior: tighten flattened `dem/views`/`dem/resources`. Prior: domain subdirs (`dem/` `scene/` `orthogrid/` `hexgrid/`; no root `scene_commands.cc` / `processing/` / `views/`). Prior: command stack layered (`register_world3d` façade + `detail::contribute_*` aliases). Prior: product `orthogrid` + `orthogrid3d` merged into `smartgis.world3d`; leftover `plugin_orthogrid` AM stem maps to `smartgis.world3d`. Prior: world3d DEM loaders renamed (`heightmap` / `trimesh`); orthogrid3d ABI: `geo::HexGrid` deleted from gis.dll; 3D structured grid is `OGRMultiPoint` XYZ + nx/ny/nz owned by `world3d/grid/hexgrid` (`HexLattice` non-exported). Prior 2026-10-03 — v1 host checklist archived; follow-on product plugins (world3d / stormsurge / analysis) still open. Prior 2026-10-02 — world3d True Earth P0b (global DEM / satellite / atmosphere); geochem; mine/stratum; traffic+flood; `runtime/host` role subdirs; leftover `legacy/plugin` layout; product Python / gis analysis ownership.  
 **Plans:** v1 [`../archive/plans/2026-09-13-plugin-host.md`](../archive/plans/2026-09-13-plugin-host.md) (landed) · leftover plugin [`../plans/2026-09-29-legacy-plugin-subdirectory-layout.md`](../plans/2026-09-29-legacy-plugin-subdirectory-layout.md) · stormsurge [`../plans/2026-09-30-stormsurge-3d-disaster.md`](../plans/2026-09-30-stormsurge-3d-disaster.md) · analysis present [`../plans/2026-10-05-plugin-analysis-present-to-processing.md`](../plans/2026-10-05-plugin-analysis-present-to-processing.md) · world3d / analysis checklists still open on later § Plan lines  
-**Diagram:** [`../diagrams/plugin-product-world3d.html`](../diagrams/plugin-product-world3d.html) · [`../diagrams/plugin-analysis-processing.html`](../diagrams/plugin-analysis-processing.html)  
+**Diagram:** [`../diagrams/plugin-host-capabilities.html`](../diagrams/plugin-host-capabilities.html) · [`../diagrams/plugin-product-world3d.html`](../diagrams/plugin-product-world3d.html) · [`../diagrams/plugin-product-showcase.html`](../diagrams/plugin-product-showcase.html) · [`../diagrams/plugin-analysis-processing.html`](../diagrams/plugin-analysis-processing.html) · chrome runtime [`../diagrams/views-runtime-layers.html`](../diagrams/views-runtime-layers.html)  
 **Scope:** one implementation plan, one cycle. Land a QGIS-shaped extension platform: host + contribution points, in-process Python, QGIS-style store, Views rewrite of leftover plugin dialogs, and processing isolation for algorithm workers only. Do not implement product C++ in this document.
 
 ## Goal
@@ -941,7 +941,7 @@ Scheme C includes (`legacy/plugin/runtime/auxmodule/��`, `legacy/plugin/runt
 
 ## ��`runtime/host` role layout (2026-09-30)
 
-**Status:** landed (layout only).
+**Status:** landed (layout only). **Updated:** 2026-10-06 — capability facades nested (see **§PluginHost capabilities**).
 
 Nest `src/plugin/runtime/host/` by responsibility (Scheme C includes; **no** shim at old flat paths). Export macro stays at host root.
 
@@ -954,6 +954,11 @@ src/plugin/runtime/host/
   store/                   # zip install + HTTP index
   signature/               # ed25519 + official / test keys
   processing/              # host ProcessingPool attach + operation_result
+  capability/              # opaque table + typed Scene3D / report facades
+    capability.h           # ids, HostCapabilities, scene3d_sink() / report_bridge()
+    scene3d/sink.*         # plugin.scene3d
+    report/bridge.*        # plugin.report
+  present/                 # GisDocument helpers only (not a registered capability)
   resources/               # per-plugin resource roots (--plugins-dir)
   ui/                      # ManagerView
   tests/                   # host_test.cc
@@ -1006,7 +1011,7 @@ Every builtin under `src/plugin/product/` loads **shipped sample data** and prod
 | 3 | Acceptance = interact suite + BMP/marks (same loop stack as `map2d.china` / `map2d.orthogrid`). Manual menu click is secondary. |
 | 4 | Prefer existing samples: `china_dem.tif`, mini XYZ, `pointcloud_public_sample.txt`, china city vectors. Do not vendor a hydrology engine in this ��. |
 | 5 | Processing factories stay Views-free; dialogs only assemble JSON and call `run_processing`. |
-| 6 | Views `--plugin-showcase` C++ bodies live in `src/app/views/shell/harness/showcase/plugin/` with the same responsibility dirs as map2d/atmosphere (`plugin_showcase` + `product/` `run_*` + `seed/` + `session/device_session` + present/capture + `common/plugin_io`). Builtin packages remain `src/plugin/product/`. |
+| 6 | Views `--plugin-showcase` C++ bodies live in `src/app/views/harness/showcase/plugin/` with the same responsibility dirs as map2d/atmosphere (`plugin_showcase` + `product/` `run_*` + `seed/` + `session/device_session` + present/capture + `common/plugin_io`). Builtin packages remain `src/plugin/product/`. |
 
 ### Non-goals
 
@@ -1105,7 +1110,7 @@ Deliver a **Google-Earth-class product face** for true-3D browsing on the existi
 - Global DEM without a GeoTIFF stands in with China `china_dem.tif`.
 - Satellite cloud without GeoTIFF uses procedural atmosphere clouds.
 - City tiles: fixture + stream session; not production city coverage.
-- Fly-to is extent reframe, not cinematic camera path.
+- Fly-to is extent reframe. Cinematic globe fly is `world3d.fly_globe`.
 
 ### Non-goals
 
@@ -1115,6 +1120,50 @@ Deliver a **Google-Earth-class product face** for true-3D browsing on the existi
 
 ---
 
+## §Atmosphere showcase looks in world3d（2026-10-06）
+
+**Status:** active  
+**Updated:** 2026-10-06  
+**Approach:** **A** — product owns True-Earth looks + globe fly; `--atmosphere-showcase` stays a harness HWND/capture wrapper.
+
+### Locked
+
+| # | Choice |
+| --- | --- |
+| 1 | Looks `land` / `ocean` / `full` / `coast` / `globe` / `legacy` / `east_china` live in `src/plugin/product/world3d/scene/look/`. |
+| 2 | Cinematic globe path lives in `src/plugin/product/world3d/scene/fly/globe_fly.*` (`apply_world3d_globe_flythrough`). |
+| 3 | Processing: `world3d.apply_look` `{mode}` and `world3d.fly_globe` `{t}` via `Scene3dSink::set_look_bridges`. |
+| 4 | Harness `--atmosphere-showcase=*` only owns device session, warmup, BMP, linger; seed calls `plugin::apply_world3d_look`. |
+| 5 | Do not keep a second fly implementation under `app/views/harness/showcase/atmosphere/fly`. |
+
+---
+
+## §Showcase product counterparts (2026-10-06)
+
+**Status:** active  
+**Updated:** 2026-10-06  
+**Diagram:** [`../diagrams/plugin-product-showcase.html`](../diagrams/plugin-product-showcase.html)  
+**Approach:** **A** — each GIS showcase family has a `plugin/product` payload; harness keeps HWND / pump / BMP / marks.
+
+### Locked
+
+| Showcase family | Product package | Harness remainder |
+| --- | --- | --- |
+| `map2d.china` / `align` / `orthogrid` | **`smartgis.map2d`** `map2d.seed` `{mode}` (china via UI-thread MapScene open; processing must **not** `present_dataset`) | tab / framing / GPU present / FPS / BMP. Harness still opens china on the UI thread (ProcessingPool is off-UI). |
+| `atmosphere.*` | **`smartgis.world3d`** `world3d.apply_look` / `world3d.fly_globe` | device session / warmup / BMP / linger |
+| `plugin.world3d` / orthogrid / orthogrid3d | **`smartgis.world3d`** (reuse; no second package) | Scene3D HWND session / capture |
+| `plugin.mine` / flood / traffic / geochem / stormsurge / print | existing product packs | IL or C++ capture wrappers |
+| `plugin.report` | **`smartgis.report`** `report.open` / `report.post` → `ReportBridge` | inspector tab + fake-bridge fallback |
+| `plugin.world_preview` | **`smartgis.world3d`** `present_dataset(surface=preview)` | WorldPreviewView HWND export |
+| `self_test` / `console` | **`smartgis.self_test`** `self_test.run` / `self_test.console` / milestone ids via `contribute_command` | HWND adapter (`SelfTestShell` / `app.views.self_test`), `--self-test` CLI, IL fallback for `console`. Do **not** thicken `content/public`. |
+| `ui.*` / `browse` / `input` | **none** — chrome shell tests. `PluginHost` has no inspector-tab / digitizer APIs; do **not** thicken `content/public` for these. | C++ / IL bodies stay under `harness/showcase/{ui,browse,input}` |
+
+### Non-goals
+
+- Deleting harness present/capture TUs while device-session HWND is still the capture target.
+- Adding `GisDocument::open_path` (use `present_dataset` + `apply_style_json`).
+
+---
 
 ## ��traffic + flood analysis products��2026-09-30��
 
@@ -1254,7 +1303,7 @@ Unify **Import �� Run �� CommitLayer �� Export �� Playback** for
 
 | # | Choice |
 | --- | --- |
-| 1 | Chrome `PluginPlayback` (`runtime/plugin_playback.*`) is plugin-agnostic metadata. Product payload lives under `src/plugin/product`. |
+| 1 | Chrome `PluginPlayback` (`runtime/plugin/playback.*`) is plugin-agnostic metadata. Product payload lives under `src/plugin/product`. |
 | 2 | Save: **CommitLayer** to MapScene is primary; **Export** is explicit command / processing `output=`. |
 | 3 | Product `present/*.cc` + `*.present_frame` is the seam; chrome does not keep flood/traffic/orthogrid stores. |
 | 4 | Playback: shared `frame_index` drives map2d + scene3d stand-ins; CapabilityHost verbs `analysis_set_frame` / `analysis_export_frames`. |
@@ -1435,7 +1484,7 @@ Analysis / system plugins generate **local HTML+JS** reports (vendored chart lib
 | 3 | v1 backend: **WebView2**; CEF backend optional later behind the same interface. |
 | 4 | UI: dedicated **Report** inspector dock (shell-owned). |
 | 5 | Content: static pack (`index.html` + libs + `data.json`) under allowed roots; optional `post_to_report(json)`. |
-| 6 | Host API (append on `content::PluginHost`): `open_report` / `post_to_report` / `close_report` + `set_report_bridge` installed by Views shell. Python: `smartgis.Host` same names. After report slots: `for_each_processing` / `for_each_dialog` / `for_each_dock`, then `open_dock`. |
+| 6 | Host API: chrome registers `plugin::ReportBridge` as capability `plugin.report`. Plugins / Python call `plugin::report_bridge(host)` (`open` / `post` / `close`). `content::PluginHost` has no report-named methods. After generic slots: `for_each_processing` / `for_each_dialog` / `for_each_dock`, then `open_dock`. |
 | 7 | Path allowlist: plugin resource roots + session report dirs; reject arbitrary paths. |
 | 8 | Missing WebView2 Runtime: soft-fail (status text / false); harness may SKIP. |
 
@@ -1450,7 +1499,7 @@ Analysis / system plugins generate **local HTML+JS** reports (vendored chart lib
 
 ## §Showcase 3D HWND (2026-10-05)
 
-Product plugin Scene3D bodies present in the **main Views Scene3D tab**, not a dedicated sticky HWND. `--plugin-showcase=report` owns `plugin.report` (C++ + IL). Traffic/print/orthogrid3d/stormsurge/world3d harness FAILs of 2026-10-05: C++ bodies + GDI 3D pane + lazy Report tab `set_report_bridge`.
+Product plugin Scene3D bodies present in the **main Views Scene3D tab**, not a dedicated sticky HWND. `--plugin-showcase=report` owns `plugin.report` (C++ + IL). Traffic/print/orthogrid3d/stormsurge/world3d harness FAILs of 2026-10-05: C++ bodies + GDI 3D pane + lazy Report tab `plugin::ReportBridge`.
 
 ---
 
@@ -1485,7 +1534,7 @@ Python: `smartgis.Host.present_dataset(plugin_id, path="", face=0, surface=-1)` 
 **Plan:** [`../plans/2026-10-05-plugin-analysis-present-to-processing.md`](../plans/2026-10-05-plugin-analysis-present-to-processing.md)  
 **Diagram:** [`../diagrams/plugin-analysis-processing.html`](../diagrams/plugin-analysis-processing.html)
 
-Chrome `app/views/shell/browser/plugin/analysis_writer_*` is product present code living in the shell. Product packages already own **compute** (`flood.inundate`, `traffic.cost_path`, …) and then jump into chrome through `set_*_writer` globals. That inverts the locked model: plugins contribute processing; chrome must not know flood masks, mine meshes, or geochem heat.
+Chrome `app/views/browser/plugin/analysis_writer_*` is product present code living in the shell. Product packages already own **compute** (`flood.inundate`, `traffic.cost_path`, …) and then jump into chrome through `set_*_writer` globals. That inverts the locked model: plugins contribute processing; chrome must not know flood masks, mine meshes, or geochem heat.
 
 ### As-built inversion (debt)
 
@@ -1509,7 +1558,7 @@ analysis_writer_*  +  AnalysisPlayback
 | --- | --- |
 | `plugin_shell.*` (Registry, PluginHost, ProcessingPool, Python, builtins) | `analysis_writer_{flood,traffic,geochem,mine,stormsurge,orthogrid,world3d}.*` |
 | `set_present_dataset_bridge` (tab + fit Map2d + invalidate) | `analysis_writer_common` paint/mesh/style helpers |
-| ResultPlayback chrome (`plugin_playback.*` play/pause/fps; ticks `*.present_frame`) | Product payload (`g_last_*` / compute result) + `present/*.cc` |
+| ResultPlayback chrome (`runtime/plugin/playback.*` play/pause/fps; ticks `*.present_frame`) | Product payload (`g_last_*` / compute result) + `present/*.cc` |
 | EventBus → catalog / inspector refresh | `set_*_writer` + `FloodMaskWriter` / peers |
 
 `MapContents` on `PluginHost` is the **multiprocess session**, not the GIS document. Writers today mutate `Browser::session().document()` (`content::MapScene`) and `Scene3dPresenter`. Plugins have no public GIS document pointer — that is why writers exist.
@@ -1531,10 +1580,10 @@ Do **not** give plugins `Browser*`. Append after `present_dataset`:
 
 | API | Role |
 | --- | --- |
-| `gis_document()` | Narrow `content::GisDocument` on `content/public` wrapping `MapScene` (add layer / feature / style JSON / triangle mesh / extent). Not `MapContents`. |
-| `scene3d_sink()` | Optional facade: stand-in mesh, water surface, tileset attach. Implemented by shell; plugins see only the host vtable. |
-| `playback()` | Product-agnostic frame list (`push_frame`, `frame_count`, `set_index`). Shell ResultPlayback only ticks this. Re-present of frame *i* is `run_processing("<id>.present_frame", json)`. |
-| `present_dataset` | Already locked. Present stage calls it; delete chrome `present_plugin_map2d/scene3d` once all writers are gone. |
+| `gis_document()` | Narrow `content::GisDocument` on `content/public` wrapping `MapScene`. Not `MapContents`. |
+| `set_capability` / `query_capability` | Opaque reverse-DNS table. Scene3D / report / processing pool live in `plugin_host.dll` (`plugin.scene3d`, `plugin.report`, `plugin.processing_pool`). |
+| `playback()` | Product-agnostic frame list. Shell ResultPlayback only ticks this. |
+| `present_dataset` | Present stage calls it; `|plugin_id|` is an opaque string. |
 | EventBus `document.layers_changed` | Replaces `refresh_ui_after_layer(BrowserUiDelegate*)`. |
 
 ABI: append virtuals at the end of `PluginHost` only.
@@ -1571,7 +1620,7 @@ Order (smallest Map2d surface first): geochem → traffic → flood → stormsur
 **Status:** active  
 **Updated:** 2026-10-06
 
-`app/views/shell/runtime/{capability,interact}` must not hardcode product plugin names, extents, or showcase mode switches. System owns parse → schedule → present-frame clock; plugins own compute/present payloads and named export frames.
+`app/views/runtime/{capability,interact,plugin}` must not hardcode product plugin names, extents, or showcase mode switches. System owns parse → schedule → present-frame clock; plugins own compute/present payloads and named export frames.
 
 | Stay in chrome runtime | Owned by product plugin (`contribute_*`) |
 | --- | --- |
@@ -1583,4 +1632,64 @@ Order (smallest Map2d surface first): geochem → traffic → flood → stormsur
 | `PluginShell` → `plugin::register_builtin_plugins` only | shipped builtin table + resource roots in `plugin/product/builtins.*` |
 
 Removed from chrome: `CapabilityHost::plugin_run`, `PluginShowcaseMode` enum (CLI is `std::string` id), harness leaf product whitelist, `runtime/analysis/*_store` (use `PluginPlayback` + product `g_last_*`), per-product `#include` / GN edges from `PluginShell` (use `//src/plugin/product:product_builtins`). Harness C++ showcase bodies under `harness/showcase/plugin/product/` may still name products — that is test harness, not CapabilityHost.
+
+---
+
+## §PluginHost capabilities (2026-10-06)
+
+**Status:** active  
+**Updated:** 2026-10-06  
+**Diagram:** [`../diagrams/plugin-host-capabilities.html`](../diagrams/plugin-host-capabilities.html)
+
+`content/public/plugin_host.h` is the QgsInterface analogue for **contribution points** and **opaque capabilities**. It must not name product packages (`world3d`, `report`, `analysis`, …) or expose package-specific methods (`open_report`, nested `Scene3dSink` with earth/look/DEM).
+
+| Stay on `content::PluginHost` | Registered capability (plugin_host.dll / chrome) |
+| --- | --- |
+| contribute_command / menu / dock / dialog / processing / painter | `plugin.scene3d` → `plugin::Scene3dSink` |
+| execute / open_dialog / open_dock / run_processing | `plugin.report` → `plugin::ReportBridge` |
+| present_dataset / present_surface / export_frame | `plugin.processing_pool` → `plugin::ProcessingPool` |
+| gis_document / playback / EventBus / CommandCatalog | Product packages query via `plugin::scene3d_sink(host)` etc. |
+
+Chrome (`PluginShell`) owns `plugin::HostCapabilities` and calls `attach` after `create_plugin_host`. Browser wiring fills Scene3D callbacks; ProcessingComposer fills the report dock. Content never `#include`s product plugin headers.
+
+Python `smartgis.Host.open_report` remains a convenience name; the C++ host object forwards to `plugin::report_bridge`.
+
+On-disk (Scheme C, **no** shim at `host/capability.h` or `host/present/scene3d_sink.h`):
+
+```
+plugin/runtime/host/capability/capability.h
+plugin/runtime/host/capability/scene3d/sink.h
+plugin/runtime/host/capability/report/bridge.h
+plugin/runtime/host/present/gis_present.h
+plugin/runtime/host/processing/processing.h   # plugin.processing_pool
+```
+
+`app/views/runtime/capability/` remains a **flat chrome binder** (`fill_host` / `*_bind`); do not nest it like `interact/{apply,wire,…}`.
+
+### Non-goals
+
+- Per-plugin capability namespaces inside content.dll.
+- Moving `present_dataset` off PluginHost (face/surface are shell present, plugin_id is opaque).
+- Teaching `content::CapabilityHost` (debug harness) to stop naming `open_report` this cycle.
+- Splitting `app/views/runtime/capability/` into responsibility subdirs this cycle.
+
+---
+
+## §Builtin self_test plugin (2026-10-06)
+
+**Status:** active  
+**Updated:** 2026-10-06  
+**Diagram:** [`../diagrams/plugin-host-capabilities.html`](../diagrams/plugin-host-capabilities.html)
+
+Harness `--self-test` / `--self-test-console` stay chrome **entry** (`LaunchBinding` + `ScenarioRegistry` ids `self_test` / `console`). Milestone bodies live in **`src/plugin/product/self_test/`** (`smartgis.self_test`), registered through existing `PluginHost::contribute_command` / `contribute_processing` — not a closed switch in `browser/commands`.
+
+| Stay in chrome | Owned by `smartgis.self_test` |
+| --- | --- |
+| `--self-test` flag, `LaunchBinding` rank 10, scenario row | `self_test.run` and per-milestone command ids |
+| `SelfTestShell` adapter wrapping `Browser` (`adapter.cc`) | `shell_ready` / `edit_m0` / `layers_m1` / `navigate` / `present` / `layout_bounds` / `milestones` / console C++ body |
+| `console.il` via `try_run_suite_script` | `self_test.console` fallback |
+| Opaque cap `app.views.self_test` published only for the harness dispatch | Query via `plugin::self_test_shell(host)` |
+
+`PluginShell` still only calls `plugin::register_builtin_plugins`. Do not add self-test methods to `content/public/plugin_host.h`.
+
 

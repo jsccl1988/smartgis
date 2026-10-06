@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/public/feature_attrs.h"
+#include "content/public/map_layer_types.h"
 
 #include <cstdio>
 

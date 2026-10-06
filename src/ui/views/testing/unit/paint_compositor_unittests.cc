@@ -257,7 +257,7 @@ void test_shell_compositor_present_fills_when_buffer_lags() {
 }
 
   // Full-size published front must BitBlt without a prior FillRect wipe -- that
-// flash was the mouse-hover flicker / hollow chrome symptom.
+// flash was the mouse-hover flicker / hollow horizon symptom.
 void test_shell_compositor_present_no_flash_when_front_covers() {
   BITMAPINFO bmi = {};
   bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);

@@ -11,7 +11,7 @@ namespace views {
 
 // Aggregation TU: wires layout + primitives + GIS *placeholder* registrations.
 // Real GIS panels live in //src/ui/gis; placeholders stay here so the toolkit
-// DLL does not link product GIS chrome. Kept out of control_factory.cc so the
+// DLL does not link product GIS horizon. Kept out of control_factory.cc so the
 // registry core stays free of concrete control includes (and out of views_kernel).
 ControlFactory ControlFactory::make_default() {
   ControlFactory f;

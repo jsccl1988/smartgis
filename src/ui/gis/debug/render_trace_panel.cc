@@ -205,20 +205,20 @@ std::unique_ptr<RenderTracePanel> make_render_trace_panel() {
 void RenderTracePanel::set_embedded(bool embedded) {
   embedded_ = embedded;
   // DiagnosticToolsPanel already draws Record/status. Hide the markup root so
-  // FillLayout chrome cannot cover paint_self gantt (black Trace void).
+  // FillLayout horizon cannot cover paint_self gantt (black Trace void).
   if (child_count() > 0) {
     if (View* root = child_at(0)) {
       root->set_visible(!embedded);
       root->set_preferred_size(embedded ? Size{0, 0} : Size{500, 260});
     }
   }
-  const Size chrome = embedded ? Size{0, 0} : Size{480, 22};
+  const Size horizon = embedded ? Size{0, 0} : Size{480, 22};
   const Size status = embedded ? Size{0, 0} : Size{480, 20};
   const Size toolbar = embedded ? Size{0, 0} : Size{480, 32};
   const Size filters = embedded ? Size{0, 0} : Size{480, 28};
   const Size rollup = embedded ? Size{0, 0} : Size{480, 56};
   if (title_) {
-    title_->set_preferred_size(chrome);
+    title_->set_preferred_size(horizon);
     title_->set_visible(!embedded);
   }
   if (status_) {
@@ -237,7 +237,7 @@ void RenderTracePanel::set_embedded(bool embedded) {
     filters_->set_preferred_size(filters);
     filters_->set_visible(!embedded);
   }
-  // Keep category filters armed while chrome is hidden (embedded).
+  // Keep category filters armed while horizon is hidden (embedded).
   if (embedded) {
     if (show_map2d_) {
       show_map2d_->set_checked(true);
@@ -446,11 +446,11 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
-  // Prefer remaining height under chrome; embedded mode collapses chrome so
+  // Prefer remaining height under horizon; embedded mode collapses horizon so
   // lane_top sits just below panel top (+ inset).
-  int chrome_bottom = b.y + 8;
+  int horizon_bottom = b.y + 8;
   if (!embedded_) {
-    chrome_bottom = b.y + 150;
+    horizon_bottom = b.y + 150;
   }
   const auto vis =
       visible_events(*state_, show_map2d_, show_scene3d_, show_startup_,
@@ -458,7 +458,7 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
   if (vis.empty()) {
     const size_t total = state_->events.size();
     canvas->draw_text(
-        b.x + 8, chrome_bottom + 4,
+        b.x + 8, horizon_bottom + 4,
         utf8_to_wide(
             std::format(
                 "No duration spans ({} raw events). Record UI/map work, then Refresh.",
@@ -482,10 +482,10 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
   }
   const int axis_h = 16;
   const int lane_bottom = b.bottom() - 6 - axis_h;
-  const int lane_top = chrome_bottom;
+  const int lane_top = horizon_bottom;
   if (lane_bottom <= lane_top + 8 || lanes.empty()) {
     canvas->draw_text(
-        b.x + 8, chrome_bottom + 4,
+        b.x + 8, horizon_bottom + 4,
         utf8_to_wide(std::format("{} span(s) — expand Diagnostic Tools to plot",
                                  vis.size()))
             .c_str(),

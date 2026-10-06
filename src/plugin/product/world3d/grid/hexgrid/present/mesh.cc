@@ -8,6 +8,7 @@
 #include "plugin/product/world3d/commands.h"
 #include "plugin/product/world3d/grid/hexgrid/lattice/hex_lattice.h"
 #include "plugin/runtime/host/present/gis_present.h"
+#include "plugin/runtime/host/capability/scene3d/sink.h"
 #include "tool/draft/draft.h"
 
 #include <algorithm>
@@ -26,7 +27,7 @@ constexpr double kHexLabOriginLat = 39.90;
 constexpr double kHexLabDegPerUnit = 0.025;
 
 bool present_hex_grid_mesh(content::GisDocument* doc,
-                           content::PluginHost::Scene3dSink* sink,
+                           Scene3dSink* sink,
                            content::Scene3dPresenter* scene3d,
                            const HexGridCommit& commit) {
   if (!doc || !commit.nodes || commit.nodes->IsEmpty()) {

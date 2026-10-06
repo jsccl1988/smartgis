@@ -276,7 +276,7 @@ void Widget::on_paint() {
     layout_contents();
   }
 
-  // UI thread: record + Commit immutable DisplayList when chrome dirtied the
+  // UI thread: record + Commit immutable DisplayList when horizon dirtied the
   // HWND. Do NOT wait_published — that blocked hover on every WM_PAINT.
   // Present the last published front immediately; the worker posts
   // kShellPublishedMessage when a newer generation is ready, and the next
@@ -289,7 +289,7 @@ void Widget::on_paint() {
     // previous Commit is still within one frame). Still present + keep dirty
     // so the next tick records the unioned region.
     // Never coalesce when the published front lags the client — NULL_BRUSH +
-    // a smaller front leaves desktop show-through / stale chrome after resize.
+    // a smaller front leaves desktop show-through / stale horizon after resize.
     int front_w = 0;
     int front_h = 0;
     compositor_->front_buffer_size(&front_w, &front_h);
@@ -333,7 +333,7 @@ void Widget::on_paint() {
   }
 
   // Layout / set_bounds may expand dirty beyond BeginPaint's update region.
-  // BitBlt the union so newly exposed chrome is not left blank until hover.
+  // BitBlt the union so newly exposed horizon is not left blank until hover.
   RECT blit = ps.rcPaint;
   if (did_commit && committed_dirty.width > 0 && committed_dirty.height > 0) {
     const int l =
@@ -366,7 +366,7 @@ void Widget::on_paint() {
 
   // Commit is async: union blit may still be the previous front. Force a
   // follow-up paint for any committed area outside the original update rect
-  // so wake/hover is not the only path that refreshes newly exposed chrome.
+  // so wake/hover is not the only path that refreshes newly exposed horizon.
   if (did_commit && committed_dirty.width > 0 && committed_dirty.height > 0) {
     const bool expands =
         committed_dirty.x < ps.rcPaint.left ||

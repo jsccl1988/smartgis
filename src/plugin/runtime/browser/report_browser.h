@@ -18,7 +18,7 @@
 namespace plugin {
 
 // Embeds a local HTML report pack (index.html + assets). Backends: WebView2
-// (v1), optional CEF later. Not a product chrome shell.
+// (v1), optional CEF later. Not a product horizon shell.
 class PLUGIN_HOST_EXPORT ReportBrowser {
  public:
   virtual ~ReportBrowser() = default;

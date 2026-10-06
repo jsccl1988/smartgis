@@ -23,7 +23,7 @@ BASE_EXPORT bool startup_profile_wanted();
 
 // Print a sorted phase table (offset_ms / dur_ms / name) for cat=="startup"
 // events to stderr + LOGGING. If path is non-null/non-empty, also write the
-// same text (and chrome JSON of the full buffer) there. No-op when empty.
+// same text (and Chrome Trace JSON of the full buffer) there. No-op when empty.
 // Safe across DLL boundaries (snapshots inside base.dll).
 BASE_EXPORT void dump_startup_profile(const char* path = nullptr);
 
