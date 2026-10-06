@@ -53,10 +53,9 @@ gestures / ViewHosts / `MapContents*`）；能力实现在
 `browser/`、`ui/`、`il.runtime/`、`util/`。
 `il.runtime/bind/` 是机制（`host_member` traits + `bind_tagged_slots` +
 `reflect_fields` + `named_find` / `bind_into`）。
-`il.runtime/language/` 是编译器驱动：`load` 管源文件、`driver`（`backend.h`）按后缀选 `.il` / `.py`、`run_script` 链接运行时再 apply。`load` 不 include `backend/`。
-`il.runtime/frontend/` 是语法：`Interact.g4` + AST + parse。
+`il.runtime/frontend/` 是语法和源文件查找：`Interact.g4` + AST + parse + `load`（suite id → `.il`）。`load` 不 include `backend/`。
 `il.runtime/ir/` 是语言无关指令（`app::ir`）。
-`il.runtime/backend/` 打平。GN `:compile` 是降级和解释（`apply`、`lower_*`、`exec`、`eval_host`）。GN `:capability` 是 Host 原语（`bind_host`、`bind_horizon`、`bind_plugin`、`bind_export`、`capture_host`、`shell_expect`）。`:compile` 不依赖 `:capability`。
+`il.runtime/backend/` 打平。GN `:compile` 是降级和解释（`driver`、`apply`、`lower_*`、`exec`、`eval_host`）。GN `:capability` 是 Host 原语（`bind_host`、`bind_horizon`、`bind_plugin`、`bind_export`、`capture_host`、`shell_expect`）。`:il.runtime` 是 session（`run_script` / `interact_script`）：链接一次再 apply。`:compile` 不依赖 `:capability`。
 `browser/plugin/` 是 present / playback / preview / `report_suite` 缝。
 Harness 收口（living shell **§Harness IL capability cut**）：HWND / pump / capture 原子在 `il.runtime/backend/`；门禁步骤顺序在 `testing/tools/harness/shell/{harness,console}/*.il`；`app/startup/` 是 LaunchPolicy 登记表（`scenario.*`）；`src/app/views/harness/` 已删。
 图：[`docs/superpowers/diagrams/views-runtime-layers.html`](../../../docs/superpowers/diagrams/views-runtime-layers.html) · [`docs/superpowers/diagrams/harness-il-capability.html`](../../../docs/superpowers/diagrams/harness-il-capability.html)。`ui/`：`BrowserView`

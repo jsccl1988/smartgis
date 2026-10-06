@@ -23,7 +23,7 @@
 
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/il.runtime/backend/mark.h"
-#include "app/views/il.runtime/language/run_script.h"
+#include "app/views/il.runtime/backend/run_script.h"
 #include "app/views/util/charset.h"
 #include "base/process/switches.h"
 #include "content/browser/debug/debug_agent.h"

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef IL_RUNTIME_LANGUAGE_BACKEND_H_
-#define IL_RUNTIME_LANGUAGE_BACKEND_H_
+#ifndef IL_RUNTIME_BACKEND_DRIVER_H_
+#define IL_RUNTIME_BACKEND_DRIVER_H_
 
 #include <string>
 
@@ -22,11 +22,11 @@ enum class ScriptKind {
 
 ScriptKind script_kind(const std::wstring& path);
 
-// Run |path| on an already-linked Host. .il → backend/compile.
+// Run |path| on an already-linked Host. .il → apply / lower / exec.
 // .py is recognized and rejected until a Python host is linked; it must
 // not parse Interact.g4.
 bool apply_script(content::CapabilityHost& host, const std::wstring& path);
 
 }  // namespace app
 
-#endif  // IL_RUNTIME_LANGUAGE_BACKEND_H_
+#endif  // IL_RUNTIME_BACKEND_DRIVER_H_

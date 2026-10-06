@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef IL_RUNTIME_LANGUAGE_INTERACT_SCRIPT_H_
-#define IL_RUNTIME_LANGUAGE_INTERACT_SCRIPT_H_
+#ifndef IL_RUNTIME_BACKEND_INTERACT_SCRIPT_H_
+#define IL_RUNTIME_BACKEND_INTERACT_SCRIPT_H_
 
 namespace content {
 struct CapabilityHost;
@@ -28,4 +28,4 @@ bool interact_script_os_driver();
 
 }  // namespace app
 
-#endif  // IL_RUNTIME_LANGUAGE_INTERACT_SCRIPT_H_
+#endif  // IL_RUNTIME_BACKEND_INTERACT_SCRIPT_H_

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "app/views/il.runtime/language/load.h"
+#include "app/views/il.runtime/frontend/load.h"
 
 #include "app/views/util/charset.h"
 #include "app/views/util/exe_sidecar_path.h"

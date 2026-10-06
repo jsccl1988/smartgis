@@ -2,13 +2,12 @@
 # All rights reserved.
 
 # Interact Language runtime:
-#   frontend/   — Interact.g4 + AST + parse (GN frontend:frontend)
-#   backend/         — flat: lower/eval (GN backend:compile) and Host packs (:capability)
-#   language/   — source manager (load) · driver (backend.h) · session (run_script)
+#   frontend/   — Interact.g4 + AST + parse + suite .il lookup (GN frontend:frontend)
+#   backend/    — flat: :compile (lower/eval/driver) and :capability (Host packs)
 #   :ir         — language-neutral instructions (header-only over CapabilityHost)
 #   :capability — runtime + linker: bind_host fills Host; packs never parse
-#   :il.runtime — session: load → link → driver apply
-# language/load must not include backend packs. Packs must not include language/.
+#   :il.runtime — session: load → link → driver apply (run_script / interact_script)
+# frontend/load must not include backend packs. Packs must not include driver.h.
 
 import("//testing/test.gni")
 
@@ -164,17 +163,14 @@ source_set("capability") {
 
 source_set("il.runtime") {
   sources = [
-    "language/backend.h",
-    "language/driver.cc",
-    "language/load.cc",
-    "language/load.h",
-    "language/interact_script.cc",
-    "language/interact_script.h",
-    "language/run_script.cc",
-    "language/run_script.h",
+    "backend/interact_script.cc",
+    "backend/interact_script.h",
+    "backend/run_script.cc",
+    "backend/run_script.h",
   ]
   deps = [
     ":capability",
+    "frontend:frontend",
     "//src/app/views:shell_browser",
     "//src/app/views/util:util",
     "//src/base:base",

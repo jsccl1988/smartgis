@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef IL_RUNTIME_LANGUAGE_RUN_SCRIPT_H_
-#define IL_RUNTIME_LANGUAGE_RUN_SCRIPT_H_
+#ifndef IL_RUNTIME_BACKEND_RUN_SCRIPT_H_
+#define IL_RUNTIME_BACKEND_RUN_SCRIPT_H_
 
 #include <string>
 
@@ -11,8 +11,8 @@ namespace app {
 class Browser;
 
 // Compiler session: source manager + runtime link + driver apply.
-// load/ finds the path; bind_host fills Host; apply_script picks the frontend.
-// .il → execution/; a future .py backend must not parse Interact.g4.
+// frontend/load finds the path; bind_host fills Host; driver apply_script
+// picks the frontend. .il → apply. A future .py host must not parse Interact.g4.
 // When |clear_marks| is true, truncates the mark file first.
 bool run_execution_script(Browser& browser,
                           const std::wstring& path,
@@ -47,4 +47,4 @@ std::string run_execution_script_utf8(Browser& browser,
 
 }  // namespace app
 
-#endif  // IL_RUNTIME_LANGUAGE_RUN_SCRIPT_H_
+#endif  // IL_RUNTIME_BACKEND_RUN_SCRIPT_H_

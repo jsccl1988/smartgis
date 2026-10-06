@@ -67,15 +67,21 @@ source_set("interact_antlr") {
   public_configs = [ ":interact_antlr_config" ]
 }
 
-# AST + parse. Callers in backend/ include these headers; they do not
-# parse Interact.g4 themselves.
+# AST + parse + suite .il lookup. Callers in backend/ include these headers;
+# they do not parse Interact.g4 themselves. load does not include backend/.
 source_set("frontend") {
   sources = [
     "ast.h",
+    "load.cc",
+    "load.h",
     "parse.cc",
     "parse.h",
   ]
-  deps = [ ":interact_antlr" ]
+  deps = [
+    ":interact_antlr",
+    "//src/app/views/util:util",
+    "//src/base:base",
+  ]
   public_configs = [ ":interact_antlr_config" ]
   include_dirs += [ "//src" ]
 }

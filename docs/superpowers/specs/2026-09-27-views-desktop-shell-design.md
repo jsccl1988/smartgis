@@ -1333,7 +1333,7 @@ Deepen the Interact DSL from **UI-only** into a **shared scenario language** for
 | → frontend | `app/views/il.runtime/frontend/` | `Interact.g4` + AST + parse. GN `frontend:frontend`. |
 | → backend compile | `app/views/il.runtime/backend/` | Flat. GN `:compile`. `apply` · `lower_*` · `exec` · `eval_host`. No Host pack include. |
 | → backend packs | `app/views/il.runtime/backend/` | Same flat directory. GN `:capability`. `bind_host` · `bind_horizon` · `bind_plugin` · `bind_export` · `capture_host` · `shell_expect`. No `.il` parse. Must not include `language/`. |
-| → language | `app/views/il.runtime/language/` | Compiler driver. `load` finds source; `driver` picks `.il` / `.py`; `run_script` links then applies. Future `.py` must not parse Interact.g4. `load` must not include `backend/`. |
+| → session | `app/views/il.runtime/backend/` `run_script` / `interact_script` | GN `:il.runtime`. Links Host once, then `apply_script`. `load` lives in `frontend/`. `driver` lives in `:compile`. Future `.py` must not parse Interact.g4. |
 | → plugin | `browser/plugin/{present,playback,preview_host,plugin_host_wiring,report_suite}` | Tab/dataset present; plugin-agnostic ResultPlayback; Scene3dSink install (file-local in wiring). No flood/traffic/orthogrid payload. |
 | Launch table | `app/startup/scenario.*` | `{id, mark_leaf, LaunchPolicy, suite_id}` + `run_scenario`. `src/app/views/harness/` deleted. |
 | Authoring | `testing/tools/harness/<family>/<suite_id>/*.il` | Source of truth for suite bodies (full migration). |
@@ -1392,7 +1392,7 @@ Deepen the Interact DSL from **UI-only** into a **shared scenario language** for
 | Layer | Path | Owns |
 | --- | --- | --- |
 | Launch table | `app/startup/` | `Scenario {id, mark_leaf, LaunchPolicy, suite_id}` and `run_scenario` → suite script. `report_suite` is `browser/plugin/` (not a Host slot). |
-| Script entry | `il.runtime/language` | `load` finds the source (no Host). `driver` picks `.il` / `.py`. `run_script` links the runtime then applies the frontend. |
+| Script entry | `il.runtime/backend` `run_script` | `frontend/load` finds the source (no Host). `:compile` `driver` picks `.il` / `.py`. `run_script` links the runtime then applies. |
 | Syntax | `il.runtime/frontend` | `Interact.g4` + AST + parse. Lexer is generated ANTLR. |
 | Semantic analysis | `il.runtime/backend` `lower_*` | Bind arguments now and lower the script to `Code`. `$var` / `as=` stay in the Action. GN `:compile`. |
 | Instructions | `il.runtime/ir` | `app::ir` over Host slots. No `CallStmt`, no `Browser`. |

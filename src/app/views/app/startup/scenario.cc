@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "app/views/il.runtime/backend/dispatch.h"
-#include "app/views/il.runtime/language/run_script.h"
+#include "app/views/il.runtime/backend/run_script.h"
 #include "base/process/switches.h"
 
 namespace app {

@@ -11,6 +11,8 @@ source_set("compile") {
   sources = [
     "apply.cc",
     "apply.h",
+    "driver.cc",
+    "driver.h",
     "exec.cc",
     "exec.h",
     "eval_host.cc",

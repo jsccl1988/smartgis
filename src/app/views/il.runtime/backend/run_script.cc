@@ -1,13 +1,13 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "app/views/il.runtime/language/run_script.h"
+#include "app/views/il.runtime/backend/run_script.h"
 
 #include "app/views/browser/browser.h"
 #include "app/views/il.runtime/backend/bind_host.h"
-#include "app/views/il.runtime/language/backend.h"
-#include "app/views/il.runtime/language/interact_script.h"
-#include "app/views/il.runtime/language/load.h"
+#include "app/views/il.runtime/backend/driver.h"
+#include "app/views/il.runtime/backend/interact_script.h"
+#include "app/views/il.runtime/frontend/load.h"
 #include "app/views/util/charset.h"
 #include "content/browser/capability/host.h"
 
