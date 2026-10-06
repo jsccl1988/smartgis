@@ -2,9 +2,9 @@
 <ui name="status_bar">
   <style src="status_bar.ui.css"/>
   <hbox id="root" class="bar">
+    <label id="status" text="Ready"/>
     <label id="scale" text="Scale"/>
     <label id="crs" text="CRS"/>
     <label id="coord" text="XY"/>
-    <label id="status" text=""/>
   </hbox>
 </ui>

@@ -61,15 +61,16 @@ StatusBar::StatusBar() {
 }
 
 Label* StatusBar::field_at(int index) const {
+  // Match markup order: status → scale → crs → coord (visual_review #4).
   switch (index) {
     case 0:
-      return scale_;
-    case 1:
-      return crs_;
-    case 2:
-      return coord_;
-    case 3:
       return status_;
+    case 1:
+      return scale_;
+    case 2:
+      return crs_;
+    case 3:
+      return coord_;
     default:
       return nullptr;
   }
@@ -114,7 +115,7 @@ bool StatusBar::on_key_event(const KeyEvent& event) {
 }
 
 void StatusBar::set_xy(double x, double y) {
-  set_coord_text(std::format("X: {:.3f}  Y: {:.3f}", x, y));
+  set_coord_text(std::format("{:.3f}, {:.3f}", x, y));
 }
 
 void StatusBar::set_scale(double scale) {
@@ -211,12 +212,14 @@ void StatusBar::paint_self(ui::gfx::Canvas* canvas) {
       return;
     }
     const int mid = (a.right() + c.x) / 2;
-    canvas->fill_rect(mid, b.y + inset, hair,
-                      std::max(0, b.height - inset * 2), t.panel_header);
+    const int gap_w = std::max(hair, dip_to_px(2, scale));
+    // Brighter divider than panel_header so fields read as separate cells.
+    canvas->fill_rect(mid, b.y + inset, gap_w,
+                      std::max(0, b.height - inset * 2), t.text_muted);
   };
+  paint_field_gap(status_, scale_);
   paint_field_gap(scale_, crs_);
   paint_field_gap(crs_, coord_);
-  paint_field_gap(coord_, status_);
 
   if (is_focused()) {
     if (Label* lab = field_at(highlight_index_)) {

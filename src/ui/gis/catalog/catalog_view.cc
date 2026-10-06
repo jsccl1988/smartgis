@@ -118,7 +118,9 @@ CatalogView::CatalogView() {
   set_layout_manager(std::move(fill));
   loaded.root->set_preferred_size({0, 0});
   add_child(std::move(loaded.root));
-  set_preferred_size({300, 0});
+  // Wide enough for Layers/Sources/Maps labels at 100–150% DPI before TabStrip
+  // proportional shrink engages (visual_review #2).
+  set_preferred_size({360, 0});
 }
 
 void CatalogView::set_title(std::string title) {

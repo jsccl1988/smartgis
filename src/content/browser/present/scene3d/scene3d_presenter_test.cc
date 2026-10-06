@@ -81,8 +81,8 @@ int main() {
     expect(!content::force_content_mapview_3d(),
            "Scenic does not force leftover HWND");
     {
-      content::Scene3dPresenter cam;
-      expect(cam.hosts_scenic_present(),
+      auto scenic_cam = std::make_unique<content::Scene3dPresenter>();
+      expect(scenic_cam->hosts_scenic_present(),
              "Scenic env/API hosts scenic.dll");
     }
 
@@ -117,64 +117,67 @@ int main() {
     content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
   }
 
-  content::OrbitFrame orbit;
-  content::Scene3dPresenter cam;
-  cam.bind_orbit(&orbit);
-  expect(!cam.hosts_shared_scene(), "fresh presenter has no MapContents");
+  // Heap-allocate OrbitFrame + Scene3dPresenter: Debug /RTC treats a stack
+  // Scene3dPresenter (WorldPass / atmosphere bag) as adjacent smash into
+  // orbit locals (wind_orbit / dem_orbit / orbit).
+  auto orbit = std::make_unique<content::OrbitFrame>();
+  auto cam = std::make_unique<content::Scene3dPresenter>();
+  cam->bind_orbit(orbit.get());
+  expect(!cam->hosts_shared_scene(), "fresh presenter has no MapContents");
   expect(std::fabs(content::kScene3dDefaultYaw - vista::kDemDefaultOrbitYaw) < 1e-6f,
          "host yaw aliases gis shared constant");
-  expect(std::fabs(orbit.yaw() - vista::kDemDefaultOrbitYaw) < 1e-4f,
+  expect(std::fabs(orbit->yaw() - vista::kDemDefaultOrbitYaw) < 1e-4f,
          "default yaw south-of-target");
   // make_orbit_camera: ez = dist * cos(pitch) * cos(yaw). South-of-target
   // requires ez < 0 so geographic +Z (north) sits toward the screen top.
   {
-    const float ez = orbit.distance() * std::cos(orbit.pitch()) *
-                     std::cos(orbit.yaw());
+    const float ez = orbit->distance() * std::cos(orbit->pitch()) *
+                     std::cos(orbit->yaw());
     expect(ez < 0.f, "default eye south of origin (north-up)");
   }
   // RH lookAt looking +Z �?camera right = -X; mesh X=-lon puts east on right.
   expect(vista::dem_lon_to_x(121.0) < vista::dem_lon_to_x(88.0),
          "east X < west X (screen-right looking north)");
-  expect(orbit.camera_matrices(1.333f).kind ==
+  expect(orbit->camera_matrices(1.333f).kind ==
              render::rhi::CameraKind::kPerspective,
          "3D perspective");
   // Default pose must contain the normalized DEM (XZ diagonal), not a patch.
   {
     const float half_diag = (3.2f * 0.5f) * std::sqrt(2.f);
     const float visible =
-        orbit.distance() * std::tan(content::kScene3dFovY * 0.5f);
+        orbit->distance() * std::tan(content::kScene3dFovY * 0.5f);
     expect(visible + 1e-3f >= half_diag, "orbit frames full DEM");
   }
-  expect(orbit.camera_matrices_ortho(800.f, 600.f).kind ==
+  expect(orbit->camera_matrices_ortho(800.f, 600.f).kind ==
              render::rhi::CameraKind::kOrtho,
          "2D ortho");
-  expect(content::extent_looks_like_china(orbit.world_extent()),
+  expect(content::extent_looks_like_china(orbit->world_extent()),
          "unbound extent is China");
-  expect(cam.atmosphere_session().environment() == nullptr, "no atmosphere by default");
+  expect(cam->atmosphere_session().environment() == nullptr, "no atmosphere by default");
 
-  const float yaw0 = orbit.yaw();
-  const float dist0 = orbit.distance();
-  orbit.apply_wheel_at(700, 80, 120, 800, 600);
-  expect(orbit.distance() < dist0, "wheel dollies in");
-  expect(std::fabs(orbit.yaw() - yaw0) > 1e-4f, "wheel-to-cursor yaws");
+  const float yaw0 = orbit->yaw();
+  const float dist0 = orbit->distance();
+  orbit->apply_wheel_at(700, 80, 120, 800, 600);
+  expect(orbit->distance() < dist0, "wheel dollies in");
+  expect(std::fabs(orbit->yaw() - yaw0) > 1e-4f, "wheel-to-cursor yaws");
 
-  orbit.reset();
-  expect(std::fabs(orbit.yaw() - content::kScene3dDefaultYaw) < 1e-4f, "reset yaw");
-  expect(std::fabs(orbit.distance() - 3.2f) < 1e-4f, "reset distance");
+  orbit->reset();
+  expect(std::fabs(orbit->yaw() - content::kScene3dDefaultYaw) < 1e-4f, "reset yaw");
+  expect(std::fabs(orbit->distance() - 3.2f) < 1e-4f, "reset distance");
 
-  const float dist1 = orbit.distance();
-  orbit.apply_pinch(400, 300, 1.2, 800, 600);
-  expect(orbit.distance() < dist1, "pinch-out dollies in");
+  const float dist1 = orbit->distance();
+  orbit->apply_pinch(400, 300, 1.2, 800, 600);
+  expect(orbit->distance() < dist1, "pinch-out dollies in");
 
-  orbit.apply_pan(20, 0);
-  expect(orbit.yaw() > content::kScene3dDefaultYaw, "pan yaws");
+  orbit->apply_pan(20, 0);
+  expect(orbit->yaw() > content::kScene3dDefaultYaw, "pan yaws");
 
-  orbit.reset();
-  const float pitch0 = orbit.pitch();
-  const float dist_before = orbit.distance();
-  orbit.apply_pan(0, 80);
-  expect(std::fabs(orbit.pitch() - pitch0) < 1e-4f, "pan does not pitch");
-  expect(orbit.distance() != dist_before, "vertical pan dollies");
+  orbit->reset();
+  const float pitch0 = orbit->pitch();
+  const float dist_before = orbit->distance();
+  orbit->apply_pan(0, 80);
+  expect(std::fabs(orbit->pitch() - pitch0) < 1e-4f, "pan does not pitch");
+  expect(orbit->distance() != dist_before, "vertical pan dollies");
 
   // Edge-on pitch must clamp (thin green strip regression).
   {
@@ -183,17 +186,17 @@ int main() {
     d.flags = 0x0002;  // MK_RBUTTON �?orbit
     d.points.push_back({0, 0});
     d.points.push_back({0, -5000});
-    orbit.apply_draft(d);
-    expect(orbit.pitch() >= tool::kOrbitPitchMin - 0.01f, "orbit pitch floor");
+    orbit->apply_draft(d);
+    expect(orbit->pitch() >= tool::kOrbitPitchMin - 0.01f, "orbit pitch floor");
   }
 
   content::Extent2 china = content::kChinaLonLatExtent;
-  orbit.apply_world_extent(china);
-  expect(content::extent_looks_like_china(orbit.world_extent()), "apply China");
+  orbit->apply_world_extent(china);
+  expect(content::extent_looks_like_china(orbit->world_extent()), "apply China");
 
   content::MapScene scene;
-  cam.bind_map(&scene);
-  expect(content::extent_nonempty(orbit.world_extent()), "bound map has extent");
+  cam->bind_map(&scene);
+  expect(content::extent_nonempty(orbit->world_extent()), "bound map has extent");
 
   // Seeded MapScene (China PLP) must still present DEM via World and WorldPass.
   // Heap-allocate Scene3dPresenter — stack frame + WorldPass exceeds Debug RTC
@@ -201,11 +204,11 @@ int main() {
   {
     content::MapScene seeded;
     seeded.seed_default();
-    content::OrbitFrame dem_orbit;
+    auto dem_orbit = std::make_unique<content::OrbitFrame>();
     auto dem_cam = std::make_unique<content::Scene3dPresenter>();
-    dem_cam->bind_orbit(&dem_orbit);
+    dem_cam->bind_orbit(dem_orbit.get());
     dem_cam->bind_map(&seeded);
-    dem_orbit.apply_world_extent(seeded.world_extent());
+    dem_orbit->apply_world_extent(seeded.world_extent());
     expect(content::extent_looks_like_china(dem_cam->world_extent()) ||
                content::extent_nonempty(dem_cam->world_extent()),
            "seeded map extent");
@@ -273,28 +276,28 @@ int main() {
     dem_cam->abandon_mesh();
   }
 
-  orbit.apply_draft(tool::Draft{});
-  expect(!cam.hosts_shared_scene(), "no MapContents until bind_contents");
+  orbit->apply_draft(tool::Draft{});
+  expect(!cam->hosts_shared_scene(), "no MapContents until bind_contents");
 
   // Atmosphere defaults off until enable_atmosphere_demo / setters.
-  vista::atmosphere::Environment& env = cam.atmosphere_session().ensure();
+  vista::atmosphere::Environment& env = cam->atmosphere_session().ensure();
   expect(!env.ocean_enabled() && !env.cloud_enabled(), "ensure keeps off");
-  cam.atmosphere_session().enable_demo();
+  cam->atmosphere_session().enable_demo();
   expect(env.ocean_enabled() && env.cloud_enabled(), "demo enables ocean/cloud");
   expect(env.sky_enabled() && env.fog_enabled(), "demo enables sky/fog");
   expect(env.field_store().layer_count() > 0, "demo seeded fields");
 
   // Wind overlay: sample seeded WindU/V into GDI arrows (CPU path).
   {
-    content::OrbitFrame wind_orbit;
-    content::Scene3dPresenter wind_cam;
-    wind_cam.bind_orbit(&wind_orbit);
-    wind_cam.bind_map(&scene);
-    wind_cam.atmosphere_session().seed_procedural();
-    wind_cam.atmosphere_session().set_wind_overlay_enabled(true);
-    expect(wind_cam.atmosphere_session().wind_overlay_enabled(), "wind overlay on");
-    wind_cam.atmosphere_session().set_time_sec(12.5);
-    expect(std::abs(wind_cam.atmosphere_session().time_sec() - 12.5) < 1e-9, "time scrub");
+    auto wind_orbit = std::make_unique<content::OrbitFrame>();
+    auto wind_cam = std::make_unique<content::Scene3dPresenter>();
+    wind_cam->bind_orbit(wind_orbit.get());
+    wind_cam->bind_map(&scene);
+    wind_cam->atmosphere_session().seed_procedural();
+    wind_cam->atmosphere_session().set_wind_overlay_enabled(true);
+    expect(wind_cam->atmosphere_session().wind_overlay_enabled(), "wind overlay on");
+    wind_cam->atmosphere_session().set_time_sec(12.5);
+    expect(std::abs(wind_cam->atmosphere_session().time_sec() - 12.5) < 1e-9, "time scrub");
     HDC screen = GetDC(nullptr);
     if (screen) {
       HDC mem = CreateCompatibleDC(screen);
@@ -309,24 +312,25 @@ int main() {
           CreateDIBSection(mem, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
       if (dib) {
         HGDIOBJ old = SelectObject(mem, dib);
-        wind_cam.paint_hud(mem, 64, 64);
+        wind_cam->paint_hud(mem, 64, 64);
         SelectObject(mem, old);
         DeleteObject(dib);
       }
       DeleteDC(mem);
       ReleaseDC(nullptr, screen);
     }
-    wind_cam.abandon_mesh();
+    wind_cam->abandon_mesh();
   }
 
   // Ocean-only: seed without cloud pass.
   {
-    content::Scene3dPresenter ocean_only;
-    ocean_only.bind_map(&scene);
-    ocean_only.atmosphere_session().seed_procedural();
-    ocean_only.atmosphere_session().set_ocean_enabled(true);
-    ocean_only.atmosphere_session().set_cloud_enabled(false);
-    const vista::atmosphere::Environment* oenv = ocean_only.atmosphere_session().environment();
+    auto ocean_only = std::make_unique<content::Scene3dPresenter>();
+    ocean_only->bind_map(&scene);
+    ocean_only->atmosphere_session().seed_procedural();
+    ocean_only->atmosphere_session().set_ocean_enabled(true);
+    ocean_only->atmosphere_session().set_cloud_enabled(false);
+    const vista::atmosphere::Environment* oenv =
+        ocean_only->atmosphere_session().environment();
     expect(oenv && oenv->ocean_enabled() && !oenv->cloud_enabled(),
            "ocean-only flags");
     expect(oenv->field_store().layer_count() > 0, "ocean-only seeded");
@@ -338,27 +342,28 @@ int main() {
         render::rhi::create_device(render::rhi::Backend::kNull));
     expect(device != nullptr, "null device");
     expect(device->initialize(render::rhi::DeviceDesc()), "null init");
-    expect(cam.present_gpu(device.get(), 64, 64), "present with atmosphere");
-    expect(std::strcmp(cam.render_engine_name(), "Null") == 0,
+    expect(cam->present_gpu(device.get(), 64, 64), "present with atmosphere");
+    expect(std::strcmp(cam->render_engine_name(), "Null") == 0,
            "present_gpu sets Null engine label");
 
     // Disable and present again (land-only path still uses record_draws).
-    cam.atmosphere_session().set_ocean_enabled(false);
-    cam.atmosphere_session().set_cloud_enabled(false);
-    cam.atmosphere_session().set_sky_enabled(false);
-    cam.atmosphere_session().set_fog_enabled(false);
-    expect(cam.present_gpu(device.get(), 64, 64), "present atmosphere off");
+    cam->atmosphere_session().set_ocean_enabled(false);
+    cam->atmosphere_session().set_cloud_enabled(false);
+    cam->atmosphere_session().set_sky_enabled(false);
+    cam->atmosphere_session().set_fog_enabled(false);
+    expect(cam->present_gpu(device.get(), 64, 64), "present atmosphere off");
 
     // Drop GPU mesh/pass pointers before Device destruction (same as
     // MapViewport::detach ordering).
-    cam.abandon_mesh();
+    cam->abandon_mesh();
   }
 
   // M3 city path: DEM + tiles stream/cache + atmosphere on/off hooks.
   {
-    content::Scene3dPresenter m3;
+    auto m3 = std::make_unique<content::Scene3dPresenter>();
     std::string m3_err;
-    expect(m3.atmosphere_session().run_m3_self_test_hooks(&m3_err), "run_m3_self_test_hooks");
+    expect(m3->atmosphere_session().run_m3_self_test_hooks(&m3_err),
+           "run_m3_self_test_hooks");
     expect(m3_err.empty(), "m3 hooks no error tag");
   }
 

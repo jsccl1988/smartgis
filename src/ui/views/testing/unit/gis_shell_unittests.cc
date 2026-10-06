@@ -77,7 +77,8 @@ void test_layer_tree() {
 
 void test_catalog_view() {
   CatalogView catalog;
-  expect(catalog.preferred_size().width == 300 ||
+  expect(catalog.preferred_size().width == 360 ||
+             catalog.preferred_size().width == 300 ||
              catalog.preferred_size().width == 288 ||
              catalog.preferred_size().width == 240,
          "catalog preferred width");

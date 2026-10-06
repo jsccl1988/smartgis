@@ -1,31 +1,32 @@
-/* StatusBar — horizontal strip; field gaps leave room for painted separators */
+/* StatusBar — status first, then metrics; gaps leave room for separators */
 
 .bar {
   display: flex;
   flex-direction: row;
-  gap: 16px;
-  padding: 0px 10px;
+  gap: 28px;
+  padding: 0px 12px;
   width: 400px;
   height: 32px;
   align-items: center;
 }
 
+#status {
+  height: 28px;
+  flex-grow: 1;
+  min-width: 120px;
+}
+
 #scale {
-  width: 130px;
+  width: 100px;
   height: 28px;
 }
 
 #crs {
-  width: 180px;
+  width: 140px;
   height: 28px;
 }
 
 #coord {
-  width: 220px;
+  width: 200px;
   height: 28px;
-}
-
-#status {
-  height: 28px;
-  flex-grow: 1;
 }
