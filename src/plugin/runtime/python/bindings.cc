@@ -23,6 +23,10 @@
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "tool/command/command.h"
+#include "ui/gis/debug/debug_console_panel.h"
+#include "ui/gis/inspect/measure_panel.h"
+#include "ui/gis/inspect/selection_panel.h"
+#include "ui/gis/shell/atmosphere_panel.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/dialogs/message_box.h"
 #include "ui/views/kernel/shell/theme.h"
@@ -33,6 +37,7 @@
 #include "ui/views/primitives/text/textfield.h"
 #include "ui/views/kernel/widget/widget.h"
 
+#include <cstring>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -46,22 +51,56 @@ namespace {
 #if defined(HAS_PYTHON)
 
 content::PluginHost* g_bound_host = nullptr;
-std::vector<PyObject*> g_held_callables;
-std::vector<content::EventBus::Connection> g_event_conns;
+std::string g_loading_plugin_dir;
+
+struct HeldCallable {
+  PyObject* obj = nullptr;
+  std::string dir;
+};
+std::vector<HeldCallable> g_held_callables;
+
+struct HeldEvent {
+  content::EventBus::Connection conn;
+  std::string dir;
+  HeldEvent(content::EventBus::Connection c, std::string d)
+      : conn(std::move(c)), dir(std::move(d)) {}
+};
+std::vector<HeldEvent> g_event_conns;
 
 void hold_callable(PyObject* obj) {
   if (obj) {
     Py_INCREF(obj);
-    g_held_callables.push_back(obj);
+    g_held_callables.push_back(HeldCallable{obj, g_loading_plugin_dir});
   }
 }
 
 void drop_held_callables() {
-  for (PyObject* obj : g_held_callables) {
-    Py_DECREF(obj);
+  for (HeldCallable& h : g_held_callables) {
+    Py_DECREF(h.obj);
   }
   g_held_callables.clear();
   g_event_conns.clear();
+}
+
+void drop_held_callables_for(std::string_view directory) {
+  const std::string dir(directory);
+  auto it = g_held_callables.begin();
+  while (it != g_held_callables.end()) {
+    if (it->dir == dir) {
+      Py_DECREF(it->obj);
+      it = g_held_callables.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  auto ev = g_event_conns.begin();
+  while (ev != g_event_conns.end()) {
+    if (ev->dir == dir) {
+      ev = g_event_conns.erase(ev);
+    } else {
+      ++ev;
+    }
+  }
 }
 
 struct HostObject {
@@ -114,8 +153,9 @@ PyObject* host_contribute_command(HostObject* self, PyObject* args) {
   hold_callable(callable);
   const bool ok = self->host->contribute_command(
       plugin_id, command_id, title, menu,
-      [callable](const tool::CommandArgs&) {
-        return call_py_bool(callable, "");
+      [callable](const tool::CommandArgs& ca) {
+        const std::string payload(ca.payload);
+        return call_py_bool(callable, payload.c_str());
       });
   if (!ok) {
     Py_RETURN_FALSE;
@@ -217,6 +257,20 @@ PyObject* host_open_dialog(HostObject* self, PyObject* args) {
   Py_RETURN_TRUE;
 }
 
+PyObject* host_open_dock(HostObject* self, PyObject* args) {
+  const char* dock_id = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &dock_id)) {
+    return nullptr;
+  }
+  if (!self->host || !dock_id) {
+    Py_RETURN_FALSE;
+  }
+  if (!self->host->open_dock(dock_id)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
 PyObject* host_open_report(HostObject* self, PyObject* args) {
   const char* path = nullptr;
   if (!PyArg_ParseTuple(args, "s", &path)) {
@@ -296,6 +350,337 @@ PyObject* host_run_processing(HostObject* self, PyObject* args) {
   Py_RETURN_TRUE;
 }
 
+PyObject* host_execute(HostObject* self, PyObject* args) {
+  const char* command_id = nullptr;
+  const char* payload = "";
+  unsigned int view_id = 0;
+  if (!PyArg_ParseTuple(args, "s|sI", &command_id, &payload, &view_id)) {
+    return nullptr;
+  }
+  if (!self->host || !command_id) {
+    Py_RETURN_FALSE;
+  }
+  tool::CommandArgs ca;
+  ca.view_id = view_id;
+  ca.payload = payload ? payload : "";
+  if (!self->host->execute(command_id, ca)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_withdraw(HostObject* self, PyObject* args) {
+  const char* plugin_id = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &plugin_id)) {
+    return nullptr;
+  }
+  if (!self->host || !plugin_id) {
+    Py_RETURN_FALSE;
+  }
+  self->host->withdraw(plugin_id);
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_contribute_menu(HostObject* self, PyObject* args) {
+  const char* plugin_id = nullptr;
+  const char* menu_id = nullptr;
+  const char* title = nullptr;
+  const char* parent = "tools";
+  if (!PyArg_ParseTuple(args, "sss|s", &plugin_id, &menu_id, &title, &parent)) {
+    return nullptr;
+  }
+  if (!self->host) {
+    Py_RETURN_FALSE;
+  }
+  content::MenuContribution menu;
+  menu.id = menu_id ? menu_id : "";
+  menu.title = title ? title : "";
+  menu.parent = parent ? parent : "tools";
+  if (!self->host->contribute_menu(plugin_id, menu)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_contribute_export_frame(HostObject* self, PyObject* args) {
+  const char* plugin_id = nullptr;
+  const char* frame_id = nullptr;
+  double min_lon = 0, min_lat = 0, max_lon = 0, max_lat = 0;
+  if (!PyArg_ParseTuple(args, "ssdddd", &plugin_id, &frame_id, &min_lon,
+                        &min_lat, &max_lon, &max_lat)) {
+    return nullptr;
+  }
+  if (!self->host) {
+    Py_RETURN_FALSE;
+  }
+  content::ExportFrameContribution frame;
+  frame.id = frame_id ? frame_id : "";
+  frame.min_lon = min_lon;
+  frame.min_lat = min_lat;
+  frame.max_lon = max_lon;
+  frame.max_lat = max_lat;
+  if (!self->host->contribute_export_frame(plugin_id, frame)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_lookup_export_frame(HostObject* self, PyObject* args) {
+  const char* frame_id = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &frame_id)) {
+    return nullptr;
+  }
+  if (!self->host || !frame_id) {
+    Py_RETURN_NONE;
+  }
+  double min_lon = 0, min_lat = 0, max_lon = 0, max_lat = 0;
+  if (!self->host->lookup_export_frame(frame_id, &min_lon, &min_lat, &max_lon,
+                                       &max_lat)) {
+    Py_RETURN_NONE;
+  }
+  return Py_BuildValue("(dddd)", min_lon, min_lat, max_lon, max_lat);
+}
+
+PyObject* host_list_contributions(HostObject* self, PyObject* args) {
+  const char* kind = "command";
+  if (!PyArg_ParseTuple(args, "|s", &kind)) {
+    return nullptr;
+  }
+  if (!self->host) {
+    return PyList_New(0);
+  }
+  PyObject* list = PyList_New(0);
+  if (!list) {
+    return nullptr;
+  }
+  auto append = [list](std::string_view plugin_id, std::string_view id,
+                       std::string_view title) {
+    PyObject* item =
+        Py_BuildValue("{s:s,s:s,s:s}", "plugin_id",
+                      std::string(plugin_id).c_str(), "id",
+                      std::string(id).c_str(), "title",
+                      std::string(title).c_str());
+    if (item) {
+      PyList_Append(list, item);
+      Py_DECREF(item);
+    }
+  };
+  const std::string k = kind ? kind : "command";
+  if (k == "processing") {
+    self->host->for_each_processing(append);
+  } else if (k == "dialog") {
+    self->host->for_each_dialog(append);
+  } else if (k == "dock") {
+    self->host->for_each_dock(append);
+  } else {
+    self->host->for_each_command(append);
+  }
+  return list;
+}
+
+PyObject* host_set_present_surface(HostObject* self, PyObject* args) {
+  int surface = 0;
+  if (!PyArg_ParseTuple(args, "i", &surface)) {
+    return nullptr;
+  }
+  if (!self->host) {
+    Py_RETURN_FALSE;
+  }
+  self->host->set_present_surface(surface);
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_present_surface(HostObject* self, PyObject*) {
+  if (!self->host) {
+    return PyLong_FromLong(0);
+  }
+  return PyLong_FromLong(self->host->present_surface());
+}
+
+PyObject* host_has_capability(HostObject* self, PyObject* args) {
+  const char* id = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &id)) {
+    return nullptr;
+  }
+  if (!self->host || !id || !self->host->query_capability(id)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_playback_push(HostObject* self, PyObject* args) {
+  const char* json = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &json)) {
+    return nullptr;
+  }
+  content::PluginHost::Playback* pb =
+      self->host ? self->host->playback() : nullptr;
+  if (!pb) {
+    Py_RETURN_FALSE;
+  }
+  pb->push_frame(json ? json : "");
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_playback_count(HostObject* self, PyObject*) {
+  content::PluginHost::Playback* pb =
+      self->host ? self->host->playback() : nullptr;
+  return PyLong_FromSize_t(pb ? pb->frame_count() : 0);
+}
+
+PyObject* host_playback_set_index(HostObject* self, PyObject* args) {
+  unsigned long i = 0;
+  if (!PyArg_ParseTuple(args, "k", &i)) {
+    return nullptr;
+  }
+  content::PluginHost::Playback* pb =
+      self->host ? self->host->playback() : nullptr;
+  if (!pb) {
+    Py_RETURN_FALSE;
+  }
+  pb->set_index(static_cast<size_t>(i));
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_playback_frame(HostObject* self, PyObject* args) {
+  unsigned long i = 0;
+  if (!PyArg_ParseTuple(args, "k", &i)) {
+    return nullptr;
+  }
+  content::PluginHost::Playback* pb =
+      self->host ? self->host->playback() : nullptr;
+  if (!pb) {
+    Py_RETURN_NONE;
+  }
+  const std::string_view json = pb->frame_json(static_cast<size_t>(i));
+  if (json.empty()) {
+    Py_RETURN_NONE;
+  }
+  return PyUnicode_FromStringAndSize(json.data(),
+                                     static_cast<Py_ssize_t>(json.size()));
+}
+
+PyObject* host_playback_clear(HostObject* self, PyObject*) {
+  content::PluginHost::Playback* pb =
+      self->host ? self->host->playback() : nullptr;
+  if (!pb) {
+    Py_RETURN_FALSE;
+  }
+  pb->clear();
+  Py_RETURN_TRUE;
+}
+
+PyObject* sink_json_result(bool ok, const std::string& json) {
+  return Py_BuildValue("{s:N,s:s}", "ok", PyBool_FromLong(ok ? 1 : 0), "json",
+                       json.c_str());
+}
+
+PyObject* host_scene3d_open_earth(HostObject* self, PyObject*) {
+  plugin::Scene3dSink* sink = plugin::scene3d_sink(self->host);
+  if (!sink || !sink->open_earth()) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_scene3d_fly_to(HostObject* self, PyObject* args) {
+  double lon = 0, lat = 0, span = 10;
+  float distance = 1.2f;
+  if (!PyArg_ParseTuple(args, "dd|fd", &lon, &lat, &distance, &span)) {
+    return nullptr;
+  }
+  plugin::Scene3dSink* sink = plugin::scene3d_sink(self->host);
+  if (!sink || !sink->fly_to(lon, lat, distance, span)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_scene3d_apply_look(HostObject* self, PyObject* args) {
+  const char* mode = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &mode)) {
+    return nullptr;
+  }
+  plugin::Scene3dSink* sink = plugin::scene3d_sink(self->host);
+  std::string json;
+  const bool ok = sink && sink->apply_look(mode ? mode : "", &json);
+  return sink_json_result(ok, json);
+}
+
+PyObject* host_scene3d_set_atmosphere(HostObject* self, PyObject* args) {
+  int sky = 1, ocean = 1, cloud = 0, fog = 0;
+  if (!PyArg_ParseTuple(args, "|pppp", &sky, &ocean, &cloud, &fog)) {
+    return nullptr;
+  }
+  plugin::Scene3dSink* sink = plugin::scene3d_sink(self->host);
+  if (!sink || !sink->set_atmosphere(sky != 0, ocean != 0, cloud != 0, fog != 0)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_scene3d_invalidate(HostObject* self, PyObject*) {
+  plugin::Scene3dSink* sink = plugin::scene3d_sink(self->host);
+  if (!sink) {
+    Py_RETURN_FALSE;
+  }
+  sink->invalidate();
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_map2d_open_map(HostObject* self, PyObject*) {
+  plugin::Map2dSink* sink = plugin::map2d_sink(self->host);
+  if (!sink || !sink->open_map()) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_map2d_frame_to(HostObject* self, PyObject* args) {
+  double lon = 0, lat = 0, span = 10;
+  if (!PyArg_ParseTuple(args, "ddd", &lon, &lat, &span)) {
+    return nullptr;
+  }
+  plugin::Map2dSink* sink = plugin::map2d_sink(self->host);
+  if (!sink || !sink->frame_to(lon, lat, span)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_map2d_apply_look(HostObject* self, PyObject* args) {
+  const char* mode = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &mode)) {
+    return nullptr;
+  }
+  plugin::Map2dSink* sink = plugin::map2d_sink(self->host);
+  std::string json;
+  const bool ok = sink && sink->apply_look(mode ? mode : "", &json);
+  return sink_json_result(ok, json);
+}
+
+PyObject* host_map2d_export_bmp(HostObject* self, PyObject* args) {
+  const char* path = nullptr;
+  int w = 1280, h = 720;
+  if (!PyArg_ParseTuple(args, "s|ii", &path, &w, &h)) {
+    return nullptr;
+  }
+  plugin::Map2dSink* sink = plugin::map2d_sink(self->host);
+  if (!sink || !sink->export_bmp(path ? path : "", w, h)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_map2d_invalidate(HostObject* self, PyObject*) {
+  plugin::Map2dSink* sink = plugin::map2d_sink(self->host);
+  if (!sink) {
+    Py_RETURN_FALSE;
+  }
+  sink->invalidate();
+  Py_RETURN_TRUE;
+}
+
 PyMethodDef kHostMethods[] = {
     {"contribute_command",
      reinterpret_cast<PyCFunction>(host_contribute_command), METH_VARARGS,
@@ -307,8 +692,67 @@ PyMethodDef kHostMethods[] = {
     {"contribute_processing",
      reinterpret_cast<PyCFunction>(host_contribute_processing), METH_VARARGS,
      "Contribute a processing factory (no Views)."},
+    {"contribute_menu", reinterpret_cast<PyCFunction>(host_contribute_menu),
+     METH_VARARGS, "Contribute a menu node."},
+    {"contribute_export_frame",
+     reinterpret_cast<PyCFunction>(host_contribute_export_frame), METH_VARARGS,
+     "Contribute a named Map2d export extent."},
+    {"lookup_export_frame",
+     reinterpret_cast<PyCFunction>(host_lookup_export_frame), METH_VARARGS,
+     "Lookup export frame (min_lon, min_lat, max_lon, max_lat) or None."},
+    {"execute", reinterpret_cast<PyCFunction>(host_execute), METH_VARARGS,
+     "execute(command_id, payload='', view_id=0)."},
+    {"withdraw", reinterpret_cast<PyCFunction>(host_withdraw), METH_VARARGS,
+     "Withdraw all contributions for a plugin id."},
+    {"list_contributions",
+     reinterpret_cast<PyCFunction>(host_list_contributions), METH_VARARGS,
+     "list_contributions(kind='command'|'processing'|'dialog'|'dock')."},
+    {"set_present_surface",
+     reinterpret_cast<PyCFunction>(host_set_present_surface), METH_VARARGS,
+     "Sticky present surface 0=main 1=preview."},
+    {"present_surface", reinterpret_cast<PyCFunction>(host_present_surface),
+     METH_NOARGS, "Sticky present surface."},
+    {"has_capability", reinterpret_cast<PyCFunction>(host_has_capability),
+     METH_VARARGS, "True if query_capability(id) is set."},
+    {"playback_push", reinterpret_cast<PyCFunction>(host_playback_push),
+     METH_VARARGS, "Push a playback JSON frame."},
+    {"playback_count", reinterpret_cast<PyCFunction>(host_playback_count),
+     METH_NOARGS, "Playback frame count."},
+    {"playback_set_index",
+     reinterpret_cast<PyCFunction>(host_playback_set_index), METH_VARARGS,
+     "Select playback frame index."},
+    {"playback_frame", reinterpret_cast<PyCFunction>(host_playback_frame),
+     METH_VARARGS, "JSON at playback index or None."},
+    {"playback_clear", reinterpret_cast<PyCFunction>(host_playback_clear),
+     METH_NOARGS, "Clear playback frames."},
+    {"scene3d_open_earth",
+     reinterpret_cast<PyCFunction>(host_scene3d_open_earth), METH_NOARGS,
+     "Open True-Earth via plugin.scene3d."},
+    {"scene3d_fly_to", reinterpret_cast<PyCFunction>(host_scene3d_fly_to),
+     METH_VARARGS, "scene3d_fly_to(lon, lat, distance=1.2, span=10)."},
+    {"scene3d_apply_look",
+     reinterpret_cast<PyCFunction>(host_scene3d_apply_look), METH_VARARGS,
+     "Returns {ok, json}."},
+    {"scene3d_set_atmosphere",
+     reinterpret_cast<PyCFunction>(host_scene3d_set_atmosphere), METH_VARARGS,
+     "scene3d_set_atmosphere(sky, ocean, cloud, fog)."},
+    {"scene3d_invalidate",
+     reinterpret_cast<PyCFunction>(host_scene3d_invalidate), METH_NOARGS,
+     "Invalidate Scene3D present."},
+    {"map2d_open_map", reinterpret_cast<PyCFunction>(host_map2d_open_map),
+     METH_NOARGS, "Open Map2d via plugin.map2d."},
+    {"map2d_frame_to", reinterpret_cast<PyCFunction>(host_map2d_frame_to),
+     METH_VARARGS, "map2d_frame_to(lon, lat, span_deg)."},
+    {"map2d_apply_look", reinterpret_cast<PyCFunction>(host_map2d_apply_look),
+     METH_VARARGS, "Returns {ok, json}."},
+    {"map2d_export_bmp", reinterpret_cast<PyCFunction>(host_map2d_export_bmp),
+     METH_VARARGS, "map2d_export_bmp(path, width=1280, height=720)."},
+    {"map2d_invalidate", reinterpret_cast<PyCFunction>(host_map2d_invalidate),
+     METH_NOARGS, "Invalidate Map2d present."},
     {"open_dialog", reinterpret_cast<PyCFunction>(host_open_dialog),
      METH_VARARGS, "Open a contributed dialog by id."},
+    {"open_dock", reinterpret_cast<PyCFunction>(host_open_dock), METH_VARARGS,
+     "Open a contributed dock by id (chrome mounts inspector pages)."},
     {"open_report", reinterpret_cast<PyCFunction>(host_open_report),
      METH_VARARGS, "Open a local HTML report directory in the Report dock."},
     {"post_to_report", reinterpret_cast<PyCFunction>(host_post_to_report),
@@ -413,6 +857,28 @@ PyObject* debug_tracing_enabled(PyObject*, PyObject*) {
   Py_RETURN_FALSE;
 }
 
+PyObject* debug_show_tab(PyObject*, PyObject* args) {
+  const char* name = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &name)) {
+    return nullptr;
+  }
+  int tab = -1;
+  if (name && std::strcmp(name, "output") == 0) {
+    tab = 0;
+  } else if (name && std::strcmp(name, "console") == 0) {
+    tab = 1;
+  } else if (name && std::strcmp(name, "trace") == 0) {
+    tab = 2;
+  } else if (name && std::strcmp(name, "memory") == 0) {
+    tab = 3;
+  }
+  plugin::ShellUiSink* ui = plugin::shell_ui(g_bound_host);
+  if (!ui || tab < 0 || !ui->show_debug_tab(tab)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
 // Context manager wrapping base::trace::ScopedTraceEvent (enter/exit).
 struct TraceEventObject {
   PyObject_HEAD
@@ -494,6 +960,22 @@ PyObject* debug_trace_event(PyObject*, PyObject* args) {
   return raw;
 }
 
+PyObject* debug_profile(PyObject* self, PyObject* args) {
+  const char* name = nullptr;
+  const char* cat = "plugin";
+  if (!PyArg_ParseTuple(args, "s|s", &name, &cat)) {
+    return nullptr;
+  }
+  PyObject* packed =
+      Py_BuildValue("(ss)", name ? name : "", cat ? cat : "plugin");
+  if (!packed) {
+    return nullptr;
+  }
+  PyObject* r = debug_trace_event(self, packed);
+  Py_DECREF(packed);
+  return r;
+}
+
 PyObject* events_subscribe(PyObject*, PyObject* args) {
   const char* name = nullptr;
   PyObject* fn = nullptr;
@@ -507,27 +989,31 @@ PyObject* events_subscribe(PyObject*, PyObject* args) {
   hold_callable(fn);
   content::EventBus* bus = g_bound_host->events();
   if (std::string(name) == "SelectionChanged") {
-    g_event_conns.push_back(bus->subscribe<content::SelectionChanged>(
-        [fn](const content::SelectionChanged&) {
-          PyGILState_STATE gil = PyGILState_Ensure();
-          PyObject* r = PyObject_CallFunction(fn, "");
-          Py_XDECREF(r);
-          if (PyErr_Occurred()) {
-            PyErr_Print();
-          }
-          PyGILState_Release(gil);
-        }));
+    g_event_conns.push_back(HeldEvent(
+        bus->subscribe<content::SelectionChanged>(
+            [fn](const content::SelectionChanged&) {
+              PyGILState_STATE gil = PyGILState_Ensure();
+              PyObject* r = PyObject_CallFunction(fn, "");
+              Py_XDECREF(r);
+              if (PyErr_Occurred()) {
+                PyErr_Print();
+              }
+              PyGILState_Release(gil);
+            }),
+        g_loading_plugin_dir));
   } else if (std::string(name) == "ExtentChanged") {
-    g_event_conns.push_back(bus->subscribe<content::ExtentChanged>(
-        [fn](const content::ExtentChanged&) {
-          PyGILState_STATE gil = PyGILState_Ensure();
-          PyObject* r = PyObject_CallFunction(fn, "");
-          Py_XDECREF(r);
-          if (PyErr_Occurred()) {
-            PyErr_Print();
-          }
-          PyGILState_Release(gil);
-        }));
+    g_event_conns.push_back(HeldEvent(
+        bus->subscribe<content::ExtentChanged>(
+            [fn](const content::ExtentChanged&) {
+              PyGILState_STATE gil = PyGILState_Ensure();
+              PyObject* r = PyObject_CallFunction(fn, "");
+              Py_XDECREF(r);
+              if (PyErr_Occurred()) {
+                PyErr_Print();
+              }
+              PyGILState_Release(gil);
+            }),
+        g_loading_plugin_dir));
   } else {
     PyErr_SetString(PyExc_ValueError, "unknown event");
     return nullptr;
@@ -573,6 +1059,34 @@ PyObject* ui_checkbox(PyObject*, PyObject* args) {
 
 PyObject* ui_widget(PyObject*, PyObject*) {
   return wrap_new<ui::views::Widget>();
+}
+
+PyObject* ui_atmosphere_panel(PyObject*, PyObject*) {
+  return wrap_new<ui::views::AtmospherePanel>();
+}
+
+PyObject* ui_debug_console(PyObject*, PyObject*) {
+  return wrap_new<ui::views::DebugConsolePanel>();
+}
+
+PyObject* ui_measure_panel(PyObject*, PyObject*) {
+  return wrap_new<ui::views::MeasurePanel>();
+}
+
+PyObject* ui_selection_panel(PyObject*, PyObject*) {
+  return wrap_new<ui::views::SelectionPanel>();
+}
+
+PyObject* ui_show_inspect(PyObject*, PyObject* args) {
+  const char* panel = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &panel)) {
+    return nullptr;
+  }
+  plugin::ShellUiSink* ui = plugin::shell_ui(g_bound_host);
+  if (!ui || !panel || !ui->show_inspect(panel)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
 }
 
 std::wstring filter_from_pattern(const char* pattern) {
@@ -643,6 +1157,12 @@ PyMethodDef kUiMethods[] = {
     {"Textfield", ui_textfield, METH_NOARGS, nullptr},
     {"Checkbox", ui_checkbox, METH_VARARGS, nullptr},
     {"Widget", ui_widget, METH_NOARGS, nullptr},
+    {"AtmospherePanel", ui_atmosphere_panel, METH_NOARGS, nullptr},
+    {"DebugConsole", ui_debug_console, METH_NOARGS, nullptr},
+    {"MeasurePanel", ui_measure_panel, METH_NOARGS, nullptr},
+    {"SelectionPanel", ui_selection_panel, METH_NOARGS, nullptr},
+    {"show_inspect", ui_show_inspect, METH_VARARGS,
+     "show_inspect(panel) panel=measure|selection|legend|layer|atmosphere."},
     {"pick_open_file", ui_pick_open_file, METH_VARARGS,
      "Open-file picker; returns {accepted, path}."},
     {"pick_save_file", ui_pick_save_file, METH_VARARGS,
@@ -707,6 +1227,10 @@ PyMethodDef kDebugMethods[] = {
      "Whether process tracing is enabled."},
     {"trace_event", debug_trace_event, METH_VARARGS,
      "Context manager: base::trace::ScopedTraceEvent(name, cat)."},
+    {"profile", debug_profile, METH_VARARGS,
+     "profile(name, cat='plugin') — same as trace_event."},
+    {"show_tab", debug_show_tab, METH_VARARGS,
+     "show_tab(name) name=output|console|trace|memory."},
     {nullptr, nullptr, 0, nullptr},
 };
 
@@ -800,6 +1324,14 @@ void unbind_python_host() {
   drop_held_callables();
   g_bound_host = nullptr;
   bind_gis_host_for_analysis(nullptr);
+}
+
+void set_python_load_directory(std::string_view directory) {
+  g_loading_plugin_dir = std::string(directory);
+}
+
+void drop_python_plugin_holds(std::string_view directory) {
+  drop_held_callables_for(directory);
 }
 #endif
 

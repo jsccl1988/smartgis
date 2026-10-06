@@ -3,9 +3,15 @@
   "name": "城市交通最佳路径",
   "version": "1.0.0",
   "api_version": 2,
-  "kind": "builtin",
+  "kind": "native",
+  "library": "traffic.dll",
   "author": "The Mogu Authors",
   "description": "Load road networks and compute least-cost / shortest paths",
+  "startup": {
+    "activate": true,
+    "viewport": "map2d",
+    "priority": 0
+  },
   "contributes": {
     "commands": [
       {"id": "traffic.shortest_path", "title": "最佳路径分析", "menu": "tools"},

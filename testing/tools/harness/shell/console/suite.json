@@ -1,12 +1,12 @@
 {
   "id": "console",
-  "kind": "self_test",
+  "kind": "harness",
   "argv": [
-    "--self-test-console"
+    "--harness-console"
   ],
   "script": "console.il",
   "env": {},
-  "mark_leaf": "self-test-mark.txt",
+  "mark_leaf": "harness-mark.txt",
   "required_marks": [
     "console-ok",
     "console-bench-ok"

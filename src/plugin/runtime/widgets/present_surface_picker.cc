@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "content/public/plugin_host.h"
+#include "plugin/runtime/widgets/debug_inspect_bar.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/primitives/input/combobox.h"
 #include "ui/views/primitives/text/label.h"
@@ -60,19 +61,21 @@ std::unique_ptr<ui::views::View> wrap_with_present_surface(
   auto box = std::make_unique<ui::views::BoxLayout>(
       ui::views::BoxLayout::Orientation::kVertical);
   auto picker = std::make_unique<PresentSurfacePicker>(host);
+  auto tools = std::make_unique<DebugInspectBar>(host);
   ui::views::View* body_ptr = body.get();
   if (body_ptr) {
     box->set_flex_for_view(body_ptr, 1);
   }
   root->set_layout_manager(std::move(box));
   root->add_child(std::move(picker));
+  root->add_child(std::move(tools));
   if (body) {
     const auto pref = body->preferred_size();
     root->set_preferred_size(
-        {pref.width > 0 ? pref.width : 520, pref.height + 32});
+        {pref.width > 0 ? pref.width : 520, pref.height + 60});
     root->add_child(std::move(body));
   } else {
-    root->set_preferred_size({480, 32});
+    root->set_preferred_size({480, 60});
   }
   return root;
 }

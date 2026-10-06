@@ -1,0 +1,142 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>horizon capture 分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 48px; }
+  .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.25rem; }
+  h2 { margin: 0 0 8px; font-size: 1rem; }
+  p { margin: 0 0 8px; color: var(--muted); }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
+  }
+  .lane h3 { margin: 0 0 4px; font-size: 0.92rem; }
+  .lane ul { margin: 0; padding-left: 1.1rem; }
+  .lane li { margin: 2px 0; }
+  .codec { background: #eef4ea; }
+  .policy { background: #f3f0fa; }
+  .surface { background: #e8f2fb; }
+  .present { background: #f7efe4; }
+  .scene { background: #e7f3ee; }
+  .bind { background: #f8eee8; }
+  svg.diagram { width: 100%; height: auto; }
+  .box-title { font: 600 13px "Segoe UI", sans-serif; fill: var(--text); }
+  .box-sub { font: 12px "Segoe UI", sans-serif; fill: var(--muted); }
+  .note { color: var(--muted); font-size: 0.86rem; margin-top: 8px; }
+  .stage { opacity: 0.38; }
+  .stage.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="panel">
+    <h1>horizon 里的 capture 分层</h1>
+    <p>这些文件在 <code>backend/runtime/horizon</code>，不再有并列的 <code>capture/</code> 目录。<code>bind/bind.h</code> 同时声明 <code>bind_export</code>。编译相位仍是 <code>bind</code> 接槽，<code>sema</code> 做语义与编排，<code>atom</code> 只做一步机器操作。命名空间保持 <code>app::detail</code>。<code>atom</code> 不包含 <code>sema</code>。</p>
+  </section>
+
+  <section class="panel">
+    <h2>1. 层（谁拥有什么）</h2>
+    <div class="stack">
+      <div class="lane bind">
+        <h3>bind — 链接</h3>
+        <ul><li><code>bind/bind</code> 只接 <code>export_bmp</code>，转给 <code>sema/export</code>。</li></ul>
+      </div>
+      <div class="lane scene">
+        <h3>sema — 语义</h3>
+        <ul>
+          <li><code>env</code> 解析 GPU / linger 开关。<code>gate</code> 判定亮部、色差、均值。<code>frame</code> 把导出帧名落到相机。</li>
+          <li><code>read</code> 决定重试与 PrintWindow→BitBlt。<code>session</code> 选择借壳或自建设备。<code>warmup</code> 跑多帧。</li>
+          <li><code>capture</code> 编排一次 Scene3D 抓图。<code>export</code> 在 GPU 帧与软件 hypsometric 之间选择。<code>finish</code> 决定借壳是否只停表。</li>
+        </ul>
+      </div>
+      <div class="lane surface">
+        <h3>atom — 原子操作</h3>
+        <ul>
+          <li><code>bmp</code> 写文件。<code>mark</code> 写标记。<code>window</code> 建/拆 present HWND。<code>gdi</code> 一次 PrintWindow、BitBlt、GetDIBits、StretchBlt。</li>
+          <li><code>host</code> 停表、detach、踢一帧、<code>present_gpu</code> 一次。<code>paint</code> 一次软件 hypsometric。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（一次 Scene3D 抓图）</h2>
+    <svg class="diagram" viewBox="0 0 920 168" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="capture flow">
+      <rect id="s1" class="stage on" x="8" y="24" width="210" height="88" rx="8" fill="#f8eee8" stroke="#b06a1a"/>
+      <text class="box-title" x="18" y="48">1. bind</text>
+      <text class="box-sub" x="18" y="68">export_bmp 槽</text>
+      <text class="box-sub" x="18" y="84">frame=scene3d → sema/export</text>
+      <text class="box-sub" x="18" y="100">不写像素</text>
+
+      <rect id="s2" class="stage" x="238" y="24" width="220" height="88" rx="8" fill="#e7f3ee" stroke="#1f6b58"/>
+      <text class="box-title" x="248" y="48">2. sema</text>
+      <text class="box-sub" x="248" y="68">export 选 GPU 或软件</text>
+      <text class="box-sub" x="248" y="84">capture 编排 present + read</text>
+      <text class="box-sub" x="248" y="100">gate 验收后才算成功</text>
+
+      <rect id="s3" class="stage" x="478" y="24" width="210" height="88" rx="8" fill="#e8f2fb" stroke="#2563a8"/>
+      <text class="box-title" x="488" y="48">3. atom</text>
+      <text class="box-sub" x="488" y="68">present_gpu / ClientDib</text>
+      <text class="box-sub" x="488" y="84">write_bmp_file</text>
+      <text class="box-sub" x="488" y="100">一步，不重试</text>
+
+      <rect id="s4" class="stage" x="708" y="24" width="200" height="88" rx="8" fill="#eef4ea" stroke="#2f7d62"/>
+      <text class="box-title" x="718" y="48">4. 回到 sema</text>
+      <text class="box-sub" x="718" y="68">gate 读回 BMP</text>
+      <text class="box-sub" x="718" y="84">不合格再软件 paint</text>
+      <text class="box-sub" x="718" y="100">paint 仍是 atom</text>
+
+      <path d="M218 68 L238 68" fill="none" stroke="#2563a8" stroke-width="2"/>
+      <path d="M458 68 L478 68" fill="none" stroke="#2563a8" stroke-width="2"/>
+      <path d="M688 68 L708 68" fill="none" stroke="#2563a8" stroke-width="2"/>
+      <text class="box-sub" x="8" y="148">sema 调用 atom。atom 不回调 sema。重试、验收、回退都留在 sema。</text>
+    </svg>
+    <p class="note">env 解析开关，不建 Device。gate 只回答「这帧算不算亮」，不抓 HWND。</p>
+  </section>
+</div>
+<script>
+(function () {
+  var ids = ["s1", "s2", "s3", "s4"];
+  var i = 0;
+  function tick() {
+    ids.forEach(function (id, idx) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (idx === i) el.classList.add("on");
+      else el.classList.remove("on");
+    });
+    i = (i + 1) % ids.length;
+  }
+  tick();
+  setInterval(tick, 1100);
+})();
+</script>
+</body>
+</html>

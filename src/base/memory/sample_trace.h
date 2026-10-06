@@ -11,7 +11,10 @@
 namespace base {
 
 // Push Chrome Trace counter samples (ph "C") for Diagnostic Tools Memory tab.
-inline void sample_memory_counters_to_process_trace() {
+// |include_tls| constructs the calling thread's HybridOptimized TLS arena on
+// first use — never pass true from a background sampler (debug CRT heap
+// races STATUS_HEAP_CORRUPTION during PluginShell / CommandCatalog).
+inline void sample_memory_counters_to_process_trace(bool include_tls = true) {
   if (!trace::tracing_enabled()) {
     return;
   }
@@ -21,9 +24,11 @@ inline void sample_memory_counters_to_process_trace() {
     trace::process_trace().add_counter("process_capacity", "memory",
                                        static_cast<int64_t>(mr->capacity()));
   }
-  if (MemoryResource* tls = tls_memory_resource()) {
-    trace::process_trace().add_counter("tls_used", "memory",
-                                       static_cast<int64_t>(tls->used()));
+  if (include_tls) {
+    if (MemoryResource* tls = tls_memory_resource()) {
+      trace::process_trace().add_counter("tls_used", "memory",
+                                         static_cast<int64_t>(tls->used()));
+    }
   }
   if (AllocationTracker::is_enabled()) {
     trace::process_trace().add_counter(

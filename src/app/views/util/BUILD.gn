@@ -1,0 +1,15 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Shared Views-host helpers (charset, sidecar paths, file walk).
+# No language / capability / execution deps.
+
+source_set("util") {
+  sources = [
+    "charset.cc",
+    "charset.h",
+    "find_named.cc",
+    "find_named.h",
+  ]
+  include_dirs += [ "//src" ]
+}

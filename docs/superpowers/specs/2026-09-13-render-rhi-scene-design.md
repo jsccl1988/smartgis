@@ -1079,7 +1079,7 @@ Industry look pass on `src/vista/component/atmosphere` without a second atmosphe
 - Passes stay under `ocean/` `fog/` `sky/` `cloud/`; `AtmosphereFrame` / `AtmosphereSession` bind depth into `FogPass::record(..., depth)`.
 - Showcase `full` stacks ocean (sea-mask + horizon clip so the far lip does not replace the sky; coast stays the close-water check) and a grey cloud veil (cover cap, no white floor).
 - DEM overview LOD sits in the dense bucket (cap 224). Albedo is elevation + slope rock/snow. Lit textured PS is GGX, sun self-shadow, and a two-tap derivative AA (swapchain stays 1×).
-- Gate: `testing/tools/harness/atmosphere/atmosphere.full/atmosphere_full_loop.py` sky_delta + landish / cyan checks.
+- Gate: `testing/tools/harness/browser/browser.world3d.full/` sky_delta + landish / cyan checks.
 
 ### Non-goals
 
@@ -1147,7 +1147,7 @@ Three-layer product face on `src/vista/component/atmosphere` (no second engine):
 - Product DEM discovery stays `find_sample_global_dem_path` / `find_sample_global_imagery_path` (full-sphere when global_* is present). Default product DEM stays `china_dem` via `find_sample_dem_path`. Generate samples: `py -3 testing/data/build_globe_terrain.py`.
 - Globe present skips flat DEM: no `rebuild_local_mesh`, no `GpuScene::sync_from`, and no `OpaqueEffect` on the `ViewInput` list.
 - Record order on the one `graph::present` list: sky/depth (and globe DEM) in `record_pre_opaque`; flat ocean then cloud/fog/sat in `record_post_opaque`. Flat ocean is not drawn in the pre slot.
-- Showcase: `--atmosphere-showcase=globe` (`testing/tools/harness/atmosphere/atmosphere.globe/`).
+- Showcase: `--atmosphere-showcase=globe` (`testing/tools/harness/browser/browser.world3d.globe/`).
 - Unit: `globe_pass_test` (Null RHI). Null showcase verified PASS (`ATMOSPHERE_SHOWCASE_GPU=0`).
 
 ### Non-goals
@@ -1914,7 +1914,7 @@ CPU contract remains `vista::MapFrame`. Cartography runs once in `Layout::build`
 **Updated:** 2026-10-04  
 **Diagram:** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html)  
 **Plan:** [`../plans/2026-09-30-map2d-hillshade-line-casing.md`](../plans/2026-09-30-map2d-hillshade-line-casing.md) Task 6（no twin plan）  
-**Code:** `vista/component/map/detail/hillshade_bake.*` · `vista/terrain/process/{dem_hillshade,land_mask,bake_backend}.*` · tests `dem_raster_test` / `land_mask_test` · harness `testing/tools/harness/map2d/run_hillshade_bake_bench.py`  
+**Code:** `vista/component/map/detail/hillshade_bake.*` · `vista/terrain/process/{dem_hillshade,land_mask,bake_backend}.*` · tests `dem_raster_test` / `land_mask_test` · harness `testing/tools/harness/browser/run_hillshade_bake_bench.py`  
 **Related:** §Map2d present (C4 bake ownership) · §Vista Map2d equal-profile (`hillshade_ms` lump; matrix still `MAP2D_NO_HILLSHADE=1`) · `DemPhaseSample` (3D seed only)
 
 ### Why
@@ -1944,7 +1944,7 @@ CPU contract remains `vista::MapFrame`. Cartography runs once in `Layout::build`
 | CPU cell | `base::execution::parallel_for` Horn / PIP |
 | CUDA cell | `try_shade_dem_thrust` / `try_fill_lonlat_mask_thrust` when `has_cuda` **and** runtime device; else JSON `cuda_ok=false` (not a fail) |
 | Compare | Same raster / rings / illumination; CPU then CUDA; report **cold** (first timed) and **warm** (second). CUDA context must not be charged to the CPU cell |
-| Entry | `dem_raster_test` (shade + optional `bake_hillshade_slot`) · `land_mask_test` (PIP) · `py -3 testing/tools/harness/map2d/run_hillshade_bake_bench.py` merges table like map2d matrix JSON |
+| Entry | `dem_raster_test` (shade + optional `bake_hillshade_slot`) · `land_mask_test` (PIP) · `py -3 testing/tools/harness/browser/run_hillshade_bake_bench.py` merges table like map2d matrix JSON |
 | Env | `BAKE_BENCH=1` on those tests writes JSON; default off so `te` stays cheap |
 
 ### Relation to map2d FPS
@@ -2222,7 +2222,7 @@ Leftover 3D still hand-extracts frustum planes (GL NeHe / D3D transpose pack) an
 **Plan:** [`../plans/2026-10-01-src-render-map2d-equal-profile-optimize.md`](../plans/2026-10-01-src-render-map2d-equal-profile-optimize.md)（phased P0–P3 + Task 1–6）  
 **Present layering:** §Map2d present (colors, casing, labels, hillshade blend, software entry). This § locks equal-profile budgets only; P3 stays `VISTA_LAYOUT_PARALLEL` / false-gap.  
 **Related parallel:** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) / **§src_render + vista parallel**（`VISTA_LAYOUT_PARALLEL` = P3；规范图已有，不另开 HTML）  
-**Code:** `vista/**`, `content/browser/present/map2d/**`, `vista/component/map/**` (`Pass::record`, `upload_draws`), `render/{rhi,graph}/**`; harness `testing/tools/harness/map2d/run_parallel_port_matrix.py` (`engine=vista`)
+**Code:** `vista/**`, `content/browser/present/map2d/**`, `vista/component/map/**` (`Pass::record`, `upload_draws`), `render/{rhi,graph}/**`; harness `testing/tools/harness/browser/run_parallel_port_matrix.py` (`engine=vista`)
 
 ### Why
 
@@ -2347,9 +2347,9 @@ World3d equal-profile matrix (True-Earth DEM bare on Vista; leftover china stere
 ## §Leftover scene3d per-object showcase（2026-10-02）
 
 **Status:** active  
-**Updated:** 2026-10-02  
+**Updated:** 2026-10-06  
 **Plan checklist:** [`../plans/2026-10-02-scene3d-surface-base-modern-cpp.md`](../archive/plans/2026-10-02-scene3d-surface-base-modern-cpp.md)  
-**Code:** `seed/map_to_scene.cc` (`seed_showcase_mode_into_scene`) · `host/stereo_hwnd_view.cc` · `legacy/app/shell/showcase/scene3d_showcase.cc` · harness `testing/tools/harness/legacy/legacy.scene3d.*`
+**Code:** `seed/map_to_scene.cc` (`seed_showcase_mode_into_scene`) · `host/stereo_hwnd_view.cc` · leftover `--scene3d-showcase` on `SmartGIS-Legacy.exe`. Loop family `testing/tools/harness/legacy/` is **removed**.
 
 ### Why
 
@@ -2357,21 +2357,21 @@ Composite `china` showcase covers terrain + GeoObject + MapLabelBatch + northarr
 
 ### Modes (`--scene3d-showcase <mode>` / `SCENE3D_SHOWCASE_MODE`)
 
-| Mode | Seeds | Harness suite | score_id |
-| --- | --- | --- | --- |
-| `china` (default) | DEM + vectors + labels | `legacy.scene3d.china` (+ `.d3d` / browse) | `legacy_scene3d_china` |
-| `terrain` | DEM underlay only | `legacy.scene3d.terrain` | `legacy_scene3d_china` |
-| `cube` / `sphere` / `water` | single mesh at origin | `legacy.scene3d.<mode>` | `legacy_scene3d_mesh` |
-| `pointcloud` | synthetic CSV → `PointCloud3d` | `legacy.scene3d.pointcloud` | `legacy_scene3d_mesh` |
-| `northarray` | framing AABB only (HUD from `Scene::Setup`) | `legacy.scene3d.northarray` | `legacy_scene3d_mesh` |
+| Mode | Seeds | score_id (BMP scorer, still in `loop/score`) |
+| --- | --- | --- |
+| `china` (default) | DEM + vectors + labels | `legacy_scene3d_china` |
+| `terrain` | DEM underlay only | `legacy_scene3d_china` |
+| `cube` / `sphere` / `water` | single mesh at origin | `legacy_scene3d_mesh` |
+| `pointcloud` | synthetic CSV → `PointCloud3d` | `legacy_scene3d_mesh` |
+| `northarray` | framing AABB only (HUD from `Scene::Setup`) | `legacy_scene3d_mesh` |
 
-`SmtSurfaceObject` (`surface_base`) is abstract — covered by `terrain` + `pointcloud` draw paths, not a separate suite.
+`SmtSurfaceObject` (`surface_base`) is abstract — covered by `terrain` + `pointcloud` draw paths, not a separate mode.
 
 ### Acceptance
 
 - [x] Modes selectable via argv/env; BMP leaf `legacy-scene3d-showcase-<mode>.bmp`
-- [x] Per-object OpenGL harness suites under `testing/tools/harness/legacy/`
-- [x] Suites green + visual review on captures (`cube`/`sphere`/`water`/`pointcloud`/`northarray`/`terrain`; `china` still green)
+- [x] Per-object OpenGL leftover modes on `SmartGIS-Legacy.exe --scene3d-showcase`
+- [x] Historical loop suites under `testing/tools/harness/legacy/` **deleted** (2026-10-06)
 
 ---
 
@@ -2732,7 +2732,7 @@ bool record_and_present(render::rhi::Device* device,
 
 - Do **not** edit `src/legacy/**` (especially `src/legacy/render`) except when extracting a product seam first.
 - Do not make `//src/scenic:scenic` GN-dep leftover render. Content `map_present` may GN-dep `scenic` + `scenic_impl` so the Views app can host the rhi2d stack.
-- Do not dump `scenic` / `scenic_copy_all` into `src_all` / `//:all` / e2e / te.
+- Do not dump `scenic` / `scenic_copy_all` into `src_all` / `//:all` / harness / te.
 - Do not put Scenic HWND `Init` on the product façade (`SessionDesc` is size-only).
 - Do not export leftover `Smt_*` as the Scenic public API.
 - Do **not** relocate `src/scenic/scene3d` into `render/rhi3d/impl/common` (or any rhi3d impl). 2D paint-under-rhi2d is **not** a precedent for 3D scene graph.

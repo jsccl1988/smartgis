@@ -5,7 +5,7 @@ All rights reserved.
 
 # world3d optional data (stub)
 
-GN copies UI markup to `out/plugins/world3d/`. Place optional Earth datasets
+GN copies UI markup to `out/<config>/plugins/world3d/`. Place optional Earth datasets
 next to that tree (or under shared `out/data/`):
 
 | File | Role |

@@ -5,12 +5,15 @@ All rights reserved.
 
 # testing
 
-GN helpers for unit tests and google/benchmark targets.
+GN helpers for unit tests and google/benchmark targets. Product runtime
+gate lives under **`testing/tools`** (Views harness + plugin IL), not a
+parallel `testing/e2e` tree.
 
 | File | Role |
 | --- | --- |
-| `test.gni` | `test("name")` �� executable��gtest ��δ���룩 |
-| `benchmark.gni` | `benchmark("name")` �� executable + `//third_party:gbenchmark` (+ `gbenchmark_main` by default) |
+| `test.gni` | `test("name")` → executable + gtest (unless opted out) |
+| `benchmark.gni` | `benchmark("name")` → executable + `//third_party:gbenchmark` (+ `gbenchmark_main` by default) |
+| `tools/` | Harness suite loops (`loop_runner.py`, `harness/<family>/<id>/`) |
 
 ## Register a benchmark
 
@@ -48,27 +51,36 @@ Then add `"//<module>:<name>"` to root `//:test_all` (`BUILD.gn`).
 
 ## GUI / Views testing
 
-�ֲ㷽���������䵥�⡢`--self-test`��L2 �����ء�`exe` ð�̣���
-[`docs/superpowers/ui-testing.md`](../docs/superpowers/ui-testing.md)��L2 ����λ��
-[`src/ui/views/testdata/`](../src/ui/views/testdata/)��
+分层方案、进程内单测、`--harness`（别名 `--self-test`）、L2 像素金样见
+[`docs/superpowers/ui-testing.md`](../docs/superpowers/ui-testing.md)。L2 金样位在
+[`src/ui/views/testdata/`](../src/ui/views/testdata/)。
 
-## End-to-end (product exes)
+## Product runtime (harness)
 
-`testing/e2e/exe_smoke.cc` launches each chrome / GPU process with `--self-test`:
+`testing/tools/loop_runner.py --gate` is the product PE gate (replaces
+`exe_smoke` / `testing/e2e`):
 
-| Binary | What `--self-test` proves |
-| --- | --- |
-| `SmartGisRender.exe` | OOP GPU child + `FrameReady` + shared surface |
-| `SmartGIS.exe` | Views window + map attach (frame if render exe present) |
-| `SmartGisWinui.exe` | WinUI window HWND |
-| `SmartGIS-Legacy.exe` | MFC main frame created (harness closes if a modal keeps the pump busy) |
+| Suite | Binary / flags | What it proves |
+| --- | --- | --- |
+| `gpu` | `SmartGisRender.exe --self-test` | OOP GPU child + D3D device + shared surface |
+| `harness` | `SmartGIS.exe --harness` | Views window + map/3D attach + GIS plugin pipeline marks |
+
+Showcase / plugin IL suites (world3d, mine, orthogrid, print, report,
+stormsurge, traffic, flood, geochem, map2d, atmosphere, ui, shell) live
+under `testing/tools/harness/<family>/<id>/` (`plugin/` owns `--plugin-showcase`
+suites; `browser/` owns map2d and atmosphere) and share ids with C++ `ScenarioRegistry`.
 
 ```bat
-build.bat e2e
-build.bat te
+build.bat debug harness
+build.bat debug te
+py -3 testing\tools\loop_runner.py --gate --no-build
+py -3 testing\tools\loop_runner.py --list
+py -3 testing\tools\loop_runner.py --suite plugin.world3d --no-build
 ```
 
-`e2e` sets the remaining `smt_build_*` flags, builds the chrome / GPU exes + `exe_smoke`, then runs `out\exe_smoke.exe --require-all` with cwd `out/`. `te` sets `build_app` so leftover `SmartGIS-Legacy.exe` is rebuilt against the current GeoCore/GisCore ABI; other missing chrome exes are still skipped.
+`harness` (also accepted as `e2e`) sets `build_views` + `build_render`,
+builds `//:harness`, then runs the gate. `te` builds `//:test_all` and
+runs listed `*_test.exe` only (no PE smoke).
 
 ## Run
 
@@ -77,8 +89,9 @@ build.bat te
 build.bat b
 ```
 
-Aliases match mogu: `te` = `//:test_all`, `a` = `//:all_with_tests`, `b` = `//:benchmark_all`. Extra: `e2e` = `//:e2e`.
+Aliases: `te` = `//:test_all`, `a` = `//:all_with_tests`, `b` = `//:benchmark_all`,
+`harness` = `//:harness` + `loop_runner --gate`. `e2e` is a synonym of `harness`.
 
 ---
 
-**�����£�** 2026-09-28
+**最后更新：** 2026-10-06

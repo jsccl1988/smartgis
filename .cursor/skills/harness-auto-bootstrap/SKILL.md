@@ -28,7 +28,7 @@ When this skill is invoked, attached (`@harness-auto-bootstrap` / `/harness-auto
 
 ## Hard rules
 
-1. **Locked path:** product `SmartGIS.exe` with **no** `--*-showcase` / `--self-test`. First map = **China carto on Map Edit** (sync seed + sync first present).
+1. **Locked path:** product `SmartGIS.exe` with **no** `--*-showcase` / `--harness`. First map = **China carto on Map Edit** (sync seed + sync first present).
 2. **Fair wall:** metric is `[startup-profile] wall_ms` covering `wWinMain`/`BrowserMain` **including** `WaitFirstMapPresent`. Do **not** fake 200ms by omitting the wait, deferring China, skipping hillshade, forcing GDI overlay, or using `--ui-showcase=shell`.
 3. Prefer **`build.bat debug src/app/views:views`**. Compile lock stays **OFF**. Stay on **`master`**.
 4. CBM first (`user-codebase-memory-mcp`, project `smartgis`) before repo-wide Grep.

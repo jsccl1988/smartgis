@@ -1,9 +1,10 @@
-﻿{
+{
   "id": "plugin.world3d",
   "kind": "showcase",
   "argv": [
     "--plugin-showcase=world3d"
   ],
+  "script": "plugin.world3d.il",
   "env": {
     "SKIP_MAP_CONTEXT_MENU": "1",
     "SCENE3D_ENGINE": "flycube",
@@ -45,19 +46,3 @@
     "expect_notes": "world3d True-Earth globe: lit DEM sphere + sat-cloud + sky (China space hold); planar DEM overlay is perf-bare only"
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

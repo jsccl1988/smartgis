@@ -6,7 +6,7 @@
 
 #include <string_view>
 
-#include "app/views/harness/scenario_registry.h"
+#include "app/views/app/startup/scenario.h"
 
 namespace app {
 

@@ -7,7 +7,7 @@ All rights reserved.
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>app/views/runtime — 子目录与流水线</title>
+<title>il.runtime — 子目录与流水线</title>
 <style>
   :root {
     --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
@@ -68,9 +68,13 @@ All rights reserved.
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>app/views/runtime — 子目录与流水线</h1>
-    <p>Views 壳 runtime 三个对等目录：<code>capability/</code> 填 Host 并跑脚本；
-      <code>interact/</code> 解析并执行 Interact.g4；<code>plugin/</code> 是插件无关的 present / playback / preview 缝。
+    <h1>il.runtime — 子目录与流水线</h1>
+    <p>Interact Language runtime（<code>src/app/views/il.runtime</code>）按编译器相位分层：
+      <code>language/</code> 是驱动（源文件 + 选前端 + session 链接）；
+      <code>frontend/</code> 是 <code>Interact.g4</code> + AST + parse；
+      <code>backend/</code> 打平：<code>:compile</code> 降级解释，<code>:capability</code> 填 Host；
+      <code>ir/</code> 是语言无关指令。
+      插件无关的 present / playback / preview 缝在 <code>browser/plugin/</code>。
       产品 payload 仍在 <code>src/plugin/product</code>，不进本树。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Harness capability runtime</a>
@@ -78,6 +82,7 @@ All rights reserved.
       · As-built：<a href="../src-layout.md">src-layout</a>
     </div>
     <div class="rel">相关图：
+      <a href="./harness-il-capability.html">Harness → capability 锁定切分</a>
       <a href="./ui-views-shell-architecture.html">Views shell</a>
       <a href="./content-browser-layers.html">content/browser</a>
       <a href="./plugin-analysis-processing.html">analysis processing</a>
@@ -88,29 +93,30 @@ All rights reserved.
     <h2>1. 核心分层</h2>
     <div class="lanes">
       <div class="lane cap">
-        <h3>capability/ — 入口</h3>
+        <h3>language/ — 驱动</h3>
         <ul>
-          <li><code>fill_host</code> 只编排 binder：shell / session / paths / export / plugin</li>
-          <li><code>run_script</code>：解析 suite <code>*.il</code> 路径并调用 apply</li>
-          <li>DebugAgent <code>script.run</code> 只走 Host 回调</li>
+          <li><code>load</code>：源文件查找，不碰 Host</li>
+          <li><code>driver</code>：按后缀选 <code>.il</code> / <code>.json</code> / <code>.py</code></li>
+          <li><code>run_script</code>：链接一次再 apply</li>
+          <li>不 include <code>capability/</code>（session / panel 除外）</li>
         </ul>
       </div>
       <div class="lane dsl">
-        <h3>interact/ — DSL</h3>
+        <h3>execution/ — IL 前端</h3>
         <ul>
-          <li>根：<code>apply</code>（公共入口，组合各层）</li>
-          <li><code>wire/</code> AST+parse · <code>policy/</code> args · <code>io/</code> 文件+HWND · <code>host/</code> Host 适配</li>
-          <li><code>exec/</code>：horizon / document / plugin / showcase / input</li>
+          <li><code>front/</code>：lex + parse → AST</li>
+          <li><code>sema/</code>：绑定参数，降成 <code>Action</code></li>
+          <li><code>eval/</code>：跑动作和 <code>seq</code> / <code>repeat</code> / <code>chord</code></li>
           <li>ANTLR gen 在 <code>out/*/gen</code>，不入库</li>
         </ul>
       </div>
       <div class="lane plug">
-        <h3>plugin/ — 壳缝</h3>
+        <h3>capability/ — 运行时</h3>
         <ul>
-          <li><code>present</code>：主视图 / preview 数据集</li>
-          <li><code>playback</code>：插件无关 ResultPlayback 时钟</li>
-          <li><code>preview_host</code>：surface=1 Map/World preview</li>
-          <li>不出现 flood / traffic / orthogrid 名字</li>
+          <li><code>link/bind_host</code> 链接器</li>
+          <li>packs：<code>horizon/</code> · <code>capture/</code> · <code>plugin/</code> · <code>expect/</code></li>
+          <li>不解析 <code>*.il</code>；不 include <code>language/</code></li>
+          <li>GN <code>:capability</code> 不依赖 <code>:execution</code> / <code>:ir</code></li>
         </ul>
       </div>
       <div class="lane host">
@@ -125,27 +131,27 @@ All rights reserved.
   </section>
 
   <section class="panel">
-    <h2>2. 原理流（parse → exec → present）</h2>
-    <svg class="diagram" viewBox="0 0 1080 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="runtime pipeline">
+    <h2>2. 原理流（source → front → sema → eval → runtime）</h2>
+    <svg class="diagram" viewBox="0 0 1080 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="compiler pipeline">
       <rect x="16" y="24" width="200" height="88" rx="8" fill="#e8f1fa" stroke="#2563a8"/>
-      <text class="box-title" x="28" y="50">1. capability</text>
-      <text class="box-sub" x="28" y="70">fill_host / run_script</text>
-      <text class="box-sub" x="28" y="88">suite *.il 路径</text>
+      <text class="box-title" x="28" y="50">1. language</text>
+      <text class="box-sub" x="28" y="70">load · driver · run_script</text>
+      <text class="box-sub" x="28" y="88">链接一次再 apply</text>
 
       <rect x="248" y="24" width="220" height="88" rx="8" fill="#e6f4ee" stroke="#2f7d62"/>
-      <text class="box-title" x="260" y="50">2. interact parse</text>
-      <text class="box-sub" x="260" y="70">io/ + wire/ + apply</text>
-      <text class="box-sub" x="260" y="88">try_apply_interact</text>
+      <text class="box-title" x="260" y="50">2. front + sema</text>
+      <text class="box-sub" x="260" y="70">ANTLR → AST</text>
+      <text class="box-sub" x="260" y="88">lower CallStmt → Action</text>
 
       <rect x="500" y="24" width="240" height="88" rx="8" fill="#e6f4ee" stroke="#2f7d62"/>
-      <text class="box-title" x="512" y="50">3. interact exec</text>
-      <text class="box-sub" x="512" y="70">exec/* 动词车道</text>
-      <text class="box-sub" x="512" y="88">host/ + io/os_inject</text>
+      <text class="box-title" x="512" y="50">3. Code + eval</text>
+      <text class="box-sub" x="512" y="70">sema/code.h 无 AST</text>
+      <text class="box-sub" x="512" y="88">eval 只跑 Action / seq</text>
 
       <rect x="772" y="24" width="288" height="88" rx="8" fill="#f7efe4" stroke="#b06a1a"/>
-      <text class="box-title" x="784" y="50">4. plugin seams</text>
-      <text class="box-sub" x="784" y="70">present / playback / preview</text>
-      <text class="box-sub" x="784" y="88">产品 store 在 plugin/product</text>
+      <text class="box-title" x="784" y="50">4. capability runtime</text>
+      <text class="box-sub" x="784" y="70">bind_host 填槽</text>
+      <text class="box-sub" x="784" y="88">HWND / pump / capture 实现</text>
 
       <path class="pulse" d="M216 68 L248 68" fill="none" stroke="#2563a8" stroke-width="2"/>
       <path class="pulse" d="M468 68 L500 68" fill="none" stroke="#2f7d62" stroke-width="2"/>
@@ -153,9 +159,9 @@ All rights reserved.
 
       <rect x="16" y="148" width="1048" height="108" rx="8" fill="#f0f3f7" stroke="#d8dee6"/>
       <text class="lane-label" x="28" y="172" fill="#5a6a7e">谁等谁</text>
-      <text class="box-sub" x="28" y="196">content::CapabilityHost 是回调袋：interact 只调 Host，从不 #include Browser。</text>
-      <text class="box-sub" x="28" y="216">capability 填袋并选脚本；plugin/ 由 Browser / PluginShell 持有，Harness 只消费 Host 动词。</text>
-      <text class="box-sub" x="28" y="236">ANTLR 工人在 gen；exec 车道并行于职责而非线程 — 同一次 apply 串行走 stmt。</text>
+      <text class="box-sub" x="28" y="196">content::CapabilityHost 是跨语言 ABI：execution / 将来 Python 只调槽，从不 #include Browser 或 HWND。</text>
+      <text class="box-sub" x="28" y="216">capability 填袋（含 inject）；language/load 不 include capability；browser/plugin 由 Browser / PluginShell 持有。</text>
+      <text class="box-sub" x="28" y="236">ANTLR 工人在 gen；同一次 apply 串行走 stmt。session 链接一次，apply 不再 bind_host。</text>
     </svg>
     <p class="note">动画虚线表示控制流，不是 GPU 提交。runtime 不加入 <code>content.dll</code>。</p>
   </section>
@@ -167,9 +173,10 @@ All rights reserved.
         <tr><th>职责</th><th>路径</th><th>不要放</th></tr>
       </thead>
       <tbody>
-        <tr><td>Host 填充 / 跑脚本</td><td><code>runtime/capability/</code></td><td>产品插件名、showcase mode</td></tr>
-        <tr><td>DSL 前端 + 动词</td><td><code>runtime/interact/{apply,wire,policy,io,host,exec}</code></td><td>Browser / PluginShell</td></tr>
-        <tr><td>Present / Playback</td><td><code>runtime/plugin/{present,playback,preview_host}</code></td><td>flood/traffic/orthogrid payload</td></tr>
+        <tr><td>Host 绑定</td><td><code>app/views/il.runtime/bind/</code> + <code>capability/{link,capture,plugin,horizon,expect}</code>。inject 与窗口在 <code>horizon/atom/surface</code>，路径槽在 <code>horizon/atom/paths</code>；文件遍历在 <code>util/find_named</code></td><td>解析 <code>*.il</code>、产品插件名、<code>language/</code></td></tr>
+        <tr><td>编译器驱动</td><td><code>language/{load,driver,run_script,interact_*}</code></td><td>HWND 实现、二次 bind_host</td></tr>
+        <tr><td>IL 前端</td><td><code>execution/{front,sema,eval,io,host,apply}</code></td><td>Browser / PluginShell / HWND</td></tr>
+        <tr><td>Present / Playback</td><td><code>browser/plugin/{present,playback,preview_host}</code></td><td>flood/traffic/orthogrid payload</td></tr>
         <tr><td>Host 动词实现</td><td><code>content/browser/capability/</code></td><td><code>app/views</code></td></tr>
       </tbody>
     </table>

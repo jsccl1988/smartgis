@@ -1,0 +1,147 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plugin manager lifecycle — init / run / destroy</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #e8f0f8; --cpu: #eaf4ee; --gpu: #f4eee6;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  @media (max-width: 800px) { .lanes { grid-template-columns: 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    min-height: 140px;
+  }
+  .lane.ui { background: var(--ui); }
+  .lane.cpu { background: var(--cpu); }
+  .lane.gpu { background: var(--gpu); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; }
+  .lane p, .lane li { margin: 0 0 4px; font-size: 0.8rem; color: var(--muted); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    font-size: 0.82rem;
+  }
+  .step {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; min-width: 128px;
+  }
+  .step strong { display: block; color: var(--accent); font-size: 0.75rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+  .step.active { animation: pulse 2.4s ease-in-out infinite; border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>插件管理器生命周期</h1>
+    <p class="meta">Chrome 拥有 <code>plugin::PluginManager</code>（非进程单例）。产品 DLL 导出 <code>init</code> / <code>run</code> / <code>destroy</code>。不改 <code>content/public/plugin_host.h</code>。</p>
+  </header>
+
+  <section class="panel">
+    <h2>分层（谁拥有什么）</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>Horizon UI</h3>
+        <p><code>app::PluginCatalogView</code>：列表 + 悬停 tooltip</p>
+        <p><code>PluginShell::show_manager</code> 模态框</p>
+        <p>扫描根：<code>&lt;exe&gt;/plugins</code>（<code>out/Debug/plugins</code> 或 <code>out/Release/plugins</code>）</p>
+        <p>产品 / harness 启动只读 <code>plugin.json</code> 的 <code>startup</code>（含 <code>scenario</code>）。差异化测试改 <code>out/Debug/plugins/flood/plugin.json</code></p>
+      </div>
+      <div class="lane cpu">
+        <h3>plugin_host.dll</h3>
+        <p><code>PluginManager</code> scan → LoadLibrary → init</p>
+        <p><code>Registry</code> enable/disable / trust</p>
+        <p>C ABI：<code>init(void* host)</code> · <code>run(event, payload)</code> · <code>destroy()</code></p>
+      </div>
+      <div class="lane gpu">
+        <h3>content.dll</h3>
+        <p>既有 <code>PluginHost</code> 贡献点（command / processing）</p>
+        <p>不识别插件包名；不新增 public 方法</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>产品包 → 独立 DLL（锁定）</h2>
+    <p class="meta" style="margin-bottom:8px;">扫描 <code>out/&lt;config&gt;/plugins/&lt;package&gt;/plugin.json</code>（<code>kind=native</code> + <code>library</code>）。GN 目标 <code>*_native</code>。不把产品包链进 chrome 作为唯一加载路径。</p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+      <thead>
+        <tr><th style="text-align:left;border-bottom:1px solid var(--border);padding:4px 6px;">id</th>
+            <th style="text-align:left;border-bottom:1px solid var(--border);padding:4px 6px;">DLL</th>
+            <th style="text-align:left;border-bottom:1px solid var(--border);padding:4px 6px;">init</th></tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:3px 6px;"><code>smartgis.map2d</code></td><td style="padding:3px 6px;"><code>out/&lt;config&gt;/plugins/map2d/map2d.dll</code></td><td style="padding:3px 6px;"><code>register_map2d</code></td></tr>
+        <tr><td style="padding:3px 6px;"><code>smartgis.world3d</code></td><td style="padding:3px 6px;"><code>out/&lt;config&gt;/plugins/world3d/world3d.dll</code></td><td style="padding:3px 6px;"><code>register_world3d</code></td></tr>
+        <tr><td style="padding:3px 6px;"><code>smartgis.flood</code></td><td style="padding:3px 6px;"><code>out/&lt;config&gt;/plugins/flood/flood.dll</code></td><td style="padding:3px 6px;"><code>register_flood</code></td></tr>
+        <tr><td style="padding:3px 6px;"><code>smartgis.traffic</code></td><td style="padding:3px 6px;"><code>out/&lt;config&gt;/plugins/traffic/traffic.dll</code></td><td style="padding:3px 6px;"><code>register_traffic</code></td></tr>
+        <tr><td style="padding:3px 6px;"><code>smartgis.mine</code></td><td style="padding:3px 6px;"><code>out/&lt;config&gt;/plugins/mine/mine.dll</code></td><td style="padding:3px 6px;"><code>register_mine</code></td></tr>
+        <tr><td style="padding:3px 6px;"><code>smartgis.geochem</code></td><td style="padding:3px 6px;"><code>out/&lt;config&gt;/plugins/geochem/geochem.dll</code></td><td style="padding:3px 6px;"><code>register_geochem</code></td></tr>
+        <tr><td style="padding:3px 6px;"><code>smartgis.stormsurge</code></td><td style="padding:3px 6px;"><code>out/&lt;config&gt;/plugins/stormsurge/stormsurge.dll</code></td><td style="padding:3px 6px;"><code>register_stormsurge</code></td></tr>
+        <tr><td style="padding:3px 6px;"><code>smartgis.report</code></td><td style="padding:3px 6px;"><code>out/&lt;config&gt;/plugins/report/report.dll</code></td><td style="padding:3px 6px;"><code>register_report</code></td></tr>
+      </tbody>
+    </table>
+    <p class="meta" style="margin-top:8px;">例外：<code>smartgis.processing</code> 仍进程内 append。print / orthogrid / self_test 不是独立包。</p>
+  </section>
+
+  <section class="panel">
+    <h2>原则流（管理器统一调度）</h2>
+    <div class="flow" id="flow">
+      <div class="step"><strong>1 Scan</strong><code>plugin.json</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>2 Init</strong><code>init(host)</code></div>
+      <span class="arrow">→</span>
+      <div class="step active"><strong>3 Startup</strong><code>startup</code> viewport / scenario / commands</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>4 Run</strong>catalog execute / <code>run()</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>5 Destroy</strong>shutdown <code>destroy()</code></div>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var steps = document.querySelectorAll("#flow .step");
+  var i = 0;
+  setInterval(function () {
+    steps.forEach(function (el) { el.classList.remove("active"); });
+    steps[i % steps.length].classList.add("active");
+    i += 1;
+  }, 1800);
+})();
+</script>
+</body>
+</html>

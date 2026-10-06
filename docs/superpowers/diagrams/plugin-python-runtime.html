@@ -1,0 +1,132 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plugin/runtime/python — embed 能力与 samples</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #e8f0f8; --sched: #eef3ea; --cpu: #eaf4ee; --gpu: #f4eee6;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+  @media (max-width: 900px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .lanes { grid-template-columns: 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    min-height: 150px;
+  }
+  .lane.ui { background: var(--ui); }
+  .lane.sched { background: var(--sched); }
+  .lane.cpu { background: var(--cpu); }
+  .lane.gpu { background: var(--gpu); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; }
+  .lane p, .lane li { margin: 0 0 4px; font-size: 0.8rem; color: var(--muted); }
+  .lane ul { margin: 0; padding-left: 1.1em; }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    font-size: 0.82rem;
+  }
+  .step {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; min-width: 120px;
+  }
+  .step strong { display: block; color: var(--accent); font-size: 0.75rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+  .step.active { animation: pulse 2.4s ease-in-out infinite; border-color: var(--accent); }
+  .note { color: var(--muted); font-size: 0.8rem; margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1><code>plugin/runtime/python</code>：进程内 CPython + L2 宿主缝</h1>
+    <p class="meta">一样本目录 → 多样本包。Chrome 只持有一个解释器；每个 <code>kind=python</code> 包按目录独立 <code>start</code>/<code>stop</code>。内核仍在 C++。</p>
+  </header>
+
+  <section class="panel">
+    <h2>分层（谁拥有什么）</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>UI · Views / chrome</h3>
+        <ul>
+          <li><code>smartgis.ui</code> 控件与 picker</li>
+          <li><code>plugin.ui.shell</code> inspect / debug tab</li>
+          <li>插件 UI 不离开 chrome 进程</li>
+        </ul>
+      </div>
+      <div class="lane sched">
+        <h3>Host · L2 缝</h3>
+        <ul>
+          <li><code>contribute_*</code> / <code>execute</code> / <code>withdraw</code></li>
+          <li>present / playback / export frame</li>
+          <li><code>has_capability</code> 查不透明表</li>
+        </ul>
+      </div>
+      <div class="lane cpu">
+        <h3>Embed · 解释器</h3>
+        <ul>
+          <li><code>PythonRuntime</code> isolated CPython 3.12</li>
+          <li>按目录加载 <code>plugin.py</code>（不抢 <code>plugin</code> 名）</li>
+          <li><code>eval</code> 给 Console <code>:py</code></li>
+        </ul>
+      </div>
+      <div class="lane gpu">
+        <h3>L1 · 能力底物</h3>
+        <ul>
+          <li><code>plugin.scene3d</code> / <code>plugin.map2d</code></li>
+          <li><code>run_processing</code> → <code>native.*</code> / product ids</li>
+          <li>Python 只编排，不实现 TIN/GEOS</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原理流：启用一个 Python 包</h2>
+    <div class="flow">
+      <div class="step"><strong>1</strong>Registry <code>set_enabled</code></div>
+      <span class="arrow">→</span>
+      <div class="step active"><strong>2</strong><code>PythonRuntime::start(dir, entry)</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>3</strong>importlib 独立模块名</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>4</strong><code>start(host)</code> 贡献 command/dock/processing</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>5</strong>菜单 / Console 调 L1 ids</div>
+    </div>
+    <p class="note">停用：chrome <code>withdraw(plugin_id)</code> 再 <code>stop(directory)</code>。samples 在 <code>runtime/python/samples/</code>（hello / analysis / product_orchestrate / industry_pack）。</p>
+  </section>
+</div>
+</body>
+</html>

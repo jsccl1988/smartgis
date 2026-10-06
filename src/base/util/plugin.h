@@ -25,7 +25,9 @@ enum class plugin_state {
   error,
 };
 
-// Generic dynlib plugin (version/start/stop). Product host lives in src/plugin.
+// Generic dynlib plugin. Product native ABI is init/run/destroy
+// (plugin/runtime/host/native/exports.h). This helper still resolves
+// version/start/stop plus leftover PascalCase AM names.
 class plugin : public library {
  public:
   using fn_version = int();

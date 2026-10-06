@@ -8,11 +8,6 @@
 #include <string>
 #include <string_view>
 
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-
 namespace content {
 class EventBus;
 class PluginHost;
@@ -23,6 +18,7 @@ struct HostCapabilities;
 class ProcessingPool;
 class PythonRuntime;
 class Registry;
+class PluginManager;
 }  // namespace plugin
 
 namespace tool {
@@ -31,6 +27,16 @@ struct CommandArgs;
 }  // namespace tool
 
 namespace app {
+
+// Default <exe>/plugins (out/Debug/plugins or out/Release/plugins).
+std::string default_plugins_dir();
+
+// Read plugin.json `startup` without LoadLibrary. Highest `priority` among
+// activated packs wins `scenario` / `present` / `fields`.
+void peek_plugin_startup(const std::string& plugins_dir,
+                         std::string* scenario_id,
+                         std::string* plugin_present,
+                         std::string* atmosphere_fields);
 
 // Owns the Views-side plugin platform (Registry + PluginHost + pool).
 // Lives in a TU that must not include content/public/map_contents.h.
@@ -43,10 +49,9 @@ class PluginShell {
   PluginShell& operator=(const PluginShell&) = delete;
 
   bool init(content::EventBus* events);
-  // Optional: set before init(). Empty → default <exe>/../plugins.
+  // Optional: set before init(). Empty → default <exe>/plugins.
   void set_plugins_dir(std::string path);
   void shutdown();
-  bool show_manager(HWND owner);
 
   content::PluginHost* host() const;
   // Same catalog PluginHost::commands() returns; for Ambox enumeration.
@@ -66,8 +71,15 @@ class PluginShell {
   bool ensure_python();
   std::string eval_python(std::string_view code);
 
-  // Lazy: LoadLibrary + enable builtins after first horizon show (cold start).
+  // Scan plugin.json + in-process builtins. Native DLLs load on command /
+  // processing / catalog enable — not all packs at once.
   bool ensure_builtins();
+
+  // Product / harness: apply plugin.json `startup` (commands / seed / viewport).
+  // Viewport string is `map2d` / `scene3d` / empty (highest `priority` wins).
+  bool apply_startup();
+  const std::string& startup_viewport() const { return startup_viewport_; }
+  const std::string& startup_scenario() const { return startup_scenario_; }
 
  private:
   void init_python();
@@ -76,13 +88,18 @@ class PluginShell {
 
   std::unique_ptr<tool::CommandCatalog> catalog_;
   std::unique_ptr<content::PluginHost> host_;
-  std::unique_ptr<plugin::Registry> registry_;
+  std::unique_ptr<plugin::Registry, void (*)(plugin::Registry*)> registry_;
   std::unique_ptr<plugin::ProcessingPool> pool_;
   std::unique_ptr<plugin::PythonRuntime> python_;
   std::unique_ptr<plugin::HostCapabilities> capabilities_;
+  std::unique_ptr<plugin::PluginManager, void (*)(plugin::PluginManager*)>
+      manager_;
   std::string plugins_dir_;
+  std::string startup_viewport_;
+  std::string startup_scenario_;
   bool shutdown_done_ = false;
   bool builtins_started_ = false;
+  bool startup_applied_ = false;
 };
 
 }  // namespace app

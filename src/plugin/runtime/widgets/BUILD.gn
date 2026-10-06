@@ -10,6 +10,8 @@ source_set("widgets_sources") {
   sources = [
     "about_dialog.cc",
     "about_dialog.h",
+    "debug_inspect_bar.cc",
+    "debug_inspect_bar.h",
     "map_preview.cc",
     "map_preview.h",
     "owned_dialog.cc",
@@ -22,6 +24,7 @@ source_set("widgets_sources") {
   include_dirs += [ "//src" ]
   defines = [ "PLUGIN_HOST_EXPORTS" ]
   public_deps = [
+    "//src/content:content",
     "//src/ui/gis:gis",
     "//src/ui/views:views",
   ]

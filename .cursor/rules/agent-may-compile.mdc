@@ -21,7 +21,7 @@ set SMARTGIS_BUILD_OWNER=my-conversation
 build.bat
 build.bat debug
 build.bat debug te
-build.bat e2e
+build.bat debug harness
 build.bat <single_target>
 ```
 

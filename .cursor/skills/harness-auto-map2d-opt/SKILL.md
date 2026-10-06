@@ -62,11 +62,11 @@ From repo root:
 .\build.bat debug src/scenic:scenic_rhi2d_gdiplus
 .\build.bat debug src/scenic:scenic_rhi2d_skia
 .\build.bat debug src/app/views:views
-py -3 testing/tools/harness/map2d/run_parallel_port_matrix.py
+py -3 testing/tools/harness/browser/run_parallel_port_matrix.py
 ```
 Do **not** prefix GN targets with `//` for `build.bat` / ninja on this repo.
 
-Artifacts root: `out/Debug/captures/map2d/matrix/`
+Artifacts root: `out/Debug/captures/browser/matrix/`
 
 | Artifact | Role |
 | --- | --- |
@@ -107,17 +107,17 @@ Missing `out\Debug\scenic_gdi_map_paint_test.exe` or `SmartGIS.exe` → build ag
 ### Step 2 — Matrix
 
 ```bat
-py -3 testing/tools/harness/map2d/run_parallel_port_matrix.py
+py -3 testing/tools/harness/browser/run_parallel_port_matrix.py
 ```
 
 Expect 9 Scenic rhi2d cells + 1 vista row + 1 Map2dEngine row. Exit non-zero if any `pass=false` — diagnose that cell (log + BMP) before claiming green.
 
 ### Step 3 — Screenshots (inspect PNG)
 
-For each `out/Debug/captures/map2d/matrix/*.bmp` that lacks a sibling `*.inspect.png`:
+For each `out/Debug/captures/browser/matrix/*.bmp` that lacks a sibling `*.inspect.png`:
 
 ```bat
-py -3 -c "from pathlib import Path; from testing.tools.loop.review.inspect_png import bmp_to_inspect_png; root=Path('out/Debug/captures/map2d/matrix');
+py -3 -c "from pathlib import Path; from testing.tools.loop.review.inspect_png import bmp_to_inspect_png; root=Path('out/Debug/captures/browser/matrix');
 [print(bmp_to_inspect_png(p)) for p in root.glob('*.bmp')]"
 ```
 
@@ -198,8 +198,8 @@ Non-goals (do not): delete hillshade/MapFrame to match IR; MapLibre Native port;
 ## Related
 
 - Per-frame profile + opt loop: `.cursor/skills/harness-auto-map2d-frame-opt/SKILL.md`
-- Runner: `testing/tools/harness/map2d/run_parallel_port_matrix.py`
-- Suites: `testing/tools/harness/map2d/map2d.china/`
+- Runner: `testing/tools/harness/browser/run_parallel_port_matrix.py`
+- Suites: `testing/tools/harness/browser/map2d.china/`
 - Inspect: `testing/tools/loop/review/inspect_png.py`
 - Visual review (bug closed-loop): `.cursor/skills/harness-visual-review/SKILL.md`
 - Plan / §: links above

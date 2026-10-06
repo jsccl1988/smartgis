@@ -516,7 +516,7 @@ def run_views_world3d(row_id: str, backend: str, parallel: str,
     )
     bmp_ok = bool(cap["bmp"]) and int(cap["bmp_bytes"] or 0) > 10000
     row_pass = marks_ok and (bmp_ok or row_id == "null")
-    perf =     _load_perf_json(
+    perf = _load_perf_json(
         _fresh_file(
             _live_capture_hits(
                 "plugin-showcase-world3d-perf.json", min_mtime=t0_wall
@@ -729,6 +729,20 @@ def main(argv: list[str] | None = None) -> int:
             "| --- | --- | --- | ---: | --- | --- |",
         ]
         for r in smoke_rows:
+            lines.append(
+                f"| {r['row_id']} | {r['backend']} | {r['parallel']} | "
+                f"{_fmt_num(r.get('wall_ms'))} | {r.get('pass')} | "
+                f"{r.get('note', '')} |"
+            )
+        lines.append("")
+    if scenic_rows:
+        lines += [
+            "## Scenic GDI host (not a GPU peer)",
+            "",
+            "| Row | Backend | Parallel | wall_ms | pass | note |",
+            "| --- | --- | --- | ---: | --- | --- |",
+        ]
+        for r in scenic_rows:
             lines.append(
                 f"| {r['row_id']} | {r['backend']} | {r['parallel']} | "
                 f"{_fmt_num(r.get('wall_ms'))} | {r.get('pass')} | "

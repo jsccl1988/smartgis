@@ -2,15 +2,17 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//src/plugin/product/native_plugin.gni")
 import("//testing/test.gni")
 
 copy("flood_resources") {
   sources = [
+    "manifest/plugin.json",
     "resources/flood.style.json",
     "resources/inundate.ui.css",
     "resources/inundate.ui.xml",
   ]
-  outputs = [ "$root_out_dir/../plugins/flood/{{source_file_part}}" ]
+  outputs = [ "$root_out_dir/plugins/flood/{{source_file_part}}" ]
 }
 
 source_set("flood_views") {
@@ -36,6 +38,13 @@ source_set("flood_views") {
     "//third_party:gdal",
     "//third_party:rapidjson",
   ]
+  data_deps = [ ":flood_resources" ]
+}
+
+native_plugin("flood_native") {
+  package = "flood"
+  entry = "dll_entry.cc"
+  deps = [ ":flood_views" ]
   data_deps = [ ":flood_resources" ]
 }
 

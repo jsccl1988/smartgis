@@ -6,15 +6,15 @@
 #include "plugin/product/world3d/commands.h"
 #include "tool/msg/msg.h"
 #include "plugin/runtime/host/ui/manager_view.h"
-#include "plugin/runtime/host/manifest/manifest.h"
-#include "plugin/product/print/commands.h"
-#include "plugin/runtime/host/signature/official_key.h"
+#include "plugin/runtime/host/catalog/manifest.h"
+#include "plugin/product/map2d/commands.h"
+#include "plugin/runtime/host/catalog/official_key.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/processing/processing.h"
-#include "plugin/runtime/host/registry/registry.h"
-#include "plugin/runtime/host/signature/signature.h"
-#include "plugin/runtime/host/signature/signature_test_key.h"
-#include "plugin/runtime/host/store/store.h"
+#include "plugin/runtime/host/catalog/registry.h"
+#include "plugin/runtime/host/catalog/signature.h"
+#include "plugin/runtime/host/catalog/signature_test_key.h"
+#include "plugin/runtime/host/catalog/store.h"
 #include "tool/command/command.h"
 #include "ui/views/dialogs/dialog.h"
 #include "ui/views/dialogs/file_picker.h"
@@ -58,6 +58,64 @@ int main() {
     expect(m.id == "smartgis.dem", "id");
     expect(m.api_version == 2, "api 2");
     expect(m.kind == plugin::PluginKind::kBuiltin, "kind");
+    expect(m.startup.activate, "startup activate default");
+    expect(m.startup.viewport.empty(), "startup viewport default empty");
+    expect(m.startup.commands.empty(), "startup commands default empty");
+  }
+  {
+    plugin::Manifest m;
+    std::string err;
+    const char* json =
+        "{\"id\":\"smartgis.flood\",\"name\":\"Flood\",\"version\":\"1.0.0\","
+        "\"api_version\":2,\"kind\":\"native\",\"library\":\"flood.dll\","
+        "\"startup\":{\"activate\":true,\"viewport\":\"map2d\",\"priority\":10,"
+        "\"scenario\":\"plugin.flood\",\"present\":\"main\","
+        "\"commands\":[\"flood.export_mask\"],\"seed\":\"samples/dem.tif\"}}";
+    expect(plugin::parse_manifest(json, &m, &err), "startup manifest");
+    expect(m.startup.activate, "startup activate");
+    expect(m.startup.viewport == "map2d", "startup viewport map2d");
+    expect(m.startup.priority == 10, "startup priority");
+    expect(m.startup.seed == "samples/dem.tif", "startup seed");
+    expect(m.startup.scenario == "plugin.flood", "startup scenario");
+    expect(m.startup.present == "main", "startup present");
+    expect(m.startup.commands.size() == 1 &&
+               m.startup.commands[0] == "flood.export_mask",
+           "startup commands");
+  }
+  {
+    plugin::Manifest m;
+    std::string err;
+    const char* json =
+        "{\"id\":\"smartgis.flood\",\"name\":\"Flood\",\"version\":\"1.0.0\","
+        "\"api_version\":2,\"kind\":\"native\",\"library\":\"flood.dll\","
+        "\"startup\":{\"activate\":true,\"scenario\":\"harness\"},"
+        "\"contributes\":{\"commands\":[{\"id\":\"flood.inundate\"}],"
+        "\"dialogs\":[{\"id\":\"flood.inundate\"}],"
+        "\"processing\":[{\"id\":\"flood.inundate\"}]}}";
+    expect(plugin::parse_manifest(json, &m, &err),
+           "same contrib id across kinds");
+    expect(err.empty() || err.find("duplicate") == std::string::npos,
+           "no duplicate contrib id across kinds");
+    expect(m.startup.scenario == "harness", "harness scenario with contribs");
+  }
+  {
+    plugin::Manifest m;
+    std::string err;
+    const char* json =
+        "{\"id\":\"smartgis.world3d\",\"name\":\"W\",\"version\":\"1.0.0\","
+        "\"api_version\":2,\"kind\":\"native\",\"library\":\"world3d.dll\","
+        "\"startup\":{\"viewport\":\"3d\"}}";
+    expect(plugin::parse_manifest(json, &m, &err), "startup viewport alias");
+    expect(m.startup.viewport == "scene3d", "3d alias");
+  }
+  {
+    plugin::Manifest m;
+    std::string err;
+    const char* json =
+        "{\"id\":\"smartgis.flood\",\"name\":\"F\",\"version\":\"1.0.0\","
+        "\"api_version\":2,\"kind\":\"native\",\"library\":\"flood.dll\","
+        "\"startup\":{\"viewport\":\"qt\"}}";
+    expect(!plugin::parse_manifest(json, &m, &err), "bad startup viewport");
   }
   {
     plugin::Manifest m;
@@ -449,12 +507,12 @@ int main() {
     content::PluginHost* host =
         content::create_plugin_host(nullptr, nullptr, nullptr);
     expect(plugin::register_world3d(host), "register world3d");
-    expect(plugin::register_print(host), "register print");
-    expect(!host->present_dataset("smartgis.print", "", 0),
+    expect(plugin::register_map2d(host), "register map2d");
+    expect(!host->present_dataset("smartgis.map2d", "", 0),
            "present_dataset without bridge");
     host->set_present_dataset_bridge(
         [](std::string_view, std::string_view, int, int) { return true; });
-    expect(host->present_dataset("smartgis.print", "", 0),
+    expect(host->present_dataset("smartgis.map2d", "", 0),
            "present_dataset with bridge");
 
     // Do not execute world3d/print dialog openers here: suppressed
@@ -564,6 +622,9 @@ int main() {
                  expect(plugin::scene3d_sink(host) != nullptr, "scene3d sink");
                  expect(!plugin::scene3d_sink(host)->add_standin_mesh("x", 0, 0, 1),
                         "sink default no-op");
+                 expect(plugin::map2d_sink(host) != nullptr, "map2d sink");
+                 expect(!plugin::map2d_sink(host)->open_map(),
+                        "map2d sink default no-op");
                  host->playback()->push_frame("{\"i\":0}");
                  expect(host->playback()->frame_count() == 1, "playback frame");
                  return true;

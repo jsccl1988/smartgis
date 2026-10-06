@@ -20,7 +20,7 @@ From the **smartgis** repo root:
 .\build.bat
 .\build.bat debug
 .\build.bat debug te
-.\build.bat e2e
+.\build.bat debug harness
 .\build.bat <single_target>
 ```
 
@@ -30,9 +30,9 @@ Prefer `build.bat` over bare `gn` / `ninja` unless fixing the entry itself. Gen 
 
 ## Allowed
 
-- `build.bat` (any argument, including `debug` / `release`, `te`, `e2e`, `m`, `a`, `b`, or a single target)
+- `build.bat` (any argument, including `debug` / `release`, `te`, `harness`, `m`, `a`, `b`, or a single target)
 - `gn`, `ninja` only when diagnosing/recovering the GN entry itself (still respect per-config locks; prefer waiting on `build.bat`)
-- Product / test binaries under `out\Debug\` or `out\Release\` (e.g. `*_test.exe`, `exe_smoke.exe`, `SmartGIS.exe --self-test`)
+- Product / test binaries under `out\Debug\` or `out\Release\` (e.g. `*_test.exe`, `SmartGIS.exe --harness`, `SmartGisRender.exe --self-test`)
 
 ## Still forbidden
 

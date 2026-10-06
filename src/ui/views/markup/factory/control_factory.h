@@ -56,6 +56,9 @@ class UI_EXPORT ControlFactory {
 
   // Layout sugar + README primitives + GIS placeholders (aggregation TU).
   static ControlFactory make_default();
+  // Process-wide default registry. Nested load_markup (FeatureInfo ctor during
+  // shell markup) must not construct/destroy this map on every panel.
+  static const ControlFactory& get_default();
 
  private:
   std::unordered_map<std::string, Creator> creators_;

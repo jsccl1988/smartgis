@@ -12,15 +12,21 @@ product packages). Layout:
 
 | Dir | Responsibility |
 | --- | --- |
-| `commands.h` / `commands.cc` | Public façade; `register_world3d` wires `grid/` + `scene/` |
-| `grid/` | DEM + 2D orthogrid + 3D hex (terrain / structured-mesh generation; not `gis/geo/grid` solvers) |
-| `grid/register.*` | `register_world3d_grid` — calls the three domain registers |
-| `grid/dem/` | Heightmap/trimesh `loader/` + Views `dialog/` (+ markup) + `tests/` |
-| `grid/orthogrid/` | 2D `lattice/` `session/` `solve/` |
-| `grid/hexgrid/` | 3D `lattice/` `sample/` `io/` `solve/` |
-| `scene/` | True-Earth looks + globe fly + leftover `model3d.*` (`register.cc`) |
-| `resources/data/` | Data stub README (copy → `out/plugins/world3d/data`) |
-| `detail/contribute.h` | Command/processing alias helper |
+| `commands.h` / `commands.cc` | Public façade; `register_world3d` wires `scene/` |
+| `scene/register.*` | `register_world3d_scene` — DEM / ortho / hex + earth / model / pointcloud + Atmosphere dock |
+| `scene/dem/` | Heightmap/trimesh `loader/` + Views `dialog/` (+ markup) + `tests/` |
+| `scene/orthogrid/` | 2D `lattice/` `session/` `solve/` |
+| `scene/hexgrid/` | 3D `lattice/` `sample/` `io/` `solve/` |
+| `scene/earth/` | True-Earth commands (`open_earth` / DEM / cloud / atmosphere / look / fly) |
+| `scene/model/` | Leftover `model3d.*` stand-ins |
+| `scene/pointcloud/` | LAS/LAZ/txt + PDAL processing; `present.*` commits to GisDocument |
+| `scene/look/` `scene/fly/` | Look presets + cinematic globe path |
+| `scene/atmosphere/` | Inspector dock `world3d.atmosphere` |
+| `scene/present/` | Contour / stand-in mesh / style helpers |
+| `scene/detail/` | Alias helper + scene JSON/sink internals |
+| `scenario/` | HWND/BMP harness (`*_harness` exe-only): `capture/` `present/` `seed/` `session/` `product/` `common/` |
+| `scenario/atmosphere/` | Atmosphere HWND lanes: `capture/` `common/` `present/` `seed/` `session/` |
+| `resources/data/` | Data stub README (copy → `out/<config>/plugins/world3d/data`) |
 
 Shell includes only `plugin/product/world3d/commands.h`.
 
@@ -32,6 +38,7 @@ Shell includes only `plugin/product/world3d/commands.h`.
 | `world3d.load_global_dem` | JSON `{path?}` — custom/global DEM GeoTIFF; empty → resolve defaults then China stand-in |
 | `world3d.set_satellite_cloud` | JSON `{path?,enabled?}` — satellite cloud cover field or procedural deck |
 | `world3d.set_atmosphere` | JSON `{sky?,ocean?,cloud?,fog?}` — explicit atmosphere pass toggles |
+| `world3d.atmosphere_panel` | Inspector dock `world3d.atmosphere` (time scrub + layer checks; chrome mounts via `plugin.ui.shell`) |
 | `world3d.apply_look` | JSON `{mode}` — `land` / `ocean` / `full` / `coast` / `globe` / `legacy` / `east_china` (former `--atmosphere-showcase` looks) |
 | `world3d.fly_globe` | JSON `{t?}` — cinematic globe fly-in beat in `[0,1]` (space→clouds→DEM→ocean) |
 | `world3d.fly_to` | JSON `{lon,lat,distance?,span_deg?}` — local orbit reframe |
@@ -45,17 +52,17 @@ Contour suite entry: `scene/present/contour.*` →
 `AtmosphereSession::apply_contour_suite_defaults()` (also on China Scene3D
 product seed / plugin-showcase world3d).
 
-Resources copy to `out/plugins/world3d/`. Shell `--plugins-dir` defaults to
-`<exe>/../plugins`.
+Resources copy to `out/<config>/plugins/world3d/`. Shell `--plugins-dir` defaults to
+`<exe>/plugins`.
 
 ## Data paths
 
 | Asset | Preferred locations (exe is `out/<cfg>/`) |
 | --- | --- |
-| Global DEM | `out/data/global_dem.tif`, `out/plugins/world3d/data/global_dem.tif` |
+| Global DEM | `out/data/global_dem.tif`, `out/<config>/plugins/world3d/data/global_dem.tif` |
 | Global terrain albedo | `out/data/global_terrain.tif` (build: `py -3 testing/data/build_globe_terrain.py [--download-blue-marble]`) |
 | China DEM (shipped sample) | `out/data/china_dem.tif` |
-| Satellite cloud cover | `out/data/satellite_cloud.tif`, `out/plugins/world3d/data/satellite_cloud.tif` (single-band → `cloud_cover`) |
+| Satellite cloud cover | `out/data/satellite_cloud.tif`, `out/<config>/plugins/world3d/data/satellite_cloud.tif` (single-band → `cloud_cover`) |
 | City 3D Tiles fixture | `out/data/m3_city_tileset.json` |
 
 Missing global DEM / satellite GeoTIFF is **not** a hard failure: commands

@@ -108,8 +108,9 @@ inline void ensure_parent_dirs_w(const wchar_t* file_path) {
 }
 
 // Scenario subdir under captures/ for flat leaves (aligned with
-// testing/tools/harness/<family>/). Nested leaves (record/, analysis/, …)
-// and already-prefixed paths are left unchanged.
+// testing/tools/harness/<family>/). Plugin product showcases live under
+// plugin/; map2d/atmosphere remain browser/. Nested leaves (record/,
+// analysis/, …) and already-prefixed paths are left unchanged.
 inline const wchar_t* capture_scenario_prefix_w(const wchar_t* leaf) {
   if (!leaf || !leaf[0]) {
     return L"";
@@ -122,14 +123,13 @@ inline const wchar_t* capture_scenario_prefix_w(const wchar_t* leaf) {
   auto starts = [&](const wchar_t* pre) {
     return wcsncmp(leaf, pre, wcslen(pre)) == 0;
   };
-  if (starts(L"atmosphere-") || starts(L"atmosphere_")) {
-    return L"atmosphere\\";
-  }
-  if (starts(L"map2d-") || starts(L"map2d_")) {
-    return L"map2d\\";
-  }
   if (starts(L"plugin-") || starts(L"plugin_")) {
     return L"plugin\\";
+  }
+  if (starts(L"atmosphere-") || starts(L"atmosphere_") ||
+      starts(L"map2d-") || starts(L"map2d_") || starts(L"browser-") ||
+      starts(L"browser_")) {
+    return L"browser\\";
   }
   if (starts(L"ui-") || starts(L"ui_")) {
     return L"ui\\";
@@ -137,7 +137,8 @@ inline const wchar_t* capture_scenario_prefix_w(const wchar_t* leaf) {
   if (starts(L"legacy-") || starts(L"legacy_")) {
     return L"legacy\\";
   }
-  if (starts(L"input-") || starts(L"self-test-") || starts(L"views-plain-") ||
+  if (starts(L"input-") || starts(L"self-test-") || starts(L"harness-") ||
+      starts(L"views-plain-") ||
       starts(L"views_plain_") || starts(L"browse_") || starts(L"browse-") ||
       starts(L"console_") || starts(L"console-") || starts(L"input_")) {
     return L"shell\\";
@@ -160,14 +161,12 @@ inline const char* capture_scenario_prefix_a(const char* leaf) {
   auto starts = [&](const char* pre) {
     return std::strncmp(leaf, pre, std::strlen(pre)) == 0;
   };
-  if (starts("atmosphere-") || starts("atmosphere_")) {
-    return "atmosphere\\";
-  }
-  if (starts("map2d-") || starts("map2d_")) {
-    return "map2d\\";
-  }
   if (starts("plugin-") || starts("plugin_")) {
     return "plugin\\";
+  }
+  if (starts("atmosphere-") || starts("atmosphere_") || starts("map2d-") ||
+      starts("map2d_") || starts("browser-") || starts("browser_")) {
+    return "browser\\";
   }
   if (starts("ui-") || starts("ui_")) {
     return "ui\\";
@@ -175,7 +174,8 @@ inline const char* capture_scenario_prefix_a(const char* leaf) {
   if (starts("legacy-") || starts("legacy_")) {
     return "legacy\\";
   }
-  if (starts("input-") || starts("self-test-") || starts("views-plain-") ||
+  if (starts("input-") || starts("self-test-") || starts("harness-") ||
+      starts("views-plain-") ||
       starts("views_plain_") || starts("browse_") || starts("browse-") ||
       starts("console_") || starts("console-") || starts("input_")) {
     return "shell\\";
@@ -189,9 +189,9 @@ inline const char* capture_scenario_prefix_a(const char* leaf) {
 // Harness / loop artifacts live under
 // "<exe_dir>\\captures\\[<scenario>\\]<leaf>".
 // |leaf| may be nested ("record\\…", "analysis\\flood\\frame_0000.bmp").
-// Flat showcase/mark leaves are routed into scenario subdirs (atmosphere/,
-// map2d/, plugin/, ui/, legacy/, shell/, _scratch/). Creates captures/ and
-// any intermediate directories when missing.
+// Flat showcase/mark leaves are routed into scenario subdirs (plugin/,
+// ui/, legacy/, shell/, _scratch/). Creates captures/ and any intermediate
+// directories when missing.
 inline bool exe_capture_path(wchar_t* path,
                              size_t path_cch,
                              const wchar_t* leaf) {

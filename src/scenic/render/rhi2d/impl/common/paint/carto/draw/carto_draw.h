@@ -6,7 +6,7 @@
 
 #include <cstddef>
 
-#include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
+#include "plugin/product/world3d/scene/orthogrid/lattice/ortho_lattice.h"
 #include "gis/feature/feature.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/style/style_pod.h"
 #include "scenic/render/rhi2d/public/device/viewport.h"

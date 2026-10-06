@@ -10,6 +10,21 @@ import("//build/config/win/application.gni")
 import("//build/python.gni")
 import("//testing/test.gni")
 
+# In-process append list for runtime processing only. Product packs are
+# native DLLs under $root_out_dir/plugins/<package>/ (see //src/plugin/product:product_native).
+source_set("plugin_builtins") {
+  sources = [
+    "browser/plugin/builtins.cc",
+    "browser/plugin/builtins.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/base:base",
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+  ]
+}
+
 # Chromium-style controller: session + commands/nav. No concrete BrowserView.
 source_set("shell_browser") {
   sources = [
@@ -30,12 +45,12 @@ source_set("shell_browser") {
     "browser/plugin/plugin_host_wiring.cc",
     "browser/plugin/plugin_shell.cc",
     "browser/plugin/plugin_shell.h",
-    "runtime/plugin/playback.cc",
-    "runtime/plugin/playback.h",
-    "runtime/plugin/present.cc",
-    "runtime/plugin/present.h",
-    "runtime/plugin/preview_host.cc",
-    "runtime/plugin/preview_host.h",
+    "browser/plugin/playback.cc",
+    "browser/plugin/playback.h",
+    "browser/plugin/present.cc",
+    "browser/plugin/present.h",
+    "browser/plugin/preview_host.cc",
+    "browser/plugin/preview_host.h",
   ]
   deps = [
     "//src/content:browser_session",
@@ -46,7 +61,8 @@ source_set("shell_browser") {
     "//src/gis/edit:edit",
     "//src/gis/tile:tile",
     "//src/plugin:host",
-    "//src/plugin/product:product_builtins",
+    ":plugin_builtins",
+    "//src/plugin/runtime/processing:processing_views",
     "//src/plugin/runtime/python:python",
     "//src/render:rhi",
     "//src/tool:dispatch",
@@ -69,14 +85,14 @@ source_set("shell_ui") {
     "ui/browser_view.h",
     "ui/pages/map_pages_composer.cc",
     "ui/pages/map_pages_composer.h",
-    "ui/panels/atmosphere_composer.cc",
-    "ui/panels/atmosphere_composer.h",
     "ui/panels/debug_console_composer.cc",
     "ui/panels/debug_console_composer.h",
     "ui/panels/inspect_composer.cc",
     "ui/panels/inspect_composer.h",
     "ui/panels/inspector_sync_composer.cc",
     "ui/panels/inspector_sync_composer.h",
+    "ui/panels/plugin_catalog_view.cc",
+    "ui/panels/plugin_catalog_view.h",
     "ui/panels/processing_composer.cc",
     "ui/panels/processing_composer.h",
     "ui/panels/report_panel.cc",
@@ -86,6 +102,7 @@ source_set("shell_ui") {
   ]
   deps = [
     ":shell_browser",
+    "//src/app/views/util:util",
     "//src/content:debug_agent",
     "//src/content:browser_session",
     "//src/content:content",
@@ -106,145 +123,6 @@ source_set("shell_ui") {
   ]
 }
 
-# Split helpers into their own source_sets so basename collisions
-# (sample.cc / mode_seed.cc / present_run.cc) do not share one obj stem.
-source_set("harness_atmosphere") {
-  sources = [
-    "harness/showcase/atmosphere/atmosphere_showcase.cc",
-    "harness/showcase/atmosphere/atmosphere_showcase.h",
-    "harness/showcase/atmosphere/capture/capture.cc",
-    "harness/showcase/atmosphere/capture/capture.h",
-    "harness/showcase/atmosphere/capture/label_composite.cc",
-    "harness/showcase/atmosphere/capture/label_composite.h",
-    "harness/showcase/atmosphere/common/linger.cc",
-    "harness/showcase/atmosphere/common/linger.h",
-    "harness/showcase/atmosphere/common/progress.cc",
-    "harness/showcase/atmosphere/common/progress.h",
-    "harness/showcase/atmosphere/present/globe_present.cc",
-    "harness/showcase/atmosphere/present/globe_present.h",
-    "harness/showcase/atmosphere/present/present_linger.cc",
-    "harness/showcase/atmosphere/present/present_linger.h",
-    "harness/showcase/atmosphere/present/present_run.cc",
-    "harness/showcase/atmosphere/present/present_run.h",
-    "harness/showcase/atmosphere/seed/legacy_seed.cc",
-    "harness/showcase/atmosphere/seed/legacy_seed.h",
-    "harness/showcase/atmosphere/seed/mode_seed.cc",
-    "harness/showcase/atmosphere/seed/mode_seed.h",
-    "harness/showcase/atmosphere/session/device_session.cc",
-    "harness/showcase/atmosphere/session/device_session.h",
-    "harness/showcase/atmosphere/session/host.cc",
-    "harness/showcase/atmosphere/session/host.h",
-    "harness/showcase/atmosphere/session/session_finish.cc",
-    "harness/showcase/atmosphere/session/session_finish.h",
-  ]
-  deps = [
-    ":shell_browser",
-    "//src/content:content",
-    "//src/vista:vista",
-    "//src/gis:gis",
-    "//src/plugin/product/world3d:world3d_views",
-    "//src/render:rhi",
-    "//src/ui/views:views",
-  ]
-  include_dirs += [ "//src" ]
-}
-
-source_set("harness_map2d") {
-  sources = [
-    "harness/showcase/map2d/capture/capture.cc",
-    "harness/showcase/map2d/capture/capture.h",
-    "harness/showcase/map2d/common/progress.cc",
-    "harness/showcase/map2d/common/progress.h",
-    "harness/showcase/map2d/map2d_showcase.cc",
-    "harness/showcase/map2d/map2d_showcase.h",
-    "harness/showcase/map2d/present/fps_bench.cc",
-    "harness/showcase/map2d/present/fps_bench.h",
-    "harness/showcase/map2d/present/gpu_present.cc",
-    "harness/showcase/map2d/present/gpu_present.h",
-    "harness/showcase/map2d/present/present_run.cc",
-    "harness/showcase/map2d/present/present_run.h",
-    "harness/showcase/map2d/seed/framing.cc",
-    "harness/showcase/map2d/seed/framing.h",
-    "harness/showcase/map2d/seed/mode_seed.cc",
-    "harness/showcase/map2d/seed/mode_seed.h",
-    "harness/showcase/map2d/seed/orthogrid_mesh.cc",
-    "harness/showcase/map2d/seed/orthogrid_mesh.h",
-    "harness/showcase/map2d/seed/sample.cc",
-    "harness/showcase/map2d/seed/sample.h",
-    "harness/showcase/map2d/session/gpu_host.cc",
-    "harness/showcase/map2d/session/gpu_host.h",
-  ]
-  deps = [
-    ":shell_browser",
-    "//src/content:content",
-    "//src/gis:gis",
-    "//src/plugin/product/map2d:map2d_views",
-    "//src/render:rhi",
-    "//src/tool:tool",
-    "//src/ui/views:views",
-  ]
-  include_dirs += [ "//src" ]
-  libs = [ "user32.lib" ]
-}
-
-source_set("harness_plugin") {
-  sources = [
-    "harness/showcase/plugin/capture/capture.cc",
-    "harness/showcase/plugin/capture/capture.h",
-    "harness/showcase/plugin/capture/map2d_export.cc",
-    "harness/showcase/plugin/capture/map2d_export.h",
-    "harness/showcase/plugin/common/plugin_io.cc",
-    "harness/showcase/plugin/common/plugin_io.h",
-    "harness/showcase/plugin/plugin_showcase.cc",
-    "harness/showcase/plugin/plugin_showcase.h",
-    "harness/showcase/plugin/present/present_warmup.cc",
-    "harness/showcase/plugin/present/present_warmup.h",
-    "harness/showcase/plugin/present/world3d_fly.cc",
-    "harness/showcase/plugin/present/world3d_fly.h",
-    "harness/showcase/plugin/product/mine.cc",
-    "harness/showcase/plugin/product/mine.h",
-    "harness/showcase/plugin/product/orthogrid.cc",
-    "harness/showcase/plugin/product/orthogrid.h",
-    "harness/showcase/plugin/product/orthogrid3d.cc",
-    "harness/showcase/plugin/product/orthogrid3d.h",
-    "harness/showcase/plugin/product/print.cc",
-    "harness/showcase/plugin/product/print.h",
-    "harness/showcase/plugin/product/report.cc",
-    "harness/showcase/plugin/product/report.h",
-    "harness/showcase/plugin/product/stormsurge.cc",
-    "harness/showcase/plugin/product/stormsurge.h",
-    "harness/showcase/plugin/product/traffic.cc",
-    "harness/showcase/plugin/product/traffic.h",
-    "harness/showcase/plugin/product/world3d.cc",
-    "harness/showcase/plugin/product/world3d.h",
-    "harness/showcase/plugin/product/world_preview.cc",
-    "harness/showcase/plugin/product/world_preview.h",
-    "harness/showcase/plugin/seed/mine_seed.cc",
-    "harness/showcase/plugin/seed/mine_seed.h",
-    "harness/showcase/plugin/seed/orbit_seed.cc",
-    "harness/showcase/plugin/seed/orbit_seed.h",
-    "harness/showcase/plugin/seed/stormsurge_seed.cc",
-    "harness/showcase/plugin/seed/stormsurge_seed.h",
-    "harness/showcase/plugin/seed/world3d_seed.cc",
-    "harness/showcase/plugin/seed/world3d_seed.h",
-    "harness/showcase/plugin/session/device_session.cc",
-    "harness/showcase/plugin/session/device_session.h",
-  ]
-  deps = [
-    ":shell_browser",
-    "//src/content:content",
-    "//src/gis:gis",
-    "//src/plugin/product/print:print_composer",
-    "//src/plugin/product/world3d:world3d_views",
-    "//src/render:rhi",
-    "//src/ui/views:views",
-    "//src/vista:vista",
-    "//third_party:gdal",
-  ]
-  include_dirs += [ "//src" ]
-  libs = [ "user32.lib", "gdi32.lib" ]
-}
-
 # SP5: product shell must not link leftover DLLs / MFC shell.
 win32_app("views") {
   output_name = "SmartGIS"
@@ -257,92 +135,21 @@ win32_app("views") {
     "app/host/content_host.h",
     "app/process/browser_main.cc",
     "app/process/browser_main.h",
-    "app/cmdline/launch_entry.cc",
-    "app/cmdline/launch_entry.h",
     "app/cmdline/views_launch_options.cc",
     "app/cmdline/views_launch_options.h",
     "app/startup/policy.cc",
     "app/startup/policy.h",
-    "harness/common/capture/bmp.cc",
-    "harness/common/capture/bmp.h",
-    "harness/common/capture/scene3d_capture.cc",
-    "harness/common/capture/scene3d_capture.h",
-    "harness/common/io/maps.cc",
-    "harness/common/io/maps.h",
-    "harness/common/io/paths.cc",
-    "harness/common/io/paths.h",
-    "harness/common/io/sample.cc",
-    "harness/common/io/sample.h",
-    "harness/common/mark/mark.cc",
-    "harness/common/mark/mark.h",
-    "harness/common/present/linger_policy.cc",
-    "harness/common/present/linger_policy.h",
-    "harness/common/present/present_gpu_warmup.cc",
-    "harness/common/present/present_gpu_warmup.h",
-    "harness/common/present/present_hwnd.cc",
-    "harness/common/present/present_hwnd.h",
-    "harness/common/present/rhi_present_session.cc",
-    "harness/common/present/rhi_present_session.h",
-    "harness/common/pump/pump.cc",
-    "harness/common/pump/pump.h",
-    "harness/scenario_builtins.cc",
-    "harness/scenario_registry.cc",
-    "harness/scenario_registry.h",
-    "runtime/capability/export_frame.cc",
-    "runtime/capability/export_frame.h",
-    "runtime/capability/fill_host.cc",
-    "runtime/capability/fill_host.h",
-    "runtime/capability/host_paths.cc",
-    "runtime/capability/host_paths.h",
-    "runtime/capability/plugin_bind.cc",
-    "runtime/capability/plugin_bind.h",
-    "runtime/capability/run_script.cc",
-    "runtime/capability/run_script.h",
-    "runtime/capability/session_bind.cc",
-    "runtime/capability/session_bind.h",
-    "runtime/capability/shell_bind.cc",
-    "runtime/capability/shell_bind.h",
-    "harness/self_test/adapter.cc",
-    "harness/self_test/shell_ready.cc",
-    "harness/self_test/edit_m0.cc",
-    "harness/self_test/layers_m1.cc",
-    "harness/self_test/layout_bounds.cc",
-    "harness/self_test/milestones.cc",
-    "harness/self_test/navigate.cc",
-    "harness/self_test/present.cc",
-    "harness/self_test/probe.cc",
-    "harness/self_test/probe.h",
-    "harness/self_test/self_test.h",
-    "harness/showcase/browse/browse_showcase.cc",
-    "harness/showcase/browse/browse_showcase.h",
-    "harness/showcase/input/input_showcase.cc",
-    "harness/showcase/input/input_showcase.h",
-    "harness/showcase/ui/capture/shell_capture.cc",
-    "harness/showcase/ui/capture/shell_capture.h",
-    "harness/showcase/ui/interact/interact_json.cc",
-    "harness/showcase/ui/interact/interact_json.h",
-    "harness/showcase/ui/interact/interact_script.cc",
-    "harness/showcase/ui/interact/interact_script.h",
-    "harness/showcase/ui/layout/layout_gate.cc",
-    "harness/showcase/ui/layout/layout_gate.h",
-    "harness/showcase/ui/present/present_capture.cc",
-    "harness/showcase/ui/present/present_capture.h",
-    "harness/showcase/ui/present/scenario_panels.cc",
-    "harness/showcase/ui/present/scenario_panels.h",
-    "harness/showcase/ui/seed/china_seed.cc",
-    "harness/showcase/ui/seed/china_seed.h",
-    "harness/showcase/ui/session/shell_prep.cc",
-    "harness/showcase/ui/session/shell_prep.h",
-    "harness/showcase/ui/ui_showcase.cc",
-    "harness/showcase/ui/ui_showcase.h",
+    "app/startup/scenario.cc",
+    "app/startup/scenario.h",
+    "app/startup/scenario_builtins.cc",
+    "browser/plugin/report_suite.cc",
+    "browser/plugin/report_suite.h",
   ]
   deps = [
-    ":harness_atmosphere",
-    ":harness_map2d",
-    ":harness_plugin",
     ":shell_browser",
     ":shell_ui",
-    "//src/app/views/runtime/interact:interact",
+    "//src/app/views/il.runtime:il.runtime",
+    "//src/app/views/util:util",
     "//src/base:base",
     "//src/base:foundation",
     "//src/content:content",
@@ -358,7 +165,15 @@ win32_app("views") {
     "//src/gpu:gpu_lib",
     "//src/net:net",
     "//src/plugin:host",
-    "//src/plugin/product:product_builtins",
+    ":plugin_builtins",
+    "//src/plugin/runtime/processing:processing_views",
+    "//src/plugin/product:product_views",
+    "//src/plugin/product/map2d:map2d_views",
+    "//src/plugin/product/map2d:map2d_harness",
+    "//src/plugin/product/mine:mine_harness",
+    "//src/plugin/product/stormsurge:stormsurge_harness",
+    "//src/plugin/product/traffic:traffic_harness",
+    "//src/plugin/product/world3d:world3d_harness",
     "//src/render:rhi",
     "//src/tool:tool",
     "//src/ui/gis:ui_gis",
@@ -375,6 +190,7 @@ win32_app("views") {
     "//third_party/maplibre:maplibre_example_assets",
     "//third_party:gdal_runtime_dlls",
     "//src/ui/views:markup_resources",
+    "//src/plugin/product:product_native",
   ]
   if (python_enabled && python_dll != "") {
     data_deps += [
@@ -386,6 +202,7 @@ win32_app("views") {
     "comctl32.lib",
     "shell32.lib",
   ]
+  include_dirs += [ "//src" ]
 }
 
 group("SmartGisViews") {
@@ -406,7 +223,6 @@ test("view_commands_test") {
 test("views_launch_options_test") {
   output_name = "views_launch_options_test"
   sources = [
-    "app/cmdline/launch_entry.cc",
     "app/cmdline/views_launch_options.cc",
     "app/cmdline/views_launch_options_test.cc",
   ]
@@ -421,8 +237,21 @@ test("views_launch_options_test") {
 test("plugin_playback_test") {
   output_name = "plugin_playback_test"
   sources = [
-    "runtime/plugin/playback.cc",
-    "runtime/plugin/playback_test.cc",
+    "browser/plugin/playback.cc",
+    "browser/plugin/playback_test.cc",
   ]
   include_dirs += [ "//src" ]
+}
+
+test("plugin_builtins_test") {
+  output_name = "plugin_builtins_test"
+  sources = [ "browser/plugin/builtins_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":plugin_builtins",
+    "//src/content:content",
+    "//src/plugin/runtime/processing:processing_views",
+    "//src/plugin/runtime/host:host",
+    "//src/tool:dispatch",
+  ]
 }

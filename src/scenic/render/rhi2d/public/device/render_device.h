@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #include "base/math/math.h"
-#include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
+#include "plugin/product/world3d/scene/orthogrid/lattice/ortho_lattice.h"
 #include "gis/tile/layer/provider_tile_layer.h"
 #include "gis/datasource/ogr/ogr_raster_layer.h"
 #include "gis/feature/feature.h"

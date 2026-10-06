@@ -19,14 +19,14 @@ All rights reserved.
   - **`out/data/`** — sample maps / DEM / AM terrain (GN `//testing/data:china_map_samples` writes `$root_out_dir/../data`). **Do not** drop `china_city.*` / `china_dem.tif` on the bare `out/` root.
   - **`out/data/cache/`** — regenerable download caches (`china_city_src/`, `china_dem_src/` for `testing/data/build_china_*.py`)
   - **`out/ui/`** — Views shell/toolkit markup `.ui.xml` / `.ui.css` (GN `//src/ui/views:markup_resources` writes `$root_out_dir/../ui`)
-  - **`out/plugins/<package>/`** — product plugin self-managed resources (e.g. `world3d/`); shell `--plugins-dir` defaults to `<exe>/../plugins`
+  - **`out/<config>/plugins/<package>/`** — product plugin self-managed resources (e.g. `world3d/`); shell `--plugins-dir` defaults to `<exe>/plugins` (`out/Debug/plugins` or `out/Release/plugins`)
   - **`out/crash/`** — cdb / minidump sessions. **Do not** use repo-root `crash/` (legacy; merged here)
   - **`out/ui_forensics/`** — UI Mode A failure dumps (`<run_id>/`); wipe old runs freely
   - **`out/.build.lock*`** / **`out/.build.waiters/`**, optional **`out/agent_wake_queue.md`** — multi-agent build / wake coordination
 - Logs: `out/Debug/build.log`, `out/Release/build.log`.
-- **Harness / loop artifacts** (marks, showcase BMP/PNG, `*_loop_report.json`): **`out/<config>/captures/<scenario>/`** — not the gen-root top level. Scenario dirs mirror `testing/tools/harness/<family>/` (`atmosphere/`, `map2d/`, `plugin/`, `ui/`, `legacy/`, `shell/`). Cross-cutting: **`captures/record/`** (HWND mp4 / `*_frames`), **`captures/analysis/<topic>/`** (playback BMP + `playback.json`), **`captures/_scratch/`** (one-shot `_diag*` / `_inspect*`). Agents may wipe old captures freely.
+  - **Harness / loop artifacts** (marks, showcase BMP/PNG, `*_loop_report.json`): **`out/<config>/captures/<scenario>/`** — not the gen-root top level. Scenario dirs mirror `testing/tools/harness/<family>/` (`plugin/` for `--plugin-showcase`, `browser/` for map2d / atmosphere, plus `ui/`, `shell/`). Cross-cutting: **`captures/record/`** (HWND mp4 / `*_frames`), **`captures/analysis/<topic>/`** (playback BMP + `playback.json`), **`captures/_scratch/`** (one-shot `_diag*` / `_inspect*`). Agents may wipe old captures freely.
 - **Agent scratch** (redirected stdout/stderr, one-shot scripts, `.old` binaries): **`out/<config>/log/`** (text dumps) and **`out/scratch/`** (shared junk). Wipe freely; do not stash these at the gen-root root.
-- Resolve product/test binaries under **`out/Debug/`** (default for `te` / `e2e` runners) or **`out/Release/`**.
+- Resolve product/test binaries under **`out/Debug/`** (default for `te` / `harness` runners) or **`out/Release/`**.
 - Third-party CMake install prefix remains **`out/third_party`** (junction to `.install`). Do not invent a second install root.
 - Do not use `vs2008/SmartGIS.sln` as a build entry.
 - Do not stash one-shot scripts, recovered sources, or nested `out/Debug/out/` under `out/`. Gen-root top level should stay **binaries + ninja + known subdirs** (`obj/`, `gen/`, `captures/`, `log/`, `plugin/`, `ui/`, `third_party/`, …).

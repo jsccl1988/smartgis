@@ -35,7 +35,7 @@ All rights reserved.
 ### Task 1 — Shared present helpers
 
 - [x] Move `append_map_polygon` / `append_map_polyline` / `apply_style_json` / stand-in mesh off `analysis_writer_common` into `src/plugin/runtime/host/present/gis_present.*` (GisDocument only; Map2d + Scene3d).
-- [x] Shell `present_plugin_map2d/scene3d` live under `runtime/plugin/present.*`; `present_dataset` bridge only for tab switch.
+- [x] Shell `present_plugin_map2d/scene3d` live under `browser/plugin/present.*`; `present_dataset` bridge only for tab switch.
 
 ### Task 2 — Dual-run per product (one plugin per change)
 
@@ -53,7 +53,7 @@ Keep `set_*_writer` as a shim to the moved function until that plugin's showcase
 
 - [x] `Browser::install_plugin_host_bridges` binds `PluginPlayback` → `PluginHost::playback()` (`push_frame` / `frame_count` / `set_index`). No `set_playback` (Host owns the list).
 - [x] Re-present is `"<id>.present_frame"` looked up from the contributing plugin (no chrome product switch).
-- [x] Product payload stays in `src/plugin/product` (`g_last_*`). Chrome `runtime/analysis/*_store` deleted; `runtime/plugin/playback.*` sits next to `present.*`.
+- [x] Product payload stays in `src/plugin/product` (`g_last_*`). Chrome `runtime/analysis/*_store` deleted; `browser/plugin/playback.*` sits next to `present.*`.
 
 ### Task 4 — Delete chrome writers
 

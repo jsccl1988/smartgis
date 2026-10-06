@@ -44,7 +44,7 @@ Install recommended extension **ANTLR4 grammar syntax support** (`mike-lischke.v
 
 1. Open the repo in VS Code / Cursor.
 2. Accept the workspace recommendation prompt, **or** Command Palette → `Extensions: Show Recommended Extensions`.
-3. Open `testing/tools/harness/_shared/scripts/grammar/Interact.g4`.
+3. Open `src/app/views/il.runtime/frontend/Interact.g4`.
 
 You get:
 

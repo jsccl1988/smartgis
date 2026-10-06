@@ -448,8 +448,6 @@ group("test_all") {
 
   deps = [
 
-    "//testing/e2e:exe_smoke",
-
     "//src/sdb/datasource/gdal:sde_gdal_test",
 
   ]
@@ -680,7 +678,7 @@ build.bat te
 
 
 
-Expected: `out\sde_gdal_test.exe` prints `sde_gdal_test connect checks ok` and exit 0. `exe_smoke` may skip missing product exes.
+Expected: `out\sde_gdal_test.exe` prints `sde_gdal_test connect checks ok` and exit 0. Product runtime gate is `build.bat harness` (`loop_runner --gate`).
 
 
 

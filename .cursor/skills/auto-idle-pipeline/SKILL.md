@@ -55,7 +55,7 @@ When idle (or forced), run **in order**. For each stage: open that skill’s `SK
 | # | Skill | Path | Must achieve |
 |---|-------|------|--------------|
 | 1 | `auto-build-fix` | `.cursor/skills/auto-build-fix/SKILL.md` | Green compile via `.\build.bat` (done bar there) |
-| 2 | `auto-bug-fix` | `.cursor/skills/auto-bug-fix/SKILL.md` | `.\build.bat e2e` **and** `.\build.bat te` green |
+| 2 | `auto-bug-fix` | `.cursor/skills/auto-bug-fix/SKILL.md` | `.\build.bat debug harness` **and** `.\build.bat debug te` green |
 | 3 | `auto-cbm-gen` | `.cursor/skills/auto-cbm-gen/SKILL.md` | CBM full index for project `smartgis` |
 | 4 | `auto-commit-push` | `.cursor/skills/auto-commit-push/SKILL.md` | Commit on `master` + push (skill authorizes) |
 

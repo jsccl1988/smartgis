@@ -8,11 +8,18 @@
 
   "api_version": 2,
 
-  "kind": "builtin",
+  "kind": "native",
+  "library": "world3d.dll",
 
   "author": "The Mogu Authors",
 
   "description": "True-3D Earth browse plus DEM loaders, former model3d commands, 2D boundary-adapted orthogrid, and 3D hex lattice (one register_world3d façade)",
+
+  "startup": {
+    "activate": true,
+    "viewport": "scene3d",
+    "priority": 5
+  },
 
   "contributes": {
 
@@ -25,6 +32,8 @@
       {"id": "world3d.set_satellite_cloud", "title": "卫星云图", "menu": "tools"},
 
       {"id": "world3d.set_atmosphere", "title": "大气层开关", "menu": "tools"},
+
+      {"id": "world3d.atmosphere_panel", "title": "Atmosphere", "menu": "view"},
 
       {"id": "world3d.apply_look", "title": "地球外观预设", "menu": "tools"},
 
@@ -86,6 +95,12 @@
       {"id": "world3d.heightmap_loader", "title": "高度图生成DEM"},
 
       {"id": "world3d.about", "title": "关于"}
+
+    ],
+
+    "docks": [
+
+      {"id": "world3d.atmosphere", "title": "Atmosphere", "area": "right"}
 
     ],
 

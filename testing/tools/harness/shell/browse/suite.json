@@ -14,7 +14,7 @@
     "FORCE_GDI_MAP_OVERLAY": "1",
     "MAP2D_FPS_BENCH_MS": "1200"
   },
-  "mark_leaf": "self-test-mark.txt",
+  "mark_leaf": "harness-mark.txt",
   "required_marks": [
     "pan-ok",
     "browse-ok",

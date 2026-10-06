@@ -6,9 +6,6 @@
 #include <CLI/CLI.hpp>
 
 #include <string>
-#include <string_view>
-
-#include "app/views/app/cmdline/launch_entry.h"
 
 namespace app {
 namespace {
@@ -27,22 +24,6 @@ content::ProcessType process_type_from_string(const std::string& value) {
 }
 
 }  // namespace
-
-std::string normalize_plugin_showcase_id(std::string_view value) {
-  if (value.empty()) {
-    return {};
-  }
-  if (value == "dem") {
-    return "world3d";
-  }
-  if (value == "baogrid") {
-    return "orthogrid";
-  }
-  if (value == "hexgrid") {
-    return "orthogrid3d";
-  }
-  return std::string(value);
-}
 
 const char* atmosphere_showcase_name(AtmosphereShowcaseMode mode) {
   switch (mode) {
@@ -96,45 +77,39 @@ const char* ui_showcase_name(UiShowcaseMode mode) {
   }
 }
 
+UiShowcaseMode ui_showcase_mode_from_name(const std::string& mode) {
+  if (mode == "shell") {
+    return UiShowcaseMode::kShell;
+  }
+  if (mode == "data") {
+    return UiShowcaseMode::kData;
+  }
+  if (mode == "scene") {
+    return UiShowcaseMode::kScene;
+  }
+  if (mode == "catalog") {
+    return UiShowcaseMode::kCatalog;
+  }
+  if (mode == "interact") {
+    return UiShowcaseMode::kInteract;
+  }
+  return UiShowcaseMode::kNone;
+}
+
 ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   ViewsLaunchOptions out;
   CLI::App app{"SmartGisViews"};
   app.allow_extras();
 
   std::string type = "browser";
-  LaunchCli harness;
-  std::string plugin_showcase;
   app.add_option("--type", type, "Process role: browser|renderer|gpu|utility")
       ->capture_default_str();
-  app.add_flag("--self-test", harness.self_test, "Run Views shell self-test");
-  app.add_flag("--self-test-console", harness.self_test_console,
-               "Run DebugAgent console self-test + console_bench.json");
-  app.add_flag("--input-showcase", harness.input_showcase,
-               "Lean digitize FeatureGeom gate (input_loop)");
-  app.add_flag("--browse-showcase", harness.browse_showcase,
-               "Lean pan/browse/wheel gate (browse_loop)");
   app.add_flag("--debug-console", out.debug_console,
                "Start Debug Agent + allow Debug Console");
-  app.add_option("--atmosphere-showcase", harness.atmosphere,
-                 "Atmosphere demo: land|ocean|full|coast|legacy|globe");
-  app.add_option("--map2d-showcase", harness.map2d,
-                 "2D map demo: china|align|orthogrid");
-  app.add_option("--plugin-showcase", plugin_showcase,
-                 "Product plugin sample+viz id "
-                 "(world3d|world_preview|print|orthogrid|orthogrid3d|traffic|flood|"
-                 "stormsurge|mine|geochem|report; aliases dem/baogrid/hexgrid)");
-  std::string plugin_present;
-  app.add_option("--plugin-present", plugin_present,
-                 "Plugin present surface: main|preview "
-                 "(preview → MapPreview / WorldPreview by face)");
-  app.add_option("--ui-showcase", harness.ui,
-                 "UI horizon demo: shell|data|scene|catalog|interact");
-  app.add_option("--atmosphere-fields", out.atmosphere_fields,
-                 "Field ingest spec path[:channel[:time]][,...]");
   app.add_option("--shell-canvas", out.shell_canvas,
                  "Shell canvas backend: gdi|skia");
   app.add_option("--plugins-dir", out.plugins_dir,
-                 "Product plugin resource root (default: <exe>/../plugins)");
+                 "Product plugin resource root (default: <exe>/plugins)");
   app.add_flag("--enable-oop-render", out.enable_oop_render,
                "Start OOP GPU MapContents at Session.init_hosts "
                "(default: defer until first ContentMapView attach)");
@@ -150,18 +125,6 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   }
 
   out.process_type = process_type_from_string(type);
-  if (!plugin_showcase.empty()) {
-    harness.plugin = normalize_plugin_showcase_id(plugin_showcase);
-  }
-  if (!plugin_present.empty()) {
-    if (plugin_present == "preview" || plugin_present == "map_preview" ||
-        plugin_present == "world_preview") {
-      out.plugin_present = "preview";
-    } else {
-      out.plugin_present = "main";
-    }
-  }
-  out.scenario_id = resolve_launch_scenario(harness);
   return out;
 }
 

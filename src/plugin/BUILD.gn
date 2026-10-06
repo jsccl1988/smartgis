@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Plugin root. Runtime (host / processing / widgets / python) under
+# Plugin root. Runtime (host / web / processing / widgets / python) under
 # plugin/runtime/. Domain Views under plugin/product/.
 # Host API DLL: //src/plugin/runtime/host:host (dll_stem = plugin_host).
 
@@ -18,13 +18,17 @@ group("plugin_host_test") {
 
 group("plugin_report_browser_test") {
   testonly = true
-  public_deps = [ "//src/plugin/runtime/browser:plugin_report_browser_test" ]
+  public_deps = [ "//src/plugin/runtime/web:plugin_report_browser_test" ]
 }
 
 group("processing") {
   public_deps = [ "//src/plugin/runtime/processing:processing_views" ]
 }
 
-group("product_builtins") {
-  public_deps = [ "//src/plugin/product:product_builtins" ]
+group("product_views") {
+  public_deps = [ "//src/plugin/product:product_views" ]
+}
+
+group("product_native") {
+  public_deps = [ "//src/plugin/product:product_native" ]
 }

@@ -4,6 +4,7 @@
   "argv": [
     "--plugin-showcase=orthogrid"
   ],
+  "script": "plugin.orthogrid.il",
   "env": {
     "SKIP_MAP_CONTEXT_MENU": "1"
   },

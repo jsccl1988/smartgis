@@ -5,7 +5,7 @@
 
 #include "content/public/gis_document.h"
 #include "plugin/runtime/host/present/gis_present.h"
-#include "plugin/runtime/host/capability/scene3d/sink.h"
+#include "plugin/runtime/host/capability/scene3d_sink.h"
 
 namespace plugin {
 

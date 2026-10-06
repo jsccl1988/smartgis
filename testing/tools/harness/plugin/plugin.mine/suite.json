@@ -4,6 +4,7 @@
   "argv": [
     "--plugin-showcase=mine"
   ],
+  "script": "plugin.mine.il",
   "env": {
     "SKIP_MAP_CONTEXT_MENU": "1",
     "SCENE3D_ENGINE": "flycube"

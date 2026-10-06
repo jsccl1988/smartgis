@@ -8,7 +8,7 @@
 #include <memory>
 #include <mutex>
 
-#include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
+#include "plugin/product/world3d/scene/orthogrid/lattice/ortho_lattice.h"
 #include "gis/feature/feature.h"
 #include "gis/map/map.h"
 #include "scenic/render/err.h"

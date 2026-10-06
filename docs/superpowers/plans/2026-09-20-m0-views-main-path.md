@@ -16,7 +16,7 @@ All rights reserved.
 
 
 
-**Goal:** 仅用 `SmartGIS.exe` 闭环 **打开 GPKG → 平移缩放 → FeatureInfo → 追加折线并写回文件**；`build.bat e2e`（含 Views `--self-test`）绿。日常产品入口保持 `build.bat app` / `views`，不依赖 MFC。
+**Goal:** 仅用 `SmartGIS.exe` 闭环 **打开 GPKG → 平移缩放 → FeatureInfo → 追加折线并写回文件**；`build.bat harness`（含 Views `--self-test`）绿。日常产品入口保持 `build.bat app` / `views`，不依赖 MFC。
 
 
 
@@ -420,7 +420,7 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
     if (!browser.run_tool_command("edit.append.linestring")) {
 
-      self_test_detach_maps(browser);
+      harness_detach_maps(browser);
 
       return 60;
 
@@ -434,7 +434,7 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
       if (!cur || std::strcmp(cur->id(), "draw.linestring") != 0) {
 
-        self_test_detach_maps(browser);
+        harness_detach_maps(browser);
 
         return 60;
 
@@ -472,7 +472,7 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
           !host->dispatch_input(d1)) {
 
-        self_test_detach_maps(browser);
+        harness_detach_maps(browser);
 
         return 60;
 
@@ -494,13 +494,13 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
     if (browser.document()->feature_count() <= before) {
 
-      self_test_detach_maps(browser);
+      harness_detach_maps(browser);
 
       return 60;
 
     }
 
-    self_test_mark("m0-line-ok");
+    harness_mark("m0-line-ok");
 
 ```
 
@@ -560,13 +560,13 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
         // MapScene selected, explicitly mirror fields like the EventBus handler.
 
-        self_test_detach_maps(browser);
+        harness_detach_maps(browser);
 
         return 61;
 
       }
 
-      self_test_mark("m0-featureinfo-ok");
+      harness_mark("m0-featureinfo-ok");
 
     }
 
@@ -596,7 +596,7 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
       if (!browser.document()->write_path(out)) {
 
-        self_test_detach_maps(browser);
+        harness_detach_maps(browser);
 
         return 62;
 
@@ -608,7 +608,7 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
         DeleteFileA(out.c_str());
 
-        self_test_detach_maps(browser);
+        harness_detach_maps(browser);
 
         return 63;
 
@@ -616,7 +616,7 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
       DeleteFileA(out.c_str());
 
-      self_test_mark("m0-save-ok");
+      harness_mark("m0-save-ok");
 
     }
 
@@ -642,7 +642,7 @@ out\SmartGIS.exe --self-test
 
 
 
-Expected: exit 0；stderr/旁路 mark 含 `m0-line-ok`、`m0-featureinfo-ok`、`m0-save-ok`（若 mark 写文件，与现有 `self_test_mark` 一致）。
+Expected: exit 0；stderr/旁路 mark 含 `m0-line-ok`、`m0-featureinfo-ok`、`m0-save-ok`（若 mark 写文件，与现有 `harness_mark` 一致）。
 
 
 
@@ -662,7 +662,7 @@ Expected: exit 0；stderr/旁路 mark 含 `m0-line-ok`、`m0-featureinfo-ok`、`
 
 - Modify: `docs/superpowers/industry-gap-matrix.md`
 
-- Verify only: `testing/e2e/exe_smoke.cc`（不改除非 Views 超时）
+- Verify only: `testing/tools/loop_runner.py --gate`（Views `--harness` 超时才改 suite timeout）
 
 - Modify: 本 plan 勾选
 
@@ -680,13 +680,13 @@ out\map_scene_test.exe
 
 out\SmartGIS.exe --self-test
 
-build.bat e2e
+build.bat harness
 
 ```
 
 
 
-Expected: 全部绿；`exe_smoke` 中 `SmartGIS.exe` PASS。
+Expected: 全部绿；`loop_runner --gate` 中 `gpu` + `harness` PASS。
 
 
 
@@ -726,7 +726,7 @@ Expected: 全部绿；`exe_smoke` 中 `SmartGIS.exe` PASS。
 
 | 追加一条线并保存 | Task 1–3（linestring + `write_path`） |
 
-| `build.bat e2e` 绿 | Task 4 |
+| `build.bat harness` 绿 | Task 4 |
 
 | 日常停编 MFC | SP5 前置；本 plan 不拉 `legacy_app` |
 
@@ -748,7 +748,7 @@ Expected: 全部绿；`exe_smoke` 中 `SmartGIS.exe` PASS。
 
 2. [x] `SmartGIS.exe --self-test` exit 0，含 `m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok`。  
 
-3. [x] `build.bat e2e` 绿。  
+3. [x] `build.bat harness` 绿。  
 
 4. [x] 差距矩阵已回写本 plan 链接与 M0 成熟度。  
 

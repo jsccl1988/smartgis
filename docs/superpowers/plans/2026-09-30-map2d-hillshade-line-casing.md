@@ -38,7 +38,7 @@ All rights reserved.
 | `src/vista/component/map/layout.cc` / `layout.h` | Emit hillshade raster `DrawItem` under vectors; keep Style layer order for lines |
 | `src/vista/component/map/map2d_test.cc` | Unit: casing order + hillshade item when DEM bound |
 | `src/gis/style/style_test.cc` | Resolve hillshade paint keys |
-| `testing/tools/harness/map2d/map2d.china/map2d_china_loop.py` (or suite json) | Pixel gate: road casing contrast; optional hillshade variance |
+| `testing/tools/harness/browser/browser.map2d.china/suite.json` | Pixel gate: road casing contrast; optional hillshade variance |
 | `docs/superpowers/industry-gap-matrix.md` | One-line M1 richness note when landed |
 
 ---
@@ -49,7 +49,7 @@ All rights reserved.
 - Modify: `src/vista/component/map/default_style.cc` (`road-casing` / `road` minzoom + colors)
 - Modify: `third_party/maplibre/example/style_align.json` (insert casing layer)
 - Test: `src/vista/component/map/map2d_test.cc` (layer order / zoom match)
-- Gate: `testing/tools/harness/map2d/map2d.china/map2d_china_loop.py` or existing china suite
+- Gate: `testing/tools/harness/browser/browser.map2d.china/` suite or existing china suite
 
 **Interfaces:**
 - Consumes: existing `default_carto_style_json()`, Style layer order in layout
@@ -123,7 +123,7 @@ Algorithm: finite-difference slope/aspect (Horn or equivalent) + Lambertian-ish 
 ### Task 5: Gates + docs
 
 **Files:**
-- Modify: `testing/tools/harness/map2d/map2d.china/map2d_china_loop.py` and/or suite JSON
+- Modify: `testing/tools/harness/browser/browser.map2d.china/suite.json`
 - Optional: `testing/tools/harness/_shared/case/align/maplibre_align.py` expectations
 - Modify: `docs/superpowers/industry-gap-matrix.md` (richness row)
 - Spec § already landed; tick plan checkboxes when done
@@ -145,14 +145,14 @@ Algorithm: finite-difference slope/aspect (Horn or equivalent) + Lambertian-ish 
 - Modify: `src/content/browser/present/map2d/frame/map2d_layout_build.cc` (`cat=bake` not `startup`)
 - Modify: `src/app/views/harness/showcase/map2d/present/fps_bench.cc` (echo bake sample)
 - Test: `dem_raster_test` / `land_mask_test` when `BAKE_BENCH=1`
-- Create: `testing/tools/harness/map2d/run_hillshade_bake_bench.py`
+- Create: `testing/tools/harness/browser/run_hillshade_bake_bench.py`
 
 Locked profile: `china_dem`, `max_edge=768`, illumination 335/32, exaggeration 0.5. CUDA optional.
 
 - [x] **Step 1:** Living § + HTML diagram + this checklist (no twin plan).
 - [x] **Step 2:** Instrument `bake_hillshade_slot` / `shade_dem_rgba` / `fill_lonlat_mask`; `cat=bake` spans.
 - [x] **Step 3:** Equal-profile bench in existing test exes + harness JSON/table under `captures/analysis/hillshade_bake/`.
-- [ ] **Step 4:** Run `py -3 testing/tools/harness/map2d/run_hillshade_bake_bench.py` on a machine with `china_dem` (and CUDA when `has_cuda`); paste table. Optional — agent loop / later.
+- [ ] **Step 4:** Run `py -3 testing/tools/harness/browser/run_hillshade_bake_bench.py` on a machine with `china_dem` (and CUDA when `has_cuda`); paste table. Optional — agent loop / later.
 
 ---
 

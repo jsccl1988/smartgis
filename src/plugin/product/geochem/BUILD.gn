@@ -2,15 +2,17 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//src/plugin/product/native_plugin.gni")
 import("//testing/test.gni")
 
 copy("geochem_resources") {
   sources = [
+    "manifest/plugin.json",
     "resources/analyze.ui.css",
     "resources/analyze.ui.xml",
     "resources/geochem.style.json",
   ]
-  outputs = [ "$root_out_dir/../plugins/geochem/{{source_file_part}}" ]
+  outputs = [ "$root_out_dir/plugins/geochem/{{source_file_part}}" ]
 }
 
 source_set("geochem_views") {
@@ -36,6 +38,13 @@ source_set("geochem_views") {
     "//third_party:gdal",
     "//third_party:rapidjson",
   ]
+  data_deps = [ ":geochem_resources" ]
+}
+
+native_plugin("geochem_native") {
+  package = "geochem"
+  entry = "dll_entry.cc"
+  deps = [ ":geochem_views" ]
   data_deps = [ ":geochem_resources" ]
 }
 

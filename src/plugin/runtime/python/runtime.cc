@@ -4,16 +4,20 @@
 #include "plugin/runtime/python/runtime.h"
 
 #include "content/public/plugin_host.h"
-#include "plugin/runtime/host/registry/registry.h"
+#include "plugin/runtime/host/catalog/registry.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
 
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <string>
+#include <vector>
 
 #if defined(HAS_PYTHON)
 #define PY_SSIZE_T_CLEAN
@@ -35,6 +39,8 @@ extern "C" PyObject* PyInit_smartgis();
 PyObject* make_python_host(content::PluginHost* host);
 void bind_python_host(content::PluginHost* host);
 void unbind_python_host();
+void set_python_load_directory(std::string_view directory);
+void drop_python_plugin_holds(std::string_view directory);
 #endif
 
 namespace {
@@ -84,31 +90,113 @@ bool init_cpython() {
     return false;
   }
 
+  PyConfig config;
+  PyConfig_InitIsolatedConfig(&config);
+  config.isolated = 1;
+  PyStatus status{};
+  std::wstring home_w;
+  std::wstring zip_w;
   if (!home.empty()) {
-    static std::wstring home_w;
     home_w = utf8_to_wide(home);
-    Py_SetPythonHome(home_w.c_str());
+    zip_w = utf8_to_wide(home + "/python312.zip");
+    status = PyConfig_SetString(&config, &config.home, home_w.c_str());
+    if (PyStatus_Exception(status)) {
+      PyConfig_Clear(&config);
+      return false;
+    }
+    status = PyWideStringList_Append(&config.module_search_paths, home_w.c_str());
+    if (!PyStatus_Exception(status)) {
+      status =
+          PyWideStringList_Append(&config.module_search_paths, zip_w.c_str());
+    }
+    if (PyStatus_Exception(status)) {
+      PyConfig_Clear(&config);
+      return false;
+    }
+    config.module_search_paths_set = 1;
   }
-  Py_InitializeEx(0);
-  if (!Py_IsInitialized()) {
+  status = Py_InitializeFromConfig(&config);
+  PyConfig_Clear(&config);
+  if (PyStatus_Exception(status) || !Py_IsInitialized()) {
     return false;
   }
   register_smartgis_bindings();
   return true;
 }
 
-PyObject* g_plugin_module = nullptr;
+std::map<std::string, PyObject*> g_plugin_modules;
 
-std::string module_name_from_entry(const std::string& entry) {
-  std::string name = entry;
-  const size_t slash = name.find_last_of("/\\");
-  if (slash != std::string::npos) {
-    name = name.substr(slash + 1);
+std::string unique_mod_name(const std::string& directory) {
+  const std::size_t h = std::hash<std::string>{}(directory);
+  char buf[40];
+  std::snprintf(buf, sizeof(buf), "sgplugin_%zu", h);
+  return buf;
+}
+
+void call_module_stop(PyObject* mod) {
+  if (!mod || !PyObject_HasAttrString(mod, "stop")) {
+    return;
   }
-  if (name.size() > 3 && name.substr(name.size() - 3) == ".py") {
-    name.resize(name.size() - 3);
+  PyObject* stop_fn = PyObject_GetAttrString(mod, "stop");
+  if (!stop_fn) {
+    return;
   }
-  return name.empty() ? "plugin" : name;
+  PyObject* r = PyObject_CallFunctionObjArgs(stop_fn, nullptr);
+  Py_XDECREF(r);
+  if (PyErr_Occurred()) {
+    PyErr_Print();
+  }
+  Py_DECREF(stop_fn);
+}
+
+void unload_plugin_module(const std::string& directory) {
+  auto it = g_plugin_modules.find(directory);
+  if (it == g_plugin_modules.end()) {
+    return;
+  }
+  call_module_stop(it->second);
+  Py_XDECREF(it->second);
+  g_plugin_modules.erase(it);
+  drop_python_plugin_holds(directory);
+}
+
+PyObject* import_entry_module(const std::string& directory,
+                              const std::string& file_utf8) {
+  PyObject* util = PyImport_ImportModule("importlib.util");
+  if (!util) {
+    PyErr_Print();
+    return nullptr;
+  }
+  const std::string name = unique_mod_name(directory);
+  PyObject* spec = PyObject_CallMethod(util, "spec_from_file_location", "ss",
+                                       name.c_str(), file_utf8.c_str());
+  if (!spec || spec == Py_None) {
+    Py_XDECREF(spec);
+    Py_DECREF(util);
+    PyErr_Print();
+    return nullptr;
+  }
+  PyObject* mod =
+      PyObject_CallMethod(util, "module_from_spec", "O", spec);
+  PyObject* loader = mod ? PyObject_GetAttrString(spec, "loader") : nullptr;
+  Py_DECREF(spec);
+  Py_DECREF(util);
+  if (!mod || !loader) {
+    Py_XDECREF(mod);
+    Py_XDECREF(loader);
+    PyErr_Print();
+    return nullptr;
+  }
+  PyObject* exec =
+      PyObject_CallMethod(loader, "exec_module", "O", mod);
+  Py_DECREF(loader);
+  if (!exec) {
+    Py_DECREF(mod);
+    PyErr_Print();
+    return nullptr;
+  }
+  Py_DECREF(exec);
+  return mod;
 }
 
 bool run_entry_and_start(const std::string& directory, const std::string& entry,
@@ -120,6 +208,10 @@ bool run_entry_and_start(const std::string& directory, const std::string& entry,
     return false;
   }
 
+  PyGILState_STATE gil = PyGILState_Ensure();
+  set_python_load_directory(directory);
+  unload_plugin_module(directory);
+
   PyObject* sys_path = PySys_GetObject("path");
   if (sys_path) {
     PyObject* p = PyUnicode_FromString(directory.c_str());
@@ -129,59 +221,57 @@ bool run_entry_and_start(const std::string& directory, const std::string& entry,
     }
   }
 
-  const std::string mod_name = module_name_from_entry(entry);
-  PyObject* modules = PyImport_GetModuleDict();
-  if (modules && PyDict_GetItemString(modules, mod_name.c_str())) {
-    PyDict_DelItemString(modules, mod_name.c_str());
-  }
-
-  PyObject* mod = PyImport_ImportModule(mod_name.c_str());
+  PyObject* mod = import_entry_module(directory, file.string());
   if (!mod) {
-    PyErr_Print();
+    set_python_load_directory({});
+    PyGILState_Release(gil);
     return false;
   }
-  Py_XDECREF(g_plugin_module);
-  g_plugin_module = mod;
+  g_plugin_modules[directory] = mod;
 
   bind_python_host(host);
   if (!PyObject_HasAttrString(mod, "start")) {
+    set_python_load_directory({});
+    PyGILState_Release(gil);
     return false;
   }
   PyObject* start_fn = PyObject_GetAttrString(mod, "start");
   if (!start_fn) {
+    set_python_load_directory({});
+    PyGILState_Release(gil);
     return false;
   }
   PyObject* host_obj = make_python_host(host);
   if (!host_obj) {
     Py_DECREF(start_fn);
+    set_python_load_directory({});
+    PyGILState_Release(gil);
     return false;
   }
   PyObject* result = PyObject_CallFunctionObjArgs(start_fn, host_obj, nullptr);
   Py_DECREF(host_obj);
   Py_DECREF(start_fn);
+  set_python_load_directory({});
   if (!result) {
     PyErr_Print();
+    unload_plugin_module(directory);
+    PyGILState_Release(gil);
     return false;
   }
   Py_DECREF(result);
+  PyGILState_Release(gil);
   return true;
 }
 
-void call_stop_if_any() {
-  if (g_plugin_module && PyObject_HasAttrString(g_plugin_module, "stop")) {
-    PyObject* stop_fn = PyObject_GetAttrString(g_plugin_module, "stop");
-    if (stop_fn) {
-      PyObject* r = PyObject_CallFunctionObjArgs(stop_fn, nullptr);
-      Py_XDECREF(r);
-      if (PyErr_Occurred()) {
-        PyErr_Print();
-      }
-      Py_DECREF(stop_fn);
-    }
+void unload_all_plugin_modules() {
+  std::vector<std::string> dirs;
+  dirs.reserve(g_plugin_modules.size());
+  for (const auto& kv : g_plugin_modules) {
+    dirs.push_back(kv.first);
   }
-  Py_XDECREF(g_plugin_module);
-  g_plugin_module = nullptr;
-  unbind_python_host();
+  for (const std::string& d : dirs) {
+    unload_plugin_module(d);
+  }
 }
 
 #else  // !HAS_PYTHON
@@ -215,7 +305,10 @@ bool PythonRuntime::init() {
 void PythonRuntime::shutdown() {
 #if defined(HAS_PYTHON)
   if (Py_IsInitialized()) {
-    call_stop_if_any();
+    PyGILState_STATE gil = PyGILState_Ensure();
+    unload_all_plugin_modules();
+    unbind_python_host();
+    PyGILState_Release(gil);
     Py_FinalizeEx();
   }
 #endif
@@ -244,8 +337,23 @@ bool PythonRuntime::start(std::string_view directory, std::string_view entry,
 void PythonRuntime::stop() {
 #if defined(HAS_PYTHON)
   if (Py_IsInitialized()) {
-    call_stop_if_any();
+    PyGILState_STATE gil = PyGILState_Ensure();
+    unload_all_plugin_modules();
+    PyGILState_Release(gil);
   }
+#endif
+}
+
+void PythonRuntime::stop(std::string_view directory) {
+#if defined(HAS_PYTHON)
+  if (!Py_IsInitialized() || directory.empty()) {
+    return;
+  }
+  PyGILState_STATE gil = PyGILState_Ensure();
+  unload_plugin_module(std::string(directory));
+  PyGILState_Release(gil);
+#else
+  (void)directory;
 #endif
 }
 
@@ -364,7 +472,7 @@ void bind_registry_python(Registry* registry, PythonRuntime* runtime) {
       [runtime](const PluginRecord& rec, content::PluginHost* host) {
         return runtime->start(rec.directory, rec.manifest.entry, host);
       },
-      [runtime](const PluginRecord&) { runtime->stop(); });
+      [runtime](const PluginRecord& rec) { runtime->stop(rec.directory); });
 }
 
 }  // namespace plugin

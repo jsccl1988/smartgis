@@ -9,35 +9,103 @@
 #include <vector>
 #include <windows.h>
 
+#include "app/views/browser/plugin/builtins.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "base/trace/event/process_trace.h"
 #include "content/public/plugin_host.h"
-#include "plugin/product/builtins.h"
 #include "plugin/runtime/host/capability/capability.h"
-#include "plugin/runtime/host/ui/manager_view.h"
-#include "plugin/runtime/host/resources/resource_roots.h"
+#include "plugin/runtime/host/native/manager.h"
+#include "plugin/runtime/host/native/scan.h"
 #include "plugin/runtime/host/processing/processing.h"
-#include "plugin/runtime/host/registry/registry.h"
+#include "plugin/runtime/host/catalog/registry.h"
+#include "plugin/runtime/host/catalog/resource_roots.h"
 #include "plugin/runtime/python/runtime.h"
 #include "tool/command/command.h"
-#include "ui/views/dialogs/dialog.h"
 #include "ui/views/kernel/paint/painter_registry.h"
 
 namespace app {
-namespace {
 
 std::string default_plugins_dir() {
   char path[MAX_PATH] = {};
-  // <exe_dir>/../plugins  (out/Debug → out/plugins)
-  if (!detail::exe_sidecar_path_a(path, MAX_PATH, "..\\plugins")) {
+  // <exe_dir>/plugins  (out/Debug/plugins or out/Release/plugins)
+  if (!detail::exe_sidecar_path_a(path, MAX_PATH, "plugins")) {
     return {};
   }
   return std::string(path);
 }
 
+namespace {
+
+bool command_owned_by(const plugin::PluginRecord& rec, std::string_view id) {
+  for (const plugin::CommandContrib& c : rec.manifest.contributes.commands) {
+    if (c.id == id) {
+      return true;
+    }
+  }
+  for (const plugin::ProcessingContrib& p :
+       rec.manifest.contributes.processing) {
+    if (p.id == id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool enable_command_owner(plugin::Registry* registry, content::PluginHost* host,
+                          std::string_view id) {
+  if (!registry || !host || id.empty()) {
+    return false;
+  }
+  for (const plugin::PluginRecord& rec : registry->list()) {
+    if (rec.trust == plugin::TrustClass::kDenied) {
+      continue;
+    }
+    if (!command_owned_by(rec, id)) {
+      continue;
+    }
+    if (rec.state == plugin::PluginState::kEnabled) {
+      return true;
+    }
+    return registry->set_enabled(rec.manifest.id, true, host);
+  }
+  return false;
+}
+
 }  // namespace
 
-PluginShell::PluginShell() = default;
+void peek_plugin_startup(const std::string& plugins_dir,
+                         std::string* scenario_id,
+                         std::string* plugin_present,
+                         std::string* atmosphere_fields) {
+  if (scenario_id) {
+    scenario_id->clear();
+  }
+  if (plugin_present) {
+    plugin_present->clear();
+  }
+  if (atmosphere_fields) {
+    atmosphere_fields->clear();
+  }
+  std::string root = plugins_dir.empty() ? default_plugins_dir() : plugins_dir;
+  if (root.empty()) {
+    return;
+  }
+  plugin::PluginStartupPeek peek{};
+  plugin::peek_plugins_dir_startup(root.c_str(), &peek);
+  if (scenario_id && peek.scenario[0]) {
+    *scenario_id = peek.scenario;
+  }
+  if (plugin_present && peek.present[0]) {
+    *plugin_present = peek.present;
+  }
+  if (atmosphere_fields && peek.fields[0]) {
+    *atmosphere_fields = peek.fields;
+  }
+}
+
+PluginShell::PluginShell()
+    : registry_(nullptr, &plugin::registry_delete),
+      manager_(nullptr, &plugin::plugin_manager_delete) {}
 
 PluginShell::~PluginShell() {
   shutdown();
@@ -52,7 +120,7 @@ void PluginShell::install_builtin_resource_roots() {
   if (root.empty()) {
     root = default_plugins_dir();
   }
-  plugin::install_product_resource_roots(root);
+  app::install_builtin_resource_roots(root);
 }
 
 void PluginShell::init_python() {
@@ -69,11 +137,14 @@ bool PluginShell::init(content::EventBus* events) {
   BASE_TRACE_EVENT("PluginShell.init.body", "startup");
   {
     BASE_TRACE_EVENT("PluginHost.create", "startup");
+    LOGGING(LOG_INFO, "startup: PluginShell CommandCatalog");
     catalog_ = std::make_unique<tool::CommandCatalog>();
+    LOGGING(LOG_INFO, "startup: PluginShell create_plugin_host");
     host_.reset(content::create_plugin_host(catalog_.get(), events, nullptr));
     if (!host_) {
       return false;
     }
+    LOGGING(LOG_INFO, "startup: PluginShell HostCapabilities");
     capabilities_ = std::make_unique<plugin::HostCapabilities>();
     capabilities_->attach(host_.get());
   }
@@ -83,7 +154,11 @@ bool PluginShell::init(content::EventBus* events) {
   });
   {
     BASE_TRACE_EVENT("PluginRegistry.setup", "startup");
-    registry_ = std::make_unique<plugin::Registry>();
+    LOGGING(LOG_INFO, "startup: PluginShell Registry");
+    registry_.reset(plugin::registry_new());
+    LOGGING(LOG_INFO, "startup: PluginShell PluginManager");
+    manager_.reset(plugin::plugin_manager_new(registry_.get()));
+    LOGGING(LOG_INFO, "startup: PluginShell ProcessingPool");
     pool_ = std::make_unique<plugin::ProcessingPool>(
         plugin::ProcessingMode::kThread);
     plugin::attach_host_processing(host_.get(), pool_.get());
@@ -105,6 +180,9 @@ void PluginShell::shutdown() {
   // Disable plugins before tearing host/registry. Guard against a half-inited
   // or already-freed registry (init failure → unique_ptr reset → ~PluginShell).
   if (registry_ && host_) {
+    if (manager_) {
+      manager_->destroy_all(host_.get());
+    }
     const std::vector<plugin::PluginRecord> records = registry_->list();
     for (const plugin::PluginRecord& rec : records) {
       if (rec.state == plugin::PluginState::kEnabled) {
@@ -119,6 +197,10 @@ void PluginShell::shutdown() {
     python_.reset();
   }
   pool_.reset();
+  if (registry_) {
+    registry_->set_native_starter({}, {}, {});
+  }
+  manager_.reset();
   if (capabilities_ && host_) {
     capabilities_->detach(host_.get());
   }
@@ -127,18 +209,6 @@ void PluginShell::shutdown() {
   registry_.reset();
   catalog_.reset();
   plugin::clear_resource_roots();
-}
-
-bool PluginShell::show_manager(HWND owner) {
-  if (!registry_ || !host_) {
-    return false;
-  }
-  (void)ensure_builtins();
-  auto body =
-      std::make_unique<plugin::ManagerView>(registry_.get(), host_.get());
-  body->refresh();
-  ui::views::Dialog::run_modal(owner, L"Plugins", 720, 420, std::move(body));
-  return true;
 }
 
 content::PluginHost* PluginShell::host() const {
@@ -173,6 +243,7 @@ bool PluginShell::run_processing(std::string_view processing_id,
     return false;
   }
   (void)ensure_builtins();
+  (void)enable_command_owner(registry_.get(), host_.get(), processing_id);
   // Enqueue on the utility pool, then drain here so callers see completed
   // MapScene mutations before continuing (showcase export / marks).
   if (!host_->run_processing(processing_id, args_json)) {
@@ -206,7 +277,18 @@ bool PluginShell::execute(std::string_view command_id,
     return false;
   }
   (void)ensure_builtins();
-  return host_->execute(command_id, args);
+  if (host_->execute(command_id, args)) {
+    return true;
+  }
+  if (enable_command_owner(registry_.get(), host_.get(), command_id) &&
+      host_->execute(command_id, args)) {
+    return true;
+  }
+  if (manager_ &&
+      manager_->dispatch_event(command_id, args.payload) > 0) {
+    return true;
+  }
+  return false;
 }
 
 bool PluginShell::ensure_python() {
@@ -243,8 +325,72 @@ bool PluginShell::start_builtins() {
   if (!registry_ || !host_) {
     return false;
   }
-  // Opaque product table — PluginShell must not name flood/traffic/… packs.
-  return plugin::register_builtin_plugins(registry_.get(), host_.get());
+  std::string root = plugins_dir_;
+  if (root.empty()) {
+    root = default_plugins_dir();
+  }
+  if (manager_) {
+    (void)manager_->scan_directory(root);
+  }
+  (void)app::register_builtin_plugins(registry_.get(), host_.get());
+  // Do not LoadLibrary every native pack here. Eight GDAL-linked plugin
+  // DLLs on debug CRT → STATUS_HEAP_CORRUPTION (0xC0000374) during product
+  // startup. Native init happens on execute / processing / catalog enable.
+  return true;
+}
+
+bool PluginShell::apply_startup() {
+  if (!ensure_builtins() || !registry_ || !host_) {
+    return false;
+  }
+  if (startup_applied_) {
+    return true;
+  }
+  startup_applied_ = true;
+
+  int best_viewport = 0;
+  int best_scenario = 0;
+  bool have_viewport = false;
+  bool have_scenario = false;
+  startup_viewport_.clear();
+  startup_scenario_.clear();
+
+  const std::vector<plugin::PluginRecord> rows = registry_->list();
+  for (const plugin::PluginRecord& rec : rows) {
+    if (rec.trust == plugin::TrustClass::kDenied) {
+      continue;
+    }
+    const plugin::ManifestStartup& st = rec.manifest.startup;
+    if (!st.activate) {
+      continue;
+    }
+    if (!st.viewport.empty() &&
+        (!have_viewport || st.priority > best_viewport)) {
+      have_viewport = true;
+      best_viewport = st.priority;
+      startup_viewport_ = st.viewport;
+    }
+    if (!st.scenario.empty() &&
+        (!have_scenario || st.priority > best_scenario)) {
+      have_scenario = true;
+      best_scenario = st.priority;
+      startup_scenario_ = st.scenario;
+    }
+    if (!st.commands.empty() || !st.seed.empty()) {
+      (void)registry_->set_enabled(rec.manifest.id, true, host_.get());
+    }
+    for (const std::string& cmd : st.commands) {
+      if (cmd.empty()) {
+        continue;
+      }
+      (void)host_->execute(cmd, tool::CommandArgs{});
+    }
+    if (!st.seed.empty()) {
+      const int face = st.viewport == "scene3d" ? 1 : 0;
+      (void)host_->present_dataset(rec.manifest.id, st.seed, face);
+    }
+  }
+  return true;
 }
 
 }  // namespace app

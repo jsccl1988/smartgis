@@ -244,6 +244,9 @@ bool TableView::on_mouse_event(const MouseEvent& e) {
       hovered_ = row;
       invalidate_row_cache();
       schedule_paint();
+      if (row_hover_) {
+        row_hover_(hovered_);
+      }
     }
     return false;
   }
@@ -273,6 +276,10 @@ bool TableView::on_mouse_event(const MouseEvent& e) {
 
 void TableView::set_row_click(std::function<void(int)> fn) {
   row_click_ = std::move(fn);
+}
+
+void TableView::set_row_hover(std::function<void(int)> fn) {
+  row_hover_ = std::move(fn);
 }
 
 void TableView::set_cell_activate(std::function<void(int, int)> fn) {

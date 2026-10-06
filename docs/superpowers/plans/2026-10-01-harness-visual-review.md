@@ -64,7 +64,7 @@ All rights reserved.
 - [x] Default: if `bmp` present and no block → reviewable (`enabled` effective true for `--review-prep`).
 - [x] After successful/attempted bmp score in `_score_round` / report path: when reviewable, write inspect PNG + review JSON (include score snapshot).
 - [x] `--review-prep`: force rounds=1, run suite (or reuse last bmp with `--bmp` + emit only), print paths to inspect + review JSON; exit non-zero only on run/score hard fail (not on “bugs pending”).
-- [x] Smoke: `py -3 testing/tools/loop_runner.py --suite map2d.china --review-prep --no-build` (or stormsurge) produces inspect + JSON under `out/Debug/captures/`.
+- [x] Smoke: `py -3 testing/tools/loop_runner.py --suite browser.map2d.china --review-prep --no-build` (or stormsurge) produces inspect + JSON under `out/Debug/captures/`.
 
 ---
 
@@ -72,8 +72,8 @@ All rights reserved.
 
 **Files:**
 - Modify: `testing/tools/harness/plugin/plugin.stormsurge/suite.json`
-- Modify: `testing/tools/harness/atmosphere/atmosphere.full/suite.json`
-- Modify: `testing/tools/harness/map2d/map2d.china/suite.json`
+- Modify: `testing/tools/harness/browser/browser.world3d.full/suite.json`
+- Modify: `testing/tools/harness/browser/browser.map2d.china/suite.json`
 - Modify: primary `plugin.*` showcase `suite.json` files that already define `bmp` (world3d, mine, geochem, flood, traffic, orthogrid, orthogrid3d, print, report as present)
 
 - [x] Add `"visual_review": { "enabled": true, "checklist": [...], "expect_notes": "..." }` with product-specific checklist hints (e.g. stormsurge: water contrast; atmosphere: sky/cloud; map2d: coast/roads).
@@ -112,7 +112,7 @@ All rights reserved.
 
 - [x] `legacy.browse.2d` / `legacy.browse.3d` — zoom/pan/black-frame checklist.
 - [x] `ui.shell` / `ui.catalog` / `ui.data` / `ui.scene` / `ui.interact` / `ui.interact.os` — chrome readability / collapse / dark theme.
-- [x] `atmosphere.legacy`, `legacy.map2d.china`, `legacy.scene3d.china` (+ `.d3d`), `map2d.orthogrid`.
+- [x] `browser.world3d.legacy`, `browser.map2d.orthogrid`.
 - [x] Skip marks-only suites (`browse`, `browse.3d`, `plugin.report`, `ui.interact.smoke` / `.combo`).
 
 ### Task 6: real `--review-prep` + bug tables

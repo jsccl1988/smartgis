@@ -3,9 +3,15 @@
   "name": "DEM洪水淹没",
   "version": "1.0.0",
   "api_version": 2,
-  "kind": "builtin",
+  "kind": "native",
+  "library": "flood.dll",
   "author": "The Mogu Authors",
   "description": "Load DEM and run inundation flood fill with optional animation frames",
+  "startup": {
+    "activate": true,
+    "viewport": "map2d",
+    "priority": 10
+  },
   "contributes": {
     "commands": [
       {"id": "flood.inundate", "title": "洪水淹没分析", "menu": "tools"},

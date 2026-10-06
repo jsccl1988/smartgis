@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from . import list_suite_ids, load_suite, run_suite
+from .gate import GATE_SUITE_IDS, run_product_gate
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -19,6 +20,11 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     parser.add_argument("--suite", help="suite id (see --list)")
+    parser.add_argument(
+        "--gate",
+        action="store_true",
+        help="product runtime gate: gpu PE --self-test then SmartGIS --harness",
+    )
     parser.add_argument("--list", action="store_true", help="list suite ids")
     parser.add_argument("--no-build", action="store_true")
     parser.add_argument("--rounds", type=int, default=None)
@@ -122,8 +128,16 @@ def main(argv: list[str] | None = None) -> int:
         for sid in list_suite_ids():
             print(sid)
         return 0
+    if args.gate:
+        print("gate suites: " + ", ".join(GATE_SUITE_IDS), flush=True)
+        return run_product_gate(
+            no_build=args.no_build,
+            rounds=args.rounds if args.rounds is not None else 1,
+            timeout_sec=args.timeout,
+            config=args.out,
+        )
     if not args.suite:
-        parser.error("--suite is required (or pass --list / --record-il)")
+        parser.error("--suite is required (or pass --list / --gate / --record-il)")
 
     suite = load_suite(args.suite)
     return run_suite(

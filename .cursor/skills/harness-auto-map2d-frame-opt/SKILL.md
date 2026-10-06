@@ -81,10 +81,10 @@ Artifacts (typical):
 
 | Artifact | Role |
 | --- | --- |
-| `out/Debug/captures/map2d/map2d-showcase-china.bmp` (+ `.inspect.png`) | Visual gate |
-| `out/Debug/captures/map2d/map2d-fps-bench.txt` | mean/peak FPS · layout_builds · gpu_skip/full · action_* |
+| `out/Debug/captures/browser/map2d-showcase-china.bmp` (+ `.inspect.png`) | Visual gate |
+| `out/Debug/captures/browser/map2d-fps-bench.txt` | mean/peak FPS · layout_builds · gpu_skip/full · action_* |
 | stderr `map2d-showcase: phase_*` / `present_gpu_warm_ms` | Phase clocks |
-| Matrix CSV (optional A/B) | `out/Debug/captures/map2d/matrix/parallel_port_matrix_with_src_render.csv` |
+| Matrix CSV (optional A/B) | `out/Debug/captures/browser/matrix/parallel_port_matrix_with_src_render.csv` |
 
 ## Workflow
 
@@ -182,7 +182,7 @@ Debug china 1280×720:
 - Matrix sibling: `.cursor/skills/harness-auto-map2d-opt/SKILL.md`
 - Scene3d frame sibling: `.cursor/skills/harness-auto-scene3d-frame-opt/SKILL.md`
 - Visual review: `.cursor/skills/harness-visual-review/SKILL.md`
-- FPS bench: `src/app/views/harness/showcase/map2d/present/fps_bench.*`
+- FPS bench: `src/plugin/product/map2d/scenario/fps_bench.*`
 - Phase clocks: `src/content/browser/present/map2d/map2d_phase_profile.*`
-- Bake profile (CPU vs Thrust): `testing/tools/harness/map2d/run_hillshade_bake_bench.py`
+- Bake profile (CPU vs Thrust): `testing/tools/harness/browser/run_hillshade_bake_bench.py`
 - Detail: [reference.md](reference.md)

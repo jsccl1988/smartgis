@@ -3,9 +3,15 @@
   "name": "地球化学分析",
   "version": "1.0.0",
   "api_version": 2,
-  "kind": "builtin",
+  "kind": "native",
+  "library": "geochem.dll",
   "author": "The Mogu Authors",
   "description": "Sample-point graded colors, IDW anomaly surface, and stats panel",
+  "startup": {
+    "activate": true,
+    "viewport": "map2d",
+    "priority": 0
+  },
   "contributes": {
     "commands": [
       {"id": "geochem.analyze", "title": "地球化学分析", "menu": "tools"},

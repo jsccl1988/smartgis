@@ -3,9 +3,15 @@
   "name": "风暴潮淹没",
   "version": "1.1.0",
   "api_version": 2,
-  "kind": "builtin",
+  "kind": "native",
+  "library": "stormsurge.dll",
   "author": "The Mogu Authors",
   "description": "DEM + coast + tide → inundation + P2 disaster stats (native.storm_surge / native.storm_surge_stats)",
+  "startup": {
+    "activate": true,
+    "viewport": "scene3d",
+    "priority": 0
+  },
   "contributes": {
     "commands": [
       {"id": "stormsurge.run", "title": "风暴潮淹没分析", "menu": "tools"},

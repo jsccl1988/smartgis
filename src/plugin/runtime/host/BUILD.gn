@@ -2,9 +2,9 @@
 # All rights reserved.
 
 # Plugin host / shared runtime DLL (dll_stem = plugin_host).
-# Role subdirs: registry / manifest / store / signature / processing /
-# resources / ui / tests / capability / present. Export macro stays at host
-# root. Capability facades nest under capability/{scene3d,report}; GisDocument
+# Role subdirs: catalog / native / capability / processing / present / ui /
+# tests. Export macro stays at host root. One-file capability facades sit
+# beside capability.h (including HarnessShell / scenario / marks). GisDocument
 # helpers stay in present/.
 # Product *_views stay source_sets (Phase-2 per-stem DLLs later).
 
@@ -20,30 +20,45 @@ config("plugin_host_config") {
 
 source_set("host_sources") {
   sources = [
-    "manifest/manifest.cc",
-    "manifest/manifest.h",
     "plugin_host_export.h",
+    "catalog/manifest.cc",
+    "catalog/manifest.h",
+    "catalog/official_key.h",
+    "catalog/registry.cc",
+    "catalog/registry.h",
+    "catalog/resource_roots.cc",
+    "catalog/resource_roots.h",
+    "catalog/signature.cc",
+    "catalog/signature.h",
+    "catalog/signature_test_key.h",
+    "catalog/store.cc",
+    "catalog/store.h",
+    "native/exports.h",
+    "native/manager.cc",
+    "native/manager.h",
+    "native/module.cc",
+    "native/module.h",
+    "native/scan.cc",
+    "native/scan.h",
+    "capability/capability.h",
+    "capability/marks.h",
+    "capability/scenario.cc",
+    "capability/scenario.h",
+    "capability/shell.h",
+    "capability/map2d_sink.cc",
+    "capability/map2d_sink.h",
+    "capability/report_bridge.cc",
+    "capability/report_bridge.h",
+    "capability/scene3d_sink.cc",
+    "capability/scene3d_sink.h",
+    "capability/shell_ui.cc",
+    "capability/shell_ui.h",
+    "present/gis_present.cc",
+    "present/gis_present.h",
     "processing/operation_result.cc",
     "processing/operation_result.h",
     "processing/processing.cc",
     "processing/processing.h",
-    "capability/capability.h",
-    "capability/report/bridge.cc",
-    "capability/report/bridge.h",
-    "capability/scene3d/sink.cc",
-    "capability/scene3d/sink.h",
-    "present/gis_present.cc",
-    "present/gis_present.h",
-    "registry/registry.cc",
-    "registry/registry.h",
-    "resources/resource_roots.cc",
-    "resources/resource_roots.h",
-    "signature/official_key.h",
-    "signature/signature.cc",
-    "signature/signature.h",
-    "signature/signature_test_key.h",
-    "store/store.cc",
-    "store/store.h",
     "ui/manager_view.cc",
     "ui/manager_view.h",
   ]
@@ -53,6 +68,7 @@ source_set("host_sources") {
     "//src/base:foundation",
     "//src/base:core",
     "//src/content:content",
+    "//src/content:capability",
     "//src/net:net",
     "//src/tool:dispatch",
     "//src/ui/views:views",
@@ -67,7 +83,7 @@ product_shared_library("host") {
   defines = [ "PLUGIN_HOST_EXPORTS" ]
   deps = [
     ":host_sources",
-    "//src/plugin/runtime/browser:browser_sources",
+    "//src/plugin/runtime/web:web_sources",
     "//src/plugin/runtime/widgets:widgets_sources",
   ]
   public_deps = [
@@ -85,11 +101,20 @@ test("plugin_host_test") {
   deps = [
     ":host",
     "//src/plugin/product/world3d:world3d_views",
-    "//src/plugin/product/print:print_views",
+    "//src/plugin/product/map2d:map2d_views",
     "//third_party:cpp_httplib",
   ]
   data_deps = [
     "//third_party:gdal_runtime_dlls",
   ]
   libs += [ "ws2_32.lib" ]
+}
+
+test("plugin_manager_test") {
+  output_name = "plugin_manager_test"
+  sources = [ "tests/manager_test.cc" ]
+  include_dirs += [ "//src" ]
+  # Same module as scan_plugins_dir (do not import std::vector<DiscoveredPlugin>
+  # from plugin_host.dll — debug STL is not a DLL ABI).
+  deps = [ ":host_sources" ]
 }

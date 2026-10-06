@@ -62,7 +62,7 @@ All rights reserved.
 ### Task 3 — Plugin showcase Earth path
 
 **Files:**
-- Modify: `src/app/views/harness/showcase/plugin/plugin_showcase.cc`
+- Modify: `src/plugin/product/world3d/scenario/product/world3d.cc`
 - Create: `src/plugin/product/world3d/README.md`
 
 - [x] Step 1: Showcase uses atmosphere product defaults (not land-only off) + DEM orbit + pointcloud overlay

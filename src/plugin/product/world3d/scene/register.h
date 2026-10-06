@@ -11,7 +11,8 @@ class PluginHost;
 namespace plugin {
 namespace detail {
 
-// True-Earth scene ops plus leftover model3d.* aliases.
+// Package scene façade: DEM / ortho / hex + True-Earth / model3d / pointcloud
+// + Atmosphere dock.
 bool register_world3d_scene(content::PluginHost* host);
 
 }  // namespace detail

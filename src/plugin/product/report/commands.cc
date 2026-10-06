@@ -74,32 +74,65 @@ bool process_post(content::PluginHost* host, std::string_view args_json) {
   return true;
 }
 
+bool process_scenario(content::PluginHost* host, std::string_view args_json) {
+  if (!process_open(host, args_json)) {
+    return false;
+  }
+  constexpr const char* kSeries =
+      "{\"series\":[{\"label\":\"X\",\"value\":22},{\"label\":\"Y\",\"value\":41},"
+      "{\"label\":\"Z\",\"value\":15}]}";
+  return process_post(host, kSeries);
+}
+
 }  // namespace
 
 bool register_report(content::PluginHost* host) {
   if (!host) {
     return false;
   }
+  tool::CommandCatalog* catalog = host->commands();
+  if (catalog && catalog->contains("report.scenario.showcase")) {
+    return true;
+  }
+  const bool have_open = catalog && catalog->contains("report.open");
+  if (!have_open) {
+    if (!host->contribute_command(
+            kPluginId, "report.open", "打开报告", "tools",
+            [host](const tool::CommandArgs& args) {
+              return process_open(host, args.payload);
+            })) {
+      return false;
+    }
+    if (!host->contribute_command(
+            kPluginId, "report.post", "推送报告数据", "tools",
+            [host](const tool::CommandArgs& args) {
+              return process_post(host, args.payload);
+            })) {
+      return false;
+    }
+  }
   if (!host->contribute_command(
-          kPluginId, "report.open", "打开报告", "tools",
+          kPluginId, "report.scenario.showcase", "Harness report scenario",
+          "tools",
           [host](const tool::CommandArgs& args) {
-            return process_open(host, args.payload);
+            return process_scenario(host, args.payload);
           })) {
     return false;
   }
-  if (!host->contribute_command(
-          kPluginId, "report.post", "推送报告数据", "tools",
-          [host](const tool::CommandArgs& args) {
-            return process_post(host, args.payload);
-          })) {
-    return false;
+  if (!have_open) {
+    if (!host->contribute_processing(
+            kPluginId, {"report.open", "Open local HTML report directory"},
+            process_open) ||
+        !host->contribute_processing(
+            kPluginId, {"report.post", "Post JSON to the report dock"},
+            process_post)) {
+      return false;
+    }
   }
   return host->contribute_processing(
-             kPluginId, {"report.open", "Open local HTML report directory"},
-             process_open) &&
-         host->contribute_processing(
-             kPluginId, {"report.post", "Post JSON to the report dock"},
-             process_post);
+      kPluginId,
+      {"report.scenario.showcase", "Open sample report and post series"},
+      process_scenario);
 }
 
 }  // namespace plugin

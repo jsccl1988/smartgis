@@ -6,223 +6,17 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
 import time
 from pathlib import Path
 
-from . import build as build_mod
-from . import process as process_mod
-from .gates import (
-    _score_click_gate,
-    _score_fps_gate,
-    _score_motion_gate,
-    _score_round,
-    _score_zoom_gate,
-)
-from .os_drive import _run_os_process
-from .record.hwnd import HwndRecorder, record_enabled
-from .review.emit_review import emit_visual_review
+from .contract import ROOT, Suite
+from .drive.build import build_debug
+from .drive.execute import execute_round
+from .drive.prep import kill_round, unlink_stale_probes, wait_exe_ready
+from .review.emit_review import maybe_emit_visual_review
 from .score.bmp import score_bmp
 from .score.marks import read_mark_text
-from .suite import ROOT, Suite
-
-
-def _maybe_emit_visual_review(
-    suite: Suite,
-    *,
-    config: str,
-    result: dict,
-    bmp_path: Path | None,
-    force: bool = False,
-) -> Path | None:
-    """Write inspect PNG + pending review JSON when suite is reviewable."""
-    if not force and not suite.is_reviewable():
-        return None
-    if suite.bmp is None:
-        return None
-    score = result.get("bmp") if isinstance(result.get("bmp"), dict) else None
-    if score is None and isinstance(result.get("gates"), dict) and "ok" in result:
-        # --bmp / review-prep reuse path: score_bmp dict is the result itself.
-        score = {
-            k: v
-            for k, v in result.items()
-            if k
-            not in (
-                "suite",
-                "visual_review",
-                "round",
-                "driver",
-                "t_ms",
-                "steps",
-                "os_inject",
-                "record",
-                "record_path",
-                "bmp_age_s",
-                "marks",
-                "missing",
-                "error",
-                "rc_forgiven",
-                "showcase_rc",
-            )
-        }
-    try:
-        path = emit_visual_review(
-            suite,
-            config=config,
-            score=score,
-            status="pending",
-            bmp_path=bmp_path,
-            write_inspect=True,
-        )
-    except Exception as exc:  # noqa: BLE001
-        print(f"warn: visual_review emit failed ({exc})", flush=True)
-        return None
-    result["visual_review"] = {
-        "path": str(path),
-        "status": "pending",
-        "inspect_png": (bmp_path.stem + ".inspect.png") if bmp_path else "",
-    }
-    print(f"visual_review: {path}", flush=True)
-    return path
-
-
-
-def _kill(suite: Suite) -> None:
-    if suite.kill_showcase:
-        try:
-            from .kill import kill_showcase_apps
-
-            # 4s: OpenGL ICD needs settle after TerminateProcess / taskkill
-            # or the next scene3d round exits early with empty marks / bmp_missing.
-            settle = 4.0
-            sid = suite.id if suite else ""
-            if sid.startswith("plugin."):
-                # After any plugin showcase the GPU ICD needs extra settle or
-                # the next round exits in ~1s with empty marks / bmp_missing.
-                settle = 8.0
-            kill_showcase_apps(settle_sec=settle)
-        except Exception as exc:  # noqa: BLE001
-            print(f"warn: kill_showcase failed ({exc}); falling back", flush=True)
-    # Always clear the suite image — kill_showcase only matches marker argv;
-    # bare SmartGIS-Legacy.exe leftovers race OS-inject HWND bind / DelayInit.
-    process_mod.kill_exe(suite.exe_name)
-
-
-
-def _wait_exe_ready(suite: Suite, *, config: str) -> bool:
-    try:
-        from .kill import wait_exe_ready
-
-        exe = suite.exe_path(config)
-        if not exe.is_file():
-            return False
-        ok = wait_exe_ready(exe, timeout_sec=90.0)
-        if not ok:
-            print(f"warn: exe not ready within timeout: {exe}", flush=True)
-        return ok
-    except Exception as exc:  # noqa: BLE001
-        print(f"warn: wait_exe_ready failed ({exc})", flush=True)
-        return suite.exe_path(config).is_file()
-
-
-
-def _prepare_env(suite: Suite) -> dict[str, str]:
-    env = process_mod.merge_env(suite.env)
-    env["HARNESS_SUITE"] = suite.id
-    # Parent shells often leave FORCE_GDI_* set from prior self-test /
-    # map2d runs; that forces views-scene3d.gdi and breaks 3D suites.
-    # Also drop map2d matrix bench flags so map2d.china review-prep does not
-    # inherit MAP2D_SHOWCASE_GPU=1 and crash before writing the BMP.
-    for key in (
-        "FORCE_GDI_MAP_OVERLAY",
-        "FORCE_CONTENT_MAPVIEW_2D",
-        "PREFER_FLYCUBE_2D",
-        "PREFER_GDI_DEVICE",
-        "MAP2D_SHOWCASE_GPU",
-        "MAP2D_EXPORT_REUSE",
-        "MAP2D_FPS_BENCH_MS",
-        "MAP2D_ENGINE",
-        "MAP2D_NO_HILLSHADE",
-        # Parent matrix shells leave scenic / world3d bare / wireframe on;
-        # that yields red-ball HWND BMPs and flat PERF_BARE disks for product
-        # suites that expect FlyCube + full materials / GDI carto.
-        "SCENE3D_ENGINE",
-        "SCENE3D_WIREFRAME",
-        "PLUGIN_WORLD3D_PERF_BARE",
-    ):
-        env.pop(key, None)
-    # Suite.env wins (re-apply after scrub).
-    for key, value in suite.env.items():
-        env[str(key)] = str(value)
-    # browse.3d / ui.scene need FlyCube present pixels. browse (2D) uses the
-    # product ContentMapView + GDI overlay face (browser_main bare/browse-2d) —
-    # do not force FlyCube here or shell BitBlt records a black clip-children hole.
-    if suite.id in ("browse.3d", "ui.scene"):
-        env["FORCE_CONTENT_MAPVIEW_2D"] = "0"
-        env["PREFER_FLYCUBE_2D"] = "1"
-        env["FORCE_GDI_MAP_OVERLAY"] = "0"
-        env["SCENE3D_ENGINE"] = "flycube"
-    elif suite.id == "browse":
-        env["FORCE_CONTENT_MAPVIEW_2D"] = "1"
-        env["PREFER_FLYCUBE_2D"] = "0"
-        env["FORCE_GDI_MAP_OVERLAY"] = "1"
-    # Suite JSON is SoT after parent-matrix scrub + id defaults. ui.interact
-    # pins MAP2D_ENGINE=vista / SCENE3D_ENGINE=flycube — do not clobber.
-    for key, value in suite.env.items():
-        env[str(key)] = str(value)
-    script = suite.script_path()
-    if script is not None and script.is_file():
-        env["UI_INTERACT_SCRIPT"] = str(script.resolve())
-    if suite.driver == "os":
-        env["UI_INTERACT_DRIVER"] = "os"
-        env.setdefault("UI_INTERACT_OS_WAIT_MS", "8000")
-        # Capture after OS inject window; linger not needed.
-        env.setdefault("UI_SHOWCASE_LINGER_MS", "0")
-    return env
-
-
-
-def _run_inproc_process(
-    suite: Suite, *, exe: Path, out: Path, env: dict[str, str], timeout: int
-) -> int:
-    cmd = [str(exe), *suite.argv]
-    run_env = env
-    if process_mod.is_views_exe(suite.exe_name):
-        run_env, extra = process_mod.peel_product_switches(env)
-        cmd.extend(extra)
-    return process_mod.run_process(
-        cmd,
-        cwd=out,
-        env=run_env,
-        timeout_sec=timeout,
-        kill_image=suite.exe_name,
-    )
-
-
-
-def _attach_recorder(
-    suite: Suite, *, env: dict[str, str], captures: Path
-) -> HwndRecorder | None:
-    if not record_enabled(env):
-        return None
-    fps = 10.0
-    raw_fps = str(env.get("HARNESS_RECORD_FPS", "")).strip()
-    if raw_fps:
-        try:
-            fps = float(raw_fps)
-        except ValueError:
-            fps = 10.0
-    rec = HwndRecorder(
-        captures_dir=captures,
-        suite_id=suite.id,
-        title_substr=suite.window_title,
-        fps=fps,
-        find_timeout_sec=min(45.0, float(suite.timeout_sec)),
-        env=env,
-    )
-    return rec
-
+from .score.round import _score_round, attach_runtime_gates
 
 
 def run_suite(
@@ -256,7 +50,7 @@ def run_suite(
         last = score_bmp(path, suite.bmp.score_id)
         last["suite"] = suite.id
         if review_prep or suite.is_reviewable():
-            _maybe_emit_visual_review(
+            maybe_emit_visual_review(
                 suite, config=config, result=last, bmp_path=path, force=review_prep
             )
         report.write_text(json.dumps(last, indent=2), encoding="utf-8")
@@ -274,7 +68,6 @@ def run_suite(
         print(f"FAIL {suite.id} visual gates", flush=True)
         return 1
 
-    # --review-prep with existing capture: skip exe if BMP already present.
     if review_prep and not force_run and suite.bmp is not None:
         existing = suite.bmp_path(config)
         if (
@@ -308,9 +101,9 @@ def run_suite(
 
     for round_i in range(1, n_rounds + 1):
         print(f"\n=== {suite.id} loop round {round_i}/{n_rounds} ===", flush=True)
-        _kill(suite)
+        kill_round(suite)
         if not no_build:
-            if build_mod.build_debug(ROOT, suite.build_target) != 0:
+            if build_debug(ROOT, suite.build_target) != 0:
                 print("BUILD failed — retry next round", flush=True)
                 last = {"ok": False, "round": round_i, "error": "build_failed"}
                 report.write_text(json.dumps(last, indent=2), encoding="utf-8")
@@ -322,123 +115,36 @@ def run_suite(
             report.write_text(json.dumps(last, indent=2), encoding="utf-8")
             time.sleep(2.0)
             continue
-        if not _wait_exe_ready(suite, config=config):
+        if not wait_exe_ready(suite, config=config):
             last = {"ok": False, "round": round_i, "error": "exe_busy"}
             report.write_text(json.dumps(last, indent=2), encoding="utf-8")
             time.sleep(2.0)
             continue
 
-        if mark is not None and mark.exists():
-            try:
-                mark.unlink()
-            except OSError:
-                pass
-        if bmp is not None and bmp.exists() and not (review_prep and not force_run):
-            try:
-                bmp.unlink()
-            except OSError as exc:
-                print(f"warn: could not delete stale BMP: {exc}", flush=True)
-
-        env = _prepare_env(suite)
-        run_exe = exe
-        private_lock = None
-        scenic_env = (
-            env.get("MAP2D_ENGINE", "").lower() == "scenic"
-            or env.get("SCENE3D_ENGINE", "").lower() == "scenic"
-            or os.environ.get("HARNESS_PRIVATE_EXE", "").strip() in (
-                "1",
-                "on",
-                "true",
-                "yes",
-            )
+        unlink_stale_probes(
+            suite,
+            mark=mark,
+            bmp=bmp,
+            review_prep=review_prep,
+            force_run=force_run,
         )
-        if scenic_env and suite.exe_name.lower().startswith("smartgisviews"):
-            try:
-                from .private_runtime import (
-                    acquire_run_lock,
-                    prepare_private_views_exe,
-                    release_run_lock,
-                    with_private_path,
-                )
-
-                private_lock = out.parent / "scratch" / "scenic_review.lock"
-                if acquire_run_lock(private_lock, timeout_sec=180.0):
-                    private = prepare_private_views_exe(
-                        out, tag="scenic_review", exe_name=suite.exe_name
-                    )
-                    if private is not None:
-                        run_exe = private
-                        env = with_private_path(env, out, private)
-                        print(f"private runtime: {run_exe}", flush=True)
-                else:
-                    print("warn: scenic private lock busy; using live exe", flush=True)
-                    private_lock = None
-            except Exception as exc:  # noqa: BLE001
-                print(f"warn: private runtime skipped ({exc})", flush=True)
-                private_lock = None
 
         started = time.time()
-        inject_report: dict | None = None
-        record_report: dict | None = None
-        # Record stays at captures/record/ (not under scenario family).
-        recorder = _attach_recorder(suite, env=env, captures=captures_root)
-        try:
-            if suite.driver == "os":
-                rc, inject_report, record_report = _run_os_process(
-                    suite,
-                    exe=run_exe,
-                    out=out,
-                    env=env,
-                    timeout=timeout,
-                    recorder=recorder,
-                    bmp_path=bmp,
-                    captures_root=captures_root,
-                )
-            else:
-                # Inproc: Popen so the recorder binds this PID, then wait until
-                # the shell HWND is stable (not Widget.init).
-                cmd = [str(run_exe), *suite.argv]
-                run_env = env
-                if process_mod.is_views_exe(suite.exe_name):
-                    run_env, extra = process_mod.peel_product_switches(env)
-                    cmd.extend(extra)
-                print("RUN:", " ".join(cmd), flush=True)
-                proc = subprocess.Popen(cmd, cwd=str(out), env=run_env)
-                rec_thread = None
-                if recorder is not None:
-                    recorder.bind_target_pid(int(proc.pid))
-                    import threading
-
-                    def _bg_record() -> None:
-                        nonlocal record_report
-                        record_report = recorder.start_after_hwnd(wait_for_hwnd=True)
-
-                    rec_thread = threading.Thread(target=_bg_record, daemon=True)
-                    rec_thread.start()
-                try:
-                    rc = proc.wait(timeout=timeout)
-                except subprocess.TimeoutExpired:
-                    process_mod.kill_exe(suite.exe_name)
-                    rc = 124
-                finally:
-                    # Join record start first — stop() before start_after_hwnd
-                    # finishes left mode=none hwnd=0 (browse motion_gate blind).
-                    if rec_thread is not None:
-                        rec_thread.join(timeout=8.0)
-                    if recorder is not None:
-                        record_report = recorder.stop()
-        finally:
-            if private_lock is not None:
-                try:
-                    from .private_runtime import release_run_lock
-
-                    release_run_lock(private_lock)
-                except Exception:  # noqa: BLE001
-                    pass
-
+        executed = execute_round(
+            suite,
+            exe=exe,
+            out=out,
+            timeout=timeout,
+            bmp_path=bmp,
+            captures_root=captures_root,
+        )
         mark_text = read_mark_text(mark)
         last = _score_round(
-            suite, rc=rc, mark_text=mark_text, bmp_path=bmp, started=started
+            suite,
+            rc=executed.rc,
+            mark_text=mark_text,
+            bmp_path=bmp,
+            started=started,
         )
         last["round"] = round_i
         last["driver"] = suite.driver
@@ -447,138 +153,18 @@ def run_suite(
             {"op": "suite_start", "t_ms": 0},
             {"op": "suite_end", "t_ms": last["t_ms"]},
         ]
-        if inject_report is not None:
-            last["os_inject"] = inject_report
-            last["gates"]["os_inject_ok"] = bool(inject_report.get("ok"))
-            if not inject_report.get("ok"):
-                last["ok"] = False
-            if "t_ms" in inject_report:
-                last["steps"].insert(
-                    1,
-                    {
-                        "op": "os_inject",
-                        "t_ms": int(inject_report.get("t_ms") or 0),
-                        "ok": bool(inject_report.get("ok")),
-                    },
-                )
-            if suite.zoom_gate is not None:
-                # Do not score leftover before/after BMPs when this round never
-                # captured zoom sidecars (hwnd_timeout / crash before inject).
-                zoom_cap = (
-                    inject_report.get("zoom_capture")
-                    if isinstance(inject_report, dict)
-                    else None
-                )
-                if not isinstance(zoom_cap, dict):
-                    zg = {
-                        "ok": False,
-                        "error": "zoom_not_captured_this_run",
-                        "min_pixel_diff_frac": suite.zoom_gate.min_pixel_diff_frac,
-                        "thresh": suite.zoom_gate.thresh,
-                    }
-                else:
-                    zg = _score_zoom_gate(
-                        suite,
-                        captures_root=captures_root,
-                        inject_report=inject_report,
-                    )
-                last["zoom_gate"] = zg
-                last["gates"]["zoom_pixel_diff"] = bool(zg.get("ok"))
-                if not zg.get("ok"):
-                    last["ok"] = False
-                    print(
-                        f"FAIL {suite.id} zoom_gate "
-                        f"{zg.get('error') or ('pixel_diff_frac=' + str(zg.get('pixel_diff_frac')))} "
-                        f"(min={suite.zoom_gate.min_pixel_diff_frac})",
-                        flush=True,
-                    )
-                else:
-                    print(
-                        f"PASS {suite.id} zoom_gate pixel_diff_frac="
-                        f"{zg.get('pixel_diff_frac')}",
-                        flush=True,
-                    )
-            if suite.click_gate is not None and suite.click_gate.enabled:
-                cg = _score_click_gate(
-                    suite,
-                    captures_root=captures_root,
-                    inject_report=inject_report
-                    if isinstance(inject_report, dict)
-                    else {},
-                )
-                last["click_gate"] = cg
-                last["gates"]["click_ok"] = bool(cg.get("ok"))
-                if not cg.get("ok"):
-                    last["ok"] = False
-                    print(
-                        f"FAIL {suite.id} click_gate "
-                        f"{cg.get('error') or cg}",
-                        flush=True,
-                    )
-                else:
-                    print(
-                        f"PASS {suite.id} click_gate clicks={cg.get('clicks')} "
-                        f"dblclicks={cg.get('dblclicks')}",
-                        flush=True,
-                    )
-        if record_report is not None:
-            last["record"] = record_report
-            if record_report.get("record_path"):
-                last["record_path"] = record_report["record_path"]
-            # Recording is optional: missing ffmpeg / hwnd skip must not fail gates.
-            last["gates"]["record_soft_ok"] = record_report.get("mode") != "none"
-            # Hard motion gate only when this round actually recorded frames.
-            if (
-                suite.motion_gate is not None
-                and record_enabled(env)
-                and str(record_report.get("mode") or "").startswith(
-                    ("bmp_burst", "ffmpeg")
-                )
-            ):
-                mg = _score_motion_gate(suite, record_report=record_report)
-                last["motion_gate"] = mg
-                last["gates"]["motion_ok"] = bool(mg.get("ok"))
-                if not mg.get("ok"):
-                    last["ok"] = False
-                    print(
-                        f"FAIL {suite.id} motion_gate "
-                        f"unique={mg.get('unique_frames')}/"
-                        f"{mg.get('frame_count')} "
-                        f"frac={mg.get('unique_frac')}",
-                        flush=True,
-                    )
-                else:
-                    print(
-                        f"PASS {suite.id} motion_gate "
-                        f"unique={mg.get('unique_frames')}/"
-                        f"{mg.get('frame_count')} "
-                        f"frac={mg.get('unique_frac')}",
-                        flush=True,
-                    )
-        if suite.fps_gate is not None:
-            fg = _score_fps_gate(suite, captures_root=captures_root)
-            last["fps_gate"] = fg
-            last["gates"]["fps_ok"] = bool(fg.get("ok"))
-            if not fg.get("ok"):
-                last["ok"] = False
-                print(
-                    f"FAIL {suite.id} fps_gate "
-                    f"mean={fg.get('mean_fps')} "
-                    f"min={fg.get('min_mean_fps')} "
-                    f"{fg.get('error') or ''}",
-                    flush=True,
-                )
-            else:
-                print(
-                    f"PASS {suite.id} fps_gate "
-                    f"mean={fg.get('mean_fps')} "
-                    f"soft_fail={fg.get('soft_fail', False)}",
-                    flush=True,
-                )
+        attach_runtime_gates(
+            suite,
+            last,
+            inject_report=executed.inject_report,
+            record_report=executed.record_report,
+            env=executed.env,
+            captures_root=captures_root,
+        )
         if bmp is not None and bmp.exists():
             last["bmp_age_s"] = round(time.time() - bmp.stat().st_mtime, 3)
             if review_prep or suite.is_reviewable():
-                _maybe_emit_visual_review(
+                maybe_emit_visual_review(
                     suite,
                     config=config,
                     result=last,
@@ -593,7 +179,6 @@ def run_suite(
                 "(bugs still pending human confirm)",
                 flush=True,
             )
-            # Prep succeeds when BMP/artifacts exist; score fail is informational.
             if bmp is not None and bmp.exists():
                 return 0
             return 1 if not last.get("ok") else 0
@@ -605,4 +190,3 @@ def run_suite(
 
     print(f"STOPPED without {suite.id} PASS", flush=True)
     return 1
-

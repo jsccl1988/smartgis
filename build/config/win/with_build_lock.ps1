@@ -3,7 +3,7 @@
 
 # Compile locks for shared gen roots (Debug / Release / shared third_party).
 # Fair ticket queue per scope; multi-target args release between targets.
-# te / e2e runners run AFTER compile locks are released.
+# te / harness runners run AFTER compile locks are released.
 #
 # Global on/off (default OFF — no ticket / mutex / multi-target split):
 #   SMARTGIS_BUILD_LOCK=1|on|true|yes    → enable for this process
@@ -58,7 +58,7 @@ function Test-BuildLockEnabled {
 
 # Aliases that must not be split into per-target lock cycles.
 $script:NoSplitAliases = @(
-  'm', 'te', 'a', 'b', 'app', 'views', 'render', 'e2e',
+  'm', 'te', 'a', 'b', 'app', 'views', 'render', 'harness', 'e2e',
   'legacy_app', 'ui_legacy', 'smartgis', 't', 'sln'
 )
 
@@ -109,7 +109,7 @@ function Test-NeedsPostCompileTests {
     return $false
   }
   foreach ($a in $ArgsIn) {
-    if ($a -match '^(?i)(te|e2e)$') {
+    if ($a -match '^(?i)(te|harness|e2e)$') {
       return $true
     }
   }
@@ -581,7 +581,7 @@ if ($exitCode -ne 0) {
 }
 
 if ($needTests) {
-  Write-Host "=== post-compile tests (unlocked; te/e2e) ==="
+  Write-Host "=== post-compile tests (unlocked; te/harness) ==="
   $testRc = Invoke-BuildBat -ArgsIn $BuildArgs -Phase 'tests'
   exit $testRc
 }

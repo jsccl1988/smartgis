@@ -30,4 +30,4 @@ Runtime: Evergreen **WebView2 Runtime** on the machine (or Fixed Version separat
 
 ## GN
 
-`//third_party/webview2:webview2` — headers + link loader. Consumers: `plugin/runtime/browser`.
+`//third_party/webview2:webview2` — headers + link loader. Consumers: `plugin/runtime/web`.

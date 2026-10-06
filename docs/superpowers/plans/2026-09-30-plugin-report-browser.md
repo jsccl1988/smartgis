@@ -29,10 +29,10 @@ All rights reserved.
 | Path | Responsibility |
 | --- | --- |
 | `third_party/webview2/` | Headers + WebView2Loader + GN |
-| `src/plugin/runtime/browser/report_browser.h` | Abstract + allowlist helpers |
-| `src/plugin/runtime/browser/fake_report_browser.*` | Test double |
-| `src/plugin/runtime/browser/webview2_report_browser.*` | v1 backend |
-| `src/plugin/runtime/browser/BUILD.gn` | Target + unit test |
+| `src/plugin/runtime/web/report_browser.h` | Abstract + allowlist helpers |
+| `src/plugin/runtime/web/fake_report_browser.*` | Test double |
+| `src/plugin/runtime/web/webview2_report_browser.*` | v1 backend |
+| `src/plugin/runtime/web/BUILD.gn` | Target + unit test |
 | `src/ui/gis/shell/report_panel.*` | Inspector Report tab |
 | `src/ui/resources/shell/report_panel.ui.*` | Markup |
 | `src/content/public/plugin_host.h` + `plugin_host.cc` | Host bridge API |

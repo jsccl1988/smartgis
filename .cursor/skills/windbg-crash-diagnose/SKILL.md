@@ -6,7 +6,7 @@ description: >-
   AV, !analyze, blue-screen usermode, 自动诊断 crash, or hands over a .dmp.
   For this repo: cdb preferred over windbg GUI; PDBs under out/; logs under
   out/crash/; CBM project smartgis; after root-cause fix verify with
-  build.bat e2e / te (or the same repro) and hand back to auto-bug-fix when
+  build.bat harness / te (or the same repro) and hand back to auto-bug-fix when
   entered from that loop.
 ---
 
@@ -23,7 +23,7 @@ Prefer **`cdb.exe`** (non-interactive Debugging Tools for Windows). Do **not** o
 
 **REQUIRED BACKGROUND:** superpowers:systematic-debugging (hypothesis first; do not shotgun).
 **REQUIRED SUB-SKILL:** codebase-memory for code lookup (project `smartgis`) before repo-wide Grep.
-**SIBLING:** when entered from `auto-bug-fix`, return to that skill’s e2e/te done bar after the crash no longer reproduces.
+**SIBLING:** when entered from `auto-bug-fix`, return to that skill’s harness/te done bar after the crash no longer reproduces.
 
 ## Authorization
 
@@ -49,7 +49,7 @@ crash / .dmp / AV / failing PE
   → parse log (exception, module, !analyze, source frames)
   → CBM search_graph / get_code_snippet (project smartgis)
   → systematic-debugging fix
-  → verify: .\build.bat e2e + .\build.bat te  OR  same repro until no crash
+  → verify: .\build.bat debug harness + .\build.bat debug te  OR  same repro until no crash
 ```
 
 1. **Find tool:** from repo root,
@@ -62,9 +62,9 @@ crash / .dmp / AV / failing PE
    Timeout / cannot reproduce → **hard stop**.
 4. **Parse** `out/crash/*-analyze.log`: exception code, faulting module, `!analyze` conclusion, stack frames with source file:line when present.
 5. **CBM** → open only the cited frames; form a hypothesis; fix root cause.
-6. **Verify:** product path → `.\build.bat e2e` then `.\build.bat te`. Otherwise re-run the same crash command until it no longer crashes. If this skill was entered from `auto-bug-fix`, that skill’s done bar still applies.
+6. **Verify:** product path → `.\build.bat debug harness` then `.\build.bat debug te`. Otherwise re-run the same crash command until it no longer crashes. If this skill was entered from `auto-bug-fix`, that skill’s done bar still applies.
 
-**Done bar:** analyze report complete (exception + stack + suspected symbol) **and** the repro path no longer crashes. If entered from `auto-bug-fix`, also satisfy e2e + te exit 0.
+**Done bar:** analyze report complete (exception + stack + suspected symbol) **and** the repro path no longer crashes. If entered from `auto-bug-fix`, also satisfy harness + te exit 0.
 
 ## Evidence before success
 
@@ -90,7 +90,7 @@ Claim fixed **only** after a fresh analyze (or clean run) plus verification comm
 | "Ask the user to paste !analyze" | Agent runs `analyze_dump.ps1`. |
 | "Grep the whole repo first" | CBM `search_graph` first. |
 | "Quick `#if 0` around the AV" | Symptom patch. Find root cause. |
-| "e2e green without re-running crash" | Repro / e2e+te must prove the crash is gone. |
+| "harness green without re-running crash" | Repro / harness+te must prove the crash is gone. |
 
 ## Red flags — stop
 
@@ -105,8 +105,8 @@ Claim fixed **only** after a fresh analyze (or clean run) plus verification comm
 pwsh -NoProfile -File .cursor/skills/windbg-crash-diagnose/scripts/find_cdb.ps1
 pwsh -NoProfile -File .cursor/skills/windbg-crash-diagnose/scripts/analyze_dump.ps1 -DumpPath out\crash\foo.dmp
 pwsh -NoProfile -File .cursor/skills/windbg-crash-diagnose/scripts/run_and_catch.ps1 -ExePath out\SmartGIS.exe -ExeArgs '--self-test'
-.\build.bat e2e
-.\build.bat te
+.\build.bat debug harness
+.\build.bat debug te
 ```
 
 See [reference.md](reference.md) for symbol paths, exception codes, and the hard-coded cdb `-c` string.

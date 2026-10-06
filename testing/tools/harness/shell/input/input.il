@@ -44,5 +44,6 @@ script "input" {
     mark("input-poly-ok");
     mark("input-ok");
     mark("pass");
+    detach_maps();
   }
 }

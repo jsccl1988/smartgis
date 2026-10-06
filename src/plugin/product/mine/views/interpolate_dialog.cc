@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "content/public/plugin_host.h"
-#include "plugin/runtime/host/resources/resource_roots.h"
+#include "plugin/runtime/host/catalog/resource_roots.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/markup/loader/markup_loader.h"

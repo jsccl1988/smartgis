@@ -3,7 +3,7 @@
 
 """Named BMP visual gates (score_id) for suite contracts.
 
-Implementations live in family modules (ui / map2d / atmosphere / plugin /
+Implementations live in score modules (ui / map2d / atmosphere / plugin /
 legacy / views). This module is the stable dispatch facade.
 """
 

@@ -2,32 +2,117 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//src/plugin/product/native_plugin.gni")
 import("//testing/test.gni")
 
 copy("map2d_resources") {
   sources = [ "manifest/plugin.json" ]
-  outputs = [ "$root_out_dir/../plugins/map2d/{{source_file_part}}" ]
+  outputs = [ "$root_out_dir/plugins/map2d/{{source_file_part}}" ]
+}
+
+# Views-free compositor used by harness print present and chrome layout.
+source_set("print_composer") {
+  sources = [
+    "print/composer/print_composer.cc",
+    "print/composer/print_composer.h",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
 }
 
 source_set("map2d_views") {
   sources = [
     "commands.cc",
     "commands.h",
+    "print/register.cc",
+    "print/register.h",
+    "print/views/print_preview_dialog.cc",
+    "print/views/print_preview_dialog.h",
     "seed/seed.cc",
     "seed/seed.h",
+    "verbs.cc",
+    "verbs.h",
   ]
   include_dirs += [
     ".",
     "//src",
   ]
   deps = [
+    ":print_composer",
+    "//src/content:browser_session",
     "//src/content:content",
+    "//src/content:embed_sample",
     "//src/plugin/product/world3d:world3d_views",
     "//src/plugin/runtime/host:host",
+    "//src/plugin/runtime/widgets:widgets",
     "//src/tool:dispatch",
+    "//src/ui/views:views",
     "//third_party:rapidjson",
   ]
   libs = [ "user32.lib" ]
+  data_deps = [ ":map2d_resources" ]
+}
+
+# HWND/BMP present/FPS. Linked into SmartGIS.exe, not the native plugin DLL.
+# hwnd_register is separate from GIS scenario/register (same directory).
+source_set("map2d_harness") {
+  sources = [
+    "scenario/capture.cc",
+    "scenario/capture.h",
+    "scenario/fps_bench.cc",
+    "scenario/fps_bench.h",
+    "scenario/framing.cc",
+    "scenario/framing.h",
+    "scenario/gpu_host.cc",
+    "scenario/gpu_host.h",
+    "scenario/gpu_present.cc",
+    "scenario/gpu_present.h",
+    "scenario/hwnd_register.cc",
+    "scenario/hwnd_register.h",
+    "scenario/interact.cc",
+    "scenario/interact.h",
+    "scenario/mode_seed.cc",
+    "scenario/mode_seed.h",
+    "scenario/present_run.cc",
+    "scenario/present_run.h",
+    "scenario/print.cc",
+    "scenario/progress.cc",
+    "scenario/progress.h",
+    "scenario/run.cc",
+    "scenario/sample.cc",
+    "scenario/sample.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    ":map2d_views",
+    ":print_composer",
+    "//src/base:base",
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/gpu:gpu_lib",
+    "//src/plugin/runtime/host:host",
+    "//src/render:rhi",
+    "//src/tool:dispatch",
+    "//src/ui/views:views",
+    "//src/vista:vista",
+    "//third_party:gdal",
+  ]
+  libs = [
+    "user32.lib",
+    "gdi32.lib",
+  ]
+}
+
+native_plugin("map2d_native") {
+  package = "map2d"
+  entry = "dll_entry.cc"
+  deps = [ ":map2d_views" ]
   data_deps = [ ":map2d_resources" ]
 }
 
@@ -36,4 +121,26 @@ test("map2d_seed_test") {
   sources = [ "tests/seed_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":map2d_views" ]
+}
+
+test("map2d_sink_test") {
+  output_name = "map2d_sink_test"
+  sources = [ "tests/sink_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":map2d_views",
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+  ]
+}
+
+test("print_composer_test") {
+  output_name = "print_composer_test"
+  sources = [ "print/composer/print_composer_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":print_composer" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
 }

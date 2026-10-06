@@ -24,7 +24,7 @@
 #include "content/browser/camera/map_host_extent.h"
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/browser/commands/view_commands.h"
-#include "plugin/runtime/host/registry/registry.h"
+#include "plugin/runtime/host/catalog/registry.h"
 #include "content/public/map_layer_types.h"
 #include "content/public/map_contents.h"
 #include "content/public/plugin_host.h"

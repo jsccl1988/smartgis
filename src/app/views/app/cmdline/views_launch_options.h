@@ -6,13 +6,12 @@
 
 #include <cstddef>
 #include <string>
-#include <string_view>
 
 #include "content/app/process_type.h"
 
 namespace app {
 
-// Automated 3D atmosphere demos (distinct from full --self-test shell path).
+// Automated 3D atmosphere demos (IL / ScenarioRegistry; not Views CLI).
 enum class AtmosphereShowcaseMode {
   kNone,
   kLand,
@@ -36,7 +35,7 @@ enum class Map2dShowcaseMode {
   kOrthogrid,
 };
 
-// Shell horizon capture for ui_shell_loop / --ui-showcase=shell (distinct from --self-test).
+// Shell horizon capture for ui_shell_loop (not a Views CLI product selector).
 enum class UiShowcaseMode {
   kNone,
   kShell,     // Map Edit tab + dark horizon BMP
@@ -46,9 +45,8 @@ enum class UiShowcaseMode {
   kInteract,  // Cycle Map→Data→Scene→Map then capture
 };
 
-// Parsed Views PE switches. Pure data — no HWND / Browser.
-// Harness / showcase / self-test collapse to |scenario_id| (registry). Empty
-// scenario_id is the interactive product (run_loop).
+// Host-process flags only. Product / harness scene selection lives on
+// plugin.json `startup` (peeked into |scenario_id| before Browser::init).
 struct ViewsLaunchOptions {
   content::ProcessType process_type = content::ProcessType::kBrowser;
   bool debug_console = false;
@@ -57,14 +55,14 @@ struct ViewsLaunchOptions {
   bool enable_oop_render = false;
   bool ok = true;
   int exit_code = 0;
-  // Registered Scenario id, or empty for the product main path.
+  // ScenarioRegistry id from plugin.json startup.scenario. Empty = product.
   std::string scenario_id;
   // present_dataset surface sticky: main|preview (empty = main).
   std::string plugin_present;
   std::string atmosphere_fields;
   // Empty = unset (caller may fall back to env SHELL_CANVAS).
   std::string shell_canvas;
-  // Product plugin resource root. Empty → default <exe>/../plugins.
+  // Product plugin resource root. Empty → default <exe>/plugins.
   std::string plugins_dir;
 };
 
@@ -73,8 +71,8 @@ inline bool is_harness_launch(const ViewsLaunchOptions& options) {
 }
 
 // Touch trailing members so a TU compiled against a truncated ViewsLaunchOptions
-// (missing plugin_present / plugins_dir) fails at compile time instead of
-// reading 0xCC past the stack object in run_browser_main.
+// (missing plugins_dir) fails at compile time instead of reading 0xCC past the
+// stack object in run_browser_main.
 inline constexpr std::size_t k_views_launch_options_plugins_dir_off =
     offsetof(ViewsLaunchOptions, plugins_dir);
 inline constexpr std::size_t k_views_launch_options_tail_off =
@@ -82,16 +80,14 @@ inline constexpr std::size_t k_views_launch_options_tail_off =
 static_assert(k_views_launch_options_plugins_dir_off > 0);
 static_assert(k_views_launch_options_tail_off >= k_views_launch_options_plugins_dir_off);
 
-// CLI11 parse of argc/argv (wide). On --help / parse error: ok=false and
-// exit_code set for wWinMain to return directly.
+// CLI11 parse of argc/argv (wide). Host flags only. On --help / parse error:
+// ok=false and exit_code set for wWinMain to return directly.
 ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv);
 
 const char* atmosphere_showcase_name(AtmosphereShowcaseMode mode);
 const char* map2d_showcase_name(Map2dShowcaseMode mode);
 const char* ui_showcase_name(UiShowcaseMode mode);
-
-// Canonicalize --plugin-showcase aliases. Empty input → empty.
-std::string normalize_plugin_showcase_id(std::string_view value);
+UiShowcaseMode ui_showcase_mode_from_name(const std::string& mode);
 
 }  // namespace app
 

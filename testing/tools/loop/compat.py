@@ -7,9 +7,6 @@ Harness suites are suite.json + optional *.il only. Colocated *_loop.py
 aliases under testing/tools/harness/ were deleted; use:
 
   py -3 testing/tools/loop_runner.py --suite <id> [--no-build]
-
-Special case: D3D legacy scene → --suite legacy.scene3d.china.d3d
-(not --d3d on a wrapper).
 """
 
 from __future__ import annotations

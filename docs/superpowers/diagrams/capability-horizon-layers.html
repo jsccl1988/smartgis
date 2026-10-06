@@ -1,0 +1,151 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>capability/horizon 分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 48px; }
+  .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.25rem; }
+  h2 { margin: 0 0 8px; font-size: 1rem; }
+  p { margin: 0 0 8px; color: var(--muted); }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
+  }
+  .lane h3 { margin: 0 0 4px; font-size: 0.92rem; }
+  .lane ul { margin: 0; padding-left: 1.1rem; }
+  .lane li { margin: 2px 0; }
+  .bind { background: #f8eee8; }
+  .sema { background: #e7f3ee; }
+  .atom { background: #e8f2fb; }
+  .peer { background: #f3f0fa; }
+  svg.diagram { width: 100%; height: auto; }
+  .box-title { font: 600 13px "Segoe UI", sans-serif; fill: var(--text); }
+  .box-sub { font: 12px "Segoe UI", sans-serif; fill: var(--muted); }
+  .note { color: var(--muted); font-size: 0.86rem; margin-top: 8px; }
+  .stage { opacity: 0.38; }
+  .stage.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="panel">
+    <h1>capability/horizon 分层</h1>
+    <p>目录按编译相位切开，动词按 IL 语法接槽（<code>execution/sema/horizon.cc</code> + 仍由 horizon 拥有的 document / input / showcase 槽）。
+      抓图走 <code>capture</code>，断言走 <code>expect</code>。命名空间 <code>app::detail</code>。<code>atom</code> 不包含 <code>sema</code>。</p>
+  </section>
+
+  <section class="panel">
+    <h2>1. 层（谁拥有什么）</h2>
+    <div class="stack">
+      <div class="lane bind">
+        <h3>bind — 链接</h3>
+        <ul>
+          <li><code>bind/bind_horizon</code> 按语法接槽：pump / tabs / mark / window / key / inject / paths / document / china / stress / still / ui。</li>
+          <li><code>wait_ready</code>、<code>expect_*</code>、<code>activate_tool</code> 不在这里接，由 <code>expect/bind</code> 填。</li>
+        </ul>
+      </div>
+      <div class="lane sema">
+        <h3>sema — 语义（编排 capture / expect）</h3>
+        <ul>
+          <li><code>still</code>：browse 静帧。Map2d 调 <code>capture/sema/export</code>（不 invalidate）；Scene3d 调 <code>atom/paint</code> + <code>sema/gate</code> + <code>sema/read</code>。</li>
+          <li><code>china</code>：打开样本并种图。 <code>document</code>：style / clear / fit / invalidate / edit dispatch。</li>
+          <li><code>ui</code>：主题、面板、layout gate、shell BMP（GDI 仍用 capture atom + gate）。</li>
+        </ul>
+      </div>
+      <div class="lane atom">
+        <h3>atom — 原子操作</h3>
+        <ul>
+          <li><code>pump</code> 抽消息。<code>surface</code> 一次 HWND 注入 / resize。<code>paths</code> 解析 exe 旁路径。</li>
+          <li><code>stress</code> 一次 pan/wheel 爆发（<code>browse_stress</code>）。</li>
+        </ul>
+      </div>
+      <div class="lane peer">
+        <h3>沉淀到同级 pack</h3>
+        <ul>
+          <li><code>capture</code>：BMP、HWND 读回、软件 paint、停表 / detach。</li>
+          <li><code>expect</code>：<code>wait_map_ready</code> / viewport / geom / wheel-cursor / layout / DebugAgent。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（browse still）</h2>
+    <svg class="diagram" viewBox="0 0 920 168" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="horizon still flow">
+      <rect id="s1" class="stage on" x="8" y="24" width="210" height="88" rx="8" fill="#f8eee8" stroke="#b06a1a"/>
+      <text class="box-title" x="18" y="48">1. IL 语法</text>
+      <text class="box-sub" x="18" y="68">capture_browse_still(face)</text>
+      <text class="box-sub" x="18" y="84">sema/horizon 降成 Action</text>
+      <text class="box-sub" x="18" y="100">eval 调 Host 槽</text>
+
+      <rect id="s2" class="stage" x="238" y="24" width="220" height="88" rx="8" fill="#e7f3ee" stroke="#1f6b58"/>
+      <text class="box-title" x="248" y="48">2. horizon/sema</text>
+      <text class="box-sub" x="248" y="68">map2d：先 framing</text>
+      <text class="box-sub" x="248" y="84">scene3d：seed + software</text>
+      <text class="box-sub" x="248" y="100">不自己写像素</text>
+
+      <rect id="s3" class="stage" x="478" y="24" width="210" height="88" rx="8" fill="#e8f2fb" stroke="#2563a8"/>
+      <text class="box-title" x="488" y="48">3. capture</text>
+      <text class="box-sub" x="488" y="68">export / paint / read</text>
+      <text class="box-sub" x="488" y="84">gate 验收 BMP</text>
+      <text class="box-sub" x="488" y="100">mark 仍是 atom</text>
+
+      <rect id="s4" class="stage" x="708" y="24" width="200" height="88" rx="8" fill="#f3f0fa" stroke="#6b5ea8"/>
+      <text class="box-title" x="718" y="48">4. expect（其它动词）</text>
+      <text class="box-sub" x="718" y="68">wait_ready / geom</text>
+      <text class="box-sub" x="718" y="84">wheel-cursor / layout</text>
+      <text class="box-sub" x="718" y="100">horizon 不重复断言</text>
+
+      <path d="M218 68 L238 68" fill="none" stroke="#2563a8" stroke-width="2"/>
+      <path d="M458 68 L478 68" fill="none" stroke="#2563a8" stroke-width="2"/>
+      <path d="M688 68 L708 68" fill="none" stroke="#2563a8" stroke-width="2"/>
+      <text class="box-sub" x="8" y="148">sema 调用 capture / expect。atom 不回调 sema。套件顺序仍在 *.il。</text>
+    </svg>
+    <p class="note">bind 只填槽。pump / HWND 注入是 horizon atom，因为语法动词是 window / key / pump，不是 BMP。</p>
+  </section>
+</div>
+<script>
+(function () {
+  var ids = ["s1", "s2", "s3", "s4"];
+  var i = 0;
+  function tick() {
+    ids.forEach(function (id, idx) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (idx === i) el.classList.add("on");
+      else el.classList.remove("on");
+    });
+    i = (i + 1) % ids.length;
+  }
+  tick();
+  setInterval(tick, 1100);
+})();
+</script>
+</body>
+</html>

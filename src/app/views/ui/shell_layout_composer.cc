@@ -225,6 +225,7 @@ bool ShellLayoutComposer::build_from_markup() {
   }
   mount_fill(diagnostic_host, std::move(diagnostic_tools));
   host_->wire_debug_console();
+  host_->attach_plugin_shell_ui();
 
   auto status = std::make_unique<ui::views::StatusBar>();
   host_->status_bar_ = status.get();
@@ -385,6 +386,7 @@ void ShellLayoutComposer::build_imperative() {
   host_->diagnostic_tools_->set_visible_tools(true);
   host_->diagnostic_tools_->set_active_tab(0);
   host_->wire_debug_console();
+  host_->attach_plugin_shell_ui();
 
   auto main_split = std::make_unique<ui::views::Splitter>(
       ui::views::Splitter::Orientation::kVertical);

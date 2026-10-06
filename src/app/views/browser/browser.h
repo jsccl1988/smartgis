@@ -14,8 +14,8 @@
 #include <windows.h>
 
 #include "app/views/browser/ui_delegate.h"
-#include "app/views/runtime/plugin/playback.h"
-#include "app/views/runtime/plugin/preview_host.h"
+#include "app/views/browser/plugin/playback.h"
+#include "app/views/browser/plugin/preview_host.h"
 #include "content/browser/camera/map_host_extent.h"
 #include "content/browser/session/browser_session.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
@@ -80,7 +80,7 @@ class Browser : public content::MapContentsObserver {
   Browser& operator=(const Browser&) = delete;
 
   bool init();
-  // Product plugin resource root (--plugins-dir). Empty → <exe>/../plugins.
+  // Product plugin resource root (--plugins-dir). Empty → <exe>/plugins.
   void set_plugins_dir(std::string path);
   // When true, SeedDocument skips China/DEM OGR open; Browser::show schedules
   // an idle open so first-show horizon stays interactive. Harness paths keep
@@ -195,7 +195,7 @@ class Browser : public content::MapContentsObserver {
   // BrowserUiDelegate* and AVs on the vtable (bug #10 catalog residual).
   void sync_catalog_from_scene();
   bool apply_atmosphere_fields(std::string_view spec);
-  bool run_m2_self_test_hooks(std::string* err);
+  bool run_m2_harness_hooks(std::string* err);
   void select_map_tab(int index);
 
   void on_catalog_command(const std::string& command_id);

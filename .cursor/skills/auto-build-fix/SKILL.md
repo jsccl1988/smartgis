@@ -35,7 +35,7 @@ Normative allow rule: **`.cursor/rules/build/agent-may-build.mdc`**.
 5. Product sources are **`src/`**.
 6. **Tools:** `build\bin\gn.exe` + ninja; `build.bat` writes `out/environment.x64.x64` (copied into each config dir) via PowerShell.
 7. Gen roots are **`out/Debug`** and **`out/Release`**. Do not use bare `out/` or `out/Default` as a gen root. Third-party CMake install prefix is **`out/third_party`**. See `.cursor/rules/build/build-output.mdc`.
-8. **Build lock:** `build.bat` locks **compile only** (`out/.build.lock`); `te`/`e2e` runners run **unlocked** after. Set `SMARTGIS_BUILD_OWNER`. Prefer `build.bat debug <single_target>`. Exit **3** = busy ¡ª do non-compile work or wait; do **not** bare ninja. See `.cursor/rules/build/build-lock.mdc`.
+8. **Build lock:** `build.bat` locks **compile only** (`out/.build.lock`); `te`/`harness` runners run **unlocked** after. Set `SMARTGIS_BUILD_OWNER`. Prefer `build.bat debug <single_target>`. Exit **3** = busy ¡ª do non-compile work or wait; do **not** bare ninja. See `.cursor/rules/build/build-lock.mdc`.
 
 ```bat
 .\build.bat

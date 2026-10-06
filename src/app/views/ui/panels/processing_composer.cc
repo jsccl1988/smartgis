@@ -33,8 +33,8 @@
 #include "plugin/runtime/host/capability/capability.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/style_types.h"
-#include "plugin/runtime/browser/fake_report_browser.h"
-#include "plugin/runtime/browser/webview2_report_browser.h"
+#include "plugin/runtime/web/fake_report_browser.h"
+#include "plugin/runtime/web/webview2_report_browser.h"
 #include "plugin/runtime/processing/builtin_ops.h"
 #include "plugin/runtime/python/runtime.h"
 #include "ui/gis/analysis/geoprocessing_history_panel.h"
@@ -528,7 +528,7 @@ void ProcessingComposer::bind_gis_python_bridge() {
   plugin::set_gis_console_bridge(std::move(bridge));
   // --self-test / --self-test-console must not ensure_builtins (traffic start
   // has called a null fn under cdb; product packs are not the suite).
-  if (!base::switch_is_one("harness-self-test")) {
+  if (!base::switch_is_one("harness-run")) {
     host_->browser_->plugins()->ensure_python();
   }
 }

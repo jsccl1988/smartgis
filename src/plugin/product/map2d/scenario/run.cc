@@ -1,0 +1,76 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#include "plugin/product/map2d/scenario/hwnd_register.h"
+
+#include "plugin/product/map2d/scenario/framing.h"
+#include "plugin/product/map2d/scenario/mode_seed.h"
+#include "plugin/product/map2d/scenario/present_run.h"
+#include "plugin/product/map2d/scenario/progress.h"
+#include "plugin/runtime/host/capability/marks.h"
+#include "plugin/runtime/host/capability/shell.h"
+
+#include <cstdio>
+
+namespace plugin {
+namespace {
+
+int run_map2d_showcase(HarnessShell& browser, detail::ShowcaseMode mode,
+                       const char* name) {
+  detail::bind_map2d_showcase_shell(&browser);
+  browser.mark_named(kMarkMap2dShowcase, name, true);
+  int showcase_w = detail::kMap2dShowcaseDefaultW;
+  int showcase_h = detail::kMap2dShowcaseDefaultH;
+  detail::map2d_showcase_pixel_size(&showcase_w, &showcase_h);
+  std::fprintf(stderr, "map2d-showcase mode=%s size=%dx%d\n", name, showcase_w,
+               showcase_h);
+  detail::map2d_showcase_mark(name);
+
+  browser.select_map_tab(0);
+  detail::map2d_showcase_mark("tab-map");
+  browser.pump(400);
+  detail::map2d_showcase_mark("pumped");
+
+  browser.stop_present_timers();
+  if (const int rc = detail::seed_map2d_mode(browser, mode)) {
+    browser.detach_maps();
+    return rc;
+  }
+  if (const int rc =
+          detail::frame_map2d_showcase(browser, mode, showcase_w, showcase_h)) {
+    browser.detach_maps();
+    return rc;
+  }
+  browser.resume_present_timers();
+  browser.pump(100);
+  detail::map2d_showcase_mark("fit-ok");
+
+  if (const int rc =
+          detail::run_map2d_present(browser, name, showcase_w, showcase_h)) {
+    browser.detach_maps();
+    return rc;
+  }
+
+  detail::map2d_showcase_mark("pass");
+  std::fprintf(stderr, "map2d-showcase: PASS mode=%s\n", name);
+  browser.stop_present_timers();
+  browser.pump(100);
+  return 0;
+}
+
+}  // namespace
+
+int scenario_china(HarnessShell& browser) {
+  return run_map2d_showcase(browser, detail::ShowcaseMode::kChina, "china");
+}
+
+int scenario_align(HarnessShell& browser) {
+  return run_map2d_showcase(browser, detail::ShowcaseMode::kAlign, "align");
+}
+
+int scenario_orthogrid(HarnessShell& browser) {
+  return run_map2d_showcase(browser, detail::ShowcaseMode::kOrthogrid,
+                            "orthogrid");
+}
+
+}  // namespace plugin

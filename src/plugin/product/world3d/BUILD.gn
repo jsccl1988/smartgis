@@ -2,35 +2,38 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//src/plugin/product/native_plugin.gni")
 import("//testing/test.gni")
 
-# Plugin-owned markup/assets → shared out/plugins/world3d (not out/ui).
-# Shell points --plugins-dir at out/plugins (default: <exe>/../plugins).
+# Plugin-owned markup/assets → $root_out_dir/plugins/world3d (not out/ui).
+# Shell --plugins-dir defaults to <exe>/plugins (out/Debug/plugins or
+# out/Release/plugins).
 copy("world3d_resources") {
   sources = [
-    "grid/dem/dialog/heightmap_loader.ui.css",
-    "grid/dem/dialog/heightmap_loader.ui.xml",
-    "grid/dem/dialog/trimesh_loader.ui.css",
-    "grid/dem/dialog/trimesh_loader.ui.xml",
+    "scene/dem/dialog/heightmap_loader.ui.css",
+    "scene/dem/dialog/heightmap_loader.ui.xml",
+    "scene/dem/dialog/trimesh_loader.ui.css",
+    "scene/dem/dialog/trimesh_loader.ui.xml",
+    "manifest/plugin.json",
     "resources/orthogrid.style.json",
     "resources/world3d.style.json",
   ]
-  outputs = [ "$root_out_dir/../plugins/world3d/{{source_file_part}}" ]
+  outputs = [ "$root_out_dir/plugins/world3d/{{source_file_part}}" ]
 }
 
-# Data stub docs → out/plugins/world3d/data/ (GeoTIFFs are user-supplied).
+# Data stub docs → $root_out_dir/plugins/world3d/data/ (GeoTIFFs are user-supplied).
 copy("world3d_data_stub") {
   sources = [ "resources/data/README.md" ]
-  outputs = [ "$root_out_dir/../plugins/world3d/data/{{source_file_part}}" ]
+  outputs = [ "$root_out_dir/plugins/world3d/data/{{source_file_part}}" ]
 }
 
 # DEM XYZ/heightmap kernels (Views + leftover plugin_dem / plugin_model3d).
 source_set("world3d_dem") {
   sources = [
-    "grid/dem/loader/heightmap_loader.cc",
-    "grid/dem/loader/heightmap_loader.h",
-    "grid/dem/loader/trimesh_loader.cc",
-    "grid/dem/loader/trimesh_loader.h",
+    "scene/dem/loader/heightmap_loader.cc",
+    "scene/dem/loader/heightmap_loader.h",
+    "scene/dem/loader/trimesh_loader.cc",
+    "scene/dem/loader/trimesh_loader.h",
   ]
   include_dirs += [
     ".",
@@ -54,19 +57,19 @@ group("world3d_processing") {
 
 source_set("world3d_hexgrid") {
   sources = [
-    "grid/hexgrid/register.cc",
-    "grid/hexgrid/register.h",
-    "detail/contribute.h",
-    "grid/hexgrid/present/mesh.cc",
-    "grid/hexgrid/present/mesh.h",
-    "grid/hexgrid/solve/boundary_solve.cc",
-    "grid/hexgrid/solve/boundary_solve.h",
-    "grid/hexgrid/lattice/hex_lattice.cc",
-    "grid/hexgrid/lattice/hex_lattice.h",
-    "grid/hexgrid/sample/sample_volume.cc",
-    "grid/hexgrid/sample/sample_volume.h",
-    "grid/hexgrid/io/vtk_structured.cc",
-    "grid/hexgrid/io/vtk_structured.h",
+    "scene/hexgrid/register.cc",
+    "scene/hexgrid/register.h",
+    "scene/detail/contribute.h",
+    "scene/hexgrid/present/mesh.cc",
+    "scene/hexgrid/present/mesh.h",
+    "scene/hexgrid/solve/boundary_solve.cc",
+    "scene/hexgrid/solve/boundary_solve.h",
+    "scene/hexgrid/lattice/hex_lattice.cc",
+    "scene/hexgrid/lattice/hex_lattice.h",
+    "scene/hexgrid/sample/sample_volume.cc",
+    "scene/hexgrid/sample/sample_volume.h",
+    "scene/hexgrid/io/vtk_structured.cc",
+    "scene/hexgrid/io/vtk_structured.h",
   ]
   include_dirs += [
     ".",
@@ -91,8 +94,8 @@ source_set("world3d_hexgrid") {
 # depend on this without pulling world3d_orthogrid Eigen/UI.
 source_set("world3d_orthogrid_lattice") {
   sources = [
-    "grid/orthogrid/lattice/ortho_lattice.cc",
-    "grid/orthogrid/lattice/ortho_lattice.h",
+    "scene/orthogrid/lattice/ortho_lattice.cc",
+    "scene/orthogrid/lattice/ortho_lattice.h",
   ]
   include_dirs += [
     ".",
@@ -103,15 +106,15 @@ source_set("world3d_orthogrid_lattice") {
 
 source_set("world3d_orthogrid") {
   sources = [
-    "grid/orthogrid/register.cc",
-    "grid/orthogrid/register.h",
-    "grid/orthogrid/present/mesh.cc",
-    "grid/orthogrid/present/mesh.h",
-    "grid/orthogrid/session/session.cc",
-    "grid/orthogrid/session/session.h",
-    "detail/contribute.h",
-    "grid/orthogrid/solve/boundary_solve.cc",
-    "grid/orthogrid/solve/boundary_solve.h",
+    "scene/orthogrid/register.cc",
+    "scene/orthogrid/register.h",
+    "scene/orthogrid/present/mesh.cc",
+    "scene/orthogrid/present/mesh.h",
+    "scene/orthogrid/session/session.cc",
+    "scene/orthogrid/session/session.h",
+    "scene/detail/contribute.h",
+    "scene/orthogrid/solve/boundary_solve.cc",
+    "scene/orthogrid/solve/boundary_solve.h",
   ]
   include_dirs += [
     ".",
@@ -134,13 +137,13 @@ source_set("world3d_orthogrid") {
 # DEM command/dialogs (separate source_set so dem/register.obj != scene/register.obj).
 source_set("world3d_dem_commands") {
   sources = [
-    "grid/dem/register.cc",
-    "grid/dem/register.h",
-    "grid/dem/dialog/heightmap_loader_dialog.cc",
-    "grid/dem/dialog/heightmap_loader_dialog.h",
-    "grid/dem/dialog/trimesh_loader_dialog.cc",
-    "grid/dem/dialog/trimesh_loader_dialog.h",
-    "detail/contribute.h",
+    "scene/dem/register.cc",
+    "scene/dem/register.h",
+    "scene/dem/dialog/heightmap_loader_dialog.cc",
+    "scene/dem/dialog/heightmap_loader_dialog.h",
+    "scene/dem/dialog/trimesh_loader_dialog.cc",
+    "scene/dem/dialog/trimesh_loader_dialog.h",
+    "scene/detail/contribute.h",
   ]
   include_dirs += [
     ".",
@@ -159,20 +162,60 @@ source_set("world3d_dem_commands") {
   ]
 }
 
-source_set("world3d_grid_commands") {
+# Split so earth/model/pointcloud register.obj != scene/register.obj.
+source_set("world3d_earth_commands") {
   sources = [
-    "grid/register.cc",
-    "grid/register.h",
+    "scene/earth/register.cc",
+    "scene/earth/register.h",
+    "scene/detail/contribute.h",
   ]
   include_dirs += [
     ".",
     "//src",
   ]
   deps = [
-    ":world3d_dem_commands",
-    ":world3d_hexgrid",
-    ":world3d_orthogrid",
     "//src/content:content",
+    "//src/plugin/runtime/host:host",
+    "//src/tool:tool",
+    "//third_party:rapidjson",
+  ]
+}
+
+source_set("world3d_model_commands") {
+  sources = [
+    "scene/model/register.cc",
+    "scene/model/register.h",
+    "scene/detail/contribute.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+    "//src/tool:tool",
+    "//src/ui/views:views",
+  ]
+}
+
+source_set("world3d_pointcloud_commands") {
+  sources = [
+    "scene/pointcloud/register.cc",
+    "scene/pointcloud/register.h",
+    "scene/detail/contribute.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+    "//src/tool:tool",
+    "//src/ui/views:views",
+    "//src/vista:vista",
+    "//third_party:rapidjson",
   ]
 }
 
@@ -180,13 +223,19 @@ source_set("world3d_views") {
   sources = [
     "commands.cc",
     "commands.h",
-    "detail/contribute.h",
-    "grid/dem/present/surface.cc",
-    "grid/dem/present/surface.h",
+    "scene/detail/contribute.h",
+    "scene/dem/present/surface.cc",
+    "scene/dem/present/surface.h",
+    "scene/atmosphere/panel.cc",
+    "scene/atmosphere/panel.h",
+    "scene/detail/host.cc",
+    "scene/detail/host.h",
+    "scene/detail/json.cc",
+    "scene/detail/json.h",
+    "scene/pointcloud/present.cc",
+    "scene/pointcloud/present.h",
     "scene/present/contour.cc",
     "scene/present/contour.h",
-    "scene/present/pointcloud.cc",
-    "scene/present/pointcloud.h",
     "scene/present/standin.cc",
     "scene/present/standin.h",
     "scene/present/style.cc",
@@ -205,9 +254,11 @@ source_set("world3d_views") {
   deps = [
     ":world3d_dem",
     ":world3d_dem_commands",
-    ":world3d_grid_commands",
+    ":world3d_earth_commands",
     ":world3d_hexgrid",
+    ":world3d_model_commands",
     ":world3d_orthogrid",
+    ":world3d_pointcloud_commands",
     "//src/gis:gis",
     "//src/vista:vista",
     "//src/gis/geo:geo",
@@ -218,6 +269,7 @@ source_set("world3d_views") {
     "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/widgets:widgets",
     "//src/tool:tool",
+    "//src/ui/gis:gis",
     "//src/ui/views:views",
     "//third_party:gdal",
     "//third_party:rapidjson",
@@ -229,9 +281,126 @@ source_set("world3d_views") {
   ]
 }
 
+# HWND/RHI showcase bodies linked into SmartGIS.exe, not the native DLL.
+# Split source_sets: atmosphere/capture/capture.cc vs capture/capture.cc share an obj stem.
+source_set("world3d_harness_atmosphere") {
+  sources = [
+    "scenario/atmosphere/capture/capture.cc",
+    "scenario/atmosphere/capture/capture.h",
+    "scenario/atmosphere/session/device_session.cc",
+    "scenario/atmosphere/session/device_session.h",
+    "scenario/atmosphere/present/globe_present.cc",
+    "scenario/atmosphere/present/globe_present.h",
+    "scenario/atmosphere/session/host.cc",
+    "scenario/atmosphere/session/host.h",
+    "scenario/atmosphere/capture/label_composite.cc",
+    "scenario/atmosphere/capture/label_composite.h",
+    "scenario/atmosphere/seed/legacy_seed.cc",
+    "scenario/atmosphere/seed/legacy_seed.h",
+    "scenario/atmosphere/common/linger.cc",
+    "scenario/atmosphere/common/linger.h",
+    "scenario/atmosphere/seed/mode_seed.cc",
+    "scenario/atmosphere/seed/mode_seed.h",
+    "scenario/atmosphere/present/present_linger.cc",
+    "scenario/atmosphere/present/present_linger.h",
+    "scenario/atmosphere/present/present_run.cc",
+    "scenario/atmosphere/present/present_run.h",
+    "scenario/atmosphere/common/progress.cc",
+    "scenario/atmosphere/common/progress.h",
+    "scenario/atmosphere/session/session_finish.cc",
+    "scenario/atmosphere/session/session_finish.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    ":world3d_views",
+    "//src/base:base",
+    "//src/content:content",
+    "//src/content:scene3d_present",
+    "//src/gis:gis",
+    "//src/plugin/runtime/host:host",
+    "//src/render:rhi",
+    "//src/ui/views:views",
+    "//src/vista:vista",
+    "//third_party:gdal",
+  ]
+  libs = [
+    "user32.lib",
+    "gdi32.lib",
+  ]
+}
+
+source_set("world3d_harness") {
+  sources = [
+    "scenario/capture/capture.cc",
+    "scenario/capture/capture.h",
+    "scenario/capture/map2d_export.cc",
+    "scenario/capture/map2d_export.h",
+    "scenario/common/plugin_io.cc",
+    "scenario/common/plugin_io.h",
+    "scenario/common/host_rhi.h",
+    "scenario/interact.cc",
+    "scenario/interact.h",
+    "scenario/present/present_warmup.cc",
+    "scenario/present/present_warmup.h",
+    "scenario/present/world3d_fly.cc",
+    "scenario/present/world3d_fly.h",
+    "scenario/product/orthogrid.cc",
+    "scenario/product/orthogrid.h",
+    "scenario/product/orthogrid3d.cc",
+    "scenario/product/orthogrid3d.h",
+    "scenario/product/world3d.cc",
+    "scenario/product/world3d.h",
+    "scenario/product/world_preview.cc",
+    "scenario/product/world_preview.h",
+    "scenario/register.cc",
+    "scenario/register.h",
+    "scenario/seed/orbit_seed.cc",
+    "scenario/seed/orbit_seed.h",
+    "scenario/seed/world3d_seed.cc",
+    "scenario/seed/world3d_seed.h",
+    "scenario/session/device_session.cc",
+    "scenario/session/device_session.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    ":world3d_harness_atmosphere",
+    ":world3d_views",
+    "//src/base:base",
+    "//src/content:content",
+    "//src/content:scene3d_present",
+    "//src/gis:gis",
+    "//src/plugin/runtime/host:host",
+    "//src/render:rhi",
+    "//src/tool:dispatch",
+    "//src/ui/views:views",
+    "//src/vista:vista",
+    "//third_party:gdal",
+  ]
+  libs = [
+    "user32.lib",
+    "gdi32.lib",
+  ]
+}
+
+native_plugin("world3d_native") {
+  package = "world3d"
+  entry = "dll_entry.cc"
+  deps = [ ":world3d_views" ]
+  data_deps = [
+    ":world3d_data_stub",
+    ":world3d_resources",
+  ]
+}
+
 test("world3d_loader_test") {
   output_name = "world3d_loader_test"
-  sources = [ "grid/dem/tests/loader_test.cc" ]
+  sources = [ "scene/dem/tests/loader_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
     ":world3d_dem",
@@ -263,8 +432,8 @@ test("world3d_scene_writer_test") {
 test("orthogrid_laplace_test") {
   output_name = "orthogrid_laplace_test"
   sources = [
-    "grid/orthogrid/solve/boundary_solve.cc",
-    "grid/orthogrid/tests/laplace_test.cc",
+    "scene/orthogrid/solve/boundary_solve.cc",
+    "scene/orthogrid/tests/laplace_test.cc",
   ]
   include_dirs += [ "//src" ]
   deps = [
@@ -277,11 +446,11 @@ test("orthogrid_laplace_test") {
 test("orthogrid3d_laplace_test") {
   output_name = "orthogrid3d_laplace_test"
   sources = [
-    "grid/hexgrid/solve/boundary_solve.cc",
-    "grid/hexgrid/lattice/hex_lattice.cc",
-    "grid/hexgrid/sample/sample_volume.cc",
-    "grid/hexgrid/io/vtk_structured.cc",
-    "grid/hexgrid/tests/laplace_test.cc",
+    "scene/hexgrid/solve/boundary_solve.cc",
+    "scene/hexgrid/lattice/hex_lattice.cc",
+    "scene/hexgrid/sample/sample_volume.cc",
+    "scene/hexgrid/io/vtk_structured.cc",
+    "scene/hexgrid/tests/laplace_test.cc",
   ]
   include_dirs += [ "//src" ]
   deps = [ "//src/gis/geo:geo", "//src/gis/geo:tin", "//src/base/math:math" ]

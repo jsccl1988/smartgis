@@ -86,4 +86,4 @@ Tracked on living [`../../specs/2026-09-13-plugin-host-design.md`](../../specs/2
 - [x] P1: dem/orthogrid kernels only via processing; Python sample orchestration — `samples/product_orchestrate` (L3; builtin UI remains reference)
 - [x] P2: `smartgis.tool.activate` + baogrid digitize bridge — `GisConsoleBridge::activate_tool` wired to `MapContents::ActivateTool`
 - [x] P3: scene-device primitives + model3d thin bind — `Model3dSceneWriter` + `model3d.*` processing ids
-- [x] P4: builtin retreats to L1 + reference UI — **skeleton landed** 2026-09-28 (policy on living § + `src/plugin/runtime/samples/industry_pack/`; full builtin UI deletion / per-plugin migration out of scope)
+- [x] P4: builtin retreats to L1 + reference UI — **skeleton landed** 2026-09-28 (policy on living § + `src/plugin/runtime/python/samples/industry_pack/`; full builtin UI deletion / per-plugin migration out of scope)

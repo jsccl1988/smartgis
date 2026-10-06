@@ -22,8 +22,9 @@
 #include <windows.h>
 
 #include "app/views/browser/plugin/plugin_shell.h"
-#include "app/views/harness/common/mark/mark.h"
-#include "app/views/runtime/capability/run_script.h"
+#include "app/views/il.runtime/backend/mark.h"
+#include "app/views/il.runtime/language/run_script.h"
+#include "app/views/util/charset.h"
 #include "base/process/switches.h"
 #include "content/browser/debug/debug_agent.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
@@ -70,21 +71,6 @@ void append_view_tree_lines(const ui::views::View* view, int depth,
   for (size_t i = 0; i < view->child_count(); ++i) {
     append_view_tree_lines(view->child_at(i), depth + 1, oss);
   }
-}
-
-std::wstring utf8_to_wide(const std::string& utf8) {
-  if (utf8.empty()) {
-    return {};
-  }
-  const int chars = MultiByteToWideChar(
-      CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
-  if (chars <= 0) {
-    return {};
-  }
-  std::wstring out(static_cast<size_t>(chars), L'\0');
-  MultiByteToWideChar(CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()),
-                      out.data(), chars);
-  return out;
 }
 
 }  // namespace
@@ -180,7 +166,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     return std::string("clicked");
   };
   host.ui_type = [this](const std::string& utf8) {
-    const std::wstring wide = utf8_to_wide(utf8);
+    const std::wstring wide = detail::utf8_to_wide(utf8);
     for (wchar_t ch : wide) {
       ui::views::CharEvent ev;
       ev.ch = ch;
@@ -297,7 +283,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     if (!host_->browser_) {
       return std::string("error: no browser");
     }
-    return app::run_interact_script_utf8(*host_->browser_, path_utf8,
+    return app::run_execution_script_utf8(*host_->browser_, path_utf8,
                                            app::detail::kUiShowcaseMarkLeaf);
   };
   content::debug_agent().set_host(std::move(host));

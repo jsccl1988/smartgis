@@ -1,0 +1,160 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plugin/runtime/host 子目录收紧</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #e8f0f8; --sched: #eef3ea; --cpu: #eaf4ee; --gpu: #f4eee6;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  @media (max-width: 860px) { .lanes { grid-template-columns: 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    min-height: 160px;
+  }
+  .lane.ui { background: var(--ui); }
+  .lane.sched { background: var(--sched); }
+  .lane.cpu { background: var(--cpu); }
+  .lane.gpu { background: var(--gpu); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; }
+  .lane p, .lane li { margin: 0 0 4px; font-size: 0.8rem; color: var(--muted); }
+  .lane ul { margin: 0; padding-left: 1.1em; }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    font-size: 0.82rem;
+  }
+  .step {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; min-width: 110px;
+  }
+  .step strong { display: block; color: var(--accent); font-size: 0.75rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+  .step.active { animation: pulse 2.4s ease-in-out infinite; border-color: var(--accent); }
+  .note { color: var(--muted); font-size: 0.8rem; margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1><code>plugin/runtime/host</code> 按职责收紧</h1>
+    <p class="meta">13 个同级薄目录收成 7 个。身份在 <code>catalog/</code>，DLL 管线在 <code>native/</code>，不透明门面在 <code>capability/</code>。命名空间仍是 <code>plugin</code>。导出宏留在 host 根上。</p>
+  </header>
+
+  <section class="panel">
+    <h2>分层（谁拥有什么）</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>ui · Views 表</h3>
+        <ul>
+          <li><code>ui/manager_view</code> 只画启用 / 信任 / 安装</li>
+          <li>依赖 <code>catalog</code> 的 <code>Registry</code> / <code>Store</code></li>
+          <li><code>catalog</code> 不包含 Views</li>
+        </ul>
+      </div>
+      <div class="lane sched">
+        <h3>catalog · 包身份</h3>
+        <ul>
+          <li><code>manifest</code> 解析 <code>plugin.json</code></li>
+          <li><code>signature</code> 验签，<code>registry</code> 启用与信任</li>
+          <li><code>store</code> 装 zip / HTTP 索引</li>
+          <li><code>resource_roots</code> 每包资源根</li>
+        </ul>
+      </div>
+      <div class="lane cpu">
+        <h3>native · 加载管线</h3>
+        <ul>
+          <li><code>exports.h</code> C ABI：<code>init</code> / <code>run</code> / <code>destroy</code></li>
+          <li><code>scan</code> 扫 <code>--plugins-dir</code></li>
+          <li><code>NativeModule</code> LoadLibrary</li>
+          <li><code>PluginManager</code> 组合 scan + module + <code>Registry</code></li>
+        </ul>
+      </div>
+    </div>
+    <p class="note"><code>catalog</code> 不包含 <code>native</code>。<code>native/manager</code> 单向依赖 <code>catalog/registry</code>。</p>
+  </section>
+
+  <section class="panel">
+    <h2>旁边三条不并进 catalog 的车道</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>capability · 不透明门面</h3>
+        <p><code>capability.h</code> 与 <code>scene3d_sink</code> / <code>map2d_sink</code> / <code>report_bridge</code> / <code>shell_ui</code> / <code>shell</code>（HarnessShell）/ <code>scenario</code> / <code>marks</code> 同级。</p>
+        <p>chrome 只在调度期间挂上 <code>app.views.harness</code>。</p>
+      </div>
+      <div class="lane sched">
+        <h3>processing · 计算池</h3>
+        <p><code>ProcessingPool</code> 在 worker 上算，present / done 回到排空线程。</p>
+        <p>注册 id：<code>plugin.processing_pool</code>。不是 catalog 记录。</p>
+      </div>
+      <div class="lane gpu">
+        <h3>present · GisDocument</h3>
+        <p><code>gis_present</code>：多边形、折线、样式、stand-in mesh。</p>
+        <p>不是已注册能力。产品 present 不包含 <code>app/views</code>。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原则流（扫描到销毁）</h2>
+    <div class="flow">
+      <div class="step active"><strong>1 scan</strong><code>native/scan</code> 读一层子目录</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>2 parse</strong><code>catalog/manifest</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>3 trust</strong><code>signature</code> + <code>Registry</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>4 load</strong><code>NativeModule</code> 解析 <code>init</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>5 run</strong><code>PluginManager::dispatch_event</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>6 destroy</strong>卸载；<code>HostCapabilities</code> detach</div>
+    </div>
+    <p class="note">安装 zip 走 <code>Store</code>，写回同一本 <code>Registry</code>，不另开一套记录类型。</p>
+  </section>
+</div>
+<script>
+(function () {
+  var steps = document.querySelectorAll(".step");
+  var i = 0;
+  setInterval(function () {
+    steps.forEach(function (el) { el.classList.remove("active"); });
+    steps[i % steps.length].classList.add("active");
+    i += 1;
+  }, 1600);
+})();
+</script>
+</body>
+</html>

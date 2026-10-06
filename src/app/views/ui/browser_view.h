@@ -52,7 +52,6 @@ class MapHwndGestures;
 
 namespace app {
 
-class AtmosphereComposer;
 class Browser;
 class DebugConsoleComposer;
 class InspectComposer;
@@ -69,7 +68,6 @@ using content::MapHwndGestures;
 // Panel/page wire logic is composed into *Composer helpers (friend) so this
 // type stays layout + thin forwards — see living shell §shell/ui composers.
 class BrowserView : public BrowserUiDelegate {
-  friend class AtmosphereComposer;
   friend class DebugConsoleComposer;
   friend class InspectComposer;
   friend class InspectorSyncComposer;
@@ -159,7 +157,6 @@ class BrowserView : public BrowserUiDelegate {
   void wire_catalog();
   void wire_edit_feedback();
   void wire_map_scene();
-  void wire_atmosphere_panel();
   void wire_processing_panel();
   void wire_result_playback_panel();
   void wire_report_panel();
@@ -174,6 +171,7 @@ class BrowserView : public BrowserUiDelegate {
   void wire_legend_panel();
   void wire_spatial_analysis_panel();
   void wire_debug_console();
+  void attach_plugin_shell_ui();
   void bind_debug_agent_host();
   void bind_gis_python_bridge();
   void toggle_debug_console();
@@ -288,7 +286,6 @@ class BrowserView : public BrowserUiDelegate {
   std::unique_ptr<InspectComposer> inspect_;
   std::unique_ptr<InspectorSyncComposer> inspector_sync_;
   std::unique_ptr<DebugConsoleComposer> debug_console_;
-  std::unique_ptr<AtmosphereComposer> atmosphere_;
 
   // Right-dock AMBox tab (vertical). Map tool bar is ambox_ (horizontal).
   // Append-only — do not insert above map_*.

@@ -6,7 +6,7 @@
 #include <memory>
 #include <utility>
 
-#include "plugin/runtime/browser/report_browser.h"
+#include "plugin/runtime/web/report_browser.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/widget/widget.h"
 #include "ui/views/primitives/text/label.h"

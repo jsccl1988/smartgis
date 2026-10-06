@@ -360,11 +360,9 @@ bool build_markup_tree(const MarkupDocument& doc,
     return false;
   }
 
-  ControlFactory owned;
   const ControlFactory* factory = options.factory;
   if (!factory) {
-    owned = ControlFactory::make_default();
-    factory = &owned;
+    factory = &ControlFactory::get_default();
   }
 
   std::string err;

@@ -16,7 +16,7 @@ All rights reserved.
 ## Global Constraints
 
 - No Qt; no OSRM / full hydrology; no video encode this drop.
-- Kernels stay in `gis/analysis`; session under `app/views/runtime/`.
+- Kernels stay in `gis/analysis`; session under `app/views/il.runtime/`.
 - Compile via `build.bat` + `out/.build.lock`; set `SMARTGIS_BUILD_OWNER`.
 
 ## Tasks

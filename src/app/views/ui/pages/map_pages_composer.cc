@@ -34,7 +34,7 @@
 #include "content/browser/debug/debug_agent.h"
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/browser/commands/view_commands.h"
-#include "plugin/runtime/host/registry/registry.h"
+#include "plugin/runtime/host/catalog/registry.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "content/public/map_layer_types.h"
 #include "content/public/map_contents.h"

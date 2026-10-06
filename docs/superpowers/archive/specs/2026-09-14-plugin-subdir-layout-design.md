@@ -83,7 +83,7 @@ src/plugin/product/<domain>/
 | Directory | `product/<domain>/` — short snake (`dem`, `print`, `model3d`, `orthogrid`) |
 | Files | `snake_case` + `.cc` / `.h`. Path already names the domain → **no** `dem_` / `print_` file prefix on entry/commands |
 | Entry | `commands.h` / `commands.cc` + `bool register_<domain>(…)` (symbol may keep domain; filename does not) |
-| Manifest wire | always `manifest/plugin.json` (same shape as `runtime/samples/*/plugin.json`) |
+| Manifest wire | always `manifest/plugin.json` (same shape as `runtime/python/samples/*/plugin.json`) |
 | Export header | keep a short qualifier when needed (`dem_export.h`), not bare `export.h` |
 | GN | `source_set("<domain>_views")` = `commands.*` + `views/*`; `source_set("<domain>_processing")` = `processing/*` when present; `test("<domain>_*_test")` with sources under `tests/` |
 | Include | `"plugin/product/<domain>/commands.h"`, `"plugin/product/<domain>/views/…"`, `"plugin/product/<domain>/processing/…"` — full path from `//src`, no shims |

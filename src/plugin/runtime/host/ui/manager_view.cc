@@ -6,7 +6,7 @@
 #include <memory>
 
 #include "content/public/plugin_host.h"
-#include "plugin/runtime/host/registry/registry.h"
+#include "plugin/runtime/host/catalog/registry.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/text/label.h"
 #include "ui/views/primitives/collection/table_view.h"

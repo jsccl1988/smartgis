@@ -358,7 +358,7 @@ legacy/ui/shell/
 | Layout | `bootstrap/` · `shell/{frame,catalog,dock,showcase}` · `views/{document,viewport,helper}` · `res/` |
 | Class ABI | Keep `App` / `CSmartGisApp` / `CMainFrame` / `CChildFrame` / `CSmartGisDoc` / `CSmart*View` + `APP_CORE_EXPORT` / DYNCREATE |
 | Nesting | Cap `legacy/app/<capability>/<role>/`; peer of `legacy/ui/inspect/<role>/` and `legacy/ui/map/<role>/` |
-| Naming | Role stems: `bootstrap` · `win_app` · `main_frame` · `child_frame` · `mdi_tab_options` · `catalog_pane` · `debug_console` · `dock_child` · `document` · `edit_view` · `data_view` · `scene3d_view` · `mdi_menu` · `status_coord` · `self_test_mark` · `showcase_host` · `map2d_showcase` · `scene3d_showcase` |
+| Naming | Role stems: `bootstrap` · `win_app` · `main_frame` · `child_frame` · `mdi_tab_options` · `catalog_pane` · `debug_console` · `dock_child` · `document` · `edit_view` · `data_view` · `scene3d_view` · `mdi_menu` · `status_coord` · `harness_mark` · `showcase_host` · `map2d_showcase` · `scene3d_showcase` |
 | Behavior | Out of this wave — no new present facade / no content extract |
 | Diagram | [`../diagrams/legacy-app-deep-layer.html`](../diagrams/legacy-app-deep-layer.html) |
 
@@ -377,7 +377,7 @@ legacy/app/
   views/
     document/            # CSmartGisDoc
     viewport/            # CSmartMapEditView / CSmartDataSourceView / CSmart3DView
-    helper/              # mdi_menu · status_coord · self_test_mark (`legacy_app::helper`)
+    helper/              # mdi_menu · status_coord · harness_mark (`legacy_app::helper`)
   res/
 ```
 

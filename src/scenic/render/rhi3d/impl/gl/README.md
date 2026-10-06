@@ -75,10 +75,11 @@ GL was already ahead of D3D on texture/FBO/font/frustum. This slice is primarily
 ## E2E
 
 ```bat
-py -3 testing\tools\harness\legacy\legacy.scene3d.china\legacy_scene3d_china_loop.py --rounds 1
+set SCENE3D_SHOWCASE_LINGER_MS=0
+out\Debug\SmartGIS-Legacy.exe --scene3d-showcase china
 ```
 
-Omit `--d3d` (or set `STEREO_API=OpenGL`) for GL. Product may default to D3D11 elsewhere; this loop defaults to GL.
+Omit `--d3d` (or set `STEREO_API=OpenGL`) for GL. Product may default to D3D11 elsewhere. Loop family `testing/tools/harness/legacy/` is removed.
 
 **Unit smoke:**
 

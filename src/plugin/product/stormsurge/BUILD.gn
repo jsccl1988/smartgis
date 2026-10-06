@@ -2,15 +2,17 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//src/plugin/product/native_plugin.gni")
 import("//testing/test.gni")
 
 copy("stormsurge_resources") {
   sources = [
+    "manifest/plugin.json",
     "resources/run.ui.css",
     "resources/run.ui.xml",
     "resources/stormsurge.style.json",
   ]
-  outputs = [ "$root_out_dir/../plugins/stormsurge/{{source_file_part}}" ]
+  outputs = [ "$root_out_dir/plugins/stormsurge/{{source_file_part}}" ]
 }
 
 source_set("stormsurge_views") {
@@ -40,6 +42,38 @@ source_set("stormsurge_views") {
     "//third_party:rapidjson",
   ]
   data_deps = [ ":stormsurge_resources" ]
+}
+
+native_plugin("stormsurge_native") {
+  package = "stormsurge"
+  entry = "dll_entry.cc"
+  deps = [ ":stormsurge_views" ]
+  data_deps = [ ":stormsurge_resources" ]
+}
+
+source_set("stormsurge_harness") {
+  sources = [
+    "scenario/interact.cc",
+    "scenario/interact.h",
+    "scenario/register.cc",
+    "scenario/register.h",
+    "scenario/run.cc",
+    "scenario/run.h",
+    "scenario/seed.cc",
+    "scenario/seed.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    ":stormsurge_views",
+    "//src/content:content",
+    "//src/content:scene3d_present",
+    "//src/plugin/product/world3d:world3d_harness",
+    "//src/plugin/runtime/host:host",
+    "//third_party:gdal",
+  ]
 }
 
 test("stormsurge_run_test") {

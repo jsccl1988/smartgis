@@ -38,7 +38,14 @@ def parse_vts_ascii(text: str) -> dict:
 def main() -> int:
     # .../testing/tools/harness/_shared/scripts/vscode/vscode-vts-preview → repo root
     root = Path(__file__).resolve().parents[7]
-    sample = root / "out" / "Debug" / "captures" / "plugin-showcase-orthogrid3d.vts"
+    sample = (
+        root
+        / "out"
+        / "Debug"
+        / "captures"
+        / "plugin"
+        / "plugin-showcase-orthogrid3d.vts"
+    )
     if len(sys.argv) > 1:
         sample = Path(sys.argv[1])
     if not sample.is_file():

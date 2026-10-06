@@ -8,7 +8,7 @@
 #include "gis/analysis/geology/borehole.h"
 #include "gis/analysis/geology/stratum_tin.h"
 #include "plugin/runtime/host/present/gis_present.h"
-#include "plugin/runtime/host/capability/scene3d/sink.h"
+#include "plugin/runtime/host/capability/scene3d_sink.h"
 
 #include <algorithm>
 #include <cmath>

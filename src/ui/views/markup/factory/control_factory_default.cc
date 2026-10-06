@@ -21,5 +21,10 @@ ControlFactory ControlFactory::make_default() {
   return f;
 }
 
+const ControlFactory& ControlFactory::get_default() {
+  static const ControlFactory kFactory = make_default();
+  return kFactory;
+}
+
 }  // namespace views
 }  // namespace ui

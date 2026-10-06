@@ -5,4 +5,4 @@
 
 from .bmp import known_score_ids, score_bmp
 
-__all__ = ["score_bmp", "known_score_ids"]
+__all__ = ["known_score_ids", "score_bmp"]

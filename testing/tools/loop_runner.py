@@ -10,6 +10,7 @@ and share ids with the in-process C++ ScenarioRegistry (browse / input / ...).
   py -3 testing/tools/loop_runner.py --suite browse
   py -3 testing/tools/loop_runner.py --suite input --no-build
   py -3 testing/tools/loop_runner.py --list
+  py -3 testing/tools/loop_runner.py --gate --no-build
   py -3 testing/tools/loop_runner.py --record-il
   py -3 testing/tools/loop_runner.py --suite plugin.stormsurge --review-prep
   py -3 testing/tools/loop_runner.py --record-il --attach --title "SmartGIS Views"

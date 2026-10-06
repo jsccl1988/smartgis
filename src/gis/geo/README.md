@@ -39,8 +39,8 @@ Living：[`2026-09-13-algorithm-layer-oss-design.md`](../../../docs/superpowers/
 | 类型 | 头 | 用途 | OGR 映射 | dim |
 | --- | --- | --- | --- | --- |
 | `OGRTriangulatedSurface` | `ogr_geometry.h` | **OGC TIN** | `wkbTIN` + `OGRTriangle` | 实例 2\|3 |
-| `plugin::detail::OrthoLattice` | `plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h` | 2D XY 格网缓冲 | `OGRMultiPoint` + nx/ny | 2 |
-| `HexLattice` | `plugin/product/world3d/grid/hexgrid/lattice/hex_lattice.h`（非导出） | 3D 结构化六面体结点；**不在** `gis.dll` | `OGRMultiPoint` XYZ + nx/ny/nz | 3 |
+| `plugin::detail::OrthoLattice` | `plugin/product/world3d/scene/orthogrid/lattice/ortho_lattice.h` | 2D XY 格网缓冲 | `OGRMultiPoint` + nx/ny | 2 |
+| `HexLattice` | `plugin/product/world3d/scene/hexgrid/lattice/hex_lattice.h`（非导出） | 3D 结构化六面体结点；**不在** `gis.dll` | `OGRMultiPoint` XYZ + nx/ny/nz | 3 |
 | `geo::NodeField2d` / `NodeField3d` | `grid/laplace.h` | 求解器用的扁平结点视图 | 非几何 | 2 / 3 |
 
 批量写入优先 `std::span`（仍保留指针+count 重载）。`fill_envelope` 见 `ops/geometry_traits.h`；薄 TIN 写入见 `ops/indexed_tin.h`。

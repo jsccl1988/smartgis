@@ -1,0 +1,33 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# One native plugin DLL per product pack. The shared_library stays at
+# $root_out_dir (import lib / PDB next to other binaries). A copy ships
+# <package>.dll next to plugin.json:
+#   $root_out_dir/plugins/<package>/<package>.dll
+#   (out/Debug/plugins/ or out/Release/plugins/).
+# Do not use product_shared_library — that template injects //build:legacy.
+
+template("native_plugin") {
+  _dll_target = target_name + "_dll"
+  _package = invoker.package
+
+  shared_library(_dll_target) {
+    sources = [ invoker.entry ]
+    output_name = _package
+    include_dirs += [ "//src" ]
+    deps = invoker.deps
+    if (defined(invoker.libs)) {
+      libs = invoker.libs
+    }
+  }
+
+  copy(target_name) {
+    sources = [ "$root_out_dir/" + _package + ".dll" ]
+    outputs = [ "$root_out_dir/plugins/" + _package + "/{{source_file_part}}" ]
+    deps = [ ":$_dll_target" ]
+    if (defined(invoker.data_deps)) {
+      data_deps = invoker.data_deps
+    }
+  }
+}

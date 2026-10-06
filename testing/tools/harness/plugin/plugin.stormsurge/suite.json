@@ -8,7 +8,6 @@
   "env": {
     "SKIP_MAP_CONTEXT_MENU": "1",
     "PLUGIN_STORMSURGE_GPU": "1",
-    "SCENE3D_ENGINE": "flycube",
     "SCENE3D_ENGINE": "flycube"
   },
   "mark_leaf": "plugin-showcase-mark.txt",

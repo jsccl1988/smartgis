@@ -66,16 +66,16 @@ All rights reserved.
 <div class="wrap">
   <header class="hero">
     <h1>Harness showcase → <code>plugin/product</code></h1>
-    <p class="meta">GIS 样例载荷在产品插件；chrome harness 只做 HWND / pump / BMP / marks。<code>ui</code> / <code>browse</code> / <code>input</code> 仍是壳测试，不扩 <code>content/public</code>。</p>
+    <p class="meta">GIS 样例载荷在产品插件。HWND / pump / BMP / marks 在 <code>il.runtime/capability</code>；步骤顺序在 <code>*.il</code>；<code>app/startup</code> 是 LaunchPolicy 登记表（见 <a href="./harness-il-capability.html">harness-il-capability</a>）。不扩 <code>content/public</code>。</p>
   </header>
 
   <section class="panel">
     <h2>分层</h2>
     <div class="lanes">
       <div class="lane ui">
-        <h3>Harness（chrome）</h3>
-        <p>场景 id：<code>map2d.*</code> <code>atmosphere.*</code> <code>plugin.*</code></p>
-        <p>设备会话、present 计时、导出 BMP、进度 mark</p>
+        <h3>登记表 + IL</h3>
+        <p>场景 id 仍是 <code>map2d.*</code> <code>atmosphere.*</code> <code>plugin.*</code></p>
+        <p>HWND / present / BMP / mark 在 <code>capability</code></p>
         <p>CLI 开关名保持不变（skills / equal-profile）</p>
       </div>
       <div class="lane cpu">
@@ -101,7 +101,7 @@ All rights reserved.
       <span class="arrow">→</span>
       <div class="step"><strong>2</strong>产品 <code>run_processing</code> 填文档 / 外观</div>
       <span class="arrow">→</span>
-      <div class="step"><strong>3</strong>harness 拥有 HWND 与帧时钟</div>
+      <div class="step"><strong>3</strong><code>capability</code> 拥有 HWND 与帧时钟</div>
       <span class="arrow">→</span>
       <div class="step"><strong>4</strong>export_frame + BMP + marks</div>
     </div>
@@ -118,7 +118,7 @@ All rights reserved.
         <tr><td><code>atmosphere.*</code></td><td><code>smartgis.world3d</code></td><td>look / fly 已在 scene/</td></tr>
         <tr><td><code>plugin.world3d</code> 等</td><td>既有包</td><td>不复制</td></tr>
         <tr><td><code>plugin.report</code></td><td><code>smartgis.report</code></td><td>新包，桥接 ReportBridge</td></tr>
-        <tr><td><code>ui.*</code> / browse / input</td><td>—</td><td>缺公共 UI API，保留 chrome</td></tr>
+        <tr><td><code>ui.*</code> / browse / input</td><td>—</td><td>壳测试；编排锁定为 <code>*.il</code>，原语进 <code>capability</code></td></tr>
       </tbody>
     </table>
   </section>

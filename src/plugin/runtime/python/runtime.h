@@ -53,7 +53,9 @@ class PythonRuntime {
   void shutdown();
   bool start(std::string_view directory, std::string_view entry,
              content::PluginHost* host);
+  // Unload every kind=python module. Prefer stop(directory) from Registry.
   void stop();
+  void stop(std::string_view directory);
   bool is_ready() const;
 
   // Evaluate |code| in __main__ (capture stdout + expression repr).

@@ -7,7 +7,6 @@
 #include <exception>
 #include <string>
 
-#include "app/views/harness/common/io/sample.h"
 #include "base/core/log.h"
 #include "base/process/switches.h"
 #include "base/trace/event/process_trace.h"
@@ -86,13 +85,6 @@ void Browser::schedule_deferred_china_seed() {
     } resume_presents{self};
     try {
       self->document()->seed_default(/*allow_china_bootstrap=*/true);
-      if (self->is_close_prepared()) {
-        return;
-      }
-      if (!self->document()->has_china_extent()) {
-        (void)detail::try_open_china_sample(
-            *self, /*write_stub_if_missing=*/false);
-      }
       if (self->is_close_prepared()) {
         return;
       }

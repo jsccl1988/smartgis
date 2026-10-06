@@ -1,0 +1,213 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harness → il.runtime capability</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --launch: #6b5ea8; --script: #2f7d62; --exec: #1f6b58; --host: #2563a8;
+    --prim: #b06a1a;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta, .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  @media (max-width: 980px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2); min-height: 168px;
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.78rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.76rem; color: var(--muted); }
+  .lane.launch { border-top: 3px solid var(--launch); background: #f3f0fa; }
+  .lane.script { border-top: 3px solid var(--script); background: #eaf4ee; }
+  .lane.exec { border-top: 3px solid var(--exec); background: #e7f3ee; }
+  .lane.host { border-top: 3px solid var(--host); background: #e8f1fa; }
+  .lane.prim { border-top: 3px solid var(--prim); background: #f7efe4; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .note { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.84rem; margin-top: 4px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); font-weight: 650; }
+  .pulse { stroke-dasharray: 7 5; animation: dash 0.9s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  .wait { fill: #6b5ea8; }
+  .go { fill: #2f7d62; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Harness 收进 Interact Language</h1>
+    <p><code>src/app/views/harness/</code> 已删。启动登记表在 <code>app/startup</code>；步骤顺序写在 <code>*.il</code>；HWND / BMP / mark / pump / expect 的实现填 <code>CapabilityHost</code>。</p>
+    <div class="meta">
+      状态：phase 1–5 已落地。编译器相位：<code>front</code> 语法 → <code>sema</code> 绑定 → <code>ir</code> 指令（<code>app::ir</code>）→ <code>eval</code> 解释 → <code>capability</code> 运行时。<code>language/backend.h</code> 按后缀选择 <code>.il</code> 或将来的 <code>.py</code>。
+      Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Harness IL capability cut</a>
+    </div>
+    <div class="rel">相关图：
+      <a href="./views-runtime-layers.html">il.runtime 现状</a>
+      <a href="./plugin-product-showcase.html">产品载荷</a>
+      <a href="./content-browser-layers.html">content/browser</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层</h2>
+    <div class="lanes">
+      <div class="lane launch">
+        <h3>app/startup — 登记表</h3>
+        <ul>
+          <li><code>browser_main</code> / <code>startup/policy</code> 在 <code>Browser</code> 之前读 <code>LaunchPolicy</code></li>
+          <li>一行：<code>{id, mark_leaf, LaunchPolicy, suite_id}</code></li>
+          <li>入口 <code>run_scenario</code> → suite script</li>
+          <li><code>report_suite</code> 在 <code>browser/plugin</code></li>
+        </ul>
+      </div>
+      <div class="lane script">
+        <h3>*.il — 编排</h3>
+        <ul>
+          <li><code>harness.il</code> 取代 <code>pipeline.cc</code></li>
+          <li><code>input.il</code> 已是正文</li>
+          <li><code>browse.il</code> / <code>browse.3d.il</code> 含 seed、静帧、fps</li>
+          <li><code>ui.shell|data|scene|catalog.il</code>；<code>ui.interact.host.il</code> 包手势脚本</li>
+        </ul>
+      </div>
+      <div class="lane exec">
+        <h3>execution — 解释</h3>
+        <ul>
+          <li><code>front/</code> 语法 → <code>sema/</code> 绑定 → <code>eval/</code> 解释</li>
+          <li><code>eval/</code> 只跑动作和 <code>seq</code></li>
+          <li>不 <code>#include</code> <code>Browser</code></li>
+        </ul>
+      </div>
+      <div class="lane host">
+        <h3>CapabilityHost — 槽</h3>
+        <ul>
+          <li><code>content/browser/capability/host.h</code></li>
+          <li>只加原子 <code>std::function</code></li>
+          <li>不改 <code>content/public</code></li>
+          <li>不加 <code>ui_run(mode)</code></li>
+        </ul>
+      </div>
+      <div class="lane prim">
+        <h3>capability — 原语</h3>
+        <ul>
+          <li><code>horizon/{bind,sema,atom}</code>（path + inject 在 atom）<code>capture</code> <code>plugin</code> <code>expect/{bind,sema}</code></li>
+          <li><code>capture/</code>：<code>bind</code> → <code>sema</code> → <code>atom</code>（语义不进原子操作）</li>
+          <li><code>horizon/sema</code> 编排 still / china / ui，调用 capture 与 expect</li>
+          <li><code>expect/</code>：wait / geom / layout / DebugAgent（<code>bind_expect</code>）；编排在 <code>*.il</code></li>
+          <li>不再 <code>#include</code> <code>app/startup/scenario.h</code> 或 <code>execution/</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（谁先跑、谁不 join）</h2>
+    <svg class="diagram" viewBox="0 0 1080 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="launch then script then host slots">
+      <rect x="16" y="16" width="200" height="96" rx="8" fill="#f3f0fa" stroke="#6b5ea8"/>
+      <text class="box-title" x="28" y="42">1. 登记表</text>
+      <text class="box-sub" x="28" y="62">find_scenario(id)</text>
+      <text class="box-sub" x="28" y="80">LaunchPolicy 先于 Browser</text>
+      <text class="box-sub" x="28" y="98">不执行步骤</text>
+
+      <rect x="248" y="16" width="200" height="96" rx="8" fill="#eaf4ee" stroke="#2f7d62"/>
+      <text class="box-title" x="260" y="42">2. 选脚本</text>
+      <text class="box-sub" x="260" y="62">language/run_script</text>
+      <text class="box-sub" x="260" y="80">.il 今天 / .py 以后</text>
+      <text class="box-sub" x="260" y="98">bind_host</text>
+
+      <rect x="480" y="16" width="220" height="96" rx="8" fill="#e7f3ee" stroke="#1f6b58"/>
+      <text class="box-title" x="492" y="42">3. execution</text>
+      <text class="box-sub" x="492" y="62">seq 串行 stmt</text>
+      <text class="box-sub" x="492" y="80">未知动词跳过</text>
+      <text class="box-sub" x="492" y="98">不碰 HWND 实现</text>
+
+      <rect x="732" y="16" width="328" height="96" rx="8" fill="#f7efe4" stroke="#b06a1a"/>
+      <text class="box-title" x="744" y="42">4. capability 原语</text>
+      <text class="box-sub" x="744" y="62">pump · mark · capture_shell_bmp</text>
+      <text class="box-sub" x="744" y="80">wait_viewport · expect_* · debug_exec</text>
+      <text class="box-sub" x="744" y="98">export_bmp 仍是文档导出</text>
+
+      <path class="pulse" d="M216 64 L248 64" fill="none" stroke="#6b5ea8" stroke-width="2"/>
+      <path class="pulse" d="M448 64 L480 64" fill="none" stroke="#2f7d62" stroke-width="2"/>
+      <path class="pulse" d="M700 64 L732 64" fill="none" stroke="#1f6b58" stroke-width="2"/>
+
+      <rect x="16" y="140" width="1048" height="140" rx="8" fill="#f0f3f7" stroke="#d8dee6"/>
+      <text class="box-title" x="28" y="164">谁等谁</text>
+      <circle class="wait" cx="36" cy="190" r="5"/>
+      <text class="box-sub" x="48" y="194">登记表在 bind_host 之前返回 LaunchPolicy。它不等脚本，也不调用 capture。</text>
+      <circle class="go" cx="36" cy="216" r="5"/>
+      <text class="box-sub" x="48" y="220">脚本 seq 等上一条动词返回。browse 的 fps_bench 写在 stress 之后，顺序只在 .il。</text>
+      <circle class="wait" cx="36" cy="242" r="5"/>
+      <text class="box-sub" x="48" y="246">CapabilityHost 是回调袋。execution 只调槽，capability 实现槽。两边都不反向包含对方的 Browser 类型进 content。</text>
+      <text class="box-sub" x="48" y="268">3D 脚本失败直接返回。不另起 navigate.cc。mark 叶名与 captures/&lt;scenario&gt;/ 在搬家中保持不变。</text>
+    </svg>
+    <p class="note">虚线是控制流，不是 GPU 提交。同一次 apply 在 UI 线程串行走 stmt。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 搬家对照</h2>
+    <table class="map">
+      <thead>
+        <tr><th>现在</th><th>锁定后</th><th>保持不变</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>app/startup/scenario</code> + 函数指针</td>
+          <td>登记表 + <code>suite_id</code></td>
+          <td>suite id、<code>LaunchPolicy</code></td>
+        </tr>
+        <tr>
+          <td><code>pipeline.cc</code> · <code>input_showcase</code> · <code>browse_showcase</code> · <code>ui_showcase</code></td>
+          <td>对应 <code>*.il</code></td>
+          <td>mark 文本、<code>out/&lt;config&gt;/captures/&lt;scenario&gt;/</code></td>
+        </tr>
+        <tr>
+          <td><code>pump</code> · <code>probe</code> · <code>dispatch</code> · expect 原子</td>
+          <td><code>backend/runtime/horizon</code> · <code>plugin</code>（expect 在 horizon；顺序在 <code>*.il</code>）</td>
+          <td>槽名 <code>pump</code> · <code>run_plugin_command</code></td>
+        </tr>
+        <tr>
+          <td><code>harness/capture/*</code></td>
+          <td><code>backend/runtime/horizon/</code>（capture atom/sema 与 <code>paths</code> 同包）</td>
+          <td>叶名 <code>harness-mark.txt</code> 等</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

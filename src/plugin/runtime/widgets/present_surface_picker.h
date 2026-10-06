@@ -19,6 +19,7 @@ namespace plugin {
 
 // Combobox: Main window vs Map/World preview. Writes PluginHost sticky
 // present_surface (0=main, 1=preview). Face still picks map vs world preview.
+// wrap_with_present_surface also stacks DebugInspectBar (Debug / Inspect / Trace).
 class PLUGIN_HOST_EXPORT PresentSurfacePicker : public ui::views::View {
  public:
   explicit PresentSurfacePicker(content::PluginHost* host);

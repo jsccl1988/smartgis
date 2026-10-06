@@ -3,8 +3,9 @@
 
 #include "content/public/event_bus.h"
 #include "content/public/plugin_host.h"
+#include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/host/catalog/registry.h"
 #include "plugin/runtime/python/runtime.h"
-#include "plugin/runtime/host/registry/registry.h"
 #include "tool/command/command.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/dialogs/message_box.h"
@@ -84,8 +85,34 @@ int main() {
       content::create_plugin_host(&catalog, &bus, nullptr);
   expect(py.start((tmp / "ok").string(), "plugin.py", host), "start ok");
   expect(host->execute("sample.hello", {}), "sample.hello");
+  {
+    tool::CommandArgs ping;
+    ping.payload = "ping";
+    expect(host->execute("sample.hello", ping), "sample.hello payload");
+  }
   expect(host->open_dialog("sample.dlg"), "open sample.dlg");
   expect(host->run_processing("sample.proc", "{}"), "run sample.proc");
+
+  plugin::HostCapabilities caps;
+  caps.attach(host);
+  {
+    const std::string out = py.eval(
+        "import smartgis\n"
+        "h = smartgis.content.host\n"
+        "print(h.execute('sample.hello', 'from-eval'))\n"
+        "print(len(h.list_contributions('command')) >= 1)\n"
+        "print(h.playback_push('{\"i\":0}'))\n"
+        "print(h.playback_count())\n"
+        "print(h.has_capability('plugin.report'))\n"
+        "print(h.has_capability('plugin.scene3d'))\n"
+        "print(h.map2d_open_map())\n"
+        "print(h.scene3d_open_earth())\n"
+        "h.set_present_surface(1)\n"
+        "print(h.present_surface())");
+    expect(out.find("True") != std::string::npos, "host L2 via eval");
+    expect(out.find("1") != std::string::npos, "playback/surface counts");
+  }
+  caps.detach(host);
 
   {
     const std::string out = py.eval(
@@ -125,6 +152,9 @@ int main() {
         "cm = smartgis.debug.trace_event('py_test', 'plugin')\n"
         "cm.__enter__()\n"
         "cm.__exit__(None, None, None)\n"
+        "print(smartgis.debug.show_tab('trace'))\n"
+        "print(smartgis.ui.show_inspect('measure'))\n"
+        "print(smartgis.ui.AtmospherePanel() is not None)\n"
         "smartgis.debug.set_tracing(False)\n"
         "print(smartgis.debug.tracing_enabled())");
     expect(out.find("True") != std::string::npos, "debug tracing on");
@@ -139,7 +169,31 @@ int main() {
            "tool.activate no crash");
   }
 
+  host->withdraw("smartgis.sample_hello");
   py.stop();
+
+  expect(write_text(tmp / "ok" / "plugin_a.py",
+                    "def start(host):\n"
+                    "    host.contribute_command('p.a', 'sample.a', 'A', 'tools',"
+                    " lambda args: True)\n"
+                    "def stop():\n"
+                    "    pass\n"),
+         "write plugin a");
+  fs::create_directories(tmp / "b");
+  expect(write_text(tmp / "b" / "plugin.py",
+                    "def start(host):\n"
+                    "    host.contribute_command('p.b', 'sample.b', 'B', 'tools',"
+                    " lambda args: True)\n"
+                    "def stop():\n"
+                    "    pass\n"),
+         "write plugin b");
+  expect(py.start((tmp / "ok").string(), "plugin_a.py", host), "start a");
+  expect(py.start((tmp / "b").string(), "plugin.py", host), "start b");
+  expect(host->execute("sample.a", {}), "sample.a with b loaded");
+  expect(host->execute("sample.b", {}), "sample.b with a loaded");
+  host->withdraw("p.a");
+  py.stop((tmp / "ok").string());
+  expect(host->execute("sample.b", {}), "sample.b after stop a");
 
   expect(!py.start((tmp / "boom").string(), "plugin.py", host),
          "start raises");

@@ -1,0 +1,198 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Interact Language runtime:
+#   frontend/   — Interact.g4 + AST + parse (GN frontend:frontend)
+#   backend/         — flat: lower/eval (GN backend:compile) and Host packs (:capability)
+#   language/   — source manager (load) · driver (backend.h) · session (run_script)
+#   :ir         — language-neutral instructions (header-only over CapabilityHost)
+#   :capability — runtime + linker: bind_host fills Host; packs never parse
+#   :il.runtime — session: load → link → driver apply
+# language/load must not include backend packs. Packs must not include language/.
+
+import("//testing/test.gni")
+
+# Language-neutral instructions. Frontends lower into these calls.
+# Header-only; does not link the runtime.
+source_set("ir") {
+  sources = [
+    "ir/api.h",
+    "ir/document.h",
+    "ir/expect.h",
+    "ir/gesture.h",
+    "ir/horizon.h",
+    "ir/plugin.h",
+  ]
+  deps = [ "//src/content:capability" ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("clock") {
+  sources = [
+    "backend/pump.cc",
+    "backend/pump.h",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [ "user32.lib" ]
+}
+
+# HWND / RHI capture pack. Own GN target so capture/bind_export.obj
+# does not collide with horizon/bind_horizon.obj under :capability.
+source_set("capture") {
+  sources = [
+    "backend/bind_export.cc",
+    "backend/bmp.cc",
+    "backend/bmp.h",
+    "backend/gdi.cc",
+    "backend/gdi.h",
+    "backend/capture_host.cc",
+    "backend/capture_host.h",
+    "backend/mark.cc",
+    "backend/mark.h",
+    "backend/paint.cc",
+    "backend/paint.h",
+    "backend/window.cc",
+    "backend/window.h",
+    "backend/capture.cc",
+    "backend/capture.h",
+    "backend/env.cc",
+    "backend/env.h",
+    "backend/export.cc",
+    "backend/export.h",
+    "backend/finish.cc",
+    "backend/finish.h",
+    "backend/frame.cc",
+    "backend/frame.h",
+    "backend/gate.cc",
+    "backend/gate.h",
+    "backend/read.cc",
+    "backend/read.h",
+    "backend/session.cc",
+    "backend/session.h",
+    "backend/warmup.cc",
+    "backend/warmup.h",
+  ]
+  deps = [
+    ":clock",
+    "//src/app/views/util:util",
+    "//src/base:base",
+    "//src/base:foundation",
+    "//src/content:content",
+    "//src/content:map_scene",
+    "//src/content:view_host",
+    "//src/plugin:host",
+    "//src/render:rhi",
+    "//src/ui/views:views",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+source_set("capability") {
+  sources = [
+    "bind/reflect.h",
+    "bind/slots.h",
+    "backend/bind_host.cc",
+    "backend/bind_host.h",
+    "backend/bind_expect.cc",
+    "backend/debug_console.cc",
+    "backend/debug_console.h",
+    "backend/shell_expect.cc",
+    "backend/shell_expect.h",
+    "backend/probe.cc",
+    "backend/probe.h",
+    "backend/bind_horizon.h",
+    "backend/bind_horizon.cc",
+    "backend/paths.cc",
+    "backend/paths.h",
+    "backend/surface.cc",
+    "backend/surface.h",
+    "backend/stress.cc",
+    "backend/stress.h",
+    "backend/still.cc",
+    "backend/still.h",
+    "backend/horizon_document.cc",
+    "backend/horizon_document.h",
+    "backend/ui.cc",
+    "backend/ui.h",
+    "backend/bind_plugin.h",
+    "backend/bind_plugin.cc",
+    "backend/dispatch.cc",
+    "backend/dispatch.h",
+  ]
+  deps = [
+    ":capture",
+    ":clock",
+    "//src/app/views:shell_browser",
+    "//src/app/views/util:util",
+    "//src/base:base",
+    "//src/base:foundation",
+    "//src/content:capability",
+    "//src/content:content",
+    "//src/content:debug_agent",
+    "//src/content:embed_sample",
+    "//src/content:map_scene",
+    "//src/content:view_host",
+    "//src/gis:gis",
+    "//src/gpu:gpu_lib",
+    "//src/net:net",
+    "//src/plugin:host",
+    "//src/plugin/product:product_views",
+    "//src/plugin/product/map2d:map2d_harness",
+    "//src/plugin/product/map2d:map2d_views",
+    "//src/plugin/product/mine:mine_harness",
+    "//src/plugin/product/stormsurge:stormsurge_harness",
+    "//src/plugin/product/traffic:traffic_harness",
+    "//src/plugin/product/world3d:world3d_harness",
+    "//src/render:rhi",
+    "//src/tool:tool",
+    "//src/ui/gis:ui_gis",
+    "//src/ui/views:views",
+    "//src/vista:vista",
+    "//third_party:gdal",
+    "//third_party:rapidjson",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+source_set("il.runtime") {
+  sources = [
+    "language/backend.h",
+    "language/driver.cc",
+    "language/load.cc",
+    "language/load.h",
+    "language/interact_script.cc",
+    "language/interact_script.h",
+    "language/run_script.cc",
+    "language/run_script.h",
+  ]
+  deps = [
+    ":capability",
+    "//src/app/views:shell_browser",
+    "//src/app/views/util:util",
+    "//src/base:base",
+    "//src/content:capability",
+  ]
+  public_deps = [
+    ":capability",
+    "backend:compile",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+test("capture_present_test") {
+  output_name = "capture_present_test"
+  sources = [
+    "backend/env.cc",
+    "backend/env_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/base:base" ]
+}

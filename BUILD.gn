@@ -45,7 +45,6 @@ group("benchmark_all") {
 group("test_shell") {
   testonly = true
   deps = [
-    "//testing/e2e:exe_smoke",
     "//src/ui/views:views_unittests",
     "//src/ui/views:views_interactive_tests",
     "//src/ui/views:markup_unittests",
@@ -59,6 +58,7 @@ group("test_shell") {
     "//src/content:map_scene_test",
     "//src/content:scene3d_presenter_test",
     "//src/app/views:view_commands_test",
+    "//src/app/views:plugin_builtins_test",
     "//src/content:view_navigation_test",
     "//src/gis:gis_test_all",
     "//src/vista:vista_test_all",
@@ -72,7 +72,9 @@ group("test_shell") {
     "//src/base/trace:trace_test",
     # Plugin pathway (Registry / PluginHost / processing ops / M4 embed sample).
     "//src/plugin:plugin_host_test",
+    "//src/plugin/runtime/host:plugin_manager_test",
     "//src/plugin/runtime/processing:processing_ops_test",
+    "//src/plugin/product:product_native",
     "//src/content:content_embed_sample_test",
     # world3d orthogrid / hexgrid: 4-edge gridbnd Laplace + 3D hex Laplace.
     "//src/plugin/product/world3d:orthogrid_laplace_test",
@@ -86,8 +88,9 @@ group("test_all") {
   deps = [ ":test_shell" ]
 }
 
-# Chrome / GPU exes + exe_smoke. build.bat e2e sets remaining build_* flags.
-group("e2e") {
+# Product runtime gate: Views + GPU PEs. build.bat harness (alias e2e) then
+# runs testing/tools/loop_runner.py --gate (gpu + --harness suites).
+group("harness") {
   testonly = true
   deps = [ ":test_all" ]
   if (build_views) {

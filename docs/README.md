@@ -30,7 +30,7 @@ As-built 与 living 规格同树：[`superpowers/`](superpowers/README.md)（根
 | --- | --- |
 | [根 `README.md`](../README.md) | 产品故事 |
 | [`build/README.md`](../build/README.md) | GN/Ninja toolchain |
-| [`testing/README.md`](../testing/README.md) | 单测 / `build.bat e2e` 产品 exe 冒烟 |
+| [`testing/README.md`](../testing/README.md) | 单测 / `build.bat harness` 产品 runtime 门禁 |
 | [`src/README.md`](../src/README.md) | 产品树分层（短名） |
 | [`superpowers/mogu-mapping.md`](superpowers/mogu-mapping.md) | mogu → 本仓工程管理对照 |
 | [`superpowers/src-layout.md`](superpowers/src-layout.md) | `src/` 分层 + 2010→短名表；foundation 在 `src/base` |

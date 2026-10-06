@@ -1,0 +1,182 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>testing/tools/loop 分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --cli: #6b5ea8; --contract: #2563a8; --drive: #b06a1a;
+    --interact: #2f7d62; --score: #1f6b58;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta, .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  @media (max-width: 980px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2); min-height: 168px;
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.78rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.76rem; color: var(--muted); }
+  .lane.cli { border-top: 3px solid var(--cli); background: #f3f0fa; }
+  .lane.contract { border-top: 3px solid var(--contract); background: #e8f1fa; }
+  .lane.drive { border-top: 3px solid var(--drive); background: #f7efe4; }
+  .lane.interact { border-top: 3px solid var(--interact); background: #eaf4ee; }
+  .lane.score { border-top: 3px solid var(--score); background: #e7f3ee; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .note { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.84rem; margin-top: 4px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); font-weight: 650; }
+  .pulse { stroke-dasharray: 7 5; animation: dash 0.9s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Harness 外环：<code>testing/tools/loop</code></h1>
+    <p><code>runner.py</code> 只编排。契约、进程生命周期、注入、录像、门禁、视觉复核各占一层；套件 JSON 仍是 SoT。</p>
+    <div class="meta">
+      状态：as-built。入口 <code>loop_runner.py</code>。规格：
+      <a href="../specs/2026-09-27-views-desktop-shell-design.md">§Harness suite loop</a>
+    </div>
+    <div class="rel">相关图：
+      <a href="./harness-il-capability.html">Harness → IL</a>
+      <a href="./views-runtime-layers.html">il.runtime</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>层（谁拥有什么）</h2>
+    <div class="lanes">
+      <div class="lane cli">
+        <h3>CLI / 编排</h3>
+        <ul>
+          <li><code>cli.py</code> argparse</li>
+          <li><code>gate.py</code> gpu+harness</li>
+          <li><code>runner.py</code> 轮次循环</li>
+        </ul>
+      </div>
+      <div class="lane contract">
+        <h3>contract</h3>
+        <ul>
+          <li><code>model.py</code> Suite / gates</li>
+          <li><code>paths.py</code> captures 前缀</li>
+          <li><code>load.py</code> suite.json</li>
+        </ul>
+      </div>
+      <div class="lane drive">
+        <h3>drive</h3>
+        <ul>
+          <li>kill / build / env</li>
+          <li>plugin.json startup</li>
+          <li>inproc Popen / OS 注入</li>
+        </ul>
+      </div>
+      <div class="lane interact">
+        <h3>interact + record</h3>
+        <ul>
+          <li>DSL + HWND PostMessage</li>
+          <li>BitBlt / ffmpeg / IL</li>
+        </ul>
+      </div>
+      <div class="lane score">
+        <h3>score</h3>
+        <ul>
+          <li>marks + BMP score_id</li>
+          <li>zoom / motion / click / fps</li>
+        </ul>
+      </div>
+      <div class="lane score">
+        <h3>review</h3>
+        <ul>
+          <li>inspect PNG</li>
+          <li><code>*_visual_review.json</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原则流（一轮）</h2>
+    <svg class="diagram" viewBox="0 0 1040 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="kill build run score report">
+      <rect x="8" y="36" width="150" height="72" rx="8" fill="#f3f0fa" stroke="#d8dee6"/>
+      <text class="box-title" x="20" y="64">1. drive.prep</text>
+      <text class="box-sub" x="20" y="84">kill · wait exe</text>
+      <rect x="178" y="36" width="150" height="72" rx="8" fill="#f7efe4" stroke="#d8dee6"/>
+      <text class="box-title" x="190" y="64">2. drive.build</text>
+      <text class="box-sub" x="190" y="84">build.bat debug</text>
+      <rect x="348" y="36" width="170" height="72" rx="8" fill="#eaf4ee" stroke="#d8dee6"/>
+      <text class="box-title" x="360" y="64">3. drive.execute</text>
+      <text class="box-sub" x="360" y="84">inproc 或 os + record</text>
+      <rect x="538" y="36" width="160" height="72" rx="8" fill="#e7f3ee" stroke="#d8dee6"/>
+      <text class="box-title" x="550" y="64">4. score.round</text>
+      <text class="box-sub" x="550" y="84">marks · BMP · extra</text>
+      <rect x="718" y="36" width="150" height="72" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="box-title" x="730" y="64">5. review</text>
+      <text class="box-sub" x="730" y="84">inspect · JSON stub</text>
+      <rect x="888" y="36" width="140" height="72" rx="8" fill="#f0f3f7" stroke="#d8dee6"/>
+      <text class="box-title" x="900" y="64">6. report</text>
+      <text class="box-sub" x="900" y="84">loop_report.json</text>
+      <path class="pulse" d="M158 72 H178" stroke="#2563a8" stroke-width="2" fill="none"/>
+      <path class="pulse" d="M328 72 H348" stroke="#2563a8" stroke-width="2" fill="none"/>
+      <path class="pulse" d="M518 72 H538" stroke="#2563a8" stroke-width="2" fill="none"/>
+      <path class="pulse" d="M698 72 H718" stroke="#2563a8" stroke-width="2" fill="none"/>
+      <path class="pulse" d="M868 72 H888" stroke="#2563a8" stroke-width="2" fill="none"/>
+      <text class="box-sub" x="20" y="150">失败则 sleep 后下一轮；PASS 或 --review-prep 写完即退出。C++ ScenarioRegistry 不读 suite.json。</text>
+      <text class="box-sub" x="20" y="172">根目录 suite.py / kill.py / private_runtime.py 仅为稳定 import 转发到 contract/ / drive/。</text>
+    </svg>
+    <p class="note">依赖方向：<code>cli → runner → drive | score | review</code>；<code>drive</code> 调用 <code>interact</code> 与 <code>record</code>；<code>contract</code> 无向上依赖。</p>
+  </section>
+
+  <section class="panel">
+    <h2>稳定入口</h2>
+    <table class="map">
+      <thead>
+        <tr><th>符号</th><th>实现</th><th>调用方</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>loop.cli.main</code></td><td><code>cli.py</code></td><td><code>loop_runner.py</code></td></tr>
+        <tr><td><code>loop.private_runtime</code></td><td><code>drive/private.py</code></td><td>engine matrix 脚本</td></tr>
+        <tr><td><code>loop.kill</code></td><td><code>drive/kill.py</code></td><td><code>harness/_shared/case/util</code></td></tr>
+        <tr><td><code>loop.record.hwnd</code></td><td><code>record/</code> façade</td><td>OS 捕获 / IL 录制</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

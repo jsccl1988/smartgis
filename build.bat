@@ -9,7 +9,7 @@ pushd "%~dp0" || (
   exit /b 1
 )
 
-REM Per-config out\.build.lock.{debug,release,shared} for gn/ninja only (te/e2e unlocked after).
+REM Per-config out\.build.lock.{debug,release,shared} for gn/ninja only (te/harness unlocked after).
 REM Wrapper: build\config\win\with_build_lock.ps1 sets SMARTGIS_BUILD_PHASE.
 if not defined SMARTGIS_BUILD_LOCK_HELD (
   powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0build\config\win\with_build_lock.ps1" %*
@@ -19,7 +19,7 @@ if not defined SMARTGIS_BUILD_LOCK_HELD (
 )
 if not defined SMARTGIS_BUILD_PHASE set "SMARTGIS_BUILD_PHASE=all"
 
-REM tests phase: parse args and run te/e2e only (no gn/ninja).
+REM tests phase: parse args and run te/harness only (no gn/ninja).
 if /I "!SMARTGIS_BUILD_PHASE!"=="tests" goto :parse_args_for_tests
 
 if exist "D:\Dev\depot_tools" set "PATH=%PATH%;D:\Dev\depot_tools"
@@ -170,8 +170,13 @@ if not "!TARGET_ARG!"=="" (
   ) else if /I "!TARGET_ARG!"=="render" (
     set "NINJA_TARGET=render"
     set "BUILD_RENDER=true"
+  ) else if /I "!TARGET_ARG!"=="harness" (
+    set "NINJA_TARGET=harness"
+    set "BUILD_VIEWS=true"
+    set "BUILD_RENDER=true"
   ) else if /I "!TARGET_ARG!"=="e2e" (
-    set "NINJA_TARGET=e2e"
+    REM Alias of harness: product gate is testing/tools, not testing/e2e.
+    set "NINJA_TARGET=harness"
     set "BUILD_VIEWS=true"
     set "BUILD_RENDER=true"
   ) else (
@@ -207,28 +212,21 @@ if "!BUILD_RELEASE!"=="1" (
   )
 )
 
-REM te / e2e runners use Debug binaries only (unlocked when PHASE=compile+tests split).
+REM te / harness runners use Debug binaries only (unlocked when PHASE=compile+tests split).
 if /I "!SMARTGIS_BUILD_PHASE!"=="compile" goto :finish
 if "!BUILD_DEBUG!"=="1" (
-  if /I "!NINJA_TARGET!"=="e2e" (
-    echo Running out\Debug\exe_smoke.exe --require-all
-    ".\out\Debug\exe_smoke.exe" --require-all
-    set "ERR=!ERRORLEVEL!"
+  if /I "!NINJA_TARGET!"=="harness" (
+    call :run_harness_gate
   ) else if /I "!NINJA_TARGET!"=="test_all" (
     set "UNIT_ERR=0"
     REM leftover_session_test / leftover_record_test / leftover rhi2d-gdi/gl/dem_stereo
     REM PEs removed with src/legacy; run scenic_* twins instead.
-    for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe scenic_gdi_map_paint_test.exe scenic_map_carto2d_test.exe scenic_gl_map_paint_test.exe scenic_dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe) do (
+    for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe scenic_gdi_map_paint_test.exe scenic_map_carto2d_test.exe scenic_gl_map_paint_test.exe scenic_dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe plugin_builtins_test.exe views_launch_options_test.exe) do (
       if exist ".\out\Debug\%%T" (
         echo Running out\Debug\%%T
         ".\out\Debug\%%T"
         if !ERRORLEVEL! NEQ 0 set "UNIT_ERR=!ERRORLEVEL!"
       )
-    )
-    if exist ".\out\Debug\exe_smoke.exe" (
-      echo Running out\Debug\exe_smoke.exe
-      ".\out\Debug\exe_smoke.exe"
-      set "ERR=!ERRORLEVEL!"
     )
     if !UNIT_ERR! NEQ 0 set "ERR=!UNIT_ERR!"
   )
@@ -261,42 +259,46 @@ if /I "%~1"=="debug" (
 set "NINJA_TARGET="
 if /I "!TARGET_ARG!"=="te" (
   set "NINJA_TARGET=test_all"
+) else if /I "!TARGET_ARG!"=="harness" (
+  set "NINJA_TARGET=harness"
 ) else if /I "!TARGET_ARG!"=="e2e" (
-  set "NINJA_TARGET=e2e"
+  set "NINJA_TARGET=harness"
 )
 set "ERR=0"
 set "LAST_LOG="
 if "!BUILD_DEBUG!"=="0" (
-  echo WARNING: te/e2e runners only use Debug binaries; nothing to run.
+  echo WARNING: te/harness runners only use Debug binaries; nothing to run.
   goto :finish
 )
-if /I "!NINJA_TARGET!"=="e2e" (
-  echo Running out\Debug\exe_smoke.exe --require-all
-  ".\out\Debug\exe_smoke.exe" --require-all
-  set "ERR=!ERRORLEVEL!"
+if /I "!NINJA_TARGET!"=="harness" (
+  call :run_harness_gate
   goto :finish
 )
 if /I "!NINJA_TARGET!"=="test_all" (
   set "UNIT_ERR=0"
   REM leftover_session_test / leftover_record_test / leftover rhi2d-gdi/gl/dem_stereo
   REM PEs removed with src/legacy; run scenic_* twins instead.
-  for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe scenic_gdi_map_paint_test.exe scenic_map_carto2d_test.exe scenic_gl_map_paint_test.exe scenic_dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe) do (
+  for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe scenic_gdi_map_paint_test.exe scenic_map_carto2d_test.exe scenic_gl_map_paint_test.exe scenic_dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe plugin_builtins_test.exe views_launch_options_test.exe) do (
     if exist ".\out\Debug\%%T" (
       echo Running out\Debug\%%T
       ".\out\Debug\%%T"
       if !ERRORLEVEL! NEQ 0 set "UNIT_ERR=!ERRORLEVEL!"
     )
   )
-  if exist ".\out\Debug\exe_smoke.exe" (
-    echo Running out\Debug\exe_smoke.exe
-    ".\out\Debug\exe_smoke.exe"
-    set "ERR=!ERRORLEVEL!"
-  )
   if !UNIT_ERR! NEQ 0 set "ERR=!UNIT_ERR!"
   goto :finish
 )
-echo WARNING: SMARTGIS_BUILD_PHASE=tests but target is not te/e2e; nothing to run.
+echo WARNING: SMARTGIS_BUILD_PHASE=tests but target is not te/harness; nothing to run.
 goto :finish
+
+REM ---------------------------------------------------------------------------
+REM Product runtime gate: testing/tools loop_runner --gate (gpu + --harness)
+REM ---------------------------------------------------------------------------
+:run_harness_gate
+echo Running testing\tools\loop_runner.py --gate --no-build --out Debug
+python ".\testing\tools\loop_runner.py" --gate --no-build --out Debug --rounds 1
+set "ERR=!ERRORLEVEL!"
+goto :eof
 
 REM ---------------------------------------------------------------------------
 REM :build_config <OutDirName> <is_debug true|false>

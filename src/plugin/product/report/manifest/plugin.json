@@ -3,9 +3,13 @@
   "name": "分析报告",
   "version": "1.0.0",
   "api_version": 2,
-  "kind": "builtin",
+  "kind": "native",
+  "library": "report.dll",
   "author": "The Mogu Authors",
   "description": "Open a local HTML report sample in the inspector Report dock",
+  "startup": {
+    "activate": true
+  },
   "contributes": {
     "commands": [
       {"id": "report.open", "title": "打开报告", "menu": "tools"},

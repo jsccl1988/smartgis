@@ -31,7 +31,7 @@ std::string m2_json_path(std::string path) {
 
 }  // namespace
 
-bool Browser::run_m2_self_test_hooks(std::string* err) {
+bool Browser::run_m2_harness_hooks(std::string* err) {
   auto fail = [&](const char* msg) {
     if (err) {
       *err = msg;

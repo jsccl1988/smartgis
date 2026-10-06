@@ -2,15 +2,17 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//src/plugin/product/native_plugin.gni")
 import("//testing/test.gni")
 
 copy("traffic_resources") {
   sources = [
+    "manifest/plugin.json",
     "resources/shortest_path.ui.css",
     "resources/shortest_path.ui.xml",
     "resources/traffic.style.json",
   ]
-  outputs = [ "$root_out_dir/../plugins/traffic/{{source_file_part}}" ]
+  outputs = [ "$root_out_dir/plugins/traffic/{{source_file_part}}" ]
 }
 
 source_set("traffic_views") {
@@ -37,6 +39,32 @@ source_set("traffic_views") {
     "//third_party:rapidjson",
   ]
   data_deps = [ ":traffic_resources" ]
+}
+
+native_plugin("traffic_native") {
+  package = "traffic"
+  entry = "dll_entry.cc"
+  deps = [ ":traffic_views" ]
+  data_deps = [ ":traffic_resources" ]
+}
+
+source_set("traffic_harness") {
+  sources = [
+    "scenario/register.cc",
+    "scenario/register.h",
+    "scenario/run.cc",
+    "scenario/run.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    ":traffic_views",
+    "//src/content:content",
+    "//src/plugin/product/world3d:world3d_harness",
+    "//src/plugin/runtime/host:host",
+  ]
 }
 
 test("traffic_path_test") {

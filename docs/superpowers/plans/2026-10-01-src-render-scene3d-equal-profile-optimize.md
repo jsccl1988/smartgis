@@ -41,7 +41,7 @@ py -3 testing/tools/harness/plugin/run_world3d_backend_matrix.py
 | src_render legacy (before) | `ms_per_present` | ~160–444 | every-frame `rebuild_meshes` + DEM cache miss |
 | src_render legacy (after) | `ms_per_present` | **~10–14** | rebuild_count=0; ocean_prep=0 warm |
 
-Artifact: `out/Debug/captures/atmosphere/atmosphere-showcase-perf.json`.
+Artifact: `out/Debug/captures/browser/atmosphere-showcase-perf.json`.
 
 ## Milestones M1–M4 (world3d · active)
 

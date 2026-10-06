@@ -81,15 +81,14 @@ All rights reserved.
       <div class="lane cpu">
         <h3>plugin_host.dll + chrome</h3>
         <p>表：<code>plugin/runtime/host/capability/capability.h</code>（<code>HostCapabilities::attach</code>）</p>
-        <p>门面：<code>capability/scene3d/sink.h</code> · <code>capability/report/bridge.h</code></p>
+        <p>门面：<code>scene3d_sink.h</code> · <code>map2d_sink.h</code> · <code>report_bridge.h</code> · <code>shell_ui.h</code> · <code>shell.h</code>（HarnessShell）与 <code>capability.h</code> 同级</p>
         <p>池：<code>processing/processing.h</code> → <code>plugin.processing_pool</code></p>
-        <p>Gis 辅助仍在 <code>host/present/gis_present.h</code>（不是能力 id）</p>
+        <p>插件对话框 <code>wrap_with_present_surface</code> 附带 Debug / Inspect / Trace 条</p>
       </div>
       <div class="lane gpu">
         <h3>产品包</h3>
-        <p><code>plugin::scene3d_sink(host)</code> / <code>report_bridge(host)</code></p>
-        <p>world3d / mine / stormsurge / <code>smartgis.self_test</code> 只依赖门面或 <code>contribute_command</code>，不出现在 content 公共头</p>
-        <p>chrome <code>app/views/runtime/capability/</code> 保持扁平 binder，不是这张表</p>
+        <p><code>plugin::scene3d_sink(host)</code> / <code>map2d_sink(host)</code> / <code>report_bridge(host)</code> / <code>shell_ui(host)</code></p>
+        <p>world3d 贡献 dock <code>world3d.atmosphere</code>；map2d 用门面做框选 / 呈现 / 导出；mine / stormsurge 只依赖门面或 <code>contribute_command</code>，不出现在 content 公共头</p>
       </div>
     </div>
   </section>
@@ -99,9 +98,9 @@ All rights reserved.
     <div class="flow">
       <div class="step active"><strong>1</strong>PluginShell::init 创建 Host，attach 能力袋</div>
       <span class="arrow">→</span>
-      <div class="step"><strong>2</strong>chrome 安装 bridges（earth / look / report dock）</div>
+      <div class="step"><strong>2</strong>chrome 安装 bridges（earth / look / map2d view·look·present / report / ui.shell）</div>
       <span class="arrow">→</span>
-      <div class="step"><strong>3</strong>产品 <code>contribute_command</code>（含 <code>self_test.*</code>）+ processing 按 id 查询门面</div>
+      <div class="step"><strong>3</strong>产品 <code>contribute_command</code> + dock（Atmosphere）+ processing 按 id 查询门面</div>
       <span class="arrow">→</span>
       <div class="step"><strong>4</strong>harness 发布 <code>app.views.self_test</code> 后 <code>execute</code></div>
       <span class="arrow">→</span>

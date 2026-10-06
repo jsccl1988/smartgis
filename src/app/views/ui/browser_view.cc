@@ -3,6 +3,8 @@
 
 #include "app/views/ui/browser_view.h"
 
+#include "app/views/util/charset.h"
+
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -27,20 +29,20 @@
 #include "app/views/browser/commands/app_commands.h"
 #include "app/views/browser/commands/view_commands.h"
 #include "app/views/browser/plugin/plugin_shell.h"
-#include "app/views/harness/common/io/sample.h"
 #include "content/public/map_contents.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "plugin/runtime/host/registry/registry.h"
+#include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/host/catalog/registry.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/workspace/workspace.h"
 #include "app/views/ui/pages/map_pages_composer.h"
-#include "app/views/ui/panels/atmosphere_composer.h"
 #include "app/views/ui/panels/debug_console_composer.h"
 #include "app/views/ui/panels/inspect_composer.h"
 #include "app/views/ui/panels/inspector_sync_composer.h"
+#include "app/views/ui/panels/plugin_catalog_view.h"
 #include "app/views/ui/panels/processing_composer.h"
 #include "app/views/ui/panels/report_panel.h"
 #include "app/views/ui/shell_layout_composer.h"
@@ -76,21 +78,6 @@
 
 namespace app {
 namespace detail {
-
-std::string wide_to_utf8(const wchar_t* text) {
-  if (!text || !text[0]) {
-    return {};
-  }
-  const int n = WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr,
-                                    nullptr);
-  if (n <= 1) {
-    return {};
-  }
-  std::string out(static_cast<size_t>(n), '\0');
-  WideCharToMultiByte(CP_UTF8, 0, text, -1, out.data(), n, nullptr, nullptr);
-  out.resize(static_cast<size_t>(n - 1));
-  return out;
-}
 
 std::string json_escape(const std::string& text);
 
@@ -186,7 +173,6 @@ BrowserView::BrowserView(Browser* browser)
       inspect_(std::make_unique<InspectComposer>(this)),
       inspector_sync_(std::make_unique<InspectorSyncComposer>(this)),
       debug_console_(std::make_unique<DebugConsoleComposer>(this)),
-      atmosphere_(std::make_unique<AtmosphereComposer>(this)),
       shell_layout_(std::make_unique<ShellLayoutComposer>(this)) {}
 
 BrowserView::~BrowserView() {
@@ -378,17 +364,6 @@ bool BrowserView::init_shell() {
         BASE_TRACE_EVENT("SeedDocument.Default", "startup");
         if (!seh_seed_default(browser_->document(), /*allow_china=*/true)) {
           std::fprintf(stderr, "startup: SeedDocument china SEH fail\n");
-        }
-      }
-      // Zero-argv / harness sync path: seed_default only opens china when
-      // try_bootstrap_china_plp finds a file. Mirror showcase via the shared
-      // sample opener so fit_map_extent can apply China carto (has_china_extent).
-      if (browser_->document() && !browser_->document()->has_china_extent()) {
-        BASE_TRACE_EVENT("try_open_china", "startup");
-        if (!detail::try_open_china_sample(*browser_,
-                                           /*write_stub_if_missing=*/false)) {
-          std::fprintf(stderr,
-                       "startup: china sample missing (out/data/china_city.*)\n");
         }
       }
       base::set_switch("skip-china-land-clip", "");
@@ -995,7 +970,8 @@ void BrowserView::on_plugins() {
     // Re-bind after builtins so report callbacks see a live PluginHost.
     ensure_inspector_tab(report_tab_);
     attach_report_plugin_bridge();
-    browser_->plugins()->show_manager(widget_.hwnd());
+    PluginCatalogView::run_modal(widget_.hwnd(), browser_->plugins()->registry(),
+                                 browser_->plugins()->host());
     ambox_include_plugins_ = true;
     populate_ambox();
     ambox_include_plugins_ = false;
@@ -1082,10 +1058,12 @@ void BrowserView::ensure_inspector_tab(int index) {
     // P1-3: WebView2 ReportBrowser is created inside wire_report_panel.
     wire_report_panel();
   } else if (index == atmosphere_tab_ && !atmosphere_panel_) {
-    auto panel = std::make_unique<ui::views::AtmospherePanel>();
-    atmosphere_panel_ = panel.get();
-    inspector_tabs_->replace_page(index, std::move(panel));
-    wire_atmosphere_panel();
+    if (browser_->plugins()) {
+      (void)browser_->plugins()->ensure_builtins();
+      if (content::PluginHost* host = browser_->plugins()->host()) {
+        (void)host->open_dock("world3d.atmosphere");
+      }
+    }
   }
 }
 
@@ -1348,8 +1326,75 @@ void BrowserView::toggle_debug_console() {
   debug_console_->toggle_debug_console();
 }
 
-void BrowserView::wire_atmosphere_panel() {
-  atmosphere_->wire_atmosphere_panel();
+void BrowserView::attach_plugin_shell_ui() {
+  if (!browser_ || !browser_->plugins() || !browser_->plugins()->host()) {
+    return;
+  }
+  plugin::ShellUiSink* ui = plugin::shell_ui(browser_->plugins()->host());
+  if (!ui) {
+    return;
+  }
+  ui->set_bridges(
+      [this](std::string_view dock_id, std::string_view title,
+             std::unique_ptr<ui::views::View> page) {
+        if (!page || !inspector_tabs_) {
+          return false;
+        }
+        std::function<ui::views::AtmospherePanel*(ui::views::View*)> find_atmo =
+            [&](ui::views::View* v) -> ui::views::AtmospherePanel* {
+          if (!v) {
+            return nullptr;
+          }
+          if (auto* p = dynamic_cast<ui::views::AtmospherePanel*>(v)) {
+            return p;
+          }
+          for (size_t i = 0; i < v->child_count(); ++i) {
+            if (auto* p = find_atmo(v->child_at(i))) {
+              return p;
+            }
+          }
+          return nullptr;
+        };
+        if (dock_id == "world3d.atmosphere" && atmosphere_tab_ >= 0) {
+          atmosphere_panel_ = find_atmo(page.get());
+          return inspector_tabs_->replace_page(atmosphere_tab_,
+                                               std::move(page));
+        }
+        (void)title;
+        inspector_tabs_->add_tab(std::string(title), std::move(page));
+        return true;
+      },
+      [this](int tab) {
+        if (!diagnostic_tools_) {
+          return false;
+        }
+        diagnostic_tools_->set_visible_tools(true);
+        diagnostic_tools_->set_active_tab(tab);
+        return true;
+      },
+      [this](std::string_view panel) {
+        if (panel == "measure") {
+          show_inspector_tab_index(measure_tab_);
+          return true;
+        }
+        if (panel == "selection") {
+          show_inspector_tab_index(selection_tab_);
+          return true;
+        }
+        if (panel == "legend") {
+          show_inspector_tab_index(legend_tab_);
+          return true;
+        }
+        if (panel == "layer") {
+          show_inspector_tab_index(layer_props_tab_);
+          return true;
+        }
+        if (panel == "atmosphere") {
+          show_inspector_tab_index(atmosphere_tab_);
+          return true;
+        }
+        return false;
+      });
 }
 
 }  // namespace app

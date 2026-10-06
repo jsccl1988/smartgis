@@ -3,9 +3,15 @@
   "name": "矿山地层插值",
   "version": "1.0.0",
   "api_version": 2,
-  "kind": "builtin",
+  "kind": "native",
+  "library": "mine.dll",
   "author": "The Mogu Authors",
   "description": "Load borehole CSV, interpolate stratum TIN, and estimate prism volume",
+  "startup": {
+    "activate": true,
+    "viewport": "scene3d",
+    "priority": 0
+  },
   "contributes": {
     "commands": [
       {"id": "mine.load_boreholes", "title": "导入钻孔CSV", "menu": "tools"},

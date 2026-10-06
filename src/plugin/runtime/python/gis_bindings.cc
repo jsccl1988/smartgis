@@ -78,30 +78,81 @@ PyObject* analysis_ops(PyObject*, PyObject*) {
   return list;
 }
 
+void append_json_scalar(std::ostringstream& out, PyObject* v) {
+  if (v == Py_None) {
+    out << "null";
+  } else if (PyBool_Check(v)) {
+    out << (v == Py_True ? "true" : "false");
+  } else if (PyLong_Check(v)) {
+    out << PyLong_AsLongLong(v);
+  } else if (PyFloat_Check(v)) {
+    out << PyFloat_AsDouble(v);
+  } else if (PyUnicode_Check(v)) {
+    const char* s = PyUnicode_AsUTF8(v);
+    out << '"' << json_escape_path(s ? s : "") << '"';
+  } else {
+    PyObject* as_s = PyObject_Str(v);
+    const char* s = as_s ? PyUnicode_AsUTF8(as_s) : "";
+    out << '"' << json_escape_path(s ? s : "") << '"';
+    Py_XDECREF(as_s);
+  }
+}
+
 PyObject* analysis_run(PyObject*, PyObject* args, PyObject* kwargs) {
-  const char* processing_id = nullptr;
-  double distance = 0.05;
-  static const char* kKw[] = {"id", "distance", nullptr};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|d",
-                                   const_cast<char**>(kKw), &processing_id,
-                                   &distance)) {
+  PyObject* id_obj = nullptr;
+  if (args && PyTuple_Check(args) && PyTuple_GET_SIZE(args) >= 1) {
+    id_obj = PyTuple_GET_ITEM(args, 0);
+  }
+  if (!id_obj && kwargs) {
+    id_obj = PyDict_GetItemString(kwargs, "id");
+  }
+  if (!id_obj || !PyUnicode_Check(id_obj)) {
+    PyErr_SetString(PyExc_TypeError, "analysis.run requires id: str");
     return nullptr;
+  }
+  const char* processing_id = PyUnicode_AsUTF8(id_obj);
+  double distance = 0.05;
+  const char* input_path = nullptr;
+  const char* output_path = nullptr;
+  if (kwargs) {
+    if (PyObject* d = PyDict_GetItemString(kwargs, "distance")) {
+      distance = PyFloat_AsDouble(d);
+      if (PyErr_Occurred()) {
+        return nullptr;
+      }
+    }
+    if (PyObject* p = PyDict_GetItemString(kwargs, "input")) {
+      if (p != Py_None && PyUnicode_Check(p)) {
+        input_path = PyUnicode_AsUTF8(p);
+      }
+    }
+    if (PyObject* p = PyDict_GetItemString(kwargs, "output")) {
+      if (p != Py_None && PyUnicode_Check(p)) {
+        output_path = PyUnicode_AsUTF8(p);
+      }
+    }
   }
   if (!g_gis_host) {
     PyErr_SetString(PyExc_RuntimeError, "PluginHost not bound");
     return nullptr;
   }
-  if (!g_gis_bridge.write_active_geojson || !g_gis_bridge.load_result_geojson) {
+
+  namespace fs = std::filesystem;
+  const bool explicit_io = input_path && input_path[0] && output_path &&
+                           output_path[0];
+  if (!explicit_io &&
+      (!g_gis_bridge.write_active_geojson || !g_gis_bridge.load_result_geojson)) {
     PyErr_SetString(PyExc_RuntimeError, "gis console bridge not bound");
     return nullptr;
   }
 
-  namespace fs = std::filesystem;
   const fs::path dir = fs::temp_directory_path();
-  const fs::path in = dir / "smartgis_py_analysis_in.geojson";
-  const fs::path out = dir / "smartgis_py_analysis_out.geojson";
+  const fs::path in =
+      explicit_io ? fs::path(input_path) : dir / "smartgis_py_analysis_in.geojson";
+  const fs::path out = explicit_io ? fs::path(output_path)
+                                   : dir / "smartgis_py_analysis_out.geojson";
 
-  if (!g_gis_bridge.write_active_geojson(in.string())) {
+  if (!explicit_io && !g_gis_bridge.write_active_geojson(in.string())) {
     PyErr_SetString(PyExc_RuntimeError, "write_active_geojson failed");
     return nullptr;
   }
@@ -113,8 +164,28 @@ PyObject* analysis_run(PyObject*, PyObject* args, PyObject* kwargs) {
     args_json << ",\"distance\":" << distance;
   }
   if (needs_clip_op(processing_id)) {
-    // Phase-1: clip against the same active geometry when no clip layer.
     args_json << ",\"clip\":\"" << json_escape_path(in.string()) << "\"";
+  }
+  if (kwargs) {
+    PyObject* key = nullptr;
+    PyObject* val = nullptr;
+    Py_ssize_t pos = 0;
+    while (PyDict_Next(kwargs, &pos, &key, &val)) {
+      if (!PyUnicode_Check(key)) {
+        continue;
+      }
+      const char* k = PyUnicode_AsUTF8(key);
+      if (!k) {
+        continue;
+      }
+      const std::string name(k);
+      if (name == "id" || name == "distance" || name == "input" ||
+          name == "output") {
+        continue;
+      }
+      args_json << ",\"" << json_escape_path(name) << "\":";
+      append_json_scalar(args_json, val);
+    }
   }
   args_json << "}";
 
@@ -126,7 +197,7 @@ PyObject* analysis_run(PyObject*, PyObject* args, PyObject* kwargs) {
   std::string text;
   if (!ok) {
     text = std::string("Processing failed: ") + processing_id;
-  } else if (!g_gis_bridge.load_result_geojson(out.string())) {
+  } else if (!explicit_io && !g_gis_bridge.load_result_geojson(out.string())) {
     text = std::string("write-back failed: ") + processing_id;
   } else {
     if (g_gis_bridge.feature_count) {

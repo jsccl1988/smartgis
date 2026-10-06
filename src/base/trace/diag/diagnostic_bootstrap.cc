@@ -40,7 +40,7 @@ std::atomic<bool>& started_flag() {
 
 void sampler_loop() {
   while (sampler_run().load(std::memory_order_relaxed)) {
-    sample_memory_counters_to_process_trace();
+    sample_memory_counters_to_process_trace(/*include_tls=*/false);
     for (int i = 0; i < 50 && sampler_run().load(std::memory_order_relaxed);
          ++i) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -55,10 +55,10 @@ void start_always_on_diagnostics() {
   if (started_flag().load(std::memory_order_relaxed)) {
     return;
   }
-  // Harness / cdb A-B: the 500ms sampler calls tls HybridOptimized arena +
-  // process_trace while BrowserSession/Workspace still CRT-allocates. Under
-  // a duplicated debug CRT (cwd=out/Debug plugin scans) that race is
-  // STATUS_HEAP_CORRUPTION in register_builtins. Opt out via env.
+  // Harness / cdb: do not start this until Browser::init has constructed
+  // PluginShell. The 500ms sampler used to call tls HybridOptimized arena
+  // while CommandCatalog still CRT-allocates → STATUS_HEAP_CORRUPTION.
+  // Sampler loop skips TLS; opt out via env.
   if (const char* skip = std::getenv("SMARTGIS_NO_ALWAYS_ON_DIAG")) {
     if (skip[0] == '1' && skip[1] == '\0') {
       return;

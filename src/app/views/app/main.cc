@@ -15,6 +15,7 @@
 
 #include "app/views/app/host/content_host.h"
 #include "app/views/app/cmdline/views_launch_options.h"
+#include "app/views/browser/plugin/plugin_shell.h"
 #include "base/core/log.h"
 #include "base/process/switches.h"
 #include "base/trace/diag/diagnostic_bootstrap.h"
@@ -50,25 +51,15 @@ void disable_ime_for_harness() {
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
   int argc = 0;
   wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-  // Before any GDALAllRegister: stop AutoLoadDrivers from LoadLibrary'ing
-  // every DLL in the process cwd (harness uses out/Debug).
-  if (::GetEnvironmentVariableW(L"GDAL_DRIVER_PATH", nullptr, 0) == 0) {
-    wchar_t module[MAX_PATH] = {};
-    const DWORD n = ::GetModuleFileNameW(nullptr, module, MAX_PATH);
-    if (n > 0 && n < MAX_PATH) {
-      std::wstring path(module, n);
-      const auto slash = path.find_last_of(L"\\/");
-      if (slash != std::wstring::npos) {
-        path.resize(slash);
-        path += L"\\gdalplugins";
-        ::SetEnvironmentVariableW(L"GDAL_DRIVER_PATH", path.c_str());
-      }
-    }
-  }
+  // Before any GDALAllRegister: AutoLoadDrivers LoadLibrary's every DLL in
+  // cwd and, on some GDAL builds, next to gdald.dll (out/Debug). A second
+  // ucrtbased mapping heap-corrupts PluginShell / CommandCatalog. The GDAL
+  // sentinel "disable" skips plugin autoload; do not use SetDefaultDllDirectories
+  // here — it can remap ucrtbased to a second base on this SDK.
+  ::SetEnvironmentVariableW(L"GDAL_DRIVER_PATH", L"disable");
   base::init_switches_from_argv(argc, argv);
   base::trace::maybe_init_tracing_from_env();
   base::trace::maybe_init_startup_profile_from_env();
-  base::trace::start_always_on_diagnostics();
   BASE_TRACE_EVENT("wWinMain", "startup");
   LOGGING(LOG_INFO, "startup: wWinMain begin");
 
@@ -87,11 +78,20 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
   }
   LOGGING(LOG_INFO, "startup: launch options ok process_type set");
 
+  {
+    BASE_TRACE_EVENT("PeekPluginStartup", "startup");
+    app::peek_plugin_startup(options.plugins_dir, &options.scenario_id,
+                             &options.plugin_present,
+                             &options.atmosphere_fields);
+  }
+
   if (app::is_harness_launch(options)) {
     BASE_TRACE_EVENT("DisableImeForHarness", "startup");
     disable_ime_for_harness();
     LOGGING(LOG_INFO, "startup: ImmDisableIME+TextFrame+US layout (harness)");
   }
+  // Product always-on diagnostics start after Browser::init (PluginShell).
+  // Starting the memory sampler here raced debug CRT malloc in CommandCatalog.
 
   {
     BASE_TRACE_EVENT("ShellCanvasPreference", "startup");

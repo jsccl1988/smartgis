@@ -5,7 +5,7 @@ description: >-
   invokes /auto-idle-cbm, or says 闲置更新CBM, 空闲时更新索引, 闲置时更新CBM,
   or asks to update the codebase-memory index when other conversations are idle.
   Arms an optional 1h Loop with sentinel AGENT_LOOP_TICK_idle_cbm. Does not run
-  build, e2e, or commit — only auto-cbm-gen after the idle gate.
+  build, harness, or commit — only auto-cbm-gen after the idle gate.
 ---
 
 <!--
@@ -15,7 +15,7 @@ All rights reserved.
 
 # Auto idle CBM (lightweight)
 
-**闲置时只更新 CBM 索引**（不跑编译 / e2e / 提交）
+**闲置时只更新 CBM 索引**（不跑编译 / harness / 提交）
 
 Lightweight companion to `/auto-idle-pipeline`. Same idle gate; after idle (or
 force), **only** read and follow `.cursor/skills/auto-cbm-gen/SKILL.md`.
@@ -25,7 +25,7 @@ force), **only** read and follow `.cursor/skills/auto-cbm-gen/SKILL.md`.
 1. **Idle check** (default): other agent conversations for this project must be idle/complete before indexing.
 2. **Force**: if the user says `force` / `跳过闲置检查` / `强制收尾`, skip the idle check and run `auto-cbm-gen`.
 3. Work only on **`master`**. No new branches. No Cursor Automation (`open_automation`); local IDE + Loop only.
-4. Do **not** run build, e2e/te, commit, or push from this skill.
+4. Do **not** run build, harness/te, commit, or push from this skill.
 
 ## Idle detection
 
@@ -89,7 +89,7 @@ Do **not** use `open_automation` / Cursor Automations for this task.
 | Call | Role |
 |------|------|
 | `/auto-idle-cbm` | Idle gate + **CBM-only** + optional 1h Loop (`AGENT_LOOP_TICK_idle_cbm`) |
-| `/auto-idle-pipeline` | Umbrella: idle gate + build → e2e → CBM → commit (separate Loop) |
+| `/auto-idle-pipeline` | Umbrella: idle gate + build → harness → CBM → commit (separate Loop) |
 | `/auto-cbm-gen` | CBM index only (no idle gate) |
 
 When this skill runs the index stage, `auto-cbm-gen` authorization and done bar apply as if the user had invoked that skill directly.

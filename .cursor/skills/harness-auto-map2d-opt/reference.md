@@ -79,7 +79,7 @@ Parsed from showcase logs by `run_parallel_port_matrix.py`:
 ## Artifact layout
 
 ```
-out/Debug/captures/map2d/matrix/
+out/Debug/captures/browser/matrix/
   scenic-serial_gdi.bmp (+ .inspect.png)
   scenic-serial_gdiplus.bmp
   scenic-serial_skia.bmp
@@ -98,7 +98,7 @@ out/Debug/captures/map2d/matrix/
   scenic_parallel_port_matrix.json
 ```
 
-Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the runner copies a large enough candidate into `vista-china.bmp` / `scenic-china.bmp`.
+Showcase may also write `out/Debug/captures/browser/map2d-showcase-china.bmp`; the runner copies a large enough candidate into `vista-china.bmp` / `scenic-china.bmp`.
 
 ## Example reply skeleton
 
@@ -129,8 +129,8 @@ Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the
 
 ### 截图
 
-- `out/Debug/captures/map2d/matrix/vista-china.inspect.png`
-- `out/Debug/captures/map2d/matrix/scenic-serial_gdi.inspect.png`
+- `out/Debug/captures/browser/matrix/vista-china.inspect.png`
+- `out/Debug/captures/browser/matrix/scenic-serial_gdi.inspect.png`
 
 说明（FALSE-GAP）：Scenic rhi2d execute_ms 为 IR-only，不可与 Vista paint/export/present 直接等同；equal-latitude `MAP2D_NO_HILLSHADE=1`。
 ```
@@ -155,7 +155,7 @@ Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the
 
 ## Related suites (not the matrix)
 
-- `testing/tools/harness/map2d/map2d.china/` — loop_runner showcase + score
-- `testing/tools/harness/map2d/map2d.orthogrid/` — orthogrid variant
+- `testing/tools/harness/browser/map2d.china/` — loop_runner showcase + score
+- `testing/tools/harness/browser/map2d.orthogrid/` — orthogrid variant
 
 Matrix is the A/B surface for **Scenic 并行策略×图像驱动**; suite china is the product score / visual-review path.

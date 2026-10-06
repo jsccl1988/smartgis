@@ -75,6 +75,6 @@ Kill residual `cdb` / target PE with a non-sandbox terminal (`Stop-Process` / `t
 
 ## Related skills
 
-- `auto-bug-fix` — e2e / te green after crash is fixed
+- `auto-bug-fix` — harness / te green after crash is fixed
 - `auto-build-fix` — compile-only when rebuild is needed before symbols exist
 - `codebase-memory` — graph-first lookup (project `smartgis`)

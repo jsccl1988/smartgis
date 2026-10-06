@@ -5,6 +5,7 @@
 
 #include <string>
 
+#include "app/views/browser/plugin/builtins.h"
 #include "content/public/plugin_host.h"
 
 namespace plugin {
@@ -35,3 +36,12 @@ bool register_builtin_processing(content::PluginHost* host) {
 }
 
 }  // namespace plugin
+
+namespace {
+[[maybe_unused]] const bool k_appended = app::append_builtin_plugin({
+    .id = "smartgis.processing",
+    .name = "Processing",
+    .start = plugin::register_builtin_processing,
+    .resource_package = nullptr,
+});
+}  // namespace

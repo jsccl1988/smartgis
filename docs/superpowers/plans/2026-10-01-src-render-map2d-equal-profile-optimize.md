@@ -41,7 +41,7 @@ All rights reserved.
 | Vista warm | `present_gpu_warm_ms` | **—** | unmeasured this cell; last complete matrix **0** |
 | Vista phases | `layout_ms` / `hillshade_ms` | **0** | Timed window after cache warm + `MAP2D_NO_HILLSHADE=1` |
 
-Artifacts: `out/Debug/captures/map2d/matrix/parallel_port_matrix_with_vista.csv`, `vista_china.log`, `vista-china.inspect.png`.
+Artifacts: `out/Debug/captures/browser/matrix/parallel_port_matrix_with_vista.csv`, `vista_china.log`, `vista-china.inspect.png`.
 
 ### Confirmed root causes (do not re-litigate)
 

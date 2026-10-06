@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 // Product plugin flood.inundate → inundation mask viz + frame export.
 

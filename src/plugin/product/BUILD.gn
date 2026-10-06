@@ -1,19 +1,14 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Product builtin façade for horizon PluginShell. Owns the shipped plugin table
-# so app/views never #include product commands.h.
+# product_views: in-process source_sets for harness/unit tests that call
+# register_* directly. Product shell discovers native DLLs via scan of
+# $root_out_dir/plugins/<package>/ (product_native), not this link group.
 
 import("//build/smartgis.gni")
 
-source_set("product_builtins") {
-  sources = [
-    "builtins.cc",
-    "builtins.h",
-  ]
-  include_dirs += [ "//src" ]
+group("product_views") {
   public_deps = [
-    "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/processing:processing_views",
     "//src/plugin/product/world3d:world3d_views",
     "//src/plugin/product/traffic:traffic_views",
@@ -21,13 +16,20 @@ source_set("product_builtins") {
     "//src/plugin/product/stormsurge:stormsurge_views",
     "//src/plugin/product/mine:mine_views",
     "//src/plugin/product/geochem:geochem_views",
-    "//src/plugin/product/print:print_views",
     "//src/plugin/product/map2d:map2d_views",
     "//src/plugin/product/report:report_views",
-    "//src/plugin/product/self_test:self_test_views",
   ]
+}
+
+group("product_native") {
   deps = [
-    "//src/base:base",
-    "//src/content:content",
+    "//src/plugin/product/map2d:map2d_native",
+    "//src/plugin/product/world3d:world3d_native",
+    "//src/plugin/product/flood:flood_native",
+    "//src/plugin/product/traffic:traffic_native",
+    "//src/plugin/product/mine:mine_native",
+    "//src/plugin/product/geochem:geochem_native",
+    "//src/plugin/product/stormsurge:stormsurge_native",
+    "//src/plugin/product/report:report_native",
   ]
 }

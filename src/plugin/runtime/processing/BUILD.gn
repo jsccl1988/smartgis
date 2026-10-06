@@ -22,6 +22,7 @@ source_set("processing_views") {
   include_dirs += [ "//src" ]
   public_deps = [ ":processing_ops" ]
   deps = [
+    "//src/app/views:plugin_builtins",
     "//src/content:content",
     "//src/plugin/runtime/host:host",
   ]

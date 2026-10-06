@@ -2,10 +2,11 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//src/plugin/product/native_plugin.gni")
 
 copy("report_resources") {
   sources = [ "manifest/plugin.json" ]
-  outputs = [ "$root_out_dir/../plugins/report/{{source_file_part}}" ]
+  outputs = [ "$root_out_dir/plugins/report/{{source_file_part}}" ]
 }
 
 source_set("report_views") {
@@ -23,5 +24,12 @@ source_set("report_views") {
     "//src/tool:dispatch",
     "//third_party:rapidjson",
   ]
+  data_deps = [ ":report_resources" ]
+}
+
+native_plugin("report_native") {
+  package = "report"
+  entry = "dll_entry.cc"
+  deps = [ ":report_views" ]
   data_deps = [ ":report_resources" ]
 }

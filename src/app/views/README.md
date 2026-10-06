@@ -7,7 +7,7 @@ All rights reserved.
 
 **Diagram:** [`docs/superpowers/diagrams/ui-views-shell-architecture.html`](../../../docs/superpowers/diagrams/ui-views-shell-architecture.html)（shell / compositor 泳道 + 流水线）
 
-**Brand:** **SmartGIS Horizon**（次世代桌面 GIS）。工程目录是 `src/app/views/`（`app/` · `browser/` · `ui/` · `harness/` · `runtime/`），不是 Chromium 的 `chrome/`。Living lock: [`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../../../docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md) §Horizon product brand.
+**Brand:** **SmartGIS Horizon**（次世代桌面 GIS）。工程目录是 `src/app/views/`（`app/` · `browser/` · `ui/` · `il.runtime/` · `util/`），不是 Chromium 的 `chrome/`。Living lock: [`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../../../docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md) §Horizon product brand.
 
 Product shell for **Views + Skia**。`SmartGIS.exe` 是宿主：`Widget` +
 layout + 公开 `ui::views` 控件 + 命令接线。不手绘 catalog / feature / status。
@@ -50,12 +50,16 @@ gestures / ViewHosts / `MapContents*`）；能力实现在
 `src/content/browser/{document,camera,present,input}`；GDI paint 在
 `content/browser/present/*/software/`。`ui/` → `browser/` →
 `//src/content:map_session`；**禁止** `present` → `app/views`。对等目录：`app/`、
-`browser/`、`ui/`、`harness/{common,showcase,self_test}/`、`runtime/`、`util/`。
-`runtime/interact/` 按职责：根上 `apply`（公共入口）；`wire/`（AST + ANTLR parse）；
-`policy/`（call args / `$var`）；`io/`（UTF-8 文件 + HWND inject）；`host/`
-（CapabilityHost 适配）；`exec/`（horizon / document / plugin / showcase / input 动词）。
-`runtime/capability/` 填 Host 并 `run_script`；`runtime/plugin/` 是 present / playback / preview 缝。
-图：[`docs/superpowers/diagrams/views-runtime-layers.html`](../../../docs/superpowers/diagrams/views-runtime-layers.html)。`ui/`：`BrowserView`
+`browser/`、`ui/`、`il.runtime/`、`util/`。
+`il.runtime/bind/` 是机制（`host_member` traits + `bind_tagged_slots` +
+`reflect_fields` + `named_find` / `bind_into`）。
+`il.runtime/language/` 是编译器驱动：`load` 管源文件、`driver`（`backend.h`）按后缀选 `.il` / `.py`、`run_script` 链接运行时再 apply。`load` 不 include `backend/`。
+`il.runtime/frontend/` 是语法：`Interact.g4` + AST + parse。
+`il.runtime/ir/` 是语言无关指令（`app::ir`）。
+`il.runtime/backend/` 打平。GN `:compile` 是降级和解释（`apply`、`lower_*`、`exec`、`eval_host`）。GN `:capability` 是 Host 原语（`bind_host`、`bind_horizon`、`bind_plugin`、`bind_export`、`capture_host`、`shell_expect`）。`:compile` 不依赖 `:capability`。
+`browser/plugin/` 是 present / playback / preview / `report_suite` 缝。
+Harness 收口（living shell **§Harness IL capability cut**）：HWND / pump / capture 原子在 `il.runtime/backend/`；门禁步骤顺序在 `testing/tools/harness/shell/{harness,console}/*.il`；`app/startup/` 是 LaunchPolicy 登记表（`scenario.*`）；`src/app/views/harness/` 已删。
+图：[`docs/superpowers/diagrams/views-runtime-layers.html`](../../../docs/superpowers/diagrams/views-runtime-layers.html) · [`docs/superpowers/diagrams/harness-il-capability.html`](../../../docs/superpowers/diagrams/harness-il-capability.html)。`ui/`：`BrowserView`
 持有 Widget 树，并把 map/panel 接线组合进 `ShellLayoutComposer`（`main_app.ui.xml`）/
 `MapPagesComposer` /
 `ProcessingComposer` / `InspectComposer` / `InspectorSyncComposer` /
@@ -198,7 +202,7 @@ py -3 testing\tools\loop_runner.py --list
 
 Harness suites：契约在 `testing/tools/harness/<family>/<suite_id>/suite.json`，
 专属 script/`*_loop.py` 与 JSON 同目录；跨 suite 工具在 `harness/_shared/`。与
-`harness/scenario_registry` id 对齐。详见
+`app/startup/scenario` id 对齐。详见
 [`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md) L1′。
 Horizon PaintCounters matrix：`py -3 testing/tools/harness/ui/run_ui_profile_matrix.py`（skill `harness-auto-ui-opt`）。
 

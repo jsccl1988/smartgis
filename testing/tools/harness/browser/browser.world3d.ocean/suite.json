@@ -1,0 +1,38 @@
+{
+  "id": "browser.world3d.ocean",
+  "kind": "showcase",
+  "argv": [
+    "--atmosphere-showcase",
+    "ocean"
+  ],
+  "script": "browser.world3d.ocean.il",
+  "env": {
+    "ATMOSPHERE_SHOWCASE_GPU": "1",
+    "ATMOSPHERE_SHOWCASE_LINGER_MS": "0"
+  },
+  "bmp": {
+    "path": "atmosphere-showcase-ocean.bmp",
+    "score_id": "atmosphere_full",
+    "accept_nonzero_rc_if_bmp": true,
+    "soft": true,
+    "min_bytes": 10000
+  },
+  "report_name": "browser_world3d_ocean_loop_report.json",
+  "probes": [
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 4,
+    "timeout_sec": 90,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGIS.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "ocean_or_sea_signal",
+      "not_solid_clear_color"
+    ],
+    "expect_notes": "ocean-only atmosphere; soft atmosphere_full score"
+  }
+}

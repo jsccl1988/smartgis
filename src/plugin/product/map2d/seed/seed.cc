@@ -18,7 +18,7 @@
 #include "content/public/gis_document.h"
 #include "content/public/plugin_host.h"
 #include "plugin/product/world3d/commands.h"
-#include "plugin/product/world3d/grid/orthogrid/solve/boundary_solve.h"
+#include "plugin/product/world3d/scene/orthogrid/solve/boundary_solve.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 
 #include <rapidjson/document.h>

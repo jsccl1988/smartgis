@@ -3,15 +3,52 @@
   "name": "二维地图样例",
   "version": "1.0.0",
   "api_version": 2,
-  "kind": "builtin",
+  "kind": "native",
+  "library": "map2d.dll",
   "author": "The Mogu Authors",
-  "description": "China carto, MapLibre align style, and orthogrid mesh seed for map2d harness suites",
+  "description": "China carto, MapLibre align style, orthogrid mesh seed, and map print preview. Leftover SmtAMMapPrint maps to this id (former smartgis.print).",
+  "startup": {
+    "activate": true,
+    "viewport": "map2d",
+    "priority": 20
+  },
   "contributes": {
     "commands": [
-      {"id": "map2d.seed", "title": "加载二维样例", "menu": "tools"}
+      {"id": "map2d.seed", "title": "加载二维样例", "menu": "tools"},
+      {"id": "map2d.open_map", "title": "打开二维地图", "menu": "tools"},
+      {"id": "map2d.frame_to", "title": "二维框选", "menu": "tools"},
+      {"id": "map2d.attach_dataset", "title": "挂载二维数据", "menu": "tools"},
+      {"id": "map2d.load_hillshade", "title": "加载二维DEM", "menu": "tools"},
+      {"id": "map2d.apply_look", "title": "二维外观预设", "menu": "tools"},
+      {"id": "map2d.frame_fly", "title": "二维飞入", "menu": "tools"},
+      {"id": "map2d.export_bmp", "title": "导出二维BMP", "menu": "tools"},
+      {"id": "map2d.present_gpu", "title": "二维GPU呈现", "menu": "tools"},
+      {"id": "map2d.add_standin_layer", "title": "二维占位多边形", "menu": "tools"},
+      {"id": "print.preview", "title": "打印", "menu": "file"},
+      {"id": "map2d.scenario.edit_m0", "title": "Map2d edit_m0 scenario", "menu": "tools"},
+      {"id": "map2d.scenario.layers_m1", "title": "Map2d layers_m1 scenario", "menu": "tools"},
+      {"id": "map2d.scenario.navigate", "title": "Map2d navigate scenario", "menu": "tools"},
+      {"id": "map2d.scenario.present", "title": "Map2d present scenario", "menu": "tools"},
+      {"id": "map2d.scenario.milestones", "title": "Map2d milestones scenario", "menu": "tools"},
+      {"id": "map2d.scenario.china", "title": "Map2d china showcase", "menu": "tools"},
+      {"id": "map2d.scenario.align", "title": "Map2d align showcase", "menu": "tools"},
+      {"id": "map2d.scenario.orthogrid", "title": "Map2d orthogrid showcase", "menu": "tools"},
+      {"id": "map2d.scenario.print", "title": "Map2d print showcase", "menu": "tools"}
+    ],
+    "dialogs": [
+      {"id": "print.preview", "title": "打印"}
     ],
     "processing": [
-      {"id": "map2d.seed", "title": "Seed map2d showcase document"}
+      {"id": "map2d.seed", "title": "Seed map2d showcase document"},
+      {"id": "map2d.open_map", "title": "打开二维地图"},
+      {"id": "map2d.frame_to", "title": "二维框选"},
+      {"id": "map2d.attach_dataset", "title": "挂载二维数据"},
+      {"id": "map2d.load_hillshade", "title": "加载二维DEM"},
+      {"id": "map2d.apply_look", "title": "二维外观预设"},
+      {"id": "map2d.frame_fly", "title": "二维飞入"},
+      {"id": "map2d.export_bmp", "title": "导出二维BMP"},
+      {"id": "map2d.present_gpu", "title": "二维GPU呈现"},
+      {"id": "map2d.add_standin_layer", "title": "二维占位多边形"}
     ]
   }
 }

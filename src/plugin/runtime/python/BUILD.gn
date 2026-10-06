@@ -21,6 +21,7 @@ source_set("python") {
     "//src/base:base",
     "//src/plugin:host",
     "//src/plugin/runtime/processing:processing_ops",
+    "//src/ui/gis:gis",
     "//src/ui/views:views",
   ]
   if (python_enabled) {
@@ -50,10 +51,10 @@ test("plugin_python_test") {
   sources = [ "python_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":python" ]
-  # Samples live under //src/plugin/runtime/samples/{hello,analysis,product_orchestrate}.
+  # Samples live under //src/plugin/runtime/python/samples/{hello,analysis,...}.
   # Tests load hello only; do not retarget PLUGIN_HELLO_DIR without updating python_test.cc.
   defines += [ "PLUGIN_HELLO_DIR=\"" +
-               rebase_path("//src/plugin/runtime/samples/hello") + "\"" ]
+               rebase_path("//src/plugin/runtime/python/samples/hello") + "\"" ]
   if (python_enabled) {
     defines += [ "HAS_PYTHON=1" ]
     if (python_dll != "") {

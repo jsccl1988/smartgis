@@ -52,9 +52,9 @@ set SMARTGIS_BUILD_LOCK=0
 - Repo-root **`build.bat`** → `build/config/win/with_build_lock.ps1`.
 - **Fair ticket queue** under `out/.build.waiters/` (FIFO per scope; dead-PID waiters pruned).
 - **Multi-target** args → one lock cycle **per target**; same ticket keeps priority.
-- Aliases (`te` / `e2e` / `m` / `a` / …) are **not** split.
+- Aliases (`te` / `harness` / `e2e` / `m` / `a` / …) are **not** split.
 - Bare (no `debug`/`release`) → sequential debug then release.
-- **`te` / `e2e` runners run after compile locks are released**.
+- **`te` / `harness` runners run after compile locks are released**.
 - Stamp: `out/.build.last_ok`. Exit **3** = busy / wait timeout.
 
 ## Env
@@ -78,5 +78,5 @@ set SMARTGIS_BUILD_LOCK=0
 ## Parallelism model
 
 - **Lock off (default):** no serialize; avoid clobbering `out/` yourself if multi-agent.
-- **Lock on — Parallel:** edits, `--no-build` tests, post-compile `te`/`e2e`, `debug` ∥ `release`.
+- **Lock on — Parallel:** edits, `--no-build` tests, post-compile `te`/`harness`, `debug` ∥ `release`.
 - **Lock on — Serial (same scope):** gn/ninja on that config; `t` vs any config compile.

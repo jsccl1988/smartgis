@@ -4,7 +4,7 @@
 #include "plugin/runtime/host/present/gis_present.h"
 
 #include "content/public/gis_document.h"
-#include "plugin/runtime/host/resources/resource_roots.h"
+#include "plugin/runtime/host/catalog/resource_roots.h"
 #include "tool/draft/draft.h"
 
 #include <cstdint>

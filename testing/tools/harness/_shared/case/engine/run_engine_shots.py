@@ -2,7 +2,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-"""Run each leftover / Views showcase engine once; tag BMP + JSON by engine name.
+"""Run each Views showcase engine once; tag BMP + JSON by engine name.
 
 Writes under out/Debug:
   engine-<id>-<stem>.bmp   (copy of the showcase BMP with a title bar label)
@@ -64,32 +64,14 @@ ENGINES: list[tuple[str, str, list[str], str]] = [
     (
         "views-map2d",
         "Views Map2D (Skia/RHI)",
-        _suite_cmd("map2d.china"),
+        _suite_cmd("browser.map2d.china"),
         "map2d-showcase-china.bmp",
-    ),
-    (
-        "legacy-map2d-gdi",
-        "Legacy Map2D (GDI+)",
-        _suite_cmd("legacy.map2d.china"),
-        "legacy-map2d-showcase-china.bmp",
     ),
     (
         "views-scene3d-atmosphere",
         "Views Scene3D (Atmosphere/FlyCube)",
-        _suite_cmd("atmosphere.full"),
+        _suite_cmd("browser.world3d.full"),
         "atmosphere-showcase-full.bmp",
-    ),
-    (
-        "legacy-scene3d-gl",
-        "Legacy Scene3D (OpenGL)",
-        _suite_cmd("legacy.scene3d.china"),
-        "legacy-scene3d-showcase-china.bmp",
-    ),
-    (
-        "legacy-scene3d-d3d",
-        "Legacy Scene3D (D3D11)",
-        _suite_cmd("legacy.scene3d.china.d3d"),
-        "legacy-scene3d-showcase-china.bmp",
     ),
 ]
 

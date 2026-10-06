@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ..suite import Suite, with_capture_scenario
+from ..contract import Suite, with_capture_scenario
 from .inspect_png import bmp_to_inspect_png, inspect_png_path
 
 
@@ -76,4 +76,62 @@ def emit_visual_review(
     path = review_json_path(suite, config)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
+def maybe_emit_visual_review(
+    suite: Suite,
+    *,
+    config: str,
+    result: dict,
+    bmp_path: Path | None,
+    force: bool = False,
+) -> Path | None:
+    """Write inspect PNG + pending review JSON when suite is reviewable."""
+    if not force and not suite.is_reviewable():
+        return None
+    if suite.bmp is None:
+        return None
+    score = result.get("bmp") if isinstance(result.get("bmp"), dict) else None
+    if score is None and isinstance(result.get("gates"), dict) and "ok" in result:
+        score = {
+            k: v
+            for k, v in result.items()
+            if k
+            not in (
+                "suite",
+                "visual_review",
+                "round",
+                "driver",
+                "t_ms",
+                "steps",
+                "os_inject",
+                "record",
+                "record_path",
+                "bmp_age_s",
+                "marks",
+                "missing",
+                "error",
+                "rc_forgiven",
+                "showcase_rc",
+            )
+        }
+    try:
+        path = emit_visual_review(
+            suite,
+            config=config,
+            score=score,
+            status="pending",
+            bmp_path=bmp_path,
+            write_inspect=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"warn: visual_review emit failed ({exc})", flush=True)
+        return None
+    result["visual_review"] = {
+        "path": str(path),
+        "status": "pending",
+        "inspect_png": (bmp_path.stem + ".inspect.png") if bmp_path else "",
+    }
+    print(f"visual_review: {path}", flush=True)
     return path

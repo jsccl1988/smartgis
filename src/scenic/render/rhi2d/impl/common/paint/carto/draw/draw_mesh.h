@@ -4,7 +4,7 @@
 #ifndef SCENIC_GDI_DRAW_MESH_H_
 #define SCENIC_GDI_DRAW_MESH_H_
 
-#include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
+#include "plugin/product/world3d/scene/orthogrid/lattice/ortho_lattice.h"
 
 namespace scenic {
 namespace detail {

@@ -18,13 +18,14 @@
 #include <string>
 
 #include "app/views/app/startup/policy.h"
+#include "app/views/app/startup/scenario.h"
 #include "app/views/browser/browser.h"
 #include "app/views/browser/plugin/plugin_shell.h"
-#include "app/views/harness/common/mark/mark.h"
-#include "app/views/harness/self_test/self_test.h"
-#include "app/views/harness/scenario_registry.h"
+#include "app/views/il.runtime/backend/mark.h"
+#include "app/views/il.runtime/backend/pump.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "base/core/log.h"
+#include "base/trace/diag/diagnostic_bootstrap.h"
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
@@ -51,11 +52,12 @@ namespace {
   if (!browser->hwnd() || !IsWindow(browser->hwnd())) {
     ::TerminateProcess(::GetCurrentProcess(), 2);
   }
-  if (!scenario || !scenario->run) {
+  if (!scenario || (!scenario->run && !scenario->suite_id &&
+                    !scenario->plugin_command)) {
     std::fprintf(stderr, "scenario: unknown id '%s'\n", suite_id);
     ::TerminateProcess(::GetCurrentProcess(), 2);
   }
-  const int rc = scenario->run(*browser);
+  const int rc = run_scenario(*browser, *scenario);
   const UINT code = static_cast<UINT>(rc);
   // Flush before TerminateProcess — it skips atexit and drops stdio buffers,
   // which hid interact-dsl / run_processing failure lines under harness redirect.
@@ -146,6 +148,31 @@ void maybe_select_start_map_tab(Browser& browser) {
   LOGGING(LOG_INFO, "startup: VIEWS_START_MAP_TAB=%s -> tab %d", tab, idx);
 }
 
+void apply_plugin_product_startup(Browser& browser) {
+  PluginShell* shell = browser.plugins();
+  if (!shell) {
+    return;
+  }
+  BASE_TRACE_EVENT("PluginStartup", "startup");
+  if (!shell->apply_startup()) {
+    LOGGING(LOG_WARNING, "startup: plugin.json startup apply failed");
+    return;
+  }
+  if (base::switch_cstr("views-start-map-tab")) {
+    return;
+  }
+  const std::string& vp = shell->startup_viewport();
+  if (vp == "scene3d") {
+    browser.select_map_tab(1);
+    pump_views_messages(800);
+    LOGGING(LOG_INFO, "startup: plugin.json viewport=scene3d");
+  } else if (vp == "map2d") {
+    browser.select_map_tab(0);
+    pump_views_messages(800);
+    LOGGING(LOG_INFO, "startup: plugin.json viewport=map2d");
+  }
+}
+
 }  // namespace
 
 int run_browser_main(const content::ContentMainParams&,
@@ -154,7 +181,9 @@ int run_browser_main(const content::ContentMainParams&,
   // can smash the caller's ViewsContentHost when the PE stack reserve is too
   // small (/STACK:16MiB in BUILD.gn). A value snapshot keeps plugin paths and
   // scenario_id stable for the rest of startup.
-  const ViewsLaunchOptions options = options_in;
+  ViewsLaunchOptions options = options_in;
+  peek_plugin_startup(options.plugins_dir, &options.scenario_id,
+                      &options.plugin_present, &options.atmosphere_fields);
   BASE_TRACE_EVENT("BrowserMain", "startup");
   LOGGING(LOG_INFO, "startup: BrowserMain begin");
   {
@@ -164,8 +193,8 @@ int run_browser_main(const content::ContentMainParams&,
   disable_debug_crt_leak_abort();
   apply_startup_policy(startup_policy_for_scenario(options.scenario_id));
   if (const Scenario* scenario = find_scenario(options.scenario_id)) {
-    if (scenario->kind == ScenarioKind::kSelfTest) {
-      base::set_switch("harness-self-test", "1");
+    if (scenario->kind == ScenarioKind::kHarness) {
+      base::set_switch("harness-run", "1");
     }
   }
   {
@@ -189,7 +218,7 @@ int run_browser_main(const content::ContentMainParams&,
   const std::string plugins_dir = options.plugins_dir;
   const std::string atmosphere_fields = options.atmosphere_fields;
   const bool debug_console = options.debug_console;
-  const std::string scenario_id = options.scenario_id;
+  std::string scenario_id = options.scenario_id;
   const std::string plugin_present = options.plugin_present;
   const bool enable_oop_render = options.enable_oop_render;
   std::unique_ptr<Browser> browser;
@@ -207,6 +236,10 @@ int run_browser_main(const content::ContentMainParams&,
       base::trace::maybe_dump_startup_profile();
       return 1;
     }
+  }
+  if (scenario_id.empty()) {
+    BASE_TRACE_EVENT("AlwaysOnDiagnostics", "startup");
+    base::trace::start_always_on_diagnostics();
   }
   if (plugin_present == "preview" && browser->plugins() &&
       browser->plugins()->host()) {
@@ -241,6 +274,10 @@ int run_browser_main(const content::ContentMainParams&,
     browser->finish_deferred_shell_wiring();
   }
   maybe_select_start_map_tab(*browser);
+  apply_plugin_product_startup(*browser);
+  if (scenario_id.empty() && browser->plugins()) {
+    scenario_id = browser->plugins()->startup_scenario();
+  }
   if (!scenario_id.empty()) {
     exit_after_scenario(browser, scenario_id.c_str());
   }

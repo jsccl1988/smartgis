@@ -34,6 +34,9 @@ class UI_EXPORT TableView : public View {
   void set_selected_row(int i);
   int selected_row() const { return selected_; }
   void set_row_click(std::function<void(int)> fn);
+  // Fired when the hovered data row changes (or -1 when leaving rows).
+  void set_row_hover(std::function<void(int)> fn);
+  int hovered_row() const { return hovered_; }
   // Fired on left double-click over a data cell (row, col).
   void set_cell_activate(std::function<void(int row, int col)> fn);
   bool set_cell(int row, int col, const std::string& value);
@@ -80,6 +83,7 @@ class UI_EXPORT TableView : public View {
   int last_painted_rows_ = 0;
   bool last_cache_hit_ = false;
   std::function<void(int)> row_click_;
+  std::function<void(int)> row_hover_;
   std::function<void(int, int)> cell_activate_;
 
   // Cached paint for the current visible_row_span (+ header) and clip strip.

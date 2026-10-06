@@ -1,0 +1,96 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#include "plugin/product/map2d/scenario/present_run.h"
+
+#include "plugin/runtime/host/capability/shell.h"
+#include "plugin/product/map2d/scenario/capture.h"
+#include "plugin/product/map2d/scenario/fps_bench.h"
+#include "plugin/product/map2d/scenario/gpu_present.h"
+#include "plugin/product/map2d/scenario/progress.h"
+#include "content/browser/present/map2d/map2d_presenter.h"
+#include "ui/views/map/viewport/draw_host.h"
+
+#include "base/process/switches.h"
+
+#include <cstdio>
+#include <windows.h>
+
+namespace plugin {
+namespace detail {
+
+int run_map2d_present(HarnessShell& browser,
+                      const char* mode_name,
+                      int showcase_w,
+                      int showcase_h) {
+  Map2dCapturePaths paths;
+  if (const int rc = prepare_map2d_capture_paths(mode_name, &paths)) {
+    return rc;
+  }
+
+  content::Map2dPresenter* map2d = browser.map2d();
+  if (!map2d) {
+    std::fprintf(stderr, "map2d-showcase: Map2dPresenter missing\n");
+    return 57;
+  }
+  // frame_china_map2d / orthogrid already invalidated when size/extent changed.
+  // Do not invalidate again immediately before timed present �?that forces a
+  // cold layout+upload into the present_gpu wall clock.
+  map2d_showcase_mark("cache-ready");
+
+  // Capture uses software export_bmp �?do NOT UpdateWindow here. Sync GDI
+  // paint through the HWND has AVd in Map2dSoftwarePainter / ContentMapView
+  // under parallel harness (mark stops at bmp-path). Async InvalidateRect is
+  // enough so the live HWND may refresh; BMP does not depend on it.
+  if (ui::views::DrawHost* pane = browser.draw_host()) {
+    if (pane->native_view() && IsWindow(pane->native_view())) {
+      InvalidateRect(pane->native_view(), nullptr, FALSE);
+    }
+  }
+  browser.pump(50);
+  map2d_showcase_mark("overlay-paint");
+
+  // Warm layout+hillshade AFTER HWND pump: a live paint at client size would
+  // otherwise rebuild MapIR at ~2k and clobber the showcase 1280x720 cache.
+  // Scenic-only matrix cells skip MapIR. Product china export uses GDI carto
+  // (FORCE_GDI_MAP_OVERLAY / non-scenic) and must ensure_full so hillshade +
+  // gold roads land before BMP write.
+  const bool force_gdi_carto = []() {
+    const char* e = base::switch_cstr("force-gdi-map-overlay");
+    return e && e[0] == '1' && e[1] == '\0';
+  }();
+  if (!map2d->hosts_scenic_present() || force_gdi_carto) {
+    if (!map2d->frame_cache().ensure_full(static_cast<uint32_t>(showcase_w),
+                                          static_cast<uint32_t>(showcase_h))) {
+      std::fprintf(stderr, "map2d-showcase: ensure_full layout failed\n");
+      return 57;
+    }
+    map2d_showcase_mark("layout-warm");
+  } else {
+    map2d_showcase_mark("layout-warm-scenic-skip");
+  }
+
+  // Software BMP first �?carto gates / review-prep must not depend on optional
+  // FlyCube smoke. Prior order (GPU then export) left bmp_missing when
+  // present_gpu AVd on a second DXGI chain (ContentMapView HWND).
+  if (const int rc =
+          export_map2d_showcase_bmp(map2d, paths, showcase_w, showcase_h)) {
+    return rc;
+  }
+  if (const int rc = verify_map2d_showcase_bmp(mode_name, paths)) {
+    return rc;
+  }
+
+  // Optional FlyCube present smoke after BMP (src/render RHI 2D). Capture
+  // already landed above; accept_nonzero_rc_if_bmp covers a late GPU fail.
+  // Reuse one Device across cold + warm samples; report both separately.
+  run_optional_map2d_gpu_present(browser, map2d, showcase_w, showcase_h);
+
+  // Optional FPS bench: keep maps live, request presents, sample HUD FPS.
+  // MAP2D_FPS_BENCH_MS=3000 (default off). Writes map2d-fps-bench.txt.
+  run_optional_map2d_fps_bench(browser, map2d);
+  return 0;
+}
+
+}  // namespace detail
+}  // namespace plugin

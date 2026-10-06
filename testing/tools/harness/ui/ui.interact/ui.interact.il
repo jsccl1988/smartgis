@@ -75,7 +75,7 @@ script "ui.interact" {
   export_bmp("ui-showcase-interact-3d.bmp", "scene3d") @inproc;
   mark("interact-3d-ok") @inproc;
 
-  // --- Phase B2: one enlarge on 3D then restore (present paused in fill_host) ---
+  // --- Phase B2: one enlarge on 3D then restore (present paused in bind_host) ---
   seq @inproc {
     window(resize, w=1400, h=880);
     pump(200);

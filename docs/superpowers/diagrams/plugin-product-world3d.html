@@ -83,20 +83,21 @@ All rights reserved.
       </div>
       <div class="lane ui">
         <h3>能力域</h3>
-        <p><code>grid/</code> — DEM + 2D ortho + 3D hex（<code>register_world3d_grid</code>）</p>
-        <p><code>grid/dem/</code> — loader / dialog</p>
-        <p><code>grid/orthogrid/</code> · <code>grid/hexgrid/</code></p>
-        <p><code>scene/register.cc</code> — True Earth + <code>model3d.*</code></p>
-        <p><code>scene/look</code> — land/ocean/full/coast/globe/legacy</p>
-        <p><code>scene/fly</code> — globe cinematic path</p>
+        <p><code>scene/register.cc</code> 接线 dem / ortho / hex + earth / model / pointcloud</p>
+        <p><code>scene/dem</code> — loader / dialog</p>
+        <p><code>scene/orthogrid</code> · <code>scene/hexgrid</code></p>
+        <p><code>scene/earth</code> — open_earth / DEM / cloud / look / fly</p>
+        <p><code>scene/model</code> — leftover <code>model3d.*</code> stand-in</p>
+        <p><code>scene/pointcloud</code> — LAS/PDAL + present</p>
+        <p><code>scene/look</code> · <code>scene/fly</code> · Atmosphere dock</p>
         <p>Scene3D 提交：<code>plugin::scene3d_sink</code>（<code>host/capability/scene3d/sink.h</code>），不进 <code>content/public</code></p>
       </div>
       <div class="lane cpu">
         <h3>CPU / 内核</h3>
-        <p>DEM：<code>grid/dem/loader/</code></p>
-        <p>2D：<code>grid/orthogrid/session</code> + <code>gis/geo/grid</code></p>
-        <p>3D：<code>grid/hexgrid/lattice</code> + <code>grid/hexgrid/io</code></p>
-        <p>别名：<code>detail/contribute.h</code></p>
+        <p>DEM：<code>scene/dem/loader/</code></p>
+        <p>2D：<code>scene/orthogrid/session</code> + <code>gis/geo/grid</code></p>
+        <p>3D：<code>scene/hexgrid/lattice</code> + <code>scene/hexgrid/io</code></p>
+        <p>别名：<code>scene/detail/contribute.h</code></p>
       </div>
       <div class="lane left">
         <h3>Leftover（单向）</h3>
@@ -112,7 +113,7 @@ All rights reserved.
     <div class="flow">
       <div class="step active"><strong>1</strong>register_world3d</div>
       <span class="arrow">→</span>
-      <div class="step"><strong>2</strong>grid + scene</div>
+      <div class="step"><strong>2</strong>scene (dem/ortho/hex + earth/model/pc)</div>
       <span class="arrow">→</span>
       <div class="step"><strong>3</strong>contribute_* aliases</div>
       <span class="arrow">→</span>
