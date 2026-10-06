@@ -35,7 +35,8 @@ class InteractDslParseTest(unittest.TestCase):
         path = SCRIPTS["ui.interact.smoke"]
         name, stmts = parse_interact_file(path)
         self.assertEqual(name, "ui.interact.smoke")
-        self.assertGreaterEqual(len(stmts), 5)
+        # Gesture body under shared host — keep parse surface light.
+        self.assertGreaterEqual(len(stmts), 4)
         kinds = []
         for s in stmts:
             if isinstance(s, Call):

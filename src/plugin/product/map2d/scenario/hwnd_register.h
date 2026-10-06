@@ -12,9 +12,9 @@ namespace plugin {
 
 class HarnessShell;
 
-// HWND/BMP showcase commands (china / align / orthogrid / print). Linked via
+// HWND/BMP scenario commands (china / align / orthogrid / print). Linked via
 // map2d_harness into the Views exe, not the native plugin DLL.
-bool register_map2d_showcase(content::PluginHost* host);
+bool register_map2d_scenario(content::PluginHost* host);
 
 int scenario_china(HarnessShell& browser);
 int scenario_align(HarnessShell& browser);

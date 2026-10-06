@@ -142,8 +142,6 @@ test("contour_sheet_test") {
     "contour/contour_sheet.cc",
     "contour/contour_sheet_test.cc",
     "field/field_store.cc",
-    # In-process dem_contour (avoid linking vista_d.dll / LNK1168).
-    "//src/vista/terrain/dem/dem_contour.cc",
   ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
@@ -151,6 +149,8 @@ test("contour_sheet_test") {
   deps = [
     "//src/base:base",
     "//src/base/execution:execution",
+    # In-process dem contour pipeline (avoid linking vista_d.dll / LNK1168).
+    "//src/vista/terrain:dem_contour_sources",
     "//src/vista/terrain:land_mask",
   ]
 }
@@ -167,7 +167,6 @@ test("environment_test") {
     "field/field_store.cc",
     "ocean/ocean_system.cc",
     "field/procedural.cc",
-    "//src/vista/terrain/dem/dem_contour.cc",
   ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
@@ -176,6 +175,7 @@ test("environment_test") {
     "//src/base:base",
     "//src/base/execution:execution",
     "//src/vista/domain:domain_sources",
+    "//src/vista/terrain:dem_contour_sources",
     "//src/vista/terrain:land_mask",
     "//third_party:gdal",
   ]

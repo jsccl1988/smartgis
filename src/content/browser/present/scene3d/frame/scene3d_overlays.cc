@@ -442,9 +442,19 @@ void Scene3dOverlays::attach_tin(vista::World* world, const OrbitGeoFrame& geo,
             dem_min_x, dem_max_x, dem_min_z, dem_max_z, mn_x, mx_x, mn_z,
             mx_z, mn_y, mx_y, orbit_xyz.size() / 3u);
   } else if (volume_drape && dem_aabb) {
+    // Contour jet sheet (world3d periwinkle albedo ≈ 210/220/255/a≤200):
+    // DEM China orbit Y span ≈ 0.3 after fit_vertical_exaggeration. The old
+    // 1.05–1.65 slab made field undulation read as cliffs; keep a soft lift.
+    const bool contour_sheet =
+        tin_has_albedo_ && tin_albedo_[2] >= 230 && tin_albedo_[1] >= 190 &&
+        tin_albedo_[0] >= 180 && tin_albedo_[0] <= tin_albedo_[2] &&
+        tin_albedo_[3] > 0 && tin_albedo_[3] <= 200;
+    const float slab_min = contour_sheet ? 0.16f : 1.05f;
+    const float slab_max = contour_sheet ? 0.38f : 1.65f;
+    const float slab_scale = contour_sheet ? 0.18f : 0.75f;
     const float orbit_slab =
-        (std::min)(1.65f, (std::max)(1.05f, geo_span * 0.75f));
-    const float target_base = dem_max_y + 0.06f;
+        (std::min)(slab_max, (std::max)(slab_min, geo_span * slab_scale));
+    const float target_base = dem_max_y + (contour_sheet ? 0.04f : 0.06f);
     for (size_t i = 0; i < n; ++i) {
       const float tt = (orbit_xyz[i * 3 + 1] - geo_y0) / geo_span;
       orbit_xyz[i * 3 + 1] = target_base + tt * orbit_slab;

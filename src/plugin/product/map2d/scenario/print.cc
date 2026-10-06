@@ -28,7 +28,7 @@ namespace plugin {
 namespace {
 
 void plugin_mark(HarnessShell& browser, const char* step) {
-  browser.mark_named(kMarkPluginShowcase, step, false);
+  browser.mark_named(kMarkPlugin, step, false);
 }
 
 bool load_bmp_bgra(const char* path, std::vector<uint8_t>* bgra, int* w, int* h,
@@ -87,7 +87,7 @@ bool load_bmp_bgra(const char* path, std::vector<uint8_t>* bgra, int* w, int* h,
 
 int scenario_print(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: print layout path\n");
-  browser.mark_named(kMarkPluginShowcase, "print", true);
+  browser.mark_named(kMarkPlugin, "print", true);
 
   browser.select_map_tab(0);
   browser.pump(200);

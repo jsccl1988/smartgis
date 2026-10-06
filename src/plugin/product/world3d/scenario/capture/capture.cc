@@ -8,13 +8,6 @@
 
 namespace plugin {
 namespace detail {
-namespace {
-
-void plugin_mark(const char* step) {
-  plugin_showcase_mark(step);
-}
-
-}  // namespace
 
 bool capture_plugin_hwnd_bmp(content::Scene3dPresenter* cam,
                              PluginDeviceSession* session,
@@ -26,8 +19,8 @@ bool capture_plugin_hwnd_bmp(content::Scene3dPresenter* cam,
   // software-project meshes with GDI — that is not the App 3D present path.
   Scene3dHwndCaptureOpts core;
   core.bmp_leaf = opts.bmp_leaf;
-  core.present_w = kPluginShowcasePresentW;
-  core.present_h = kPluginShowcasePresentH;
+  core.present_w = kPluginPresentW;
+  core.present_h = kPluginPresentH;
   core.pre_capture_pump_ms = opts.pre_capture_pump_ms;
   core.use_grid_lit_policy = opts.use_grid_lit_policy;
   core.retry_dark_frame = opts.retry_dark_frame;

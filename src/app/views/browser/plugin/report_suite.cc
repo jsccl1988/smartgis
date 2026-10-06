@@ -12,11 +12,11 @@
 #include "app/views/browser/browser.h"
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/browser/ui_delegate.h"
-#include "app/views/il.runtime/backend/capture_host.h"
-#include "app/views/il.runtime/backend/paths.h"
-#include "app/views/il.runtime/backend/mark.h"
-#include "app/views/il.runtime/backend/dispatch.h"
-#include "app/views/il.runtime/backend/pump.h"
+#include "app/views/il.runtime/backend/view/host/capture_host.h"
+#include "app/views/il.runtime/backend/plugin/paths.h"
+#include "app/views/il.runtime/backend/horizon/atom/mark.h"
+#include "app/views/il.runtime/backend/plugin/dispatch.h"
+#include "app/views/il.runtime/backend/horizon/atom/pump.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/web/fake_report_browser.h"
 #include "plugin/runtime/host/capability/capability.h"
@@ -47,11 +47,11 @@ std::string json_escape_path(const char* path) {
 
 int run_report_suite(Browser& browser) {
   std::fprintf(stderr, "plugin-showcase: report dock path\n");
-  detail::write_mark(detail::kPluginShowcaseMarkLeaf, "report",
+  detail::write_mark(detail::kPluginMarkLeaf, "report",
                      /*truncate=*/true);
 
   if (!browser.plugins() || !browser.plugins()->ensure_builtins()) {
-    detail::write_mark(detail::kPluginShowcaseMarkLeaf, "plugins-fail", false);
+    detail::write_mark(detail::kPluginMarkLeaf, "plugins-fail", false);
     detail::detach_maps(browser);
     return 1;
   }
@@ -69,7 +69,7 @@ int run_report_suite(Browser& browser) {
       L"..\\testing\\data\\plugin\\report\\sample"};
   if (!detail::resolve_first_existing_under_exe(rels, 4, rep_path,
                                                 sizeof(rep_path))) {
-    detail::write_mark(detail::kPluginShowcaseMarkLeaf, "report-sample-missing",
+    detail::write_mark(detail::kPluginMarkLeaf, "report-sample-missing",
                        false);
     detail::detach_maps(browser);
     return 1;
@@ -83,7 +83,7 @@ int run_report_suite(Browser& browser) {
         browser.plugins() ? browser.plugins()->host() : nullptr;
     plugin::ReportBridge* report = plugin::report_bridge(host);
     if (!host || !report) {
-      detail::write_mark(detail::kPluginShowcaseMarkLeaf, "report-open-fail",
+      detail::write_mark(detail::kPluginMarkLeaf, "report-open-fail",
                          false);
       detail::detach_maps(browser);
       return 1;
@@ -100,17 +100,17 @@ int run_report_suite(Browser& browser) {
         []() { report_showcase_fake().close(); });
     if (detail::dispatch_plugin_command(browser, "report.scenario.showcase",
                                         payload) != 0) {
-      detail::write_mark(detail::kPluginShowcaseMarkLeaf, "report-open-fail",
+      detail::write_mark(detail::kPluginMarkLeaf, "report-open-fail",
                          false);
       detail::detach_maps(browser);
       return 1;
     }
-    detail::write_mark(detail::kPluginShowcaseMarkLeaf, "report-fake-bridge",
+    detail::write_mark(detail::kPluginMarkLeaf, "report-fake-bridge",
                        false);
   }
-  detail::write_mark(detail::kPluginShowcaseMarkLeaf, "report-ok", false);
+  detail::write_mark(detail::kPluginMarkLeaf, "report-ok", false);
   detail::pump_messages(400);
-  detail::write_mark(detail::kPluginShowcaseMarkLeaf, "pass", false);
+  detail::write_mark(detail::kPluginMarkLeaf, "pass", false);
   detail::detach_maps(browser);
   std::fprintf(stderr, "plugin-showcase: PASS mode=report\n");
   return 0;

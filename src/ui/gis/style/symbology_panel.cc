@@ -6,6 +6,7 @@
 #include <memory>
 #include <utility>
 
+#include "ui/gis/scroll_table.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/dpi.h"
@@ -46,6 +47,7 @@ SymbologyPanel::SymbologyPanel() {
         value_edit_->set_text(paint_[static_cast<size_t>(row)].second);
       }
     });
+    paint_scroll_ = wrap_markup_table_in_scroll(paint_table_);
   }
   if (value_edit_) {
     value_edit_->set_submit([this]() { on_value_commit(); });
@@ -76,6 +78,7 @@ SymbologyPanel::~SymbologyPanel() {
   layer_label_ = nullptr;
   field_ = nullptr;
   paint_table_ = nullptr;
+  paint_scroll_ = nullptr;
   value_edit_ = nullptr;
   apply_ = nullptr;
 }
@@ -130,6 +133,7 @@ void SymbologyPanel::rebuild_paint_table() {
   if (selected_paint_row_ >= 0) {
     paint_table_->set_selected_row(selected_paint_row_);
   }
+  sync_scroll_table_content(paint_table_, paint_scroll_);
 }
 
 void SymbologyPanel::refresh_layer_label() {

@@ -21,8 +21,8 @@
 #include "app/views/app/startup/scenario.h"
 #include "app/views/browser/browser.h"
 #include "app/views/browser/plugin/plugin_shell.h"
-#include "app/views/il.runtime/backend/mark.h"
-#include "app/views/il.runtime/backend/pump.h"
+#include "app/views/il.runtime/backend/horizon/atom/mark.h"
+#include "app/views/il.runtime/backend/horizon/atom/pump.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "base/core/log.h"
 #include "base/trace/diag/diagnostic_bootstrap.h"
@@ -192,10 +192,10 @@ int run_browser_main(const content::ContentMainParams&,
   }
   disable_debug_crt_leak_abort();
   apply_startup_policy(startup_policy_for_scenario(options.scenario_id));
-  if (const Scenario* scenario = find_scenario(options.scenario_id)) {
-    if (scenario->kind == ScenarioKind::kHarness) {
-      base::set_switch("harness-run", "1");
-    }
+  // Every registered Views suite is integration (or the harness alias); set
+  // harness-run so present / overlay policy matches IR-driven loops.
+  if (find_scenario(options.scenario_id)) {
+    base::set_switch("harness-run", "1");
   }
   {
     wchar_t diag[MAX_PATH] = {};
@@ -246,7 +246,7 @@ int run_browser_main(const content::ContentMainParams&,
     browser->plugins()->host()->set_present_surface(1);
   }
   base::trace::dump_startup_profile_partial("post-init");
-  if (debug_console || scenario_id == "console" ||
+  if (debug_console || scenario_id == "browser.console" ||
       content::debug_console_env_enabled()) {
     BASE_TRACE_EVENT("DebugAgent.start", "startup");
     LOGGING(LOG_INFO, "startup: DebugAgent start");
@@ -276,7 +276,17 @@ int run_browser_main(const content::ContentMainParams&,
   maybe_select_start_map_tab(*browser);
   apply_plugin_product_startup(*browser);
   if (scenario_id.empty() && browser->plugins()) {
-    scenario_id = browser->plugins()->startup_scenario();
+    // Guard: a skewed PluginShell string can report a huge size and throw
+    // bad_alloc on assign → uncaught → abort (process exit 3) before run_loop.
+    const std::string& peeka = browser->plugins()->startup_scenario();
+    if (peeka.size() < 512) {
+      scenario_id = peeka;
+    } else {
+      std::fprintf(stderr,
+                   "startup: reject oversized plugin scenario size=%zu\n",
+                   peeka.size());
+      std::fflush(stderr);
+    }
   }
   if (!scenario_id.empty()) {
     exit_after_scenario(browser, scenario_id.c_str());

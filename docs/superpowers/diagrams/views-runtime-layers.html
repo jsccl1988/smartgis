@@ -49,6 +49,13 @@ All rights reserved.
   }
   .lane h3 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; }
   .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.78rem; color: var(--muted); }
+  .stack { display: flex; flex-direction: column; gap: 6px; max-width: 720px; }
+  .stack .layer {
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    background: #fff;
+  }
+  .stack .layer strong { display: block; color: var(--accent); font-size: 0.82rem; }
+  .stack .layer span { color: var(--muted); font-size: 0.78rem; }
   .lane.cap { border-top: 3px solid var(--cap); }
   .lane.dsl { border-top: 3px solid var(--dsl); }
   .lane.plug { border-top: 3px solid var(--plug); }
@@ -68,14 +75,13 @@ All rights reserved.
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>il.runtime — 子目录与流水线</h1>
-    <p>Interact Language runtime（<code>src/app/views/il.runtime</code>）按编译器相位分层：
-      <code>language/</code> 是驱动（源文件 + 选前端 + session 链接）；
-      <code>frontend/</code> 是 <code>Interact.g4</code> + AST + parse；
-      <code>backend/</code> 打平：<code>:compile</code> 降级解释，<code>:capability</code> 填 Host；
-      <code>ir/</code> 是语言无关指令。
-      插件无关的 present / playback / preview 缝在 <code>browser/plugin/</code>。
-      产品 payload 仍在 <code>src/plugin/product</code>，不进本树。</p>
+    <h1>il.runtime — 四个对象</h1>
+    <p>Interact Language（<code>src/app/views/il.runtime</code>）与
+      <code>content::CapabilityHost</code> 使用同一组对象：
+      <code>document</code>、<code>view</code>、<code>plugin</code>、<code>horizon</code>。
+      <code>frontend/</code> 解析，<code>ir/</code> 发指令，<code>codegen/</code> 降级，
+      <code>backend/</code> 填槽。<code>view</code> 覆盖 edit / data / scene，以及以后的 world 视口。
+      产品 payload 仍在 <code>src/plugin/product</code>。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Harness capability runtime</a>
       · 插件缝：<a href="../specs/2026-09-13-plugin-host-design.md">plugin-host-design</a>
@@ -93,77 +99,87 @@ All rights reserved.
     <h2>1. 核心分层</h2>
     <div class="lanes">
       <div class="lane cap">
-        <h3>language/ — 驱动</h3>
+        <h3>document</h3>
         <ul>
-          <li><code>load</code>：源文件查找，不碰 Host</li>
-          <li><code>driver</code>：按后缀选 <code>.il</code> / <code>.json</code> / <code>.py</code></li>
-          <li><code>run_script</code>：链接一次再 apply</li>
-          <li>不 include <code>capability/</code>（session / panel 除外）</li>
+          <li>图层、要素、样式、范围</li>
+          <li>打开 / 保存 / <code>export_bmp</code></li>
+          <li>端口 <code>DocumentCapability</code></li>
         </ul>
       </div>
       <div class="lane dsl">
-        <h3>execution/ — IL 前端</h3>
+        <h3>view</h3>
         <ul>
-          <li><code>front/</code>：lex + parse → AST</li>
-          <li><code>sema/</code>：绑定参数，降成 <code>Action</code></li>
-          <li><code>eval/</code>：跑动作和 <code>seq</code> / <code>repeat</code> / <code>chord</code></li>
-          <li>ANTLR gen 在 <code>out/*/gen</code>，不入库</li>
+          <li>任一 <code>ViewKind</code>：edit、data、scene、以后的 world</li>
+          <li>present、编辑输入、工具、静帧</li>
+          <li>端口 <code>ViewCapability</code>。内部分层见下节</li>
         </ul>
       </div>
       <div class="lane plug">
-        <h3>capability/ — 运行时</h3>
+        <h3>plugin</h3>
         <ul>
-          <li><code>link/bind_host</code> 链接器</li>
-          <li>packs：<code>horizon/</code> · <code>capture/</code> · <code>plugin/</code> · <code>expect/</code></li>
-          <li>不解析 <code>*.il</code>；不 include <code>language/</code></li>
-          <li>GN <code>:capability</code> 不依赖 <code>:execution</code> / <code>:ir</code></li>
+          <li>命令、处理、路径、回放、报告</li>
+          <li>端口 <code>PluginCapability</code></li>
         </ul>
       </div>
       <div class="lane host">
-        <h3>content Host — 动词袋</h3>
+        <h3>horizon</h3>
         <ul>
-          <li><code>content/browser/capability/</code></li>
-          <li>无 <code>app/views</code> 依赖</li>
-          <li>Scene3dSink 安装在 <code>browser/plugin/plugin_host_wiring.cc</code></li>
+          <li>壳：时钟、页签、注入、布局、控制台</li>
+          <li>端口 <code>HorizonCapability</code></li>
+          <li><code>fail_rc</code> 留在 Host 上</li>
         </ul>
       </div>
     </div>
   </section>
 
   <section class="panel">
-    <h2>2. 原理流（source → front → sema → eval → runtime）</h2>
+    <h2>view 内部分层（<code>backend/view</code>）</h2>
+    <p class="note">上面调用下面。弹出 HWND 只服务于 present 会话，所以并进 <code>session</code>。借壳收尾只组合 host 的 detach / pause，所以并进 <code>capture_host</code>。导出取景 token 只被 <code>export_map2d_bmp</code> 使用，所以留在 <code>export</code> 内部。</p>
+    <div class="stack">
+      <div class="layer"><strong>view_bind · probe</strong><span>槽注册，以及视口就绪 / 工具 / 比例。probe 也被 document 与 horizon 读取。</span></div>
+      <div class="layer"><strong>browse</strong><span>静帧 <code>still</code>、压测 <code>stress</code>。</span></div>
+      <div class="layer"><strong>shot</strong><span>软件绘制 <code>paint</code>、Scene3D HWND 截图 <code>scene_capture</code>、导出 <code>export</code>。</span></div>
+      <div class="layer"><strong>present</strong><span>GPU / linger 策略 <code>env</code>、RHI 会话 <code>session</code>（含弹出 HWND）、多帧 <code>warmup</code>。</span></div>
+      <div class="layer"><strong>host</strong><span>壳 DrawHost：detach、present、捕获 HWND、<code>finish_scene3d_showcase</code>。</span></div>
+      <div class="layer"><strong>dib</strong><span><code>ClientDib</code> 单步 GDI，<code>read</code> 决定重试与写 BMP。</span></div>
+      <div class="layer"><strong>pixel</strong><span><code>bmp</code> 只编码。<code>gate</code> 判断是否有可见信号。</span></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（parse → ir → lower → backend）</h2>
     <svg class="diagram" viewBox="0 0 1080 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="compiler pipeline">
       <rect x="16" y="24" width="200" height="88" rx="8" fill="#e8f1fa" stroke="#2563a8"/>
-      <text class="box-title" x="28" y="50">1. language</text>
-      <text class="box-sub" x="28" y="70">load · driver · run_script</text>
-      <text class="box-sub" x="28" y="88">链接一次再 apply</text>
+      <text class="box-title" x="28" y="50">1. frontend</text>
+      <text class="box-sub" x="28" y="70">Interact.g4 → AST</text>
+      <text class="box-sub" x="28" y="88">不碰 Host</text>
 
       <rect x="248" y="24" width="220" height="88" rx="8" fill="#e6f4ee" stroke="#2f7d62"/>
-      <text class="box-title" x="260" y="50">2. front + sema</text>
-      <text class="box-sub" x="260" y="70">ANTLR → AST</text>
-      <text class="box-sub" x="260" y="88">lower CallStmt → Action</text>
+      <text class="box-title" x="260" y="50">2. ir</text>
+      <text class="box-sub" x="260" y="70">document · view · plugin · horizon</text>
+      <text class="box-sub" x="260" y="88">只调用对应成员</text>
 
       <rect x="500" y="24" width="240" height="88" rx="8" fill="#e6f4ee" stroke="#2f7d62"/>
-      <text class="box-title" x="512" y="50">3. Code + eval</text>
-      <text class="box-sub" x="512" y="70">sema/code.h 无 AST</text>
-      <text class="box-sub" x="512" y="88">eval 只跑 Action / seq</text>
+      <text class="box-title" x="512" y="50">3. codegen :lower</text>
+      <text class="box-sub" x="512" y="70">CallStmt → Code / Action</text>
+      <text class="box-sub" x="512" y="88">不依赖 :backend</text>
 
       <rect x="772" y="24" width="288" height="88" rx="8" fill="#f7efe4" stroke="#b06a1a"/>
-      <text class="box-title" x="784" y="50">4. capability runtime</text>
-      <text class="box-sub" x="784" y="70">bind_host 填槽</text>
-      <text class="box-sub" x="784" y="88">HWND / pump / capture 实现</text>
+      <text class="box-title" x="784" y="50">4. backend</text>
+      <text class="box-sub" x="784" y="70">四个 register_* ，link 排顺序</text>
+      <text class="box-sub" x="784" y="88">:driver 链接一次再 apply</text>
 
       <path class="pulse" d="M216 68 L248 68" fill="none" stroke="#2563a8" stroke-width="2"/>
       <path class="pulse" d="M468 68 L500 68" fill="none" stroke="#2f7d62" stroke-width="2"/>
       <path class="pulse" d="M740 68 L772 68" fill="none" stroke="#b06a1a" stroke-width="2"/>
 
       <rect x="16" y="148" width="1048" height="108" rx="8" fill="#f0f3f7" stroke="#d8dee6"/>
-      <text class="lane-label" x="28" y="172" fill="#5a6a7e">谁等谁</text>
-      <text class="box-sub" x="28" y="196">content::CapabilityHost 是跨语言 ABI：execution / 将来 Python 只调槽，从不 #include Browser 或 HWND。</text>
-      <text class="box-sub" x="28" y="216">capability 填袋（含 inject）；language/load 不 include capability；browser/plugin 由 Browser / PluginShell 持有。</text>
-      <text class="box-sub" x="28" y="236">ANTLR 工人在 gen；同一次 apply 串行走 stmt。session 链接一次，apply 不再 bind_host。</text>
+      <text class="lane-label" x="28" y="172" fill="#5a6a7e">正交</text>
+      <text class="box-sub" x="28" y="196">每一层都是这四个对象。断言跟在被观察的对象上。click 的 target 分支留在 codegen/lower/gesture.h。</text>
+      <text class="box-sub" x="28" y="216">CapabilityHost 是端口。content 不包含 Browser。frontend/load 不包含 backend。</text>
+      <text class="box-sub" x="28" y="236">session 链接一次。apply 不再 bind_host。fail_rc 在 Host 上，不属于某一个对象。</text>
     </svg>
-    <p class="note">动画虚线表示控制流，不是 GPU 提交。runtime 不加入 <code>content.dll</code>。</p>
+    <p class="note">动画虚线表示控制流，不是 GPU 提交。backend 不加入 <code>content.dll</code>。</p>
   </section>
 
   <section class="panel">
@@ -173,11 +189,11 @@ All rights reserved.
         <tr><th>职责</th><th>路径</th><th>不要放</th></tr>
       </thead>
       <tbody>
-        <tr><td>Host 绑定</td><td><code>app/views/il.runtime/bind/</code> + <code>capability/{link,capture,plugin,horizon,expect}</code>。inject 与窗口在 <code>horizon/atom/surface</code>，路径槽在 <code>horizon/atom/paths</code>；文件遍历在 <code>util/find_named</code></td><td>解析 <code>*.il</code>、产品插件名、<code>language/</code></td></tr>
-        <tr><td>编译器驱动</td><td><code>language/{load,driver,run_script,interact_*}</code></td><td>HWND 实现、二次 bind_host</td></tr>
-        <tr><td>IL 前端</td><td><code>execution/{front,sema,eval,io,host,apply}</code></td><td>Browser / PluginShell / HWND</td></tr>
-        <tr><td>Present / Playback</td><td><code>browser/plugin/{present,playback,preview_host}</code></td><td>flood/traffic/orthogrid payload</td></tr>
-        <tr><td>Host 动词实现</td><td><code>content/browser/capability/</code></td><td><code>app/views</code></td></tr>
+        <tr><td>端口</td><td><code>content/browser/capability/{document,view,plugin,horizon}.h</code></td><td><code>Browser</code>、脚本</td></tr>
+        <tr><td>指令</td><td><code>il.runtime/ir/{document,view,plugin,horizon,fail}.h</code></td><td>解析、HWND、像素</td></tr>
+        <tr><td>降级</td><td><code>il.runtime/codegen/lower/</code>（<code>:lower</code>）</td><td><code>:backend</code></td></tr>
+        <tr><td>实现</td><td><code>il.runtime/backend/{document,view,plugin,horizon,link}</code></td><td><code>Interact.g4</code></td></tr>
+        <tr><td>会话</td><td><code>codegen/session</code> + <code>:driver</code></td><td>第二次 <code>bind_host</code></td></tr>
       </tbody>
     </table>
   </section>

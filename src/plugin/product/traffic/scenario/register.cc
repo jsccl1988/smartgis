@@ -21,7 +21,7 @@ bool run_bound(content::PluginHost* host, int (*fn)(HarnessShell&)) {
     set_harness_scenario_exit(1);
     return false;
   }
-  detail::bind_plugin_showcase_shell(shell);
+  detail::bind_plugin_scenario_shell(shell);
   set_harness_scenario_exit(fn(*shell));
   return harness_scenario_exit() == 0;
 }
@@ -32,7 +32,7 @@ int scenario_traffic(HarnessShell& browser) {
   return detail::run_traffic(browser);
 }
 
-bool register_traffic_showcase(content::PluginHost* host) {
+bool register_traffic_scenario(content::PluginHost* host) {
   if (!host) {
     return false;
   }

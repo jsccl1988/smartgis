@@ -335,21 +335,21 @@ bool resolve_stormsurge_inputs(char* dem_utf8, size_t dem_cap,
                                char* coast_utf8, size_t coast_cap) {
   if (!resolve_stormsurge_sample(L"stormsurge_coast_sample.geojson", coast_utf8,
                                  coast_cap)) {
-    plugin_showcase_mark("stormsurge-sample-fail");
+    plugin_mark("stormsurge-sample-fail");
     return false;
   }
   if (try_crop_china_dem(dem_utf8, dem_cap)) {
-    plugin_showcase_mark("china-dem-crop-ok");
-    plugin_showcase_mark("sample-ok");
+    plugin_mark("china-dem-crop-ok");
+    plugin_mark("sample-ok");
     return true;
   }
-  plugin_showcase_mark("china-dem-crop-skip");
+  plugin_mark("china-dem-crop-skip");
   if (!resolve_stormsurge_sample(L"stormsurge_dem_sample.tif", dem_utf8,
                                  dem_cap)) {
-    plugin_showcase_mark("stormsurge-sample-fail");
+    plugin_mark("stormsurge-sample-fail");
     return false;
   }
-  plugin_showcase_mark("sample-ok");
+  plugin_mark("sample-ok");
   return true;
 }
 
@@ -360,12 +360,12 @@ bool resolve_stormsurge_mask_output(char* out_utf8, size_t out_cap) {
   wchar_t out_w[MAX_PATH] = {};
   if (!app::detail::exe_sidecar_path(out_w, MAX_PATH,
                                     L"..\\data\\plugin\\stormsurge_mask.tif")) {
-    plugin_showcase_mark("stormsurge-out-fail");
+    plugin_mark("stormsurge-out-fail");
     return false;
   }
   if (WideCharToMultiByte(CP_UTF8, 0, out_w, -1, out_utf8,
                           static_cast<int>(out_cap), nullptr, nullptr) <= 0) {
-    plugin_showcase_mark("stormsurge-out-fail");
+    plugin_mark("stormsurge-out-fail");
     return false;
   }
   return true;
@@ -476,7 +476,7 @@ bool load_stormsurge_bmp_rgba(const char* path, std::vector<uint8_t>* rgba,
 bool seed_stormsurge_processing(HarnessShell& browser, const char* dem_utf8,
                                 const char* coast_utf8, const char* out_utf8) {
   if (!browser.plugin_host()) {
-    plugin_showcase_mark("plugins-fail");
+    plugin_mark("plugins-fail");
     return false;
   }
 
@@ -486,7 +486,7 @@ bool seed_stormsurge_processing(HarnessShell& browser, const char* dem_utf8,
   const std::string coast_args =
       std::string("{\"coast\":\"") + coast_esc + "\"}";
   if (!browser.plugin_host()->run_processing("stormsurge.load_coast", coast_args)) {
-    plugin_showcase_mark("stormsurge-coast-fail");
+    plugin_mark("stormsurge-coast-fail");
     return false;
   }
 
@@ -495,9 +495,9 @@ bool seed_stormsurge_processing(HarnessShell& browser, const char* dem_utf8,
   double seed_z = 28.0;
   if (find_low_dem_seed(dem_utf8, &seed_lon, &seed_lat, &seed_z) ||
       sample_dem_cell_z(dem_utf8, seed_lon, seed_lat, &seed_z)) {
-    plugin_showcase_mark("dem-seed-z-ok");
+    plugin_mark("dem-seed-z-ok");
   } else {
-    plugin_showcase_mark("dem-seed-z-skip");
+    plugin_mark("dem-seed-z-skip");
   }
   // Tide above the valley seed, but below the 70th-percentile DEM so hills
   // stay dry (seed_z+6 drowned the Wuhan china_dem crop in Scene3D).
@@ -518,11 +518,11 @@ bool seed_stormsurge_processing(HarnessShell& browser, const char* dem_utf8,
       ",\"seed_y\":" + std::to_string(seed_lat) +
       ",\"tide_level\":" + tide_buf + ",\"frames\":8}";
   if (!browser.plugin_host()->run_processing("stormsurge.run", run_args)) {
-    plugin_showcase_mark("stormsurge-china-run-fail");
+    plugin_mark("stormsurge-china-run-fail");
     char schematic[MAX_PATH * 3] = {};
     if (!resolve_stormsurge_sample(L"stormsurge_dem_sample.tif", schematic,
                                    sizeof(schematic))) {
-      plugin_showcase_mark("stormsurge-run-fail");
+      plugin_mark("stormsurge-run-fail");
       return false;
     }
     const std::string sch_esc = json_escape_path(schematic);
@@ -531,12 +531,12 @@ bool seed_stormsurge_processing(HarnessShell& browser, const char* dem_utf8,
         "\",\"output\":\"" + out_esc +
         "\",\"seed_x\":114.30,\"seed_y\":30.55,\"tide_level\":58.0,\"frames\":8}";
     if (!browser.plugin_host()->run_processing("stormsurge.run", fallback)) {
-      plugin_showcase_mark("stormsurge-run-fail");
+      plugin_mark("stormsurge-run-fail");
       return false;
     }
-    plugin_showcase_mark("stormsurge-schematic-fallback");
+    plugin_mark("stormsurge-schematic-fallback");
   }
-  plugin_showcase_mark("stormsurge-ok");
+  plugin_mark("stormsurge-ok");
   return true;
 }
 

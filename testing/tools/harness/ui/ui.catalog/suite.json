@@ -1,6 +1,6 @@
 {
   "id": "ui.catalog",
-  "kind": "showcase",
+  "kind": "integration",
   "argv": [
     "--ui-showcase",
     "catalog"

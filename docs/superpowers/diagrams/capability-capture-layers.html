@@ -58,7 +58,7 @@ All rights reserved.
 <div class="wrap">
   <section class="panel">
     <h1>horizon 里的 capture 分层</h1>
-    <p>这些文件在 <code>backend/runtime/horizon</code>，不再有并列的 <code>capture/</code> 目录。<code>bind/bind.h</code> 同时声明 <code>bind_export</code>。编译相位仍是 <code>bind</code> 接槽，<code>sema</code> 做语义与编排，<code>atom</code> 只做一步机器操作。命名空间保持 <code>app::detail</code>。<code>atom</code> 不包含 <code>sema</code>。</p>
+    <p>这些文件在 <code>il.runtime/backend/{view,horizon}</code>，不再有并列的 <code>capture/</code> 目录。<code>bind_horizon</code> / <code>bind_export</code> 接槽；截图与 pump/mark 同属宿主标准库。命名空间保持 <code>app::detail</code>。</p>
   </section>
 
   <section class="panel">

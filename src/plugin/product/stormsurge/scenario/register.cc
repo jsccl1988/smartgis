@@ -22,7 +22,7 @@ bool run_bound(content::PluginHost* host, int (*fn)(HarnessShell&)) {
     set_harness_scenario_exit(1);
     return false;
   }
-  detail::bind_plugin_showcase_shell(shell);
+  detail::bind_plugin_scenario_shell(shell);
   set_harness_scenario_exit(fn(*shell));
   return harness_scenario_exit() == 0;
 }
@@ -33,7 +33,7 @@ int scenario_stormsurge(HarnessShell& browser) {
   return detail::run_stormsurge_scene3d(browser);
 }
 
-bool register_stormsurge_showcase(content::PluginHost* host) {
+bool register_stormsurge_scenario(content::PluginHost* host) {
   register_stormsurge_interact_verbs();
   if (!host) {
     return false;

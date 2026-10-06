@@ -1,14 +1,13 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// Mid-weight DSL example: continuous combo ops (path / chord / bursts).
+// Mid-weight gesture body: continuous combo ops (path / chord / bursts).
+// Runs under ui.interact.host chrome (same entry as ui.interact / .os / .smoke).
 
 script "ui.interact.combo" {
-  select_map_tab(0) @inproc;
-  pump(200);
   window(activate);
   pump(80);
 
-  // Pointer path + chord + bursts (shell_client keeps the demo stable).
+  // Pointer path + chord + bursts (shell_client keeps the DSL demo stable).
   seq {
     path(shell_client, [240, 300], [280, 320], [320, 310], [360, 330]);
     pump(40);
@@ -22,6 +21,4 @@ script "ui.interact.combo" {
 
   key(ESCAPE);
   mark("interact-combo-demo-ok") @inproc;
-  select_map_tab(0) @inproc;
-  pump(150);
 }

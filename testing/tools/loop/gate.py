@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-"""Product runtime gate: GPU PE + Views --harness (replaces testing/e2e)."""
+"""Product runtime gate: GPU PE + Views browser.harness (replaces testing/e2e)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from .contract import load_suite
 from .runner import run_suite
 
 # Fast GPU device smoke, then the in-process Views GIS+chrome pipeline.
-GATE_SUITE_IDS = ("gpu", "harness")
+GATE_SUITE_IDS = ("browser.gpu", "browser.harness")
 
 
 def run_product_gate(
@@ -33,5 +33,5 @@ def run_product_gate(
         if rc != 0:
             print(f"FAIL product gate at suite {sid} rc={rc}", flush=True)
             return rc
-    print("PASS product gate (gpu + harness)", flush=True)
+    print("PASS product gate (browser.gpu + browser.harness)", flush=True)
     return 0

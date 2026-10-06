@@ -12,14 +12,14 @@ namespace plugin {
 namespace {
 
 bool exec_mine_run(content::CapabilityHost& host, std::string_view) {
-  return host.run_plugin_command &&
-         host.run_plugin_command("mine.scenario.showcase");
+  return host.plugin.run_plugin_command &&
+         host.plugin.run_plugin_command("mine.scenario.showcase");
 }
 
 }  // namespace
 
 void register_mine_interact_verbs() {
-  register_showcase_verb("mine_run", exec_mine_run, "");
+  register_scenario_verb("mine_run", exec_mine_run, "");
 }
 
 }  // namespace plugin

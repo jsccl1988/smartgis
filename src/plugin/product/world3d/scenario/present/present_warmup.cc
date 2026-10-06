@@ -47,7 +47,7 @@ void on_plugin_warmup_fail(int failed_frame, void* user) {
   teardown.shutdown_device = ctx->on_fail.shutdown_device;
   teardown.destroy_owned_hwnd = true;
   teardown_plugin_device_session(ctx->cam, ctx->session, teardown);
-  plugin_showcase_mark("present-fail");
+  plugin_mark("present-fail");
   if (ctx->browser) {
     ctx->browser->finish_scene3d(ctx->session && ctx->session->borrowed_shell);
   }
@@ -114,7 +114,7 @@ void write_plugin_present_perf_json(const char* leaf,
   const content::Scene3dColdPhaseSample cold =
       content::scene3d_cold_phase_sample();
   char perf_path[MAX_PATH] = {};
-  HarnessShell* shell = plugin_showcase_shell();
+  HarnessShell* shell = plugin_scenario_shell();
   if (!shell || !shell->capture_path_a(perf_path, MAX_PATH, leaf)) {
     return;
   }
@@ -245,12 +245,12 @@ int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
     if (session->borrowed_shell) {
       ok = present_shell_scene3d_frame(browser.scene_draw_host(), 800);
     } else {
-      ok = cam->present_gpu(session->device, kPluginShowcasePresentW,
-                            kPluginShowcasePresentH);
+      ok = cam->present_gpu(session->device, kPluginPresentW,
+                            kPluginPresentH);
     }
     if (!ok) {
       // Scenic stub / first-frame miss: software BMP still paints local DEM.
-      plugin_showcase_mark("present-soft");
+      plugin_mark("present-soft");
       if (i + 1 >= frame_count) {
         break;
       }
@@ -277,7 +277,7 @@ int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
       browser.pump(static_cast<DWORD>(pump_ms));
     }
   }
-  plugin_showcase_mark("present-ok");
+  plugin_mark("present-ok");
 
   if (perf_json_leaf && perf_json_leaf[0] && !frame_ms.empty()) {
     if (!have_warm_phase) {

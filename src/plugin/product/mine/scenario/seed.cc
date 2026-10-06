@@ -20,7 +20,7 @@ bool resolve_mine_boreholes_csv(char* out_utf8, size_t out_cap) {
 
 bool seed_mine_processing(HarnessShell& browser, const char* csv_utf8) {
   if (!browser.plugin_host()) {
-    plugin_showcase_mark("plugins-fail");
+    plugin_mark("plugins-fail");
     return false;
   }
 
@@ -30,19 +30,19 @@ bool seed_mine_processing(HarnessShell& browser, const char* csv_utf8) {
       "\",\"stratum_id\":\"clay\"}";
   if (!browser.plugin_host()->run_processing("mine.interpolate_stratum",
                                          interp_args)) {
-    plugin_showcase_mark("mine-interp-fail");
+    plugin_mark("mine-interp-fail");
     return false;
   }
-  plugin_showcase_mark("mine-ok");
+  plugin_mark("mine-ok");
 
   const std::string prism_args =
       std::string("{\"input\":\"") + csv_esc +
       "\",\"top_stratum_id\":\"clay\",\"bottom_stratum_id\":\"sand\"}";
   if (!browser.plugin_host()->run_processing("mine.prism_volume", prism_args)) {
-    plugin_showcase_mark("prism-fail");
+    plugin_mark("prism-fail");
     return false;
   }
-  plugin_showcase_mark("prism-ok");
+  plugin_mark("prism-ok");
   return true;
 }
 

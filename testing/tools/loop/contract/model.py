@@ -96,8 +96,11 @@ class Suite:
     report_name: str | None = None
     probes: tuple[str, ...] = ()
     kill_showcase: bool = True
-    # Script path relative to suite_dir, or to harness/ (e.g. _shared/...).
+    # PE entry IL relative to suite_dir, or to harness/ (e.g. host chrome).
     script: str | None = None
+    # Gesture body for apply_scenario_panels("interact") / OS inject.
+    # When set, loop exports UI_INTERACT_GESTURE_SCRIPT (not the entry script).
+    gesture_script: str | None = None
     # Directory containing suite.json (for resolving relative script paths).
     suite_dir: Path | None = None
     # inproc (C++ JSON) | os (Python PostMessage/SendInput while exe lingers).
@@ -121,12 +124,12 @@ class Suite:
         return self.out_dir(config) / "captures"
 
     def scenario_dir(self) -> str:
-        """Harness family folder (plugin/, ui/, shell/, …)."""
+        """Harness family folder (plugin/, ui/, browser/, …)."""
         if self.suite_dir is not None:
             return self.suite_dir.parent.name
         if "." in self.id:
             return self.id.split(".", 1)[0]
-        return "shell"
+        return "browser"
 
     def captures_dir(self, config: str = "Debug") -> Path:
         """Scenario folder for this suite's marks / BMPs / loop reports."""
@@ -160,10 +163,10 @@ class Suite:
         rel = with_capture_scenario(name, self.scenario_dir())
         return self.captures_root(config) / Path(rel)
 
-    def script_path(self) -> Path | None:
-        if not self.script:
+    def _resolve_rel_script(self, rel: str | None) -> Path | None:
+        if not rel:
             return None
-        p = Path(self.script)
+        p = Path(rel)
         if p.is_absolute():
             return p
         if self.suite_dir is not None:
@@ -185,3 +188,18 @@ class Suite:
         if len(hits) == 1:
             return hits[0]
         return cand
+
+    def script_path(self) -> Path | None:
+        """PE entry IL (host chrome for ui.interact*)."""
+        return self._resolve_rel_script(self.script)
+
+    def gesture_script_path(self) -> Path | None:
+        """Gesture body IL (inproc apply_interact / OS HWND inject)."""
+        return self._resolve_rel_script(self.gesture_script)
+
+    def inject_script_path(self) -> Path | None:
+        """OS inject source: gesture body when set, else entry script."""
+        gesture = self.gesture_script_path()
+        if gesture is not None and gesture.is_file():
+            return gesture
+        return self.script_path()

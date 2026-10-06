@@ -34,17 +34,17 @@ namespace detail {
 // cannot wipe the colored overlay TIN.
 int run_orthogrid3d(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: orthogrid3d Scene3D path\n");
-  browser.mark_named(plugin::kMarkPluginShowcase, "orthogrid3d", /*truncate=*/true);
+  browser.mark_named(plugin::kMarkPlugin, "orthogrid3d", /*truncate=*/true);
 
   if (!browser.plugin_host()) {
-    plugin_showcase_mark("plugins-fail");
+    plugin_mark("plugins-fail");
     browser.detach_maps();
     return 1;
   }
 
   wchar_t vts_w[MAX_PATH] = {};
   if (!browser.capture_path(vts_w, MAX_PATH, L"plugin-showcase-orthogrid3d.vts")) {
-    plugin_showcase_mark("vts-path-fail");
+    plugin_mark("vts-path-fail");
     browser.detach_maps();
     return 1;
   }
@@ -52,17 +52,17 @@ int run_orthogrid3d(HarnessShell& browser) {
   if (WideCharToMultiByte(CP_UTF8, 0, vts_w, -1, vts_utf8,
                           static_cast<int>(sizeof(vts_utf8)), nullptr,
                           nullptr) <= 0) {
-    plugin_showcase_mark("vts-path-fail");
+    plugin_mark("vts-path-fail");
     browser.detach_maps();
     return 1;
   }
-  plugin_showcase_mark("sample-ok");
+  plugin_mark("sample-ok");
 
   if (!content::apply_scene3d_engine_from_env() ||
       content::prefer_scene3d_gdi()) {
     content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
   }
-  plugin_showcase_mark("tab3d");
+  plugin_mark("tab3d");
   browser.pump(200);
 
   PluginDeviceSessionOpts opts;
@@ -100,22 +100,22 @@ int run_orthogrid3d(HarnessShell& browser) {
   tool::CommandArgs cmd;
   cmd.payload = args;
   if (!browser.plugin_host()->execute("orthogrid3d.create_hex_grid", cmd)) {
-    plugin_showcase_mark("orthogrid3d-run-fail");
+    plugin_mark("orthogrid3d-run-fail");
     teardown_plugin_device_session(cam, &session,
                                    PluginTeardownOpts{.shutdown_device = true});
     browser.detach_maps();
     return 1;
   }
-  plugin_showcase_mark("orthogrid3d-ok");
+  plugin_mark("orthogrid3d-ok");
 
   if (!cam->gpu().overlay_tin_has_albedo()) {
-    plugin_showcase_mark("hex-overlay-empty");
+    plugin_mark("hex-overlay-empty");
   }
 
   if (GetFileAttributesW(vts_w) != INVALID_FILE_ATTRIBUTES) {
-    plugin_showcase_mark("vts-ok");
+    plugin_mark("vts-ok");
   } else {
-    plugin_showcase_mark("vts-skip");
+    plugin_mark("vts-skip");
   }
 
   // Solid amber ribbons (FlyCube has no line PSO).
@@ -134,7 +134,7 @@ int run_orthogrid3d(HarnessShell& browser) {
 
   frame_orthogrid3d_orbit(orbit);
   if (present_shell_scene3d_frame(browser.scene_draw_host(), 400)) {
-    plugin_showcase_mark("present-gpu-ok");
+    plugin_mark("present-gpu-ok");
   }
   // switch_map_tab reapplies China atmosphere (ocean/contour) and would
   // overwrite the hex TIN — strip it and re-frame before HWND capture.
@@ -161,7 +161,7 @@ int run_orthogrid3d(HarnessShell& browser) {
     browser.finish_scene3d(session.borrowed_shell);
     return 54;
   }
-  plugin_showcase_mark("pass");
+  plugin_mark("pass");
   browser.finish_scene3d(session.borrowed_shell);
   std::fprintf(stderr, "plugin-showcase: PASS mode=orthogrid3d (Scene3D)\n");
   return 0;

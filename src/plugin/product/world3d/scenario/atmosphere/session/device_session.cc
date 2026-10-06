@@ -33,7 +33,7 @@ int prepare_atmosphere_device_session(HarnessShell& browser,
   opts.present_w = kAtmosphereShowcaseW;
   opts.present_h = kAtmosphereShowcaseH;
   opts.create_hwnd = nullptr;
-  opts.mark = atmosphere_showcase_mark;
+  opts.mark = atmosphere_mark;
   opts.marks.realize_native = "realize-native";
   opts.marks.scene_attach = "scene-attach";
   opts.marks.borrow_ok = "shell-scene3d-borrow";
@@ -42,8 +42,8 @@ int prepare_atmosphere_device_session(HarnessShell& browser,
   out->want_gpu = want_gpu;
   out->linger = atmosphere_showcase_linger(want_gpu);
 
-  atmosphere_showcase_mark("scene-hwnd-ok");
-  atmosphere_showcase_mark("rhi-borrow");
+  atmosphere_mark("scene-hwnd-ok");
+  atmosphere_mark("rhi-borrow");
 
   RhiPresentSession core;
   if (const int rc = prepare_rhi_present_session(browser, opts, &core)) {
@@ -68,8 +68,8 @@ int prepare_atmosphere_device_session(HarnessShell& browser,
   out->owns_device = false;
   out->scene = browser.scene_draw_host();
 
-  atmosphere_showcase_mark("hwnd-ready");
-  atmosphere_showcase_mark("device-created");
+  atmosphere_mark("hwnd-ready");
+  atmosphere_mark("device-created");
   std::fprintf(stderr,
                "atmosphere-showcase: gpu=%d linger=%s present=%p %ux%u\n",
                want_gpu ? 1 : 0,
@@ -81,7 +81,7 @@ int prepare_atmosphere_device_session(HarnessShell& browser,
     std::fprintf(stderr, "atmosphere-showcase: linger_ms=%lu\n",
                  static_cast<unsigned long>(out->linger.ms));
   }
-  atmosphere_showcase_mark(want_gpu ? "flycube-ok" : "null-ok");
+  atmosphere_mark(want_gpu ? "flycube-ok" : "null-ok");
   return 0;
 }
 

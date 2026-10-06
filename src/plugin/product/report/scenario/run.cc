@@ -13,7 +13,7 @@
 #include "plugin/runtime/host/capability/shell.h"
 #include "plugin/runtime/host/capability/marks.h"
 #include "plugin/runtime/host/capability/shell.h"
-#include "app/views/il.runtime/backend/dispatch.h"
+#include "app/views/il.runtime/backend/plugin/dispatch.h"
 #include "plugin/product/world3d/scenario/common/plugin_io.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
@@ -32,10 +32,10 @@ plugin::FakeReportHarnessShell& report_showcase_fake() {
 
 int run_report(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: report dock path\n");
-  browser.mark_named(plugin::kMarkPluginShowcase, "report", /*truncate=*/true);
+  browser.mark_named(plugin::kMarkPlugin, "report", /*truncate=*/true);
 
   if (!browser.plugin_host()) {
-    plugin_showcase_mark("plugins-fail");
+    plugin_mark("plugins-fail");
     browser.detach_maps();
     return 1;
   }
@@ -53,7 +53,7 @@ int run_report(HarnessShell& browser) {
       L"..\\..\\testing\\data\\plugin\\report\\sample",
       L"..\\testing\\data\\plugin\\report\\sample"};
   if (!resolve_rel_under_exe(rels, 4, rep_path, sizeof(rep_path))) {
-    plugin_showcase_mark("report-sample-missing");
+    plugin_mark("report-sample-missing");
     browser.detach_maps();
     return 1;
   }
@@ -66,7 +66,7 @@ int run_report(HarnessShell& browser) {
         browser.plugin_host();
     plugin::ReportBridge* report = plugin::report_bridge(host);
     if (!host || !report) {
-      plugin_showcase_mark("report-open-fail");
+      plugin_mark("report-open-fail");
       browser.detach_maps();
       return 1;
     }
@@ -82,16 +82,16 @@ int run_report(HarnessShell& browser) {
         []() { report_showcase_fake().close(); });
     if (dispatch_plugin_command(browser, "report.scenario.showcase", payload) !=
         0) {
-      plugin_showcase_mark("report-open-fail");
+      plugin_mark("report-open-fail");
       browser.detach_maps();
       return 1;
     }
-    plugin_showcase_mark("report-fake-bridge");
+    plugin_mark("report-fake-bridge");
   }
-  plugin_showcase_mark("report-ok");
+  plugin_mark("report-ok");
   browser.pump(400);
 
-  plugin_showcase_mark("pass");
+  plugin_mark("pass");
   browser.detach_maps();
   std::fprintf(stderr, "plugin-showcase: PASS mode=report\n");
   return 0;

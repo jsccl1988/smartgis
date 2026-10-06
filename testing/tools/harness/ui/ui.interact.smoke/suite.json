@@ -1,12 +1,13 @@
 {
   "id": "ui.interact.smoke",
-  "kind": "showcase",
+  "kind": "integration",
   "argv": [
     "--ui-showcase",
     "interact"
   ],
   "driver": "inproc",
-  "script": "ui.interact.smoke.il",
+  "script": "../ui.interact/ui.interact.host.il",
+  "gesture_script": "ui.interact.smoke.il",
   "env": {
     "UI_SHOWCASE_LINGER_MS": "0",
     "UI_THEME": "dark"

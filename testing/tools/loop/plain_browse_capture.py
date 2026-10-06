@@ -9,6 +9,8 @@ Fixes closed-loop review bugs:
   #3/#6 FlyCube Present — multi-pass TabStrip crop; reject near-black DXGI.
   #4 Catalog accent header + splitter reseed (product) remove grey mid slab.
   #5 VIEWS_START_MAP_TAB; harness uses SYNC_CHINA_SEED for ready Present.
+  #7 argv=[] init hang — do not SW_RESTORE before Browser::show; compositor
+     starts only after contents (FeatureInfo nested markup vs raster worker).
 
 Usage:
   py -3 testing/tools/loop/plain_browse_capture.py
@@ -129,6 +131,36 @@ def _launch(
     return proc, err_f
 
 
+def _wait_product_show(
+    proc: subprocess.Popen[bytes],
+    err_path: Path,
+    timeout_sec: float,
+) -> None:
+    """Block until Browser::show finished (message loop about to run)."""
+    deadline = time.time() + max(5.0, float(timeout_sec))
+    while time.time() < deadline:
+        try:
+            text = err_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            text = ""
+        if "startup: first show complete" in text:
+            return
+        if "startup: Browser::show" in text and "FeatureInfo markup end" in text:
+            # show() logged; allow a short settle for UpdateWindow.
+            time.sleep(0.4)
+            return
+        if proc.poll() is not None:
+            # Prefer the log over poll: process can exit (rc=3 abort) in the
+            # same tick the show line is flushed, and poll-first hid success.
+            raise RuntimeError(
+                f"exe exited before show rc={proc.returncode}"
+            )
+        time.sleep(0.25)
+    raise RuntimeError(
+        f"timeout waiting for Browser::show ({timeout_sec:.0f}s)"
+    )
+
+
 def _wait_shell(proc: subprocess.Popen[bytes]) -> tuple[int, str]:
     shell = 0
     shell_title = ""
@@ -147,7 +179,9 @@ def _wait_shell(proc: subprocess.Popen[bytes]) -> tuple[int, str]:
 
 
 def _capture_shell(hwnd: int, bmp: Path) -> dict:
-    bring_hwnd_to_front(hwnd, stay_topmost=False, restore=True)
+    # restore=False: SW_RESTORE is Sync SendMessage; if the UI thread is in
+    # a long paint/present it deadlocks the harness after a good PrintWindow.
+    bring_hwnd_to_front(hwnd, stay_topmost=False, restore=False)
     time.sleep(0.3)
     ok, near_black = False, 1.0
     for attempt in range(5):
@@ -230,7 +264,12 @@ def _run_phase(
     try:
         shell, shell_title = _wait_shell(proc)
         print(f"shell={shell:#x} title={shell_title!r}", flush=True)
-        bring_hwnd_to_front(shell)
+        # HWND exists after Widget::init, before Browser::show. SW_RESTORE
+        # SendMessage re-enters wnd_proc during nested load_markup and hangs
+        # the UI thread in CssParser teardown. Wait for first show, then
+        # z-order only (no restore).
+        _wait_product_show(proc, err_path, timeout_sec=90.0)
+        bring_hwnd_to_front(shell, stay_topmost=False, restore=False)
         print(f"settle {settle_sec:.0f}s…", flush=True)
         # Poll stderr until china seed finishes (or settle timeout). Land-clip can
         # hang the UI thread for a long time; hillshade/frame_items may still log.
@@ -304,7 +343,11 @@ def _run_phase(
             if not present_hw or not oi.user32.IsWindow(int(present_hw)):
                 present_hw, _ = _find_present(proc.pid, timeout_sec=2.0)
             target = present_hw if present_hw else shell
-            bring_hwnd_to_front(target if present_hw else shell)
+            bring_hwnd_to_front(
+                target if present_hw else shell,
+                stay_topmost=False,
+                restore=False,
+            )
             cx, cy = 400, 300
             if present_hw:
                 left, top, right, bottom = _window_rect(int(present_hw))
@@ -439,6 +482,9 @@ def _write_review(
         and float(shell_score.get("near_black_frac") or 1) < 0.85
         and bool((shell_score.get("gates") or {}).get("teal_map_hole_allowed"))
     )
+    if phase.get("error"):
+        bugs.append(f"phase_error:{phase.get('error')}")
+        status = "failing"
     if not phase.get("alive_after", False):
         bugs.append(f"process_exit rc={phase.get('exit_rc')}")
         if not (present_ok or log_ok):
@@ -507,7 +553,7 @@ def main(argv: list[str] | None = None) -> int:
 
     repo = _repo()
     exe = repo / "out" / args.out / "SmartGIS.exe"
-    cap = repo / "out" / args.out / "captures" / "shell"
+    cap = repo / "out" / args.out / "captures" / "browser"
     log_dir = repo / "out" / args.out / "log"
     if not exe.is_file():
         print("missing", exe, file=sys.stderr)
@@ -532,22 +578,31 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as ex:  # noqa: BLE001
         print(f"2d phase error: {ex}", flush=True)
         r2d["error"] = str(ex)
-    # #1: reliable 3D — env tab, still argv=[].
-    try:
-        r3d = _run_phase(
-            exe=exe,
-            cap=cap,
-            log_dir=log_dir,
-            phase="3d",
-            settle_sec=args.settle_3d,
-            env_extra={"VIEWS_START_MAP_TAB": "scene3d"},
-            shell_leaf="views-plain-3d-browse.bmp",
-            present_leaf="views-plain-3d-flycube-present.bmp",
-            do_wheel=False,
-        )
-    except Exception as ex:  # noqa: BLE001
-        print(f"3d phase error: {ex}", flush=True)
-        r3d["error"] = str(ex)
+    # #1: reliable 3D — env tab, still argv=[]. Retry: intermittent
+    # STATUS_ACCESS_VIOLATION during init_shell under parallel Debug CRT.
+    r3d_err = None
+    for attempt in range(4):
+        try:
+            r3d = _run_phase(
+                exe=exe,
+                cap=cap,
+                log_dir=log_dir,
+                phase="3d",
+                settle_sec=args.settle_3d,
+                env_extra={"VIEWS_START_MAP_TAB": "scene3d"},
+                shell_leaf="views-plain-3d-browse.bmp",
+                present_leaf="views-plain-3d-flycube-present.bmp",
+                do_wheel=False,
+            )
+            r3d_err = None
+            break
+        except Exception as ex:  # noqa: BLE001
+            r3d_err = str(ex)
+            print(f"3d phase error (attempt {attempt + 1}/4): {ex}", flush=True)
+            _kill()
+            time.sleep(1.0)
+    if r3d_err:
+        r3d["error"] = r3d_err
 
     report = {
         "mode": "plain_launch",

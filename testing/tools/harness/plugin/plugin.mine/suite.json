@@ -1,48 +1,50 @@
-{
-  "id": "plugin.mine",
-  "kind": "showcase",
-  "argv": [
-    "--plugin-showcase=mine"
-  ],
-  "script": "plugin.mine.il",
-  "env": {
-    "SKIP_MAP_CONTEXT_MENU": "1",
-    "SCENE3D_ENGINE": "flycube"
-  },
-  "mark_leaf": "plugin-showcase-mark.txt",
-  "required_marks": [
-    "mine-ok",
-    "prism-ok",
-    "orbit-mine",
-    "present-ok",
-    "bmp-ok",
-    "pass"
-  ],
-  "bmp": {
-    "path": "plugin-showcase-mine.bmp",
-    "score_id": "plugin_mesh",
-    "accept_nonzero_rc_if_bmp": true,
-    "min_bytes": 10000
-  },
-  "report_name": "plugin_mine_loop_report.json",
-  "probes": [
-    "marks",
-    "bmp"
-  ],
-  "loop": {
-    "rounds": 2,
-    "timeout_sec": 180,
-    "build_target": "src/app/views:views",
-    "exe": "SmartGIS.exe"
-  },
-  "visual_review": {
-    "enabled": true,
-    "checklist": [
-      "layered_stratum",
-      "surface_relief",
-      "cutaway_block",
-      "no_black_frame"
-    ],
-    "expect_notes": "studio lithology cube: hills + water + layered cut faces"
-  }
+﻿{
+    "id":  "plugin.mine",
+    "kind":  "integration",
+    "argv":  [
+                 "--plugin-showcase=mine"
+             ],
+    "script":  "plugin.mine.il",
+    "env":  {
+                "SKIP_MAP_CONTEXT_MENU":  "1",
+                "SCENE3D_ENGINE":  "flycube"
+            },
+    "mark_leaf":  "plugin-showcase-mark.txt",
+    "required_marks":  [
+                           "mine-ok",
+                           "prism-ok",
+                           "orbit-mine",
+                           "present-ok",
+                           "bmp-ok",
+                           "pass",
+                           "fit-box-ok",
+                           "camera-fly-ok"
+                       ],
+    "bmp":  {
+                "path":  "plugin-showcase-mine.bmp",
+                "score_id":  "plugin_mesh",
+                "accept_nonzero_rc_if_bmp":  true,
+                "min_bytes":  10000
+            },
+    "report_name":  "plugin_mine_loop_report.json",
+    "probes":  [
+                   "marks",
+                   "bmp"
+               ],
+    "loop":  {
+                 "rounds":  2,
+                 "timeout_sec":  180,
+                 "build_target":  "src/app/views:views",
+                 "exe":  "SmartGIS.exe"
+             },
+    "visual_review":  {
+                          "enabled":  true,
+                          "checklist":  [
+                                            "layered_stratum",
+                                            "surface_relief",
+                                            "cutaway_block",
+                                            "no_black_frame"
+                                        ],
+                          "expect_notes":  "studio lithology cube: hills + water + layered cut faces"
+                      }
 }

@@ -36,7 +36,7 @@ int run_map2d_present(HarnessShell& browser,
   // frame_china_map2d / orthogrid already invalidated when size/extent changed.
   // Do not invalidate again immediately before timed present �?that forces a
   // cold layout+upload into the present_gpu wall clock.
-  map2d_showcase_mark("cache-ready");
+  map2d_mark("cache-ready");
 
   // Capture uses software export_bmp �?do NOT UpdateWindow here. Sync GDI
   // paint through the HWND has AVd in Map2dSoftwarePainter / ContentMapView
@@ -48,7 +48,7 @@ int run_map2d_present(HarnessShell& browser,
     }
   }
   browser.pump(50);
-  map2d_showcase_mark("overlay-paint");
+  map2d_mark("overlay-paint");
 
   // Warm layout+hillshade AFTER HWND pump: a live paint at client size would
   // otherwise rebuild MapIR at ~2k and clobber the showcase 1280x720 cache.
@@ -65,9 +65,9 @@ int run_map2d_present(HarnessShell& browser,
       std::fprintf(stderr, "map2d-showcase: ensure_full layout failed\n");
       return 57;
     }
-    map2d_showcase_mark("layout-warm");
+    map2d_mark("layout-warm");
   } else {
-    map2d_showcase_mark("layout-warm-scenic-skip");
+    map2d_mark("layout-warm-scenic-skip");
   }
 
   // Software BMP first �?carto gates / review-prep must not depend on optional

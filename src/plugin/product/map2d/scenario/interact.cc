@@ -13,25 +13,25 @@ namespace plugin {
 namespace {
 
 bool exec_map2d_run(content::CapabilityHost& host, std::string_view mode) {
-  return host.map2d_run && host.map2d_run(std::string(mode));
+  return host.plugin.map2d_run && host.plugin.map2d_run(std::string(mode));
 }
 
 bool exec_map2d_orthogrid_run(content::CapabilityHost& host, std::string_view) {
-  return host.run_plugin_command &&
-         host.run_plugin_command("map2d.scenario.orthogrid");
+  return host.plugin.run_plugin_command &&
+         host.plugin.run_plugin_command("map2d.scenario.orthogrid");
 }
 
 bool exec_map2d_print_run(content::CapabilityHost& host, std::string_view) {
-  return host.run_plugin_command &&
-         host.run_plugin_command("map2d.scenario.print");
+  return host.plugin.run_plugin_command &&
+         host.plugin.run_plugin_command("map2d.scenario.print");
 }
 
 }  // namespace
 
 void register_map2d_interact_verbs() {
-  register_showcase_verb("map2d_run", exec_map2d_run, "china");
-  register_showcase_verb("map2d_orthogrid_run", exec_map2d_orthogrid_run, "");
-  register_showcase_verb("map2d_print_run", exec_map2d_print_run, "");
+  register_scenario_verb("map2d_run", exec_map2d_run, "china");
+  register_scenario_verb("map2d_orthogrid_run", exec_map2d_orthogrid_run, "");
+  register_scenario_verb("map2d_print_run", exec_map2d_print_run, "");
 }
 
 }  // namespace plugin

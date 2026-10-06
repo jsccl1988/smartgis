@@ -47,6 +47,10 @@ class PLUGIN_HOST_EXPORT Registry {
   Registry();
 
   bool add_manifest(const Manifest& m, TrustClass trust);
+  // Build Manifest entirely inside plugin_host.dll. Do not construct a
+  // Manifest with std::string in the EXE and pass it across the DLL boundary
+  // (MSVC debug STL → _Xlength_error / heap corruption on assign).
+  bool add_builtin_manifest(const char* id, const char* name);
   bool set_enabled(std::string_view id, bool enabled,
                    content::PluginHost* host);
   bool trust_unsigned(std::string_view id);

@@ -30,15 +30,15 @@ namespace detail {
 // recommit + reframe so DEM rebuild cannot leave a DEM-only capture.
 int run_mine_scene3d(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: mine Scene3D path\n");
-  browser.mark_named(plugin::kMarkPluginShowcase, "mine", /*truncate=*/true);
+  browser.mark_named(plugin::kMarkPlugin, "mine", /*truncate=*/true);
 
   char csv_path[MAX_PATH * 3] = {};
   if (!resolve_mine_boreholes_csv(csv_path, sizeof(csv_path))) {
-    plugin_showcase_mark("mine-sample-fail");
+    plugin_mark("mine-sample-fail");
     browser.detach_maps();
     return 1;
   }
-  plugin_showcase_mark("sample-ok");
+  plugin_mark("sample-ok");
 
   // GPU Scene3D on the main App 3D pane (FlyCube/RHI). Never GDI software 3D.
   if (!content::apply_scene3d_engine_from_env() ||
@@ -46,7 +46,7 @@ int run_mine_scene3d(HarnessShell& browser) {
     content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
   }
 
-  plugin_showcase_mark("tab3d");
+  plugin_mark("tab3d");
   browser.pump(200);
 
   PluginDeviceSessionOpts opts;
@@ -94,7 +94,7 @@ int run_mine_scene3d(HarnessShell& browser) {
 
   frame_mine_orbit(orbit);
   if (present_shell_scene3d_frame(browser.scene_draw_host(), 400)) {
-    plugin_showcase_mark("present-gpu-ok");
+    plugin_mark("present-gpu-ok");
   }
 
   PluginCaptureOpts capture;
@@ -112,7 +112,7 @@ int run_mine_scene3d(HarnessShell& browser) {
     browser.finish_scene3d(session.borrowed_shell);
     return 54;
   }
-  plugin_showcase_mark("pass");
+  plugin_mark("pass");
   browser.finish_scene3d(session.borrowed_shell);
   std::fprintf(stderr, "plugin-showcase: PASS mode=mine (Scene3D)\n");
   return 0;

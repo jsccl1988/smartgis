@@ -30,15 +30,15 @@ namespace detail {
 // Unset PERF_BARE = M4 full-materials (globe + sat-cloud + sky).
 int run_world3d_scene3d(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: world3d Scene3D path\n");
-  browser.mark_named(plugin::kMarkPluginShowcase, "world3d", /*truncate=*/true);
+  browser.mark_named(plugin::kMarkPlugin, "world3d", /*truncate=*/true);
 
   const bool bare = world3d_perf_bare_enabled();
   if (bare) {
-    plugin_showcase_mark("pointcloud-skip");
+    plugin_mark("pointcloud-skip");
     std::fprintf(stderr,
                  "plugin-showcase: world3d perf-bare (pointcloud overlay off)\n");
   } else {
-    plugin_showcase_mark("full-materials");
+    plugin_mark("full-materials");
   }
 
   // GPU Scene3D into the main App 3D pane. SCENE3D_ENGINE=gdi is rejected here.
@@ -52,7 +52,7 @@ int run_world3d_scene3d(HarnessShell& browser) {
   // Skip post-tab pump: DispatchMessage after the shell FlyCube present SEH
   // has been observed to escalate to STATUS_FATAL_USER_CALLBACK_EXCEPTION
   // (0xC000041D) before device-session marks.
-  plugin_showcase_mark("tab3d");
+  plugin_mark("tab3d");
 
   PluginDeviceSessionOpts opts;
   opts.gpu_env = "plugin-world3d-gpu";
@@ -63,14 +63,14 @@ int run_world3d_scene3d(HarnessShell& browser) {
   opts.detach_flycube = false;
   opts.warm_swapchain = true;
 
-  plugin_showcase_mark("device-session");
+  plugin_mark("device-session");
   PluginDeviceSession session;
   if (const int rc = prepare_plugin_device_session(browser, opts, &session)) {
     destroy_plugin_owned_hwnd(&session);
     browser.detach_maps();
     return rc;
   }
-  plugin_showcase_mark("device-session-ok");
+  plugin_mark("device-session-ok");
 
   content::Scene3dPresenter* cam = browser.scene3d();
   content::OrbitFrame* orbit = browser.orbit_frame();
@@ -80,29 +80,29 @@ int run_world3d_scene3d(HarnessShell& browser) {
     browser.detach_maps();
     return 50;
   }
-  plugin_showcase_mark("cam-ok");
+  plugin_mark("cam-ok");
 
   if (bare) {
     seed_world3d_earth_atmosphere(browser, cam);
   } else {
     seed_world3d_true_earth_globe(browser, cam);
   }
-  plugin_showcase_mark("seed-ok");
+  plugin_mark("seed-ok");
   // Globe albedo recycles to a solid red ball under wireframe; keep filled.
   cam->gpu().set_wireframe_enabled(false);
   if (cam->atmosphere_session().globe_enabled()) {
-    plugin_showcase_mark("earth-tiles-skip");
+    plugin_mark("earth-tiles-skip");
   } else {
     try_attach_world3d_city_tiles(cam);
   }
-  plugin_showcase_mark("tiles-ok");
+  plugin_mark("tiles-ok");
 
   bool cloud_ok = false;
   if (!bare) {
     vista::PointCloud cloud;
     char cloud_path[MAX_PATH * 3] = {};
     if (!resolve_world3d_pointcloud_sample(cloud_path, sizeof(cloud_path))) {
-      plugin_showcase_mark("pointcloud-missing");
+      plugin_mark("pointcloud-missing");
       std::fprintf(stderr,
                    "plugin-showcase: pointcloud sample missing "
                    "(continue full-materials atmo)\n");
@@ -111,9 +111,9 @@ int run_world3d_scene3d(HarnessShell& browser) {
                    "plugin-showcase: load_point_cloud failed path=%s err=%s "
                    "(continue full-materials atmo)\n",
                    cloud_path, cloud.error.c_str());
-      plugin_showcase_mark("pointcloud-load-fail");
+      plugin_mark("pointcloud-load-fail");
     } else {
-      plugin_showcase_mark("pointcloud-ok");
+      plugin_mark("pointcloud-ok");
       std::fprintf(stderr,
                    "plugin-showcase: cloud points=%zu color=%d path=%s\n",
                    cloud.point_count(), cloud.has_color() ? 1 : 0, cloud_path);
@@ -169,10 +169,10 @@ int run_world3d_scene3d(HarnessShell& browser) {
   browser.finish_scene3d(session.borrowed_shell);
 
   if (!bmp_ok && session.want_gpu) {
-    plugin_showcase_mark("bmp-fail");
+    plugin_mark("bmp-fail");
     return 54;
   }
-  plugin_showcase_mark("pass");
+  plugin_mark("pass");
   std::fprintf(stderr,
                "plugin-showcase: PASS mode=world3d%s (True Earth Scene3D)\n",
                bare ? "-bare" : "-full");

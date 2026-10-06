@@ -72,24 +72,24 @@ bool execute_map2d_seed(HarnessShell& browser, const char* mode_name) {
 
 }  // namespace
 
-int seed_map2d_mode(HarnessShell& browser, ShowcaseMode mode) {
-  if (mode != ShowcaseMode::kChina && mode != ShowcaseMode::kAlign &&
-      mode != ShowcaseMode::kOrthogrid) {
+int seed_map2d_mode(HarnessShell& browser, ScenarioMode mode) {
+  if (mode != ScenarioMode::kChina && mode != ScenarioMode::kAlign &&
+      mode != ScenarioMode::kOrthogrid) {
     std::fprintf(stderr, "map2d-showcase: unsupported mode\n");
     return 53;
   }
 
-  if (mode == ShowcaseMode::kOrthogrid) {
+  if (mode == ScenarioMode::kOrthogrid) {
     if (!execute_map2d_seed(browser, "orthogrid")) {
       std::fprintf(stderr, "map2d-showcase: map2d.seed orthogrid failed\n");
       return 55;
     }
-    map2d_showcase_mark("orthogrid-ok");
-    map2d_showcase_mark("map2d-seed-plugin");
+    map2d_mark("orthogrid-ok");
+    map2d_mark("map2d-seed-plugin");
     return 0;
   }
 
-  if (mode == ShowcaseMode::kAlign) {
+  if (mode == ScenarioMode::kAlign) {
     if (!try_open_china_sample(browser)) {
       if (browser.document()) {
         browser.document()->seed_default();
@@ -99,9 +99,9 @@ int seed_map2d_mode(HarnessShell& browser, ShowcaseMode mode) {
       std::fprintf(stderr, "map2d-showcase: china sample open failed\n");
       return 55;
     }
-    map2d_showcase_mark("china-ok");
+    map2d_mark("china-ok");
     if (execute_map2d_seed(browser, "align")) {
-      map2d_showcase_mark("map2d-seed-plugin");
+      map2d_mark("map2d-seed-plugin");
       return 0;
     }
     if (!try_load_align_style(browser)) {
@@ -120,12 +120,12 @@ int seed_map2d_mode(HarnessShell& browser, ShowcaseMode mode) {
     std::fprintf(stderr, "map2d-showcase: china sample open failed\n");
     return 55;
   }
-  map2d_showcase_mark("china-ok");
+  map2d_mark("china-ok");
   if (execute_map2d_seed(browser, "china")) {
-    map2d_showcase_mark("map2d-seed-plugin");
+    map2d_mark("map2d-seed-plugin");
   }
   ensure_china_maplibre_carto(browser);
-  map2d_showcase_mark("style-carto-default");
+  map2d_mark("style-carto-default");
   return 0;
 }
 

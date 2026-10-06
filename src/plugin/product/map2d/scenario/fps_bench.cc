@@ -29,7 +29,7 @@ void run_optional_map2d_fps_bench(HarnessShell& browser,
   if (bench_ms <= 0 || !map2d) {
     return;
   }
-  map2d_showcase_mark("fps-bench");
+  map2d_mark("fps-bench");
   ui::views::DrawHost* pane = browser.draw_host();
   float sum = 0.f;
   float peak = 0.f;
@@ -126,7 +126,7 @@ void run_optional_map2d_fps_bench(HarnessShell& browser,
       std::fclose(bf);
     }
   }
-  map2d_showcase_mark("fps-bench-done");
+  map2d_mark("fps-bench-done");
 }
 
 }  // namespace detail

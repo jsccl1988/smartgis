@@ -23,7 +23,7 @@ int seed_atmosphere_legacy_mode(HarnessShell& browser,
   if (!cam) {
     return 50;
   }
-  atmosphere_showcase_mark("legacy-china-open");
+  atmosphere_mark("legacy-china-open");
   // Prefer china_city vectors so coast content assert can pass.
   // Under ATMOSPHERE_SHOWCASE_GPU=1, MapScene::open_path(china_city)
   // AVs (ExitProcess -1 after legacy-open-path). DEM still comes from
@@ -58,28 +58,28 @@ int seed_atmosphere_legacy_mode(HarnessShell& browser,
             char path_a[MAX_PATH] = {};
             WideCharToMultiByte(CP_UTF8, 0, path_w, -1, path_a, MAX_PATH,
                                 nullptr, nullptr);
-            atmosphere_showcase_mark("legacy-open-path");
+            atmosphere_mark("legacy-open-path");
             if (doc->open_path(path_a) && doc->feature_count() > 0) {
-              atmosphere_showcase_mark("china-doc-ok");
+              atmosphere_mark("china-doc-ok");
               break;
             }
-            atmosphere_showcase_mark("legacy-open-fail");
+            atmosphere_mark("legacy-open-fail");
           }
         }
       } else {
-        atmosphere_showcase_mark("china-doc-reuse");
+        atmosphere_mark("china-doc-reuse");
       }
     }
   } else {
-    atmosphere_showcase_mark("china-doc-skip-gpu");
+    atmosphere_mark("china-doc-skip-gpu");
   }
-  atmosphere_showcase_mark("legacy-look-begin");
+  atmosphere_mark("legacy-look-begin");
   plugin::World3dLookSeed seed;
   if (!plugin::apply_world3d_look(cam, browser.orbit_frame(),
                                  plugin::World3dLook::kLegacy, &seed)) {
     return 50;
   }
-  atmosphere_showcase_mark("look-legacy");
+  atmosphere_mark("look-legacy");
   if (cam->look_preset() != content::Scene3dLookPreset::kLegacyStereo) {
     std::fprintf(stderr, "atmosphere-showcase: look preset not legacy\n");
     return 53;
@@ -91,11 +91,11 @@ int seed_atmosphere_legacy_mode(HarnessShell& browser,
     std::fprintf(stderr, "atmosphere-showcase: legacy labels missing\n");
     return 53;
   }
-  atmosphere_showcase_mark("labels-ok");
+  atmosphere_mark("labels-ok");
   if (cam->gpu().has_legacy_coast_vectors()) {
-    atmosphere_showcase_mark("coast-doc-ok");
+    atmosphere_mark("coast-doc-ok");
   } else {
-    atmosphere_showcase_mark("coast-doc-skip");
+    atmosphere_mark("coast-doc-skip");
   }
   return 0;
 }

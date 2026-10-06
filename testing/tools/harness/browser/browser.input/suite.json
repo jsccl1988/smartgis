@@ -1,0 +1,31 @@
+{
+  "id": "browser.input",
+  "kind": "integration",
+  "argv": [
+    "--input-showcase"
+  ],
+  "script": "browser.input.il",
+  "env": {
+    "SKIP_MAP_CONTEXT_MENU": "1"
+  },
+  "mark_leaf": "input-self-test-mark.txt",
+  "required_marks": [
+    "hwnd-ok",
+    "host-ok",
+    "input-point-ok",
+    "input-line-ok",
+    "input-poly-ok",
+    "input-ok",
+    "pass"
+  ],
+  "report_name": "browser_input_loop_report.json",
+  "probes": [
+    "marks"
+  ],
+  "loop": {
+    "rounds": 6,
+    "timeout_sec": 120,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGIS.exe"
+  }
+}

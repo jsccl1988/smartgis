@@ -4,6 +4,8 @@
 #ifndef UI_VIEWS_PRIMITIVES_COLLECTION_SCROLL_VIEW_H_
 #define UI_VIEWS_PRIMITIVES_COLLECTION_SCROLL_VIEW_H_
 
+#include <functional>
+
 #include "ui/ui_export.h"
 #include "ui/views/kernel/view/view.h"
 
@@ -15,10 +17,15 @@ namespace views {
 // the right-edge track seek the offset.
 class UI_EXPORT ScrollView : public View {
  public:
+  using ScrollChanged = std::function<void(int offset)>;
+
   ScrollView();
 
   void set_scroll_offset(int y);
   int scroll_offset() const { return scroll_y_; }
+
+  // Fired after clamp when the offset actually changes (wheel / track / API).
+  void set_on_scroll(ScrollChanged fn);
 
   void layout() override;
   void paint(ui::gfx::Canvas* canvas) override;
@@ -47,6 +54,7 @@ class UI_EXPORT ScrollView : public View {
   int applied_pref_h_ = -1;
   bool scroll_dirty_posted_ = false;
   Rect scroll_dirty_{};
+  ScrollChanged on_scroll_;
 };
 
 }  // namespace views

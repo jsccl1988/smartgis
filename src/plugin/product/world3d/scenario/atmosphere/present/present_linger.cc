@@ -45,7 +45,7 @@ AtmospherePresentLingerResult run_atmosphere_present_linger(
     return out;
   }
 
-  atmosphere_showcase_mark("linger-start");
+  atmosphere_mark("linger-start");
   if (linger.until_close) {
     std::fprintf(stderr,
                  "atmosphere-showcase: linger until window closed "
@@ -109,7 +109,7 @@ AtmospherePresentLingerResult run_atmosphere_present_linger(
           /*want_gpu=*/true, globe_flythrough, nullptr);
       captured = true;
     }
-    if (HarnessShell* shell = atmosphere_showcase_shell()) {
+    if (HarnessShell* shell = atmosphere_scenario_shell()) {
       shell->pump(pump_ms);
     }
   }
@@ -124,7 +124,7 @@ AtmospherePresentLingerResult run_atmosphere_present_linger(
         mode, mode_name, cam, device, present_hwnd, owned_present_hwnd,
         /*want_gpu=*/true, globe_flythrough, nullptr);
   }
-  atmosphere_showcase_mark("linger-ok");
+  atmosphere_mark("linger-ok");
   const DWORD elapsed = GetTickCount() - linger_start;
   const DWORD wall_ms = elapsed == 0u ? 1u : elapsed;
   const float avg_fps =

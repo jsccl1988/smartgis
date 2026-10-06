@@ -4,7 +4,7 @@
 #include "plugin/product/world3d/scenario/atmosphere/present/present_run.h"
 
 #include "plugin/runtime/host/capability/shell.h"
-#include "app/views/il.runtime/backend/warmup.h"
+#include "app/views/il.runtime/backend/view/present/warmup.h"
 #include "plugin/product/world3d/scenario/atmosphere/capture/capture.h"
 #include "plugin/product/world3d/scenario/atmosphere/present/globe_present.h"
 #include "plugin/product/world3d/scenario/atmosphere/present/present_linger.h"
@@ -122,7 +122,7 @@ int run_atmosphere_present(HarnessShell& browser,
   warm.frames = 1;
   warm.pump_ms = present_pump_ms;
   warm.fail_log_prefix = "atmosphere-showcase";
-  warm.mark = atmosphere_showcase_mark;
+  warm.mark = atmosphere_mark;
   warm.frame_mark = "present-warm";
   warm.on_fail = on_atmosphere_warmup_fail;
   warm.on_fail_user = &fail_ctx;
@@ -162,13 +162,13 @@ int run_atmosphere_present(HarnessShell& browser,
   timed.fail_log_prefix = "atmosphere-showcase";
   // Equal-profile timed window: skip per-frame mark fopen/fflush (same class
   // of wall pollution as PeekMessage / map2d paint when pump_ms==0).
-  timed.mark = (present_pump_ms == 0) ? nullptr : atmosphere_showcase_mark;
+  timed.mark = (present_pump_ms == 0) ? nullptr : atmosphere_mark;
   timed.numbered_frame_marks = (present_pump_ms != 0);
   timed.on_fail = on_atmosphere_warmup_fail;
   timed.on_fail_user = &fail_ctx;
   if (present_gpu_warmup(cam, device, timed) != 0) {
     if (want_gpu && early_bmp_ok) {
-      atmosphere_showcase_mark("pass-early-bmp");
+      atmosphere_mark("pass-early-bmp");
       std::fprintf(stderr,
                    "atmosphere-showcase: PASS mode=%s (early BMP)\n", name);
       return 0;
@@ -205,7 +205,7 @@ int run_atmosphere_present(HarnessShell& browser,
       std::fclose(pf);
     }
   }
-  atmosphere_showcase_mark("present-ok");
+  atmosphere_mark("present-ok");
   std::fprintf(stderr,
                "atmosphere-showcase: presented %d frames %ux%u "
                "present_ms=%.2f ms/p=%.2f "
@@ -244,11 +244,11 @@ int run_atmosphere_present(HarnessShell& browser,
   // the Device* the same way DrawHost does after a live session.
   finish_atmosphere_device_session(browser, session, /*shutdown_device=*/false);
   if (want_gpu && !bmp_signal_ok) {
-    atmosphere_showcase_mark("bmp-fail");
+    atmosphere_mark("bmp-fail");
     std::fprintf(stderr, "atmosphere-showcase: FAIL mode=%s (exit 54)\n", name);
     return 54;
   }
-  atmosphere_showcase_mark("pass");
+  atmosphere_mark("pass");
   std::fprintf(stderr, "atmosphere-showcase: PASS mode=%s\n", name);
   return 0;
 }

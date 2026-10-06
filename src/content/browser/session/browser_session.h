@@ -40,9 +40,10 @@ class BrowserSession {
   BrowserSession(const BrowserSession&) = delete;
   BrowserSession& operator=(const BrowserSession&) = delete;
 
-  // Create ViewHosts + MapContents::Create. StartRenderProcess is deferred
-  // until ensure_oop_render_process() unless ENABLE_OOP_RENDER=1.
-  // OOP failure clears map_contents() only for the opt-in-at-init path.
+  // Create ViewHosts. MapContents::Create is deferred to
+  // ensure_oop_render_process() (eager Create during init heap-corrupted the
+  // next CRT alloc in PluginShell::CommandCatalog). StartRenderProcess still
+  // waits for ensure unless ENABLE_OOP_RENDER=1.
   void init_hosts();
 
   // Lazily start the OOP GPU child. No-op when already running or when

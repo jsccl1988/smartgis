@@ -6,6 +6,7 @@
 #include <memory>
 #include <utility>
 
+#include "ui/gis/scroll_table.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/dpi.h"
@@ -51,6 +52,7 @@ SelectionPanel::SelectionPanel() {
       }
       fire(std::string("selection.layer:") + layers_[static_cast<size_t>(row)].layer_id);
     });
+    scroll_ = wrap_markup_table_in_scroll(table_);
   }
 
   auto fill = std::make_unique<FillLayout>();
@@ -83,6 +85,7 @@ SelectionPanel::~SelectionPanel() {
   title_ = nullptr;
   count_label_ = nullptr;
   table_ = nullptr;
+  scroll_ = nullptr;
   clear_ = nullptr;
   invert_ = nullptr;
   zoom_ = nullptr;
@@ -113,12 +116,13 @@ void SelectionPanel::rebuild_table() {
   table_->set_columns({"Layer", "Count"});
   if (layers_.empty()) {
     table_->add_row({"No selection", "\xE2\x80\x94"});
-    return;
+  } else {
+    for (const auto& layer : layers_) {
+      table_->add_row({layer.label.empty() ? layer.layer_id : layer.label,
+                       std::to_string(layer.count)});
+    }
   }
-  for (const auto& layer : layers_) {
-    table_->add_row({layer.label.empty() ? layer.layer_id : layer.label,
-                     std::to_string(layer.count)});
-  }
+  sync_scroll_table_content(table_, scroll_);
 }
 
 void SelectionPanel::fire(const std::string& id) {

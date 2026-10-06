@@ -12,9 +12,11 @@ namespace app {
 class Browser;
 
 // Kind of in-process harness path (aligns with suite.json "kind").
+// Showcase was removed from il.runtime; all Views suites are integration
+// (IR-ordered *.il) or the legacy harness alias.
 enum class ScenarioKind {
   kHarness,
-  kShowcase,
+  kIntegration,
 };
 
 // Scene3d engine applied before Browser::init when SCENE3D_ENGINE is unset.
@@ -45,7 +47,7 @@ struct LaunchPolicy {
 // testing/tools/harness/<family>/<id>/suite.json.
 struct Scenario {
   const char* id = nullptr;
-  ScenarioKind kind = ScenarioKind::kShowcase;
+  ScenarioKind kind = ScenarioKind::kIntegration;
   const wchar_t* mark_leaf = nullptr;
   const char* suite_id = nullptr;
   const char* plugin_command = nullptr;

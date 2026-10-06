@@ -17,6 +17,7 @@ namespace views {
 
 class Button;
 class Label;
+class ScrollView;
 class TableView;
 
 // Process-local geoprocessing history list with Rerun / Clear.
@@ -53,6 +54,7 @@ class UI_EXPORT GeoprocessingHistoryPanel : public View {
 
   Label* title_ = nullptr;
   TableView* table_ = nullptr;
+  ScrollView* scroll_ = nullptr;
   Button* rerun_ = nullptr;
   Button* clear_ = nullptr;
 

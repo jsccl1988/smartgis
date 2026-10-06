@@ -5,14 +5,11 @@
 
 #include "plugin/runtime/host/capability/shell.h"
 #include "plugin/product/world3d/scenario/common/host_rhi.h"
+#include "plugin/product/world3d/scenario/common/plugin_io.h"
 
 namespace plugin {
 namespace detail {
 namespace {
-
-void plugin_mark(const char* step) {
-  plugin_showcase_mark(step);
-}
 
 RhiPresentSession to_rhi(PluginDeviceSession* session) {
   RhiPresentSession core;
@@ -69,8 +66,8 @@ int prepare_plugin_device_session(HarnessShell& browser,
   core_opts.detach_pump_ms = 200;
   core_opts.warm_swapchain = false;
   core_opts.allow_null_without_hwnd = opts.allow_null_without_hwnd;
-  core_opts.present_w = kPluginShowcasePresentW;
-  core_opts.present_h = kPluginShowcasePresentH;
+  core_opts.present_w = kPluginPresentW;
+  core_opts.present_h = kPluginPresentH;
   core_opts.create_hwnd = nullptr;
   core_opts.mark = plugin_mark;
   core_opts.marks.scene_attach = "scene-attach";

@@ -28,8 +28,8 @@ bool present_fly_frame(HarnessShell& browser,
   if (session->borrowed_shell) {
     return present_shell_scene3d_frame(browser.scene_draw_host(), 800);
   }
-  return cam->present_gpu(session->device, kPluginShowcasePresentW,
-                          kPluginShowcasePresentH);
+  return cam->present_gpu(session->device, kPluginPresentW,
+                          kPluginPresentH);
 }
 
 void warm_presents(HarnessShell& browser,
@@ -54,8 +54,8 @@ bool capture_stage_bmp(content::Scene3dPresenter* cam,
   }
   Scene3dHwndCaptureOpts core;
   core.bmp_leaf = leaf;
-  core.present_w = kPluginShowcasePresentW;
-  core.present_h = kPluginShowcasePresentH;
+  core.present_w = kPluginPresentW;
+  core.present_h = kPluginPresentH;
   core.pre_capture_pump_ms = 120;
   core.use_grid_lit_policy = false;
   core.retry_dark_frame = true;
@@ -64,7 +64,7 @@ bool capture_stage_bmp(content::Scene3dPresenter* cam,
   core.require_color_diversity = !relax_diversity;
   core.skip_ui_thread_present = session->borrowed_shell;
   core.skip_when_null_gpu = false;
-  core.mark = plugin_showcase_mark;
+  core.mark = plugin_mark;
   core.log_prefix = "plugin-showcase";
 
   const bool want_gpu = session->want_gpu || session->borrowed_shell;
@@ -102,7 +102,7 @@ World3dGlobeFlyResult run_world3d_globe_fly_presents(
   const vista::GlobePass* globe = &cam->atmosphere_session().globe_pass();
   content::AtmosphereSession* atm = &cam->atmosphere_session();
 
-  plugin_showcase_mark("globe-fly-begin");
+  plugin_mark("globe-fly-begin");
   std::fprintf(stderr,
                "plugin-showcase: world3d fly space→clouds→DEM→ocean\n");
 
@@ -125,16 +125,16 @@ World3dGlobeFlyResult run_world3d_globe_fly_presents(
       last_stage = stage;
       switch (stage) {
         case 0:
-          plugin_showcase_mark("fly-space");
+          plugin_mark("fly-space");
           break;
         case 1:
-          plugin_showcase_mark("fly-clouds");
+          plugin_mark("fly-clouds");
           break;
         case 2:
-          plugin_showcase_mark("fly-dem");
+          plugin_mark("fly-dem");
           break;
         default:
-          plugin_showcase_mark("fly-ocean");
+          plugin_mark("fly-ocean");
           break;
       }
     }
@@ -163,10 +163,10 @@ World3dGlobeFlyResult run_world3d_globe_fly_presents(
     plugin::apply_world3d_globe_flythrough(orbit, beat.t, china_yaw, china_pitch, globe, atm);
     warm_presents(browser, cam, session, beat.warm_frames, 24);
     if (capture_stage_bmp(cam, session, beat.bmp_leaf, beat.relax_diversity)) {
-      plugin_showcase_mark(beat.mark);
+      plugin_mark(beat.mark);
       ++out.stage_bmps_ok;
     } else {
-      plugin_showcase_mark("fly-stage-bmp-skip");
+      plugin_mark("fly-stage-bmp-skip");
     }
   }
 
@@ -174,7 +174,7 @@ World3dGlobeFlyResult run_world3d_globe_fly_presents(
   plugin::apply_world3d_globe_flythrough(
       orbit, plugin::kWorld3dGlobeFlyParkT, china_yaw, china_pitch, globe, atm);
   warm_presents(browser, cam, session, 4, 24);
-  plugin_showcase_mark("globe-fly-park");
+  plugin_mark("globe-fly-park");
   return out;
 }
 

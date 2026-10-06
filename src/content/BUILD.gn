@@ -188,7 +188,13 @@ test("content_map_bootstrap_test") {
 
 # Opt-in loopback Debug Agent (LogSink / cmd / sdbd / py).
 source_set("capability") {
-  sources = [ "browser/capability/host.h" ]
+  sources = [
+    "browser/capability/document.h",
+    "browser/capability/horizon.h",
+    "browser/capability/host.h",
+    "browser/capability/plugin.h",
+    "browser/capability/view.h",
+  ]
   include_dirs += [ "//src" ]
 }
 

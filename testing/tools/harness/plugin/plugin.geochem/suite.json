@@ -1,6 +1,6 @@
 {
   "id": "plugin.geochem",
-  "kind": "showcase",
+  "kind": "integration",
   "argv": [
     "--plugin-showcase=geochem"
   ],
@@ -10,6 +10,7 @@
   },
   "mark_leaf": "plugin-showcase-mark.txt",
   "required_marks": [
+    "hwnd-ok",
     "geochem-ok",
     "stats-ok",
     "bmp-ok",

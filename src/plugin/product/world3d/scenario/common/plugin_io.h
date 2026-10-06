@@ -14,13 +14,13 @@ class HarnessShell;
 
 namespace detail {
 
-inline constexpr uint32_t kPluginShowcasePresentW = 640;
-inline constexpr uint32_t kPluginShowcasePresentH = 480;
+inline constexpr uint32_t kPluginPresentW = 640;
+inline constexpr uint32_t kPluginPresentH = 480;
 
-void bind_plugin_showcase_shell(HarnessShell* shell);
-HarnessShell* plugin_showcase_shell();
+void bind_plugin_scenario_shell(HarnessShell* shell);
+HarnessShell* plugin_scenario_shell();
 
-void plugin_showcase_mark(const char* step);
+void plugin_mark(const char* step);
 
 bool resolve_rel_under_exe(const wchar_t* const* rels, size_t count,
                            char* out_utf8, size_t out_cap);

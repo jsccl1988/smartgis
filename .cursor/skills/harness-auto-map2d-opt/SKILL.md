@@ -199,7 +199,7 @@ Non-goals (do not): delete hillshade/MapFrame to match IR; MapLibre Native port;
 
 - Per-frame profile + opt loop: `.cursor/skills/harness-auto-map2d-frame-opt/SKILL.md`
 - Runner: `testing/tools/harness/browser/run_parallel_port_matrix.py`
-- Suites: `testing/tools/harness/browser/map2d.china/`
+- Suites: `testing/tools/harness/browser/browser.map2d.china/`
 - Inspect: `testing/tools/loop/review/inspect_png.py`
 - Visual review (bug closed-loop): `.cursor/skills/harness-visual-review/SKILL.md`
 - Plan / §: links above

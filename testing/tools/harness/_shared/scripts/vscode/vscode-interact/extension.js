@@ -2,8 +2,8 @@
 // All rights reserved.
 //
 // Interact DSL language support: highlight via TextMate + Go to Definition
-// into Interact.g4 (grammar keywords) and interact_dsl.cc (ops).
-// Completions + snippets for common harness verbs.
+// into Interact.g4 (grammar keywords) and il.runtime lower / ir (ops).
+// Completions + snippets for CapabilityHost-aligned harness verbs.
 
 "use strict";
 
@@ -22,53 +22,66 @@ const GRAMMAR_KEYWORDS = {
   "@inject": "ATINJECT",
 };
 
-/** Ops dispatched in shell/runtime/dsl/interact_dsl.cc (keep in sync). */
+/** Ops lowered in il.runtime/codegen/lower (keep in sync with ir + lower_*). */
 const OPS = [
   "pump",
+  "mark",
+  "clear_marks",
   "select_map_tab",
   "catalog_tab",
   "inspector_tab",
-  "mark",
-  "wait_ready",
-  "wait_map_ready",
-  "load_sample",
-  "load_china_sample",
+  "require_hwnd",
+  "suppress_dialogs",
+  "window",
+  "key",
+  "apply_ui_theme",
+  "apply_scenario_panels",
+  "layout_gate",
+  "ui_present_capture",
+  "console_pan_bench",
+  "expect_shell_tree",
+  "expect_layout_bounds",
+  "wire_debug_agent",
+  "debug_exec",
   "open_map",
+  "doc_clear",
+  "fit_extent",
+  "export_bmp",
+  "apply_style_file",
   "detach_maps",
   "stop_map_timers",
-  "clear_marks",
-  "require_hwnd",
-  "require_edit_host",
-  "expect_host",
+  "resume_map_timers",
+  "invalidate_map2d",
   "tool",
   "run_tool",
+  "activate_tool",
+  "wait_ready",
+  "wait_map_ready",
+  "wait_viewport",
+  "require_edit_host",
+  "expect_host",
+  "browse_stress",
+  "capture_browse_still",
+  "fps_bench",
+  "fit_scene_box",
+  "camera_fly",
   "expect_tool",
   "expect_geom",
-  "browse_stress",
   "expect_wheel_cursor",
-  "map2d_run",
-  "atmosphere_run",
-  "world3d_run",
-  "mine_run",
-  "stormsurge_run",
-  "orthogrid3d_run",
+  "expect_scene_visible",
+  "expect_orbit_moved",
+  "expect_map_hwnd_sync",
+  "run_plugin_command",
   "run_processing",
-  "console_run",
   "resolve_data",
   "capture_path",
   "sidecar_path",
   "require_var",
-  "doc_clear",
-  "fit_extent",
-  "export_bmp",
-  "suppress_dialogs",
   "require_plugins",
-  "apply_style_file",
-  "invalidate_map2d",
   "analysis_set_frame",
   "analysis_export_frames",
-  "window",
-  "key",
+  "open_report",
+  "post_to_report",
   "click",
   "rclick",
   "dblclick",
@@ -86,15 +99,17 @@ const OP_HINTS = {
   pan_burst: "pan_burst(target, count=, x=, y=, dx=, dy=, pump_ms=)",
   wheel_burst: "wheel_burst(target, count=, x=, y=, delta=, pump_ms=)",
   run_processing: 'run_processing(id="op.id", args="{\\"k\\":\\"$var\\"}")',
+  run_plugin_command: 'run_plugin_command("pack.scenario.name")',
   resolve_data: 'resolve_data(kind="plugin", leaf="file", as="var")',
   export_bmp: 'export_bmp(leaf="out.bmp", frame="…")',
-  map2d_run: 'map2d_run("china"|"orthogrid"|…)',
-  atmosphere_run: 'atmosphere_run("full"|"land"|…)',
-  world3d_run: "world3d_run()",
-  mine_run: "mine_run()",
-  stormsurge_run: "stormsurge_run()",
-  orthogrid3d_run: "orthogrid3d_run()",
+  wait_viewport: 'wait_viewport(face="map"|"scene", ms=, frame=1)',
+  fit_scene_box: "fit_scene_box()",
+  camera_fly: 'camera_fly(mode="orbit"|"spherical", ms=1600, steps=20)',
+  open_map: 'open_map(path=…|var="name")',
   select_map_tab: "select_map_tab(index)",
+  apply_scenario_panels: 'apply_scenario_panels("shell"|"data"|…)',
+  layout_gate: 'layout_gate("shell"|"interact"|…)',
+  ui_present_capture: 'ui_present_capture("shell"|…)',
 };
 
 function workspaceRoot() {
@@ -110,6 +125,18 @@ function g4Path() {
   if (!root) {
     return undefined;
   }
+  const product = path.join(
+    root,
+    "src",
+    "app",
+    "views",
+    "il.runtime",
+    "frontend",
+    "Interact.g4"
+  );
+  if (fs.existsSync(product)) {
+    return product;
+  }
   return path.join(
     root,
     "testing",
@@ -122,37 +149,35 @@ function g4Path() {
   );
 }
 
-function dslCcPath() {
+function lowerSearchRoots() {
   const root = workspaceRoot();
   if (!root) {
-    return undefined;
+    return [];
   }
-  // Canonical inproc executor (CapabilityHost verbs).
-  const primary = path.join(
-    root,
-    "src",
-    "app",
-    "views",
-    "shell",
-    "runtime",
-    "dsl",
-    "interact_dsl.cc"
-  );
-  if (fs.existsSync(primary)) {
-    return primary;
+  return [
+    path.join(root, "src", "app", "views", "il.runtime", "codegen", "lower"),
+    path.join(root, "src", "app", "views", "il.runtime", "ir"),
+  ];
+}
+
+function findOpDefinition(word) {
+  for (const dir of lowerSearchRoots()) {
+    if (!fs.existsSync(dir)) {
+      continue;
+    }
+    for (const leaf of fs.readdirSync(dir)) {
+      if (!leaf.endsWith(".cc") && !leaf.endsWith(".h")) {
+        continue;
+      }
+      const full = path.join(dir, leaf);
+      const pos =
+        findLine(full, `"${word}"`) || findLine(full, `ir::${word}`);
+      if (pos) {
+        return new vscode.Location(vscode.Uri.file(full), pos);
+      }
+    }
   }
-  // Legacy showcase adapter path (pre-runtime move).
-  return path.join(
-    root,
-    "src",
-    "app",
-    "views",
-    "shell",
-    "harness",
-    "showcase",
-    "ui",
-    "interact_script.cc"
-  );
+  return undefined;
 }
 
 function findLine(filePath, needle) {
@@ -198,12 +223,9 @@ class InteractDefinitionProvider {
     }
 
     if (OPS.includes(word)) {
-      const cc = dslCcPath();
-      const pos =
-        findLine(cc, `if (op == "${word}")`) ||
-        findLine(cc, `op == "${word}"`);
-      if (cc && pos) {
-        return new vscode.Location(vscode.Uri.file(cc), pos);
+      const loc = findOpDefinition(word);
+      if (loc) {
+        return loc;
       }
     }
 

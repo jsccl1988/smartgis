@@ -51,7 +51,7 @@ int prepare_map2d_capture_paths(const char* mode_name, Map2dCapturePaths* out) {
   std::snprintf(leaf_a, sizeof(leaf_a), "map2d-showcase-%s.bmp", mode_name);
   wchar_t leaf_w[64] = {};
   MultiByteToWideChar(CP_ACP, 0, leaf_a, -1, leaf_w, 64);
-  HarnessShell* shell = map2d_showcase_shell();
+  HarnessShell* shell = map2d_scenario_shell();
   if (!shell || !shell->capture_path(out->bmp_w, MAX_PATH, leaf_w)) {
     std::fprintf(stderr, "map2d-showcase: sidecar path failed\n");
     return 56;
@@ -62,9 +62,9 @@ int prepare_map2d_capture_paths(const char* mode_name, Map2dCapturePaths* out) {
     return 56;
   }
   std::fprintf(stderr, "map2d-showcase: bmp path=%s\n", out->bmp_a);
-  map2d_showcase_mark("bmp-path");
+  map2d_mark("bmp-path");
   DeleteFileW(out->bmp_w);
-  map2d_showcase_mark("bmp-cleared");
+  map2d_mark("bmp-cleared");
   return 0;
 }
 
@@ -78,9 +78,9 @@ int export_map2d_showcase_bmp(content::Map2dPresenter* map2d,
   // Bench: MAP2D_EXPORT_REUSE=1 warms present-cache off-clock, then the
   // timed export reports paint_ms (blit) vs export_ms (paint + bmp_io).
   if (want_export_reuse()) {
-    map2d_showcase_mark("export-warm");
+    map2d_mark("export-warm");
     char warm_a[MAX_PATH] = {};
-    HarnessShell* shell = map2d_showcase_shell();
+    HarnessShell* shell = map2d_scenario_shell();
     if (shell &&
         shell->capture_path_a(warm_a, MAX_PATH, "map2d-showcase-export-warm.bmp")) {
       (void)map2d->export_bmp(warm_a, showcase_w, showcase_h);
@@ -90,7 +90,7 @@ int export_map2d_showcase_bmp(content::Map2dPresenter* map2d,
   const auto t0 = std::chrono::steady_clock::now();
   if (!map2d->export_bmp(paths.bmp_a, showcase_w, showcase_h)) {
     std::fprintf(stderr, "map2d-showcase: export_bmp failed\n");
-    map2d_showcase_mark("bmp-fail");
+    map2d_mark("bmp-fail");
     return 56;
   }
   const long long export_ms =
@@ -103,7 +103,7 @@ int export_map2d_showcase_bmp(content::Map2dPresenter* map2d,
                export_ms, static_cast<long long>(export_ph.software_paint_ms),
                static_cast<long long>(export_ph.bmp_io_ms));
   log_map2d_phase_sample("phase_export");
-  map2d_showcase_mark("bmp-wrote");
+  map2d_mark("bmp-wrote");
   return 0;
 }
 
@@ -112,16 +112,16 @@ int verify_map2d_showcase_bmp(const char* mode_name,
   int bw = 0;
   int bh = 0;
   // export_bmp writes BI_RGB 32bpp (BGRA); default check rejects non-24bpp.
-  HarnessShell* shell = map2d_showcase_shell();
+  HarnessShell* shell = map2d_scenario_shell();
   if (!shell || !shell->bmp_has_visible_signal(paths.bmp_a, &bw, &bh)) {
     std::fprintf(stderr, "map2d-showcase: BMP lacks visible signal (%dx%d)\n",
                  bw, bh);
-    map2d_showcase_mark("bmp-black");
+    map2d_mark("bmp-black");
     return 54;
   }
   std::fprintf(stderr, "map2d-showcase: wrote %s (%dx%d)\n", paths.bmp_a, bw,
                bh);
-  map2d_showcase_mark("bmp-ok");
+  map2d_mark("bmp-ok");
 
   // Durable copy: multi-agent harness loops often DeleteFile the canonical
   // leaf between bmp-ok and human inspection. Keep a sibling that loops do
@@ -135,7 +135,7 @@ int verify_map2d_showcase_bmp(const char* mode_name,
     MultiByteToWideChar(CP_ACP, 0, keep_leaf, -1, keep_leaf_w, 80);
     if (shell->capture_path(keep_w, MAX_PATH, keep_leaf_w)) {
       if (CopyFileW(paths.bmp_w, keep_w, FALSE)) {
-        map2d_showcase_mark("bmp-keep");
+        map2d_mark("bmp-keep");
       }
     }
   }

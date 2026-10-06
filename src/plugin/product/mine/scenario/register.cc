@@ -22,7 +22,7 @@ bool run_bound(content::PluginHost* host, int (*fn)(HarnessShell&)) {
     set_harness_scenario_exit(1);
     return false;
   }
-  detail::bind_plugin_showcase_shell(shell);
+  detail::bind_plugin_scenario_shell(shell);
   set_harness_scenario_exit(fn(*shell));
   return harness_scenario_exit() == 0;
 }
@@ -33,7 +33,7 @@ int scenario_mine(HarnessShell& browser) {
   return detail::run_mine_scene3d(browser);
 }
 
-bool register_mine_showcase(content::PluginHost* host) {
+bool register_mine_scenario(content::PluginHost* host) {
   register_mine_interact_verbs();
   if (!host) {
     return false;

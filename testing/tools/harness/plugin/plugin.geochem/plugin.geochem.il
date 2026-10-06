@@ -1,9 +1,22 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// Product plugin geochem.analyze → graded samples + IDW heat raster + BMP.
+// Product plugin geochem.analyze integration → graded samples + IDW + BMP.
+// IR: horizon HWND → view map → plugin processing → view export.
 
 script "plugin.geochem" {
   seq @inproc {
+    // --- horizon ---
+    mark("show");
+    pump(ms=400);
+    require_hwnd();
+    mark("hwnd-ok");
+    suppress_dialogs(on=1);
+
+    // --- view: map face ---
+    wait_viewport(face="map", ms=30000, frame=0);
+    mark("map-ready");
+
+    // --- plugin ---
     require_plugins();
     resolve_data(kind="plugin", leaf="geochem_samples.csv", as="csv");
     require_var(name="csv", fail_mark="geochem-sample-fail");
@@ -26,6 +39,7 @@ script "plugin.geochem" {
     fit_extent();
     invalidate_map2d();
     pump(ms=200);
+    mark("extent-ok");
     export_bmp(leaf="plugin-showcase-geochem.bmp", frame="geochem_samples");
     mark("bmp-ok");
     mark("pass");

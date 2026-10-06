@@ -17,11 +17,13 @@ namespace views {
 
 class Button;
 class Label;
+class ScrollView;
 class TableView;
 
 // Read-only identify inspector (ArcGIS / QGIS Identify Results style).
 // Hosts pass opaque string identity + name/value pairs; never FeatureAdapter*.
 // Supports multi-hit navigation when the host supplies a Hit list.
+// Attribute rows live in a ScrollView so tall identify lists stay usable.
 class UI_EXPORT FeatureInfo : public View {
  public:
   struct Field {
@@ -69,6 +71,9 @@ class UI_EXPORT FeatureInfo : public View {
   void set_hit_changed(HitChanged fn);
   void set_field_selected(FieldSelected fn);
 
+  ScrollView* table_scroll() { return scroll_; }
+  const ScrollView* table_scroll() const { return scroll_; }
+
   bool on_key_event(const KeyEvent& event) override;
   void on_device_scale_factor_changed(float old_scale,
                                      float new_scale) override;
@@ -78,6 +83,7 @@ class UI_EXPORT FeatureInfo : public View {
 
  private:
   void rebuild_table();
+  void sync_content_size();
   void refresh_frame();
   void absorb_identity_from_fields();
   void apply_hit(size_t index);
@@ -102,6 +108,9 @@ class UI_EXPORT FeatureInfo : public View {
 
   HitChanged hit_changed_;
   FieldSelected field_selected_;
+
+  // Appended: keep prior field offsets stable for dllexport inlines / incr-link.
+  ScrollView* scroll_ = nullptr;
 };
 
 }  // namespace views

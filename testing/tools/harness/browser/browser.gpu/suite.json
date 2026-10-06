@@ -1,0 +1,16 @@
+{
+  "id": "browser.gpu",
+  "kind": "integration",
+  "argv": [
+    "--self-test"
+  ],
+  "env": {},
+  "report_name": "browser_gpu_loop_report.json",
+  "probes": [],
+  "loop": {
+    "rounds": 2,
+    "timeout_sec": 45,
+    "build_target": "src/gpu:gpu",
+    "exe": "SmartGisRender.exe"
+  }
+}

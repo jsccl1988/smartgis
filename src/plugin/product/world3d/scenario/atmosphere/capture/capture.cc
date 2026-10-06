@@ -3,7 +3,7 @@
 
 #include "plugin/product/world3d/scenario/atmosphere/capture/capture.h"
 
-#include "app/views/il.runtime/backend/gate.h"
+#include "app/views/il.runtime/backend/view/pixel/gate.h"
 #include "plugin/product/world3d/scenario/atmosphere/session/device_session.h"
 #include "plugin/product/world3d/scenario/atmosphere/capture/label_composite.h"
 #include "plugin/product/world3d/scenario/atmosphere/common/progress.h"
@@ -32,10 +32,10 @@ bool atmosphere_after_ok(const wchar_t* bmp_path, int w, int h, void* user) {
     return false;
   }
   if (composite_legacy_labels_onto_bmp(hook->cam, bmp_path, w, h)) {
-    atmosphere_showcase_mark("labels-bmp-ok");
+    atmosphere_mark("labels-bmp-ok");
     return true;
   }
-  atmosphere_showcase_mark("labels-bmp-skip");
+  atmosphere_mark("labels-bmp-skip");
   return false;
 }
 
@@ -209,7 +209,7 @@ bool capture_atmosphere_named_bmp(content::Scene3dPresenter* cam,
     Sleep(100);
   }
   wchar_t path[MAX_PATH] = {};
-  HarnessShell* shell = atmosphere_showcase_shell();
+  HarnessShell* shell = atmosphere_scenario_shell();
   if (!shell || !shell->capture_path(path, MAX_PATH, bmp_leaf)) {
     return false;
   }
@@ -242,9 +242,9 @@ bool capture_atmosphere_showcase_bmp(AtmosphereShowcaseMode mode,
       cam, device, present_hwnd, owned_present_hwnd, file, globe_flythrough,
       scene);
   if (ok) {
-    atmosphere_showcase_mark("bmp-ok");
+    atmosphere_mark("bmp-ok");
     wchar_t path[MAX_PATH] = {};
-    HarnessShell* shell = atmosphere_showcase_shell();
+    HarnessShell* shell = atmosphere_scenario_shell();
     if (shell && shell->capture_path(path, MAX_PATH, file)) {
       AtmosphereLabelHook hook{mode, cam};
       (void)atmosphere_after_ok(path, static_cast<int>(kAtmosphereShowcaseW),
@@ -255,7 +255,7 @@ bool capture_atmosphere_showcase_bmp(AtmosphereShowcaseMode mode,
     return true;
   }
   if (want_gpu) {
-    atmosphere_showcase_mark("bmp-skip");
+    atmosphere_mark("bmp-skip");
     std::fprintf(stderr, "atmosphere-showcase: BMP lacks visible signal\n");
   }
   return !want_gpu;

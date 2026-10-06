@@ -141,6 +141,23 @@ void test_feature_info_and_status_bar() {
   expect(info.field_count() == 0, "feature cleared fields");
   expect(info.hit_count() == 0, "feature cleared hits");
 
+  // Tall attribute lists must scroll inside the dock viewport (not clip).
+  std::vector<FeatureInfo::Field> many;
+  many.reserve(40);
+  for (int i = 0; i < 40; ++i) {
+    many.push_back({"f" + std::to_string(i), "v" + std::to_string(i)});
+  }
+  info.set_fields(many);
+  info.set_bounds({0, 0, 280, 200});
+  info.layout();
+  ScrollView* sc = info.table_scroll();
+  expect(sc != nullptr, "feature info hosts table scroll");
+  if (sc) {
+    expect(sc->scroll_offset() == 0, "feature info scroll start");
+    sc->set_scroll_offset(80);
+    expect(sc->scroll_offset() > 0, "feature info table scrolls");
+  }
+
   StatusBar bar;
   bar.set_scale_text("1:1000");
   bar.set_crs_text("EPSG:4326");

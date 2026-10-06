@@ -409,6 +409,22 @@ DebugConsolePanel::DebugConsolePanel() {
   auto list = std::make_unique<LogListView>(this);
   list_ = list.get();
   scroll_->add_child(std::move(list));
+  // Wheel / track leave the bottom → stop auto-stick so new lines do not yank.
+  // Programmatic stick (offset at max) leaves auto_scroll_ alone.
+  scroll_->set_on_scroll([this](int offset) {
+    if (!scroll_ || !list_) {
+      return;
+    }
+    const int max_y =
+        std::max(0, list_->preferred_size().height - scroll_->bounds().height);
+    if (offset >= max_y) {
+      return;
+    }
+    auto_scroll_ = false;
+    if (auto_scroll_cb_) {
+      auto_scroll_cb_->set_checked(false);
+    }
+  });
   if (log_host) {
     log_host->set_layout_manager(std::make_unique<FillLayout>());
     log_host->add_child(std::move(scroll));
@@ -996,7 +1012,12 @@ void DebugConsolePanel::sync_list_size(bool stick_to_bottom) {
   const int rh = row_height();
   const int h =
       std::max(rh, static_cast<int>(visible_indices_.size()) * rh);
-  const int w = list_->preferred_size().width;
+  int w = list_->preferred_size().width;
+  if (scroll_ && scroll_->bounds().width > 0) {
+    w = scroll_->bounds().width;
+  } else if (list_->bounds().width > 0) {
+    w = list_->bounds().width;
+  }
   list_->set_preferred_size({w, h});
   if (scroll_) {
     scroll_->layout();

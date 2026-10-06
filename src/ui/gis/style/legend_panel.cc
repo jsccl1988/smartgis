@@ -6,6 +6,7 @@
 #include <memory>
 #include <utility>
 
+#include "ui/gis/scroll_table.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/dpi.h"
@@ -27,6 +28,7 @@ LegendPanel::LegendPanel() {
   table_ = loaded.ids.find_as<TableView>("table");
   if (table_) {
     table_->set_row_click([this](int row) { on_row_click(row); });
+    scroll_ = wrap_markup_table_in_scroll(table_);
   }
 
   auto fill = std::make_unique<FillLayout>();
@@ -43,6 +45,7 @@ LegendPanel::~LegendPanel() {
   remove_all_children();
   title_ = nullptr;
   table_ = nullptr;
+  scroll_ = nullptr;
 }
 
 void LegendPanel::set_entries(std::vector<Entry> entries) {
@@ -62,6 +65,7 @@ void LegendPanel::rebuild_table() {
   for (const auto& e : entries_) {
     table_->add_row({e.visible ? "Y" : "N", e.label, e.swatch});
   }
+  sync_scroll_table_content(table_, scroll_);
 }
 
 void LegendPanel::on_row_click(int row) {

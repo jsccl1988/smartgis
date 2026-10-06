@@ -1,12 +1,13 @@
 {
   "id": "ui.interact.combo",
-  "kind": "showcase",
+  "kind": "integration",
   "argv": [
     "--ui-showcase",
     "interact"
   ],
   "driver": "inproc",
-  "script": "ui.interact.combo.il",
+  "script": "../ui.interact/ui.interact.host.il",
+  "gesture_script": "ui.interact.combo.il",
   "env": {
     "UI_SHOWCASE_LINGER_MS": "0",
     "UI_THEME": "dark"

@@ -32,7 +32,7 @@ namespace detail {
 // Scene3D path: china_dem inundation + 2D map drape + water TIN, HWND BMP.
 int run_stormsurge_scene3d(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: stormsurge Scene3D path\n");
-  browser.mark_named(plugin::kMarkPluginShowcase, "stormsurge", /*truncate=*/true);
+  browser.mark_named(plugin::kMarkPlugin, "stormsurge", /*truncate=*/true);
 
   char dem_path[MAX_PATH * 3] = {};
   char coast_path[MAX_PATH * 3] = {};
@@ -42,7 +42,7 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
     return 1;
   }
 
-  plugin_showcase_mark("tab3d");
+  plugin_mark("tab3d");
 
   if (!content::apply_scene3d_engine_from_env() ||
       content::prefer_scene3d_gdi()) {
@@ -120,9 +120,9 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
   // china_rs / map2d carto on this pad is a uniform cyan wash (score landish
   // wants hypsometric greens). Keep the bake from rebuild_local_mesh.
   if (draped) {
-    plugin_showcase_mark("map-drape-skip-hypsometric");
+    plugin_mark("map-drape-skip-hypsometric");
   } else {
-    plugin_showcase_mark("map-drape-skip");
+    plugin_mark("map-drape-skip");
   }
   disable_plugin_atmosphere(cam);
 
@@ -140,15 +140,15 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
   // Frame 2 of 8 keeps a wet TIN without drowning every DEM hill.
   if (browser.apply_plugin_frame(2)) {
     browser.pump(50);
-    plugin_showcase_mark("playback-water-tin");
+    plugin_mark("playback-water-tin");
   } else if (browser.apply_plugin_frame(0)) {
     browser.pump(50);
-    plugin_showcase_mark("playback-frame2-fail");
-    plugin_showcase_mark("playback-water-tin");
+    plugin_mark("playback-frame2-fail");
+    plugin_mark("playback-water-tin");
   } else {
-    plugin_showcase_mark("playback-frame0-fail");
+    plugin_mark("playback-frame0-fail");
     if (cam->gpu().overlay_tin_has_albedo()) {
-      plugin_showcase_mark("playback-water-tin");
+      plugin_mark("playback-water-tin");
     }
   }
   disable_plugin_atmosphere(cam);
@@ -158,7 +158,7 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
   capture.retry_dark_frame = true;
   const bool bmp_ok = capture_plugin_hwnd_bmp(cam, &session, capture);
 
-  plugin_showcase_mark("tab3d-horizon");
+  plugin_mark("tab3d-horizon");
 
   // Intentionally skip device->shutdown() — FlyCube DX12 teardown after a live
   // present has heap-corrupted ExitProcess (peer world3d / atmosphere).
@@ -172,7 +172,7 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
     browser.finish_scene3d(session.borrowed_shell);
     return 54;
   }
-  plugin_showcase_mark("pass");
+  plugin_mark("pass");
   browser.finish_scene3d(session.borrowed_shell);
   std::fprintf(stderr, "plugin-showcase: PASS mode=stormsurge (Scene3D)\n");
   return 0;

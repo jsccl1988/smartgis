@@ -56,6 +56,7 @@ bool Environment::rebuild_contour_sheet(FieldChannel channel,
   opts.color_scale = params_.contour_color_scale;
   opts.dem_offset_m = params_.contour_dem_offset_m;
   opts.value_to_meters = params_.contour_value_to_meters;
+  opts.dem_vert_exag = params_.contour_dem_vert_exag;
   opts.surface_alpha = params_.contour_surface_alpha;
   opts.scale_layout.margin = params_.contour_scale_margin;
   opts.scale_layout.bar_width = params_.contour_scale_bar_width;

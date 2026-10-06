@@ -29,6 +29,8 @@ source_set("gis_sources") {
   sources = [
     "gis.cc",
     "gis.h",
+    "scroll_table.cc",
+    "scroll_table.h",
     "analysis/geoprocessing_history_panel.cc",
     "analysis/geoprocessing_history_panel.h",
     "analysis/processing_panel.cc",

@@ -99,7 +99,7 @@ bool try_load_align_style(HarnessShell& browser) {
   if (!browser.document()->load_style_path(path_a)) {
     return false;
   }
-  map2d_showcase_mark("style-align");
+  map2d_mark("style-align");
   return true;
 }
 

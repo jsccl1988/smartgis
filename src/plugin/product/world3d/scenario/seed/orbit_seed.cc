@@ -65,7 +65,7 @@ void seed_mine_orbit(HarnessShell& browser, content::Scene3dPresenter* cam,
   frame_mine_orbit(orbit);
   disable_plugin_atmosphere(cam);
   (void)browser;
-  plugin_showcase_mark("orbit-mine");
+  plugin_mark("orbit-mine");
 }
 
 void frame_stormsurge_orbit(content::OrbitFrame* orbit) {
@@ -97,7 +97,7 @@ void seed_stormsurge_orbit(HarnessShell& browser, content::Scene3dPresenter* cam
   browser.push_shared_extent();
   disable_plugin_atmosphere(cam);
   (void)cam->ensure_legacy_overlays();
-  plugin_showcase_mark("orbit-coast");
+  plugin_mark("orbit-coast");
 }
 
 void frame_orthogrid3d_orbit(content::OrbitFrame* orbit) {
@@ -138,7 +138,7 @@ void seed_orthogrid3d_orbit(HarnessShell& browser, content::Scene3dPresenter* ca
   frame_orthogrid3d_orbit(orbit);
   disable_plugin_atmosphere(cam);
   (void)browser;
-  plugin_showcase_mark("orbit-hex");
+  plugin_mark("orbit-hex");
 }
 
 }  // namespace detail

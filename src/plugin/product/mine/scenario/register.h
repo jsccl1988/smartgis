@@ -12,7 +12,7 @@ namespace plugin {
 
 class HarnessShell;
 
-bool register_mine_showcase(content::PluginHost* host);
+bool register_mine_scenario(content::PluginHost* host);
 int scenario_mine(HarnessShell& browser);
 
 }  // namespace plugin

@@ -47,6 +47,7 @@ void Map2dFrameCache::clear_hillshade_bake() {
   hillshade_ready_ = false;
   hillshade_w_ = 0;
   hillshade_h_ = 0;
+  hillshade_slot_ = {};
   hillshade_rgba_.clear();
 }
 
@@ -203,6 +204,7 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   params.frame = frame_;
   params.cam = cam;
   params.hillshade_ready = hillshade_ready_;
+  params.hillshade_slot = hillshade_slot_;
   params.layout_build_count = layout_build_count_;
   params.layout_gen = build_gen;
   params.live_layout_gen = &live_layout_gen_;
@@ -234,7 +236,12 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
     hillshade_rgba_ = std::move(built.baked_rgba);
     hillshade_w_ = built.baked_w;
     hillshade_h_ = built.baked_h;
+    hillshade_slot_ = built.hillshade_slot;
     hillshade_ready_ = true;
+  } else if (built.hillshade_slot.texture_key != 0) {
+    // Bake hit an already-published RGBA; still refresh the lon/lat slot so
+    // land clip + emit see the DEM footprint on the next rebuild.
+    hillshade_slot_ = built.hillshade_slot;
   }
   cached_fp_ = fp;
   cached_cam_ = cam;

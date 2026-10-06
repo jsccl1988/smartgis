@@ -24,7 +24,7 @@ namespace detail {
 
 int run_traffic(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: traffic Map2d path\n");
-  browser.mark_named(plugin::kMarkPluginShowcase, "traffic", /*truncate=*/true);
+  browser.mark_named(plugin::kMarkPlugin, "traffic", /*truncate=*/true);
 
   browser.select_map_tab(0);
   browser.pump(200);
@@ -33,15 +33,15 @@ int run_traffic(HarnessShell& browser) {
   const wchar_t* rels[] = {L"..\\data\\plugin\\traffic_network_sample.geojson",
                            L"data\\plugin\\traffic_network_sample.geojson"};
   if (!resolve_rel_under_exe(rels, 2, net_path, sizeof(net_path))) {
-    plugin_showcase_mark("traffic-sample-fail");
+    plugin_mark("traffic-sample-fail");
     browser.detach_maps();
     return 1;
   }
-  plugin_showcase_mark("sample-ok");
+  plugin_mark("sample-ok");
 
   wchar_t out_w[MAX_PATH] = {};
   if (!browser.capture_path(out_w, MAX_PATH, L"plugin-showcase-traffic-path.geojson")) {
-    plugin_showcase_mark("traffic-out-fail");
+    plugin_mark("traffic-out-fail");
     browser.detach_maps();
     return 1;
   }
@@ -49,13 +49,13 @@ int run_traffic(HarnessShell& browser) {
   if (WideCharToMultiByte(CP_UTF8, 0, out_w, -1, out_path,
                           static_cast<int>(sizeof(out_path)), nullptr,
                           nullptr) <= 0) {
-    plugin_showcase_mark("traffic-out-fail");
+    plugin_mark("traffic-out-fail");
     browser.detach_maps();
     return 1;
   }
 
   if (!browser.plugin_host()) {
-    plugin_showcase_mark("plugins-fail");
+    plugin_mark("plugins-fail");
     browser.detach_maps();
     return 1;
   }
@@ -67,11 +67,11 @@ int run_traffic(HarnessShell& browser) {
       "\",\"start_x\":116.335,\"start_y\":39.870,\"end_x\":116.452,"
       "\"end_y\":39.9285,\"weight_field\":\"cost\",\"frames\":12}";
   if (!browser.plugin_host()->run_processing("traffic.cost_path", args)) {
-    plugin_showcase_mark("traffic-run-fail");
+    plugin_mark("traffic-run-fail");
     browser.detach_maps();
     return 1;
   }
-  plugin_showcase_mark("traffic-ok");
+  plugin_mark("traffic-ok");
 
   browser.fit_map_extent();
   browser.pump(400);
@@ -84,17 +84,17 @@ int run_traffic(HarnessShell& browser) {
   const bool bmp_ok =
       try_export_map2d_bmp(browser, "plugin-showcase-traffic.bmp", &kBeijing);
   if (bmp_ok) {
-    plugin_showcase_mark("bmp-ok");
+    plugin_mark("bmp-ok");
   } else {
-    plugin_showcase_mark("bmp-skip");
+    plugin_mark("bmp-skip");
   }
-  plugin_showcase_mark("playback-ok");
+  plugin_mark("playback-ok");
 
   if (!bmp_ok) {
     browser.detach_maps();
     return 54;
   }
-  plugin_showcase_mark("pass");
+  plugin_mark("pass");
   browser.detach_maps();
   std::fprintf(stderr, "plugin-showcase: PASS mode=traffic (Map2d)\n");
   return 0;

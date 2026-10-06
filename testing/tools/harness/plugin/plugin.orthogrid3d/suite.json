@@ -1,42 +1,44 @@
-{
-  "id": "plugin.orthogrid3d",
-  "kind": "showcase",
-  "argv": [
-    "--plugin-showcase=orthogrid3d"
-  ],
-  "script": "plugin.orthogrid3d.il",
-  "env": {
-    "SKIP_MAP_CONTEXT_MENU": "1",
-    "SCENE3D_ENGINE": "flycube"
-  },
-  "mark_leaf": "plugin-showcase-mark.txt",
-  "required_marks": [
-    "orthogrid3d-ok",
-    "bmp-ok",
-    "pass"
-  ],
-  "bmp": {
-    "path": "plugin-showcase-orthogrid3d.bmp",
-    "score_id": "plugin_mesh"
-  },
-  "report_name": "plugin_orthogrid3d_loop_report.json",
-  "probes": [
-    "marks",
-    "bmp"
-  ],
-  "loop": {
-    "rounds": 2,
-    "timeout_sec": 180,
-    "build_target": "src/app/views:views",
-    "exe": "SmartGIS.exe"
-  },
-  "visual_review": {
-    "enabled": true,
-    "checklist": [
-      "hex_or_grid_3d",
-      "surface_orth_grid",
-      "no_black_frame"
-    ],
-    "expect_notes": "orthogrid3d colored orthogonal hex volume with surface grid"
-  }
+﻿{
+    "id":  "plugin.orthogrid3d",
+    "kind":  "integration",
+    "argv":  [
+                 "--plugin-showcase=orthogrid3d"
+             ],
+    "script":  "plugin.orthogrid3d.il",
+    "env":  {
+                "SKIP_MAP_CONTEXT_MENU":  "1",
+                "SCENE3D_ENGINE":  "flycube"
+            },
+    "mark_leaf":  "plugin-showcase-mark.txt",
+    "required_marks":  [
+                           "orthogrid3d-ok",
+                           "bmp-ok",
+                           "pass",
+                           "fit-box-ok",
+                           "camera-fly-ok"
+                       ],
+    "bmp":  {
+                "path":  "plugin-showcase-orthogrid3d.bmp",
+                "score_id":  "plugin_mesh"
+            },
+    "report_name":  "plugin_orthogrid3d_loop_report.json",
+    "probes":  [
+                   "marks",
+                   "bmp"
+               ],
+    "loop":  {
+                 "rounds":  2,
+                 "timeout_sec":  180,
+                 "build_target":  "src/app/views:views",
+                 "exe":  "SmartGIS.exe"
+             },
+    "visual_review":  {
+                          "enabled":  true,
+                          "checklist":  [
+                                            "hex_or_grid_3d",
+                                            "surface_orth_grid",
+                                            "no_black_frame"
+                                        ],
+                          "expect_notes":  "orthogrid3d colored orthogonal hex volume with surface grid"
+                      }
 }

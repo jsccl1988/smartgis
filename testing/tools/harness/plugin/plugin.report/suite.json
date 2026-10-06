@@ -1,6 +1,6 @@
 {
   "id": "plugin.report",
-  "kind": "showcase",
+  "kind": "integration",
   "argv": [
     "--plugin-showcase=report"
   ],
@@ -11,6 +11,7 @@
   },
   "mark_leaf": "plugin-showcase-mark.txt",
   "required_marks": [
+    "hwnd-ok",
     "report-ok",
     "pass"
   ],

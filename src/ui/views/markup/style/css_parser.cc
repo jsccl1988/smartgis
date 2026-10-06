@@ -246,6 +246,9 @@ bool CssParser::parse(std::string_view css, std::string* error) {
   rules_.clear();
   size_t i = 0;
   const size_t n = css.size();
+  // Horizon sheets are tiny. A runaway selector loop must not allocate until
+  // debug CRT free walks a huge Rule vector (init_shell hang).
+  constexpr size_t kMaxCssRules = 4096;
   while (i < n) {
     while (i < n && std::isspace(static_cast<unsigned char>(css[i]))) {
       ++i;
@@ -358,6 +361,12 @@ bool CssParser::parse(std::string_view css, std::string* error) {
         if (!prop.empty()) {
           rule.declarations.emplace_back(std::string(prop), std::string(val));
         }
+      }
+      if (rules_.size() >= kMaxCssRules) {
+        if (error) {
+          *error = "css: too many rules";
+        }
+        return false;
       }
       rules_.push_back(std::move(rule));
     }

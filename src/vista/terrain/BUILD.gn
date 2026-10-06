@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/benchmark.gni")
 import("//testing/test.gni")
 
 # DEM domain (raster, hillshade, land mask). No World type in these headers.
@@ -57,13 +58,96 @@ source_set("land_mask") {
   }
 }
 
+# Isoline pipeline (msquares → chain/Chaikin → paint/mesh). Public face stays
+# dem/dem_contour.h. Tests that avoid vista.dll link this source_set in-process.
+source_set("dem_contour_sources") {
+  sources = [
+    "dem/contour/levels.cc",
+    "dem/contour/levels.h",
+    "dem/contour/mesh.cc",
+    "dem/contour/mesh.h",
+    "dem/contour/msquares.cc",
+    "dem/contour/msquares.h",
+    "dem/contour/paint.cc",
+    "dem/contour/paint.h",
+    "dem/contour/smooth.cc",
+    "dem/contour/smooth.h",
+    "dem/dem_contour.cc",
+    "dem/dem_contour.h",
+    "dem/dem_frame.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  deps = [
+    ":land_mask",
+    "//src/base:base",
+    "//src/base/execution:execution",
+  ]
+}
+
+# Disk IO + chunk pipeline for bake caches (no DemRaster link).
+source_set("dem_cache_io_sources") {
+  sources = [
+    "dem/cache/io.cc",
+    "dem/cache/io.h",
+    "dem/cache/io_file_loader.h",
+    "dem/cache/io_pipeline.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base/execution:execution",
+  ]
+}
+
+# Process + disk DEM bake caches. Public face: dem/dem_bake_cache.h.
+source_set("dem_bake_cache_sources") {
+  sources = [
+    "dem/cache/hypso_cache.cc",
+    "dem/cache/mesh_cache.cc",
+    "dem/cache/phase.cc",
+    "dem/cache/raster_cache.cc",
+    "dem/cache/view_seed_cache.cc",
+    "dem/dem_bake_cache.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  public_deps = [ ":dem_cache_io_sources" ]
+  deps = [
+    "//src/base:base",
+  ]
+}
+
+# MappedFile+io_pipeline vs FileMMap+FileLoader (warm page cache).
+benchmark("dem_io_benchmark") {
+  output_name = "dem_io_benchmark"
+  sources = [ "dem/cache/io_benchmark.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":dem_cache_io_sources",
+    "//src/base:base",
+  ]
+}
+
 # Compiled into //src/vista:vista (dll_stem = vista).
 source_set("terrain_sources") {
   sources = [
-    "dem/dem_bake_cache.cc",
-    "dem/dem_bake_cache.h",
-    "dem/dem_contour.cc",
-    "dem/dem_contour.h",
     "dem/dem_frame.h",
     "dem/dem_height_field.cc",
     "dem/dem_height_field.h",
@@ -86,6 +170,8 @@ source_set("terrain_sources") {
     "//src/vista/component/world:world_sources",
   ]
   public_deps = [
+    ":dem_bake_cache_sources",
+    ":dem_contour_sources",
     ":land_mask",
     "//third_party:gdal",
   ]

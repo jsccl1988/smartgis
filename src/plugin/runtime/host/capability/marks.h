@@ -9,9 +9,9 @@ namespace plugin {
 // Sidecar mark leaf basenames. Chrome `write_mark` routes them into
 // out/<config>/captures/<scenario>/.
 inline constexpr wchar_t kMarkHarness[] = L"harness-mark.txt";
-inline constexpr wchar_t kMarkMap2dShowcase[] = L"map2d-showcase-mark.txt";
-inline constexpr wchar_t kMarkPluginShowcase[] = L"plugin-showcase-mark.txt";
-inline constexpr wchar_t kMarkAtmosphereShowcase[] =
+inline constexpr wchar_t kMarkMap2d[] = L"map2d-showcase-mark.txt";
+inline constexpr wchar_t kMarkPlugin[] = L"plugin-showcase-mark.txt";
+inline constexpr wchar_t kMarkAtmosphere[] =
     L"atmosphere-showcase-mark.txt";
 
 }  // namespace plugin

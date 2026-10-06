@@ -27,11 +27,12 @@ struct ContourSheetOptions {
   float interval_m = 0.f;
   // Constant lift (meters, already in display/mesh Y units) above DEM base so
   // the sheet does not collide with terrain when presenting.
-  float dem_offset_m = 800.f;
+  float dem_offset_m = 500.f;
   // Maps field value delta into additional display elevation undulation.
   float value_to_meters = 1.f;
-  // Applied to optional DEM meters before adding dem_offset_m.
-  float dem_vert_exag = 1.f;
+  // Applied to optional DEM meters before adding dem_offset_m. Default is
+  // milder than 1.0 so draped sheets match DEM fit_vertical_exaggeration.
+  float dem_vert_exag = 0.35f;
   // Per-vertex alpha for the jet TIN (0..1).
   float surface_alpha = 0.55f;
   ContourScaleLayout scale_layout;

@@ -157,7 +157,7 @@ def load_suite(suite_id: str) -> Suite:
 
     return Suite(
         id=str(raw["id"]),
-        kind=str(raw.get("kind", "harness")),
+        kind=str(raw.get("kind", "integration")),
         argv=[str(a) for a in raw.get("argv", [])],
         env={str(k): str(v) for k, v in (raw.get("env") or {}).items()},
         mark_leaf=raw.get("mark_leaf"),
@@ -179,6 +179,9 @@ def load_suite(suite_id: str) -> Suite:
         probes=probe_types,
         kill_showcase=bool(raw.get("kill_showcase", True)),
         script=str(raw["script"]) if raw.get("script") else None,
+        gesture_script=(
+            str(raw["gesture_script"]) if raw.get("gesture_script") else None
+        ),
         suite_dir=path.parent,
         driver=str(raw.get("driver", "inproc")),
         os_inject_default=str(raw.get("os_inject_default", "postmessage")),

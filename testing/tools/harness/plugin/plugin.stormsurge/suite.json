@@ -1,50 +1,52 @@
-{
-  "id": "plugin.stormsurge",
-  "kind": "showcase",
-  "argv": [
-    "--plugin-showcase=stormsurge"
-  ],
-  "script": "plugin.stormsurge.il",
-  "env": {
-    "SKIP_MAP_CONTEXT_MENU": "1",
-    "PLUGIN_STORMSURGE_GPU": "1",
-    "SCENE3D_ENGINE": "flycube"
-  },
-  "mark_leaf": "plugin-showcase-mark.txt",
-  "required_marks": [
-    "stormsurge-ok",
-    "orbit-coast",
-    "present-ok",
-    "playback-water-tin",
-    "bmp-ok",
-    "tab3d-horizon",
-    "pass"
-  ],
-  "bmp": {
-    "path": "plugin-showcase-stormsurge.bmp",
-    "score_id": "plugin_stormsurge",
-    "accept_nonzero_rc_if_bmp": true,
-    "min_bytes": 10000
-  },
-  "report_name": "plugin_stormsurge_loop_report.json",
-  "probes": [
-    "marks",
-    "bmp"
-  ],
-  "loop": {
-    "rounds": 2,
-    "timeout_sec": 180,
-    "build_target": "src/app/views:views",
-    "exe": "SmartGIS.exe"
-  },
-  "visual_review": {
-    "enabled": true,
-    "checklist": [
-      "water_visible",
-      "water_vs_land_contrast",
-      "no_black_frame",
-      "dem_seam_ok"
-    ],
-    "expect_notes": "cyan/blue water TIN distinct from DEM hypsometric; water_on_land_frac gate"
-  }
+﻿{
+    "id":  "plugin.stormsurge",
+    "kind":  "integration",
+    "argv":  [
+                 "--plugin-showcase=stormsurge"
+             ],
+    "script":  "plugin.stormsurge.il",
+    "env":  {
+                "SKIP_MAP_CONTEXT_MENU":  "1",
+                "PLUGIN_STORMSURGE_GPU":  "1",
+                "SCENE3D_ENGINE":  "flycube"
+            },
+    "mark_leaf":  "plugin-showcase-mark.txt",
+    "required_marks":  [
+                           "stormsurge-ok",
+                           "orbit-coast",
+                           "present-ok",
+                           "playback-water-tin",
+                           "bmp-ok",
+                           "tab3d-horizon",
+                           "pass",
+                           "fit-box-ok",
+                           "camera-fly-ok"
+                       ],
+    "bmp":  {
+                "path":  "plugin-showcase-stormsurge.bmp",
+                "score_id":  "plugin_stormsurge",
+                "accept_nonzero_rc_if_bmp":  true,
+                "min_bytes":  10000
+            },
+    "report_name":  "plugin_stormsurge_loop_report.json",
+    "probes":  [
+                   "marks",
+                   "bmp"
+               ],
+    "loop":  {
+                 "rounds":  2,
+                 "timeout_sec":  180,
+                 "build_target":  "src/app/views:views",
+                 "exe":  "SmartGIS.exe"
+             },
+    "visual_review":  {
+                          "enabled":  true,
+                          "checklist":  [
+                                            "water_visible",
+                                            "water_vs_land_contrast",
+                                            "no_black_frame",
+                                            "dem_seam_ok"
+                                        ],
+                          "expect_notes":  "cyan/blue water TIN distinct from DEM hypsometric; water_on_land_frac gate"
+                      }
 }

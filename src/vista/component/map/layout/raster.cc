@@ -66,10 +66,15 @@ void emit_hillshade(const gis::style::StyleLayer& layer, const LayoutInput& in,
     const float x1 = static_cast<float>(tile.max_x);
     const float y0 = static_cast<float>(tile.min_y);
     const float y1 = static_cast<float>(tile.max_y);
-    item.vertices.push_back(Vertex{x0, y1, 0, 0, 0});
-    item.vertices.push_back(Vertex{x1, y1, 0, 1, 0});
-    item.vertices.push_back(Vertex{x1, y0, 0, 1, 1});
-    item.vertices.push_back(Vertex{x0, y0, 0, 0, 1});
+    // Bake RGBA is row0=north. GDI blit ignores UV and StretchBlts row0 to
+    // the screen-top of the AABB (max_y). FlyCube upload presents that
+    // buffer with v=0 at the opposite edge from land/ortho, so v=0@max_y
+    // drew the sheet south-up (cream land ghost north of the jet mass).
+    // Bind v=1 to max_y so north texels sit on the north of the view.
+    item.vertices.push_back(Vertex{x0, y1, 0, 0, 1});
+    item.vertices.push_back(Vertex{x1, y1, 0, 1, 1});
+    item.vertices.push_back(Vertex{x1, y0, 0, 1, 0});
+    item.vertices.push_back(Vertex{x0, y0, 0, 0, 0});
     item.indices = {0, 1, 2, 0, 2, 3};
     frame->items.push_back(std::move(item));
   }

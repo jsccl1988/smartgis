@@ -36,8 +36,8 @@ bool run_bound(content::PluginHost* host, int (*fn)(HarnessShell&)) {
     set_harness_scenario_exit(1);
     return false;
   }
-  detail::bind_plugin_showcase_shell(shell);
-  detail::bind_atmosphere_showcase_shell(shell);
+  detail::bind_plugin_scenario_shell(shell);
+  detail::bind_atmosphere_scenario_shell(shell);
   set_harness_scenario_exit(fn(*shell));
   return harness_scenario_exit() == 0;
 }
@@ -52,9 +52,9 @@ bool contribute_one(content::PluginHost* host, std::string_view command_id,
 int run_atmosphere(HarnessShell& browser, app::AtmosphereShowcaseMode mode) {
   const char* name = app::atmosphere_showcase_name(mode);
   std::fprintf(stderr, "atmosphere-showcase mode=%s\n", name);
-  detail::atmosphere_showcase_mark(name);
-  detail::atmosphere_showcase_mark("tab3d");
-  detail::atmosphere_showcase_mark("pumped");
+  detail::atmosphere_mark(name);
+  detail::atmosphere_mark("tab3d");
+  detail::atmosphere_mark("pumped");
 
   detail::AtmosphereDeviceSession session;
   if (const int rc = detail::prepare_atmosphere_device_session(browser, &session)) {
@@ -114,7 +114,7 @@ int scenario_atmosphere_globe(HarnessShell& browser) {
   return run_atmosphere(browser, app::AtmosphereShowcaseMode::kGlobe);
 }
 
-bool register_world3d_showcase(content::PluginHost* host) {
+bool register_world3d_scenario(content::PluginHost* host) {
   register_world3d_interact_verbs();
   if (!host) {
     return false;

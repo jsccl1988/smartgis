@@ -10,9 +10,9 @@ class HarnessShell;
 
 namespace detail {
 
-void bind_atmosphere_showcase_shell(HarnessShell* shell);
-HarnessShell* atmosphere_showcase_shell();
-void atmosphere_showcase_mark(const char* step);
+void bind_atmosphere_scenario_shell(HarnessShell* shell);
+HarnessShell* atmosphere_scenario_shell();
+void atmosphere_mark(const char* step);
 
 }  // namespace detail
 }  // namespace plugin

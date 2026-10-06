@@ -5,12 +5,12 @@
 #define PLUGIN_PRODUCT_WORLD3D_SCENARIO_HOST_RHI_H_
 
 // Host-linked HWND/RHI types. Product scenario TUs call these; the
-// implementations stay in app/views/il.runtime/backend/capture.
-#include "app/views/il.runtime/backend/gdi.h"
-#include "app/views/il.runtime/backend/capture_host.h"
-#include "app/views/il.runtime/backend/capture.h"
-#include "app/views/il.runtime/backend/gate.h"
-#include "app/views/il.runtime/backend/session.h"
+// implementations stay in app/views/il.runtime/backend/view.
+#include "app/views/il.runtime/backend/view/dib/gdi.h"
+#include "app/views/il.runtime/backend/view/host/capture_host.h"
+#include "app/views/il.runtime/backend/view/shot/scene_capture.h"
+#include "app/views/il.runtime/backend/view/pixel/gate.h"
+#include "app/views/il.runtime/backend/view/present/session.h"
 
 namespace plugin {
 namespace detail {
@@ -21,9 +21,9 @@ using app::detail::RhiPresentSession;
 using app::detail::RhiPresentSessionOpts;
 using app::detail::RhiPresentTeardownOpts;
 using app::detail::Scene3dHwndCaptureOpts;
-using app::detail::ShowcasePresentHwndOpts;
+using app::detail::PresentHwndOpts;
 using app::detail::capture_scene3d_hwnd_bmp;
-using app::detail::create_showcase_present_hwnd;
+using app::detail::create_present_hwnd;
 using app::detail::destroy_rhi_owned_present_hwnd;
 using app::detail::prepare_rhi_present_session;
 using app::detail::present_shell_scene3d_frame;

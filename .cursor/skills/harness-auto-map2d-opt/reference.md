@@ -155,7 +155,7 @@ Showcase may also write `out/Debug/captures/browser/map2d-showcase-china.bmp`; t
 
 ## Related suites (not the matrix)
 
-- `testing/tools/harness/browser/map2d.china/` — loop_runner showcase + score
-- `testing/tools/harness/browser/map2d.orthogrid/` — orthogrid variant
+- `testing/tools/harness/browser/browser.map2d.china/` — loop_runner showcase + score
+- `testing/tools/harness/browser/browser.map2d.orthogrid/` — orthogrid variant
 
 Matrix is the A/B surface for **Scenic 并行策略×图像驱动**; suite china is the product score / visual-review path.

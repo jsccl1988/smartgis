@@ -6,6 +6,7 @@
 #include <memory>
 #include <utility>
 
+#include "ui/gis/scroll_table.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/layout/layout.h"
@@ -30,6 +31,7 @@ ProcessingPanel::ProcessingPanel() {
 
   if (table_) {
     table_->set_row_click([this](int row) { on_row_click(row); });
+    scroll_ = wrap_markup_table_in_scroll(table_);
   }
   if (run_) {
     run_->set_click([this]() { on_run_clicked(); });
@@ -52,6 +54,7 @@ ProcessingPanel::~ProcessingPanel() {
   remove_all_children();
   title_ = nullptr;
   table_ = nullptr;
+  scroll_ = nullptr;
   run_ = nullptr;
 }
 
@@ -97,6 +100,7 @@ void ProcessingPanel::rebuild_table() {
   if (selected >= 0) {
     table_->set_selected_row(selected);
   }
+  sync_scroll_table_content(table_, scroll_);
 }
 
 void ProcessingPanel::on_row_click(int row) {

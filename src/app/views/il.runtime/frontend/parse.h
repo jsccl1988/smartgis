@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef IL_RUNTIME_EXECUTION_FRONT_PARSE_H_
-#define IL_RUNTIME_EXECUTION_FRONT_PARSE_H_
+#ifndef IL_RUNTIME_FRONTEND_PARSE_H_
+#define IL_RUNTIME_FRONTEND_PARSE_H_
 
 #include <string>
 
@@ -19,4 +19,4 @@ bool parse_interact_source(const std::string& src,
 }  // namespace detail
 }  // namespace app
 
-#endif  // IL_RUNTIME_EXECUTION_FRONT_PARSE_H_
+#endif  // IL_RUNTIME_FRONTEND_PARSE_H_

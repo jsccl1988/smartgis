@@ -156,11 +156,6 @@ bool ShellLayoutComposer::build_from_markup() {
   mount_fill(tool_bar_host, std::move(tool_bar));
   host_->populate_ambox();
 
-  auto feature_info = std::make_unique<ui::views::FeatureInfo>();
-  host_->feature_info_ = feature_info.get();
-  auto attribute_table = std::make_unique<ui::views::AttributeTable>();
-  host_->attribute_table_ = attribute_table.get();
-
   auto side = std::make_unique<ui::views::TabStrip>();
   // Idle Feature copy fits ~280 DIP; 400 squeezed the map for empty identify.
   constexpr int kInspectorWDip = 280;
@@ -176,8 +171,9 @@ bool ShellLayoutComposer::build_from_markup() {
   host_->side_ambox_ = ambox_page.get();
   side->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   side->add_tab("Tools", std::move(ambox_page));
-  host_->feature_info_tab_ = side->add_tab("Feature", std::move(feature_info));
-  side->add_tab("Attrs", std::move(attribute_table));
+  host_->feature_info_tab_ =
+      side->add_tab("Feature", make_inspector_placeholder());
+  side->add_tab("Attrs", make_inspector_placeholder());
   host_->measure_tab_ = side->add_tab("Measure", make_inspector_placeholder());
   host_->selection_tab_ =
       side->add_tab("Selection", make_inspector_placeholder());
@@ -337,11 +333,6 @@ void ShellLayoutComposer::build_imperative() {
   map_column->add_child(std::move(tool_bar));
   map_column->add_child(std::move(catalog_map));
 
-  auto feature_info = std::make_unique<ui::views::FeatureInfo>();
-  host_->feature_info_ = feature_info.get();
-  auto attribute_table = std::make_unique<ui::views::AttributeTable>();
-  host_->attribute_table_ = attribute_table.get();
-
   constexpr int kInspectorWDip = 280;
   auto side = std::make_unique<ui::views::TabStrip>();
   side->set_preferred_size({kInspectorWDip, 0});
@@ -356,8 +347,9 @@ void ShellLayoutComposer::build_imperative() {
   host_->side_ambox_ = ambox_page.get();
   side->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   side->add_tab("Tools", std::move(ambox_page));
-  host_->feature_info_tab_ = side->add_tab("Feature", std::move(feature_info));
-  side->add_tab("Attrs", std::move(attribute_table));
+  host_->feature_info_tab_ =
+      side->add_tab("Feature", make_inspector_placeholder());
+  side->add_tab("Attrs", make_inspector_placeholder());
   host_->measure_tab_ = side->add_tab("Measure", make_inspector_placeholder());
   host_->selection_tab_ =
       side->add_tab("Selection", make_inspector_placeholder());

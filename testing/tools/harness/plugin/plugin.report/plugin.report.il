@@ -1,9 +1,18 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// Open local HTML report sample in the Report dock (WebView2).
+// Report dock integration (WebView2 / fake bridge).
+// IR: horizon HWND → plugin report sample → inspector tab.
 
 script "plugin.report" {
   seq @inproc {
+    // --- horizon ---
+    mark("show");
+    pump(ms=400);
+    require_hwnd();
+    mark("hwnd-ok");
+    suppress_dialogs(on=1);
+
+    // --- plugin ---
     require_plugins();
     resolve_data(kind="plugin", leaf="report/sample", as="rep");
     require_var(name="rep", fail_mark="report-sample-missing");

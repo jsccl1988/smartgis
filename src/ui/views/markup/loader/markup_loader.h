@@ -59,11 +59,16 @@ UI_EXPORT bool load_markup_bytes(std::string_view xml_utf8,
 // Load by path or resource basename (e.g. "add_basemap.ui.xml").
 // Searches: absolute path, <exe>/../ui/<rel> (shared out/ui), <exe>/ui/<rel>,
 // cwd ui/<rel>, source src/ui/resources/<rel>.
-// Use resolve_markup_path() when the caller needs the resolved disk path
-// (do not grow MarkupRoot across the DLL boundary — NRVO into a mismatched
-// caller slot corrupts trailing fields).
+// Fill |out| in the caller TU — do not return MarkupRoot by value from the
+// toolkit DLL (NRVO into a mismatched slot → heap 0xC0000374).
+UI_EXPORT bool load_markup_into(std::string_view path_or_name,
+                                const MarkupOptions& options,
+                                MarkupRoot* out);
+
+// Same-module convenience. Cross-DLL callers should use load_markup_into
+// (returning MarkupRoot by value from ui_views.dll can NRVO-corrupt the slot).
 UI_EXPORT MarkupRoot load_markup(std::string_view path_or_name,
-                                       const MarkupOptions& options = {});
+                                 const MarkupOptions& options = {});
 
 // Resolve a markup path or basename to an existing file path (UTF-8).
 // Returns empty string when not found.

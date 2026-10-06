@@ -1,49 +1,56 @@
-{
-  "id": "browser.world3d.globe",
-  "kind": "showcase",
-  "argv": [
-    "--atmosphere-showcase",
-    "globe"
-  ],
-  "script": "browser.world3d.globe.il",
-  "env": {
-    "ATMOSPHERE_SHOWCASE_GPU": "1",
-    "ATMOSPHERE_SHOWCASE_LINGER_MS": "0",
-    "HARNESS_RECORD": "1",
-    "HARNESS_RECORD_MODE": "bmp",
-    "SCENE3D_ENGINE": "flycube"
-  },
-  "window_title": "Atmosphere Showcase",
-  "bmp": {
-    "path": "atmosphere-showcase-globe.bmp",
-    "score_id": "atmosphere_globe",
-    "accept_nonzero_rc_if_bmp": true,
-    "soft": true,
-    "min_bytes": 10000
-  },
-  "report_name": "browser_world3d_globe_loop_report.json",
-  "probes": [
-    "bmp"
-  ],
-  "loop": {
-    "rounds": 4,
-    "timeout_sec": 150,
-    "build_target": "src/app/views:views",
-    "exe": "SmartGIS.exe"
-  },
-  "visual_review": {
-    "enabled": true,
-    "checklist": [
-      "globe_silhouette",
-      "global_terrain_or_continents",
-      "cloud_shell",
-      "space_starfield",
-      "no_flat_clear",
-      "flythrough_space_to_horizon_skim",
-      "near_earth_china_dem_relief",
-      "elevation_surface_isolines",
-      "east_china_sea_ocean"
-    ],
-    "expect_notes": "Suite BMP 640x480 high-orbit Earth (t=0.48). West-east China skim: atmosphere-showcase-globe-near.bmp (china_dem jet surface + isolines). East China Sea Gerstner: atmosphere-showcase-globe-ocean.bmp."
-  }
+﻿{
+    "id":  "browser.world3d.globe",
+    "kind":  "integration",
+    "argv":  [
+                 "--atmosphere-showcase=globe"
+             ],
+    "script":  "browser.world3d.globe.il",
+    "env":  {
+                "ATMOSPHERE_SHOWCASE_GPU":  "1",
+                "ATMOSPHERE_SHOWCASE_LINGER_MS":  "0",
+                "HARNESS_RECORD":  "1",
+                "HARNESS_RECORD_MODE":  "bmp",
+                "SCENE3D_ENGINE":  "flycube"
+            },
+    "window_title":  "Atmosphere Showcase",
+    "mark_leaf":  "atmosphere-showcase-mark.txt",
+    "required_marks":  [
+                           "bmp-ok",
+                           "pass",
+                           "fit-box-ok",
+                           "camera-fly-ok"
+                       ],
+    "bmp":  {
+                "path":  "atmosphere-showcase-globe.bmp",
+                "score_id":  "atmosphere_globe",
+                "accept_nonzero_rc_if_bmp":  true,
+                "soft":  true,
+                "min_bytes":  10000
+            },
+    "report_name":  "browser_world3d_globe_loop_report.json",
+    "probes":  [
+                   "marks",
+                   "bmp"
+               ],
+    "loop":  {
+                 "rounds":  4,
+                 "timeout_sec":  150,
+                 "build_target":  "src/app/views:views",
+                 "exe":  "SmartGIS.exe"
+             },
+    "visual_review":  {
+                          "enabled":  true,
+                          "checklist":  [
+                                            "globe_silhouette",
+                                            "global_terrain_or_continents",
+                                            "cloud_shell",
+                                            "space_starfield",
+                                            "no_flat_clear",
+                                            "flythrough_space_to_horizon_skim",
+                                            "near_earth_china_dem_relief",
+                                            "elevation_surface_isolines",
+                                            "east_china_sea_ocean"
+                                        ],
+                          "expect_notes":  "Suite BMP 640x480 high-orbit Earth (t=0.48). West-east China skim: atmosphere-showcase-globe-near.bmp (china_dem jet surface + isolines). East China Sea Gerstner: atmosphere-showcase-globe-ocean.bmp."
+                      }
 }

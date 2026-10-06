@@ -48,11 +48,10 @@ void BrowserSession::init_hosts() {
   // OOP MapContents is optional for in-process present (atmosphere / map2d
   // showcase). Create the session object eagerly; StartRenderProcess is
   // deferred until ensure_oop_render_process() (or ENABLE_OOP_RENDER=1).
-  {
-    BASE_TRACE_EVENT("MapContents.Create", "startup");
-    map_contents_.reset(MapContents::Create());
-  }
-  if (map_contents_ && want_oop_at_init()) {
+  // Deferred: MapContents::Create during init_hosts was heap-corrupting the
+  // next CRT alloc in PluginShell::CommandCatalog (0xC0000374). Create on
+  // first ensure_oop_render_process / present attach instead.
+  if (want_oop_at_init()) {
     if (!ensure_oop_render_process()) {
       map_contents_.reset();
     }

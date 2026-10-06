@@ -42,7 +42,7 @@ AtmosphereGlobeFlyResult run_atmosphere_globe_fly_presents(
   const vista::GlobePass* globe =
       &cam->atmosphere_session().globe_pass();
   content::AtmosphereSession* atm = &cam->atmosphere_session();
-  atmosphere_showcase_mark("globe-flyin");
+  atmosphere_mark("globe-flyin");
   uint32_t pw = kAtmosphereShowcaseW;
   uint32_t ph = kAtmosphereShowcaseH;
   atmosphere_hwnd_present_size(
@@ -62,7 +62,7 @@ AtmosphereGlobeFlyResult run_atmosphere_globe_fly_presents(
     ++out.presents_added;
     Sleep(8);
   }
-  atmosphere_showcase_mark("globe-high");
+  atmosphere_mark("globe-high");
   plugin::apply_world3d_globe_flythrough(orbit, 0.48f, china_yaw, china_pitch, globe, atm);
   out.early_bmp_ok = capture_atmosphere_showcase_bmp(
       mode, mode_name, cam, device, present_hwnd, owned_present_hwnd,
@@ -82,9 +82,9 @@ AtmosphereGlobeFlyResult run_atmosphere_globe_fly_presents(
           cam, device, present_hwnd, owned_present_hwnd,
           L"atmosphere-showcase-globe-near.bmp", /*globe_flythrough=*/true,
           scene)) {
-    atmosphere_showcase_mark("globe-near-ok");
+    atmosphere_mark("globe-near-ok");
   } else {
-    atmosphere_showcase_mark("globe-near-skip");
+    atmosphere_mark("globe-near-skip");
   }
 
   // East China Sea: distinct lon/lat + ocean on; warm several presents so the
@@ -106,16 +106,16 @@ AtmosphereGlobeFlyResult run_atmosphere_globe_fly_presents(
           cam, device, present_hwnd, owned_present_hwnd,
           L"atmosphere-showcase-globe-ocean.bmp", /*globe_flythrough=*/true,
           scene)) {
-    atmosphere_showcase_mark("globe-ocean-ok");
+    atmosphere_mark("globe-ocean-ok");
   } else {
-    atmosphere_showcase_mark("globe-ocean-skip");
+    atmosphere_mark("globe-ocean-skip");
   }
 
   // If near/ocean collided (same BitBlt), nudge yaw and recapture ocean once.
   {
     wchar_t near_path[MAX_PATH] = {};
     wchar_t ocean_path[MAX_PATH] = {};
-    if (HarnessShell* shell = atmosphere_showcase_shell();
+    if (HarnessShell* shell = atmosphere_scenario_shell();
         shell &&
         shell->capture_path(near_path, MAX_PATH,
                             L"atmosphere-showcase-globe-near.bmp") &&
@@ -151,7 +151,7 @@ AtmosphereGlobeFlyResult run_atmosphere_globe_fly_presents(
         }
       }
       if (same) {
-        atmosphere_showcase_mark("globe-ocean-dup");
+        atmosphere_mark("globe-ocean-dup");
         orbit->set_yaw(orbit->yaw() + 0.55f);
         orbit->set_pitch((std::max)(-0.15f, orbit->pitch() - 0.18f));
         orbit->set_distance(orbit->distance() * 0.92f);
@@ -170,7 +170,7 @@ AtmosphereGlobeFlyResult run_atmosphere_globe_fly_presents(
                 cam, device, present_hwnd, owned_present_hwnd,
                 L"atmosphere-showcase-globe-ocean.bmp",
                 /*globe_flythrough=*/true, scene)) {
-          atmosphere_showcase_mark("globe-ocean-retry-ok");
+          atmosphere_mark("globe-ocean-retry-ok");
         }
       }
     }

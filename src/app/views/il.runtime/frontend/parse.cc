@@ -6,6 +6,7 @@
 
 #include "app/views/il.runtime/frontend/parse.h"
 
+#include <exception>
 #include <memory>
 #include <string>
 #include <utility>
@@ -245,30 +246,40 @@ bool parse_interact_source(const std::string& src,
   if (!out) {
     return false;
   }
-  antlr4::ANTLRInputStream input(src);
-  interact::InteractLexer lexer(&input);
-  antlr4::CommonTokenStream tokens(&lexer);
-  interact::InteractParser parser(&tokens);
-  CollectErrors errors;
-  lexer.removeErrorListeners();
-  parser.removeErrorListeners();
-  lexer.addErrorListener(&errors);
-  parser.addErrorListener(&errors);
-  interact::InteractParser::ScriptFileContext* tree = parser.scriptFile();
-  if (!errors.message.empty() || parser.getNumberOfSyntaxErrors() > 0) {
+  // ANTLRInputStream::load strict-decodes UTF-8 and throws on illegal bytes
+  // (mojibake comments / truncated multi-byte sequences). Catch so a bad
+  // suite .il returns false instead of aborting the process.
+  try {
+    antlr4::ANTLRInputStream input(src);
+    interact::InteractLexer lexer(&input);
+    antlr4::CommonTokenStream tokens(&lexer);
+    interact::InteractParser parser(&tokens);
+    CollectErrors errors;
+    lexer.removeErrorListeners();
+    parser.removeErrorListeners();
+    lexer.addErrorListener(&errors);
+    parser.addErrorListener(&errors);
+    interact::InteractParser::ScriptFileContext* tree = parser.scriptFile();
+    if (!errors.message.empty() || parser.getNumberOfSyntaxErrors() > 0) {
+      if (err) {
+        *err = errors.message.empty() ? "syntax error" : errors.message;
+      }
+      return false;
+    }
+    out->stmts.clear();
+    if (tree->stringLiteral() && tree->stringLiteral()->STRING()) {
+      out->name = unquote_string(tok_text(tree->stringLiteral()->STRING()));
+    }
+    for (auto* s : tree->stmt()) {
+      out->stmts.push_back(stmt_from_ctx(s));
+    }
+    return true;
+  } catch (const std::exception& ex) {
     if (err) {
-      *err = errors.message.empty() ? "syntax error" : errors.message;
+      *err = ex.what();
     }
     return false;
   }
-  out->stmts.clear();
-  if (tree->stringLiteral() && tree->stringLiteral()->STRING()) {
-    out->name = unquote_string(tok_text(tree->stringLiteral()->STRING()));
-  }
-  for (auto* s : tree->stmt()) {
-    out->stmts.push_back(stmt_from_ctx(s));
-  }
-  return true;
 }
 
 }  // namespace detail

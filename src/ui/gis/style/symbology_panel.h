@@ -19,6 +19,7 @@ namespace views {
 class Button;
 class Combobox;
 class Label;
+class ScrollView;
 class TableView;
 class Textfield;
 
@@ -60,6 +61,7 @@ class UI_EXPORT SymbologyPanel : public View {
   Label* layer_label_ = nullptr;
   Combobox* field_ = nullptr;
   TableView* paint_table_ = nullptr;
+  ScrollView* paint_scroll_ = nullptr;
   Textfield* value_edit_ = nullptr;
   Button* apply_ = nullptr;
 

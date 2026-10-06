@@ -17,23 +17,23 @@ thread_local HarnessShell* g_shell = nullptr;
 
 }  // namespace
 
-void bind_map2d_showcase_shell(HarnessShell* shell) {
+void bind_map2d_scenario_shell(HarnessShell* shell) {
   g_shell = shell;
 }
 
-HarnessShell* map2d_showcase_shell() {
+HarnessShell* map2d_scenario_shell() {
   return g_shell;
 }
 
-void map2d_showcase_mark(const char* step) {
+void map2d_mark(const char* step) {
   if (g_shell) {
-    g_shell->mark_named(kMarkMap2dShowcase, step, false);
+    g_shell->mark_named(kMarkMap2d, step, false);
   }
 }
 
-void map2d_showcase_pixel_size(int* out_w, int* out_h) {
-  int w = kMap2dShowcaseDefaultW;
-  int h = kMap2dShowcaseDefaultH;
+void map2d_pixel_size(int* out_w, int* out_h) {
+  int w = kMap2dDefaultW;
+  int h = kMap2dDefaultH;
   auto apply_dim = [](int* dest, int lo, int hi, const char* sw,
                       const char* env_key) {
     if (const char* ew = base::switch_cstr(sw); ew && ew[0] != '\0') {

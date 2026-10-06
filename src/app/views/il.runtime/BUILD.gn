@@ -2,12 +2,13 @@
 # All rights reserved.
 
 # Interact Language runtime:
-#   frontend/   — Interact.g4 + AST + parse + suite .il lookup (GN frontend:frontend)
-#   backend/    — flat: :compile (lower/eval/driver) and :capability (Host packs)
-#   :ir         — language-neutral instructions (header-only over CapabilityHost)
-#   :capability — runtime + linker: bind_host fills Host; packs never parse
-#   :il.runtime — session: load → link → driver apply (run_script / interact_script)
-# frontend/load must not include backend packs. Packs must not include driver.h.
+#   frontend/  — Interact.g4 + AST + parse (GN frontend:frontend)
+#   ir/        — four objects over CapabilityHost (header-only)
+#   codegen/   — AST → Code. :lower does not depend on :backend
+#   backend/   — document / view / plugin / horizon (atom, sema, bind) + link
+#   :driver    — session: link once, then apply
+#   :il.runtime — alias of :driver
+# frontend/load must not include backend headers.
 
 import("//testing/test.gni")
 
@@ -17,114 +18,128 @@ source_set("ir") {
   sources = [
     "ir/api.h",
     "ir/document.h",
-    "ir/expect.h",
-    "ir/gesture.h",
+    "ir/fail.h",
     "ir/horizon.h",
     "ir/plugin.h",
+    "ir/view.h",
   ]
   deps = [ "//src/content:capability" ]
   include_dirs += [ "//src" ]
 }
 
-source_set("clock") {
+# Codegen: lower + eval. No Host implementation.
+source_set("lower") {
   sources = [
-    "backend/pump.cc",
-    "backend/pump.h",
-  ]
-  include_dirs += [ "//src" ]
-  libs = [ "user32.lib" ]
-}
-
-# HWND / RHI capture pack. Own GN target so capture/bind_export.obj
-# does not collide with horizon/bind_horizon.obj under :capability.
-source_set("capture") {
-  sources = [
-    "backend/bind_export.cc",
-    "backend/bmp.cc",
-    "backend/bmp.h",
-    "backend/gdi.cc",
-    "backend/gdi.h",
-    "backend/capture_host.cc",
-    "backend/capture_host.h",
-    "backend/mark.cc",
-    "backend/mark.h",
-    "backend/paint.cc",
-    "backend/paint.h",
-    "backend/window.cc",
-    "backend/window.h",
-    "backend/capture.cc",
-    "backend/capture.h",
-    "backend/env.cc",
-    "backend/env.h",
-    "backend/export.cc",
-    "backend/export.h",
-    "backend/finish.cc",
-    "backend/finish.h",
-    "backend/frame.cc",
-    "backend/frame.h",
-    "backend/gate.cc",
-    "backend/gate.h",
-    "backend/read.cc",
-    "backend/read.h",
-    "backend/session.cc",
-    "backend/session.h",
-    "backend/warmup.cc",
-    "backend/warmup.h",
+    "bind/reflect.h",
+    "codegen/eval/eval_host.cc",
+    "codegen/eval/eval_host.h",
+    "codegen/eval/exec.cc",
+    "codegen/eval/exec.h",
+    "codegen/io.cc",
+    "codegen/io.h",
+    "codegen/lower/act.h",
+    "codegen/lower/args.cc",
+    "codegen/lower/args.h",
+    "codegen/lower/code.h",
+    "codegen/lower/document.cc",
+    "codegen/lower/document.h",
+    "codegen/lower/gesture.h",
+    "codegen/lower/horizon.cc",
+    "codegen/lower/horizon.h",
+    "codegen/lower/input.cc",
+    "codegen/lower/input.h",
+    "codegen/lower/lower.cc",
+    "codegen/lower/lower.h",
+    "codegen/lower/lower_bind.h",
+    "codegen/lower/ops.h",
+    "codegen/lower/plugin.cc",
+    "codegen/lower/plugin.h",
+    "codegen/lower/view.cc",
+    "codegen/lower/view.h",
   ]
   deps = [
-    ":clock",
+    ":ir",
+    "frontend:frontend",
     "//src/app/views/util:util",
     "//src/base:base",
     "//src/base:foundation",
-    "//src/content:content",
-    "//src/content:map_scene",
-    "//src/content:view_host",
+    "//src/content:capability",
     "//src/plugin:host",
-    "//src/render:rhi",
-    "//src/ui/views:views",
   ]
   include_dirs += [ "//src" ]
-  libs = [
-    "gdi32.lib",
-    "user32.lib",
-  ]
 }
 
-source_set("capability") {
+# Host standard library. Four objects plus the composition root.
+source_set("backend") {
   sources = [
     "bind/reflect.h",
     "bind/slots.h",
-    "backend/bind_host.cc",
-    "backend/bind_host.h",
-    "backend/bind_expect.cc",
-    "backend/debug_console.cc",
-    "backend/debug_console.h",
-    "backend/shell_expect.cc",
-    "backend/shell_expect.h",
-    "backend/probe.cc",
-    "backend/probe.h",
-    "backend/bind_horizon.h",
-    "backend/bind_horizon.cc",
-    "backend/paths.cc",
-    "backend/paths.h",
-    "backend/surface.cc",
-    "backend/surface.h",
-    "backend/stress.cc",
-    "backend/stress.h",
-    "backend/still.cc",
-    "backend/still.h",
-    "backend/horizon_document.cc",
-    "backend/horizon_document.h",
-    "backend/ui.cc",
-    "backend/ui.h",
-    "backend/bind_plugin.h",
-    "backend/bind_plugin.cc",
-    "backend/dispatch.cc",
-    "backend/dispatch.h",
+    "backend/document/bind_export.cc",
+    "backend/document/document.cc",
+    "backend/document/document.h",
+    "backend/document/document_bind.cc",
+    "backend/document/document_bind.h",
+    "backend/horizon/atom/capture.cc",
+    "backend/horizon/atom/capture.h",
+    "backend/horizon/atom/mark.cc",
+    "backend/horizon/atom/mark.h",
+    "backend/horizon/atom/pump.cc",
+    "backend/horizon/atom/pump.h",
+    "backend/horizon/atom/surface.cc",
+    "backend/horizon/atom/surface.h",
+    "backend/horizon/bind/bind_horizon.cc",
+    "backend/horizon/bind/bind_horizon.h",
+    "backend/horizon/sema/debug_console.cc",
+    "backend/horizon/sema/debug_console.h",
+    "backend/horizon/sema/expect.cc",
+    "backend/horizon/sema/expect.h",
+    "backend/horizon/sema/ui.cc",
+    "backend/horizon/sema/ui.h",
+    "backend/link/bind_host.cc",
+    "backend/link/bind_host.h",
+    "backend/plugin/bind_plugin.cc",
+    "backend/plugin/bind_plugin.h",
+    "backend/plugin/dispatch.cc",
+    "backend/plugin/dispatch.h",
+    "backend/plugin/paths.cc",
+    "backend/plugin/paths.h",
+    "backend/view/browse/still.cc",
+    "backend/view/browse/still.h",
+    "backend/view/browse/stress.cc",
+    "backend/view/browse/stress.h",
+    "backend/view/camera/camera_fly.cc",
+    "backend/view/camera/camera_fly.h",
+    "backend/view/camera/fit_scene_box.cc",
+    "backend/view/camera/fit_scene_box.h",
+    "backend/view/dib/gdi.cc",
+    "backend/view/dib/gdi.h",
+    "backend/view/dib/read.cc",
+    "backend/view/dib/read.h",
+    "backend/view/host/capture_host.cc",
+    "backend/view/host/capture_host.h",
+    "backend/view/pixel/bmp.cc",
+    "backend/view/pixel/bmp.h",
+    "backend/view/pixel/gate.cc",
+    "backend/view/pixel/gate.h",
+    "backend/view/present/env.cc",
+    "backend/view/present/env.h",
+    "backend/view/present/session.cc",
+    "backend/view/present/session.h",
+    "backend/view/present/warmup.cc",
+    "backend/view/present/warmup.h",
+    "backend/view/probe.cc",
+    "backend/view/probe.h",
+    "backend/view/shot/scene_capture.cc",
+    "backend/view/shot/scene_capture.h",
+    "backend/view/shot/export.cc",
+    "backend/view/shot/export.h",
+    "backend/view/shot/paint.cc",
+    "backend/view/shot/paint.h",
+    "backend/view/view_bind.cc",
+    "backend/view/view_bind.h",
   ]
   deps = [
-    ":capture",
-    ":clock",
+    ":ir",
     "//src/app/views:shell_browser",
     "//src/app/views/util:util",
     "//src/base:base",
@@ -146,6 +161,7 @@ source_set("capability") {
     "//src/plugin/product/stormsurge:stormsurge_harness",
     "//src/plugin/product/traffic:traffic_harness",
     "//src/plugin/product/world3d:world3d_harness",
+    "//src/plugin/product/world3d:world3d_views",
     "//src/render:rhi",
     "//src/tool:tool",
     "//src/ui/gis:ui_gis",
@@ -161,34 +177,52 @@ source_set("capability") {
   ]
 }
 
-source_set("il.runtime") {
+# Session driver. The only target that depends on both lower and backend.
+source_set("driver") {
   sources = [
-    "backend/interact_script.cc",
-    "backend/interact_script.h",
-    "backend/run_script.cc",
-    "backend/run_script.h",
+    "codegen/apply.cc",
+    "codegen/apply.h",
+    "codegen/driver.cc",
+    "codegen/driver.h",
+    "codegen/session/interact_script.cc",
+    "codegen/session/interact_script.h",
+    "codegen/session/run_script.cc",
+    "codegen/session/run_script.h",
+  ]
+  public_deps = [
+    ":lower",
+    ":backend",
   ]
   deps = [
-    ":capability",
     "frontend:frontend",
     "//src/app/views:shell_browser",
     "//src/app/views/util:util",
     "//src/base:base",
     "//src/content:capability",
   ]
-  public_deps = [
-    ":capability",
-    "backend:compile",
-  ]
   include_dirs += [ "//src" ]
+}
+
+group("il.runtime") {
+  public_deps = [ ":driver" ]
 }
 
 test("capture_present_test") {
   output_name = "capture_present_test"
   sources = [
-    "backend/env.cc",
-    "backend/env_test.cc",
+    "backend/view/present/env.cc",
+    "backend/view/present/env_test.cc",
   ]
   include_dirs += [ "//src" ]
   deps = [ "//src/base:base" ]
+}
+
+test("execution_bind_test") {
+  output_name = "execution_bind_test"
+  sources = [
+    "codegen/lower/args.cc",
+    "codegen/lower/bind_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/base:foundation" ]
 }

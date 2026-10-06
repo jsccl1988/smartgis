@@ -13,7 +13,7 @@ namespace plugin {
 namespace {
 
 struct Verb {
-  ShowcaseVerbFn fn = nullptr;
+  ScenarioVerbFn fn = nullptr;
   std::string default_mode;
 };
 
@@ -23,8 +23,8 @@ int g_last_exit = 1;
 
 }  // namespace
 
-void register_showcase_verb(std::string_view name,
-                            ShowcaseVerbFn fn,
+void register_scenario_verb(std::string_view name,
+                            ScenarioVerbFn fn,
                             std::string_view default_mode) {
   if (name.empty() || !fn) {
     return;
@@ -34,12 +34,12 @@ void register_showcase_verb(std::string_view name,
                            Verb{fn, std::string(default_mode)});
 }
 
-bool has_showcase_verb(std::string_view name) {
+bool has_scenario_verb(std::string_view name) {
   std::lock_guard<std::mutex> lock(g_mu);
   return g_verbs.contains(std::string(name));
 }
 
-std::optional<bool> try_exec_showcase_verb(content::CapabilityHost& host,
+std::optional<bool> try_exec_scenario_verb(content::CapabilityHost& host,
                                            std::string_view name,
                                            std::string_view mode) {
   Verb v;

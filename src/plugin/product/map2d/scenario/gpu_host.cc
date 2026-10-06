@@ -68,11 +68,11 @@ render::rhi::Device* acquire_map2d_showcase_gpu_device(HarnessShell& browser,
       }
     }
   }
-  map2d_showcase_mark("gpu-create");
+  map2d_mark("gpu-create");
   render::rhi::Device* device =
       render::rhi::create_device(render::rhi::preferred_gpu_backend());
   if (!device) {
-    map2d_showcase_mark("gpu-create-fail");
+    map2d_mark("gpu-create-fail");
     return nullptr;
   }
   render::rhi::DeviceDesc desc;
@@ -84,20 +84,20 @@ render::rhi::Device* acquire_map2d_showcase_gpu_device(HarnessShell& browser,
   HWND present_hwnd =
       create_map2d_showcase_gpu_hwnd(showcase_w, showcase_h);
   if (!present_hwnd) {
-    map2d_showcase_mark("gpu-hwnd-fail");
+    map2d_mark("gpu-hwnd-fail");
     device->shutdown();
     return nullptr;
   }
-  map2d_showcase_mark("gpu-hwnd");
+  map2d_mark("gpu-hwnd");
   desc.native_window = present_hwnd;
-  map2d_showcase_mark("gpu-init");
+  map2d_mark("gpu-init");
   if (!device->initialize(desc)) {
-    map2d_showcase_mark("gpu-init-fail");
+    map2d_mark("gpu-init-fail");
     device->shutdown();
     // Intentionally leak Device* -- FlyCube teardown policy.
     return nullptr;
   }
-  map2d_showcase_mark("gpu-device-ok");
+  map2d_mark("gpu-device-ok");
   *out_owned = true;
   return device;
 }

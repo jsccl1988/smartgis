@@ -15,21 +15,21 @@
 namespace plugin {
 namespace {
 
-int run_map2d_showcase(HarnessShell& browser, detail::ShowcaseMode mode,
+int run_map2d_showcase(HarnessShell& browser, detail::ScenarioMode mode,
                        const char* name) {
-  detail::bind_map2d_showcase_shell(&browser);
-  browser.mark_named(kMarkMap2dShowcase, name, true);
-  int showcase_w = detail::kMap2dShowcaseDefaultW;
-  int showcase_h = detail::kMap2dShowcaseDefaultH;
-  detail::map2d_showcase_pixel_size(&showcase_w, &showcase_h);
+  detail::bind_map2d_scenario_shell(&browser);
+  browser.mark_named(kMarkMap2d, name, true);
+  int showcase_w = detail::kMap2dDefaultW;
+  int showcase_h = detail::kMap2dDefaultH;
+  detail::map2d_pixel_size(&showcase_w, &showcase_h);
   std::fprintf(stderr, "map2d-showcase mode=%s size=%dx%d\n", name, showcase_w,
                showcase_h);
-  detail::map2d_showcase_mark(name);
+  detail::map2d_mark(name);
 
   browser.select_map_tab(0);
-  detail::map2d_showcase_mark("tab-map");
+  detail::map2d_mark("tab-map");
   browser.pump(400);
-  detail::map2d_showcase_mark("pumped");
+  detail::map2d_mark("pumped");
 
   browser.stop_present_timers();
   if (const int rc = detail::seed_map2d_mode(browser, mode)) {
@@ -43,7 +43,7 @@ int run_map2d_showcase(HarnessShell& browser, detail::ShowcaseMode mode,
   }
   browser.resume_present_timers();
   browser.pump(100);
-  detail::map2d_showcase_mark("fit-ok");
+  detail::map2d_mark("fit-ok");
 
   if (const int rc =
           detail::run_map2d_present(browser, name, showcase_w, showcase_h)) {
@@ -51,7 +51,7 @@ int run_map2d_showcase(HarnessShell& browser, detail::ShowcaseMode mode,
     return rc;
   }
 
-  detail::map2d_showcase_mark("pass");
+  detail::map2d_mark("pass");
   std::fprintf(stderr, "map2d-showcase: PASS mode=%s\n", name);
   browser.stop_present_timers();
   browser.pump(100);
@@ -61,15 +61,15 @@ int run_map2d_showcase(HarnessShell& browser, detail::ShowcaseMode mode,
 }  // namespace
 
 int scenario_china(HarnessShell& browser) {
-  return run_map2d_showcase(browser, detail::ShowcaseMode::kChina, "china");
+  return run_map2d_showcase(browser, detail::ScenarioMode::kChina, "china");
 }
 
 int scenario_align(HarnessShell& browser) {
-  return run_map2d_showcase(browser, detail::ShowcaseMode::kAlign, "align");
+  return run_map2d_showcase(browser, detail::ScenarioMode::kAlign, "align");
 }
 
 int scenario_orthogrid(HarnessShell& browser) {
-  return run_map2d_showcase(browser, detail::ShowcaseMode::kOrthogrid,
+  return run_map2d_showcase(browser, detail::ScenarioMode::kOrthogrid,
                             "orthogrid");
 }
 

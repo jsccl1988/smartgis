@@ -1,0 +1,31 @@
+{
+  "id": "browser.harness",
+  "kind": "integration",
+  "argv": [
+    "--harness"
+  ],
+  "script": "browser.harness.il",
+  "window_title": "SmartGIS Views",
+  "env": {
+    "SKIP_MAP_CONTEXT_MENU": "1"
+  },
+  "mark_leaf": "harness-mark.txt",
+  "required_marks": [
+    "hwnd-ok",
+    "map-ready",
+    "orbit-ok",
+    "layout-checked",
+    "pass"
+  ],
+  "accept_nonzero_rc_if_marks": true,
+  "report_name": "browser_harness_loop_report.json",
+  "probes": [
+    "marks"
+  ],
+  "loop": {
+    "rounds": 2,
+    "timeout_sec": 300,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGIS.exe"
+  }
+}

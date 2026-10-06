@@ -14,17 +14,17 @@ thread_local HarnessShell* g_shell = nullptr;
 
 }  // namespace
 
-void bind_atmosphere_showcase_shell(HarnessShell* shell) {
+void bind_atmosphere_scenario_shell(HarnessShell* shell) {
   g_shell = shell;
 }
 
-HarnessShell* atmosphere_showcase_shell() {
+HarnessShell* atmosphere_scenario_shell() {
   return g_shell;
 }
 
-void atmosphere_showcase_mark(const char* step) {
+void atmosphere_mark(const char* step) {
   if (g_shell) {
-    g_shell->mark_named(kMarkAtmosphereShowcase, step, false);
+    g_shell->mark_named(kMarkAtmosphere, step, false);
   }
 }
 

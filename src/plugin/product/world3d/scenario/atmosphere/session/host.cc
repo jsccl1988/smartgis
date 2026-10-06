@@ -9,12 +9,12 @@ namespace plugin {
 namespace detail {
 
 HWND create_atmosphere_showcase_hwnd(uint32_t width_px, uint32_t height_px) {
-  ShowcasePresentHwndOpts opts;
+  PresentHwndOpts opts;
   opts.class_name = L"SmartGisAtmosphereShowcase";
   opts.window_title = L"SmartGIS Atmosphere Showcase";
   opts.width_px = width_px;
   opts.height_px = height_px;
-  return create_showcase_present_hwnd(opts);
+  return create_present_hwnd(opts);
 }
 
 }  // namespace detail

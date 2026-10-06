@@ -8,6 +8,7 @@
 
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gis/analysis/geoprocessing_history_panel.h"
+#include "ui/gis/scroll_table.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
@@ -37,9 +38,11 @@ SpatialAnalysisPanel::SpatialAnalysisPanel() {
 
   if (ops_table_) {
     ops_table_->set_row_click([this](int row) { on_op_row(row); });
+    ops_scroll_ = wrap_markup_table_in_scroll(ops_table_);
   }
   if (params_table_) {
     params_table_->set_row_click([this](int row) { on_param_row(row); });
+    params_scroll_ = wrap_markup_table_in_scroll(params_table_);
   }
   if (param_edit_) {
     param_edit_->set_submit([this]() { on_param_commit(); });
@@ -84,7 +87,9 @@ SpatialAnalysisPanel::~SpatialAnalysisPanel() {
   remove_all_children();
   title_ = nullptr;
   ops_table_ = nullptr;
+  ops_scroll_ = nullptr;
   params_table_ = nullptr;
+  params_scroll_ = nullptr;
   param_edit_ = nullptr;
   progress_label_ = nullptr;
   run_ = nullptr;
@@ -160,6 +165,7 @@ void SpatialAnalysisPanel::rebuild_ops_table() {
   if (selected >= 0) {
     ops_table_->set_selected_row(selected);
   }
+  sync_scroll_table_content(ops_table_, ops_scroll_);
 }
 
 void SpatialAnalysisPanel::rebuild_params_table() {
@@ -173,6 +179,7 @@ void SpatialAnalysisPanel::rebuild_params_table() {
   if (selected_param_row_ >= 0) {
     params_table_->set_selected_row(selected_param_row_);
   }
+  sync_scroll_table_content(params_table_, params_scroll_);
 }
 
 void SpatialAnalysisPanel::on_op_row(int row) {

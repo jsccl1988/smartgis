@@ -1,20 +1,26 @@
 {
   "id": "ui.interact.os",
-  "kind": "showcase",
+  "kind": "integration",
   "argv": [
     "--ui-showcase",
     "interact"
   ],
   "driver": "os",
   "os_inject_default": "postmessage",
-  "script": "../ui.interact/ui.interact.il",
+  "script": "../ui.interact/ui.interact.host.il",
+  "gesture_script": "../ui.interact/ui.interact.il",
   "window_title": "SmartGIS Views",
   "env": {
     "UI_SHOWCASE_LINGER_MS": "0",
     "UI_INTERACT_OS_WAIT_MS": "10000",
     "UI_FORENSICS": "1",
     "UI_THEME": "dark",
-    "SKIP_MAP_CONTEXT_MENU": "1"
+    "SKIP_MAP_CONTEXT_MENU": "1",
+    "FORCE_GDI_MAP_OVERLAY": "0",
+    "FORCE_CONTENT_MAPVIEW_2D": "1",
+    "PREFER_FLYCUBE_2D": "0",
+    "MAP2D_ENGINE": "vista",
+    "SCENE3D_ENGINE": "flycube"
   },
   "bmp": {
     "path": "ui-showcase-interact.bmp",
@@ -38,6 +44,6 @@
       "os_inject_did_not_blank_shell",
       "dark_theme_consistent"
     ],
-    "expect_notes": "OS-inject interact path; same bmp stem as ui.interact"
+    "expect_notes": "Same host + gesture IL as ui.interact; C++ OS wait while Python injects gesture_script; BMP stem shared"
   }
 }

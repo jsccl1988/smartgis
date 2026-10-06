@@ -49,8 +49,8 @@ int seed_atmosphere_mode(HarnessShell& browser,
   }
   *out = AtmosphereModeSeed{};
 
-  atmosphere_showcase_mark("orbit-reset");
-  atmosphere_showcase_mark("extent-ok");
+  atmosphere_mark("orbit-reset");
+  atmosphere_mark("extent-ok");
 
   if (mode == AtmosphereShowcaseMode::kNone) {
     return 53;
@@ -60,7 +60,7 @@ int seed_atmosphere_mode(HarnessShell& browser,
     if (const int rc = seed_atmosphere_legacy_mode(browser, cam)) {
       return rc;
     }
-    atmosphere_showcase_mark("demo-ok");
+    atmosphere_mark("demo-ok");
     return 0;
   }
 
@@ -72,9 +72,9 @@ int seed_atmosphere_mode(HarnessShell& browser,
   out->globe_china_pitch = seed.globe_china_pitch;
   out->globe_flythrough = seed.globe_flythrough;
   if (mode == AtmosphereShowcaseMode::kGlobe) {
-    atmosphere_showcase_mark("globe-ok");
+    atmosphere_mark("globe-ok");
   }
-  atmosphere_showcase_mark("demo-ok");
+  atmosphere_mark("demo-ok");
   return 0;
 }
 
@@ -86,7 +86,7 @@ int verify_atmosphere_mode_flags(AtmosphereShowcaseMode mode,
   if (!plugin::verify_world3d_look(look_for_mode(mode), cam)) {
     return 53;
   }
-  atmosphere_showcase_mark("config-ok");
+  atmosphere_mark("config-ok");
   const vista::atmosphere::Environment* env =
       cam->atmosphere_session().environment();
   std::fprintf(stderr, "atmosphere-showcase: ocean=%d cloud=%d layers=%zu\n",

@@ -13,6 +13,7 @@
 
 #include "base/memory/arena.h"
 #include "vista/component/map/ir.h"
+#include "vista/component/map/layout.h"
 
 namespace content {
 
@@ -145,6 +146,7 @@ class Map2dFrameCache {
   bool hillshade_ready_ = false;
   int hillshade_w_ = 0;
   int hillshade_h_ = 0;
+  vista::TileSlot hillshade_slot_{};
   std::vector<uint8_t> hillshade_rgba_;
 
   base::Arena layout_scratch_{base::MemoryResource::Type::kMonotonicBuffer,

@@ -392,14 +392,18 @@ bool load_markup_bytes(std::string_view xml_utf8,
   return build_markup_tree(doc, options, out);
 }
 
-MarkupRoot load_markup(std::string_view path_or_name,
-                       const MarkupOptions& options) {
+bool load_markup_into(std::string_view path_or_name,
+                      const MarkupOptions& options,
+                      MarkupRoot* out) {
+  if (!out) {
+    return false;
+  }
+  *out = MarkupRoot();
   BASE_TRACE_EVENT("LoadMarkup", "startup");
-  MarkupRoot out;
   const std::string path = resolve_markup_path_impl(path_or_name);
   if (path.empty()) {
-    out.error = std::string("markup: not found: ") + std::string(path_or_name);
-    return out;
+    out->error = std::string("markup: not found: ") + std::string(path_or_name);
+    return false;
   }
   // Process-wide path→XML cache: same catalog/panel markup is often loaded
   // once per panel construction; skip redundant disk reads.
@@ -416,18 +420,26 @@ MarkupRoot load_markup(std::string_view path_or_name,
   if (xml.empty()) {
     xml = read_file(path);
     if (xml.empty()) {
-      out.error = "markup: empty file: " + path;
-      return out;
+      out->error = "markup: empty file: " + path;
+      return false;
     }
     std::lock_guard<std::mutex> lock(cache_mu);
     xml_cache.emplace(path, xml);
   }
   const std::string base = dirname_of(path);
-  if (!load_markup_bytes(xml, base, options, &out)) {
-    if (out.error.empty()) {
-      out.error = "markup: load failed";
+  if (!load_markup_bytes(xml, base, options, out)) {
+    if (out->error.empty()) {
+      out->error = "markup: load failed";
     }
+    return false;
   }
+  return true;
+}
+
+MarkupRoot load_markup(std::string_view path_or_name,
+                       const MarkupOptions& options) {
+  MarkupRoot out;
+  (void)load_markup_into(path_or_name, options, &out);
   return out;
 }
 

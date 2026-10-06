@@ -38,7 +38,7 @@ def run_os_process(
         wait_stable_shell_hwnd,
     )
 
-    script = suite.script_path()
+    script = suite.inject_script_path()
     if script is None or not script.is_file():
         return (
             2,

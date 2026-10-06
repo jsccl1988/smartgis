@@ -22,22 +22,10 @@ namespace {
 // Authoring suffix. apply_script selects the frontend from the resolved path.
 constexpr wchar_t kSuiteScriptSuffix[] = L".il";
 
-}  // namespace
-
-bool script_file_exists(const std::wstring& path) {
-  return !path.empty() &&
-         GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
-}
-
-bool resolve_suite_script(const char* suite_id, std::wstring* out) {
+// Harness / sidecar / beside-exe lookup. Does not read UI_INTERACT_SCRIPT.
+bool resolve_suite_script_in_harness(const char* suite_id, std::wstring* out) {
   if (!out || !suite_id || !suite_id[0]) {
     return false;
-  }
-  if (const char* env = base::switch_cstr("ui-interact-script")) {
-    *out = detail::utf8_to_wide(env);
-    if (script_file_exists(*out)) {
-      return true;
-    }
   }
 
   std::wstring leaf = detail::utf8_to_wide(suite_id);
@@ -78,20 +66,22 @@ bool resolve_suite_script(const char* suite_id, std::wstring* out) {
     if (!script_file_exists(abs)) {
       continue;
     }
-    // Undotted ids live under shell/; dotted ids use the first segment as
-    // family (plugin.* / browser.* / ui.* / legacy.*).
-    std::wstring family = L"shell";
+    // Dotted ids use the first segment as family (plugin.* / browser.* /
+    // ui.* / legacy.*). Undotted leftovers still try browser/ then shell/.
+    std::wstring family = L"browser";
     const std::string_view id(suite_id);
     const size_t dot = id.find('.');
     if (dot != std::string_view::npos) {
       family = detail::utf8_to_wide(std::string(id.substr(0, dot)).c_str());
     }
     const std::wstring sid_w = detail::utf8_to_wide(suite_id);
+    // ui.interact.host.il is colocated under ui.interact/ (not ui.interact.host/).
     const std::wstring candidates[] = {
         abs + L"\\" + family + L"\\" + sid_w + L"\\" + leaf,
         abs + L"\\plugin\\" + sid_w + L"\\" + leaf,
         abs + L"\\browser\\" + sid_w + L"\\" + leaf,
-        abs + L"\\shell\\" + sid_w + L"\\" + leaf,
+        abs + L"\\ui\\" + sid_w + L"\\" + leaf,
+        abs + L"\\ui\\ui.interact\\" + leaf,
     };
     for (const std::wstring& direct : candidates) {
       if (script_file_exists(direct)) {
@@ -110,6 +100,39 @@ bool resolve_suite_script(const char* suite_id, std::wstring* out) {
     return true;
   }
   return false;
+}
+
+}  // namespace
+
+bool script_file_exists(const std::wstring& path) {
+  return !path.empty() &&
+         GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
+}
+
+bool resolve_suite_script(const char* suite_id, std::wstring* out) {
+  if (!out || !suite_id || !suite_id[0]) {
+    return false;
+  }
+  if (const char* env = base::switch_cstr("ui-interact-script")) {
+    *out = detail::utf8_to_wide(env);
+    if (script_file_exists(*out)) {
+      return true;
+    }
+  }
+  return resolve_suite_script_in_harness(suite_id, out);
+}
+
+bool resolve_interact_gesture_script(std::wstring* out) {
+  if (!out) {
+    return false;
+  }
+  if (const char* env = base::switch_cstr("ui-interact-gesture-script")) {
+    *out = detail::utf8_to_wide(env);
+    if (script_file_exists(*out)) {
+      return true;
+    }
+  }
+  return resolve_suite_script_in_harness("ui.interact", out);
 }
 
 }  // namespace app

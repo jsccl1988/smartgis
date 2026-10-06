@@ -8,11 +8,13 @@
 #include <vector>
 
 #include "ui/gis/form_helpers.h"
+#include "ui/gis/scroll_table.h"
 #include "ui/views/dialogs/dialog.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/button/button.h"
+#include "ui/views/primitives/collection/scroll_view.h"
 #include "ui/views/primitives/collection/table_view.h"
 #include "ui/views/primitives/input/combobox.h"
 #include "ui/views/primitives/text/label.h"
@@ -80,6 +82,7 @@ class AttributeSchemaForm : public View {
     }
     if (table_) {
       table_->set_row_click([this](int row) { on_row_selected(row); });
+      scroll_ = wrap_markup_table_in_scroll(table_);
     }
 
     auto fill = std::make_unique<FillLayout>();
@@ -118,6 +121,7 @@ class AttributeSchemaForm : public View {
     if (selected_ >= 0 && static_cast<size_t>(selected_) < rows_.size()) {
       table_->set_selected_row(selected_);
     }
+    sync_scroll_table_content(table_, scroll_);
   }
 
   void on_row_selected(int row) {
@@ -235,6 +239,7 @@ class AttributeSchemaForm : public View {
   std::vector<AttributeField>* fields_ = nullptr;
   std::vector<AttributeField> rows_;
   TableView* table_ = nullptr;
+  ScrollView* scroll_ = nullptr;
   Textfield* name_ = nullptr;
   Combobox* type_ = nullptr;
   Button* add_ = nullptr;

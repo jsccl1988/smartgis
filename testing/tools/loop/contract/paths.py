@@ -53,7 +53,7 @@ def capture_scenario_for_leaf(leaf: str) -> str | None:
             "console-",
         )
     ):
-        return "shell"
+        return "browser"
     if name.startswith("_"):
         return "_scratch"
     return None

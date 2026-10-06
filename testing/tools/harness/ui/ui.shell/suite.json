@@ -1,6 +1,6 @@
 {
   "id": "ui.shell",
-  "kind": "showcase",
+  "kind": "integration",
   "argv": [
     "--ui-showcase",
     "shell"

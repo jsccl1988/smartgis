@@ -16,6 +16,7 @@ namespace ui {
 namespace views {
 
 class Label;
+class ScrollView;
 class TableView;
 
 // Read-only legend from host-serialized snapshot rows (label + swatch text).
@@ -50,6 +51,7 @@ class UI_EXPORT LegendPanel : public View {
 
   Label* title_ = nullptr;
   TableView* table_ = nullptr;
+  ScrollView* scroll_ = nullptr;
   std::vector<Entry> entries_;
   ToggleFn toggle_;
 };

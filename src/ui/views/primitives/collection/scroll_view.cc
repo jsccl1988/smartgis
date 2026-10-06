@@ -4,6 +4,7 @@
 #include "ui/views/primitives/collection/scroll_view.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/theme.h"
@@ -149,11 +150,16 @@ void ScrollView::seek_scroll_from_y(int y) {
   set_scroll_offset(rel * (content_h - view_h) / travel);
 }
 
+void ScrollView::set_on_scroll(ScrollChanged fn) {
+  on_scroll_ = std::move(fn);
+}
+
 void ScrollView::set_scroll_offset(int y) {
   const Rect old_thumb =
       track_ && track_->is_locally_visible()
           ? static_cast<Track*>(track_)->thumb_rect()
           : Rect{};
+  const int prev = scroll_y_;
   scroll_y_ = y;
   clamp_scroll();
   apply_content_bounds();
@@ -163,6 +169,9 @@ void ScrollView::set_scroll_offset(int y) {
           ? static_cast<Track*>(track_)->thumb_rect()
           : Rect{};
   post_scroll_dirty(union_rect(union_rect(viewport_rect(), old_thumb), new_thumb));
+  if (on_scroll_ && scroll_y_ != prev) {
+    on_scroll_(scroll_y_);
+  }
 }
 
 void ScrollView::clamp_scroll() {

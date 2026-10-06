@@ -14,6 +14,15 @@ namespace vista {
 
 class DemRaster;
 
+// Public face for DEM bake caches. Implementation lives under dem/cache/:
+//   io + io_pipeline — mogu-style sequential file_load + chunk-steal copies
+//   phase            — load/tess/hypso timing samples
+//   raster_cache / hypso_cache / mesh_cache / view_seed_cache
+
+// Resolve cache root and create dem_bake/ once (cheap after first call).
+// Scene3d seed may call this during present warmup to hide first mkdir.
+VISTA_EXPORT void dem_bake_cache_warmup();
+
 // Last DEM seed-phase clocks (load / tess / hypso) for cold attribution.
 struct DemPhaseSample {
   int64_t load_ms = 0;
@@ -35,26 +44,26 @@ VISTA_EXPORT void dem_raster_cache_put(const char* path, const DemRaster& dem);
 
 // Process + disk cache for hypsometric RGBA (path + max_edge + file stamp).
 VISTA_EXPORT bool dem_hypso_cache_try_get(const char* path, int max_edge,
-                                        std::vector<uint8_t>* rgba, int* out_w,
-                                        int* out_h);
+                                          std::vector<uint8_t>* rgba, int* out_w,
+                                          int* out_h);
 VISTA_EXPORT void dem_hypso_cache_put(const char* path, int max_edge,
-                                    const std::vector<uint8_t>& rgba, int w,
-                                    int h);
+                                      const std::vector<uint8_t>& rgba, int w,
+                                      int h);
 
 // Tessellated DEM mesh (path + max_edge + optional window + land-mask flag).
 VISTA_EXPORT bool dem_mesh_cache_try_get(const char* path, int max_edge,
-                                       double minx, double miny, double maxx,
-                                       double maxy, bool windowed,
-                                       bool apply_land_mask,
-                                       std::vector<float>* xyz,
-                                       std::vector<uint32_t>* indices,
-                                       std::vector<float>* uvs);
+                                         double minx, double miny, double maxx,
+                                         double maxy, bool windowed,
+                                         bool apply_land_mask,
+                                         std::vector<float>* xyz,
+                                         std::vector<uint32_t>* indices,
+                                         std::vector<float>* uvs);
 VISTA_EXPORT void dem_mesh_cache_put(const char* path, int max_edge, double minx,
-                                   double miny, double maxx, double maxy,
-                                   bool windowed, bool apply_land_mask,
-                                   const std::vector<float>& xyz,
-                                   const std::vector<uint32_t>& indices,
-                                   const std::vector<float>& uvs);
+                                     double miny, double maxx, double maxy,
+                                     bool windowed, bool apply_land_mask,
+                                     const std::vector<float>& xyz,
+                                     const std::vector<uint32_t>& indices,
+                                     const std::vector<float>& uvs);
 
 // Orbit-normalized view seed (path + LOD + lon/lat frame + orbit bucket).
 // Skips DEM load / tess / hypso / normalize on cold hit for Scene3d present.
@@ -75,12 +84,12 @@ struct DemViewSeed {
 };
 
 VISTA_EXPORT bool dem_view_seed_cache_try_get(const char* path, int lod_key,
-                                            double minx, double miny,
-                                            double maxx, double maxy,
-                                            DemViewSeed* out);
+                                              double minx, double miny,
+                                              double maxx, double maxy,
+                                              DemViewSeed* out);
 VISTA_EXPORT void dem_view_seed_cache_put(const char* path, int lod_key,
-                                        double minx, double miny, double maxx,
-                                        double maxy, const DemViewSeed& seed);
+                                          double minx, double miny, double maxx,
+                                          double maxy, const DemViewSeed& seed);
 
 }  // namespace vista
 

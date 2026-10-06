@@ -6,6 +6,7 @@
 #include <memory>
 #include <utility>
 
+#include "ui/gis/scroll_table.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/dpi.h"
@@ -57,6 +58,9 @@ MeasurePanel::MeasurePanel() {
   if (azimuth_) {
     azimuth_->set_change([this]() { on_mode_radio(Mode::kAzimuth); });
   }
+  if (table_) {
+    scroll_ = wrap_markup_table_in_scroll(table_);
+  }
 
   auto fill = std::make_unique<FillLayout>();
   set_layout_manager(std::move(fill));
@@ -84,6 +88,7 @@ MeasurePanel::~MeasurePanel() {
   area_ = nullptr;
   azimuth_ = nullptr;
   table_ = nullptr;
+  scroll_ = nullptr;
 }
 
 void MeasurePanel::set_mode(Mode mode) {
@@ -128,11 +133,12 @@ void MeasurePanel::rebuild_table() {
   table_->set_columns({"Label", "Value"});
   if (results_.empty()) {
     table_->add_row({"Result", "Draw on the map to measure"});
-    return;
+  } else {
+    for (const auto& row : results_) {
+      table_->add_row({row.label, display_value(row.value)});
+    }
   }
-  for (const auto& row : results_) {
-    table_->add_row({row.label, display_value(row.value)});
-  }
+  sync_scroll_table_content(table_, scroll_);
 }
 
 void MeasurePanel::on_mode_radio(Mode mode) {

@@ -111,21 +111,21 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 
 - 实现：`src/app/views/app/process/browser_main.cc`（`run_browser_main`）。
 - 真 HWND：泵消息 → 检查壳 → Map / Data / 3D 切换 → `wait_ready`（`kContentMapView` 时）→ 断言 `HostView::Latest` 出帧（marks：`map-frame-ok` / `scene-frame-ok`）→ 3D trackball 输入 → 编辑点 / 选择 / 清选（`input-point-ok`：`FeatureMutation.geom` 为 point）→ M0 折线 + FeatureGeom（`input-line-ok` / `m0-line-ok`）→ 多边形 digitize（`input-poly-ok` / `input-ok`）→ OGR China PLP 进层（`china-plp-ok`）→ `view.pan`（`pan-ok`）→ 浏览压力（`browse-ok`：多次 LMB pan + wheel，RMB 不被 pan 吞掉；`SKIP_MAP_CONTEXT_MENU=1` 跳过模态菜单）→ 光标处滚轮（`wheel-cursor-ok`）→ 轨道相机矩阵 → `layout_check` → 地图 HWND 与 View bounds 对齐。
-- 由 `testing/tools` `loop_runner --suite harness` / `--gate` 拉起；窗口标题 `SmartGIS Views`。
-- 浏览回归 loop：`py -3 testing/tools/loop_runner.py --suite browse`（可 `--no-build`）。
+- 由 `testing/tools` `loop_runner --suite browser.harness` / `--gate` 拉起；窗口标题 `SmartGIS Views`。
+- 浏览回归 loop：`py -3 testing/tools/loop_runner.py --suite browser.map2d.browse`（可 `--no-build`）。
 - **Map browse forensic（L1′ 扩展，2026-09-30）：** 卡死 / 花屏黑屏 / 跟手差 / 崩溃 取证。
-  - Suites：`browse`（Views 2D）、`browse.3d`（Views 3D tab orbit/wheel）。Leftover `SmartGIS-Legacy.exe` browse loops（`legacy.browse.*`）已随 `testing/tools/harness/legacy/` 删除。
+  - Suites：`browser.map2d.browse`（Views 2D）、`browser.world3d.browse`（Views 3D tab orbit/wheel）。Leftover `SmartGIS-Legacy.exe` browse loops（`legacy.browse.*`）已随 `testing/tools/harness/legacy/` 删除。
   - 录像：`HARNESS_RECORD=1`（可选 `HARNESS_RECORD_FPS`、`HARNESS_RECORD_MODE=auto|bmp|ffmpeg`）；`testing/tools/loop/record/hwnd.py`。
     - **双屏：** BMP burst：主屏 HWND 优先 `BitBlt`（跟手）；副屏/遮挡用 `PrintWindow`。`ffmpeg` 优先 `gdigrab title=`；缺 ffmpeg 时 BMP frames 可后编 `mp4_path`（有则写）。报告含 `virtual_screen` / `rect.on_primary` / `ffmpeg_skip` / `mp4_path`。
     - 缺 ffmpeg **不硬失败**；关窗时的全黑尾帧会被丢弃。
-    - 产物：`out/<config>/captures/record/<suite>_<stamp>.mp4` 或 `…/record/*_frames/`；分析回放帧在 `captures/analysis/<topic>/`；报告 / marks / showcase BMP 在 `captures/<scenario>/`（与 harness family 对齐：`browser/`（map2d / world3d 产品套件）`ui/` `shell/`）。报告 JSON 含 `record_path` / `steps[]` / `t_ms`。
+    - 产物：`out/<config>/captures/record/<suite>_<stamp>.mp4` 或 `…/record/*_frames/`；分析回放帧在 `captures/analysis/<topic>/`；报告 / marks / showcase BMP 在 `captures/<scenario>/`（与 harness family 对齐：`browser/` `ui/`）。报告 JSON 含 `record_path` / `steps[]` / `t_ms`。
   - 症状对照：timeout/`rc=124`→卡死；BMP score / 录像→花屏黑屏；`steps` 时间线 vs 画面→跟手；非零 exit / dump→崩溃（`windbg-crash-diagnose`）。
-  - 例：`set HARNESS_RECORD=1` 后 `py -3 testing/tools/loop_runner.py --suite browse.3d --no-build --rounds 1`。双屏强制 BMP：`set HARNESS_RECORD_MODE=bmp`。
-  - **As-built note (2026-10-01)：** `wheel_burst` **单向**（每 tick 用给定 `delta`，`sendinput`/`postmessage` 一致，不再 `i%2` 翻转）。`browse.3d` 仍走 linger/showcase 路径；`browse`（Views 2D stress）曾会非零退出——正是 forensic 要抓的症状；录像路径已双屏加固。
-- 输入/数字化回归 loop：`py -3 testing/tools/loop_runner.py --suite input`（脚本 `harness/shell/input/input.il`；缺省或失败时回退 C++）。
+  - 例：`set HARNESS_RECORD=1` 后 `py -3 testing/tools/loop_runner.py --suite browser.world3d.browse --no-build --rounds 1`。双屏强制 BMP：`set HARNESS_RECORD_MODE=bmp`。
+  - **As-built note (2026-10-01)：** `wheel_burst` **单向**（每 tick 用给定 `delta`，`sendinput`/`postmessage` 一致，不再 `i%2` 翻转）。`browser.world3d.browse` 仍走 linger/showcase 路径；`browser.map2d.browse`（Views 2D stress）曾会非零退出——正是 forensic 要抓的症状；录像路径已双屏加固。
+- 输入/数字化回归 loop：`py -3 testing/tools/loop_runner.py --suite browser.input`（脚本 `harness/browser/browser.input/browser.input.il`；缺省或失败时回退 C++）。
 - Suite 契约：`testing/tools/harness/<family>/<suite_id>/` 只留 `suite.json` + 可选 `*.il`（id 与 C++ `ScenarioRegistry` 对齐）；`--list` 列出可用 id。共享 case 在 `harness/_shared/case/`。入口统一 `loop_runner --suite <id>`（已移除同目录 `*_loop.py` / 旁路 `*.args.json`）。
 - 算子参数：`run_processing(..., args="{\"k\":\"$var\"}")` 内联（Interact.g4 支持 `\"` / `\\` 转义 + `$var` 展开）。
-- UI 交互脚本（A+C）：**Interact DSL** 与 suite 同目录的 `*.il`（grammar `src/app/views/il.runtime/frontend/Interact.g4`；ANTLR gen → `out/*/gen`）；经 `content::CapabilityHost` + `app/views/il.runtime`（`capability/` + `execution/`）执行；`ui.*` / `input` / `browse` / `browser.map2d.*` / `browser.world3d.*` / `console` / `browser.*` 均优先跑对应 `.il`（失败回退 C++ body）。DebugAgent：`script.run` / `:script <path>`。详见 living §Harness capability runtime + §UI interact script。
+- UI 交互脚本（A+C）：**Interact DSL** 与 suite 同目录的 `*.il`（grammar `src/app/views/il.runtime/frontend/Interact.g4`；ANTLR gen → `out/*/gen`）；经 `content::CapabilityHost` + `app/views/il.runtime`（`capability/` + `execution/`）执行；`ui.*` / `input` / `browser.map2d.browse` / `browser.map2d.*` / `browser.world3d.*` / `console` / `browser.*` 均优先跑对应 `.il`（失败回退 C++ body）。DebugAgent：`script.run` / `:script <path>`。详见 living §Harness capability runtime + §UI interact script。
 - **IL 操作录制（复现问题，2026-10-01）：** 打开/附着 app → 人工操作 → 生成可回放 `.il`。
   - 入口：`py -3 testing/tools/loop_runner.py --record-il`（或 `loop/record/il_recorder.py`）；`--attach` 附着已开窗口；停录 **Ctrl+Shift+F9** / 控制台 Enter / Ctrl+C。
   - 混合：OS 低级钩子（client 坐标）→ `events.jsonl` → 压缩 `path`/`pan_burst`/`wheel_burst`/`drag`/`click`/`key`；可选 DebugAgent `record.poll` 升成 `@inproc`（如 `select_map_tab`）。无 Agent 时仍产出纯 `@os` `.il`。
@@ -139,7 +139,7 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
   - Skill：`.cursor/skills/harness-visual-review/SKILL.md`。**不**进默认 `te`。
   - Living：[`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) §Visual review closed-loop。
   - **Plain argv=[] 2D/3D browse：** `py -3 testing/tools/loop/plain_browse_capture.py`。壳 PrintWindow 用 `views_shell_chrome`（青蓝 map hole 允许）；DXGI 金样优先 Vista Present BitBlt + `views_present_dxgi`（拒 TabStrip accent bleed / 壳 ocean clear；可裁顶栏 underline）。Flip/NOREDIRECTION 下 BitBlt 常读不到 swapchain 时，以产品日志为金样（2D：`frame_items=`；3D：`scene3d.present dem` + `lazy attach tab=2`）。3D 用 env `VIEWS_START_MAP_TAB=scene3d`（仍无 argv），不靠 OS 点 TabStrip。
-- Console 短路径：`py -3 testing/tools/loop_runner.py --suite console`（`--self-test-console`；`console.il`；marks：`console-ok` / `console-bench-ok`）。
+- Console 短路径：`py -3 testing/tools/loop_runner.py --suite browser.console`（`--self-test-console`；`browser.console.il`；marks：`console-ok` / `console-bench-ok`）。
   - 产品合同：`SmartGIS.exe --input-showcase` → `out/Debug/input-self-test-mark.txt`
   - 闸门 marks：`input-point-ok` / `input-line-ok` / `input-poly-ok` / `input-ok`（β `FeatureMutation.geom`）
   - 仅 Map Edit 页（不切 Data/3D），避免完整 `--self-test` 的多页切换开销。

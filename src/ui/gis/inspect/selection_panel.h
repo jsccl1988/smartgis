@@ -17,6 +17,7 @@ namespace views {
 
 class Button;
 class Label;
+class ScrollView;
 class TableView;
 
 // Selection-set manager: count + per-layer summary + command buttons.
@@ -57,6 +58,7 @@ class UI_EXPORT SelectionPanel : public View {
   Label* title_ = nullptr;
   Label* count_label_ = nullptr;
   TableView* table_ = nullptr;
+  ScrollView* scroll_ = nullptr;
   Button* clear_ = nullptr;
   Button* invert_ = nullptr;
   Button* zoom_ = nullptr;

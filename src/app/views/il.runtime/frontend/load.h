@@ -13,6 +13,11 @@ namespace app {
 // testing/tools/harness/<family>/<id>/<id>.il (override: --ui-interact-script).
 bool resolve_suite_script(const char* suite_id, std::wstring* out);
 
+// Gesture body under ui.interact.host (apply_scenario_panels "interact").
+// Override: --ui-interact-gesture-script / UI_INTERACT_GESTURE_SCRIPT.
+// Does not read UI_INTERACT_SCRIPT (that names the PE entry / host).
+bool resolve_interact_gesture_script(std::wstring* out);
+
 bool script_file_exists(const std::wstring& path);
 
 }  // namespace app

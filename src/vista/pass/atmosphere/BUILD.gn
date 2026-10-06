@@ -138,7 +138,6 @@ test("atmosphere_frame_test") {
     "atmosphere_frame_test.cc",
     "globe/globe_pass.cc",
     "globe/sat_cloud_pass.cc",
-    "//src/vista/terrain/dem/dem_contour.cc",
     "ocean/gpu_fields.cc",
     "ocean/ocean_pass.cc",
     "sky/sky_pass.cc",
@@ -150,6 +149,7 @@ test("atmosphere_frame_test") {
   ]
   deps = [
     "//src/vista/component/atmosphere:atmosphere_cpu_sources",
+    "//src/vista/terrain:dem_contour_sources",
     "//src/vista/terrain:land_mask",
     "//src/base:base",
     "//src/base/execution:execution",
@@ -164,7 +164,6 @@ test("globe_pass_test") {
     "globe/globe_pass.cc",
     "globe/globe_pass_test.cc",
     "globe/sat_cloud_pass.cc",
-    "//src/vista/terrain/dem/dem_contour.cc",
   ]
   include_dirs += [ "//src" ]
   defines = [
@@ -172,6 +171,7 @@ test("globe_pass_test") {
     "VISTA_EXPORTS",
   ]
   deps = [
+    "//src/vista/terrain:dem_contour_sources",
     "//src/vista/terrain:land_mask",
     "//src/base:base",
     "//src/base/execution:execution",

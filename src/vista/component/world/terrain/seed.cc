@@ -629,6 +629,8 @@ Node* seed_china_dem_into_world(World* world, const LonLatRing* rings,
   if (!world) {
     return nullptr;
   }
+  // Hide first dem_bake mkdir / root resolve under seed cold path.
+  dem_bake_cache_warmup();
   DemRaster dem;
   const std::string path = find_sample_dem_path();
   if (path.empty() || !dem.load_gdal_raster(path.c_str()) || dem.empty()) {

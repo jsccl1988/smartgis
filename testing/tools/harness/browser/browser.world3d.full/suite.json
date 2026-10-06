@@ -1,38 +1,45 @@
-{
-  "id": "browser.world3d.full",
-  "kind": "showcase",
-  "argv": [
-    "--atmosphere-showcase",
-    "full"
-  ],
-  "script": "browser.world3d.full.il",
-  "env": {
-    "ATMOSPHERE_SHOWCASE_GPU": "1",
-    "ATMOSPHERE_SHOWCASE_LINGER_MS": "0"
-  },
-  "bmp": {
-    "path": "atmosphere-showcase-full.bmp",
-    "score_id": "atmosphere_full"
-  },
-  "report_name": "browser_world3d_full_loop_report.json",
-  "probes": [
-    "bmp"
-  ],
-  "loop": {
-    "rounds": 6,
-    "timeout_sec": 90,
-    "build_target": "src/app/views:views",
-    "exe": "SmartGIS.exe"
-  },
-  "visual_review": {
-    "enabled": true,
-    "checklist": [
-      "blue_sky",
-      "sky_gradient",
-      "cloud_visible",
-      "land_detail",
-      "no_flat_clear"
-    ],
-    "expect_notes": "full atmosphere: sky + cloud + land; not washed flat clear"
-  }
+﻿{
+    "id":  "browser.world3d.full",
+    "kind":  "integration",
+    "argv":  [
+                 "--atmosphere-showcase=full"
+             ],
+    "script":  "browser.world3d.full.il",
+    "env":  {
+                "ATMOSPHERE_SHOWCASE_GPU":  "1",
+                "ATMOSPHERE_SHOWCASE_LINGER_MS":  "0"
+            },
+    "mark_leaf":  "atmosphere-showcase-mark.txt",
+    "required_marks":  [
+                           "bmp-ok",
+                           "pass",
+                           "fit-box-ok",
+                           "camera-fly-ok"
+                       ],
+    "bmp":  {
+                "path":  "atmosphere-showcase-full.bmp",
+                "score_id":  "atmosphere_full"
+            },
+    "report_name":  "browser_world3d_full_loop_report.json",
+    "probes":  [
+                   "marks",
+                   "bmp"
+               ],
+    "loop":  {
+                 "rounds":  6,
+                 "timeout_sec":  90,
+                 "build_target":  "src/app/views:views",
+                 "exe":  "SmartGIS.exe"
+             },
+    "visual_review":  {
+                          "enabled":  true,
+                          "checklist":  [
+                                            "blue_sky",
+                                            "sky_gradient",
+                                            "cloud_visible",
+                                            "land_detail",
+                                            "no_flat_clear"
+                                        ],
+                          "expect_notes":  "full atmosphere: sky + cloud + land; not washed flat clear"
+                      }
 }

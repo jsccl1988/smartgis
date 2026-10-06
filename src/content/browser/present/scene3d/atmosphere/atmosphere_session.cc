@@ -232,8 +232,11 @@ bool AtmosphereSession::apply_contour_suite_defaults() {
   p.contour_curves = true;
   p.contour_surface = true;
   p.contour_color_scale = true;
-  p.contour_dem_offset_m = 800.f;
-  p.contour_value_to_meters = 400.f;
+  // Mild elev scale: China-orbit DEM relief is ~0.3; keep the stacked sheet
+  // readable without cliff-like undulation (see attach_tin contour slab).
+  p.contour_dem_offset_m = 500.f;
+  p.contour_value_to_meters = 160.f;
+  p.contour_dem_vert_exag = 0.35f;
   p.contour_surface_alpha = 0.55f;
 
   vista::atmosphere::FieldGrid grid = field_grid();

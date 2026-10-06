@@ -22,8 +22,8 @@
 #include <windows.h>
 
 #include "app/views/browser/plugin/plugin_shell.h"
-#include "app/views/il.runtime/backend/mark.h"
-#include "app/views/il.runtime/backend/run_script.h"
+#include "app/views/il.runtime/backend/horizon/atom/mark.h"
+#include "app/views/il.runtime/codegen/session/run_script.h"
 #include "app/views/util/charset.h"
 #include "base/process/switches.h"
 #include "content/browser/debug/debug_agent.h"
@@ -284,7 +284,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
       return std::string("error: no browser");
     }
     return app::run_execution_script_utf8(*host_->browser_, path_utf8,
-                                           app::detail::kUiShowcaseMarkLeaf);
+                                           app::detail::kUiMarkLeaf);
   };
   content::debug_agent().set_host(std::move(host));
 }

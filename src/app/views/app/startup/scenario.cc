@@ -11,8 +11,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "app/views/il.runtime/backend/dispatch.h"
-#include "app/views/il.runtime/backend/run_script.h"
+#include "app/views/il.runtime/backend/plugin/dispatch.h"
+#include "app/views/il.runtime/codegen/session/run_script.h"
 #include "base/process/switches.h"
 
 namespace app {

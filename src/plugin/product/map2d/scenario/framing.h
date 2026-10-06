@@ -10,9 +10,9 @@ class HarnessShell;
 
 namespace detail {
 
-enum class ShowcaseMode;
+enum class ScenarioMode;
 
-int frame_map2d_showcase(HarnessShell& browser, ShowcaseMode mode,
+int frame_map2d_showcase(HarnessShell& browser, ScenarioMode mode,
                          int showcase_w, int showcase_h);
 
 }  // namespace detail

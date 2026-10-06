@@ -12,7 +12,7 @@ namespace plugin {
 
 class HarnessShell;
 
-bool register_world3d_showcase(content::PluginHost* host);
+bool register_world3d_scenario(content::PluginHost* host);
 
 int scenario_world3d(HarnessShell& browser);
 int scenario_world_preview(HarnessShell& browser);

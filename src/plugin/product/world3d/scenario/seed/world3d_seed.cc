@@ -52,30 +52,30 @@ void seed_world3d_earth_atmosphere(HarnessShell& browser,
   if (!cam) {
     return;
   }
-  plugin_showcase_mark("seed-china-begin");
+  plugin_mark("seed-china-begin");
   content::OrbitFrame* orbit = browser.orbit_frame();
   plugin::World3dLookSeed seed;
   if (!plugin::apply_world3d_look(cam, orbit, plugin::World3dLook::kEastChina,
                                  &seed)) {
     return;
   }
-  plugin_showcase_mark("seed-china-defaults");
+  plugin_mark("seed-china-defaults");
   const bool bare = world3d_perf_bare_enabled();
   if (bare) {
     cam->atmosphere_session().set_cloud_enabled(false);
     cam->atmosphere_session().set_sky_enabled(false);
     cam->atmosphere_session().set_fog_enabled(false);
-    plugin_showcase_mark("perf-bare");
+    plugin_mark("perf-bare");
     std::fprintf(stderr,
                  "plugin-showcase: world3d perf-bare "
                  "(sky/ocean/cloud/fog off)\n");
   } else {
     (void)plugin::present_world3d_contour_suite(cam);
-    plugin_showcase_mark("seed-contour");
-    plugin_showcase_mark("earth-atmo");
+    plugin_mark("seed-contour");
+    plugin_mark("earth-atmo");
   }
-  plugin_showcase_mark("seed-china-flags");
-  plugin_showcase_mark("orbit-china");
+  plugin_mark("seed-china-flags");
+  plugin_mark("orbit-china");
 }
 
 void seed_world3d_true_earth_globe(HarnessShell& browser,
@@ -83,7 +83,7 @@ void seed_world3d_true_earth_globe(HarnessShell& browser,
   if (!cam) {
     return;
   }
-  plugin_showcase_mark("seed-globe-begin");
+  plugin_mark("seed-globe-begin");
   content::OrbitFrame* orbit = browser.orbit_frame();
   plugin::World3dLookSeed seed;
   if (!plugin::apply_world3d_look(cam, orbit, plugin::World3dLook::kGlobe,
@@ -91,15 +91,15 @@ void seed_world3d_true_earth_globe(HarnessShell& browser,
     return;
   }
   (void)plugin::present_world3d_contour_suite(cam);
-  plugin_showcase_mark("seed-contour");
-  plugin_showcase_mark("seed-globe-flags");
+  plugin_mark("seed-contour");
+  plugin_mark("seed-globe-flags");
   if (orbit) {
     plugin::apply_world3d_globe_flythrough(
         orbit, 0.42f, seed.globe_china_yaw, seed.globe_china_pitch,
         &cam->atmosphere_session().globe_pass(), &cam->atmosphere_session());
   }
-  plugin_showcase_mark("earth-atmo");
-  plugin_showcase_mark("orbit-globe");
+  plugin_mark("earth-atmo");
+  plugin_mark("orbit-globe");
 }
 
 void try_attach_world3d_city_tiles(content::Scene3dPresenter* cam) {
@@ -130,10 +130,10 @@ void try_attach_world3d_city_tiles(content::Scene3dPresenter* cam) {
           cam->gpu().set_tileset_content_root(root);
           if (cam->gpu().attach_tileset_json(json.c_str(), json.size(),
                                              "showcase_city")) {
-            plugin_showcase_mark("earth-tiles");
+            plugin_mark("earth-tiles");
             tiles_ok = true;
           } else {
-            plugin_showcase_mark("earth-tiles-attach-fail");
+            plugin_mark("earth-tiles-attach-fail");
             tiles_ok = true;  // attempted
           }
         }
@@ -141,7 +141,7 @@ void try_attach_world3d_city_tiles(content::Scene3dPresenter* cam) {
     }
   }
   if (!tiles_ok) {
-    plugin_showcase_mark("earth-tiles-skip");
+    plugin_mark("earth-tiles-skip");
   }
 }
 
@@ -177,7 +177,7 @@ void apply_world3d_pointcloud_overlay(content::Scene3dPresenter* cam,
   }
   const int n = static_cast<int>(cloud.point_count());
   cam->set_overlay_pointcloud(xyz_lifted.data(), n, rgba);
-  plugin_showcase_mark("overlay-ok");
+  plugin_mark("overlay-ok");
 }
 
 }  // namespace detail

@@ -70,6 +70,21 @@ std::vector<PluginRecord> Registry::list() const {
   return out;
 }
 
+bool Registry::add_builtin_manifest(const char* id, const char* name) {
+  last_error_.clear();
+  if (!id || !id[0]) {
+    last_error_ = "empty id";
+    return false;
+  }
+  Manifest m;
+  m.id = id;
+  m.name = (name && name[0]) ? name : id;
+  m.version = "1.0.0";
+  m.api_version = 2;
+  m.kind = PluginKind::kBuiltin;
+  return add_manifest(m, TrustClass::kBuiltin);
+}
+
 bool Registry::add_manifest(const Manifest& m, TrustClass trust) {
   last_error_.clear();
   if (m.id.empty()) {

@@ -35,7 +35,7 @@ bool contribute_one(content::PluginHost* host, std::string_view command_id,
 
 }  // namespace
 
-bool register_map2d_showcase(content::PluginHost* host) {
+bool register_map2d_scenario(content::PluginHost* host) {
   register_map2d_interact_verbs();
   if (!host) {
     return false;

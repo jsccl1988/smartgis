@@ -20,8 +20,8 @@ VISTA_EXPORT float pick_contour_interval_m(float zmin, float zmax);
 
 // Bake an Origin-like elevation overlay from a row-major height grid
 // (row 0 = north / max-lat). Ocean (h < 1 m) stays transparent.
-// |surface| fills land with the jet ramp; |curves| strokes isolines.
-// |interval_m| <= 0 picks a round interval from the land range.
+// |surface| fills land with the jet ramp; |curves| strokes isolines via
+// dem/contour (msquares → chain/Chaikin → paint). |interval_m| <= 0 auto.
 VISTA_EXPORT bool bake_elevation_overlay_rgba(const float* heights, int cols,
                                               int rows, bool surface,
                                               bool curves, float interval_m,
@@ -29,7 +29,8 @@ VISTA_EXPORT bool bake_elevation_overlay_rgba(const float* heights, int cols,
 
 // True-3D isoline segments on a geographic height grid (leftover Y-up mesh
 // frame: X=-lon, Y=elev, Z=lat). Each segment contributes 6 floats
-// (x0,y0,z0,x1,y1,z1). |z_offset| is added to every vertex Y. Cells where all
+// (x0,y0,z0,x1,y1,z1). Isolines are chained + Chaikin-smoothed in grid space
+// before lon/lat emit. |z_offset| is added to every vertex Y. Cells where all
 // four corners are < |skip_below| are skipped. |interval_m| <= 0 auto-picks.
 VISTA_EXPORT bool extract_contour_curves_3d(const float* heights, int cols,
                                             int rows, double minx, double miny,

@@ -5,7 +5,7 @@
 
 #include <string>
 
-#include "app/views/il.runtime/backend/paths.h"
+#include "app/views/il.runtime/backend/plugin/paths.h"
 #include "plugin/runtime/host/capability/marks.h"
 #include "plugin/runtime/host/capability/shell.h"
 
@@ -17,17 +17,17 @@ thread_local HarnessShell* g_shell = nullptr;
 
 }  // namespace
 
-void bind_plugin_showcase_shell(HarnessShell* shell) {
+void bind_plugin_scenario_shell(HarnessShell* shell) {
   g_shell = shell;
 }
 
-HarnessShell* plugin_showcase_shell() {
+HarnessShell* plugin_scenario_shell() {
   return g_shell;
 }
 
-void plugin_showcase_mark(const char* step) {
+void plugin_mark(const char* step) {
   if (g_shell) {
-    g_shell->mark_named(kMarkPluginShowcase, step, false);
+    g_shell->mark_named(kMarkPlugin, step, false);
   }
 }
 

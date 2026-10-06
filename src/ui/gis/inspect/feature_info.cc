@@ -5,9 +5,11 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <memory>
 #include <utility>
 
+#include "ui/gis/scroll_table.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/dpi.h"
@@ -15,6 +17,7 @@
 #include "ui/views/kernel/widget/widget.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/button/button.h"
+#include "ui/views/primitives/collection/scroll_view.h"
 #include "ui/views/primitives/collection/table_view.h"
 #include "ui/views/primitives/text/label.h"
 
@@ -77,8 +80,13 @@ std::string title_case_geom(std::string geom) {
 
 FeatureInfo::FeatureInfo() {
   set_focusable(true);
-  MarkupRoot loaded = load_markup("inspect/feature_info.ui.xml");
-  if (!loaded.ok()) {
+  std::fprintf(stderr, "startup: FeatureInfo markup begin\n");
+  std::fflush(stderr);
+  MarkupRoot loaded;
+  const bool ok = load_markup_into("inspect/feature_info.ui.xml", {}, &loaded);
+  std::fprintf(stderr, "startup: FeatureInfo markup end ok=%d\n", ok ? 1 : 0);
+  std::fflush(stderr);
+  if (!ok) {
     set_preferred_size({kPreferredWDip, kPreferredHDip});
     return;
   }
@@ -103,6 +111,7 @@ FeatureInfo::FeatureInfo() {
   }
   if (table_) {
     table_->set_row_click([this](int row) { on_field_row_click(row); });
+    scroll_ = wrap_markup_table_in_scroll(table_);
   }
 
   auto fill = std::make_unique<FillLayout>();
@@ -130,6 +139,7 @@ FeatureInfo::~FeatureInfo() {
   nav_label_ = nullptr;
   prev_ = nullptr;
   next_ = nullptr;
+  scroll_ = nullptr;
   table_ = nullptr;
 }
 
@@ -255,6 +265,7 @@ void FeatureInfo::on_device_scale_factor_changed(float old_scale,
   View::on_device_scale_factor_changed(old_scale, new_scale);
   const float s = new_scale > 0.f ? new_scale : 1.f;
   set_preferred_size({dip_to_px(kPreferredWDip, s), dip_to_px(kPreferredHDip, s)});
+  sync_content_size();
 }
 
 void FeatureInfo::absorb_identity_from_fields() {
@@ -387,11 +398,13 @@ void FeatureInfo::rebuild_table() {
       }
     }
   }
-  const int width =
-      bounds().width > 0 ? bounds().width : preferred_size().width;
-  const int height = table_->header_height() +
-                     static_cast<int>(table_->row_count()) * table_->row_height();
-  table_->set_preferred_size({width, height});
+  sync_content_size();
+}
+
+void FeatureInfo::sync_content_size() {
+  const int width = bounds().width > 0 ? bounds().width
+                                       : preferred_size().width;
+  sync_scroll_table_content(table_, scroll_, width);
 }
 
 void FeatureInfo::paint_self(ui::gfx::Canvas* canvas) {

@@ -18,6 +18,7 @@ namespace views {
 class Button;
 class GeoprocessingHistoryPanel;
 class Label;
+class ScrollView;
 class TableView;
 class Textfield;
 
@@ -78,7 +79,9 @@ class UI_EXPORT SpatialAnalysisPanel : public View {
 
   Label* title_ = nullptr;
   TableView* ops_table_ = nullptr;
+  ScrollView* ops_scroll_ = nullptr;
   TableView* params_table_ = nullptr;
+  ScrollView* params_scroll_ = nullptr;
   Textfield* param_edit_ = nullptr;
   Label* progress_label_ = nullptr;
   Button* run_ = nullptr;

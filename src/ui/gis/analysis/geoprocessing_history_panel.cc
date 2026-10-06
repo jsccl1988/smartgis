@@ -6,6 +6,7 @@
 #include <memory>
 #include <utility>
 
+#include "ui/gis/scroll_table.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/dpi.h"
@@ -31,6 +32,7 @@ GeoprocessingHistoryPanel::GeoprocessingHistoryPanel() {
 
   if (table_) {
     table_->set_row_click([this](int row) { on_row_click(row); });
+    scroll_ = wrap_markup_table_in_scroll(table_);
   }
   if (rerun_) {
     rerun_->set_click([this]() { on_rerun(); });
@@ -59,6 +61,7 @@ GeoprocessingHistoryPanel::~GeoprocessingHistoryPanel() {
   remove_all_children();
   title_ = nullptr;
   table_ = nullptr;
+  scroll_ = nullptr;
   rerun_ = nullptr;
   clear_ = nullptr;
 }
@@ -98,6 +101,7 @@ void GeoprocessingHistoryPanel::rebuild_table() {
   if (selected >= 0) {
     table_->set_selected_row(selected);
   }
+  sync_scroll_table_content(table_, scroll_);
 }
 
 void GeoprocessingHistoryPanel::on_row_click(int row) {

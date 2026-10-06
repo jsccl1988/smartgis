@@ -1,0 +1,26 @@
+{
+  "id": "browser.console",
+  "kind": "integration",
+  "argv": [
+    "--harness-console"
+  ],
+  "script": "browser.console.il",
+  "env": {},
+  "mark_leaf": "harness-mark.txt",
+  "required_marks": [
+    "hwnd-ok",
+    "console-ok",
+    "console-bench-ok",
+    "pass"
+  ],
+  "report_name": "browser_console_loop_report.json",
+  "probes": [
+    "marks"
+  ],
+  "loop": {
+    "rounds": 3,
+    "timeout_sec": 120,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGIS.exe"
+  }
+}

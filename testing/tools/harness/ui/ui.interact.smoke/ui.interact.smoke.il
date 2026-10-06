@@ -1,10 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// Minimal DSL smoke example (marks gate).
+// Minimal gesture body under ui.interact.host (marks gate).
 
 script "ui.interact.smoke" {
-  select_map_tab(0) @inproc;
-  pump(150);
+  // Host already seeded china + Map tab; keep this body parse/exec-light.
   window(activate);
   seq {
     pump(40);
@@ -14,6 +13,4 @@ script "ui.interact.smoke" {
     pump(20);
   }
   mark("interact-smoke-ok") @inproc;
-  select_map_tab(0) @inproc;
-  pump(150);
 }

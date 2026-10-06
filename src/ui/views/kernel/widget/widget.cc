@@ -121,10 +121,18 @@ void Widget::layout_contents() {
   contents_->sync_native_tree();
 }
 
+void Widget::ensure_compositor_started() {
+  if (!compositor_ || !contents_) {
+    return;
+  }
+  compositor_->start();
+}
+
 void Widget::pump_until_shell_published(unsigned timeout_ms) {
   if (!hwnd_ || !IsWindow(hwnd_) || timeout_ms == 0) {
     return;
   }
+  ensure_compositor_started();
   schedule_paint();
   const DWORD t0 = GetTickCount();
   MSG msg = {};
@@ -263,6 +271,7 @@ void Widget::on_paint() {
   GetClientRect(hwnd_, &rc);
   const int w = rc.right - rc.left;
   const int h = rc.bottom - rc.top;
+  ensure_compositor_started();
   if (w <= 0 || h <= 0 || IsIconic(hwnd_) || !compositor_) {
     if (compositor_ && (w <= 0 || h <= 0 || IsIconic(hwnd_))) {
       compositor_->release_buffers();

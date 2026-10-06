@@ -16,6 +16,7 @@ namespace views {
 
 class Button;
 class Label;
+class ScrollView;
 class TableView;
 
 // Lists PluginHost processing operators and fires a run callback for the
@@ -50,6 +51,7 @@ class UI_EXPORT ProcessingPanel : public View {
 
   Label* title_ = nullptr;
   TableView* table_ = nullptr;
+  ScrollView* scroll_ = nullptr;
   Button* run_ = nullptr;
   std::vector<Operator> operators_;
   std::string selected_id_;

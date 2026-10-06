@@ -1,9 +1,28 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// Map2d baogrid suite: IL dispatches orthogrid_run → orthogrid.scenario.showcase.
+// Map2d baogrid integration (marks + optional BMP from C++ body).
+// IR: horizon HWND → view map → plugin orthogrid.scenario.showcase.
 
 script "plugin.orthogrid" {
   seq @inproc {
-    orthogrid_run();
+    // --- horizon ---
+    mark("show");
+    pump(ms=400);
+    require_hwnd();
+    mark("hwnd-ok");
+    suppress_dialogs(on=1);
+
+    // --- view: map face ---
+    wait_viewport(face="map", ms=30000, frame=0);
+    mark("map-ready");
+
+    // --- plugin ---
+    require_plugins();
+    run_plugin_command("orthogrid.scenario.showcase");
+    fit_extent();
+    pump(ms=300);
+    invalidate_map2d();
+    pump(ms=200);
+    mark("extent-ok");
   }
 }

@@ -1,6 +1,6 @@
 {
   "id": "ui.interact",
-  "kind": "showcase",
+  "kind": "integration",
   "argv": [
     "--ui-showcase",
     "interact",
@@ -8,7 +8,8 @@
     "flycube"
   ],
   "driver": "inproc",
-  "script": "ui.interact.il",
+  "script": "ui.interact.host.il",
+  "gesture_script": "ui.interact.il",
   "window_title": "SmartGIS Views",
   "env": {
     "UI_SHOWCASE_LINGER_MS": "0",
@@ -56,6 +57,6 @@
       "chrome_readable",
       "no_panel_collapse"
     ],
-    "expect_notes": "Product Vista: Map2d ContentMapView + Scene3d FlyCube. 2D pan/wheel → resize 960x640 → 3D China DEM orbit/wheel → resize 1440x900 then 1024x700 → restore 1280x800 + 2D pan/wheel; score end frame + 3d sibling BMP + HWND record"
+    "expect_notes": "Product Vista: Map2d ContentMapView + Scene3d FlyCube. Host chrome + gesture body. 2D pan/wheel → resize → 3D China DEM orbit/wheel → resize → restore + 2D; score end frame + 3d sibling BMP + HWND record"
   }
 }

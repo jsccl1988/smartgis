@@ -1,9 +1,29 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// Map2d china carto showcase (BMP gate).
+// China carto showcase. Same IR lanes as browser.map2d.browse (integration).
+// Payload: map2d.scenario.china (smartgis.map2d).
 
-script "browser.browser.map2d.china" {
+script "browser.map2d.china" {
   seq @inproc {
-    map2d_run("china");
+    // --- horizon ---
+    mark("show");
+    pump(ms=400);
+    require_hwnd();
+    mark("hwnd-ok");
+    suppress_dialogs(on=1);
+
+    // --- view: map face ---
+    wait_viewport(face="map", ms=30000, frame=0);
+    mark("map-ready");
+
+    // --- plugin ---
+    require_plugins();
+    run_plugin_command("map2d.scenario.china");
+    // Full document extent after payload lands.
+    fit_extent();
+    pump(ms=300);
+    invalidate_map2d();
+    pump(ms=200);
+    mark("extent-ok");
   }
 }

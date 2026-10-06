@@ -319,7 +319,7 @@ def run_showcase(row_id: str, mode: str, surface: str, role: str) -> dict:
     row = {
         "row_id": row_id,
         "role": role,
-        "kind": "showcase",
+        "kind": "integration",
         "surface": surface,
         "rc": proc.returncode,
         "pass": ok,
@@ -338,7 +338,7 @@ def run_showcase(row_id: str, mode: str, surface: str, role: str) -> dict:
 def _hottest_phase(rows: list[dict]) -> tuple[str, str, float]:
     best = ("", "", -1.0)
     for r in rows:
-        if r.get("role") != "perf" or r.get("kind") != "showcase":
+        if r.get("role") != "perf" or r.get("kind") != "integration":
             continue
         for key in ("commit_ms", "raster_ms", "present_ms"):
             v = r.get(key)
@@ -405,7 +405,7 @@ def _recommendations(rows: list[dict]) -> list[str]:
     overlay_bytes = 0
     layout = 0
     for r in rows:
-        if r.get("kind") != "showcase":
+        if r.get("kind") != "integration":
             continue
         fonts += int(r.get("create_font") or 0)
         brushes += int(r.get("create_brush") or 0)
@@ -474,7 +474,7 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "row_id": row_id,
                     "role": role,
-                    "kind": "showcase",
+                    "kind": "integration",
                     "surface": surface,
                     "rc": 127,
                     "pass": False,
@@ -553,7 +553,7 @@ def main(argv: list[str] | None = None) -> int:
 
     bench_rows = [r for r in rows if r.get("kind") == "bench" and r.get("role") == "perf"]
     chrome_rows = [
-        r for r in rows if r.get("kind") == "showcase" and r.get("role") == "perf"
+        r for r in rows if r.get("kind") == "integration" and r.get("role") == "perf"
     ]
     smoke_rows = [r for r in rows if r.get("role") == "smoke"]
     tips = _recommendations(rows)
@@ -573,7 +573,7 @@ def main(argv: list[str] | None = None) -> int:
         "| --- | --- | --- | --- | --- |",
     ]
     for r in rows:
-        if r.get("kind") != "showcase":
+        if r.get("kind") != "integration":
             continue
         insp = r.get("inspect_png") or r.get("bmp") or "—"
         lines.append(

@@ -115,7 +115,6 @@ bool Widget::init(const InitParams& params) {
   theme_watch_ = std::make_unique<WidgetThemeWatch>(this);
   ThemeService::get().add_observer(theme_watch_.get());
   compositor_ = std::make_unique<ShellCompositor>();
-  compositor_->start();
   return true;
 }
 
@@ -131,6 +130,7 @@ void Widget::show() {
   if (!hwnd_) {
     return;
   }
+  ensure_compositor_started();
   ShowWindow(hwnd_, SW_SHOW);
   // CreateWindow-time GetDpiForWindow can still report 96 until the HWND is
   // shown on its monitor; without a resync horizon stays at 1.0x until the

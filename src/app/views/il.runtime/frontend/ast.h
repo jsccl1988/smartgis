@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef IL_RUNTIME_EXECUTION_FRONT_AST_H_
-#define IL_RUNTIME_EXECUTION_FRONT_AST_H_
+#ifndef IL_RUNTIME_FRONTEND_AST_H_
+#define IL_RUNTIME_FRONTEND_AST_H_
 
 #include <memory>
 #include <string>
@@ -156,4 +156,4 @@ using VarMap = std::unordered_map<std::string, std::string>;
 }  // namespace detail
 }  // namespace app
 
-#endif  // IL_RUNTIME_EXECUTION_FRONT_AST_H_
+#endif  // IL_RUNTIME_FRONTEND_AST_H_

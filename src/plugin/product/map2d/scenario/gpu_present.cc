@@ -41,9 +41,9 @@ void run_optional_map2d_gpu_present(HarnessShell& browser,
   if (!map2d || !map2d_want_gpu_present()) {
     return;
   }
-  map2d_showcase_mark("gpu-try");
+  map2d_mark("gpu-try");
   if (map2d->hosts_scenic_present()) {
-    map2d_showcase_mark("gpu-present-enter");
+    map2d_mark("gpu-present-enter");
     content::reset_map2d_phase_sample();
     const auto t_cold = std::chrono::steady_clock::now();
     const bool ok_cold =
@@ -57,7 +57,7 @@ void run_optional_map2d_gpu_present(HarnessShell& browser,
                  "present_gpu_cold_ms=%lld scenic=1\n",
                  ok_cold ? 1 : 0, present_gpu_cold_ms, present_gpu_cold_ms);
     log_map2d_phase_sample("phase_cold_present");
-    map2d_showcase_mark(ok_cold ? "gpu-present-ok" : "gpu-present-fail");
+    map2d_mark(ok_cold ? "gpu-present-ok" : "gpu-present-fail");
 
     content::reset_map2d_phase_sample();
     const auto t_warm = std::chrono::steady_clock::now();
@@ -72,19 +72,19 @@ void run_optional_map2d_gpu_present(HarnessShell& browser,
                  "scenic=1\n",
                  ok_warm ? 1 : 0, present_gpu_warm_ms);
     log_map2d_phase_sample("phase_warm_present");
-    map2d_showcase_mark(ok_warm ? "gpu-warm-ok" : "gpu-warm-fail");
+    map2d_mark(ok_warm ? "gpu-warm-ok" : "gpu-warm-fail");
     return;
   }
   bool owned_device = false;
   render::rhi::Device* device = acquire_map2d_showcase_gpu_device(
       browser, showcase_w, showcase_h, &owned_device);
   if (!device) {
-    map2d_showcase_mark("gpu-skip");
+    map2d_mark("gpu-skip");
     std::fprintf(stderr, "map2d-showcase: present_gpu skipped (no device)\n");
     return;
   }
 
-  map2d_showcase_mark("gpu-present-enter");
+  map2d_mark("gpu-present-enter");
   std::fprintf(stderr, "map2d-showcase: gpu device acquired owned=%d\n",
                owned_device ? 1 : 0);
   std::fflush(stderr);
@@ -100,7 +100,7 @@ void run_optional_map2d_gpu_present(HarnessShell& browser,
                "present_gpu_cold_ms=%lld\n",
                ok_cold ? 1 : 0, present_gpu_cold_ms, present_gpu_cold_ms);
   log_map2d_phase_sample("phase_cold_present");
-  map2d_showcase_mark(ok_cold ? "gpu-present-ok" : "gpu-present-fail");
+  map2d_mark(ok_cold ? "gpu-present-ok" : "gpu-present-fail");
 
   content::reset_map2d_phase_sample();
   const auto t_warm = std::chrono::steady_clock::now();
@@ -113,7 +113,7 @@ void run_optional_map2d_gpu_present(HarnessShell& browser,
                "map2d-showcase: present_gpu_warm=%d present_gpu_warm_ms=%lld\n",
                ok_warm ? 1 : 0, present_gpu_warm_ms);
   log_map2d_phase_sample("phase_warm_present");
-  map2d_showcase_mark(ok_warm ? "gpu-warm-ok" : "gpu-warm-fail");
+  map2d_mark(ok_warm ? "gpu-warm-ok" : "gpu-warm-fail");
 
   if (owned_device) {
     device->shutdown();

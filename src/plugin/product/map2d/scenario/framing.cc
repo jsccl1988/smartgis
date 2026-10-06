@@ -42,14 +42,14 @@ void frame_china_map2d(HarnessShell& browser, int view_w, int view_h) {
 
 }  // namespace
 
-int frame_map2d_showcase(HarnessShell& browser, ShowcaseMode mode,
+int frame_map2d_showcase(HarnessShell& browser, ScenarioMode mode,
                          int showcase_w, int showcase_h) {
   content::ViewFrame* frame = browser.view_frame();
   if (!frame) {
     std::fprintf(stderr, "map2d-showcase: ViewFrame missing\n");
     return 57;
   }
-  if (mode == ShowcaseMode::kOrthogrid) {
+  if (mode == ScenarioMode::kOrthogrid) {
     constexpr content::Extent2 kOrthogridFraming{0.0, 0.0, 1.0, 1.0};
     frame->apply_world_extent(kOrthogridFraming, showcase_w, showcase_h);
     double minx = 0, miny = 0, maxx = 0, maxy = 0;

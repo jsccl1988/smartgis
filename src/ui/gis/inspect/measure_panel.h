@@ -17,6 +17,7 @@ namespace views {
 
 class Label;
 class RadioButton;
+class ScrollView;
 class TableView;
 
 // Measure results board: mode radios + host-pushed result rows.
@@ -61,6 +62,7 @@ class UI_EXPORT MeasurePanel : public View {
   RadioButton* area_ = nullptr;
   RadioButton* azimuth_ = nullptr;
   TableView* table_ = nullptr;
+  ScrollView* scroll_ = nullptr;
 
   Mode mode_ = Mode::kLength;
   std::string unit_text_ = "m";

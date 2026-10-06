@@ -27,13 +27,7 @@ bool add_builtin(plugin::Registry* registry, const BuiltinPlugin& b) {
   if (!registry || !b.id || !b.start) {
     return false;
   }
-  plugin::Manifest m;
-  m.id = b.id;
-  m.name = b.name ? b.name : b.id;
-  m.version = "1.0.0";
-  m.api_version = 2;
-  m.kind = plugin::PluginKind::kBuiltin;
-  if (!registry->add_manifest(m, plugin::TrustClass::kBuiltin)) {
+  if (!registry->add_builtin_manifest(b.id, b.name ? b.name : b.id)) {
     return false;
   }
   return registry->register_builtin_hooks(b.id, b.start, stop_noop);

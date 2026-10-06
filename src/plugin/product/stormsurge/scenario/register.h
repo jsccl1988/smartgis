@@ -12,7 +12,7 @@ namespace plugin {
 
 class HarnessShell;
 
-bool register_stormsurge_showcase(content::PluginHost* host);
+bool register_stormsurge_scenario(content::PluginHost* host);
 int scenario_stormsurge(HarnessShell& browser);
 
 }  // namespace plugin

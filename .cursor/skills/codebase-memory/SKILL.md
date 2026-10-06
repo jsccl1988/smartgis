@@ -36,4 +36,10 @@ Index only when the user asks (`index_repository` `name=smartgis`, `persistence=
 
 Grep/Glob only if CBM is down, the user gave an exact path, or the search is already scoped (`path` required).
 
+## Path filters (gotcha)
+
+- `search_graph(file_pattern=…)` is a **substring** on `file_path`, **not** regex. Use `codegen/lower` / `il.runtime/backend`. Do **not** pass `.*….*` or `\\.`; those return empty and look like “path filter broken”.
+- `search_code(path_filter=…)` **is** regex.
+- Prefer `qn_pattern` (regex) to scope a tree after moves: `.*il\\.runtime\\.codegen\\.lower.*`.
+
 Vendor matrix: user skill `cbm-code-discovery` and `~/.cursor/skills/codebase-memory/SKILL.md`.

@@ -159,6 +159,10 @@ class UI_EXPORT Widget {
   void take_pending_dirty(int width_px, int height_px, Rect* out);
   bool has_pending_paint() const;
   void shutdown_compositor();
+  // Raster worker starts on show / first paint with contents — not in init(),
+  // so nested load_markup during init_shell does not share the debug CRT heap
+  // with ShellCompositor (FeatureInfo CssParser dtor hang).
+  void ensure_compositor_started();
 
   void fire_will_close();
 

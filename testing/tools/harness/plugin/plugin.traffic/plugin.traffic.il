@@ -1,9 +1,22 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// Product plugin traffic.cost_path → map path viz + frame export.
+// Product plugin traffic.cost_path integration → map path viz + frame export.
+// IR: horizon HWND → view map → plugin processing → view export.
 
 script "plugin.traffic" {
   seq @inproc {
+    // --- horizon ---
+    mark("show");
+    pump(ms=400);
+    require_hwnd();
+    mark("hwnd-ok");
+    suppress_dialogs(on=1);
+
+    // --- view: map face ---
+    wait_viewport(face="map", ms=30000, frame=0);
+    mark("map-ready");
+
+    // --- plugin ---
     require_plugins();
     resolve_data(kind="plugin", leaf="traffic_network_sample.geojson", as="net");
     require_var(name="net", fail_mark="traffic-sample-fail");
@@ -19,6 +32,7 @@ script "plugin.traffic" {
     pump(ms=400);
     invalidate_map2d();
     pump(ms=200);
+    mark("extent-ok");
     export_bmp(leaf="plugin-showcase-traffic.bmp", frame="traffic_beijing");
     mark("bmp-ok");
     // Live BMP after commit is the harness gate (peer plugin.flood).

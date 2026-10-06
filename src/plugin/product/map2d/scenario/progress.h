@@ -10,20 +10,20 @@ class HarnessShell;
 
 namespace detail {
 
-enum class ShowcaseMode {
+enum class ScenarioMode {
   kChina,
   kAlign,
   kOrthogrid,
 };
 
-inline constexpr int kMap2dShowcaseDefaultW = 1280;
-inline constexpr int kMap2dShowcaseDefaultH = 720;
+inline constexpr int kMap2dDefaultW = 1280;
+inline constexpr int kMap2dDefaultH = 720;
 
-void bind_map2d_showcase_shell(HarnessShell* shell);
-HarnessShell* map2d_showcase_shell();
+void bind_map2d_scenario_shell(HarnessShell* shell);
+HarnessShell* map2d_scenario_shell();
 
-void map2d_showcase_mark(const char* step);
-void map2d_showcase_pixel_size(int* out_w, int* out_h);
+void map2d_mark(const char* step);
+void map2d_pixel_size(int* out_w, int* out_h);
 
 }  // namespace detail
 }  // namespace plugin

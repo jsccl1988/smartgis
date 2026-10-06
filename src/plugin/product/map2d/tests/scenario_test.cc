@@ -31,7 +31,7 @@ int main() {
     return 1;
   }
   expect(plugin::register_map2d_scenarios(host), "register_map2d_scenarios");
-  expect(plugin::register_map2d_showcase(host), "register_map2d_showcase");
+  expect(plugin::register_map2d_scenario(host), "register_map2d_scenario");
 
   std::vector<std::string> ids;
   host->for_each_command(

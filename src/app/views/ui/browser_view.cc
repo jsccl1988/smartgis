@@ -1016,7 +1016,18 @@ void BrowserView::ensure_inspector_tab(int index) {
   if (!inspector_tabs_ || index < 0) {
     return;
   }
-  if (index == measure_tab_ && !measure_panel_) {
+  if (index == feature_info_tab_ && !feature_info_) {
+    auto panel = std::make_unique<ui::views::FeatureInfo>();
+    feature_info_ = panel.get();
+    inspector_tabs_->replace_page(index, std::move(panel));
+    wire_edit_feedback();
+  } else if (index == feature_info_tab_ + 1 && feature_info_tab_ >= 0 &&
+             !attribute_table_) {
+    auto panel = std::make_unique<ui::views::AttributeTable>();
+    attribute_table_ = panel.get();
+    inspector_tabs_->replace_page(index, std::move(panel));
+    wire_edit_feedback();
+  } else if (index == measure_tab_ && !measure_panel_) {
     auto panel = std::make_unique<ui::views::MeasurePanel>();
     measure_panel_ = panel.get();
     inspector_tabs_->replace_page(index, std::move(panel));

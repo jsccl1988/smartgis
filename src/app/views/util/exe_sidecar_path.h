@@ -141,7 +141,7 @@ inline const wchar_t* capture_scenario_prefix_w(const wchar_t* leaf) {
       starts(L"views-plain-") ||
       starts(L"views_plain_") || starts(L"browse_") || starts(L"browse-") ||
       starts(L"console_") || starts(L"console-") || starts(L"input_")) {
-    return L"shell\\";
+    return L"browser\\";
   }
   if (leaf[0] == L'_') {
     return L"_scratch\\";
@@ -165,7 +165,11 @@ inline const char* capture_scenario_prefix_a(const char* leaf) {
     return "plugin\\";
   }
   if (starts("atmosphere-") || starts("atmosphere_") || starts("map2d-") ||
-      starts("map2d_") || starts("browser-") || starts("browser_")) {
+      starts("map2d_") || starts("browser-") || starts("browser_") ||
+      starts("input-") || starts("self-test-") || starts("harness-") ||
+      starts("views-plain-") || starts("views_plain_") || starts("browse_") ||
+      starts("browse-") || starts("console_") || starts("console-") ||
+      starts("input_")) {
     return "browser\\";
   }
   if (starts("ui-") || starts("ui_")) {
@@ -173,12 +177,6 @@ inline const char* capture_scenario_prefix_a(const char* leaf) {
   }
   if (starts("legacy-") || starts("legacy_")) {
     return "legacy\\";
-  }
-  if (starts("input-") || starts("self-test-") || starts("harness-") ||
-      starts("views-plain-") ||
-      starts("views_plain_") || starts("browse_") || starts("browse-") ||
-      starts("console_") || starts("console-") || starts("input_")) {
-    return "shell\\";
   }
   if (leaf[0] == '_') {
     return "_scratch\\";
@@ -190,7 +188,7 @@ inline const char* capture_scenario_prefix_a(const char* leaf) {
 // "<exe_dir>\\captures\\[<scenario>\\]<leaf>".
 // |leaf| may be nested ("record\\…", "analysis\\flood\\frame_0000.bmp").
 // Flat showcase/mark leaves are routed into scenario subdirs (plugin/,
-// ui/, legacy/, shell/, _scratch/). Creates captures/ and any intermediate
+// ui/, legacy/, browser/, _scratch/). Creates captures/ and any intermediate
 // directories when missing.
 inline bool exe_capture_path(wchar_t* path,
                              size_t path_cch,

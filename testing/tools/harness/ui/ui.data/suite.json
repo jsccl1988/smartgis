@@ -1,0 +1,45 @@
+{
+  "id": "ui.data",
+  "kind": "integration",
+  "argv": [
+    "--ui-showcase",
+    "data"
+  ],
+  "script": "ui.data.il",
+  "env": {
+    "UI_SHOWCASE_LINGER_MS": "0",
+    "UI_FORENSICS": "1",
+    "UI_THEME": "dark"
+  },
+  "mark_leaf": "ui-showcase-mark.txt",
+  "required_marks": [
+    "hud-fps-ok",
+    "bmp-ok",
+    "pass"
+  ],
+  "bmp": {
+    "path": "ui-showcase-data.bmp",
+    "score_id": "ui_shell_dark"
+  },
+  "report_name": "ui_data_loop_report.json",
+  "probes": [
+    "bmp",
+    "marks"
+  ],
+  "loop": {
+    "rounds": 6,
+    "timeout_sec": 120,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGIS.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "chrome_readable",
+      "no_panel_collapse",
+      "no_sibling_overlap",
+      "dark_theme_consistent"
+    ],
+    "expect_notes": "Map Data tab chrome; score_id=ui_shell_dark; map pixels not asserted"
+  }
+}
