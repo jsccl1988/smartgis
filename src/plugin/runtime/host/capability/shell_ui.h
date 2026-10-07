@@ -8,7 +8,6 @@
 #include <memory>
 #include <string_view>
 
-#include "plugin/runtime/host/plugin_host_export.h"
 #include "ui/views/kernel/view/view.h"
 
 namespace plugin {
@@ -25,9 +24,15 @@ class ShellUiSink {
   // Inspector pages: measure | selection | legend | layer | atmosphere | …
   using ShowInspectFn = std::function<bool(std::string_view panel)>;
 
-  PLUGIN_HOST_EXPORT void set_bridges(MountInspectorFn mount,
-                                      ShowDebugTabFn debug_tab,
-                                      ShowInspectFn inspect);
+  // Inline: HostCapabilities lives in the Views EXE; out-of-line
+  // PLUGIN_HOST_EXPORT set_bridges assigned std::function across the
+  // plugin_host_d CRT boundary and AVd in _Tidy (rax=cdcdcdcd) at shell init.
+  void set_bridges(MountInspectorFn mount, ShowDebugTabFn debug_tab,
+                   ShowInspectFn inspect) {
+    mount_ = std::move(mount);
+    show_debug_ = std::move(debug_tab);
+    show_inspect_ = std::move(inspect);
+  }
 
   bool mount_inspector(std::string_view dock_id, std::string_view title,
                        std::unique_ptr<ui::views::View> page) const {

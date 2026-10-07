@@ -43,11 +43,8 @@ bool register_map2d_scenario(content::PluginHost* host) {
   if (!host) {
     return false;
   }
-  if (tool::CommandCatalog* catalog = host->commands()) {
-    if (catalog->contains("map2d.scenario.china")) {
-      return true;
-    }
-  }
+  // Do not catalog->contains here — after register_map2d the tool_d map may
+  // already be skewed; contribute_command is idempotent on handlers_.
   const ScenarioCmd cmds[] = {
       {"map2d.scenario.china", "Map2d china showcase", scenario_china},
       {"map2d.scenario.align", "Map2d align showcase", scenario_align},

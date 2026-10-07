@@ -40,15 +40,8 @@ bool register_map2d(content::PluginHost* host) {
   if (!host) {
     return false;
   }
-  if (tool::CommandCatalog* catalog = host->commands()) {
-    if (catalog->contains("map2d.seed")) {
-      if (!catalog->contains("print.preview") &&
-          !detail::contribute_print(host)) {
-        return false;
-      }
-      return register_map2d_sink_ops(host);
-    }
-  }
+  // Avoid CommandCatalog::contains — cross-module handler emplace can leave
+  // the tool_d map unreadable (browser.harness AV in register_map2d_scenario).
   if (!register_map2d_seed(host)) {
     return false;
   }

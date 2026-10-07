@@ -43,11 +43,8 @@ inline bool contribute_scenario_command(content::PluginHost* host,
   if (!host || plugin_id.empty() || !fn) {
     return false;
   }
-  if (tool::CommandCatalog* catalog = host->commands()) {
-    if (catalog->contains(command_id)) {
-      return true;
-    }
-  }
+  // Prefer contribute_command idempotency (handlers_) over catalog->contains;
+  // a skewed CommandCatalog map AVs in tool_d find after cross-module emplace.
   return host->contribute_command(
       plugin_id, command_id, title, "tools",
       [host, fn, prep](const tool::CommandArgs&) {

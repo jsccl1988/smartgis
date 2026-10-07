@@ -31,11 +31,7 @@ bool register_map2d_scenarios(content::PluginHost* host) {
   if (!host) {
     return false;
   }
-  if (tool::CommandCatalog* catalog = host->commands()) {
-    if (catalog->contains("map2d.scenario.edit_m0")) {
-      return true;
-    }
-  }
+  // Idempotent via contribute_command; avoid catalog->contains (tool_d skew).
   const ScenarioCmd cmds[] = {
       {"map2d.scenario.edit_m0", "Map2d edit_m0 scenario", scenario_edit_m0},
       {"map2d.scenario.layers_m1", "Map2d layers_m1 scenario",

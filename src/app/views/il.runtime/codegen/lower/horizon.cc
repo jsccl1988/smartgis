@@ -81,7 +81,9 @@ std::optional<Action> lower_key(const CallStmt& c, VarMap*) {
 std::optional<Action> lower_shell(const CallStmt& c, VarMap* vars) {
   return lower_ops(
       c, vars, op(lower_pump, "pump"),
-      op(lower_index<ir::select_map_tab>, "select_map_tab"),
+      op(lower_index<ir::select_view_tab>, "select_view_tab"),
+      // Legacy IL name (pre view-tab rename); same Host slot.
+      op(lower_index<ir::select_view_tab>, "select_map_tab"),
       op(lower_index<ir::catalog_tab>, "catalog_tab"),
       op(lower_index<ir::inspector_tab>, "inspector_tab"),
       op(lower_mark, "mark"),
