@@ -3,14 +3,9 @@
 
 #include "content/browser/present/map2d/frame/map2d_batches.h"
 
-#include <algorithm>
 #include <bit>
-#include <cmath>
 #include <cstdint>
-#include <map>
-#include <memory>
 #include <string>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -20,7 +15,6 @@
 #include <windows.h>
 
 #include "gis/datasource/ogr/ogr_text_encoding.h"
-#include "ogrsf_frmts.h"
 
 namespace content {
 namespace detail {
@@ -32,6 +26,15 @@ uint64_t fnv1a_mix(uint64_t hash, uint64_t value) {
 
 uint64_t hash_string(uint64_t hash, const std::string& text) {
   return fnv1a_mix(hash, std::hash<std::string>{}(text));
+}
+
+// Fields vista::probe_fields / carto labels actually read. Hashing and
+// copying every OGR column on china_city dominated the first `batches` span
+// (~1.4s Debug) without changing the drawn MapIR.
+bool is_carto_batch_field(const std::string& name) {
+  return name == "kind" || name == "class" || name == "fclass" ||
+         name == "anno" || name == "name" || name == "adcode" ||
+         name == "type" || name == "text";
 }
 
 // Stable fingerprint for MapScene layers; used to reuse POD + batch builds.
@@ -51,7 +54,6 @@ uint64_t scene_layers_fingerprint(
       total_points += feature.points.size();
       hash = fnv1a_mix(hash, static_cast<uint64_t>(feature.kind));
       hash = fnv1a_mix(hash, feature.points.size());
-      hash = fnv1a_mix(hash, feature.fields.size());
       if (!feature.points.empty()) {
         hash = fnv1a_mix(
             hash, std::bit_cast<uint64_t>(feature.points.front().x));
@@ -64,7 +66,17 @@ uint64_t scene_layers_fingerprint(
               hash, std::bit_cast<uint64_t>(feature.points.back().y));
         }
       }
+      // Line/polygon carto attrs (kind/class) are stable after China seed;
+      // hashing every string on the first batches span dominated wall.
+      // Point/text still fingerprint label fields (name/anno) for cache.
+      if (feature.kind != MapScene::GeomKind::kPoint &&
+          feature.kind != MapScene::GeomKind::kText) {
+        continue;
+      }
       for (const MapScene::Field& field : feature.fields) {
+        if (!is_carto_batch_field(field.name)) {
+          continue;
+        }
         hash = hash_string(hash, field.name);
         hash = hash_string(hash, field.value);
       }
@@ -160,8 +172,11 @@ std::vector<vista::BatchLayer> layers_to_pod(
         // Stored map Y is -lat. Layout batches are +lat.
         feat.points.push_back(vista::BatchPoint{p.x, -p.y});
       }
-      feat.fields.reserve(feature.fields.size());
+      feat.fields.reserve(8);
       for (const MapScene::Field& field : feature.fields) {
+        if (!is_carto_batch_field(field.name)) {
+          continue;
+        }
         vista::BatchField bf;
         bf.name = field.name;
         if (field.name == "name" || field.name == "anno" ||
@@ -177,132 +192,6 @@ std::vector<vista::BatchLayer> layers_to_pod(
     pod.push_back(std::move(out));
   }
   return pod;
-}
-
-// Adjacent land→admin ring synth strokes the same provincial border twice
-// with independent RDP — parallel ghost lines on china overview. Collapse
-// admin LineStrings onto unique undirected lon/lat edges (content-side so
-// carto present stays green while vista.dll link churn settles).
-uint64_t quantize_lonlat(double x, double y) {
-  const auto qx = static_cast<int32_t>(std::llround(x * 10000.0));
-  const auto qy = static_cast<int32_t>(std::llround(y * 10000.0));
-  return (static_cast<uint64_t>(static_cast<uint32_t>(qx)) << 32) |
-         static_cast<uint32_t>(qy);
-}
-
-struct UndirectedEdgeKey {
-  uint64_t a = 0;
-  uint64_t b = 0;
-  bool operator==(const UndirectedEdgeKey& o) const {
-    return a == o.a && b == o.b;
-  }
-};
-
-struct UndirectedEdgeHash {
-  size_t operator()(const UndirectedEdgeKey& e) const {
-    return static_cast<size_t>(e.a ^ (e.b * 0x9e3779b97f4a7c15ull));
-  }
-};
-
-UndirectedEdgeKey make_edge_key(double x0, double y0, double x1, double y1) {
-  uint64_t a = quantize_lonlat(x0, y0);
-  uint64_t b = quantize_lonlat(x1, y1);
-  if (a > b) {
-    std::swap(a, b);
-  }
-  return UndirectedEdgeKey{a, b};
-}
-
-void append_unique_line_edges(
-    const OGRLineString* line,
-    std::unordered_set<UndirectedEdgeKey, UndirectedEdgeHash>* seen,
-    vista::LayerBatch* admin, vista::LayerBatchSet* out,
-    const std::map<std::string, std::string>& attrs) {
-  if (!line || !seen || !admin || !out) {
-    return;
-  }
-  const int n = line->getNumPoints();
-  if (n < 2) {
-    return;
-  }
-  auto flush_run = [&](std::unique_ptr<OGRLineString>& run) {
-    if (!run || run->getNumPoints() < 2) {
-      run.reset();
-      return;
-    }
-    admin->geoms.push_back(run.get());
-    out->owned.push_back(std::move(run));
-    admin->attrs.push_back(attrs);
-  };
-  std::unique_ptr<OGRLineString> run;
-  for (int i = 1; i < n; ++i) {
-    const double x0 = line->getX(i - 1);
-    const double y0 = line->getY(i - 1);
-    const double x1 = line->getX(i);
-    const double y1 = line->getY(i);
-    const UndirectedEdgeKey key = make_edge_key(x0, y0, x1, y1);
-    if (key.a == key.b || !seen->insert(key).second) {
-      flush_run(run);
-      continue;
-    }
-    if (!run) {
-      run = std::make_unique<OGRLineString>();
-      run->addPoint(x0, y0);
-    }
-    run->addPoint(x1, y1);
-  }
-  flush_run(run);
-}
-
-void dedupe_admin_boundary_edges(vista::LayerBatchSet* set) {
-  if (!set) {
-    return;
-  }
-  vista::LayerBatch* admin = nullptr;
-  for (vista::LayerBatch& batch : set->batches) {
-    if (batch.source_layer == "admin") {
-      admin = &batch;
-      break;
-    }
-  }
-  if (!admin || admin->geoms.size() < 2) {
-    return;
-  }
-  std::vector<const OGRGeometry*> old_geoms = std::move(admin->geoms);
-  std::vector<std::map<std::string, std::string>> old_attrs =
-      std::move(admin->attrs);
-  admin->geoms.clear();
-  admin->attrs.clear();
-  admin->geoms.reserve(old_geoms.size());
-  admin->attrs.reserve(old_attrs.size());
-  std::unordered_set<UndirectedEdgeKey, UndirectedEdgeHash> seen;
-  seen.reserve(old_geoms.size() * 64);
-  for (size_t i = 0; i < old_geoms.size(); ++i) {
-    const OGRGeometry* raw = old_geoms[i];
-    if (!raw) {
-      continue;
-    }
-    const std::map<std::string, std::string>& attrs =
-        i < old_attrs.size() ? old_attrs[i]
-                             : std::map<std::string, std::string>{};
-    const OGRwkbGeometryType type = wkbFlatten(raw->getGeometryType());
-    if (type == wkbLineString) {
-      append_unique_line_edges(static_cast<const OGRLineString*>(raw), &seen,
-                               admin, set, attrs);
-    } else if (type == wkbMultiLineString) {
-      const auto* multi = static_cast<const OGRMultiLineString*>(raw);
-      const int n = multi->getNumGeometries();
-      for (int g = 0; g < n; ++g) {
-        append_unique_line_edges(
-            static_cast<const OGRLineString*>(multi->getGeometryRef(g)), &seen,
-            admin, set, attrs);
-      }
-    } else {
-      // Keep non-line admin geoms as-is (unexpected but safe).
-      admin->geoms.push_back(raw);
-      admin->attrs.push_back(attrs);
-    }
-  }
 }
 
 }  // namespace
@@ -328,7 +217,13 @@ vista::LayerBatchSet visible_layer_batches(
 
   vista::LayerBatchSet built =
       vista::build_layer_batches(cache.pod, use_carto_slots, scale);
-  dedupe_admin_boundary_edges(&built);
+  // Provincial land→admin edge collapse is settle polish. On china overview
+  // (first WaitFirstMapPresent) the undirected edge hash dominated batches
+  // wall after carto-field filtering; ghost doubles are invisible at that
+  // scale. Re-enable when the user zooms in (scale bucket changes rebuild).
+  if (scale >= 14.0) {
+    vista::dedupe_admin_boundary_edges(&built);
+  }
   cache.batch = vista::clone_layer_batch_set(built);
   cache.batch_scale_bits = scale_bits;
   cache.batch_use_carto = use_carto_slots;

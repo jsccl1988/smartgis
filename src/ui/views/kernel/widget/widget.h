@@ -116,9 +116,10 @@ class UI_EXPORT Widget {
   void set_on_shell_published(OnShellPublished fn);
 
   void layout_contents();
-  // Pump the UI queue until a compositor generation is published, or
-  // |timeout_ms| elapses. First ShowWindow otherwise BitBlts an empty front
-  // (near-black horizon + map hole) until the worker's first raster.
+  // Pump the UI queue until a *new* compositor generation is published
+  // (strictly greater than the generation at call time), or |timeout_ms|
+  // elapses. First ShowWindow otherwise BitBlts an empty front; tab switches
+  // also need a newer front so Map/3D underlines are not stale.
   void pump_until_shell_published(unsigned timeout_ms);
   // Full-client invalidate (resize / theme). Prefer schedule_paint_rect for
   // hover / local control updates so mouse-move does not dirty the whole HWND.

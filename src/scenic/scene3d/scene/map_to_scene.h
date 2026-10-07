@@ -8,7 +8,7 @@
 #include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/camera/camera.h"
 #include "scenic/render/rhi3d/public/device/render_device.h"
-#include "vista/terrain/dem/dem_height_field.h"
+#include "vista/terrain/dem/height/dem_height_field.h"
 #include "scenic/scene3d/scene/scene.h"
 #include "scenic/scene3d/scene/vertex3d.h"
 

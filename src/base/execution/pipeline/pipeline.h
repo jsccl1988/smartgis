@@ -74,12 +74,26 @@ class Stage {
     _hooks = std::move(hooks);
   }
 
+  // True after this stage's workers decided to stop. Does not imply the
+  // downstream has drained every enqueued Context*.
+  inline bool is_closed() const {
+    return _close.load(std::memory_order_acquire);
+  }
+  // Exact drain predicate: stage closed and (if any) every upstream finish
+  // has been accounted for here. Do NOT consult size_approx() — moodycamel
+  // size_approx can briefly report 0 while items remain, which used to make
+  // multi-worker consumers exit early and drop Context* still in the queue.
   inline bool is_finish() {
-    return _close && _finish_buffer.size_approx() == 0 &&
-           (!_upstream || _upstream->finish_count() == finish_count());
+    if (!is_closed()) {
+      return false;
+    }
+    if (!_upstream) {
+      return true;
+    }
+    return _upstream->finish_count() == finish_count();
   }
   inline int finish_count(void) {
-    return static_cast<int>(_finish_count.load(std::memory_order_relaxed));
+    return static_cast<int>(_finish_count.load(std::memory_order_acquire));
   }
   inline bool fetch(Context*& ctx) { return _finish_buffer.pop(ctx); }
 
@@ -125,7 +139,7 @@ class Stage {
       }
       release_context(ctx);
       ctx = nullptr;
-      _finish_count.fetch_add(1, std::memory_order_relaxed);
+      _finish_count.fetch_add(1, std::memory_order_release);
       return true;
     }
     if (st != Status::SUCCESS) {
@@ -138,8 +152,10 @@ class Stage {
     if (_recorder && span_idx != base::trace::SpanRecorder::kInvalidSpan) {
       _recorder->end_span(span_idx);
     }
+    // Enqueue before publishing finish_count so a consumer that observes
+    // equal counts cannot miss an in-flight push (pairs with acquire loads).
     _finish_buffer.push(ctx);
-    _finish_count.fetch_add(1, std::memory_order_relaxed);
+    _finish_count.fetch_add(1, std::memory_order_release);
     return true;
   }
 
@@ -155,13 +171,21 @@ class Stage {
         for (;;) {
           Context* ctx = nullptr;
           if (_upstream) {
-            if (UNLIKELY(_upstream->is_finish())) {
-              _close = true;
-              break;
-            }
-
+            // Prefer fetch first. Exit only when upstream is closed and this
+            // stage's finish_count matches upstream's — exact accounting,
+            // independent of size_approx().
             if (UNLIKELY(!_upstream->fetch(ctx))) {
-              continue;
+              if (_upstream->is_closed() &&
+                  _upstream->finish_count() == finish_count()) {
+                // Re-check once: a push may land between the failed fetch
+                // and the closed+count observation.
+                if (!_upstream->fetch(ctx)) {
+                  _close.store(true, std::memory_order_release);
+                  break;
+                }
+              } else {
+                continue;
+              }
             }
           } else {
             ctx = acquire_context();
@@ -171,7 +195,7 @@ class Stage {
             // COMPLETE / FAILED before enqueue: producer or mid-stage owns
             // the pointer until here.
             release_context(ctx);
-            _close = true;
+            _close.store(true, std::memory_order_release);
             break;
           }
         }

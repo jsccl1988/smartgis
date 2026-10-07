@@ -119,6 +119,7 @@ group("gis_benchmark_all") {
     "//src/gis/geo:buffer_benchmark",
     "//src/gis/geo:proj_benchmark",
     "//src/gis/datasource/session:datasource_benchmark",
+    "//src/gis/datasource/pipeline:feature_load_pipeline_bench",
     "//src/gis/analysis:analysis_dem_gradient_bench",
     "//src/gis/analysis:analysis_convolve_bench",
     "//src/gis/analysis:analysis_idw_bench",

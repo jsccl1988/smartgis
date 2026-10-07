@@ -14,9 +14,7 @@
 #include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
-#include "content/browser/camera/map_host_extent.h"
-#include "content/browser/document/map_scene.h"
-#include "content/browser/present/map2d/map2d_presenter.h"
+#include "content/browser/session/browser_session.h"
 #include "content/public/map_contents.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
@@ -66,6 +64,82 @@ content::Scene3dPresenter* Browser::scene3d() {
 
 const content::Scene3dPresenter* Browser::scene3d() const {
   return &session_->scene3d();
+}
+
+content::MapScene* Browser::document() {
+  return &session_->document();
+}
+
+const content::MapScene* Browser::document() const {
+  return &session_->document();
+}
+
+content::ViewFrame* Browser::view_frame() {
+  return &session_->view_frame();
+}
+
+const content::ViewFrame* Browser::view_frame() const {
+  return &session_->view_frame();
+}
+
+content::OrbitFrame* Browser::orbit_frame() {
+  return &session_->orbit_frame();
+}
+
+const content::OrbitFrame* Browser::orbit_frame() const {
+  return &session_->orbit_frame();
+}
+
+content::Map2dPresenter* Browser::map2d() {
+  return &session_->map2d();
+}
+
+const content::Map2dPresenter* Browser::map2d() const {
+  return &session_->map2d();
+}
+
+content::Scene3dStereoSession* Browser::scene3d_stereo() {
+  return &session_->scene3d_stereo();
+}
+
+content::BlitFrameCache* Browser::blit() {
+  return &session_->blit();
+}
+
+content::ViewNavigation* Browser::navigation() {
+  return &session_->navigation();
+}
+
+const content::ViewNavigation* Browser::navigation() const {
+  return &session_->navigation();
+}
+
+content::MapContents* Browser::map_session() {
+  return session_->map_contents();
+}
+
+content::ViewHost* Browser::edit_host() {
+  return session_->edit_host();
+}
+
+content::ViewHost* Browser::data_host() {
+  return session_->data_host();
+}
+
+content::ViewHost* Browser::scene_host() {
+  return session_->scene_host();
+}
+
+content::MapHwndGestures* Browser::edit_gestures() {
+  return &session_->edit_gestures();
+}
+
+content::MapHwndGestures* Browser::data_gestures() {
+  return &session_->data_gestures();
+}
+
+content::MapHwndGestures* Browser::scene_gestures() {
+  return &session_->scene_gestures();
 }
 
 PluginShell* Browser::plugins() {
@@ -181,8 +255,7 @@ void Browser::show() {
     const char* skip = base::switch_cstr("skip-ambox-catalog");
     return skip && skip[0] != '\0' && skip[0] != '0';
   }();
-  const bool first_carto_ready =
-      map2d() && map2d()->layout_build_count() > 0;
+  const bool first_carto_ready = session_->map2d_layout_build_count() > 0;
   if (!skip_fit && !first_carto_ready) {
     if (!seh_fit_map_extent(this)) {
       LOGGING(LOG_WARNING, "startup: Browser::show fit_map_extent SEH");
@@ -191,11 +264,9 @@ void Browser::show() {
   // Sync China seed (default product path): drop any pre-china FlyCube latch
   // so the first interactive present records china carto — same face as
   // --ui-showcase=shell without forcing GDI overlay.
-  if (document() && document()->has_china_extent() && !first_carto_ready) {
-    if (content::Map2dPresenter* map2d = this->map2d()) {
-      map2d->note_surface_reset();
-      map2d->invalidate_frame_cache();
-    }
+  if (session_->document_has_china_extent() && !first_carto_ready) {
+    session_->note_map2d_surface_reset();
+    session_->invalidate_map2d_frame_cache();
     if (ui_) {
       ui_->invalidate_native_map();
     }
@@ -325,14 +396,14 @@ void Browser::select_map_tab(int index) {
 }
 
 void Browser::OnExtentChanged(uint32_t /*view_id*/, const content::Extent2& e) {
-  if (syncing_extent_ || !extent_nonempty(e)) {
+  if (syncing_extent_ || !content::BrowserSession::is_extent_nonempty(e)) {
     return;
   }
   // 2D ViewFrame is owned by shell pan/wheel navigation. Applying remote
   // ExtentChanged here races in-flight push_shared_extent echoes and undoes
   // cursor zoom (self-test exit 47). Orbit tracks only a China lon/lat box;
   // pixel or world extents shrink the DEM into a sticker on the ocean.
-  if (!extent_looks_like_china(e)) {
+  if (!content::BrowserSession::extent_looks_like_china(e)) {
     return;
   }
   // MapContents recv / renderer_recv threads deliver this off the UI thread.
@@ -352,11 +423,12 @@ void Browser::OnExtentChanged(uint32_t /*view_id*/, const content::Extent2& e) {
 }
 
 void Browser::apply_extent_changed_on_ui(const content::Extent2& e) {
-  if (syncing_extent_ || !extent_nonempty(e) || !extent_looks_like_china(e)) {
+  if (syncing_extent_ || !content::BrowserSession::is_extent_nonempty(e) ||
+      !content::BrowserSession::extent_looks_like_china(e)) {
     return;
   }
   syncing_extent_ = true;
-  session_->orbit_frame().apply_world_extent(e);
+  session_->apply_orbit_world_extent(e);
   syncing_extent_ = false;
   if (ui_) {
     refresh_scale();

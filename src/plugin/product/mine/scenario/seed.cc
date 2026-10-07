@@ -9,27 +9,9 @@
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/runtime/host/capability/shell.h"
-#include "plugin/runtime/host/processing/processing.h"
 
 namespace plugin {
 namespace detail {
-namespace {
-
-// PluginHost::run_processing only enqueues; present (overlay TIN) runs on
-// ProcessingPool::flush_for_test. Showcase seeds must drain before marks.
-bool run_processing_flushed(content::PluginHost* host, const char* id,
-                            const std::string& args) {
-  if (!host || !host->run_processing(id, args)) {
-    return false;
-  }
-  if (ProcessingPool* pool = processing_pool(host)) {
-    pool->flush_for_test();
-    return pool->last_ok();
-  }
-  return true;
-}
-
-}  // namespace
 
 bool resolve_mine_boreholes_csv(char* out_utf8, size_t out_cap) {
   const wchar_t* rels[] = {L"..\\data\\plugin\\mine_boreholes.csv",

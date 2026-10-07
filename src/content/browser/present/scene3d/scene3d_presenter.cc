@@ -211,10 +211,14 @@ bool Scene3dPresenter::present_gpu(render::rhi::Device* device,
 void Scene3dPresenter::paint(HDC hdc, int width_px, int height_px,
                             bool fill_background) const {
   BASE_TRACE_EVENT("presenter_paint", "scene3d");
-  // HWND SoT is hypsometric DEM + bake + city labels (software_). Scenic
-  // MemFrame bind_draw_items is 2D land rings and hid DEM/labels on the 3D
-  // tab (ui.interact inspect). Keep scenic present_gpu/export for matrix.
-  (void)scenic_host_.ensure();
+  // Product DrawHost skips GPU present when --scene3d-engine=scenic, so the
+  // HWND path is the one that must present the hosted engine. Software DEM
+  // remains the fallback when scenic.dll did not load.
+  if (scenic_host_.paint_hdc(hdc, width_px, height_px, gpu_.orbit(),
+                             map_scene_, label_frame_)) {
+    gpu_.render_engine_name = "scenic";
+    return;
+  }
   if (prefer_scene3d_scenic()) {
     gpu_.render_engine_name = "scenic";
   }

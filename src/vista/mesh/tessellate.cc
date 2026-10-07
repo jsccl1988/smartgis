@@ -7,11 +7,14 @@
 #include <cstdint>
 #include <vector>
 
+#include "base/execution/executor/pool/global_executor.h"
+#include "base/execution/parallel/for.h"
 #include "base/trace/event/process_trace.h"
 #include "gis/tile/layer/provider_tile_layer.h"
 #include "gis/map/map_layer.h"
 #include "vista/mesh/detail/mesh_append.h"
 #include "vista/mesh/detail/mesh_scratch.h"
+#include "vista/mesh/detail/mesh_simd.h"
 #include "vista/mesh/detail/tess_trace.h"
 #include "vista/mesh/fill/fill_tess.h"
 #include "vista/mesh/line/line_tess.h"
@@ -70,8 +73,21 @@ bool tessellate_geoms(const OGRGeometry* const* geoms, size_t count,
     return false;
   }
   const FillTessOptions opts;
+  if (count < detail::kMeshParallelMinGeoms) {
+    for (size_t i = 0; i < count; ++i) {
+      detail::tessellate_geom_into(geoms[i], opts, out);
+    }
+    return !out.indices.empty();
+  }
+  // Parallel per-geom into private meshes, then ordered merge (stable order).
+  std::vector<TessMesh> parts(count);
+  base::execution::GlobalNThreadPoolExecutor executor;
+  base::execution::parallel_for(executor, size_t{0}, count, [&](size_t i) {
+    detail::clear_tessellate_tls_scratch();
+    detail::tessellate_geom_into(geoms[i], opts, parts[i]);
+  });
   for (size_t i = 0; i < count; ++i) {
-    detail::tessellate_geom_into(geoms[i], opts, out);
+    detail::append_mesh(out, parts[i]);
   }
   return !out.indices.empty();
 }
@@ -363,76 +379,93 @@ bool tessellate_point_cloud(const float* xyz, size_t point_count,
   }
   float half = half_extent;
   if (half <= 0.f) {
-    float min_x = xyz[0];
-    float min_y = xyz[1];
-    float min_z = xyz[2];
-    float max_x = min_x;
-    float max_y = min_y;
-    float max_z = min_z;
-    for (size_t i = 1; i < point_count; ++i) {
-      const float x = xyz[i * 3];
-      const float y = xyz[i * 3 + 1];
-      const float z = xyz[i * 3 + 2];
-      if (x < min_x) {
-        min_x = x;
-      }
-      if (y < min_y) {
-        min_y = y;
-      }
-      if (z < min_z) {
-        min_z = z;
-      }
-      if (x > max_x) {
-        max_x = x;
-      }
-      if (y > max_y) {
-        max_y = y;
-      }
-      if (z > max_z) {
-        max_z = z;
-      }
-    }
-    const float dx = max_x - min_x;
-    const float dy = max_y - min_y;
-    const float dz = max_z - min_z;
+    float min_xyz[3];
+    float max_xyz[3];
+    detail::aabb_xyz_f32(xyz, point_count, min_xyz, max_xyz);
+    const float dx = max_xyz[0] - min_xyz[0];
+    const float dy = max_xyz[1] - min_xyz[1];
+    const float dz = max_xyz[2] - min_xyz[2];
     const float span = (dx > dy ? dx : dy) > dz ? (dx > dy ? dx : dy) : dz;
     half = span > 0.f ? span * 0.0025f : 0.01f;
     if (half < 1e-4f) {
       half = 1e-4f;
     }
   }
-  out.positions.reserve(point_count * 8 * 3);
-  out.indices.reserve(point_count * 36);
-  for (size_t i = 0; i < point_count; ++i) {
-    const float x = xyz[i * 3];
-    const float y = xyz[i * 3 + 1];
-    const float z = xyz[i * 3 + 2];
-    const uint32_t base = static_cast<uint32_t>(out.positions.size() / 3);
-    // Axis-aligned cube (was a single XY triangle — edge-on from orbit).
-    const float hx = half;
-    const float hy = half;
-    const float hz = half;
-    const float corners[8][3] = {
-        {x - hx, y - hy, z - hz}, {x + hx, y - hy, z - hz},
-        {x + hx, y + hy, z - hz}, {x - hx, y + hy, z - hz},
-        {x - hx, y - hy, z + hz}, {x + hx, y - hy, z + hz},
-        {x + hx, y + hy, z + hz}, {x - hx, y + hy, z + hz},
-    };
-    for (int c = 0; c < 8; ++c) {
-      out.positions.push_back(corners[c][0]);
-      out.positions.push_back(corners[c][1]);
-      out.positions.push_back(corners[c][2]);
+
+  if (point_count < detail::kMeshParallelMinCloudPoints) {
+    out.positions.reserve(point_count * 8 * 3);
+    out.indices.reserve(point_count * 36);
+    for (size_t i = 0; i < point_count; ++i) {
+      const float x = xyz[i * 3];
+      const float y = xyz[i * 3 + 1];
+      const float z = xyz[i * 3 + 2];
+      const uint32_t base = detail::vert_count(out);
+      const float hx = half;
+      const float hy = half;
+      const float hz = half;
+      const float corners[8][3] = {
+          {x - hx, y - hy, z - hz}, {x + hx, y - hy, z - hz},
+          {x + hx, y + hy, z - hz}, {x - hx, y + hy, z - hz},
+          {x - hx, y - hy, z + hz}, {x + hx, y - hy, z + hz},
+          {x + hx, y + hy, z + hz}, {x - hx, y + hy, z + hz},
+      };
+      for (int c = 0; c < 8; ++c) {
+        out.positions.push_back(corners[c][0]);
+        out.positions.push_back(corners[c][1]);
+        out.positions.push_back(corners[c][2]);
+      }
+      const uint32_t faces[12][3] = {
+          {0, 1, 2}, {0, 2, 3}, {4, 6, 5}, {4, 7, 6}, {0, 4, 5}, {0, 5, 1},
+          {1, 5, 6}, {1, 6, 2}, {2, 6, 7}, {2, 7, 3}, {3, 7, 4}, {3, 4, 0},
+      };
+      for (int f = 0; f < 12; ++f) {
+        out.indices.push_back(base + faces[f][0]);
+        out.indices.push_back(base + faces[f][1]);
+        out.indices.push_back(base + faces[f][2]);
+      }
     }
-    const uint32_t faces[12][3] = {
-        {0, 1, 2}, {0, 2, 3}, {4, 6, 5}, {4, 7, 6}, {0, 4, 5}, {0, 5, 1},
-        {1, 5, 6}, {1, 6, 2}, {2, 6, 7}, {2, 7, 3}, {3, 7, 4}, {3, 4, 0},
-    };
-    for (int f = 0; f < 12; ++f) {
-      out.indices.push_back(base + faces[f][0]);
-      out.indices.push_back(base + faces[f][1]);
-      out.indices.push_back(base + faces[f][2]);
-    }
+    return true;
   }
+
+  // Disjoint writes into a pre-sized mesh (8 verts / 36 indices per point).
+  out.positions.assign(point_count * 24u, 0.f);
+  out.indices.assign(point_count * 36u, 0u);
+  base::execution::GlobalNThreadPoolExecutor executor;
+  base::execution::parallel_for(
+      executor, size_t{0}, point_count, [&](size_t i) {
+        const float x = xyz[i * 3];
+        const float y = xyz[i * 3 + 1];
+        const float z = xyz[i * 3 + 2];
+        const size_t po = i * 24u;
+        const float hx = half;
+        const float hy = half;
+        const float hz = half;
+        const float corners[8][3] = {
+            {x - hx, y - hy, z - hz}, {x + hx, y - hy, z - hz},
+            {x + hx, y + hy, z - hz}, {x - hx, y + hy, z - hz},
+            {x - hx, y - hy, z + hz}, {x + hx, y - hy, z + hz},
+            {x + hx, y + hy, z + hz}, {x - hx, y + hy, z + hz},
+        };
+        for (int c = 0; c < 8; ++c) {
+          out.positions[po + static_cast<size_t>(c) * 3u + 0u] = corners[c][0];
+          out.positions[po + static_cast<size_t>(c) * 3u + 1u] = corners[c][1];
+          out.positions[po + static_cast<size_t>(c) * 3u + 2u] = corners[c][2];
+        }
+        const uint32_t base = static_cast<uint32_t>(i * 8u);
+        const uint32_t faces[12][3] = {
+            {0, 1, 2}, {0, 2, 3}, {4, 6, 5}, {4, 7, 6}, {0, 4, 5}, {0, 5, 1},
+            {1, 5, 6}, {1, 6, 2}, {2, 6, 7}, {2, 7, 3}, {3, 7, 4}, {3, 4, 0},
+        };
+        const size_t io = i * 36u;
+        for (int f = 0; f < 12; ++f) {
+          out.indices[io + static_cast<size_t>(f) * 3u + 0u] =
+              base + faces[f][0];
+          out.indices[io + static_cast<size_t>(f) * 3u + 1u] =
+              base + faces[f][1];
+          out.indices[io + static_cast<size_t>(f) * 3u + 2u] =
+              base + faces[f][2];
+        }
+      });
   return true;
 }
 

@@ -9,8 +9,8 @@
 
 #include <cstddef>
 
-#include "vista/terrain/dem/dem_height_field.h"
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/height/dem_height_field.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 #include "vista/vista_export.h"
 #include "vista/component/world/world.h"
 

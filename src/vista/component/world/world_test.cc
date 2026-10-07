@@ -18,7 +18,7 @@
 #include "vista/component/world/terrain/policy.h"
 #include "vista/component/world/terrain/seed.h"
 #include "vista/mesh/tessellate.h"
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 
 namespace {
 

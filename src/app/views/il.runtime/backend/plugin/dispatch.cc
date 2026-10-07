@@ -54,6 +54,9 @@ class BrowserHarnessShell final : public plugin::HarnessShell {
   content::ViewHost* scene_host() override { return browser_.scene_host(); }
   content::MapScene* document() override { return browser_.document(); }
   content::Scene3dPresenter* scene3d() override { return browser_.scene3d(); }
+  content::Scene3dStereoSession* scene3d_stereo() override {
+    return browser_.scene3d_stereo();
+  }
   content::ViewFrame* view_frame() override { return browser_.view_frame(); }
   content::OrbitFrame* orbit_frame() override { return browser_.orbit_frame(); }
   content::Map2dPresenter* map2d() override { return browser_.map2d(); }

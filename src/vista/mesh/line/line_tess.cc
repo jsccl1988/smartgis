@@ -9,6 +9,7 @@
 
 #include "vista/mesh/detail/mesh_append.h"
 #include "vista/mesh/detail/mesh_scratch.h"
+#include "vista/mesh/detail/mesh_simd.h"
 #include "vista/mesh/detail/tess_trace.h"
 #include "ogrsf_frmts.h"
 
@@ -315,11 +316,11 @@ bool append_solid_polyline(const std::vector<PolyPt>& pts, double hw,
 
   auto dirs_holder = vec2_vec_pool().allocate();
   std::vector<Vec2>& dirs = *dirs_holder;
-  dirs.reserve(clean.size() - 1);
+  dirs.resize(clean.size() - 1);
   for (size_t i = 0; i + 1 < clean.size(); ++i) {
-    dirs.push_back(vec_normalize(
-        {clean[i + 1].x - clean[i].x, clean[i + 1].y - clean[i].y}));
+    dirs[i] = {clean[i + 1].x - clean[i].x, clean[i + 1].y - clean[i].y};
   }
+  normalize_dirs_batch(dirs.data(), dirs.size());
 
   const size_t before = out.indices.size();
   for (size_t i = 0; i + 1 < clean.size(); ++i) {
@@ -508,31 +509,47 @@ void line_to_points_decimated(const OGRLineString* line,
   const LineDecimationBudget budget = decimation_budget(options);
   const int kMaxLineVerts = budget.max_verts;
   const double wupp = options.world_units_per_pixel;
+  // First china present: tess_line CPU walks every river/admin vertex for
+  // path_len + extrema + spacing, then drops most at the decimation cap.
+  // Stride when n is already past ~2× the output budget.
+  const int step =
+      n > kMaxLineVerts * 2 ? (std::max)(1, n / (kMaxLineVerts * 2)) : 1;
 
-  double path_len = 0;
-  for (int i = 0; i + 1 < n; ++i) {
-    path_len += std::hypot(line->getX(i + 1) - line->getX(i),
-                           line->getY(i + 1) - line->getY(i));
+  // Sampled SoA for the stride walk (SIMD extrema / path length).
+  std::vector<double> sx;
+  std::vector<double> sy;
+  std::vector<double> sz;
+  std::vector<int> sidx;
+  const int approx = ((n - 1) / step) + 2;
+  sx.reserve(static_cast<size_t>(approx));
+  sy.reserve(static_cast<size_t>(approx));
+  sz.reserve(static_cast<size_t>(approx));
+  sidx.reserve(static_cast<size_t>(approx));
+  for (int i = 0; i < n; i += step) {
+    sx.push_back(line->getX(i));
+    sy.push_back(line->getY(i));
+    sz.push_back(line->getZ(i));
+    sidx.push_back(i);
   }
+  if (sidx.back() != n - 1) {
+    sx.push_back(line->getX(n - 1));
+    sy.push_back(line->getY(n - 1));
+    sz.push_back(line->getZ(n - 1));
+    sidx.push_back(n - 1);
+  }
+  const int sn = static_cast<int>(sx.size());
 
-  int i_n = 0;
-  int i_s = 0;
-  int i_e = 0;
-  int i_w = 0;
-  for (int i = 1; i < n; ++i) {
-    if (line->getY(i) > line->getY(i_n)) {
-      i_n = i;
-    }
-    if (line->getY(i) < line->getY(i_s)) {
-      i_s = i;
-    }
-    if (line->getX(i) > line->getX(i_e)) {
-      i_e = i;
-    }
-    if (line->getX(i) < line->getX(i_w)) {
-      i_w = i;
-    }
-  }
+  const double path_len = path_length_xy(sx.data(), sy.data(), sn);
+
+  int si_n = 0;
+  int si_s = 0;
+  int si_e = 0;
+  int si_w = 0;
+  find_xy_extrema(sx.data(), sy.data(), sn, &si_n, &si_s, &si_e, &si_w);
+  const int i_n = sidx[static_cast<size_t>(si_n)];
+  const int i_s = sidx[static_cast<size_t>(si_s)];
+  const int i_e = sidx[static_cast<size_t>(si_e)];
+  const int i_w = sidx[static_cast<size_t>(si_w)];
 
   double spacing = path_len > kEps ? path_len / (kMaxLineVerts - 1) : kEps;
   if (wupp > 0) {
@@ -560,15 +577,20 @@ void line_to_points_decimated(const OGRLineString* line,
   push_forced(i_w);
 
   pts.reserve(static_cast<size_t>((std::min)(n, kMaxLineVerts)));
-  pts.push_back({line->getX(0), line->getY(0), line->getZ(0)});
+  pts.push_back({sx[0], sy[0], sz[0]});
   double since = 0;
-  for (int i = 1; i < n; ++i) {
-    const double x = line->getX(i);
-    const double y = line->getY(i);
-    const double z = line->getZ(i);
-    since += std::hypot(x - line->getX(i - 1), y - line->getY(i - 1));
+  int prev_s = 0;
+  for (int s = 1; s < sn; ++s) {
+    const double x = sx[static_cast<size_t>(s)];
+    const double y = sy[static_cast<size_t>(s)];
+    const double z = sz[static_cast<size_t>(s)];
+    const int i = sidx[static_cast<size_t>(s)];
+    const double pdx = x - sx[static_cast<size_t>(prev_s)];
+    const double pdy = y - sy[static_cast<size_t>(prev_s)];
+    since += std::sqrt(pdx * pdx + pdy * pdy);
+    prev_s = s;
     const bool take = is_forced_vertex(i, forced, forced_count) ||
-                      since >= spacing || i + 1 == n;
+                      since >= spacing || s + 1 >= sn;
     if (!take) {
       continue;
     }
@@ -580,13 +602,13 @@ void line_to_points_decimated(const OGRLineString* line,
     }
   }
   if (pts.size() >= 2) {
-    const double x = line->getX(n - 1);
-    const double y = line->getY(n - 1);
+    const double x = sx[static_cast<size_t>(sn - 1)];
+    const double y = sy[static_cast<size_t>(sn - 1)];
     if (std::hypot(pts.back().x - x, pts.back().y - y) > kEps) {
       if (static_cast<int>(pts.size()) >= kMaxLineVerts) {
-        pts.back() = {x, y, line->getZ(n - 1)};
+        pts.back() = {x, y, sz[static_cast<size_t>(sn - 1)]};
       } else {
-        pts.push_back({x, y, line->getZ(n - 1)});
+        pts.push_back({x, y, sz[static_cast<size_t>(sn - 1)]});
       }
     }
   }

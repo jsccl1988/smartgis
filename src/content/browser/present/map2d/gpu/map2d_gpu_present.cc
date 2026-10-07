@@ -9,6 +9,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <exception>
 #include <memory>
@@ -117,12 +118,13 @@ bool Map2dGpuPresent::last_present_reused_layout() const {
 }
 
 bool Map2dGpuPresent::present_frame(render::rhi::Device* device,
+                                    const vista::MapIR& frame_ir,
                                     const Map2dFrameCache::CameraKey& cam,
                                     bool record_all,
                                     const ui::gfx::ShellRaster* shell,
                                     uint64_t shell_generation) {
   BASE_TRACE_EVENT("present_frame", "map2d.present");
-  if (!device || !cache_ || !cache_->has_frame()) {
+  if (!device) {
     return false;
   }
   if (!map2d_pass_) {
@@ -137,8 +139,8 @@ bool Map2dGpuPresent::present_frame(render::rhi::Device* device,
       static_cast<float>(cam.min_y), static_cast<float>(cam.max_y), -1.f, 1.f);
 
   vista::MapEffect map_effect(
-      render::graph::EffectSlot::kOpaque, map2d_pass_.get(), &cache_->frame(),
-      &view, &windows_rasterizer,
+      render::graph::EffectSlot::kOpaque, map2d_pass_.get(), &frame_ir, &view,
+      &windows_rasterizer,
       [this](uint32_t texture_key, std::vector<uint8_t>* rgba, int* w, int* h) {
         return cache_ && cache_->load_raster(texture_key, rgba, w, h);
       },
@@ -175,7 +177,8 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     return false;
   }
 
-  std::lock_guard<std::recursive_mutex> lock(cache_->mutex());
+  // prepare_for_present / load_raster / note_present_outcome take mu_ briefly.
+  // Do not hold cache mu_ across china tess or Pass record (UI hang).
   try {
     Map2dFrameCache::PresentAction action =
         Map2dFrameCache::PresentAction::kRebuildFull;
@@ -249,10 +252,28 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
           vista::MapPass::UploadPolicy::kReuseIfCached);
     }
 
+    // Snap MapIR + camera under a short lock so Pass record never races a
+    // concurrent rebuild/invalidate mutating cached_frame_.
+    vista::MapIR frame_snap;
+    Map2dFrameCache::CameraKey cam{};
+    uint64_t builds = 0;
+    {
+      std::lock_guard<std::recursive_mutex> snap(cache_->mutex());
+      if (!cache_->has_frame()) {
+        last_present_ok_ = false;
+        last_present_drew_ = false;
+        LOGGING(LOG_ERROR, "map2d.present fail: no frame after prepare");
+        return false;
+      }
+      frame_snap = cache_->frame();
+      cam = cache_->camera();
+      builds = cache_->layout_build_count();
+    }
+
     vista::reset_last_pass_record_ms();
     const auto gpu_t0 = std::chrono::steady_clock::now();
     const bool ok =
-        present_frame(device, cache_->camera(), record_all, shell,
+        present_frame(device, frame_snap, cam, record_all, shell,
                       shell_generation);
     const int64_t gpu_wall_ms =
         std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -272,9 +293,15 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       // shell_stable on the next StaticReuse check.
       last_shell_generation_ =
           shell_present && shell_generation != 0 ? shell_generation : 0;
+      // Plain-launch / harness gold when hillshade is skipped (no
+      // emit_hillshade frame_items= line). One line per full present.
+      std::fprintf(stderr,
+                   "map2d: present frame_items=%zu size=%ux%u builds=%llu\n",
+                   frame_snap.items.size(), width_px, height_px,
+                   static_cast<unsigned long long>(builds));
+      std::fflush(stderr);
     }
     if (!ok) {
-      const auto& cam = cache_->camera();
       LOGGING(LOG_ERROR,
               "map2d.present fail: graph::present size=%ux%u cam=[%.3f,%.3f]-"
               "[%.3f,%.3f] shell=%d",

@@ -52,8 +52,16 @@ CONTENT_EXPORT bool prefer_scene3d_stereo_d3d();
 // True when the selected engine is software GDI DEM.
 CONTENT_EXPORT bool prefer_scene3d_gdi();
 
-// True when SCENE3D_ENGINE=scenic / kScenic. Does not load scenic.dll.
+// True when --scene3d-engine=scenic, SCENE3D_ENGINE=scenic, or kScenic.
+// set_scene3d_engine(kScenic) loads scenic.dll; ScenicScene3dHost then
+// creates scenic::Engine and presents. This predicate only reports the
+// selection. Default product engine remains FlyCube.
 CONTENT_EXPORT bool prefer_scene3d_scenic();
+
+// Map scenic.dll beside this PE (debug stem scenic_d.dll). Idempotent.
+// Called when the engine becomes kScenic, and again by ScenicScene3dHost
+// before scenic::create_scene3d_engine. Does not construct the Engine.
+CONTENT_EXPORT bool load_scene3d_scenic_dll();
 
 // True only for leftover stereo (ContentMapView HWND). Scenic/GDI use the
 // product HWND + Scene3dPresenter — not a SharedSurface fallback.

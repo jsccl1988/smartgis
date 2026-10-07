@@ -17,9 +17,9 @@
 #include "content/browser/document/ingest/seed_paths.h"
 #include "gdal_priv.h"
 #include "gis/datasource/gdal/gdal_driver.h"
-#include "gis/datasource/ogr/ogr_text_encoding.h"
 #include "gis/datasource/pipeline/feature_load_pipeline.h"
-#include "vista/terrain/process/land_mask.h"
+#include "gis/datasource/pipeline/ogr_feature_load.h"
+#include "vista/terrain/dem/mask/land_mask.h"
 #include "ogrsf_frmts.h"
 #include "base/process/switches.h"
 
@@ -28,33 +28,6 @@ namespace detail {
 namespace {
 
 constexpr size_t kMaxFeaturesPerLayer = 8000;
-
-void append_ring(OGRLineString* ring, std::vector<Vertex>* out) {
-  if (!ring || !out) {
-    return;
-  }
-  const int n = ring->getNumPoints();
-  if (n <= 0) {
-    return;
-  }
-  // Cap ring density so GDI Polygon / paint stays bounded on prefecture packs.
-  // Prefer denser coasts/islands at china overview (was 2048 → blocky Taiwan).
-  constexpr int kMaxRingPoints = 4096;
-  int step = 1;
-  if (n > kMaxRingPoints) {
-    step = n / kMaxRingPoints;
-    if (step < 1) {
-      step = 1;
-    }
-  }
-  for (int i = 0; i < n; i += step) {
-    // Flip Y so screen +Y is down while GIS +Y stays north-up after fit.
-    out->push_back({ring->getX(i), -ring->getY(i)});
-  }
-  if ((n - 1) % step != 0) {
-    out->push_back({ring->getX(n - 1), -ring->getY(n - 1)});
-  }
-}
 
 // Keep contiguous runs inside a China lon/lat bbox (map space = lon / -lat).
 // Foreign Natural Earth stems that only graze the box are dropped. When a
@@ -526,160 +499,69 @@ void apply_kind_override(MapFeature* out, const char* ogr_layer_name) {
   }
 }
 
-void copy_ogr_fields(OGRFeature* ogr_feat, MapFeature* out) {
-  if (!ogr_feat || !out) {
-    return;
+GeomKind hosted_kind(gis::datasource::OgrPartKind kind) {
+  switch (kind) {
+    case gis::datasource::OgrPartKind::kLine:
+      return GeomKind::kLine;
+    case gis::datasource::OgrPartKind::kPolygon:
+      return GeomKind::kPolygon;
+    case gis::datasource::OgrPartKind::kPoint:
+      return GeomKind::kPoint;
   }
-  out->fields.clear();
-  OGRFeatureDefn* defn = ogr_feat->GetDefnRef();
-  if (!defn) {
-    return;
-  }
-  const int field_count = defn->GetFieldCount();
-  for (int i = 0; i < field_count && static_cast<int>(out->fields.size()) < 12;
-       ++i) {
-    if (!ogr_feat->IsFieldSetAndNotNull(i)) {
-      continue;
-    }
-    OGRFieldDefn* fd = defn->GetFieldDefn(i);
-    if (!fd) {
-      continue;
-    }
-    const char* fname = fd->GetNameRef();
-    out->fields.push_back(
-        {fname && fname[0] ? fname : "field",
-         gis::datasource::ogr_bytes_to_utf8(ogr_feat->GetFieldAsString(i))});
-  }
+  return GeomKind::kPoint;
 }
 
-bool fill_polygon_feature(OGRPolygon* poly, MapFeature* out,
-                          const char* ogr_layer_name) {
-  if (!poly || !out) {
-    return false;
+MapFeature hosted_feature_from_part(gis::datasource::OgrFeaturePart&& part) {
+  MapFeature feature;
+  feature.kind = hosted_kind(part.kind);
+  feature.selected = false;
+  feature.points.reserve(part.points.size());
+  for (const gis::datasource::OgrMapVertex& vertex : part.points) {
+    feature.points.push_back({vertex.x, vertex.y});
   }
-  out->kind = GeomKind::kPolygon;
-  out->points.clear();
-  out->selected = false;
-  if (OGRLinearRing* ext = poly->getExteriorRing()) {
-    append_ring(ext, &out->points);
+  feature.fields.reserve(part.fields.size());
+  for (gis::datasource::OgrMapField& field : part.fields) {
+    feature.fields.push_back({std::move(field.name), std::move(field.value)});
   }
-  apply_kind_override(out, ogr_layer_name);
-  return out->points.size() >= 3;
+  return feature;
 }
 
-bool fill_line_feature(OGRLineString* line, MapFeature* out,
-                       const char* ogr_layer_name) {
-  if (!line || !out) {
-    return false;
-  }
-  out->kind = GeomKind::kLine;
-  out->points.clear();
-  out->selected = false;
-  append_ring(line, &out->points);
-  clip_china_city_line_to_mainland(&out->points, ogr_layer_name);
-  apply_kind_override(out, ogr_layer_name);
-  return out->points.size() >= 2;
-}
-
-// One MapFeature per drawable part. MultiPolygon / MultiLineString must
-// expand every part  - keeping only the largest ring leaves Xinjiang/Qinghai
-// (and island archipelagos) as white holes while rivers still draw through.
+// One MapFeature per drawable part. Decode + ring decimation live in
+// gis::datasource; this adapter only fills hosted vertices/fields, clips
+// china_city lines, and applies kind/anno overrides.
+// MultiPolygon / MultiLineString must expand every part. Keeping only the
+// largest ring leaves Xinjiang/Qinghai (and island archipelagos) as white
+// holes while rivers still draw through.
 size_t features_from_ogr(OGRFeature* ogr_feat,
                          std::vector<MapFeature>* out,
                          const char* ogr_layer_name) {
   if (!ogr_feat || !out) {
     return 0;
   }
+  std::vector<gis::datasource::OgrFeaturePart> loaded;
+  gis::datasource::load_ogr_feature_parts(ogr_feat, &loaded);
   out->clear();
-  OGRGeometry* geom = ogr_feat->GetGeometryRef();
-  if (!geom || geom->IsEmpty()) {
-    return 0;
-  }
-
-  const OGRwkbGeometryType flat = wkbFlatten(geom->getGeometryType());
-  if (flat == wkbPoint) {
-    MapFeature f;
-    copy_ogr_fields(ogr_feat, &f);
-    auto* pt = geom->toPoint();
-    f.kind = GeomKind::kPoint;
-    f.points.push_back({pt->getX(), -pt->getY()});
-    apply_kind_override(&f, ogr_layer_name);
-    out->push_back(std::move(f));
-    return 1;
-  }
-  if (flat == wkbLineString || flat == wkbLinearRing) {
-    MapFeature f;
-    copy_ogr_fields(ogr_feat, &f);
-    if (!fill_line_feature(geom->toLineString(), &f, ogr_layer_name)) {
-      return 0;
+  out->reserve(loaded.size());
+  for (gis::datasource::OgrFeaturePart& part : loaded) {
+    const gis::datasource::OgrPartKind decoded = part.kind;
+    MapFeature feature = hosted_feature_from_part(std::move(part));
+    if (decoded == gis::datasource::OgrPartKind::kLine) {
+      clip_china_city_line_to_mainland(&feature.points, ogr_layer_name);
     }
-    out->push_back(std::move(f));
-    return 1;
+    apply_kind_override(&feature, ogr_layer_name);
+    // Accept on the decoded kind's minimum, after clip and kind override.
+    // A line clipped under 2 vertices is dropped even if override retargets it.
+    if (decoded == gis::datasource::OgrPartKind::kLine &&
+        feature.points.size() < 2) {
+      continue;
+    }
+    if (decoded == gis::datasource::OgrPartKind::kPolygon &&
+        feature.points.size() < 3) {
+      continue;
+    }
+    out->push_back(std::move(feature));
   }
-  if (flat == wkbPolygon) {
-    MapFeature f;
-    copy_ogr_fields(ogr_feat, &f);
-    if (!fill_polygon_feature(geom->toPolygon(), &f, ogr_layer_name)) {
-      return 0;
-    }
-    out->push_back(std::move(f));
-    return 1;
-  }
-  if (flat == wkbMultiPoint) {
-    auto* multi = geom->toMultiPoint();
-    if (!multi || multi->getNumGeometries() < 1) {
-      return 0;
-    }
-    MapFeature f;
-    copy_ogr_fields(ogr_feat, &f);
-    auto* pt = multi->getGeometryRef(0)->toPoint();
-    f.kind = GeomKind::kPoint;
-    f.points.push_back({pt->getX(), -pt->getY()});
-    apply_kind_override(&f, ogr_layer_name);
-    out->push_back(std::move(f));
-    return 1;
-  }
-  if (flat == wkbMultiLineString) {
-    auto* multi = geom->toMultiLineString();
-    if (!multi || multi->getNumGeometries() < 1) {
-      return 0;
-    }
-    const int ngeom = multi->getNumGeometries();
-    out->reserve(static_cast<size_t>(ngeom));
-    for (int i = 0; i < ngeom; ++i) {
-      OGRGeometry* part = multi->getGeometryRef(i);
-      if (!part || wkbFlatten(part->getGeometryType()) != wkbLineString) {
-        continue;
-      }
-      MapFeature f;
-      copy_ogr_fields(ogr_feat, &f);
-      if (fill_line_feature(part->toLineString(), &f, ogr_layer_name)) {
-        out->push_back(std::move(f));
-      }
-    }
-    return out->size();
-  }
-  if (flat == wkbMultiPolygon) {
-    auto* multi = geom->toMultiPolygon();
-    if (!multi || multi->getNumGeometries() < 1) {
-      return 0;
-    }
-    const int ngeom = multi->getNumGeometries();
-    out->reserve(static_cast<size_t>(ngeom));
-    for (int i = 0; i < ngeom; ++i) {
-      OGRGeometry* part = multi->getGeometryRef(i);
-      if (!part || wkbFlatten(part->getGeometryType()) != wkbPolygon) {
-        continue;
-      }
-      MapFeature f;
-      copy_ogr_fields(ogr_feat, &f);
-      if (fill_polygon_feature(part->toPolygon(), &f, ogr_layer_name)) {
-        out->push_back(std::move(f));
-      }
-    }
-    return out->size();
-  }
-  return 0;
+  return out->size();
 }
 
 }  // namespace

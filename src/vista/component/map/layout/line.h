@@ -17,10 +17,12 @@ namespace detail {
 void emit_lines(const std::vector<const gis::style::StyleLayer*>& line_layers,
                 const LayoutInput& in, const std::vector<LayerBatch>& layers,
                 double wupp, MapIR* frame,
-                const LayoutTile* clip_tile = nullptr);
+                const LayoutTile* clip_tile = nullptr,
+                bool intersect_clip = true);
 void emit_line(const gis::style::StyleLayer& layer, const LayoutInput& in,
                const std::vector<LayerBatch>& layers, double wupp,
-               MapIR* frame, const LayoutTile* clip_tile = nullptr);
+               MapIR* frame, const LayoutTile* clip_tile = nullptr,
+               bool intersect_clip = true);
 
 }  // namespace detail
 }  // namespace vista

@@ -120,7 +120,7 @@ orthogrid / orthogrid3d 插件只保留边界数字化、VTK / MapScene 写出�
 | Horn Lambert 因子 | `gis/analysis/raster/dem/hillshade.h`（`horn_lambert_shade` / `horn_lambert_shade_grid`） | `shade_dem_rgba` 的 RGBA、对比度、海洋 alpha、`DemRaster`、`BAKE_*` |
 | 偶奇环掩膜 | `gis/analysis/raster/mask/ring_mask.h`（`point_in_ring` / `fill_ring_mask`） | `LonLatRing`、bbox 预处理、烘焙时钟 |
 
-`dem_gradient` 的坡度/坡向（度、GeoTIFF）与 Horn 着色因子不是同一公式，不合并。CUDA Thrust（`vista/terrain/process/nv/thrust_gis.cu`）是这两条核的设备副本，公式与 CPU 核对齐，不进 `gis.dll`。无新的 `native.*` / `OpsRunner` 入口。测试：`analysis_terrain_kernel_test`。
+`dem_gradient` 的坡度/坡向（度、GeoTIFF）与 Horn 着色因子不是同一公式，不合并。CUDA Thrust（`vista/terrain/dem/nv/thrust_gis.cu`）与 CPU AVX2 lit pack（`vista/terrain/dem/shade/lit_*.cc`）是烘焙侧加速；公式与 `gis::detail::horn_lambert_shade*` 对齐，不进 `gis.dll`。无新的 `native.*` / `OpsRunner` 入口。测试：`analysis_terrain_kernel_test`。
 
 ---
 

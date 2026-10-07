@@ -1,6 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+// GN-DEP: //src/scenic:scenic
+
 #include "content/browser/present/scene3d/scenic_engine_host.h"
 
 #include "content/browser/camera/view_frame.h"
@@ -32,6 +34,11 @@ bool ScenicScene3dHost::ensure_locked() {
     return false;
   }
   if (!engine_) {
+    // set_scene3d_engine(kScenic) loads the façade. Retry here so a
+    // failed first load can succeed before create_scene3d_engine.
+    if (!load_scene3d_scenic_dll()) {
+      return false;
+    }
     engine_.reset(scenic::create_scene3d_engine());
   }
   return engine_ != nullptr;

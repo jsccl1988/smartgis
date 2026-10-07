@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Hillshade bake orchestration: zoom LOD, style params, process cache,
+// Hillshade bake orchestration: zoom LOD, style params, dem bake cache,
 // shade_dem_rgba, and the TileSlot the layout consumes. Shade math stays
 // in dem_hillshade.
 

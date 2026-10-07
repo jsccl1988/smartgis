@@ -22,6 +22,11 @@ namespace detail {
 bool prepare_tile_clip(const OGRGeometry* geom, const LayoutTile* tile,
                        std::vector<std::unique_ptr<OGRGeometry>>* store,
                        const OGRGeometry** use);
+// When |intersect| is false, only AABB reject (no GEOS) — for full-view
+// cold emit where skirt clip would serialize wall clock on long lines.
+bool prepare_tile_clip(const OGRGeometry* geom, const LayoutTile* tile,
+                       std::vector<std::unique_ptr<OGRGeometry>>* store,
+                       const OGRGeometry** use, bool intersect);
 
 }  // namespace detail
 }  // namespace vista

@@ -4,6 +4,7 @@
 #include "vista/component/world/instance/tessellate.h"
 
 #include "vista/component/world/instance/paint.h"
+#include "vista/mesh/detail/mesh_simd.h"
 
 #include "ogrsf_frmts.h"
 
@@ -124,18 +125,6 @@ void append_circle_diamond(double x, double y, double z, double radius_world,
   out.indices.push_back(base);
   out.indices.push_back(base + 4);
   out.indices.push_back(base + 1);
-}
-
-void append_mesh(vista::TessMesh& dst, const vista::TessMesh& src) {
-  if (src.indices.empty()) {
-    return;
-  }
-  const uint32_t base = static_cast<uint32_t>(dst.positions.size() / 3);
-  dst.positions.insert(dst.positions.end(), src.positions.begin(),
-                       src.positions.end());
-  for (uint32_t idx : src.indices) {
-    dst.indices.push_back(base + idx);
-  }
 }
 
 bool tessellate_geom_paint_aware(const OGRGeometry* geom,

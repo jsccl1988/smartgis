@@ -14,7 +14,7 @@ Scene math (Eigen-backed POD). **Not** in `base.dll`. Definitions live in **`nam
 | traits | `traits/` | `base::vector_traits` / `vector_like` |
 | geom | `geom/` | `Aabb` / `Obb` / `Plane` / `Ray` / `Frustum` / cull enums |
 | xform | `xform/` | `Transform` / `TransformStack` / `lerp` / `slerp` |
-| simd | `simd/` | batch normalize / transform (`base_math_simd`) |
+| simd | `simd/` | batch normalize / transform (`base_math_simd`); vir-simd / `base/simd/stdx.h` |
 | detail | `detail/` | Eigen `Map` aliases (`detail::EigenVec*`) |
 
 Preferred include: `#include "base/math/math.h"`. Layered paths for new TUs (`base/math/linear/vector.h`). There are **no** root-level `vector.h` shims.
@@ -38,4 +38,4 @@ Leftover **public POD fields** stay as shipped (`vcMin`, `m_vcN`, `_11.._44`, `f
 
 Point / rect typedefs: new TUs use `Point2f` / `Rect2f` (and `l`/`d` siblings). `fPoint` / `lRect` / `dbfPoint` are leftover GDI spellings of the same types.
 
-**最后更新：** 2026-10-05
+**最后更新：** 2026-10-07

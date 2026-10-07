@@ -4,7 +4,7 @@
 #include "scenic/scene3d/primitive/feature/map_label_batch.h"
 
 #include "gis/datasource/ogr/ogr_text_encoding.h"
-#include "vista/terrain/dem/dem_height_field.h"
+#include "vista/terrain/dem/height/dem_height_field.h"
 #include "scenic/render/rhi2d/impl/gdiplus/aa/gdiplus.h"
 #include "scenic/render/rhi3d/impl/d3d/ext/ext_interface.h"
 #include "scenic/render/rhi3d/public/device/render_device.h"

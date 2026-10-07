@@ -16,25 +16,8 @@
 #include "plugin/runtime/host/capability/marks.h"
 #include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/runtime/host/capability/shell.h"
-#include "plugin/runtime/host/processing/processing.h"
-
 namespace plugin {
 namespace detail {
-namespace {
-
-bool run_processing_flushed(content::PluginHost* host, const char* id,
-                            const std::string& args) {
-  if (!host || !host->run_processing(id, args)) {
-    return false;
-  }
-  if (ProcessingPool* pool = processing_pool(host)) {
-    pool->flush_for_test();
-    return pool->last_ok();
-  }
-  return true;
-}
-
-}  // namespace
 
 int run_flood(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: flood Map2d path\n");

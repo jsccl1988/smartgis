@@ -21,6 +21,7 @@
 #endif
 #include <windows.h>
 
+#include "content/browser/session/browser_session.h"
 #include "content/public/map_contents.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/style_types.h"
@@ -176,11 +177,11 @@ void InspectComposer::wire_legend_panel() {
     return;
   }
   host_->legend_panel_->set_toggle([this](const std::string& id, bool visible) {
-    if (host_->browser_->document()->set_layer_visible(id, visible)) {
+    if (host_->browser_->session().set_layer_visible(id, visible)) {
       host_->sync_catalog_from_scene();
       // Legend toggle changes visibility hash — must drop published MapIR.
       if (host_->browser_->map2d()) {
-        host_->browser_->map2d()->invalidate_frame_cache();
+        host_->browser_->session().invalidate_map2d_frame_cache();
       }
       host_->invalidate_map_overlays();
       host_->set_status_message(std::string("Layer ") + id +
@@ -206,11 +207,11 @@ bool InspectComposer::try_consume_measure_draft(const tool::Draft& draft) {
   for (const auto& pt : draft.points) {
     double mx = 0;
     double my = 0;
-    host_->browser_->view_frame()->view_to_map(pt.x_px, pt.y_px, &mx, &my);
+    host_->browser_->session().view_to_map(pt.x_px, pt.y_px, &mx, &my);
     map_pts.emplace_back(mx, my);
   }
 
-  const bool china = host_->browser_->document()->has_china_extent();
+  const bool china = host_->browser_->session().document_has_china_extent();
   auto segment_m = [china](double x0, double y0, double x1, double y1) {
     const double dx = x1 - x0;
     const double dy = y1 - y0;
@@ -284,7 +285,7 @@ void InspectComposer::sync_selection_panel_from_scene() {
   if (!host_->selection_panel_ || !host_->browser_) {
     return;
   }
-  const MapScene::Feature* sel = host_->browser_->document()->selected_feature();
+  const content::MapScene::Feature* sel = host_->browser_->document()->selected_feature();
   host_->selection_panel_->set_count(sel ? 1 : 0);
   std::vector<ui::views::SelectionPanel::LayerSummary> layers;
   for (const auto& layer : host_->browser_->document()->layers()) {
@@ -309,7 +310,7 @@ void InspectComposer::sync_legend_panel_from_scene() {
   }
   std::vector<ui::views::LegendPanel::Entry> entries;
   const double scale =
-      host_->browser_->view_frame() ? host_->browser_->view_frame()->scale() : 8.0;
+      host_->browser_->session().view_scale();
   for (const auto& layer : host_->browser_->document()->layers()) {
     ui::views::LegendPanel::Entry e;
     e.id = layer.id;
@@ -347,16 +348,16 @@ void InspectComposer::sync_layer_properties_from_scene() {
       layer_token = layer.id.empty() ? layer.name : layer.id;
       if (!layer.features.empty()) {
         switch (layer.features.front().kind) {
-          case MapScene::GeomKind::kPoint:
+          case content::MapScene::GeomKind::kPoint:
             geom = "point";
             break;
-          case MapScene::GeomKind::kLine:
+          case content::MapScene::GeomKind::kLine:
             geom = "line";
             break;
-          case MapScene::GeomKind::kPolygon:
+          case content::MapScene::GeomKind::kPolygon:
             geom = "fill";
             break;
-          case MapScene::GeomKind::kText:
+          case content::MapScene::GeomKind::kText:
             geom = "symbol";
             break;
         }
@@ -377,16 +378,16 @@ bool InspectComposer::invert_selection() {
   if (!host_->browser_) {
     return false;
   }
-  const MapScene::Feature* sel = host_->browser_->document()->selected_feature();
+  const content::MapScene::Feature* sel = host_->browser_->document()->selected_feature();
   bool take_next = (sel == nullptr);
-  const MapScene::Feature* first = nullptr;
+  const content::MapScene::Feature* first = nullptr;
   for (const auto& layer : host_->browser_->document()->layers()) {
     for (const auto& f : layer.features) {
       if (!first) {
         first = &f;
       }
       if (take_next) {
-        return host_->browser_->document()->select_feature(f.id);
+        return host_->browser_->session().select_feature(f.id);
       }
       if (sel && f.id.len == sel->id.len &&
           std::memcmp(f.id.bytes, sel->id.bytes, sizeof(f.id.bytes)) == 0) {
@@ -395,7 +396,7 @@ bool InspectComposer::invert_selection() {
     }
   }
   if (first) {
-    return host_->browser_->document()->select_feature(first->id);
+    return host_->browser_->session().select_feature(first->id);
   }
   return false;
 }
@@ -405,7 +406,7 @@ bool InspectComposer::export_selection_geojson(std::string* out_path) {
   if (!out_path || !host_->browser_) {
     return false;
   }
-  const MapScene::Feature* sel = host_->browser_->document()->selected_feature();
+  const content::MapScene::Feature* sel = host_->browser_->document()->selected_feature();
   if (!sel || sel->points.empty()) {
     return false;
   }
@@ -417,14 +418,14 @@ bool InspectComposer::export_selection_geojson(std::string* out_path) {
     return false;
   }
   const char* gtype = "LineString";
-  if (sel->kind == MapScene::GeomKind::kPoint || sel->points.size() == 1) {
+  if (sel->kind == content::MapScene::GeomKind::kPoint || sel->points.size() == 1) {
     gtype = "Point";
-  } else if (sel->kind == MapScene::GeomKind::kPolygon) {
+  } else if (sel->kind == content::MapScene::GeomKind::kPolygon) {
     gtype = "Polygon";
   }
   out << "{\"type\":\"FeatureCollection\",\"features\":[{"
          "\"type\":\"Feature\",\"properties\":{\"id\":\""
-      << MapScene::feature_token(sel->id)
+      << content::MapScene::feature_token(sel->id)
       << "\"},\"geometry\":{\"type\":\"" << gtype << "\",\"coordinates\":";
   if (std::strcmp(gtype, "Point") == 0) {
     out << "[" << sel->points.front().x << "," << -sel->points.front().y

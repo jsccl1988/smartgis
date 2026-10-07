@@ -1,0 +1,13 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Product face for C++26-candidate data-parallel types (P1928 / vir-simd).
+
+config("simd_headers") {
+  include_dirs += [ "//src" ]
+}
+
+group("simd") {
+  public_configs = [ ":simd_headers" ]
+  public_deps = [ "//third_party:vir_simd" ]
+}

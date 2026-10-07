@@ -105,15 +105,20 @@ void BM_hover_commit(benchmark::State& state) {
     }
   }
 
+  root.reset();
   compositor.shutdown();
 }
 BENCHMARK(BM_hover_commit);
 
-// TableView scroll strip: 500x4, exposed viewport strip → commit+wait.
+// TableView scroll strip: 500x4 inside a viewport-sized root (product
+// ScrollView face). Frame height is the viewport — not the full content
+// height — so Debug CRT does not allocate multi-10MB DIBs that smash the
+// heap on TableView teardown (U2).
 void BM_table_scroll_commit(benchmark::State& state) {
   ShellCompositor compositor;
   compositor.start();
 
+  auto root = std::make_unique<View>();
   auto table = std::make_unique<TableView>();
   table->set_columns({"a", "b", "c", "d"});
   for (int i = 0; i < 500; ++i) {
@@ -124,14 +129,17 @@ void BM_table_scroll_commit(benchmark::State& state) {
   const int full_h = header_h + 500 * row_h;
   const int view_h = header_h + 20 * row_h;
   constexpr int kWidth = 640;
+  root->set_bounds({0, 0, kWidth, view_h});
   table->set_bounds({0, 0, kWidth, full_h});
+  TableView* table_ptr = table.get();
+  root->add_child(std::move(table));
 
   // Warm the front DIB once so steady-state scrolls stay subset-publish.
   {
-    const Rect warm{0, header_h, kWidth, view_h};
-    table->set_exposed_rect(warm);
+    const Rect warm{0, 0, kWidth, view_h};
+    table_ptr->set_exposed_rect({0, header_h, kWidth, view_h});
     PaintCommit frame;
-    commit_view_tree(table.get(), warm, kWidth, full_h, 12,
+    commit_view_tree(root.get(), warm, kWidth, view_h, 12,
                      ui::gfx::color_rgb(20, 20, 20), &frame);
     const std::uint64_t gen = frame.generation;
     compositor.commit(std::move(frame));
@@ -142,14 +150,14 @@ void BM_table_scroll_commit(benchmark::State& state) {
   int prev_scroll = -1;
   for (auto _ : state) {
     const int y0 = header_h + scroll_row * row_h;
-    const Rect strip{0, y0, kWidth, view_h};
-    // After warm-up, one-row scroll only records/rasters the newly exposed
-    // leading edge; retained DIB already holds the overlapping viewport rows.
-    Rect dirty = strip;
+    const Rect content_strip{0, y0, kWidth, view_h};
+    // Widget-space dirty: full viewport, or one leading-edge row after a
+    // one-row scroll (retained DIB already holds the overlap).
+    Rect dirty{0, 0, kWidth, view_h};
     if (prev_scroll >= 0 && scroll_row == prev_scroll + 1) {
-      dirty = Rect{0, y0 + view_h - row_h, kWidth, row_h};
+      dirty = Rect{0, view_h - row_h, kWidth, row_h};
     }
-    table->set_exposed_rect(dirty);
+    table_ptr->set_exposed_rect(content_strip);
     prev_scroll = scroll_row;
     scroll_row = (scroll_row + 1) % 40;
 
@@ -157,7 +165,7 @@ void BM_table_scroll_commit(benchmark::State& state) {
     LARGE_INTEGER t1 = {};
     QueryPerformanceCounter(&t0);
     PaintCommit frame;
-    commit_view_tree(table.get(), dirty, kWidth, full_h, 12,
+    commit_view_tree(root.get(), dirty, kWidth, view_h, 12,
                      ui::gfx::color_rgb(20, 20, 20), &frame);
     const std::uint64_t gen = frame.generation;
     compositor.commit(std::move(frame));
@@ -169,6 +177,9 @@ void BM_table_scroll_commit(benchmark::State& state) {
     }
   }
 
+  // Drop the view tree before joining the worker so Debug CRT does not free
+  // TableView while a late raster still holds a moved-from PaintCommit.
+  root.reset();
   compositor.shutdown();
 }
 BENCHMARK(BM_table_scroll_commit);

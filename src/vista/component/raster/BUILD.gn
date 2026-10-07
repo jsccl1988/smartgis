@@ -1,0 +1,51 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# DIB / GDI pixel kernels for the content software fallback (fill, glyph,
+# style color, RGBA blit). Not Scenic rhi2d. Content painters stay the
+# schedulers and call these through thin wrappers.
+#
+# Linked by //src/content:map_present (GN-DEP on the content wrappers).
+# Not a dep of //src/vista:vista in this slice — omit VISTA_EXPORTS so
+# vista::apply_multiply_coverage stays dllimport from vista.dll.
+# Do not also add this source_set to the vista DLL while map_present
+# links it; the symbols would be defined twice.
+# public_configs omits //build:legacy so map_present does not inherit MBCS.
+
+source_set("raster_sources") {
+  sources = [
+    "blit.cc",
+    "blit.h",
+    "dib.cc",
+    "dib.h",
+    "fill.cc",
+    "fill.h",
+    "glyph.cc",
+    "glyph.h",
+    "style.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  deps = [
+    "//src/base/execution:execution",
+    # apply_multiply_coverage (AVX2) is dllimport from vista.dll at final
+    # link (map_present / SmartGIS). Do not GN-dep //src/vista:vista here —
+    # that aggregator public_deps //src/render:render and trips assert_no_deps.
+  ]
+  assert_no_deps = [
+    "//src/render:render",
+    "//src/scenic:scenic",
+    "//src/content:content",
+  ]
+  libs = [
+    "gdi32.lib",
+    "msimg32.lib",
+    "user32.lib",
+  ]
+}
+
+group("raster") {
+  public_deps = [ ":raster_sources" ]
+}

@@ -870,8 +870,9 @@ int main() {
            "dem_clip drops land outside DEM");
   }
 
-  // Jet style + dem_clip (no tile yet) must not emit cream land — first-frame
-  // white China when the host deferred the raster DrawItem.
+  // Jet style + dem_clip without a raster tile must keep cream land — otherwise
+  // GPU present falls through to clear + lines (black China) when bake/upload
+  // lags the first layout.
   {
     gis::style::StyleDocument doc;
     expect(parse_style("{\"version\":8,\"layers\":["
@@ -903,8 +904,8 @@ int main() {
     land.source_layer = "land";
     land.geoms = {&land_poly};
     const vista::MapIR frame = layout.build(in, {land});
-    expect(count_kind(frame, DrawKind::kFill) == 0,
-           "jet dem_clip suppresses cream land");
+    expect(count_kind(frame, DrawKind::kFill) >= 1,
+           "jet dem_clip without tiles keeps cream land");
     expect(count_kind(frame, DrawKind::kRaster) == 0,
            "jet dem_clip without tiles emits no raster");
   }

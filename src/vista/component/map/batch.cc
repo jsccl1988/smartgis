@@ -566,20 +566,124 @@ void emit_kept_probes(const std::vector<FeatureProbe>& probes, double scale,
       break;
     }
   }
+  // Overview / first WaitFirstMapPresent: land-ring → admin edge hashing
+  // dominated batches wall; provincial strokes are not readable at this
+  // scale (same gate as dedupe_admin_boundary_edges in map2d_batches).
+  const bool skip_land_admin_synth = has_admin_lines || scale < 14.0;
   BatchSourceIndex batch_index;
   batch_index.reserve(8);
   AdminEdgeSet land_admin_edges;
-  land_admin_edges.reserve(4096);
+  AdminEdgeSet* edges =
+      skip_land_admin_synth ? nullptr : &land_admin_edges;
+  if (edges) {
+    land_admin_edges.reserve(4096);
+  }
   for (const FeatureProbe& probe : probes) {
     if (!should_keep_probe(probe, scale, use_carto_slots, line_stems)) {
       continue;
     }
-    append_probe_geometry(probe, scale, out, &batch_index, &land_admin_edges,
-                          has_admin_lines);
+    append_probe_geometry(probe, scale, out, &batch_index, edges,
+                          skip_land_admin_synth);
+  }
+}
+
+// Land→admin ring synth can still stroke one provincial border twice after
+// independent RDP. Collapse finished admin LineStrings onto unique edges.
+void append_unique_line_edges(
+    const OGRLineString* line, AdminEdgeSet* seen, LayerBatch* admin,
+    LayerBatchSet* out, const std::map<std::string, std::string>& attrs) {
+  if (!line || !seen || !admin || !out) {
+    return;
+  }
+  const int n = line->getNumPoints();
+  if (n < 2) {
+    return;
+  }
+  auto flush_run = [&](std::unique_ptr<OGRLineString>& run) {
+    if (!run || run->getNumPoints() < 2) {
+      run.reset();
+      return;
+    }
+    admin->geoms.push_back(run.get());
+    out->owned.push_back(std::move(run));
+    admin->attrs.push_back(attrs);
+  };
+  std::unique_ptr<OGRLineString> run;
+  for (int i = 1; i < n; ++i) {
+    const double x0 = line->getX(i - 1);
+    const double y0 = line->getY(i - 1);
+    const double x1 = line->getX(i);
+    const double y1 = line->getY(i);
+    const UndirectedEdgeKey key = make_edge_key(x0, y0, x1, y1);
+    if (key.a == key.b || !seen->insert(key).second) {
+      flush_run(run);
+      continue;
+    }
+    if (!run) {
+      run = std::make_unique<OGRLineString>();
+      run->addPoint(x0, y0);
+    }
+    run->addPoint(x1, y1);
+  }
+  flush_run(run);
+}
+
+void dedupe_admin_boundary_edges_impl(LayerBatchSet* set) {
+  if (!set) {
+    return;
+  }
+  LayerBatch* admin = nullptr;
+  for (LayerBatch& batch : set->batches) {
+    if (batch.source_layer == "admin") {
+      admin = &batch;
+      break;
+    }
+  }
+  if (!admin || admin->geoms.size() < 2) {
+    return;
+  }
+  std::vector<const OGRGeometry*> old_geoms = std::move(admin->geoms);
+  std::vector<std::map<std::string, std::string>> old_attrs =
+      std::move(admin->attrs);
+  admin->geoms.clear();
+  admin->attrs.clear();
+  admin->geoms.reserve(old_geoms.size());
+  admin->attrs.reserve(old_attrs.size());
+  AdminEdgeSet seen;
+  seen.reserve(old_geoms.size() * 64);
+  for (size_t i = 0; i < old_geoms.size(); ++i) {
+    const OGRGeometry* raw = old_geoms[i];
+    if (!raw) {
+      continue;
+    }
+    const std::map<std::string, std::string>& attrs =
+        i < old_attrs.size() ? old_attrs[i]
+                             : std::map<std::string, std::string>{};
+    const OGRwkbGeometryType type = wkbFlatten(raw->getGeometryType());
+    if (type == wkbLineString) {
+      append_unique_line_edges(static_cast<const OGRLineString*>(raw), &seen,
+                               admin, set, attrs);
+    } else if (type == wkbMultiLineString) {
+      const auto* multi = static_cast<const OGRMultiLineString*>(raw);
+      const int n = multi->getNumGeometries();
+      for (int g = 0; g < n; ++g) {
+        append_unique_line_edges(
+            static_cast<const OGRLineString*>(multi->getGeometryRef(g)), &seen,
+            admin, set, attrs);
+      }
+    } else {
+      // Keep non-line admin geoms as-is (unexpected but safe).
+      admin->geoms.push_back(raw);
+      admin->attrs.push_back(attrs);
+    }
   }
 }
 
 }  // namespace
+
+void dedupe_admin_boundary_edges(LayerBatchSet* set) {
+  dedupe_admin_boundary_edges_impl(set);
+}
 
 LayerBatchSet::LayerBatchSet() = default;
 

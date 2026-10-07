@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 
 namespace vista {
 int terrain_lod_max_edge(float camera_distance) {

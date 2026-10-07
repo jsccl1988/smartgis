@@ -21,7 +21,7 @@
 #include "content/public/map_layer_types.h"
 #include "gis/style/style_types.h"
 #include "gis/tile/provider/tile_provider.h"
-#include "vista/terrain/process/land_mask.h"
+#include "vista/terrain/dem/mask/land_mask.h"
 #include "tool/draft/draft.h"
 
 namespace content {

@@ -8,7 +8,7 @@
 
 #include "vista/component/world/atmosphere/field/field_store.h"
 #include "vista/vista_export.h"
-#include "vista/terrain/process/land_mask.h"
+#include "vista/terrain/dem/mask/land_mask.h"
 
 namespace vista {
 namespace atmosphere {

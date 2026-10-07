@@ -1,42 +1,20 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
+// GN-DEP: //src/vista/component/raster:raster
 
 #include "content/browser/present/map2d/software/map2d_gdi_fill.h"
 
-#include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <vector>
 
+#include "vista/component/raster/fill.h"
+
 namespace content {
 namespace detail {
-namespace {
 
-// Coverage blend into an existing BGRA pixel (A stays opaque).
-inline void blend_bgra_coverage(uint32_t* dst, uint32_t src_bgra, float cov) {
-  if (!dst || cov <= 0.f) {
-    return;
-  }
-  if (cov >= 1.f) {
-    *dst = src_bgra | 0xff000000u;
-    return;
-  }
-  const float ic = 1.f - cov;
-  const uint32_t d = *dst;
-  const float db = static_cast<float>(d & 0xff);
-  const float dg = static_cast<float>((d >> 8) & 0xff);
-  const float dr = static_cast<float>((d >> 16) & 0xff);
-  const float sb = static_cast<float>(src_bgra & 0xff);
-  const float sg = static_cast<float>((src_bgra >> 8) & 0xff);
-  const float sr = static_cast<float>((src_bgra >> 16) & 0xff);
-  const auto pack = [](float v) -> uint32_t {
-    return static_cast<uint32_t>((std::min)(255.f, v + 0.5f));
-  };
-  *dst = 0xff000000u | (pack(dr * ic + sr * cov) << 16) |
-         (pack(dg * ic + sg * cov) << 8) | pack(db * ic + sb * cov);
+void fill_tri_solid(DibSurface* dib, POINT a, POINT b, POINT c, uint32_t bgra) {
+  vista::raster::fill_tri_solid(dib, a, b, c, bgra);
 }
-
-}  // namespace
 
 TessQuad classify_tess_quad(const uint32_t* idx, size_t nvert, uint32_t* q) {
   if (!idx || !q) {
@@ -69,92 +47,6 @@ TessQuad classify_tess_quad(const uint32_t* idx, size_t nvert, uint32_t* q) {
     return TessQuad::kFan;
   }
   return TessQuad::kNone;
-}
-
-void fill_tri_solid(DibSurface* dib, POINT a, POINT b, POINT c, uint32_t bgra) {
-  if (!dib || !dib->valid()) {
-    return;
-  }
-  // Sort by y then x for stable spans.
-  if (b.y < a.y || (b.y == a.y && b.x < a.x)) {
-    const POINT t = a;
-    a = b;
-    b = t;
-  }
-  if (c.y < a.y || (c.y == a.y && c.x < a.x)) {
-    const POINT t = a;
-    a = c;
-    c = t;
-  }
-  if (c.y < b.y || (c.y == b.y && c.x < b.x)) {
-    const POINT t = b;
-    b = c;
-    c = t;
-  }
-  if (c.y == a.y) {
-    return;  // zero-height
-  }
-
-  const int min_y = (std::max)(0, static_cast<int>(a.y));
-  const int max_y = (std::min)(dib->height - 1, static_cast<int>(c.y));
-  if (min_y > max_y) {
-    return;
-  }
-
-  auto lerp_x = [](const POINT& p0, const POINT& p1, int y) -> double {
-    if (p1.y == p0.y) {
-      return static_cast<double>(p0.x);
-    }
-    const double t = (static_cast<double>(y) - static_cast<double>(p0.y)) /
-                     (static_cast<double>(p1.y) - static_cast<double>(p0.y));
-    return static_cast<double>(p0.x) +
-           t * (static_cast<double>(p1.x) - static_cast<double>(p0.x));
-  };
-
-  for (int y = min_y; y <= max_y; ++y) {
-    double x0 = 0.0;
-    double x1 = 0.0;
-    // Flat-top (a.y==b.y): edges are a-c and b-c. Using a-b here collapses
-    // the span to a point and drops the north half of axis-aligned cells.
-    if (b.y == a.y || y >= b.y) {
-      x0 = lerp_x(a, c, y);
-      x1 = lerp_x(b, c, y);
-    } else {
-      x0 = lerp_x(a, c, y);
-      x1 = lerp_x(a, b, y);
-    }
-    if (x1 < x0) {
-      const double tmp = x0;
-      x0 = x1;
-      x1 = tmp;
-    }
-    // Subpixel edge coverage (sampling interpolation) instead of round-to-
-    // nearest hard spans — kills staircase aliases on diagonal strokes.
-    const int x_left = static_cast<int>(std::floor(x0));
-    const int x_right = static_cast<int>(std::floor(x1));
-    uint32_t* row = dib->row(y);
-    if (x_left == x_right) {
-      if (x_left >= 0 && x_left < dib->width) {
-        const float cov =
-            static_cast<float>((std::min)(x1, x0 + 1.0) - x0);
-        blend_bgra_coverage(row + x_left, bgra, (std::min)(1.f, cov));
-      }
-      continue;
-    }
-    if (x_left >= 0 && x_left < dib->width) {
-      const float cov = 1.f - static_cast<float>(x0 - x_left);
-      blend_bgra_coverage(row + x_left, bgra, cov);
-    }
-    const int xa = (std::max)(0, x_left + 1);
-    const int xb = (std::min)(dib->width - 1, x_right - 1);
-    if (xa <= xb) {
-      std::fill(row + xa, row + xb + 1, bgra);
-    }
-    if (x_right >= 0 && x_right < dib->width) {
-      const float cov = static_cast<float>(x1 - x_right);
-      blend_bgra_coverage(row + x_right, bgra, (std::min)(1.f, cov));
-    }
-  }
 }
 
 void FillBatch::reset_payload() {
@@ -292,7 +184,8 @@ void FillBatch::append_tris(HDC hdc, DcStyle* style, HBRUSH b, HPEN p,
           poly_outside_view(tri, 3, view_w, view_h)) {
         return;
       }
-      fill_tri_solid(dib, tri[0], tri[1], tri[2], bgra);
+      // Qualify: DibSurface ADL also finds vista::raster::fill_tri_solid.
+      content::detail::fill_tri_solid(dib, tri[0], tri[1], tri[2], bgra);
       ++dib_tri_count;
     };
     size_t i = 0;

@@ -407,6 +407,10 @@ group("concurrentqueue") {
   public_deps = [ "//third_party/concurrentqueue:concurrentqueue" ]
 }
 
+group("vir_simd") {
+  public_deps = [ "//third_party/vir_simd:vir_simd" ]
+}
+
 group("pugixml") {
   public_deps = [ "//third_party/pugixml:pugixml" ]
 }

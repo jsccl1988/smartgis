@@ -6,14 +6,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string>
 
 #include "app/views/browser/browser.h"
-#include "content/browser/camera/map_host_extent.h"
-#include "content/browser/camera/orbit_frame.h"
-#include "content/browser/document/map_scene.h"
-#include "content/browser/present/map2d/map2d_presenter.h"
-#include "content/browser/present/scene3d/scene3d_presenter.h"
+#include "content/browser/session/browser_session.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/style_types.h"
 #include "base/process/switches.h"
@@ -59,15 +56,15 @@ ChinaScene3dAtmoFlags resolve_china_scene3d_atmo_flags() {
 }  // namespace
 
 void ensure_china_maplibre_carto(Browser& browser) {
-  content::MapScene* doc = browser.document();
-  if (!doc || !doc->has_china_extent()) {
+  content::BrowserSession& session = browser.session();
+  if (!session.document_has_china_extent()) {
     return;
   }
   // Only drop china_city.style.json (source-layer area/line/point). Keep
   // product styles (geochem / flood / traffic / orthogrid) intact.
   // Hold the shared_ptr so a concurrent Display present cannot free layers.
   const std::shared_ptr<gis::style::StyleDocument> style =
-      doc->style_document_shared();
+      session.style_document_shared();
   if (!style) {
     return;
   }
@@ -100,31 +97,19 @@ void ensure_china_maplibre_carto(Browser& browser) {
     return;
   }
   if (has_area_or_point && !has_land_or_river) {
-    doc->clear_style_document();
+    session.clear_style_document();
   }
 }
 
 void frame_china_map2d(Browser& browser, int view_w, int view_h) {
-  content::MapScene* doc = browser.document();
-  content::ViewFrame* frame = browser.view_frame();
-  if (!doc || !frame) {
-    return;
-  }
-  if (doc->has_china_extent()) {
-    frame->apply_world_extent(content::kChinaMap2dFrameExtent, view_w, view_h);
-    if (content::OrbitFrame* orbit = browser.orbit_frame()) {
-      orbit->apply_world_extent(content::kChinaLonLatExtent);
-    }
+  content::BrowserSession& session = browser.session();
+  if (session.document_has_china_extent()) {
+    session.frame_china_map2d_extents(view_w, view_h);
   } else {
-    frame->fit_extent(*doc, view_w, view_h);
-    if (content::OrbitFrame* orbit = browser.orbit_frame()) {
-      orbit->apply_world_extent(doc->world_extent());
-    }
+    session.frame_view_and_orbit_to_document(view_w, view_h);
   }
   // Framing is extent-only when scene content is unchanged.
-  if (content::Map2dPresenter* map2d = browser.map2d()) {
-    map2d->invalidate_frame_cache();
-  }
+  session.invalidate_map2d_frame_cache();
   browser.push_shared_extent();
 }
 
@@ -140,31 +125,24 @@ void apply_china_map2d_product_defaults(Browser& browser, int view_w,
 
 ChinaScene3dAtmoFlags apply_china_scene3d_atmosphere(Browser& browser) {
   const ChinaScene3dAtmoFlags flags = resolve_china_scene3d_atmo_flags();
-  content::Scene3dPresenter* cam = browser.scene3d();
-  if (!cam) {
-    return flags;
-  }
+  content::BrowserSession& session = browser.session();
   // Product default face is atmosphere (legacy stereo is opt-in).
-  cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
+  session.set_scene3d_look_atmosphere();
   // Do not abandon_mesh on every China seed: concurrent Map-Edit FlyCube
   // present + gpu_scene_.abandon remapped heap (browse.3d 0xC0000005 on
   // select_map_tab(2)). Seed/flags alone rebuild DEM on the next present.
   // Harness: seed_procedural can AV if DEM/gpu_scene is mid-rebuild; keep
   // the call — callers must pause shell FlyCube present first.
-  cam->atmosphere_session().seed_procedural(/*with_land_rings=*/true);
-  cam->atmosphere_session().set_ocean_enabled(flags.ocean);
-  cam->atmosphere_session().set_cloud_enabled(flags.cloud);
-  cam->atmosphere_session().set_sky_enabled(flags.sky);
-  cam->atmosphere_session().set_fog_enabled(flags.fog);
+  session.seed_scene3d_procedural(/*with_land_rings=*/true);
+  session.set_scene3d_atmosphere_layers(flags.ocean, flags.cloud, flags.sky,
+                                        flags.fog);
   // Interactive 3D tab is East-China DEM, not the UV globe splash (that path
   // painted a solid red sphere when albedo SRV recycled).
-  cam->atmosphere_session().set_globe_enabled(false);
+  session.set_scene3d_globe_enabled(false);
   // ContourSheet stacked jet TIN gives the ring-like contour surface. Soft
   // slab needs albedo alpha <=200 (see apply_contour_suite_defaults). Dark
   // isolines bake into the atlas. Fallback: DEM jet + dark curves.
-  if (!cam->atmosphere_session().apply_contour_suite_defaults()) {
-    cam->atmosphere_session().set_elevation_overlay(true, true);
-  }
+  (void)session.apply_scene3d_contour_suite_or_elevation();
   // Do not fill GpuPresent::legacy_labels_ here. Tab-switch inlines used to
   // land on a skewed gpu_ and AV in vector::push_back / feature_count.
   // Software paint seeds city labels on the bound GpuPresent.
@@ -172,18 +150,10 @@ ChinaScene3dAtmoFlags apply_china_scene3d_atmosphere(Browser& browser) {
 }
 
 void apply_china_scene3d_orbit(Browser& browser) {
-  content::OrbitFrame* orbit = browser.orbit_frame();
-  if (!orbit) {
-    return;
-  }
-  orbit->reset();
-  orbit->apply_world_extent(content::kChinaLonLatExtent);
   // Fill the viewport with East-China DEM (2.55 left a postage-stamp island).
-  orbit->set_distance(1.45f);
-  orbit->set_pitch(0.52f);
   // Trackball activate historically left yaw~0.42 (sky/navy). Default DEM
   // yaw is π-0.55; keep it after reset even if a draft already nudged yaw.
-  orbit->set_yaw(content::kScene3dDefaultYaw);
+  browser.session().apply_china_scene3d_orbit();
   browser.push_shared_extent();
 }
 
@@ -200,22 +170,17 @@ ChinaScene3dAtmoFlags apply_china_scene3d_legacy_look(Browser& browser) {
   flags.cloud = false;
   flags.sky = false;
   flags.fog = false;
-  content::Scene3dPresenter* cam = browser.scene3d();
-  if (!cam) {
-    return flags;
-  }
+  content::BrowserSession& session = browser.session();
   std::fprintf(stderr, "china-legacy-look: preset\n");
-  cam->set_look_preset(content::Scene3dLookPreset::kLegacyStereo);
+  session.set_scene3d_look_legacy();
   // Do not abandon_mesh here: concurrent FlyCube present + gpu_scene_.abandon
   // remaps heap (0xC0000005 / ExitProcess -1 under showcase). Seed/flags alone
   // rebuild DEM on the next present — same as apply_china_scene3d_atmosphere.
   std::fprintf(stderr, "china-legacy-look: seed_procedural\n");
-  cam->atmosphere_session().seed_procedural(/*with_land_rings=*/true);
+  session.seed_scene3d_procedural(/*with_land_rings=*/true);
   std::fprintf(stderr, "china-legacy-look: flags\n");
-  cam->atmosphere_session().set_ocean_enabled(flags.ocean);
-  cam->atmosphere_session().set_cloud_enabled(flags.cloud);
-  cam->atmosphere_session().set_sky_enabled(flags.sky);
-  cam->atmosphere_session().set_fog_enabled(flags.fog);
+  session.set_scene3d_atmosphere_layers(flags.ocean, flags.cloud, flags.sky,
+                                        flags.fog);
   std::fprintf(stderr, "china-legacy-look: orbit\n");
   apply_china_scene3d_orbit(browser);
   // ensure_legacy_overlays (ASCII city labels) has AVd under showcase GPU
@@ -223,7 +188,7 @@ ChinaScene3dAtmoFlags apply_china_scene3d_legacy_look(Browser& browser) {
   // atmosphere-showcase BMP path when overlays are available.
   if (!env_flag_is_one("atmosphere-showcase-gpu")) {
     std::fprintf(stderr, "china-legacy-look: overlays\n");
-    (void)cam->ensure_legacy_overlays();
+    (void)session.ensure_scene3d_legacy_overlays();
   } else {
     std::fprintf(stderr, "china-legacy-look: overlays-skipped\n");
   }

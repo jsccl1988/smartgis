@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 
 #include "vista/terrain/dem/dem_frame.h"
 #include "vista/terrain/dem/raster/bake_util.h"

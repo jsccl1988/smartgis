@@ -10,13 +10,13 @@
 #include <windows.h>
 
 #include <algorithm>
-#include <cstdint>
 #include <map>
 #include <mutex>
 #include <vector>
 
 #include "content/browser/present/map2d/software/map2d_frame_gdi.h"
 #include "vista/component/map/ir.h"
+#include "vista/component/raster/style.h"
 
 namespace content {
 namespace detail {
@@ -129,17 +129,9 @@ inline void orient_tri_positive(POINT* a, POINT* b, POINT* c) {
   }
 }
 
-inline uint32_t colorref_to_bgra(COLORREF c) {
-  return 0xff000000u | (static_cast<uint32_t>(GetRValue(c)) << 16) |
-         (static_cast<uint32_t>(GetGValue(c)) << 8) |
-         static_cast<uint32_t>(GetBValue(c));
-}
-
-inline uint32_t rgba_to_bgra(uint32_t rgba) {
-  return 0xff000000u | (static_cast<uint32_t>((rgba >> 16) & 0xff) << 16) |
-         (static_cast<uint32_t>((rgba >> 8) & 0xff) << 8) |
-         static_cast<uint32_t>(rgba & 0xff);
-}
+// Opaque BGRA pack. Implementation is vista::raster (software DIB kernels).
+using vista::raster::colorref_to_bgra;
+using vista::raster::rgba_to_bgra;
 
 // Process-wide GDI handles for map paint — avoids CreateSolidBrush / CreateFont
 // churn on every present (cold bootstrap replays export + viewport paint).

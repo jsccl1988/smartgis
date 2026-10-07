@@ -4,7 +4,7 @@
 #include "gpu/raster/direct/direct.h"
 
 #include "gpu/raster/direct/mesh.h"
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 
 #include <algorithm>
 #include <cmath>

@@ -13,14 +13,10 @@
 
 #include "app/views/browser/plugin/path_resolve.h"
 #include "app/views/browser/plugin/present.h"
-#include "content/browser/camera/map_host_extent.h"
-#include "content/browser/camera/orbit_frame.h"
-#include "content/browser/document/map_scene.h"
-#include "content/browser/present/scene3d/scene3d_presenter.h"
+#include "content/browser/session/browser_session.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
-#include "vista/component/world/atmosphere/environment.h"
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 #include "plugin/product/world3d/scene/fly/globe_fly.h"
 #include "plugin/product/world3d/scene/look/look.h"
 
@@ -46,8 +42,7 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
         return add_standin_mesh(ctx.document, n.c_str(), lon, lat, half_deg);
       },
       [ctx](std::string_view tileset_json_path) {
-        content::Scene3dPresenter* cam = ctx.scene3d;
-        if (!cam) {
+        if (!ctx.session) {
           return false;
         }
         std::string path(tileset_json_path);
@@ -72,10 +67,10 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
         const auto slash = root.find_last_of("/\\");
         if (slash != std::string::npos) {
           root.resize(slash + 1);
-          cam->gpu().set_tileset_content_root(root);
+          ctx.session->set_scene3d_tileset_content_root(root);
         }
-        return cam->gpu().attach_tileset_json(json.c_str(), json.size(),
-                                              "world3d_city");
+        return ctx.session->attach_scene3d_tileset_json(
+            json.c_str(), json.size(), "world3d_city");
       },
       [ctx]() {
         if (ctx.present_scene3d) {
@@ -86,25 +81,26 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
   sink->set_overlay_bridges(
       [ctx](const float* xyz, int point_count, const unsigned* indices,
             int index_count, const uint8_t* albedo) {
-        content::Scene3dPresenter* cam = ctx.scene3d;
-        if (!cam || !xyz || point_count < 3 || !indices || index_count < 3) {
+        if (!ctx.session || !xyz || point_count < 3 || !indices ||
+            index_count < 3) {
           return false;
         }
-        cam->set_overlay_tin_mesh(xyz, point_count, indices, index_count, albedo);
+        ctx.session->set_scene3d_overlay_tin_mesh(xyz, point_count, indices,
+                                                  index_count, albedo);
         return true;
       },
       [ctx](const uint8_t* rgba, uint32_t width, uint32_t height, const float* uv,
             int uv_float_count) {
-        content::Scene3dPresenter* cam = ctx.scene3d;
-        if (!cam || !rgba || width == 0 || height == 0) {
+        if (!ctx.session || !rgba || width == 0 || height == 0) {
           return false;
         }
-        cam->set_overlay_tin_drape(rgba, width, height, uv, uv_float_count);
+        ctx.session->set_scene3d_overlay_tin_drape(rgba, width, height, uv,
+                                                   uv_float_count);
         return true;
       },
       [ctx]() {
-        if (ctx.scene3d) {
-          ctx.scene3d->clear_overlay_tin_mesh();
+        if (ctx.session) {
+          ctx.session->clear_scene3d_overlay_tin();
         }
       });
 
@@ -119,8 +115,7 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
         return ctx.scene3d != nullptr && ctx.orbit != nullptr;
       },
       [ctx](double lon, double lat, float distance, double span_deg) {
-        content::OrbitFrame* orbit = ctx.orbit;
-        if (!orbit) {
+        if (!ctx.session) {
           return false;
         }
         const double half = (span_deg > 0.05) ? (span_deg * 0.5) : 2.0;
@@ -129,9 +124,9 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
         box.ymin = lat - half;
         box.xmax = lon + half;
         box.ymax = lat + half;
-        orbit->apply_world_extent(box);
+        ctx.session->apply_orbit_world_extent(box);
         if (distance > 0.05f) {
-          orbit->set_distance(distance);
+          ctx.session->set_orbit_distance(distance);
         }
         if (ctx.push_shared_extent) {
           ctx.push_shared_extent();
@@ -140,9 +135,7 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
       },
       [ctx](std::string_view dem_path, std::string* result_json) {
         auto write_result = [&](const std::string& json) { write_json_out(result_json, json); };
-        content::Scene3dPresenter* cam = ctx.scene3d;
-        content::OrbitFrame* orbit = ctx.orbit;
-        if (!cam || !orbit) {
+        if (!ctx.session) {
           write_result(
               "{\"error\":\"no_scene_device\",\"op\":\"world3d.load_global_dem\"}");
           return false;
@@ -191,18 +184,18 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
         box.ymin = miny;
         box.xmax = maxx;
         box.ymax = maxy;
-        if (!content::extent_nonempty(box)) {
-          box = content::kChinaLonLatExtent;
+        if (!content::BrowserSession::is_extent_nonempty(box)) {
+          box = content::BrowserSession::china_lon_lat_extent();
         }
-        orbit->reset();
-        orbit->apply_world_extent(box);
+        ctx.session->reset_orbit();
+        ctx.session->apply_orbit_world_extent(box);
         const double span =
             (std::max)(box.xmax - box.xmin, box.ymax - box.ymin);
-        orbit->set_distance(span > 80.0 ? 4.2f : 2.55f);
+        ctx.session->set_orbit_distance(span > 80.0 ? 4.2f : 2.55f);
         if (ctx.push_shared_extent) {
           ctx.push_shared_extent();
         }
-        cam->abandon_mesh();
+        ctx.session->abandon_scene3d_mesh();
 
         write_result(std::string("{\"ok\":true,\"op\":\"world3d.load_global_dem\","
                                  "\"source\":\"") +
@@ -212,15 +205,14 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
       [ctx](std::string_view imagery_path, bool enabled,
             std::string* result_json) {
         auto write_result = [&](const std::string& json) { write_json_out(result_json, json); };
-        content::Scene3dPresenter* cam = ctx.scene3d;
-        if (!cam) {
+        if (!ctx.session) {
           write_result(
               "{\"error\":\"no_scene_device\",\"op\":\"world3d.set_satellite_cloud\"}");
           return false;
         }
-        cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
+        ctx.session->set_scene3d_look_atmosphere();
         if (!enabled) {
-          cam->atmosphere_session().set_cloud_enabled(false);
+          ctx.session->set_scene3d_cloud_enabled(false);
           write_result(
               "{\"ok\":true,\"op\":\"world3d.set_satellite_cloud\","
               "\"mode\":\"off\"}");
@@ -238,8 +230,8 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
         }
 
         if (path.empty()) {
-          cam->atmosphere_session().seed_procedural(/*with_land_rings=*/true);
-          cam->atmosphere_session().set_cloud_enabled(true);
+          ctx.session->seed_scene3d_procedural(/*with_land_rings=*/true);
+          ctx.session->set_scene3d_cloud_enabled(true);
           write_result(
               "{\"ok\":true,\"op\":\"world3d.set_satellite_cloud\","
               "\"mode\":\"procedural\","
@@ -249,14 +241,14 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
         }
 
         const std::string spec = path + ":cloud_cover";
-        if (!cam->atmosphere_session().load_fields(spec)) {
+        if (!ctx.session->load_scene3d_fields(spec)) {
           write_result(
               "{\"error\":\"field_load_failed\",\"op\":\"world3d.set_satellite_cloud\","
               "\"path\":\"" +
               path + "\"}");
           return false;
         }
-        cam->atmosphere_session().set_cloud_enabled(true);
+        ctx.session->set_scene3d_cloud_enabled(true);
         write_result(
             "{\"ok\":true,\"op\":\"world3d.set_satellite_cloud\","
             "\"mode\":\"field\",\"path\":\"" +
@@ -264,38 +256,29 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
         return true;
       },
       [ctx](bool sky, bool ocean, bool cloud, bool fog) {
-        content::Scene3dPresenter* cam = ctx.scene3d;
-        if (!cam) {
+        if (!ctx.session) {
           return false;
         }
-        cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
-        cam->atmosphere_session().set_sky_enabled(sky);
-        cam->atmosphere_session().set_ocean_enabled(ocean);
-        cam->atmosphere_session().set_cloud_enabled(cloud);
-        cam->atmosphere_session().set_fog_enabled(fog);
+        ctx.session->set_scene3d_look_atmosphere();
+        ctx.session->set_scene3d_atmosphere_layers(ocean, cloud, sky, fog);
         return true;
       });
 
   sink->set_atmosphere_panel_bridges(
       [ctx](double t) {
-        if (ctx.scene3d) {
-          ctx.scene3d->atmosphere_session().set_time_sec(t);
+        if (ctx.session) {
+          ctx.session->set_scene3d_time_sec(t);
         }
       },
       [ctx]() {
-        content::Scene3dPresenter* cam = ctx.scene3d;
-        if (!cam) {
+        if (!ctx.session) {
           return;
         }
-        const vista::atmosphere::Environment* env =
-            cam->atmosphere_session().environment();
-        if (!env || env->field_store().layer_count() == 0) {
-          cam->atmosphere_session().seed_procedural();
-        }
+        ctx.session->seed_scene3d_procedural_if_empty();
       },
       [ctx](bool on) {
-        if (ctx.scene3d) {
-          ctx.scene3d->atmosphere_session().set_wind_overlay_enabled(on);
+        if (ctx.session) {
+          ctx.session->set_scene3d_wind_overlay(on);
         }
       });
 

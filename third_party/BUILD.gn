@@ -152,6 +152,10 @@ group("concurrentqueue") {
   public_deps = [ "//third_party/gn:concurrentqueue" ]
 }
 
+group("vir_simd") {
+  public_deps = [ "//third_party/gn:vir_simd" ]
+}
+
 group("pugixml") {
   public_deps = [ "//third_party/gn:pugixml" ]
 }

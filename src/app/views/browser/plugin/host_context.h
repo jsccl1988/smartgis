@@ -7,6 +7,7 @@
 #include <functional>
 
 namespace content {
+class BrowserSession;
 class Map2dPresenter;
 class MapScene;
 class OrbitFrame;
@@ -20,6 +21,7 @@ namespace detail {
 
 // Narrow PluginHost Scene3dSink wiring. No Browser* — horizon fills callbacks.
 struct Scene3dHostContext {
+  content::BrowserSession* session = nullptr;
   content::MapScene* document = nullptr;
   content::Scene3dPresenter* scene3d = nullptr;
   content::OrbitFrame* orbit = nullptr;
@@ -33,6 +35,7 @@ struct Scene3dHostContext {
 
 // Narrow PluginHost Map2dSink wiring. No Browser* — horizon fills callbacks.
 struct Map2dHostContext {
+  content::BrowserSession* session = nullptr;
   content::MapScene* document = nullptr;
   content::Map2dPresenter* map2d = nullptr;
   content::ViewFrame* view_frame = nullptr;

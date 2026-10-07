@@ -6,27 +6,18 @@
 
 #include "app/views/app/process/browser_main.h"
 #include "app/views/app/cmdline/views_launch_options.h"
-#include "content/app/content_main.h"
-#include "content/renderer/renderer_main.h"
-#include "gpu/gpu.h"
+#include "content/public/content_client.h"
 
 namespace app {
 
-// Four process entries required by content::content_main_host.
-// utility is not linked into this PE.
-struct ViewsContentHost {
+// Browser-process embedder for SmartGisViews. Child --type= values are
+// dispatched inside content::content_main.
+struct ViewsContentHost : content::ContentClient {
   ViewsLaunchOptions options;
 
-  int browser_main(const content::ContentMainParams& params) const {
+  int browser_main(const content::ContentMainParams& params) override {
     return run_browser_main(params, options);
   }
-  int renderer_main(const content::ContentMainParams& params) const {
-    return content::RendererMain(params);
-  }
-  int gpu_main(const content::ContentMainParams& params) const {
-    return gpu::GpuMain(params.argc, params.argv);
-  }
-  int utility_main(const content::ContentMainParams&) const { return 1; }
 };
 
 }  // namespace app

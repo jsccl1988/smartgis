@@ -26,7 +26,9 @@ class ViewFrame;
 namespace detail {
 
 // Hosts content scenic::Engine (HWND-free MemFrame) when
-// --scene3d-engine=scenic. Overlay TIN with albedo stays on FlyCube/GDI.
+// --scene3d-engine=scenic. ensure() loads scenic.dll, then calls
+// scenic::create_scene3d_engine(). Overlay TIN with albedo stays on
+// FlyCube/GDI.
 class ScenicScene3dHost {
  public:
   ScenicScene3dHost();

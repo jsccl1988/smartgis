@@ -55,6 +55,7 @@ class HarnessShell {
   virtual content::ViewHost* scene_host() = 0;
   virtual content::MapScene* document() = 0;
   virtual content::Scene3dPresenter* scene3d() = 0;
+  virtual content::Scene3dStereoSession* scene3d_stereo() = 0;
   virtual content::ViewFrame* view_frame() = 0;
   virtual content::OrbitFrame* orbit_frame() = 0;
   virtual content::Map2dPresenter* map2d() = 0;

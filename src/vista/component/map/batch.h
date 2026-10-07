@@ -67,6 +67,10 @@ VISTA_EXPORT LayerBatchSet build_layer_batches(const std::vector<BatchLayer>& la
                                              bool use_carto_slots,
                                              double scale = 0.0);
 
+// Collapse admin LineStrings onto unique undirected lon/lat edges.
+// The host decides when the cost is worth it (close zoom).
+VISTA_EXPORT void dedupe_admin_boundary_edges(LayerBatchSet* set);
+
 // Deep-copies OGR geometries so cached LayerBatchSet can be handed to callers.
 VISTA_EXPORT LayerBatchSet clone_layer_batch_set(const LayerBatchSet& src);
 

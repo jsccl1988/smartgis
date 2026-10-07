@@ -19,7 +19,7 @@
 #include "gis/style/eval/style_rules.h"
 #include "vista/component/map/carto/filter.h"
 #include "vista/component/map/ir.h"
-#include "vista/terrain/process/land_mask.h"
+#include "vista/terrain/dem/mask/land_mask.h"
 #include "tool/draft/draft.h"
 
 #ifndef NOMINMAX

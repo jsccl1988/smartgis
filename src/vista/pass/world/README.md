@@ -42,8 +42,9 @@ Atmosphere GPU passes live under `atmosphere/` (formerly `pass/atmosphere`; that
 old path is gone — `pass/world/atmosphere` is canonical). Public includes use
 `"vista/pass/world/atmosphere/…"` (scheme C, no forwarding header). GN keeps a
 separate `atmosphere_pass_sources` so GPU atmosphere must not depend on
-`session_sources`. Per-kind HLSL is sibling `*.hlsl`; `embed_hlsl.gni` embeds
-them into `*.hlsl.inc` for the thin `hlsl.h` `kVs*` / `kPs*` / `kCs*` pointers.
+`session_sources`. Per-kind HLSL lives in `{kind}/hlsl/*.hlsl`; `embed_hlsl.gni`
+embeds them into `*.hlsl.inc` for the thin `hlsl.h` `kVs*` / `kPs*` / `kCs*`
+pointers.
 
 GN: `world_pass_sources` depends on `//src/vista/component/world:world_sources` and
 `//src/render:render`. `atmosphere_pass_sources` depends on

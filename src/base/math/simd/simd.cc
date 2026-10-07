@@ -5,8 +5,8 @@
 
 #include <algorithm>
 
-#if defined(BASE_MATH_SIMD) && (defined(__AVX2__) || defined(__AVX2))
-#include <immintrin.h>
+#if defined(BASE_MATH_SIMD)
+#include "base/simd/stdx.h"
 #define BASE_MATH_HAVE_AVX2 1
 #else
 #define BASE_MATH_HAVE_AVX2 0
@@ -39,50 +39,50 @@ void transform_xy_batch_scalar(const LpToDp2& a, std::span<const float> xy_in,
 }
 
 #if BASE_MATH_HAVE_AVX2
-// 4 points per iteration. Matches transform_xy: +0.5 then trunc-toward-zero,
-// then flip_y as static_cast<long>(view_h - Y) with Y promoted to float.
-void transform_xy_batch_avx2(const LpToDp2& a, const float* xy_in, long* xy_out,
+// 4 points per iteration via vir-simd (SSE-width float lanes for x/y).
+void transform_xy_batch_stdx(const LpToDp2& a, const float* xy_in, long* xy_out,
                              size_t pairs) {
-  const __m128 wox = _mm_set1_ps(a.wox);
-  const __m128 woy = _mm_set1_ps(a.woy);
-  const __m128 vox = _mm_set1_ps(a.vox);
-  const __m128 voy = _mm_set1_ps(a.voy);
-  const __m128 scale = _mm_set1_ps(a.scale);
-  const __m128 half = _mm_set1_ps(0.5f);
-  const __m128 view_h = _mm_set1_ps(a.view_h);
+  namespace stdx = base::simd::stdx;
+  using f4 = stdx::fixed_size_simd<float, 4>;
+
+  const f4 wox(a.wox);
+  const f4 woy(a.woy);
+  const f4 vox(a.vox);
+  const f4 voy(a.voy);
+  const f4 scale(a.scale);
+  const f4 half(0.5f);
+  const f4 view_h(a.view_h);
   const bool flip = a.flip_y;
 
   size_t i = 0;
   for (; i + 4 <= pairs; i += 4) {
-    const __m256 xy = _mm256_loadu_ps(xy_in + i * 2);
-    alignas(32) float tmp[8];
-    _mm256_store_ps(tmp, xy);
-    // _mm_set_ps(e3,e2,e1,e0) → lane0=e0 … lane3=e3
-    const __m128 vx = _mm_set_ps(tmp[6], tmp[4], tmp[2], tmp[0]);
-    const __m128 vy = _mm_set_ps(tmp[7], tmp[5], tmp[3], tmp[1]);
-
-    const __m128 xf =
-        _mm_add_ps(_mm_add_ps(vox, _mm_mul_ps(_mm_sub_ps(vx, wox), scale)),
-                   half);
-    const __m128 yf =
-        _mm_add_ps(_mm_add_ps(voy, _mm_mul_ps(_mm_sub_ps(vy, woy), scale)),
-                   half);
-
-    __m128i xi = _mm_cvttps_epi32(xf);
-    __m128i yi = _mm_cvttps_epi32(yf);
-    if (flip) {
-      const __m128 y_as_f = _mm_cvtepi32_ps(yi);
-      yi = _mm_cvttps_epi32(_mm_sub_ps(view_h, y_as_f));
-    }
-
-    alignas(16) int xi_s[4];
-    alignas(16) int yi_s[4];
-    _mm_store_si128(reinterpret_cast<__m128i*>(xi_s), xi);
-    _mm_store_si128(reinterpret_cast<__m128i*>(yi_s), yi);
+    alignas(16) float xs[4];
+    alignas(16) float ys[4];
     for (int k = 0; k < 4; ++k) {
-      xy_out[(i + static_cast<size_t>(k)) * 2u] = xi_s[k];
-      xy_out[(i + static_cast<size_t>(k)) * 2u + 1u] = yi_s[k];
+      xs[k] = xy_in[(i + static_cast<size_t>(k)) * 2u];
+      ys[k] = xy_in[(i + static_cast<size_t>(k)) * 2u + 1u];
     }
+    const f4 vx(xs, stdx::element_aligned);
+    const f4 vy(ys, stdx::element_aligned);
+
+    f4 xf = vox + (vx - wox) * scale + half;
+    f4 yf = voy + (vy - woy) * scale + half;
+
+    // trunc toward zero, then optional flip_y as view_h - Y.
+    alignas(16) float xf_a[4];
+    alignas(16) float yf_a[4];
+    stdx::trunc(xf).copy_to(xf_a, stdx::element_aligned);
+    stdx::trunc(yf).copy_to(yf_a, stdx::element_aligned);
+    for (int k = 0; k < 4; ++k) {
+      long xi = static_cast<long>(xf_a[k]);
+      long yi = static_cast<long>(yf_a[k]);
+      if (flip) {
+        yi = static_cast<long>(a.view_h - static_cast<float>(yi));
+      }
+      xy_out[(i + static_cast<size_t>(k)) * 2u] = xi;
+      xy_out[(i + static_cast<size_t>(k)) * 2u + 1u] = yi;
+    }
+    (void)view_h;
   }
   transform_xy_batch_scalar(a, std::span<const float>(xy_in, pairs * 2),
                             std::span<long>(xy_out, pairs * 2), i, pairs);
@@ -97,7 +97,7 @@ void transform_xy_batch(const LpToDp2& a, std::span<const float> xy_in,
   const size_t pairs = n / 2;
 #if BASE_MATH_HAVE_AVX2
   if (pairs >= 4) {
-    transform_xy_batch_avx2(a, xy_in.data(), xy_out.data(), pairs);
+    transform_xy_batch_stdx(a, xy_in.data(), xy_out.data(), pairs);
     return;
   }
 #endif

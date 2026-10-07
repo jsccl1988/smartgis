@@ -20,12 +20,28 @@ using D3dDrawScreenBgraFn = long (*)(RenderDevice3d*, float, float, int,
                                         int, const unsigned char*);
 
 inline HMODULE scenic_render_d3d_module() {
-  // Cache the module handle — MapLabelBatch calls DrawScreenBgra ~30×/frame.
+  // Prefer the already-loaded device DLL (same image that owns the device*).
+  // A second LoadLibrary path can break RTTI/dynamic_cast across images.
 #if defined(_DEBUG)
-  static HMODULE mod = ::LoadLibraryA("scenic_render_d3d_d.dll");
+  static const char* kNames[] = {"scenic_render_d3d_d.dll",
+                                 "scenic_render_d3d.dll", nullptr};
 #else
-  static HMODULE mod = ::LoadLibraryA("scenic_render_d3d.dll");
+  static const char* kNames[] = {"scenic_render_d3d.dll",
+                                 "scenic_render_d3d_d.dll", nullptr};
 #endif
+  static HMODULE mod = []() -> HMODULE {
+    for (const char** p = kNames; *p; ++p) {
+      if (HMODULE m = ::GetModuleHandleA(*p)) {
+        return m;
+      }
+    }
+    for (const char** p = kNames; *p; ++p) {
+      if (HMODULE m = ::LoadLibraryA(*p)) {
+        return m;
+      }
+    }
+    return nullptr;
+  }();
   return mod;
 }
 

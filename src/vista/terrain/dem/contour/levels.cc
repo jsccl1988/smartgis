@@ -8,7 +8,7 @@
 #include "vista/terrain/dem/contour/msquares.h"
 #include "vista/terrain/dem/contour/smooth.h"
 #include "vista/terrain/dem/dem_contour.h"
-#include "vista/terrain/process/bake_parallel.h"
+#include "vista/terrain/dem/bake/bake_parallel.h"
 
 #include <algorithm>
 #include <cmath>

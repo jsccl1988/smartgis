@@ -71,6 +71,7 @@ source_set("math") {
   public_deps = [
     ":bounds",
     ":linear",
+    "//src/base/simd:simd",
   ]
   sources = [
     "math.h",

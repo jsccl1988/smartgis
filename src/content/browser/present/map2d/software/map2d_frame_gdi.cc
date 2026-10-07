@@ -91,7 +91,9 @@ void paint_map_frame_gdi(
     HDC hdc, const vista::MapIR& frame, const vista::View& view,
     bool fill_background,
     const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
-                             int* w, int* h)>& load_raster) {
+                             int* w, int* h)>& load_raster,
+    const std::function<bool(uint32_t texture_key, const uint8_t** rgba, int* w,
+                             int* h)>& borrow_raster) {
   if (!hdc || view.width_px == 0 || view.height_px == 0) {
     return;
   }
@@ -142,12 +144,14 @@ void paint_map_frame_gdi(
 
   DibSurface dib{};
   bool dib_dirty = false;
-  const bool have_dib = try_bind_dib(hdc, &dib);
+  // Qualify: DibSurface is vista::raster::DibSurface — ADL also finds
+  // vista::raster::try_bind_dib / fill_dib_solid.
+  const bool have_dib = content::detail::try_bind_dib(hdc, &dib);
   GdiPaintResourceCache& resources = gdi_paint_resources();
 
   if (fill_background) {
     if (have_dib) {
-      fill_dib_solid(&dib, rgba_to_bgra(frame.background_rgba));
+      content::detail::fill_dib_solid(&dib, rgba_to_bgra(frame.background_rgba));
       dib_dirty = true;
     } else {
       HBRUSH bg = resources.brush_for(rgba_to_colorref(frame.background_rgba));
@@ -282,12 +286,20 @@ void paint_map_frame_gdi(
         sync_dib_before_gdi();
         style.invalidate();
         item_to_points(item, xform, &pts);
-        std::vector<uint8_t> rgba;
+        const uint8_t* rgba_ptr = nullptr;
+        std::vector<uint8_t> rgba_owned;
         int tw = 0;
         int th = 0;
-        const bool loaded =
-            load_raster && load_raster(item.codepoint, &rgba, &tw, &th);
-        if (loaded && blit_rgba_quad(hdc, pts, rgba, tw, th, item.opacity,
+        bool loaded = false;
+        if (borrow_raster &&
+            borrow_raster(item.codepoint, &rgba_ptr, &tw, &th)) {
+          loaded = rgba_ptr != nullptr;
+        } else if (load_raster &&
+                   load_raster(item.codepoint, &rgba_owned, &tw, &th)) {
+          rgba_ptr = rgba_owned.data();
+          loaded = true;
+        }
+        if (loaded && blit_rgba_quad(hdc, pts, rgba_ptr, tw, th, item.opacity,
                                      item.blend)) {
           add_us(&other_us, t0);
           break;

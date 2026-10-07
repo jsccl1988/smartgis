@@ -13,7 +13,7 @@
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/browser/plugin/present.h"
 #include "app/views/browser/plugin/scene3d_bridges.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/session/browser_session.h"
 #include "content/public/event_bus.h"
 #include "content/public/plugin_host.h"
 
@@ -38,6 +38,7 @@ void Browser::install_plugin_host_bridges() {
   host->set_gis_document(gis_document_.get());
 
   detail::Scene3dHostContext ctx;
+  ctx.session = session_.get();
   ctx.document = &session_->document();
   ctx.scene3d = &session_->scene3d();
   ctx.orbit = &session_->orbit_frame();
@@ -52,12 +53,13 @@ void Browser::install_plugin_host_bridges() {
   detail::install_scene3d_host_bridges(ctx);
 
   detail::Map2dHostContext map2d_ctx;
+  map2d_ctx.session = session_.get();
   map2d_ctx.document = &session_->document();
   map2d_ctx.map2d = map2d();
   map2d_ctx.view_frame = view_frame();
   map2d_ctx.host = host;
   map2d_ctx.present_map2d = [this]() {
-    detail::present_plugin_map2d(ui_.get(), map2d(),
+    detail::present_plugin_map2d(ui_.get(), session_.get(),
                                  [this]() { fit_map_extent(); });
   };
   map2d_ctx.apply_china_product = [this](int w, int h) {
@@ -139,7 +141,7 @@ void Browser::wire_plugin_present_dataset() {
                 _stricmp(ext.c_str(), ".shp") == 0 ||
                 _stricmp(ext.c_str(), ".kml") == 0 ||
                 _stricmp(ext.c_str(), ".gml") == 0) {
-              (void)session_->document().open_path(std::string(path));
+              (void)session_->open_document(std::string(path));
               sync_catalog_from_scene();
             }
           }
@@ -156,7 +158,7 @@ void Browser::wire_plugin_present_dataset() {
           }
         }
         return detail::present_plugin_dataset(
-            this, map2d(), [this]() { fit_map_extent(); }, path, face, surface);
+            this, [this]() { fit_map_extent(); }, path, face, surface);
       });
 }
 
@@ -166,7 +168,7 @@ bool Browser::apply_plugin_frame(int index) {
 
 int Browser::export_plugin_frames(const std::string& dir_leaf) {
   return detail::export_plugin_frames(plugins_.get(), &plugin_playback_,
-                                      map2d(), dir_leaf);
+                                      session_.get(), dir_leaf);
 }
 
 }  // namespace app

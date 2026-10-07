@@ -13,8 +13,9 @@
 
 namespace content {
 
-// Runtime LoadLibrary of leftover OpenGL stereo (legacy_render DLL) without
-// linking leftover / MFC shell (SP5). Visual SoT matches SmartGis.exe 3D.
+// Runtime LoadLibrary of scenic_impl (stereo HWND GL/D3D) without linking the
+// DLL into product TUs. Prefer GPU capture_bgr24 over GDI BitBlt — double-
+// buffered GL has no PFD_SUPPORT_GDI.
 class Scene3dStereoSession {
  public:
   Scene3dStereoSession() = default;
@@ -23,7 +24,7 @@ class Scene3dStereoSession {
   Scene3dStereoSession(const Scene3dStereoSession&) = delete;
   Scene3dStereoSession& operator=(const Scene3dStereoSession&) = delete;
 
-  // Bind leftover GL stereo to |hwnd| (seed DEM + vectors + labels + HUD).
+  // Bind scenic_impl stereo to |hwnd| (seed DEM + vectors + labels + HUD).
   bool try_attach(HWND hwnd);
   // Destroy view + FreeLibrary when destroy_ is still inside |module_| image.
   void release();
@@ -41,8 +42,13 @@ class Scene3dStereoSession {
   bool present_to_dc(HDC hdc, int width_px, int height_px, float yaw,
                      float pitch, float distance);
 
+  // Present then GPU readback into tightly packed bottom-up BGR24
+  // (|out_bgr24| = width*height*3). Prefer over HWND BitBlt for showcase BMP.
+  bool capture_bgr24(unsigned char* out_bgr24, int width_px, int height_px,
+                     float yaw, float pitch, float distance);
+
   // Lazy attach + present_to_dc. Primary product Scene3d SoT when
-  // legacy_render[_d].dll is beside the PE (SP5 LoadLibrary bridge).
+  // scenic_impl[_d].dll is beside the PE.
   bool try_present_sot(HWND hwnd, HDC hdc, int width_px, int height_px,
                        float yaw, float pitch, float distance);
 
@@ -52,6 +58,7 @@ class Scene3dStereoSession {
   using ResizeFn = int (*)(void*, int, int);
   using PresentFn = int (*)(void*, float, float, float);
   using BlitFn = int (*)(void*, HDC, int, int);
+  using CaptureFn = int (*)(void*, unsigned char*, int, int);
 
   HMODULE module_ = nullptr;
   void* view_ = nullptr;
@@ -61,6 +68,7 @@ class Scene3dStereoSession {
   ResizeFn resize_ = nullptr;
   PresentFn present_ = nullptr;
   BlitFn blit_ = nullptr;
+  CaptureFn capture_ = nullptr;
 };
 
 }  // namespace content

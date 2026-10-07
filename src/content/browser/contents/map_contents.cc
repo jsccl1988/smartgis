@@ -16,10 +16,10 @@
 #include "base/ipc/handle/handle.h"
 #include "base/ipc/invitation/invitation.h"
 #include "base/ipc/receiver/receiver.h"
-#include "base/process/switches.h"
 #include "base/trace/event/process_trace.h"
-#include "content/common/ipc.h"
 #include "content/app/process_type.h"
+#include "content/browser/child/child_process_host.h"
+#include "content/common/ipc.h"
 
 #include <dxgi.h>
 
@@ -36,23 +36,6 @@ std::wstring module_dir() {
     *slash = 0;
   }
   return path;
-}
-
-std::wstring this_exe_path() {
-  wchar_t path[MAX_PATH];
-  GetModuleFileNameW(nullptr, path, MAX_PATH);
-  return path;
-}
-
-// Product shell relaunches this PE as --type=gpu.
-std::wstring resolve_render_exe() {
-  return this_exe_path();
-}
-
-std::wstring make_session_id() {
-  wchar_t buf[80];
-  swprintf_s(buf, L"%u-%lu", GetCurrentProcessId(), GetTickCount());
-  return buf;
 }
 
 using CreateDxgiFactory1Fn = HRESULT(WINAPI*)(REFIID, void**);
@@ -401,58 +384,30 @@ bool MapContentsImpl::StartRenderProcess() {
     frame_event_ = CreateEventW(nullptr, TRUE, FALSE, nullptr);
   }
 
-  job_ = CreateJobObjectW(nullptr, nullptr);
-  if (job_) {
-    JOBOBJECT_EXTENDED_LIMIT_INFORMATION info = {};
-    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    SetInformationJobObject(job_, JobObjectExtendedLimitInformation, &info,
-                            sizeof(info));
-  }
+  // Job is opened before the pipe so a failed CreateProcess still leaves
+  // job_ for Shutdown, matching the previous inline launch.
+  job_ = ChildProcessHost::open_job();
 
   const uint32_t pid = GetCurrentProcessId();
-  const std::wstring exe = resolve_render_exe();
-  const std::wstring session = make_session_id();
   // Classic named-pipe GPU child. Invitation dual-launch is WIP and stalls
   // FrameReady / crashes WinUI --self-test; keep pipe path until proven.
   const std::wstring pipe_path = pipe_path_for_pid(pid);
   if (!pipe_.create_server(pipe_path)) {
     return false;
   }
-  std::wstring cmd = L"\"" + exe + L"\" --type=";
-  cmd += ProcessTypeSwitchValue(ProcessType::kGpu);
-  wchar_t pid_buf[32];
-  swprintf_s(pid_buf, L"%u", pid);
-  cmd += L" --parent-pid=";
-  cmd += pid_buf;
-  cmd += L" --pipe=";
-  cmd += pipe_name_for_pid(pid);
-  cmd += L" --session=";
-  cmd += session;
-  base::append_switches_to_command_line(&cmd);
-  STARTUPINFOW si = {};
-  si.cb = sizeof(si);
-  PROCESS_INFORMATION pi = {};
-  std::vector<wchar_t> cmd_buf(cmd.begin(), cmd.end());
-  cmd_buf.push_back(L'\0');
-  if (!CreateProcessW(exe.c_str(), cmd_buf.data(), nullptr, nullptr, FALSE,
-                      CREATE_NO_WINDOW, nullptr, module_dir().c_str(), &si,
-                      &pi)) {
+  HANDLE child = nullptr;
+  const ChildProcessHost::Status status = ChildProcessHost::launch(
+      ProcessType::kGpu, pipe_name_for_pid(pid), job_,
+      [this] { return pipe_.wait_client(15000); }, &child);
+  if (status == ChildProcessHost::Status::kCreateFailed) {
     pipe_.close();
     return false;
   }
-  if (job_) {
-    AssignProcessToJobObject(job_, pi.hProcess);
-  }
-  if (!pipe_.wait_client(15000)) {
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
+  if (status != ChildProcessHost::Status::kOk) {
     Shutdown();
     return false;
   }
-  process_ = pi.hProcess;
-  if (pi.hThread) {
-    CloseHandle(pi.hThread);
-  }
+  process_ = child;
 
   running_ = true;
   recv_thread_ = std::thread(&MapContentsImpl::recv_loop, this);

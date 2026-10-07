@@ -360,6 +360,16 @@
       "note": "moodycamel concurrentqueue header-only (BSD). Sources in .src/concurrentqueue; include layout third_party/concurrentqueue/include/concurrentqueue/moodycamel/. Thin GN //third_party:concurrentqueue. Used by base/concurrency/queue.h PushOnlyQueue."
     },
     {
+      "name": "vir-simd",
+      "git_url": "http://localhost:3000/ccl/vir-simd.git",
+      "git_url_fallbacks": [
+        "https://github.com/mattkretz/vir-simd.git"
+      ],
+      "git_ref": "v0.4.4",
+      "install_skip": true,
+      "note": "mattkretz/vir-simd header-only (LGPL-3.0-or-later). Portable Parallelism TS / C++26 std::simd (P1928) polyfill as vir::stdx::simd until MSVC ships <simd>. Sources in .src/vir-simd; thin GN //third_party:vir_simd. Product include via base/simd/stdx.h."
+    },
+    {
       "name": "pugixml",
       "git_url": "http://localhost:3000/ccl/pugixml.git",
       "git_url_fallbacks": [

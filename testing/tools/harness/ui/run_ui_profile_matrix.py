@@ -176,6 +176,114 @@ def _load_perf_json(src: Path | None, dest_dir: Path) -> dict:
     return out
 
 
+def _bench_row(
+    *,
+    name: str,
+    rc: int,
+    wall_ms: float,
+    real_ns,
+    cpu_ns,
+    iterations,
+    log_rel: str,
+    note: str,
+    pass_ok: bool,
+) -> dict:
+    short = name.split("/")[0]
+    role = "perf" if short in BENCH_PERF_NAMES else "smoke"
+    return {
+        "row_id": f"bench:{name}",
+        "role": role,
+        "kind": "bench",
+        "surface": name,
+        "rc": rc,
+        "pass": pass_ok,
+        "wall_ms": wall_ms,
+        "real_time_ns": real_ns,
+        "cpu_time_ns": cpu_ns,
+        "iterations": iterations,
+        "note": note,
+        "log": log_rel,
+    }
+
+
+def _run_one_views_bench(filter_name: str) -> list[dict]:
+    """One google/benchmark filter in its own process.
+
+    Debug CRT heap abort in BM_table_scroll_commit used to truncate a single
+    --benchmark_out JSON and drop later peers (overlay_crop). Isolate so the
+    matrix still records hover / compositor / crop ns.
+    """
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in filter_name)
+    out_json = MATRIX / f"views_bench_{safe}.json"
+    log_path = MATRIX / f"views_bench_{safe}.log"
+    cmd = [
+        str(BENCH),
+        f"--benchmark_filter=^{filter_name}$",
+        "--benchmark_format=json",
+        f"--benchmark_out={out_json}",
+    ]
+    t0 = time.perf_counter()
+    with log_path.open("w", encoding="utf-8", errors="replace") as logf:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(OUT),
+            env=_apply_env({}),
+            stdout=logf,
+            stderr=subprocess.STDOUT,
+            timeout=180,
+            check=False,
+        )
+    wall_ms = (time.perf_counter() - t0) * 1000.0
+    log_rel = str(log_path.relative_to(OUT)).replace("\\", "/")
+    benches: list[dict] = []
+    if out_json.is_file():
+        try:
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            benches = payload.get("benchmarks") or []
+        except (OSError, json.JSONDecodeError) as ex:
+            print(
+                f"ui-profile: views_bench {filter_name} json fail: {ex}",
+                file=sys.stderr,
+            )
+    if not benches:
+        note = "no benchmarks in JSON"
+        if proc.returncode not in (0, None) and proc.returncode != 0:
+            note = (
+                f"bench rc={proc.returncode} (Debug heap abort on "
+                f"{filter_name} teardown is U2 TableView — see crash dump)"
+            )
+        return [
+            _bench_row(
+                name=filter_name,
+                rc=proc.returncode,
+                wall_ms=wall_ms,
+                real_ns=None,
+                cpu_ns=None,
+                iterations=None,
+                log_rel=log_rel,
+                note=note,
+                pass_ok=False,
+            )
+        ]
+    rows = []
+    for b in benches:
+        name = str(b.get("name") or filter_name)
+        rows.append(
+            _bench_row(
+                name=name,
+                rc=proc.returncode,
+                wall_ms=wall_ms,
+                real_ns=b.get("real_time"),
+                cpu_ns=b.get("cpu_time"),
+                iterations=b.get("iterations"),
+                log_rel=log_rel,
+                note="google/benchmark real_time (ns/iter); not process wall",
+                pass_ok=proc.returncode == 0,
+            )
+        )
+    return rows
+
+
 def run_views_bench() -> list[dict]:
     rows: list[dict] = []
     if not BENCH.is_file():
@@ -191,74 +299,25 @@ def run_views_bench() -> list[dict]:
                 "real_time_ns": None,
             }
         ]
-    out_json = MATRIX / "views_bench.json"
-    log_path = MATRIX / "views_bench.log"
-    cmd = [
-        str(BENCH),
-        "--benchmark_format=json",
-        f"--benchmark_out={out_json}",
-    ]
-    t0 = time.perf_counter()
-    proc = subprocess.run(
-        cmd,
-        cwd=str(OUT),
-        env=_apply_env({}),
-        capture_output=True,
-        text=True,
+    merged: list[dict] = []
+    for name in BENCH_PERF_NAMES:
+        print(f"ui-profile: views_bench {name}", flush=True)
+        chunk = _run_one_views_bench(name)
+        rows.extend(chunk)
+        for r in chunk:
+            if r.get("real_time_ns") is not None:
+                merged.append(
+                    {
+                        "name": r.get("surface"),
+                        "real_time": r.get("real_time_ns"),
+                        "cpu_time": r.get("cpu_time_ns"),
+                        "iterations": r.get("iterations"),
+                    }
+                )
+    (MATRIX / "views_bench.json").write_text(
+        json.dumps({"benchmarks": merged}, indent=2),
         encoding="utf-8",
-        errors="replace",
-        timeout=180,
-        check=False,
     )
-    wall_ms = (time.perf_counter() - t0) * 1000.0
-    log_path.write_text(
-        (proc.stdout or "") + "\n" + (proc.stderr or ""), encoding="utf-8"
-    )
-    benches: list[dict] = []
-    if out_json.is_file():
-        try:
-            payload = json.loads(out_json.read_text(encoding="utf-8"))
-            benches = payload.get("benchmarks") or []
-        except (OSError, json.JSONDecodeError) as ex:
-            print(f"ui-profile: views_bench json fail: {ex}", file=sys.stderr)
-    if not benches:
-        rows.append(
-            {
-                "row_id": "views_bench",
-                "role": "perf",
-                "kind": "bench",
-                "surface": "L1b",
-                "rc": proc.returncode,
-                "pass": proc.returncode == 0,
-                "wall_ms": wall_ms,
-                "real_time_ns": None,
-                "note": "no benchmarks in JSON",
-                "log": str(log_path.relative_to(OUT)).replace("\\", "/"),
-            }
-        )
-        return rows
-    for b in benches:
-        name = str(b.get("name") or "")
-        short = name.split("/")[0]
-        role = "perf" if short in BENCH_PERF_NAMES else "smoke"
-        real_ns = b.get("real_time")
-        cpu_ns = b.get("cpu_time")
-        rows.append(
-            {
-                "row_id": f"bench:{name}",
-                "role": role,
-                "kind": "bench",
-                "surface": name,
-                "rc": proc.returncode,
-                "pass": proc.returncode == 0,
-                "wall_ms": wall_ms,
-                "real_time_ns": real_ns,
-                "cpu_time_ns": cpu_ns,
-                "iterations": b.get("iterations"),
-                "note": "google/benchmark real_time (ns/iter); not process wall",
-                "log": str(log_path.relative_to(OUT)).replace("\\", "/"),
-            }
-        )
     return rows
 
 
@@ -280,28 +339,46 @@ def run_showcase(row_id: str, mode: str, surface: str, role: str) -> dict:
             "UI_SHOWCASE_LINGER_MS": "0",
             "UI_FORENSICS": "1",
             "UI_THEME": "dark",
+            "SMARTGIS_NO_ALWAYS_ON_DIAG": "1",
         }
     )
-    cmd = [str(VIEWS), "--ui-showcase", mode]
+    # Same launch as loop_runner: empty argv (retired --ui-showcase is
+    # stripped) + plugin.json startup.scenario=ui.<mode> AFTER product show.
+    # Passing --plugin-showcase=ui.shell applies ContentMapView policy before
+    # Browser::show and AVs (write-to-0xF).
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from testing.tools.loop.contract import load_suite
+    from testing.tools.loop.drive.plugin import (
+        apply_suite_plugin_startup,
+        restore_product_plugin_startup,
+    )
+
+    suite = load_suite(f"ui.{mode}")
+    apply_suite_plugin_startup(suite, VIEWS)
+    cmd = [str(VIEWS)]
     t0 = time.perf_counter()
     _kill_showcase_procs()
-    proc = subprocess.run(
-        cmd,
-        cwd=str(OUT),
-        env=env,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=140,
-        check=False,
-    )
+    log_path = dest / "showcase.log"
+    try:
+        with log_path.open("w", encoding="utf-8", errors="replace") as logf:
+            proc = subprocess.run(
+                cmd,
+                cwd=str(OUT),
+                env=env,
+                stdout=logf,
+                stderr=subprocess.STDOUT,
+                timeout=140,
+                check=False,
+            )
+    except FileNotFoundError:
+        log_path.write_text(f"missing exe: {cmd[0]}\n", encoding="utf-8")
+        proc = subprocess.CompletedProcess(cmd, 127)
+    except subprocess.TimeoutExpired:
+        proc = subprocess.CompletedProcess(cmd, 124)
     wall_ms = (time.perf_counter() - t0) * 1000.0
     _kill_showcase_procs()
-    log_path = dest / "showcase.log"
-    log_path.write_text(
-        (proc.stdout or "") + "\n" + (proc.stderr or ""), encoding="utf-8"
-    )
+    restore_product_plugin_startup(VIEWS)
     bmp = UI_CAP / bmp_leaf
     if bmp.is_file():
         _copy2_retry(bmp, dest / bmp.name)

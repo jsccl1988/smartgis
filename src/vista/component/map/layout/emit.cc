@@ -129,7 +129,10 @@ void emit_visible_layers(const LayoutInput& in,
       }
       BASE_TRACE_EVENT("emit_line", "map2d.layout");
       const LayoutTile view_clip = make_view_clip_tile(in.view);
-      emit_lines(lines, in, layers, wupp, frame, &view_clip);
+      // Full-view cold emit: AABB cull only — GEOS Intersection of long
+      // china rivers/admin edges serializes emit_line wall before tess.
+      emit_lines(lines, in, layers, wupp, frame, &view_clip,
+                 /*intersect_clip=*/false);
       continue;
     }
     switch (layer->type) {

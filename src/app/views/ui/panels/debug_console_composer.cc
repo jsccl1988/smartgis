@@ -27,7 +27,7 @@
 #include "app/views/util/charset.h"
 #include "base/process/switches.h"
 #include "content/browser/debug/debug_agent.h"
-#include "content/browser/present/map2d/map2d_presenter.h"
+#include "content/browser/session/browser_session.h"
 #include "content/public/map_layer_types.h"
 #include "ui/gis/debug/debug_console_panel.h"
 #include "ui/gis/debug/diagnostic_tools_panel.h"
@@ -96,7 +96,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
       return std::string("no browser");
     }
     double min_x = 0, min_y = 0, max_x = 0, max_y = 0;
-    if (!host_->browser_->document()->compute_extent(&min_x, &min_y, &max_x,
+    if (!host_->browser_->session().document_compute_extent(&min_x, &min_y, &max_x,
                                               &max_y)) {
       return std::string("empty extent");
     }
@@ -128,7 +128,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
           }
         };
     for (const content::LayerDesc& d :
-         host_->browser_->document()->layer_descs()) {
+         host_->browser_->session().document_layer_descs()) {
       walk(d);
     }
     if (names.empty()) {
@@ -198,15 +198,15 @@ void DebugConsoleComposer::bind_debug_agent_host() {
       oss << "\"hud_fps\":null,\"gpu_present_ok\":null,"
              "\"content_present_ok\":null,\"attach_mode\":null";
     }
-    if (host_->browser_ && host_->browser_->map2d()) {
-      content::Map2dPresenter* map2d = host_->browser_->map2d();
+    if (host_->browser_) {
+      content::BrowserSession& session = host_->browser_->session();
       oss << ",\"map2d_gpu_present_ok\":"
-          << (map2d->last_gpu_present_ok() ? "true" : "false")
+          << (session.map2d_last_gpu_present_ok() ? "true" : "false")
           << ",\"map2d_gpu_drew\":"
-          << (map2d->last_gpu_present_drew() ? "true" : "false")
-          << ",\"map2d_layout_builds\":" << map2d->layout_build_count()
+          << (session.map2d_last_gpu_present_drew() ? "true" : "false")
+          << ",\"map2d_layout_builds\":" << session.map2d_layout_build_count()
           << ",\"map2d_reused_layout\":"
-          << (map2d->last_present_reused_layout() ? "true" : "false");
+          << (session.map2d_last_present_reused_layout() ? "true" : "false");
     } else {
       oss << ",\"map2d_gpu_present_ok\":null";
     }

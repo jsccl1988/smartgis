@@ -283,11 +283,12 @@ def resolve_map_record_hwnd(shell_hwnd: int) -> tuple[int, str]:
     # Owned top-level FlyCube present (same process) — product DXGI face.
     pid = hwnd_pid(int(shell_hwnd))
     if pid:
-        present, title = find_window_by_title_substr(
-            "FlyCube Present", timeout_sec=0.05, pid=pid
-        )
-        if present and is_usable_map_record_hwnd(present):
-            return present, title or "SmartGIS FlyCube Present"
+        for needle in ("FlyCube Present", "SmartGIS Draw Present"):
+            present, title = find_window_by_title_substr(
+                needle, timeout_sec=0.05, pid=pid
+            )
+            if present and is_usable_map_record_hwnd(present):
+                return present, title or "FlyCube Present"
     child = find_child_hwnd_by_class(int(shell_hwnd), "SmartGisMapViewport")
     if child and is_usable_map_record_hwnd(child):
         return child, "SmartGisMapViewport"

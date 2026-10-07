@@ -20,11 +20,11 @@
 #include "gis/style/style_types.h"
 #include "vista/component/map/shade/bake.h"
 #include "vista/terrain/dem/dem_frame.h"
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 #include "vista/component/world/terrain/seed.h"
-#include "vista/terrain/process/bake_backend.h"
-#include "vista/terrain/process/dem_hillshade.h"
-#include "vista/terrain/process/land_mask.h"
+#include "vista/terrain/dem/bake/bake_backend.h"
+#include "vista/terrain/dem/shade/dem_hillshade.h"
+#include "vista/terrain/dem/mask/land_mask.h"
 
 namespace {
 

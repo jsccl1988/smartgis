@@ -25,7 +25,7 @@ Five orthogonal subdirs under the public root. No nested dirs inside `layout/`.
 | `batch.cc` | POD `BatchLayer` → owned OGR `LayerBatchSet`. Declaration stays on `batch.h`. |
 | `color.h` | Shared `0xAARRGGBB` unpack (`vista::detail`). Header-only. |
 | `carto/` | Style / scale / role / stem (`filter.*`, `style.cc`) and label declutter (`collision.*`). No OGR construction. |
-| `shade/` | Hillshade luma coverage (`multiply.*`, AVX2 TU) and bake / `TileSlot` (`bake.*`). Shade math stays in `vista/terrain`. |
+| `shade/` | Hillshade luma coverage (`multiply.*`, vir-simd AVX2-width TU) and bake / `TileSlot` (`bake.*`). Shade math stays in `vista/terrain`. |
 | `place/` | MapIR → ortho meshes (no RHI). |
 | `mvt/` | MVT → batches / `MapIR`. Decode stays in `gis/tile`. |
 | `layout/` | Flat pipeline + painters + geom helpers + policy headers. |

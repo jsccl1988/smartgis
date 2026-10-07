@@ -11,16 +11,14 @@
 #include <vector>
 
 #include "app/views/browser/plugin/path_resolve.h"
-#include "content/browser/camera/map_host_extent.h"
-#include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
-#include "content/browser/present/map2d/map2d_presenter.h"
+#include "base/process/switches.h"
+#include "content/browser/session/browser_session.h"
 #include "content/public/gis_document.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/present/gis_present.h"
 #include "plugin/product/map2d/seed/seed.h"
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -39,6 +37,13 @@ void map2d_view_wh(const Map2dHostContext& ctx, int* w, int* h) {
   if (ctx.view_size) {
     ctx.view_size(w, h);
   }
+}
+
+void select_map_tab_unless_env_locked(const Map2dHostContext& ctx, int tab) {
+  if (!ctx.select_map_tab || base::switch_cstr("views-start-map-tab")) {
+    return;
+  }
+  ctx.select_map_tab(tab);
 }
 
 void install_map2d_host_bridges(const Map2dHostContext& ctx) {
@@ -84,8 +89,8 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
       },
       [ctx]() {
         // Sink invalidate after dataset/stand-in edits — fingerprint gate.
-        if (ctx.map2d) {
-          ctx.map2d->invalidate_frame_cache();
+        if (ctx.session) {
+          ctx.session->invalidate_map2d_frame_cache();
         }
         if (ctx.present_map2d) {
           ctx.present_map2d();
@@ -94,9 +99,7 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
 
   sink->set_view_bridges(
       [ctx]() {
-        if (ctx.select_map_tab) {
-          ctx.select_map_tab(0);
-        }
+        select_map_tab_unless_env_locked(ctx, 0);
         if (ctx.present_map2d) {
           ctx.present_map2d();
         }
@@ -109,8 +112,7 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
         return ctx.map2d != nullptr && ctx.view_frame != nullptr;
       },
       [ctx](double lon, double lat, double span_deg) {
-        content::ViewFrame* frame = ctx.view_frame;
-        if (!frame) {
+        if (!ctx.session) {
           return false;
         }
         const double half = (span_deg > 0.05) ? (span_deg * 0.5) : 2.0;
@@ -122,24 +124,20 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
         int w = 1280;
         int h = 720;
         map2d_view_wh(ctx, &w, &h);
-        frame->apply_world_extent(box, w, h);
-        if (ctx.select_map_tab) {
-          ctx.select_map_tab(0);
-        }
+        ctx.session->apply_view_world_extent(box, w, h);
+        select_map_tab_unless_env_locked(ctx, 0);
         if (ctx.push_shared_extent) {
           ctx.push_shared_extent();
         }
         // Camera framing only — presenter no-ops when fingerprint stable.
-        if (ctx.map2d) {
-          ctx.map2d->invalidate_frame_cache();
+        if (ctx.session) {
+          ctx.session->invalidate_map2d_frame_cache();
         }
         return true;
       },
       [ctx](std::string_view dem_path, std::string* result_json) {
         auto write_result = [&](const std::string& json) { write_json_out(result_json, json); };
-        content::MapScene* doc = ctx.document;
-        content::ViewFrame* frame = ctx.view_frame;
-        if (!doc || !frame) {
+        if (!ctx.session) {
           write_result(
               "{\"error\":\"no_map_device\",\"op\":\"map2d.load_hillshade\"}");
           return false;
@@ -161,30 +159,28 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
               "out/data/global_dem.tif\"}");
           return false;
         }
-        if (!doc->open_path(path)) {
+        if (!ctx.session->open_document(path)) {
           write_result(
               "{\"error\":\"missing_or_invalid_dem\",\"op\":\"map2d.load_hillshade\","
               "\"path\":\"" +
               path + "\"}");
           return false;
         }
-        if (ctx.select_map_tab) {
-          ctx.select_map_tab(0);
-        }
-        content::Extent2 box = doc->world_extent();
-        if (!content::extent_nonempty(box)) {
-          box = content::kChinaMap2dFrameExtent;
+        select_map_tab_unless_env_locked(ctx, 0);
+        content::Extent2 box = ctx.session->document_world_extent();
+        if (!content::BrowserSession::is_extent_nonempty(box)) {
+          box = content::BrowserSession::china_map2d_frame_extent();
         }
         int w = 1280;
         int h = 720;
         map2d_view_wh(ctx, &w, &h);
-        frame->apply_world_extent(box, w, h);
+        ctx.session->apply_view_world_extent(box, w, h);
         if (ctx.push_shared_extent) {
           ctx.push_shared_extent();
         }
         // open_path changes scene content — fingerprint must force drop.
-        if (ctx.map2d) {
-          ctx.map2d->invalidate_frame_cache();
+        if (ctx.session) {
+          ctx.session->invalidate_map2d_frame_cache();
         }
         write_result(std::string("{\"ok\":true,\"op\":\"map2d.load_hillshade\","
                                  "\"source\":\"") +
@@ -202,9 +198,7 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
               "\"need\":\"mode\"}");
           return false;
         }
-        if (ctx.select_map_tab) {
-          ctx.select_map_tab(0);
-        }
+        select_map_tab_unless_env_locked(ctx, 0);
         if (mode == plugin::Map2dSeedMode::kChina) {
           if (ctx.present_map2d) {
             ctx.present_map2d();
@@ -231,15 +225,15 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
       },
       [ctx](float t01, std::string* result_json) {
         auto write_result = [&](const std::string& json) { write_json_out(result_json, json); };
-        content::ViewFrame* frame = ctx.view_frame;
-        if (!frame) {
+        if (!ctx.session) {
           write_result(
               "{\"error\":\"no_map_device\",\"op\":\"map2d.frame_fly\"}");
           return false;
         }
         const float t = (std::max)(0.f, (std::min)(1.f, t01));
-        const content::Extent2 wide = content::kChinaLonLatExtent;
-        const content::Extent2 tight = content::kChinaMap2dFrameExtent;
+        const content::Extent2 wide = content::BrowserSession::china_lon_lat_extent();
+        const content::Extent2 tight =
+            content::BrowserSession::china_map2d_frame_extent();
         auto lerp = [t](double a, double b) {
           return a + (b - a) * static_cast<double>(t);
         };
@@ -251,13 +245,13 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
         int w = 1280;
         int h = 720;
         map2d_view_wh(ctx, &w, &h);
-        frame->apply_world_extent(box, w, h);
+        ctx.session->apply_view_world_extent(box, w, h);
         if (ctx.push_shared_extent) {
           ctx.push_shared_extent();
         }
         // frame_fly is extent-only; avoid layout_builds during fly samples.
-        if (ctx.map2d) {
-          ctx.map2d->invalidate_frame_cache();
+        if (ctx.session) {
+          ctx.session->invalidate_map2d_frame_cache();
         }
         write_result("{\"ok\":true,\"op\":\"map2d.frame_fly\"}");
         return true;
@@ -275,7 +269,7 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
 
   sink->set_present_bridges(
       [ctx](uint32_t width_px, uint32_t height_px) {
-        if (!ctx.map2d) {
+        if (!ctx.session) {
           return false;
         }
         uint32_t w = width_px;
@@ -287,10 +281,10 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
           w = static_cast<uint32_t>(iw);
           h = static_cast<uint32_t>(ih);
         }
-        return ctx.map2d->present_gpu(nullptr, w, h);
+        return ctx.session->map2d_present_gpu(nullptr, w, h);
       },
       [ctx](std::string_view path, int width_px, int height_px) {
-        if (!ctx.map2d || path.empty()) {
+        if (!ctx.session || path.empty()) {
           return false;
         }
         int w = width_px;
@@ -298,7 +292,7 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
         if (w <= 0 || h <= 0) {
           map2d_view_wh(ctx, &w, &h);
         }
-        return ctx.map2d->export_bmp(std::string(path), w, h);
+        return ctx.session->map2d_export_bmp(std::string(path), w, h);
       });
 }
 

@@ -190,9 +190,12 @@ bool run_present_once(StereoHwndView* v, const Rhi3dFrameRequest& req) {
   if (!v || !v->device || !v->scene || !v->camera) {
     return false;
   }
+  // Honor explicit request / last resize. Do not force HWND client size —
+  // capture_bgr24 resize()'s to 640x480; adopting a 2k client left DEM outside
+  // the staging crop (black signal=0 on d3d_scenic).
   int w = req.width_px > 0 ? req.width_px : v->width;
   int h = req.height_px > 0 ? req.height_px : v->height;
-  if (v->hwnd) {
+  if ((w <= 0 || h <= 0) && v->hwnd) {
     RECT rc = {};
     GetClientRect(v->hwnd, &rc);
     if (rc.right > 0 && rc.bottom > 0) {
@@ -455,9 +458,10 @@ int stereo_hwnd_present(void* view, float yaw, float pitch,
   req.yaw = yaw;
   req.pitch = pitch;
   req.distance = distance;
+  // Stick to last stereo_hwnd_resize / capture size (see run_present_once).
   req.width_px = v->width;
   req.height_px = v->height;
-  if (v->hwnd) {
+  if ((req.width_px <= 0 || req.height_px <= 0) && v->hwnd) {
     RECT rc = {};
     GetClientRect(v->hwnd, &rc);
     if (rc.right > 0 && rc.bottom > 0) {
@@ -475,6 +479,16 @@ int stereo_hwnd_present(void* view, float yaw, float pitch,
   // CPU prep (P2) still runs inside scene::Render via PrepRunner.
   if (v->device->GetBaseApi() == scenic::detail::RA_OPENGL) {
     return run_present_once(v, req) ? 1 : 0;
+  }
+  // Capture / off-HWND sizes: sync present so staging readback matches the
+  // rasterizer viewport (FrameJob + 2k HWND left 640x480 crops black).
+  if (v->hwnd && req.width_px > 0 && req.height_px > 0) {
+    RECT rc = {};
+    GetClientRect(v->hwnd, &rc);
+    if (rc.right > 0 && rc.bottom > 0 &&
+        (req.width_px != rc.right || req.height_px != rc.bottom)) {
+      return run_present_once(v, req) ? 1 : 0;
+    }
   }
 
   ensure_frame_scheduler(v);
@@ -512,13 +526,28 @@ int stereo_hwnd_capture_bgr24(void* view, unsigned char* out_bgr24,
   }
   if (v->scheduler) {
     (void)v->scheduler->wait_idle(5000);
-  }  // Prefer D3D capture whenever the concrete device is D3D11 — do not rely
-  // solely on GetBaseApi() (leftover enum naming is easy to mis-wire).
+  }
+  // Keep view size aligned with the readback buffer before staging/GL read.
+  if (v->width != width_px || v->height != height_px) {
+    (void)resize_view(v, width_px, height_px);
+  }
+  // D3D11: staging readback only. Never fall through to glReadPixels — that
+  // path AVs when BeginRender/gl* run against a D3D device (matrix d3d_scenic).
+  if (v->device->GetBaseApi() == scenic::detail::RA_D3D09) {
+    return scenic::detail::call_d3d_capture_bgr24(v->device, out_bgr24, width_px,
+                                                 height_px) == kErrNone
+               ? 1
+               : 0;
+  }
+  // Prefer D3D capture helper when the concrete device is D3D even if the
+  // leftover enum slot was mis-tagged; then GL front-buffer readback.
   if (scenic::detail::call_d3d_capture_bgr24(v->device, out_bgr24, width_px,
-                                         height_px) == kErrNone) {
+                                             height_px) == kErrNone) {
     return 1;
   }
-  // Make GL context current, then read the presented front buffer.
+  if (v->device->GetBaseApi() != scenic::detail::RA_OPENGL) {
+    return 0;
+  }
   if (v->device->BeginRender() != kErrNone) {
     return 0;
   }

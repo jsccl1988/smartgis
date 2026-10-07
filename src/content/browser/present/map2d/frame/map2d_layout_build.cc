@@ -1,6 +1,10 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+// Scheduler: MapScene / ViewFrame and process switches in, vista layout out.
+// Tile math, carto resolve, batch build, hillshade attach, and Layout::build
+// live under vista/component/map.
+
 #include "content/browser/present/map2d/frame/map2d_layout_build.h"
 
 #include "content/browser/camera/view_frame.h"
@@ -9,20 +13,14 @@
 #include "content/browser/present/map2d/frame/map2d_carto.h"
 #include "content/browser/present/map2d/frame/map2d_tile_math.h"
 
-#include <chrono>
 #include <cstdio>
 #include <cstdlib>
-#include <string>
 #include <utility>
-#include <vector>
 
 #include "base/process/switches.h"
 #include "base/trace/event/process_trace.h"
-#include "gis/style/document/style_document.h"
-#include "vista/component/map/shade/bake.h"
-#include "vista/component/map/ir.h"
+#include "vista/component/map/shade/attach.h"
 #include "vista/pass/map/pass.h"
-#include "vista/terrain/dem/dem_raster.h"
 
 namespace content {
 namespace detail {
@@ -53,6 +51,36 @@ bool china_land_layer_visible(const MapScene* scene) {
   return !saw_area;
 }
 
+void log_hillshade_attach(const vista::HillshadeAttachResult& shade) {
+  switch (shade.kind) {
+    case vista::HillshadeAttachKind::kDemMissing:
+      std::fprintf(stderr, "map2d: hillshade skip - china_dem not found\n");
+      break;
+    case vista::HillshadeAttachKind::kBaked:
+      std::fprintf(stderr,
+                   "map2d: hillshade baked %dx%d from %s tiles=%zu "
+                   "opacity=%.2f key=0x%08x\n",
+                   shade.width, shade.height, shade.dem_path.c_str(),
+                   shade.tile_count, shade.opacity, shade.texture_key);
+      break;
+    case vista::HillshadeAttachKind::kBakeFailed:
+      std::fprintf(stderr,
+                   "map2d: hillshade skip - bake failed ok=%d %dx%d "
+                   "rgba=%zu path=%s\n",
+                   shade.bake_ok ? 1 : 0, shade.width, shade.height,
+                   shade.rgba_bytes, shade.dem_path.c_str());
+      break;
+    case vista::HillshadeAttachKind::kNoLayer:
+      std::fprintf(stderr,
+                   "map2d: hillshade skip - no style layer @ zoom=%.2f\n",
+                   shade.zoom);
+      break;
+    case vista::HillshadeAttachKind::kSkipped:
+    case vista::HillshadeAttachKind::kReused:
+      break;
+  }
+}
+
 }  // namespace
 
 bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
@@ -67,7 +95,6 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
   const gis::style::StyleDocument* style =
       resolve_present_style(in.scene->style_document(), &use_carto);
 
-  vista::Layout layout;
   vista::LayoutInput layout_in;
   layout_in.view = {in.cam.width_px, in.cam.height_px, in.cam.min_x,
                     in.cam.min_y, in.cam.max_x, in.cam.max_y};
@@ -104,70 +131,33 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
                  land_visible ? 1 : 0, force_hillshade ? 1 : 0);
   }
 
-  if (!skip_hillshade && in.hillshade_ready &&
-      in.hillshade_slot.texture_key != 0) {
-    layout_in.hillshade_tiles.push_back(in.hillshade_slot);
-    layout_in.have_dem_clip = true;
-    layout_in.dem_clip = in.hillshade_slot;
+  vista::HillshadeAttachPolicy shade_policy;
+  shade_policy.skip = skip_hillshade;
+  shade_policy.ready = in.hillshade_ready;
+  shade_policy.ready_slot = in.hillshade_slot;
+  shade_policy.texture_key = kMap2dHillshadeTextureKey;
+  vista::HillshadeAttachResult shade =
+      vista::attach_hillshade_slot(&layout_in, shade_policy);
+  log_hillshade_attach(shade);
+  if (shade.kind == vista::HillshadeAttachKind::kBaked) {
+    out->baked_w = shade.width;
+    out->baked_h = shade.height;
+    out->hillshade_slot = shade.slot;
+    out->baked_rgba = std::move(shade.rgba);
   }
-  if (!skip_hillshade && layout_in.hillshade_tiles.empty()) {
-    if (const gis::style::StyleLayer* hs =
-            find_hillshade_layer(style, layout_in.zoom)) {
-      const std::string dem_path = vista::find_sample_dem_path();
-      if (dem_path.empty()) {
-        std::fprintf(stderr, "map2d: hillshade skip - china_dem not found\n");
-      } else {
-        const auto hs_t0 = std::chrono::steady_clock::now();
-        vista::HillshadeBake baked;
-        {
-          BASE_TRACE_EVENT("HillshadeBake", "startup");
-          baked = vista::bake_hillshade_slot(dem_path, layout_in.zoom, *hs,
-                                            kMap2dHillshadeTextureKey);
-        }
-        if (baked.ok && baked.width > 0 && baked.height > 0 &&
-            !baked.rgba.empty()) {
-          // Attach the jet sheet on the same layout that baked it. Deferring
-          // to layout_build_count>0 left cream land (#f5f3e9) on the first
-          // present; StaticReuse then held that white China until settle.
-          layout_in.have_dem_clip = true;
-          layout_in.dem_clip = baked.slot;
-          layout_in.hillshade_tiles.push_back(baked.slot);
-          out->baked_w = baked.width;
-          out->baked_h = baked.height;
-          out->hillshade_slot = baked.slot;
-          out->baked_rgba = std::move(baked.rgba);
-          std::fprintf(stderr,
-                       "map2d: hillshade baked %dx%d from %s tiles=%zu "
-                       "opacity=%.2f key=0x%08x\n",
-                       out->baked_w, out->baked_h, dem_path.c_str(),
-                       layout_in.hillshade_tiles.size(),
-                       layout_in.hillshade_tiles.back().opacity,
-                       layout_in.hillshade_tiles.back().texture_key);
-        } else {
-          std::fprintf(stderr,
-                       "map2d: hillshade skip - bake failed ok=%d %dx%d "
-                       "rgba=%zu path=%s\n",
-                       baked.ok ? 1 : 0, baked.width, baked.height,
-                       baked.rgba.size(), dem_path.c_str());
-        }
-        out->hillshade_ms =
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - hs_t0)
-                .count();
-      }
-    } else {
-      std::fprintf(stderr,
-                   "map2d: hillshade skip - no style layer @ zoom=%.2f\n",
-                   layout_in.zoom);
-    }
+  if (shade.kind == vista::HillshadeAttachKind::kBaked ||
+      shade.kind == vista::HillshadeAttachKind::kBakeFailed) {
+    out->hillshade_ms = shade.elapsed_ms;
   }
 
-  const double map_scale = in.frame->scale();
   vista::LayerBatchSet batches;
   {
     BASE_TRACE_EVENT("batches", "map2d.layout");
-    batches = visible_layer_batches(in.scene->layers(), use_carto, map_scale);
+    batches = visible_layer_batches(in.scene->layers(), use_carto,
+                                    in.frame->scale());
   }
+
+  vista::Layout layout;
   {
     BASE_TRACE_EVENT("build", "map2d.layout");
     vista::MapIR built = layout.build(layout_in, batches.batches);

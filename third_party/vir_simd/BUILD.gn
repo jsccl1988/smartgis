@@ -1,0 +1,13 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Header-only vir-simd (mattkretz/vir-simd). Sources under .src/vir-simd.
+# Include as: #include <vir/simd.h>  (prefer product face base/simd/stdx.h)
+
+config("vir_simd_headers") {
+  include_dirs += [ "//third_party/.src/vir-simd" ]
+}
+
+group("vir_simd") {
+  public_configs = [ ":vir_simd_headers" ]
+}

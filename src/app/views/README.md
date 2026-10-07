@@ -59,11 +59,13 @@ gestures / ViewHosts / `MapContents*`）；能力实现在
 `browser/plugin/` 是 present / playback / preview / `report_suite` 缝。
 Harness 收口（living shell **§Harness IL capability cut**）：HWND / pump / capture 原子在 `il.runtime/backend/`；浏览器集成测试在 `testing/tools/harness/browser/browser.{harness,console,map2d.*,world3d.*,input}/*.il`；`app/startup/` 是 LaunchPolicy 登记表（`scenario.*`）；`src/app/views/harness/` 已删。
 图：[`docs/superpowers/diagrams/views-runtime-layers.html`](../../../docs/superpowers/diagrams/views-runtime-layers.html) · [`docs/superpowers/diagrams/harness-il-capability.html`](../../../docs/superpowers/diagrams/harness-il-capability.html)。`ui/`：`BrowserView`
-持有 Widget 树，并把 map/panel 接线组合进 `ShellLayoutComposer`（`main_app.ui.xml`）/
-`MapPagesComposer` /
-`ProcessingComposer` / `InspectComposer` / `InspectorSyncComposer` /
-`DebugConsoleComposer` / `AtmosphereComposer`（见 living shell
-**§shell/ui composers**）。`app/main.cc` 仅 `wWinMain` 胶水。
+持有 Widget 树字段 + `BrowserUiDelegate` 薄转发；独立子目录
+`shell/`（`ShellLayoutComposer` / `ShellLifecycleComposer`）、
+`horizon/`（`MenuComposer` / `CatalogComposer` / `AmboxComposer` /
+`InspectorHostComposer`）、`pages/`（`MapPagesComposer` 多 TU）、
+`panels/`（`ProcessingComposer` / `InspectComposer` /
+`InspectorSyncComposer` / `DebugConsoleComposer`）。见 living shell
+**§shell/ui composers**。`app/main.cc` 仅 `wWinMain` 胶水。
 Present README：
 [`../../content/browser/present/README.md`](../../content/browser/present/README.md)。
 

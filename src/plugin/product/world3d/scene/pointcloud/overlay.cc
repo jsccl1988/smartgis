@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 
 namespace plugin {
 

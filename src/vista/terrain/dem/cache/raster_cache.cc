@@ -4,7 +4,7 @@
 #include "vista/terrain/dem/dem_bake_cache.h"
 
 #include "vista/terrain/dem/cache/io.h"
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 
 #include <cstdio>
 #include <cstring>

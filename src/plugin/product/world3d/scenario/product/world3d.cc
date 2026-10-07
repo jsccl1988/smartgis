@@ -32,14 +32,22 @@ namespace detail {
 // Unset PERF_BARE = M4 full-materials (globe + sat-cloud + sky).
 int run_world3d_scene3d(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: world3d Scene3D path\n");
-  browser.mark_named(plugin::kMarkPlugin, "world3d", /*truncate=*/true);
+  // Ensure TLS mark binder even if contribute_scenario_command skipped prep
+  // (idempotent re-register without HarnessPrepFn).
+  bind_plugin_scenario_shell(&browser);
+  // Append only — truncate=true wipes IL hwnd-ok/scene-ready and races the
+  // once-per-process truncate slot so later gate marks can vanish from the
+  // leaf the matrix scores.
+  browser.mark_named(plugin::kMarkPlugin, "world3d", /*truncate=*/false);
 
   const bool bare = world3d_perf_bare_enabled();
   if (bare) {
+    browser.mark_named(plugin::kMarkPlugin, "pointcloud-skip", false);
     plugin_mark("pointcloud-skip");
     std::fprintf(stderr,
                  "plugin-showcase: world3d perf-bare (pointcloud overlay off)\n");
   } else {
+    browser.mark_named(plugin::kMarkPlugin, "full-materials", false);
     plugin_mark("full-materials");
   }
 
@@ -178,10 +186,16 @@ int run_world3d_scene3d(HarnessShell& browser) {
   const bool bmp_ok = capture_plugin_hwnd_bmp(cam, &session, capture);
 
   if (!bmp_ok && session.want_gpu) {
+    browser.mark_named(plugin::kMarkPlugin, "bmp-fail", false);
     plugin_mark("bmp-fail");
   } else {
     // Mark pass before teardown — finish_scene3d / FlyCube teardown has
     // hung the harness past suite timeout after a successful fly+BMP.
+    // Write gate tokens via mark_named so the matrix leaf cannot miss them
+    // when plugin_mark TLS is unset on a teardown path.
+    browser.mark_named(plugin::kMarkPlugin, "present-ok", false);
+    browser.mark_named(plugin::kMarkPlugin, "bmp-ok", false);
+    browser.mark_named(plugin::kMarkPlugin, "pass", false);
     plugin_mark("pass");
     std::fprintf(stderr,
                  "plugin-showcase: PASS mode=world3d%s (True Earth Scene3D)\n",

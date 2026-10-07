@@ -27,6 +27,7 @@
 
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/ui/panels/report_panel.h"
+#include "content/browser/session/browser_session.h"
 #include "content/public/map_layer_types.h"
 #include "content/public/map_contents.h"
 #include "content/public/plugin_host.h"
@@ -304,7 +305,7 @@ void ProcessingComposer::run_processing_operator(const std::string& processing_i
     host_->set_status_message("Processing: no host");
     return;
   }
-  if (host_->browser_->document()->feature_count() == 0) {
+  if (host_->browser_->session().document_feature_count() == 0) {
     host_->set_status_message("Processing: no features");
     return;
   }
@@ -313,7 +314,7 @@ void ProcessingComposer::run_processing_operator(const std::string& processing_i
   const fs::path in = dir / "smartgis_views_proc_in.geojson";
   const fs::path out = dir / "smartgis_views_proc_out.geojson";
   const fs::path clip = dir / "smartgis_views_proc_clip.geojson";
-  if (!host_->browser_->document()->write_path(in.string())) {
+  if (!host_->browser_->session().write_document(in.string())) {
     host_->set_status_message("Processing: write_path failed");
     return;
   }
@@ -332,7 +333,7 @@ void ProcessingComposer::run_processing_operator(const std::string& processing_i
       processing_id == "native.symmetric_difference";
   if (needs_clip) {
     double min_x = 0, min_y = 0, max_x = 1, max_y = 1;
-    if (!host_->browser_->document()->compute_extent(&min_x, &min_y, &max_x, &max_y)) {
+    if (!host_->browser_->session().document_compute_extent(&min_x, &min_y, &max_x, &max_y)) {
       host_->set_status_message("Processing: no extent for clip");
       return;
     }
@@ -351,8 +352,8 @@ void ProcessingComposer::run_processing_operator(const std::string& processing_i
     return;
   }
   host_->browser_->plugins()->flush_processing_for_test();
-  if (!host_->browser_->document()->open_path(out.string()) ||
-      host_->browser_->document()->feature_count() < 1) {
+  if (!host_->browser_->session().open_document(out.string()) ||
+      host_->browser_->session().document_feature_count() < 1) {
     host_->set_status_message(std::string("Processing write-back failed: ") +
                        processing_id);
     return;
@@ -361,7 +362,7 @@ void ProcessingComposer::run_processing_operator(const std::string& processing_i
   host_->sync_inspectors_from_scene();
   host_->invalidate_map_overlays();
   host_->browser_->fit_map_extent();
-  const int n = static_cast<int>(host_->browser_->document()->feature_count());
+  const int n = static_cast<int>(host_->browser_->session().document_feature_count());
   const std::string text = std::string("Processing ok: ") + processing_id +
                            " features=" + std::to_string(n);
   host_->set_status_message(text);
@@ -381,25 +382,25 @@ void ProcessingComposer::bind_gis_python_bridge() {
   plugin::GisConsoleBridge bridge;
   bridge.write_active_geojson = [this](const std::string& path) {
     return host_->browser_ && host_->browser_->document() &&
-           host_->browser_->document()->write_path(path);
+           host_->browser_->session().write_document(path);
   };
   bridge.write_path = bridge.write_active_geojson;
   bridge.load_result_geojson = [this](const std::string& path) {
     if (!host_->browser_ || !host_->browser_->document()) {
       return false;
     }
-    if (!host_->browser_->document()->open_path(path)) {
+    if (!host_->browser_->session().open_document(path)) {
       return false;
     }
     host_->sync_catalog_from_scene();
     host_->sync_inspectors_from_scene();
     host_->invalidate_map_overlays();
-    return host_->browser_->document()->feature_count() >= 1;
+    return host_->browser_->session().document_feature_count() >= 1;
   };
   bridge.open_path = bridge.load_result_geojson;
   bridge.feature_count = [this]() {
     return host_->browser_ && host_->browser_->document()
-               ? static_cast<int>(host_->browser_->document()->feature_count())
+               ? static_cast<int>(host_->browser_->session().document_feature_count())
                : 0;
   };
   bridge.refresh_map = [this]() {
@@ -422,7 +423,7 @@ void ProcessingComposer::bind_gis_python_bridge() {
     std::ostringstream oss;
     oss << "[";
     bool first = true;
-    for (const content::LayerDesc& d : host_->browser_->document()->layer_descs()) {
+    for (const content::LayerDesc& d : host_->browser_->session().document_layer_descs()) {
       if (!first) {
         oss << ",";
       }
@@ -437,18 +438,18 @@ void ProcessingComposer::bind_gis_python_bridge() {
   };
   bridge.select_layer = [this](const std::string& id) {
     return host_->browser_ && host_->browser_->document() &&
-           host_->browser_->document()->select_layer(id);
+           host_->browser_->session().select_layer(id);
   };
   bridge.set_layer_visible = [this](const std::string& id, bool on) {
     return host_->browser_ && host_->browser_->document() &&
-           host_->browser_->document()->set_layer_visible(id, on);
+           host_->browser_->session().set_layer_visible(id, on);
   };
   bridge.extent_json = [this]() {
     if (!host_->browser_ || !host_->browser_->document()) {
       return std::string("null");
     }
     double min_x = 0, min_y = 0, max_x = 0, max_y = 0;
-    if (!host_->browser_->document()->compute_extent(&min_x, &min_y, &max_x, &max_y)) {
+    if (!host_->browser_->session().document_compute_extent(&min_x, &min_y, &max_x, &max_y)) {
       return std::string("null");
     }
     char buf[192];
@@ -485,24 +486,24 @@ void ProcessingComposer::bind_gis_python_bridge() {
   };
   bridge.has_style_document = [this]() {
     return host_->browser_ && host_->browser_->document() &&
-           host_->browser_->document()->has_style_document();
+           host_->browser_->session().document_has_style();
   };
   bridge.load_style_path = [this](const std::string& path) {
     return host_->browser_ && host_->browser_->document() &&
-           host_->browser_->document()->load_style_path(path);
+           host_->browser_->session().load_style_path(path);
   };
   bridge.clear_style = [this]() {
     if (host_->browser_ && host_->browser_->document()) {
-      host_->browser_->document()->clear_style_document();
+      host_->browser_->session().clear_style_document();
     }
   };
   bridge.style_summary_json = [this]() {
     if (!host_->browser_ || !host_->browser_->document() ||
-        !host_->browser_->document()->style_document()) {
+        !host_->browser_->session().document_style()) {
       return std::string("null");
     }
     const gis::style::StyleDocument* doc =
-        host_->browser_->document()->style_document();
+        host_->browser_->session().document_style();
     std::ostringstream oss;
     oss << "{\"name\":\"" << content::json_escape_string(doc->name)
         << "\",\"version\":" << doc->version << ",\"layers\":[";

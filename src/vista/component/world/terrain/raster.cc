@@ -16,7 +16,7 @@
 
 namespace vista {
 using detail::aabb_from_xyz;
-using detail::apply_elevation_overlay_texture;
+using detail::apply_terrain_albedo_texture;
 using detail::stamp_payload_meta;
 
 Node* seed_dem_raster_into_world(World* world, const DemRaster& dem,
@@ -76,17 +76,7 @@ Node* seed_dem_raster_into_world(World* world, const DemRaster& dem,
   if (!uvs.empty()) {
     world->set_terrain_uvs(node->id, uvs.data(), uvs.size());
   }
-
-  std::vector<uint8_t> rgba;
-  int tw = 0;
-  int th = 0;
-  const bool have_tex = dem.bake_hypsometric_rgba(edge, &rgba, &tw, &th);
-  if (have_tex && tw > 0 && th > 0) {
-    world->set_terrain_texture(node->id, rgba.data(), rgba.size(),
-                               static_cast<uint32_t>(tw),
-                               static_cast<uint32_t>(th));
-    apply_elevation_overlay_texture(world, node->id, dem, edge, &rgba, tw, th);
-  }
+  apply_terrain_albedo_texture(world, node->id, dem, edge);
   stamp_payload_meta(world, node->id, edge * 10 + 1, TerrainSource::kRaster);
   return world->find(node->id);
 }
@@ -206,17 +196,7 @@ size_t seed_dem_view_tiles_into_world(World* world, const DemRaster& dem,
       if (!uvs.empty()) {
         world->set_terrain_uvs(node->id, uvs.data(), uvs.size());
       }
-      std::vector<uint8_t> rgba;
-      int tw = 0;
-      int th = 0;
-      if (dem.bake_hypsometric_rgba(edge, &rgba, &tw, &th) && tw > 0 &&
-          th > 0) {
-        world->set_terrain_texture(node->id, rgba.data(), rgba.size(),
-                                   static_cast<uint32_t>(tw),
-                                   static_cast<uint32_t>(th));
-        apply_elevation_overlay_texture(world, node->id, dem, edge, &rgba, tw,
-                                        th);
-      }
+      apply_terrain_albedo_texture(world, node->id, dem, edge);
       stamp_payload_meta(world, node->id, lod_key, TerrainSource::kRaster);
       total_verts += verts;
       ++attached;

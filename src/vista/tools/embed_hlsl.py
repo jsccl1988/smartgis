@@ -8,7 +8,7 @@ Each output .inc is a single expression:
 
 Thin headers then do:
   inline constexpr char kVsOcean[] =
-  #include "vista/pass/world/atmosphere/ocean/vs_ocean.hlsl.inc"
+  #include "vista/pass/world/atmosphere/ocean/hlsl/vs_ocean.hlsl.inc"
   ;
 """
 

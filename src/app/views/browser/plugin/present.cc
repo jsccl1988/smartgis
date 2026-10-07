@@ -8,8 +8,7 @@
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/browser/plugin/playback.h"
 #include "app/views/util/exe_sidecar_path.h"
-#include "content/browser/document/map_scene.h"
-#include "content/browser/present/map2d/map2d_presenter.h"
+#include "content/browser/session/browser_session.h"
 #include "content/public/gis_document.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/present/gis_present.h"
@@ -33,7 +32,7 @@ bool add_standin_mesh(content::MapScene* doc, const char* name, double lon,
   return plugin::add_standin_mesh(&gis, name, lon, lat, half_deg);
 }
 
-void present_plugin_map2d(BrowserUiDelegate* ui, content::Map2dPresenter* map2d,
+void present_plugin_map2d(BrowserUiDelegate* ui, content::BrowserSession* session,
                           const std::function<void()>& fit_extent) {
   if (!ui) {
     return;
@@ -43,8 +42,8 @@ void present_plugin_map2d(BrowserUiDelegate* ui, content::Map2dPresenter* map2d,
     fit_extent();
   }
   // Content edits inside fit_extent invalidate; camera-only fit is a no-op.
-  if (map2d) {
-    map2d->invalidate_frame_cache();
+  if (session) {
+    session->invalidate_map2d_frame_cache();
   }
   ui->invalidate_native_map();
 }
@@ -57,7 +56,7 @@ void present_plugin_scene3d(BrowserUiDelegate* ui) {
   ui->invalidate_native_scene();
 }
 
-bool present_plugin_dataset(Browser* browser, content::Map2dPresenter* map2d,
+bool present_plugin_dataset(Browser* browser,
                             const std::function<void()>& fit_extent,
                             std::string_view path, int face, int surface) {
   if (!browser) {
@@ -69,7 +68,7 @@ bool present_plugin_dataset(Browser* browser, content::Map2dPresenter* map2d,
   if (face != 0) {
     present_plugin_scene3d(browser->ui());
   } else {
-    present_plugin_map2d(browser->ui(), map2d, fit_extent);
+    present_plugin_map2d(browser->ui(), &browser->session(), fit_extent);
   }
   return true;
 }
@@ -111,17 +110,17 @@ bool present_plugin_frame(PluginShell* plugins,
   return plugins->run_processing(id, args);
 }
 
-int export_plugin_frames(PluginShell* plugins, PluginPlayback* session,
-                         content::Map2dPresenter* map2d,
+int export_plugin_frames(PluginShell* plugins, PluginPlayback* playback,
+                         content::BrowserSession* session,
                          const std::string& dir_leaf) {
-  if (!session || !map2d || dir_leaf.empty() || session->frame_count() <= 0) {
+  if (!playback || !session || dir_leaf.empty() || playback->frame_count() <= 0) {
     return 0;
   }
   std::wstring leaf_w(dir_leaf.begin(), dir_leaf.end());
-  const int nframes = session->frame_count();
+  const int nframes = playback->frame_count();
   int wrote = 0;
   for (int i = 0; i < nframes; ++i) {
-    if (!present_plugin_frame(plugins, session, i)) {
+    if (!present_plugin_frame(plugins, playback, i)) {
       continue;
     }
     wchar_t frame_leaf[MAX_PATH] = {};
@@ -136,7 +135,7 @@ int export_plugin_frames(PluginShell* plugins, PluginPlayback* session,
                             nullptr) <= 0) {
       continue;
     }
-    if (map2d->export_bmp(bmp_a, 640, 480)) {
+    if (session->map2d_export_bmp(bmp_a, 640, 480)) {
       ++wrote;
     }
   }
@@ -149,7 +148,7 @@ int export_plugin_frames(PluginShell* plugins, PluginPlayback* session,
                             nullptr) > 0) {
       std::ofstream out(json_a, std::ios::binary);
       if (out) {
-        out << session->playback_json();
+        out << playback->playback_json();
       }
     }
   }

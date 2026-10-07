@@ -1,9 +1,11 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 
-#include "vista/terrain/process/land_mask.h"
+#include "vista/terrain/dem/detail/dem_simd.h"
+#include "vista/terrain/dem/mask/land_mask.h"
+#include "vista/terrain/dem/raster/bake_util.h"
 
 #include <algorithm>
 #include <cmath>
@@ -33,12 +35,7 @@ void DemRaster::recompute_range() {
     max_m_ = 1;
     return;
   }
-  min_m_ = heights_[0];
-  max_m_ = heights_[0];
-  for (float h : heights_) {
-    min_m_ = (std::min)(min_m_, h);
-    max_m_ = (std::max)(max_m_, h);
-  }
+  detail::minmax_f32(heights_.data(), heights_.size(), &min_m_, &max_m_);
   if (max_m_ <= min_m_) {
     max_m_ = min_m_ + 1.f;
   }
@@ -55,14 +52,20 @@ void DemRaster::downsample_to_max_edge(int max_edge) {
   const int new_cols = (std::max)(2, cols_ * max_edge / long_edge);
   const int new_rows = (std::max)(2, rows_ * max_edge / long_edge);
   std::vector<float> next(static_cast<size_t>(new_cols * new_rows));
-  for (int row = 0; row < new_rows; ++row) {
-    const int src_row = row * rows_ / new_rows;
+  const float* src = heights_.data();
+  const int src_cols = cols_;
+  const int src_rows = rows_;
+  auto fill_row = [&](int row) {
+    const int src_row = row * src_rows / new_rows;
+    float* dst =
+        next.data() + static_cast<size_t>(row) * static_cast<size_t>(new_cols);
     for (int col = 0; col < new_cols; ++col) {
-      const int src_col = col * cols_ / new_cols;
-      next[static_cast<size_t>(row * new_cols + col)] =
-          meters_at(src_col, src_row);
+      const int src_col = col * src_cols / new_cols;
+      dst[col] = src[static_cast<size_t>(src_row) * static_cast<size_t>(src_cols) +
+                     static_cast<size_t>(src_col)];
     }
-  }
+  };
+  detail::for_each_bake_row(new_cols, new_rows, fill_row);
   heights_.swap(next);
   cols_ = new_cols;
   rows_ = new_rows;

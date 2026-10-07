@@ -133,10 +133,17 @@ void Widget::pump_until_shell_published(unsigned timeout_ms) {
     return;
   }
   ensure_compositor_started();
+  // Wait for a *new* publish when one already exists — otherwise tab chrome
+  // (Map→3D) stays on a stale front buffer after schedule_paint (plain #6).
+  const std::uint64_t before = shell_generation();
   schedule_paint();
   const DWORD t0 = GetTickCount();
   MSG msg = {};
-  while (shell_generation() == 0 && GetTickCount() - t0 < timeout_ms) {
+  while (GetTickCount() - t0 < timeout_ms) {
+    const std::uint64_t now = shell_generation();
+    if (now > before) {
+      return;
+    }
     while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
       if (msg.message == WM_QUIT) {
         PostQuitMessage(static_cast<int>(msg.wParam));

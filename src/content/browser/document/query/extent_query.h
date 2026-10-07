@@ -8,7 +8,7 @@
 
 #include "content/browser/document/store/layer_store.h"
 #include "content/public/map_layer_types.h"
-#include "vista/terrain/process/land_mask.h"
+#include "vista/terrain/dem/mask/land_mask.h"
 
 namespace content {
 namespace detail {

@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 
 #include "base/process/switches.h"
 
@@ -62,11 +63,59 @@ void set_stereo_api_env(bool want_d3d) {
 #endif
 }
 
+// Beside-PE search, same shape as leftover stereo LoadLibrary. Scenic is
+// opt-in. :scene3d_present also import-links the façade, so GetModuleHandle
+// hits a DLL the process already mapped.
+#if defined(_WIN32)
+HMODULE load_scenic_module() {
+#ifdef _DEBUG
+  const wchar_t* names[] = {L"scenic_d.dll", L"scenic.dll", nullptr};
+#else
+  const wchar_t* names[] = {L"scenic.dll", L"scenic_d.dll", nullptr};
+#endif
+  for (const wchar_t** p = names; *p; ++p) {
+    if (HMODULE mapped = GetModuleHandleW(*p)) {
+      return mapped;
+    }
+  }
+  wchar_t dir[MAX_PATH] = {};
+  const DWORD n = GetModuleFileNameW(nullptr, dir, MAX_PATH);
+  if (n > 0 && n < MAX_PATH) {
+    if (wchar_t* slash = wcsrchr(dir, L'\\')) {
+      *(slash + 1) = L'\0';
+    }
+  } else {
+    dir[0] = L'\0';
+  }
+  for (const wchar_t** p = names; *p; ++p) {
+    if (dir[0]) {
+      wchar_t full[MAX_PATH] = {};
+      if (swprintf_s(full, L"%s%s", dir, *p) > 0) {
+        if (HMODULE loaded = LoadLibraryW(full)) {
+          return loaded;
+        }
+      }
+    }
+    if (HMODULE loaded = LoadLibraryW(*p)) {
+      return loaded;
+    }
+  }
+  return nullptr;
+}
+
+std::mutex g_scenic_dll_mu;
+HMODULE g_scenic_module = nullptr;
+#endif
+
 }  // namespace
 
 void set_scene3d_engine(Scene3dEngine engine) {
   g_scene3d_engine.store(static_cast<uint32_t>(engine),
                          std::memory_order_release);
+  // Scenic branch only. FlyCube / GDI / stereo keep their own load sites.
+  if (engine == Scene3dEngine::kScenic) {
+    (void)load_scene3d_scenic_dll();
+  }
 }
 
 Scene3dEngine scene3d_engine() {
@@ -136,6 +185,19 @@ bool prefer_scene3d_gdi() {
 
 bool prefer_scene3d_scenic() {
   return scene3d_engine() == Scene3dEngine::kScenic;
+}
+
+bool load_scene3d_scenic_dll() {
+#if !defined(_WIN32)
+  return false;
+#else
+  std::lock_guard<std::mutex> lock(g_scenic_dll_mu);
+  if (g_scenic_module) {
+    return true;
+  }
+  g_scenic_module = load_scenic_module();
+  return g_scenic_module != nullptr;
+#endif
 }
 
 bool force_content_mapview_3d() {

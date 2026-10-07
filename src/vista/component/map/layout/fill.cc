@@ -40,13 +40,11 @@ uint32_t darken_argb(uint32_t argb, float factor) {
 
 // Jet hillshade is a full land surface (kOver). Cream land under it shows
 // through transparent ocean cells inside the DEM quad (not only past the
-// AABB). Skip land when a jet sheet is attached; ocean clear must stay
-// carto blue so those texels read as water, not black.
+// AABB). Skip land only when a jet raster DrawItem is actually attached —
+// dem_clip alone (bake pending / failed) must keep cream land so the map
+// does not fall through to a black clear + line-only face.
 bool jet_hillshade_active(const LayoutInput& in) {
-  if (!in.style) {
-    return false;
-  }
-  if (in.hillshade_tiles.empty() && !in.have_dem_clip) {
+  if (!in.style || in.hillshade_tiles.empty()) {
     return false;
   }
   for (const gis::style::StyleLayer& layer : in.style->layers) {

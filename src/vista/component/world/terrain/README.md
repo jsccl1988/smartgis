@@ -14,8 +14,9 @@ Living lock: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](..
 **§Vista world LOD terrain component+pass** · **§Vista world component deep split**.
 Diagram: [`world-lod-terrain.html`](../../../../../docs/superpowers/diagrams/world-lod-terrain.html).
 
-Bake domain stays in `vista/terrain` (`DemRaster` / hillshade). This directory
-only writes `kTerrain` nodes.
+Bake domain stays in `vista/terrain/dem` (`DemRaster` / hillshade / land mask /
+map drape). This directory only writes `kTerrain` nodes. Terrain albedo prefers
+`china_rs` orthophoto via `bake_map_drape_rgba`, then hypsometric + isolines.
 
 ## Layers
 
@@ -24,7 +25,7 @@ only writes `kTerrain` nodes.
 | `payload.h` | `TerrainPayload` nested on `Node` / `Instance` |
 | `policy.*` | LOD numbers: raster `max_edge`, TIN stride, surface edge, cache keys, morph weight |
 | `grid.*` | `NestedGridTile` selection and Y-up edge skirts |
-| `mesh.*` | Internal payload writers (stamp, thin, window node, patch continuity) |
+| `mesh.*` | Payload writers (stamp, thin, window node, patch continuity) and `rebuild_dem_view_mesh` |
 | `seed.h` | Public seed API |
 | `raster.cc` / `nested.cc` / `surface.cc` / `tin.cc` | One translation unit per source |
 
@@ -43,8 +44,10 @@ Public includes: `"vista/component/world/terrain/seed.h"`,
 `"vista/component/world/terrain/policy.h"`,
 `"vista/component/world/terrain/grid.h"`,
 `"vista/component/world/terrain/payload.h"`.
-`mesh.h` is internal. Namespace `vista` / `vista::detail`. No forwarding
-header at the old `terrain/lod.h` path.
+`vista::detail` writers in `mesh.h` stay internal. Present includes `mesh.h`
+for `vista::rebuild_dem_view_mesh` (orbit normalize stays a caller hook).
+Namespace `vista` / `vista::detail`. No forwarding header at the old
+`terrain/lod.h` path.
 
 GPU upload/record: `vista/pass/world/terrain/TerrainPass` (composed by `WorldPass`).
 

@@ -902,7 +902,7 @@ Leftover GDI multi-point paint still calls `LPToDP` per vertex. Carto declutter 
 | --- | --- |
 | Approach | **`LpToDp2` + `transform_xy_batch`** in `base/math`; carto uses `Vector2` / constants; point declutter gets a cell grid |
 | `LPToDP` semantics | Match leftover: `+0.5` then cast to `LONG`, then `Y = view_h - Y` |
-| SIMD | Same as base/math: `base_math_simd` default **off** (scalar) |
+| SIMD | Same as base/math: `base_math_simd` default **off** (scalar). Product batch kernels use **vir-simd** (`base/simd/stdx.h` → `vir::stdx`, P1928 / C++26 `std::simd` polyfill); no raw `<immintrin.h>` in product TUs |
 | Style / LOD | **Unchanged** (colors, priority, budget, halo) |
 | Worker | Still single GDI lane; this is CPU math on that lane, not parallel GDI |
 
@@ -1113,6 +1113,7 @@ Three-layer product face on `src/vista/component/world/atmosphere` (no second en
 | Global terrain albedo | `out/data/global_terrain.tif` (GeoTIFF; GDAL here is GTiff-only �?use `build_globe_terrain.py --download-blue-marble`) | Hypsometric bake from DEM |
 | Sat cloud | `out/data/sat_cloud.tif` / `global_cloud.tif` | Procedural cover stub |
 | China overlay / imagery | `china_rs.tif` via `find_sample_imagery_path` (after global_*) | Hypsometric bake from DEM |
+| China Scene3d terrain drape | `DemRaster::bake_map_drape_rgba` → `apply_terrain_albedo_texture` (china_rs + Horn shade) | Hypsometric + jet isolines |
 
 ### Wiring
 
@@ -1870,7 +1871,7 @@ CPU contract remains `vista::MapFrame`. Cartography runs once in `Layout::build`
 **Updated:** 2026-10-04  
 **Diagram:** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html)  
 **Plan:** [`../plans/2026-09-30-map2d-hillshade-line-casing.md`](../plans/2026-09-30-map2d-hillshade-line-casing.md) Task 6（no twin plan�? 
-**Code:** `vista/component/map/detail/hillshade_bake.*` · `vista/terrain/process/{dem_hillshade,land_mask,bake_backend}.*` · tests `dem_raster_test` / `land_mask_test` · harness `testing/tools/harness/browser/run_hillshade_bake_bench.py`  
+**Code:** `vista/component/map/shade/bake.*` · `vista/terrain/dem/{shade,mask,bake,raster}/*` · tests `dem_raster_test` / `land_mask_test` · harness `testing/tools/harness/browser/run_hillshade_bake_bench.py`  
 **Related:** §Map2d present (C4 bake ownership) · §Vista Map2d equal-profile (`hillshade_ms` lump; matrix still `MAP2D_NO_HILLSHADE=1`) · `DemPhaseSample` (3D seed only)
 
 ### Why

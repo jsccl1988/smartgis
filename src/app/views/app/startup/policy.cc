@@ -8,8 +8,7 @@
 
 #include "base/core/log.h"
 #include "base/process/switches.h"
-#include "content/browser/present/map2d/map2d_presenter.h"
-#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
+#include "content/browser/session/browser_session.h"
 
 namespace app {
 namespace {
@@ -74,10 +73,10 @@ void apply_map2d_face(const LaunchPolicy& policy, bool fps) {
 void apply_scene3d(const LaunchPolicy& policy) {
   switch (policy.scene3d) {
     case Scene3dStartup::kGdi:
-      content::set_scene3d_engine(content::Scene3dEngine::kGdi);
+      content::BrowserSession::use_scene3d_engine_gdi();
       break;
     case Scene3dStartup::kFlyCube:
-      content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
+      content::BrowserSession::use_scene3d_engine_flycube();
       break;
     case Scene3dStartup::kLeave:
       break;
@@ -139,7 +138,8 @@ void apply_startup_policy(const LaunchPolicy& policy_in) {
       break;
   }
   const bool fps = map2d_fps_bench();
-  const bool engine_from_env = content::apply_scene3d_engine_from_env();
+  const bool engine_from_env =
+      content::BrowserSession::scene3d_engine_selected_from_env();
 
   // Env SCENE3D_ENGINE must not skip the 2D face: --self-test / ContentGdi
   // still pin ContentMapView even when a leftover scenic/FlyCube env is set.
@@ -165,21 +165,23 @@ void apply_startup_policy(const LaunchPolicy& policy_in) {
   // Stereo / product FlyCube / FPS bench: allow DXGI on Map Edit.
   // Content-pinned faces (interact / ContentGdi / plugin-3d) keep the gate.
   if (!pins_content_mapview(policy) &&
-      (content::prefer_scene3d_stereo_gl() || want_flycube_2d() || fps ||
+      (content::BrowserSession::prefers_scene3d_stereo_gl() || want_flycube_2d() ||
+       fps ||
        policy.map2d == Map2dStartup::kFlyCube2d ||
        policy.map2d == Map2dStartup::kProduct)) {
     base::set_switch("force-content-mapview-2d", "0");
   }
 
-  if (content::prefer_map2d_scenic() || content::prefer_scene3d_scenic()) {
+  if (content::BrowserSession::prefers_map2d_scenic() ||
+      content::BrowserSession::prefers_scene3d_scenic()) {
     if (!pins_content_mapview(policy)) {
       base::set_switch("force-content-mapview-2d", "0");
       base::set_switch("prefer-flycube-2d", "0");
     }
-    if (content::prefer_map2d_scenic()) {
+    if (content::BrowserSession::prefers_map2d_scenic()) {
       base::set_switch("map2d-engine", "scenic");
     }
-    if (content::prefer_scene3d_scenic()) {
+    if (content::BrowserSession::prefers_scene3d_scenic()) {
       base::set_switch("scene3d-engine", "scenic");
     }
   }

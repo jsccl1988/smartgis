@@ -171,7 +171,7 @@ Debug legacy 640×480 GPU:
 
 - Same hot phase unchanged **3+** iterations
 - Visual gate broken after a “perf” change
-- Crash / AV → `windbg-crash-diagnose`, then return here
+- Crash / AV / hang → `auto-diagnose-fix`, then return here
 
 ## Communication
 

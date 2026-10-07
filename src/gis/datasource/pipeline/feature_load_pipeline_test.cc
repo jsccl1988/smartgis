@@ -37,7 +37,8 @@ OGRLayer* make_point_layer(GDALDataset* ds, int count) {
   return lyr;
 }
 
-bool run_pipeline_case(OGRLayer* lyr, size_t ordered_window, int expect_n) {
+bool run_pipeline_case(OGRLayer* lyr, size_t ordered_window, size_t workers,
+                       int expect_n) {
   lyr->ResetReading();
   std::vector<int> got;
   got.reserve(static_cast<size_t>(expect_n));
@@ -45,7 +46,7 @@ bool run_pipeline_case(OGRLayer* lyr, size_t ordered_window, int expect_n) {
   gis::datasource::FeatureLoadOptions opts;
   opts.serial_threshold = 0;  // force Pipeline path
   opts.ordered_window = ordered_window;
-  opts.decode_workers = 4;
+  opts.decode_workers = workers;
 
   const bool ok = gis::datasource::load_ogr_layer_pipeline<int>(
       lyr,
@@ -70,15 +71,34 @@ bool run_pipeline_case(OGRLayer* lyr, size_t ordered_window, int expect_n) {
     return false;
   }
   if (static_cast<int>(got.size()) != expect_n) {
-    std::fprintf(stderr, "size got=%zu expect=%d window=%zu\n", got.size(),
-                 expect_n, ordered_window);
+    std::fprintf(stderr, "size got=%zu expect=%d window=%zu workers=%zu\n",
+                 got.size(), expect_n, ordered_window, workers);
     return false;
   }
   for (int i = 0; i < expect_n; ++i) {
     if (got[static_cast<size_t>(i)] != i) {
-      std::fprintf(stderr, "order break at %d got=%d window=%zu\n", i,
-                   got[static_cast<size_t>(i)], ordered_window);
+      std::fprintf(stderr,
+                   "order break at %d got=%d window=%zu workers=%zu\n", i,
+                   got[static_cast<size_t>(i)], ordered_window, workers);
       return false;
+    }
+  }
+  return true;
+}
+
+// High-worker stress: reproduce premature drain (size_approx is_finish race).
+bool run_worker_stress(OGRLayer* lyr, int expect_n, int rounds) {
+  const size_t windows[] = {0, 32, 256};
+  const size_t workers[] = {1, 2, 4, 8};
+  for (int r = 0; r < rounds; ++r) {
+    for (size_t w : workers) {
+      for (size_t win : windows) {
+        if (!run_pipeline_case(lyr, win, w, expect_n)) {
+          std::fprintf(stderr, "stress fail round=%d workers=%zu window=%zu\n",
+                       r, w, win);
+          return false;
+        }
+      }
     }
   }
   return true;
@@ -108,12 +128,16 @@ int main() {
     return 1;
   }
 
-  expect(run_pipeline_case(lyr, /*ordered_window=*/32, kCount),
+  expect(run_pipeline_case(lyr, /*ordered_window=*/32, /*workers=*/4, kCount),
          "ordered_window=32 preserves order");
-  expect(run_pipeline_case(lyr, /*ordered_window=*/0, kCount),
+  expect(run_pipeline_case(lyr, /*ordered_window=*/0, /*workers=*/4, kCount),
          "ordered_window=0 legacy preserves order");
-  expect(run_pipeline_case(lyr, /*ordered_window=*/256, kCount),
+  expect(run_pipeline_case(lyr, /*ordered_window=*/256, /*workers=*/4, kCount),
          "ordered_window=256 preserves order");
+  expect(run_pipeline_case(lyr, /*ordered_window=*/256, /*workers=*/8, kCount),
+         "workers=8 preserves count+order");
+  expect(run_worker_stress(lyr, kCount, /*rounds=*/20),
+         "20-round workers×window stress (count+order)");
 
   GDALClose(ds);
 

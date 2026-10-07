@@ -10,8 +10,7 @@
 #include "base/core/log.h"
 #include "base/process/switches.h"
 #include "base/trace/event/process_trace.h"
-#include "content/browser/document/map_scene.h"
-#include "content/browser/present/map2d/map2d_presenter.h"
+#include "content/browser/session/browser_session.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -40,8 +39,8 @@ void Browser::schedule_deferred_china_seed() {
     const char* skip = base::switch_cstr("skip-ambox-catalog");
     return skip && skip[0] != '\0' && skip[0] != '0';
   }();
-  if (!defer_china_seed_ || skip_deferred_china || !document() ||
-      document()->has_china_extent()) {
+  if (!defer_china_seed_ || skip_deferred_china ||
+      session().document_has_china_extent()) {
     return;
   }
   HWND shell = hwnd();
@@ -56,8 +55,8 @@ void Browser::schedule_deferred_china_seed() {
     auto* self = reinterpret_cast<Browser*>(
         GetPropW(timer_hwnd, L"DeferChinaBrowser"));
     RemovePropW(timer_hwnd, L"DeferChinaBrowser");
-    if (!self || self->is_close_prepared() || !self->document() ||
-        self->document()->has_china_extent()) {
+    if (!self || self->is_close_prepared() ||
+        self->session().document_has_china_extent()) {
       return;
     }
     BASE_TRACE_EVENT("try_open_china", "startup");
@@ -84,7 +83,7 @@ void Browser::schedule_deferred_china_seed() {
       }
     } resume_presents{self};
     try {
-      self->document()->seed_default(/*allow_china_bootstrap=*/true);
+      self->session().seed_default_document(/*allow_china=*/true);
       if (self->is_close_prepared()) {
         return;
       }
@@ -92,10 +91,8 @@ void Browser::schedule_deferred_china_seed() {
         LOGGING(LOG_WARNING, "startup: deferred China fit_map_extent SEH");
       }
       self->push_shared_extent();
-      if (content::Map2dPresenter* map2d = self->map2d()) {
-        map2d->note_surface_reset();
-        map2d->invalidate_frame_cache();
-      }
+      self->session().note_map2d_surface_reset();
+      self->session().invalidate_map2d_frame_cache();
       self->refresh_inspectors();
       self->sync_catalog_from_scene();
       if (self->ui()) {
@@ -129,7 +126,7 @@ void Browser::schedule_deferred_china_seed() {
     unsetenv("skip-china-land-clip");
 #endif
     LOGGING(LOG_INFO, "startup: deferred China seed done china=%d",
-            self->document() && self->document()->has_china_extent() ? 1 : 0);
+            self->session().document_has_china_extent() ? 1 : 0);
   });
 }
 

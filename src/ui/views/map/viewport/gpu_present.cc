@@ -267,9 +267,10 @@ HWND DrawHost::ensure_gpu_present_hwnd(uint32_t width_px,
   if (!owner || !IsWindow(owner)) {
     owner = embed;
   }
+  // Title is the harness BitBlt / plain_browse contract (PRESENT_TITLE).
   gpu_present_hwnd_ = CreateWindowExW(
       WS_EX_TOOLWINDOW | WS_EX_NOREDIRECTIONBITMAP, kGpuPresentClass,
-      L"SmartGIS Draw Present",
+      L"FlyCube Present",
       WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, 0, 0, w, h, owner, nullptr,
       inst, this);
   if (!gpu_present_hwnd_) {
@@ -285,7 +286,7 @@ HWND DrawHost::ensure_gpu_present_hwnd(uint32_t width_px,
   ShowWindow(gpu_present_hwnd_, SW_HIDE);
   sync_identity_frame();
   LOGGING(LOG_INFO, "rhi.gpu_present present HWND=%p owner=%p %ux%u want_visible=1",
-          gpu_present_hwnd_, nullptr, width_px, height_px);
+          gpu_present_hwnd_, owner, width_px, height_px);
   return gpu_present_hwnd_;
 }
 

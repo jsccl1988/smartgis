@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/benchmark.gni")
 import("//testing/test.gni")
 
 # CPU tessellation of GIS geometry into xyz + indices. No RHI, no World.
@@ -11,7 +12,26 @@ import("//testing/test.gni")
 #   tessellate.*     — public API + dispatch
 #   fill/            — polygon / ring fill tess
 #   line/            — stroked ribbon tess
-#   detail/          — types, append, scratch pools, process-trace
+#   detail/          — types, append, scratch pools, process-trace, SIMD
+
+# AVX2-width kernels (vir-simd / C++26 std::simd candidate) in their own TU
+# so scalar mesh TUs stay free of /arch:AVX2.
+source_set("mesh_simd_avx2") {
+  sources = [
+    "detail/mesh_simd_avx2.cc",
+    "detail/mesh_simd_kern.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  if (current_cpu == "x64" || current_cpu == "x86") {
+    configs += [ "//src/base/math:math_simd_avx2" ]
+  }
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  public_deps = [ "//src/base/simd:simd" ]
+}
 
 source_set("mesh_sources") {
   sources = [
@@ -19,6 +39,9 @@ source_set("mesh_sources") {
     "detail/mesh_append.h",
     "detail/mesh_scratch.cc",
     "detail/mesh_scratch.h",
+    "detail/mesh_simd.cc",
+    "detail/mesh_simd.h",
+    "detail/mesh_simd_kern.h",
     "detail/mesh_types.h",
     "detail/tess_trace.cc",
     "detail/tess_trace.h",
@@ -41,6 +64,7 @@ source_set("mesh_sources") {
     "//src/vista/component/world:world_sources",
   ]
   public_deps = [
+    ":mesh_simd_avx2",
     "//src/gis:gis",
     "//third_party:gdal",
   ]
@@ -58,6 +82,23 @@ test("tessellate_style_test") {
   configs = [ "//build:legacy" ]
   deps = [
     ":mesh",
+    "//src/base:base",
+    "//third_party:gdal",
+  ]
+}
+
+# Datasets × schemes matrix: scalar / avx2 / dispatch (+ serial / parallel
+# for batch tess). Prints a markdown table to stdout after timing.
+# Links mesh_sources directly (like multiply_benchmark) so detail kernels
+# are callable without DLL export.
+benchmark("mesh_simd_benchmark") {
+  output_name = "mesh_simd_benchmark"
+  sources = [ "mesh_simd_benchmark.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  use_benchmark_main = false
+  deps = [
+    ":mesh_sources",
     "//src/base:base",
     "//third_party:gdal",
   ]

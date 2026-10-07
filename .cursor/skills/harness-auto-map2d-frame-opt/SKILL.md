@@ -169,7 +169,7 @@ Debug china 1280×720:
 
 - Same failure / same hot phase unchanged **3+** iterations
 - Visual gate broken (no hillshade / labels) after a “perf” change
-- Crash / AV → hand off `windbg-crash-diagnose`, then return here
+- Crash / AV / hang → hand off `auto-diagnose-fix`, then return here
 
 ## Communication
 

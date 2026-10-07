@@ -5,6 +5,8 @@ All rights reserved.
 
 # Interchangeable UI shells + out-of-process map renderer
 
+进程边界以 living spec [§Content public embedder](specs/2026-09-27-views-desktop-shell-design.md#content-public-embedder) 与 [§Content process layers](specs/2026-09-27-views-desktop-shell-design.md#content-process-layers) 为准。
+
 三种可替换桌面 chrome（WebView2 / WinUI 3 / Chromium Views-like），共用同一套 **host ABI** 和 **多进程地图渲染**。第 0 节底物已落地（`src/content` + `src/gpu`）；第 1–3 节仍是方案论文，不是实现计划。不引入 Qt。
 
 当前产品事实（以树为准，不是 2010 路径）：

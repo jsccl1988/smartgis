@@ -10,6 +10,7 @@
 
 #pragma comment(lib, "imm32.lib")
 
+#include <cstdio>
 #include <string>
 #include <utility>
 
@@ -21,7 +22,7 @@
 #include "base/trace/diag/diagnostic_bootstrap.h"
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
-#include "content/app/content_main.h"
+#include "content/public/content_client.h"
 #include "ui/gfx/canvas/shell_canvas_backend.h"
 
 namespace {
@@ -57,6 +58,9 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
   // sentinel "disable" skips plugin autoload; do not use SetDefaultDllDirectories
   // here — it can remap ucrtbased to a second base on this SDK.
   ::SetEnvironmentVariableW(L"GDAL_DRIVER_PATH", L"disable");
+  // Redirected stderr (plain_browse capture) is fully buffered by default;
+  // harness polls "startup: first show complete" — keep lines visible.
+  setvbuf(stderr, nullptr, _IONBF, 0);
   base::init_switches_from_argv(argc, argv);
   base::trace::maybe_init_tracing_from_env();
   base::trace::maybe_init_startup_profile_from_env();

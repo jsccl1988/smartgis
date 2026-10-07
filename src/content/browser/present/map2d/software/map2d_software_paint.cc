@@ -464,6 +464,9 @@ void Map2dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
         [this](uint32_t texture_key, std::vector<uint8_t>* rgba, int* w,
                int* h) {
           return cache_ && cache_->load_raster(texture_key, rgba, w, h);
+        },
+        [this](uint32_t texture_key, const uint8_t** rgba, int* w, int* h) {
+          return cache_ && cache_->borrow_raster(texture_key, rgba, w, h);
         });
   }
   if (!painted_frame && fill_background) {

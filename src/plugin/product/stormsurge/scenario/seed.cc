@@ -19,7 +19,7 @@
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/runtime/host/capability/shell.h"
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 
 #include "cpl_conv.h"
 #include "gdal_priv.h"

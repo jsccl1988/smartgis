@@ -27,7 +27,7 @@ void interleave_positions_with_normals(const float* positions,
 void append_circle_diamond(double x, double y, double z, double radius_world,
                            vista::TessMesh& out);
 
-void append_mesh(vista::TessMesh& dst, const vista::TessMesh& src);
+// append_mesh lives in vista/mesh/detail/mesh_simd.h (shared SIMD helpers).
 
 bool tessellate_geom_paint_aware(const OGRGeometry* geom,
                                  const gis::style::ResolvedPaint* paint,

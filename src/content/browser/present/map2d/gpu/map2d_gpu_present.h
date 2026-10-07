@@ -14,6 +14,7 @@
 
 namespace vista {
 class MapPass;
+struct MapIR;
 }
 
 namespace render {
@@ -78,7 +79,8 @@ class Map2dGpuPresent {
   bool last_present_reused_layout() const;
 
  private:
-  bool present_frame(render::rhi::Device* device,
+  // |frame_ir| is a snapped MapIR (present holds no cache mu_ across Pass).
+  bool present_frame(render::rhi::Device* device, const vista::MapIR& frame_ir,
                      const Map2dFrameCache::CameraKey& cam, bool record_all,
                      const ui::gfx::ShellRaster* shell,
                      uint64_t shell_generation);

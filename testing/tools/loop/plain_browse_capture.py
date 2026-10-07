@@ -84,15 +84,25 @@ def _find_shell(pid: int) -> tuple[int, str]:
 
 
 def _find_present(pid: int, timeout_sec: float = 8.0) -> tuple[int, str]:
-    hwnd, title = find_top_level_hwnd_for_pid(
-        pid,
-        timeout_sec=timeout_sec,
-        min_area=8_000,
-        title_substr=PRESENT_TITLE,
-    )
-    if hwnd:
-        return hwnd, title
-    return find_window_by_title_substr(PRESENT_TITLE, timeout_sec=4.0, pid=pid)
+    # Prefer visible DXGI popup; also accept exact FindWindow (may be hidden
+    # before reveal) and the legacy "SmartGIS Draw Present" title.
+    titles = (PRESENT_TITLE, "SmartGIS Draw Present")
+    per = max(1.0, float(timeout_sec) / max(1, len(titles)))
+    for title_needle in titles:
+        hwnd, title = find_top_level_hwnd_for_pid(
+            pid,
+            timeout_sec=per,
+            min_area=8_000,
+            title_substr=title_needle,
+        )
+        if hwnd:
+            return hwnd, title
+        hwnd, title = find_window_by_title_substr(
+            title_needle, timeout_sec=min(2.0, per), pid=pid
+        )
+        if hwnd:
+            return hwnd, title
+    return 0, ""
 
 
 def _launch(
@@ -441,8 +451,13 @@ def _parse_product_gold(stderr_path: Path) -> dict:
                 break
     if "frame_items=" in text:
         gold["map2d_frame_items"] = True
-    if "rhi.switch_map_tab lazy attach tab=2" in text:
-        gold["tab2"] = True
+    # Data tab removed: Map=0, 3D=1. Accept legacy tab=2 for older builds.
+    if (
+        "rhi.switch_map_tab lazy attach tab=1" in text
+        or "rhi.switch_map_tab lazy attach tab=2" in text
+    ):
+        gold["scene3d_tab"] = True
+        gold["tab2"] = True  # alias for older review JSON readers
     if "atmosphere.globe:" in text:
         gold["atmosphere_globe"] = True
     return gold
@@ -469,7 +484,10 @@ def _write_review(
     # process may AV after a good frame; do not require alive_after for gold.
     log_ok = False
     if suite_id.endswith("3d"):
-        log_ok = bool(log_gold.get("scene3d_present") and log_gold.get("tab2"))
+        log_ok = bool(
+            log_gold.get("scene3d_present")
+            and (log_gold.get("scene3d_tab") or log_gold.get("tab2"))
+        )
     else:
         log_ok = bool(log_gold.get("map2d_frame_items"))
     shell_ok = bool(shell.get("ok"))
@@ -649,7 +667,7 @@ def main(argv: list[str] | None = None) -> int:
         expect_notes=(
             "argv=[]; VIEWS_START_MAP_TAB=scene3d (env, not OS click); "
             "present BitBlt crops TabStrip accent; DXGI opaque → "
-            "scene3d.present dem log gold."
+            "scene3d.present dem + lazy attach tab=1 log gold."
         ),
         stderr_path=log_dir / "plain_browse_3d_stderr.txt",
     )

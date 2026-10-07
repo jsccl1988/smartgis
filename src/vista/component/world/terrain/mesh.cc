@@ -5,8 +5,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <string>
+#include <vector>
 
 #include "base/time/elapsed_timer.h"
+#include "vista/component/world/terrain/seed.h"
 #include "vista/terrain/dem/dem_bake_cache.h"
 
 namespace vista {
@@ -56,6 +60,30 @@ void apply_elevation_overlay_texture(World* world, uint64_t node_id,
   world->set_terrain_texture(node_id, rgba->data(), rgba->size(),
                              static_cast<uint32_t>(tw),
                              static_cast<uint32_t>(th));
+}
+
+bool apply_terrain_albedo_texture(World* world, uint64_t node_id,
+                                  const DemRaster& dem, int edge) {
+  if (!world || dem.empty() || edge < 2) {
+    return false;
+  }
+  std::vector<uint8_t> rgba;
+  int tw = 0;
+  int th = 0;
+  if (dem.bake_map_drape_rgba(edge, &rgba, &tw, &th) && tw > 0 && th > 0) {
+    world->set_terrain_texture(node_id, rgba.data(), rgba.size(),
+                               static_cast<uint32_t>(tw),
+                               static_cast<uint32_t>(th));
+    return true;
+  }
+  if (!dem.bake_hypsometric_rgba(edge, &rgba, &tw, &th) || tw < 2 || th < 2) {
+    return false;
+  }
+  world->set_terrain_texture(node_id, rgba.data(), rgba.size(),
+                             static_cast<uint32_t>(tw),
+                             static_cast<uint32_t>(th));
+  apply_elevation_overlay_texture(world, node_id, dem, edge, &rgba, tw, th);
+  return true;
 }
 
 // Keep every |stride|-th triangle from a TessMesh (discrete TIN LOD).
@@ -273,15 +301,7 @@ Node* seed_dem_window_node(World* world, const DemRaster& dem, double tminx,
   if (!uvs.empty()) {
     world->set_terrain_uvs(node->id, uvs.data(), uvs.size());
   }
-  std::vector<uint8_t> rgba;
-  int tw = 0;
-  int th = 0;
-  if (dem.bake_hypsometric_rgba(edge, &rgba, &tw, &th) && tw > 0 && th > 0) {
-    world->set_terrain_texture(node->id, rgba.data(), rgba.size(),
-                               static_cast<uint32_t>(tw),
-                               static_cast<uint32_t>(th));
-    apply_elevation_overlay_texture(world, node->id, dem, edge, &rgba, tw, th);
-  }
+  apply_terrain_albedo_texture(world, node->id, dem, edge);
   stamp_payload_meta(world, node->id, lod_key, source);
   return world->find(node->id);
 }
@@ -323,4 +343,216 @@ void apply_nested_patch_continuity(World* world, Node* node,
 }
 
 }  // namespace detail
+
+namespace {
+
+void clear_terrain_nodes(World* world) {
+  while (true) {
+    bool removed = false;
+    for (size_t i = 0; i < world->node_count(); ++i) {
+      const Node* n = world->node_at(i);
+      if (n && n->kind == NodeKind::kTerrain) {
+        if (world->remove_node(n->id)) {
+          removed = true;
+          break;
+        }
+      }
+    }
+    if (!removed) {
+      break;
+    }
+  }
+}
+
+bool attach_view_seed(World* world, const DemViewSeed& seed, const char* name,
+                      std::vector<float>* xyz, std::vector<unsigned>* idx) {
+  Node* node = world->attach_terrain(
+      name, static_cast<double>(seed.min_x), static_cast<double>(seed.min_y),
+      static_cast<double>(seed.min_z), static_cast<double>(seed.max_x),
+      static_cast<double>(seed.max_y), static_cast<double>(seed.max_z));
+  if (!node) {
+    return false;
+  }
+  if (!world->set_terrain_mesh(node->id, seed.xyz.data(), seed.xyz.size(),
+                               seed.indices.data(), seed.indices.size())) {
+    return false;
+  }
+  if (!seed.uvs.empty() && seed.uvs.size() == (seed.xyz.size() / 3) * 2) {
+    world->set_terrain_uvs(node->id, seed.uvs.data(), seed.uvs.size());
+  }
+  if (!seed.rgba.empty() && seed.tex_w > 0 && seed.tex_h > 0) {
+    world->set_terrain_texture(node->id, seed.rgba.data(), seed.rgba.size(),
+                               seed.tex_w, seed.tex_h);
+  }
+  node->min_x = seed.min_x;
+  node->min_y = seed.min_y;
+  node->min_z = seed.min_z;
+  node->max_x = seed.max_x;
+  node->max_y = seed.max_y;
+  node->max_z = seed.max_z;
+  xyz->assign(seed.xyz.begin(), seed.xyz.end());
+  idx->assign(seed.indices.begin(), seed.indices.end());
+  return !xyz->empty() && !idx->empty();
+}
+
+// Regional windows (plugin world3d AOI, coast pads) must crop the raster to
+// the lon/lat frame. Seeding full-China DEM into a tight frame overscales the
+// mesh (±12 orbit units vs camera span 3.2) and paints black silhouettes.
+Node* seed_view_or_china(World* world, double xmin, double ymin, double xmax,
+                         double ymax, float orbit_distance, int next_lod) {
+  DemRaster dem;
+  const std::string path = find_sample_dem_path();
+  if (path.empty() || !dem.load_gdal_raster(path.c_str()) || dem.empty()) {
+    // Real-data policy: no synthetic China DEM stand-in.
+    return nullptr;
+  }
+  const double span_lon = xmax - xmin;
+  const double span_lat = ymax - ymin;
+  const bool regional =
+      span_lon < 50.0 || span_lat < 30.0;  // full China is ~62° × 36°
+  // Close orbit → multi-tile; any regional frame → crop even when far.
+  if (orbit_distance < 2.4f || regional) {
+    // Budget matches DemRaster default: one dense china_dem national tile
+    // (~512×320) plus headroom for 2×2 regional crops.
+    const size_t tiles = seed_dem_view_tiles_into_world(
+        world, dem, xmin, ymin, xmax, ymax, orbit_distance, 196608, "views_dem");
+    if (tiles > 0) {
+      for (size_t i = 0; i < world->node_count(); ++i) {
+        const Node* at = world->node_at(i);
+        if (!at) {
+          continue;
+        }
+        Node* n = world->find(at->id);
+        if (n && n->kind == NodeKind::kTerrain && n->has_terrain_mesh()) {
+          return n;
+        }
+      }
+    }
+  }
+  return seed_china_dem_into_world(world, nullptr, 0, "views_dem", next_lod);
+}
+
+}  // namespace
+
+DemViewMeshResult rebuild_dem_view_mesh(World* world, double xmin, double ymin,
+                                        double xmax, double ymax,
+                                        float orbit_distance,
+                                        std::vector<float>* xyz,
+                                        std::vector<unsigned>* idx,
+                                        const DemViewMeshHooks* hooks) {
+  DemViewMeshResult result;
+  if (!world || !xyz || !idx) {
+    return result;
+  }
+  result.cache_key = dem_seed_cache_key(orbit_distance);
+  const int next_lod = DemRaster::lod_max_edge(orbit_distance);
+
+  const std::string dem_path = find_sample_dem_path();
+  if (!dem_path.empty()) {
+    DemViewSeed seed;
+    if (dem_view_seed_cache_try_get(dem_path.c_str(), result.cache_key, xmin,
+                                    ymin, xmax, ymax, &seed)) {
+      clear_terrain_nodes(world);
+      xyz->clear();
+      idx->clear();
+      if (attach_view_seed(world, seed, "views_dem", xyz, idx)) {
+        result.painted = true;
+        result.seed_cache_hit = true;
+        result.elev_cy = seed.elev_cy;
+        // Attribute cold DEM phases as hits (seed blob covers load/tess/hypso).
+        note_dem_phase_load(0, /*cache_hit=*/true);
+        note_dem_phase_tess(0);
+        note_dem_phase_hypso(0, /*cache_hit=*/true);
+        return result;
+      }
+    }
+  }
+
+  clear_terrain_nodes(world);
+  xyz->clear();
+  idx->clear();
+  Node* node =
+      seed_view_or_china(world, xmin, ymin, xmax, ymax, orbit_distance, next_lod);
+  if (!node || !node->has_terrain_mesh()) {
+    return result;
+  }
+
+  // Prefer concatenating all terrain tiles into the paint buffer.
+  xyz->clear();
+  idx->clear();
+  std::vector<uint64_t> ids;
+  for (size_t i = 0; i < world->node_count(); ++i) {
+    const Node* n = world->node_at(i);
+    if (n && n->kind == NodeKind::kTerrain && n->has_terrain_mesh()) {
+      ids.push_back(n->id);
+    }
+  }
+  if (ids.empty()) {
+    return result;
+  }
+  // Elev center from first tile; normalize each tile in place (no deep copies).
+  float elev_cy = 0.f;
+  {
+    Node* first = world->find(ids[0]);
+    if (first && hooks && hooks->capture_elev_center) {
+      elev_cy = hooks->capture_elev_center(first->terrain.positions, hooks->ctx);
+    }
+  }
+  size_t total_verts = 0;
+  size_t total_idx = 0;
+  for (uint64_t id : ids) {
+    Node* n = world->find(id);
+    if (!n || !n->has_terrain_mesh()) {
+      continue;
+    }
+    total_verts += n->terrain.positions.size() / 3;
+    total_idx += n->terrain.indices.size();
+  }
+  xyz->reserve(total_verts * 3);
+  idx->reserve(total_idx);
+  for (uint64_t id : ids) {
+    Node* n = world->find(id);
+    if (!n || !n->has_terrain_mesh()) {
+      continue;
+    }
+    if (hooks && hooks->normalize_xyz) {
+      hooks->normalize_xyz(&n->terrain.positions, hooks->ctx);
+    }
+    detail::aabb_from_xyz(n->terrain.positions, &n->min_x, &n->min_y, &n->min_z,
+                          &n->max_x, &n->max_y, &n->max_z);
+    const size_t base = xyz->size() / 3;
+    xyz->insert(xyz->end(), n->terrain.positions.begin(),
+                n->terrain.positions.end());
+    for (uint32_t tri : n->terrain.indices) {
+      idx->push_back(static_cast<unsigned>(base + tri));
+    }
+  }
+  if (!xyz->empty() && !idx->empty()) {
+    result.painted = true;
+    result.elev_cy = elev_cy;
+    if (!dem_path.empty() && ids.size() == 1) {
+      Node* n = world->find(ids[0]);
+      if (n && n->has_terrain_mesh()) {
+        DemViewSeed seed;
+        seed.elev_cy = elev_cy;
+        seed.min_x = static_cast<float>(n->min_x);
+        seed.min_y = static_cast<float>(n->min_y);
+        seed.min_z = static_cast<float>(n->min_z);
+        seed.max_x = static_cast<float>(n->max_x);
+        seed.max_y = static_cast<float>(n->max_y);
+        seed.max_z = static_cast<float>(n->max_z);
+        seed.tex_w = n->terrain.tex_w;
+        seed.tex_h = n->terrain.tex_h;
+        seed.xyz = n->terrain.positions;
+        seed.indices = n->terrain.indices;
+        seed.uvs = n->terrain.uvs;
+        seed.rgba = n->terrain.rgba;
+        dem_view_seed_cache_put(dem_path.c_str(), result.cache_key, xmin, ymin,
+                                xmax, ymax, seed);
+      }
+    }
+  }
+  return result;
+}
+
 }  // namespace vista

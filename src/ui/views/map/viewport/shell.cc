@@ -95,26 +95,13 @@ void DrawHost::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
     ui::gfx::note_overlay_copy_bytes(
         static_cast<std::uint64_t>(width_px) * height_px * 4u);
     // Native draw HWNDs are skipped in shell paint; parents still bleed opaque
-    // panel/shell fills into the HWND rect. Src-over of those fills on GPU present
-    // briefly shows a correct GPU map then covers it. Zero alpha for every
-    // Theme horizon fill that can land in the map crop; keep real HUD pixels.
-    auto punch = [](uint8_t* px, uint32_t argb) {
-      if (argb == 0) {
-        return;
-      }
-      const uint8_t r = static_cast<uint8_t>((argb >> 16) & 0xff);
-      const uint8_t g = static_cast<uint8_t>((argb >> 8) & 0xff);
-      const uint8_t b = static_cast<uint8_t>(argb & 0xff);
-      // DIB is BGRA.
-      if (px[2] == r && px[1] == g && px[0] == b) {
-        px[3] = 0;
-      }
-    };
+    // panel/shell fills into the HWND rect. Src-over of those fills on GPU
+    // present briefly shows a correct GPU map then covers it. Zero alpha for
+    // Theme horizon fills that land in the map crop; keep real HUD pixels.
+    // U3: pack unique BGR keys once, then one compare per pixel (was
+    // pixels × hole_colors nested loops → overlay_commit_ms).
     const ui::views::Theme& theme = ui::views::Theme::current();
-    // Also punch pure black and map embed fills (fill_map_embed_opaque):
-    // RGB(170,211,223) 2D ocean and RGB(18,32,48) 3D navy. Unpunched opaque
-    // black in the map crop src-overs FlyCube and hides hillshade/carto.
-    const uint32_t hole_colors[] = {
+    const uint32_t hole_argb[] = {
         hole_clear_argb,
         hole_clear_argb_alt,
         theme.shell_bg,
@@ -127,10 +114,37 @@ void DrawHost::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
         ui::gfx::color_rgb(170, 211, 223),
         ui::gfx::color_rgb(18, 32, 48),
     };
-    for (uint32_t i = 0; i < width_px * height_px; ++i) {
-      uint8_t* px = shell_bgra_.data() + static_cast<size_t>(i) * 4u;
-      for (uint32_t argb : hole_colors) {
-        punch(px, argb);
+    uint32_t hole_bgr[12] = {};
+    int hole_n = 0;
+    auto push_bgr = [&](uint32_t argb) {
+      if (argb == 0) {
+        return;
+      }
+      const uint32_t key = argb & 0x00FFFFFFu;
+      for (int i = 0; i < hole_n; ++i) {
+        if (hole_bgr[i] == key) {
+          return;
+        }
+      }
+      if (hole_n < static_cast<int>(sizeof(hole_bgr) / sizeof(hole_bgr[0]))) {
+        hole_bgr[hole_n++] = key;
+      }
+    };
+    for (uint32_t argb : hole_argb) {
+      push_bgr(argb);
+    }
+    uint8_t* px = shell_bgra_.data();
+    const size_t n = static_cast<size_t>(width_px) * height_px;
+    for (size_t i = 0; i < n; ++i, px += 4) {
+      // DIB is BGRA; pack as 0x00RRGGBB to match color_rgb / Theme ARGB.
+      const uint32_t key = (static_cast<uint32_t>(px[2]) << 16) |
+                           (static_cast<uint32_t>(px[1]) << 8) |
+                           static_cast<uint32_t>(px[0]);
+      for (int h = 0; h < hole_n; ++h) {
+        if (hole_bgr[h] == key) {
+          px[3] = 0;
+          break;
+        }
       }
     }
     shell_width_px_ = width_px;
@@ -293,8 +307,9 @@ void DrawHost::sync_identity_frame() {
     wcscpy_s(engine_id, L"views-map2d-scenic");
     wcscpy_s(engine, L"Views Map2D (Scenic)");
   } else if (mode_ == AttachMode::kGpuPresent) {
-    wcscpy_s(engine_id, L"views-map2d-skia");
-    wcscpy_s(engine, L"Views Map2D (Skia/RHI)");
+    // GpuPresent SoT is FlyCube/DX12 (same face as Scene3d), not Skia canvas.
+    wcscpy_s(engine_id, L"views-map2d-dx12");
+    wcscpy_s(engine, L"Views Map2D (GPU/DX12)");
   } else if (mode_ == AttachMode::kLocalDevice) {
     wcscpy_s(engine_id, L"legacy-map2d-gdi");
     wcscpy_s(engine, L"Legacy Map2D (GDI+)");

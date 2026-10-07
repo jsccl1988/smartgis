@@ -6,8 +6,8 @@
 
 #include "base/execution/executor/pool/global_executor.h"
 #include "base/execution/parallel/for.h"
-#include "vista/terrain/process/bake_parallel.h"
-#include "vista/terrain/process/nv/bake_pixel.h"
+#include "vista/terrain/dem/bake/bake_parallel.h"
+#include "vista/terrain/dem/nv/bake_pixel.h"
 
 namespace vista {
 namespace detail {

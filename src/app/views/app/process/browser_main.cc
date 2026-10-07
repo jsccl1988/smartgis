@@ -30,7 +30,7 @@
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
 #include "content/public/plugin_host.h"
-#include "content/browser/debug/debug_agent.h"
+#include "content/browser/session/browser_session.h"
 #include "ui/views/kernel/shell/dpi.h"
 
 namespace app {
@@ -110,7 +110,14 @@ void apply_china_seed_switches(bool enable_oop_from_cli, Browser& browser) {
     }
   }
   browser.set_defer_china_seed(defer_china);
-  if (!defer_china) {
+  // Starting on Scene3d: do not block Browser::show on Map2d WaitFirstMapPresent
+  // (SYNC_CHINA_SEED otherwise forces it). Tab switch after show owns 3D gold.
+  const char* start_tab = base::switch_cstr("views-start-map-tab");
+  const bool start_scene3d =
+      start_tab &&
+      (std::strcmp(start_tab, "scene3d") == 0 ||
+       std::strcmp(start_tab, "1") == 0 || std::strcmp(start_tab, "2") == 0);
+  if (!defer_china && !start_scene3d) {
     const char* sync_present = base::switch_cstr("sync-first-map-present");
     const bool have_sync_present =
         sync_present && sync_present[0] == '1' && sync_present[1] == '\0';
@@ -146,6 +153,7 @@ void maybe_select_start_map_tab(Browser& browser) {
   browser.select_map_tab(idx);
   pump_views_messages(800);
   LOGGING(LOG_INFO, "startup: VIEWS_START_MAP_TAB=%s -> tab %d", tab, idx);
+  std::fflush(stderr);
 }
 
 void apply_plugin_product_startup(Browser& browser) {
@@ -154,11 +162,14 @@ void apply_plugin_product_startup(Browser& browser) {
     return;
   }
   BASE_TRACE_EVENT("PluginStartup", "startup");
+  // Env tab wins over plugin.json viewport — still run apply_startup for
+  // enable/seed, but do not select_map_tab from startup_viewport afterward.
+  const bool env_tab = base::switch_cstr("views-start-map-tab") != nullptr;
   if (!shell->apply_startup()) {
     LOGGING(LOG_WARNING, "startup: plugin.json startup apply failed");
     return;
   }
-  if (base::switch_cstr("views-start-map-tab")) {
+  if (env_tab) {
     return;
   }
   const std::string& vp = shell->startup_viewport();
@@ -262,10 +273,10 @@ int run_browser_main(const content::ContentMainParams&,
   }
   base::trace::dump_startup_profile_partial("post-init");
   if (debug_console || scenario_id == "browser.console" ||
-      content::debug_console_env_enabled()) {
+      content::BrowserSession::debug_console_env_enabled()) {
     BASE_TRACE_EVENT("DebugAgent.start", "startup");
     LOGGING(LOG_INFO, "startup: DebugAgent start");
-    content::debug_agent().start();
+    content::BrowserSession::start_debug_agent();
   }
   if (!atmosphere_fields.empty()) {
     BASE_TRACE_EVENT("AtmosphereFields", "startup");
@@ -278,18 +289,23 @@ int run_browser_main(const content::ContentMainParams&,
   {
     BASE_TRACE_EVENT("Browser.show", "startup");
     LOGGING(LOG_INFO, "startup: Browser::show");
+    std::fflush(stderr);
     if (!scenario_id.empty()) {
       ImmDisableIME(static_cast<DWORD>(-1));
     }
     browser->show();
   }
   LOGGING(LOG_INFO, "startup: first show complete");
+  std::fflush(stderr);
   base::trace::maybe_dump_startup_profile();
   if (browser) {
     browser->finish_deferred_shell_wiring();
   }
-  maybe_select_start_map_tab(*browser);
+  // Plugin apply_startup may present_dataset → select_map_tab(0). Run that
+  // first, then honor VIEWS_START_MAP_TAB so Map/3D chrome matches the live
+  // present (plain-launch visual_review #6).
   apply_plugin_product_startup(*browser);
+  maybe_select_start_map_tab(*browser);
   if (scenario_id.empty() && browser->plugins()) {
     // Guard: a skewed PluginShell string can report a huge size and throw
     // bad_alloc on assign → uncaught → abort (process exit 3) before run_loop.

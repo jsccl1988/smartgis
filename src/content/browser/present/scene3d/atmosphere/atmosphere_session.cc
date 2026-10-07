@@ -16,7 +16,7 @@
 #include "vista/terrain/dem/dem_contour.h"
 #include "vista/assets/tileset/tileset.h"
 #include "vista/terrain/dem/dem_frame.h"
-#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 #include "vista/component/world/terrain/seed.h"
 #include "vista/component/world/world.h"
 #include "vista/pass/world/atmosphere/cloud/cloud_pass.h"

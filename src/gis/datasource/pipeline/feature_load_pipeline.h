@@ -170,15 +170,20 @@ bool load_ogr_layer_pipeline(OGRLayer* layer, Decode decode, Sink sink,
              produced.load(std::memory_order_relaxed) >= max_features) {
            return Status::COMPLETE;
          }
-         OGRFeature* feat = layer->GetNextFeature();
-         if (!feat) {
-           return Status::COMPLETE;
-         }
-         // Detach from the layer cursor before decode workers run.
-         OGRFeature* owned = feat->Clone();
-         OGRFeature::DestroyFeature(feat);
-         if (!owned) {
-           return Status::SUCCESS;
+         OGRFeature* owned = nullptr;
+         for (;;) {
+           OGRFeature* feat = layer->GetNextFeature();
+           if (!feat) {
+             return Status::COMPLETE;
+           }
+           // Detach from the layer cursor before decode workers run.
+           owned = feat->Clone();
+           OGRFeature::DestroyFeature(feat);
+           if (owned) {
+             break;
+           }
+           // Clone failed — skip this row; do not enqueue an empty Ctx
+           // (that used to SUCCESS with index=0 and corrupt slots[0]).
          }
          size_t index = 0;
          {

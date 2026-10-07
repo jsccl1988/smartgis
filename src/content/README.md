@@ -5,7 +5,8 @@ All rights reserved.
 
 # `src/content` — embedder API + browser session
 
-One product DLL (`dll_stem=content`). Embedders include **`public/`** only.
+One product DLL (`dll_stem=content`). Embedders include public headers and `ContentClient` only.
+Child-process launch lives in `content/browser/child`. Product headers do not include renderer/gpu headers.
 In-process browser session (`:browser_session` and present/GDI) is a **source_set**:
 Views/exe link it; it is **not** absorbed into `content.dll` (except the
 exported Scene3d engine SoT — see `browser/present/scene3d/session/`).
@@ -53,4 +54,4 @@ build.bat debug debug_agent_test
 
 ---
 
-**最后更新：** 2026-10-05
+**最后更新：** 2026-10-07

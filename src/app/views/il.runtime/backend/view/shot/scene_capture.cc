@@ -5,6 +5,7 @@
 
 #include "app/views/il.runtime/backend/view/host/capture_host.h"
 #include "app/views/il.runtime/backend/view/pixel/gate.h"
+#include "app/views/il.runtime/backend/view/dib/gdi.h"
 #include "app/views/il.runtime/backend/view/dib/read.h"
 #include "app/views/il.runtime/backend/horizon/atom/pump.h"
 #include "app/views/util/charset.h"
@@ -12,10 +13,34 @@
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 
 #include <cstdio>
+#include <cstring>
+#include <vector>
 
 namespace app {
 namespace detail {
 namespace {
+
+bool write_bottom_up_bgr24_bmp(const wchar_t* path, int width, int height,
+                               const unsigned char* packed_bgr) {
+  if (!path || !packed_bgr || width < 8 || height < 8) {
+    return false;
+  }
+  const int stride = bgr24_stride(width);
+  const size_t nbytes =
+      static_cast<size_t>(stride) * static_cast<size_t>(height);
+  std::vector<unsigned char> padded(nbytes, 0);
+  for (int y = 0; y < height; ++y) {
+    const unsigned char* src =
+        packed_bgr + static_cast<size_t>(y) * static_cast<size_t>(width) * 3u;
+    unsigned char* dst = padded.data() + static_cast<size_t>(y) * stride;
+    std::memcpy(dst, src, static_cast<size_t>(width) * 3u);
+  }
+  BITMAPINFOHEADER header = bgr24_header(width, height);
+  // Packed buffer from stereo_hwnd_capture_bgr24 is bottom-up (positive
+  // biHeight), matching BMP/glReadPixels convention.
+  header.biHeight = height;
+  return write_bmp_file(path, header, padded.data(), padded.size());
+}
 
 void wait_before_capture(int pump_ms, bool sleep_instead) {
   if (pump_ms <= 0) {
@@ -147,9 +172,41 @@ bool capture_scene3d_hwnd_bmp(content::Scene3dPresenter* cam,
   if (!opts.skip_ui_thread_present) {
     (void)present_scene3d_gpu(cam, device, opts.present_w, opts.present_h);
   }
+
+  // Stereo GL/D3D: front-buffer / staging readback — HWND BitBlt sees desktop
+  // through a swapchain with no GDI redirection bitmap.
+  if (opts.gpu_readback) {
+    const int rw = static_cast<int>(opts.present_w);
+    const int rh = static_cast<int>(opts.present_h);
+    std::vector<unsigned char> bgr(
+        static_cast<size_t>(rw) * static_cast<size_t>(rh) * 3u);
+    if (opts.gpu_readback(opts.gpu_readback_user, bgr.data(), rw, rh) &&
+        write_bottom_up_bgr24_bmp(bmp_path, rw, rh, bgr.data())) {
+      int bw = 0;
+      int bh = 0;
+      const BmpFileCheckOpts check = bmp_check_opts(opts, false);
+      const bool signal =
+          bmp_file_has_visible_signal(bmp_path, &bw, &bh, check);
+      log_wrote(opts, bmp_path, bw, bh, signal, false);
+      if (signal) {
+        return finish_ok(opts, bmp_path, bw, bh);
+      }
+      mark_step(opts.mark, opts.mark_black);
+      return !want_gpu;
+    }
+  }
+
   // Scenic GDI does not stick in the present HWND (no WM_PAINT owner-draw).
   // Export via scenic::Engine memory DIB instead of PrintWindow.
-  if (!opts.skip_ui_thread_present && cam->hosts_scenic_present()) {
+  const bool try_scenic_export =
+      cam->hosts_scenic_present() &&
+      (opts.prefer_scenic_export || !opts.skip_ui_thread_present);
+  if (try_scenic_export) {
+    // Borrowed shell skips UI-thread present_gpu; paint into the HWND so the
+    // engine DIB has a fresh frame before export (scenic matrix rc=50).
+    if (opts.skip_ui_thread_present) {
+      paint_scenic_hwnd(cam, capture_hwnd, opts.present_w, opts.present_h);
+    }
     char utf8[MAX_PATH * 3] = {};
     if (wide_to_utf8(bmp_path, utf8, sizeof(utf8)) &&
         cam->export_bmp(utf8, static_cast<int>(opts.present_w),

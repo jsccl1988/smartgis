@@ -25,6 +25,11 @@ namespace detail {
 using Scene3dCaptureAfterOkFn = bool (*)(const wchar_t* bmp_path, int w, int h,
                                          void* user);
 
+// Optional GPU readback (stereo GL/D3D). Fills tightly packed bottom-up BGR24
+// (|out| = w*h*3). Prefer over HWND BitBlt when the swapchain has no GDI.
+using Scene3dGpuReadbackFn = bool (*)(void* user, unsigned char* out, int w,
+                                      int h);
+
 // Scene3D HWND → BMP capture. Composes one present, a client read, and the
 // pixel gate. Does not choose the software hypsometric fallback.
 struct Scene3dHwndCaptureOpts {
@@ -34,7 +39,7 @@ struct Scene3dHwndCaptureOpts {
   uint32_t present_w = kCaptureW;
   uint32_t present_h = kCaptureH;
   int pre_capture_pump_ms = 80;
-  // Globe flythrough: Sleep instead of pumping the shell queue.
+  // Globe flythrough: Sleep instead of pumping the shell message.
   bool sleep_instead_of_pump = false;
   // Plugin Null path skips capture; atmosphere still attempts a best-effort BMP.
   bool skip_when_null_gpu = true;
@@ -50,6 +55,8 @@ struct Scene3dHwndCaptureOpts {
   // Shell DrawHost FlyCube Device is Display-thread only. Do not call
   // present_gpu / Scene3dPresenter::paint from the UI thread.
   bool skip_ui_thread_present = false;
+  // Borrowed-shell scenic GDI: export via scenic::Engine memory DIB.
+  bool prefer_scenic_export = false;
 
   StepMarkFn mark = nullptr;
   const char* mark_skip_null = "bmp-skip-null";
@@ -61,6 +68,8 @@ struct Scene3dHwndCaptureOpts {
 
   Scene3dCaptureAfterOkFn after_ok = nullptr;
   void* after_ok_user = nullptr;
+  Scene3dGpuReadbackFn gpu_readback = nullptr;
+  void* gpu_readback_user = nullptr;
 };
 
 // Present once + HWND BMP + color-diversity gate. When !want_gpu returns true

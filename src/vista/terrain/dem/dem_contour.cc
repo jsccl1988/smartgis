@@ -9,10 +9,10 @@
 #include "vista/terrain/dem/contour/mesh.h"
 #include "vista/terrain/dem/contour/paint.h"
 #include "vista/terrain/dem/contour/smooth.h"
-#include "vista/terrain/process/bake_backend.h"
-#include "vista/terrain/process/bake_parallel.h"
-#include "vista/terrain/process/nv/bake_pixel.h"
-#include "vista/terrain/process/nv/thrust_gis.h"
+#include "vista/terrain/dem/bake/bake_backend.h"
+#include "vista/terrain/dem/bake/bake_parallel.h"
+#include "vista/terrain/dem/nv/bake_pixel.h"
+#include "vista/terrain/dem/nv/thrust_gis.h"
 
 #include <cmath>
 #include <cstddef>

@@ -37,6 +37,11 @@ class UI_EXPORT DisplayList {
   // not affect this list. Remaps text indices into this list's string table.
   void append_from(const DisplayList& other);
 
+  // Like append_from, but skips drawable cmds that miss [l,t,r,b). Always
+  // keeps save / clip / restore so clipped commits stay stack-balanced (U1).
+  void append_from_clipped(const DisplayList& other, int l, int t, int r,
+                           int b);
+
   // Deep copy for an immutable committed snapshot.
   DisplayList clone() const;
 

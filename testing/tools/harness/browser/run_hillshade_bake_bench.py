@@ -6,6 +6,9 @@
 Locked: china_dem, max_edge=768, illumination 335/32, exaggeration 0.5.
 PIP sibling: land_mask_test 320x200 x 80 rings.
 
+For the full dataset × scheme matrix (SIMD + execution), prefer
+run_terrain_kernel_matrix.py.
+
 Writes out/<config>/captures/analysis/hillshade_bake/bake_bench.json
 and bake_bench.md (table). Not a gen-root script.
 """
@@ -27,7 +30,7 @@ def run_test(exe: Path, env: dict[str, str]) -> int:
     if not exe.is_file():
         print(
             f"missing {exe} — build.bat debug "
-            "//src/vista/component/world:dem_raster_test",
+            "//src/vista/terrain:dem_raster_test",
             file=sys.stderr,
         )
         return 1
@@ -65,7 +68,8 @@ def main() -> int:
         "note": (
             "CUDA cell ok=0 is skip (no Toolkit/device), not a test fail. "
             "CPU cell must not include CUDA context. "
-            "Map2dPhaseSample.hillshade_ms is layout lump, not this matrix."
+            "Map2dPhaseSample.hillshade_ms is layout lump, not this matrix. "
+            "Full dataset×scheme matrix: run_terrain_kernel_matrix.py."
         ),
         "kernel": shade.get("kernel", []),
         "slot": shade.get("slot", []),
@@ -99,8 +103,6 @@ def main() -> int:
             )
         )
     for row in report["land_mask"]:
-        lines.append(
-    for row in report["land_mask"]:
         cell = {
             "backend": row.get("backend", "?"),
             "used_cuda": row.get("used_cuda", 0),
@@ -111,7 +113,6 @@ def main() -> int:
         lines.append(
             "| fill_lonlat_mask | {backend} | {used_cuda} | {cold_ms} | "
             "{warm_ms} | ok={ok} |".format(**cell)
-        )
         )
     md = (
         "# hillshade bake equal-profile\n\n"

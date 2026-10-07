@@ -20,12 +20,20 @@ import("//build/smartgis.gni")
 import("//testing/benchmark.gni")
 import("//testing/test.gni")
 
+# Impl must not depend on a product shell or the Views toolkit.
+_content_no_shell_deps = [
+  "//src/app:*",
+  "//src/app/*",
+  "//src/ui/views:ui_views",
+]
+
 config("content_config") {
   include_dirs += [ "//src" ]
 }
 
 # HWND-free sample / china map path policy (SP3).
 source_set("map_bootstrap_sources") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "browser/bootstrap/map_bootstrap.cc",
     "public/map_bootstrap.h",
@@ -35,12 +43,15 @@ source_set("map_bootstrap_sources") {
 }
 
 source_set("content_sources") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "app/content_main.h",
     "app/process_type.cc",
     "app/process_type.h",
     "browser/attrs/feature_attrs.cc",
     "browser/catalog/catalog_layers.cc",
+    "browser/child/child_process_host.cc",
+    "browser/child/child_process_host.h",
     "browser/contents/map_contents.cc",
     "browser/plugin/plugin_host.cc",
     # Engine SoT is CONTENT_EXPORT (ui_views / shell import-link content.dll).
@@ -51,6 +62,7 @@ source_set("content_sources") {
     "common/ipc.cc",
     "common/ipc.h",
     "content_export.h",
+    "public/content_client.h",
     "public/gis_document.h",
     "public/map_contents.h",
     "public/map_layer_types.h",
@@ -69,6 +81,7 @@ source_set("content_sources") {
 
 # Per-view Workspace + EventBus + EditSession.
 source_set("view_host_sources") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "public/event_bus.h",
     "public/view_host.h",
@@ -89,6 +102,7 @@ source_set("view_host_sources") {
 
 # M4: minimal embed open path (MapContents + ViewHost); no PluginHost change.
 source_set("embed_sample_sources") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "embed/embed_sample.cc",
     "embed/embed_sample.h",
@@ -101,6 +115,7 @@ source_set("embed_sample_sources") {
 
 # Product content DLL. Disk stem: content.dll / content_d.dll.
 product_shared_library("content") {
+  assert_no_deps = _content_no_shell_deps
   dll_stem = "content"
   defines = [ "CONTENT_EXPORTS" ]
   deps = [
@@ -148,11 +163,52 @@ test("content_embed_sample_test") {
   deps = [ ":embed_sample" ]
 }
 
+# Shell-linked process entry. Not part of :content: //src/gpu:gpu_lib
+# depends on :content, so calling gpu::GpuMain from the DLL would cycle.
+source_set("content_main") {
+  sources = [ "app/content_main.cc" ]
+  public_configs = [ ":content_config" ]
+  deps = [
+    ":content",
+    "//src/gpu:gpu_lib",
+  ]
+}
+
 test("content_main_test") {
   output_name = "content_main_test"
   sources = [ "app/content_main_test.cc" ]
   include_dirs += [ "//src" ]
-  deps = [ ":content" ]
+  deps = [ ":content_main" ]
+}
+
+# Public-header embed compile proof. Links :content and :content_main.
+# Renderer TUs compile into :content_sources inside the DLL, so they are
+# not a separate label. Session internals and the view / embed forwarding
+# groups stay banned.
+test("content_embed_test") {
+  assert_no_deps = [
+    ":browser_session",
+    ":capability",
+    ":debug_agent",
+    ":embed_sample",
+    ":map_bootstrap",
+    ":map_camera",
+    ":map_hwnd_gestures",
+    ":map_present",
+    ":map_scene",
+    ":scene3d_present",
+    ":view_host",
+    "//src/app:*",
+    "//src/app/*",
+    "//src/ui/views:ui_views",
+  ]
+  output_name = "content_embed_test"
+  sources = [ "public/content_embed_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":content",
+    ":content_main",
+  ]
 }
 
 # HWND-free attribute token / named-field helpers (SP3 host extract).
@@ -188,6 +244,7 @@ test("content_map_bootstrap_test") {
 
 # Opt-in loopback Debug Agent (LogSink / cmd / sdbd / py).
 source_set("capability") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "browser/capability/document.h",
     "browser/capability/horizon.h",
@@ -199,6 +256,7 @@ source_set("capability") {
 }
 
 source_set("debug_agent") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "browser/debug/cmd/agent_ask.cc",
     "browser/debug/cmd/agent_ask.h",
@@ -277,11 +335,13 @@ benchmark("content_console_bench") {
 
 # In-process WebContents-ish owner (document + camera + map2d/scene3d present + gestures).
 source_set("browser_session") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "browser/session/browser_session.cc",
     "browser/session/browser_session.h",
   ]
   deps = [
+    ":debug_agent",
     ":map_camera",
     ":map_hwnd_gestures",
     ":map_present",
@@ -294,6 +354,7 @@ source_set("browser_session") {
 }
 
 source_set("map_scene") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "browser/document/edit/feature_edit.cc",
     "browser/document/edit/feature_edit.h",
@@ -329,6 +390,7 @@ source_set("map_scene") {
 }
 
 source_set("map_camera") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "browser/camera/map_host_extent.h",
     "browser/camera/orbit_frame.cc",
@@ -349,6 +411,7 @@ source_set("map_camera") {
 }
 
 source_set("map_hwnd_gestures") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "browser/input/map_hwnd_gestures.cc",
     "browser/input/map_hwnd_gestures.h",
@@ -362,6 +425,7 @@ source_set("map_hwnd_gestures") {
 }
 
 source_set("map_present") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "browser/present/host/blit_frame_cache.cc",
     "browser/present/host/blit_frame_cache.h",
@@ -401,6 +465,7 @@ source_set("map_present") {
     ":map_camera",
     ":map_scene",
     "//src/vista:vista",
+    "//src/vista/component/raster:raster",
     "//src/gis:gis",
     "//src/base:base",
     "//src/base:foundation",
@@ -418,6 +483,7 @@ source_set("map_present") {
 }
 
 source_set("scene3d_present") {
+  assert_no_deps = _content_no_shell_deps
   sources = [
     "browser/present/scene3d/atmosphere/atmosphere_session.cc",
     "browser/present/scene3d/atmosphere/atmosphere_session.h",

@@ -13,28 +13,28 @@ import("//testing/test.gni")
 # Depends on atmosphere_cpu_sources (cpu_waves). Must not depend on
 # session_sources (that set pulls land_mask).
 #
-# HLSL: sibling *.hlsl next to each pass; embed_hlsl → $root_gen_dir *.hlsl.inc.
+# HLSL: per-kind hlsl/ directory; embed_hlsl → $root_gen_dir *.hlsl.inc.
 
 _atmosphere_hlsl = [
-  "cloud/vs_cloud.hlsl",
-  "cloud/ps_cloud.hlsl",
-  "fog/vs_fog.hlsl",
-  "fog/ps_fog.hlsl",
-  "globe/vs_globe.hlsl",
-  "globe/ps_globe.hlsl",
-  "globe/vs_sat_cloud.hlsl",
-  "globe/ps_sat_cloud.hlsl",
-  "ocean/vs_ocean.hlsl",
-  "ocean/ps_ocean.hlsl",
-  "ocean/cs_ocean_spectrum.hlsl",
-  "ocean/cs_ocean_bit_reverse.hlsl",
-  "ocean/cs_ocean_butterfly.hlsl",
-  "ocean/cs_ocean_displacement_spectrum.hlsl",
-  "ocean/cs_ocean_height_encode.hlsl",
-  "ocean/cs_ocean_gaussian_h.hlsl",
-  "ocean/cs_ocean_gaussian_v.hlsl",
-  "sky/vs_sky.hlsl",
-  "sky/ps_sky.hlsl",
+  "cloud/hlsl/vs_cloud.hlsl",
+  "cloud/hlsl/ps_cloud.hlsl",
+  "fog/hlsl/vs_fog.hlsl",
+  "fog/hlsl/ps_fog.hlsl",
+  "globe/hlsl/vs_globe.hlsl",
+  "globe/hlsl/ps_globe.hlsl",
+  "globe/hlsl/vs_sat_cloud.hlsl",
+  "globe/hlsl/ps_sat_cloud.hlsl",
+  "ocean/hlsl/vs_ocean.hlsl",
+  "ocean/hlsl/ps_ocean.hlsl",
+  "ocean/hlsl/cs_ocean_spectrum.hlsl",
+  "ocean/hlsl/cs_ocean_bit_reverse.hlsl",
+  "ocean/hlsl/cs_ocean_butterfly.hlsl",
+  "ocean/hlsl/cs_ocean_displacement_spectrum.hlsl",
+  "ocean/hlsl/cs_ocean_height_encode.hlsl",
+  "ocean/hlsl/cs_ocean_gaussian_h.hlsl",
+  "ocean/hlsl/cs_ocean_gaussian_v.hlsl",
+  "sky/hlsl/vs_sky.hlsl",
+  "sky/hlsl/ps_sky.hlsl",
 ]
 
 embed_hlsl("atmosphere_hlsl_embed") {

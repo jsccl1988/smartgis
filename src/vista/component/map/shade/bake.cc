@@ -19,9 +19,9 @@
 #include "base/trace/event/process_trace.h"
 #include "gis/style/paint_resolve.h"
 #include "gis/style/style_types.h"
-#include "vista/terrain/dem/dem_raster.h"
-#include "vista/terrain/process/bake_backend.h"
-#include "vista/terrain/process/dem_hillshade.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
+#include "vista/terrain/dem/bake/bake_backend.h"
+#include "vista/terrain/dem/shade/dem_hillshade.h"
 
 namespace vista {
 namespace {

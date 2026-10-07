@@ -6,157 +6,37 @@
 #include "app/views/util/charset.h"
 
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
 #include <functional>
-#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
-#include <utility>
-#include <vector>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
-#include <windowsx.h>
-#include <commctrl.h>
 
-#include "base/core/log.h"
-#include "content/browser/input/map_hwnd_gestures.h"
 #include "app/views/browser/browser.h"
-#include "app/views/browser/commands/app_commands.h"
-#include "app/views/browser/commands/view_commands.h"
-#include "app/views/browser/plugin/plugin_shell.h"
-#include "content/public/map_contents.h"
-#include "content/public/plugin_host.h"
-#include "content/public/view_host.h"
-#include "plugin/runtime/host/capability/capability.h"
-#include "plugin/runtime/host/catalog/registry.h"
-#include "tool/command/command.h"
-#include "tool/draft/draft.h"
-#include "tool/nav/camera_nav.h"
-#include "tool/workspace/workspace.h"
+#include "app/views/ui/horizon/ambox_composer.h"
+#include "app/views/ui/horizon/catalog_composer.h"
+#include "app/views/ui/horizon/inspector_host_composer.h"
+#include "app/views/ui/horizon/menu_composer.h"
 #include "app/views/ui/pages/map_pages_composer.h"
 #include "app/views/ui/panels/debug_console_composer.h"
 #include "app/views/ui/panels/inspect_composer.h"
 #include "app/views/ui/panels/inspector_sync_composer.h"
-#include "app/views/ui/panels/plugin_catalog_view.h"
 #include "app/views/ui/panels/processing_composer.h"
-#include "app/views/ui/panels/report_panel.h"
-#include "app/views/ui/shell_layout_composer.h"
-#include "base/trace/diag/startup_profile.h"
-#include "base/trace/event/process_trace.h"
-#include "base/process/switches.h"
-#include "ui/gis/catalog/catalog_view.h"
-#include "ui/gis/catalog/layer_tree.h"
-#include "ui/gis/inspect/attribute_table.h"
-#include "ui/gis/inspect/feature_info.h"
-#include "ui/gis/shell/atmosphere_panel.h"
-#include "ui/gis/debug/debug_console_panel.h"
-#include "ui/gis/debug/diagnostic_tools_panel.h"
-#include "ui/gis/style/layer_properties_panel.h"
-#include "ui/gis/style/legend_panel.h"
-#include "ui/gis/inspect/measure_panel.h"
-#include "ui/gis/analysis/processing_panel.h"
-#include "ui/gis/analysis/result_playback_panel.h"
-#include "ui/gis/inspect/selection_panel.h"
-#include "ui/gis/analysis/spatial_analysis_panel.h"
-#include "ui/gis/shell/ambox_view.h"
+#include "app/views/ui/shell/shell_layout_composer.h"
+#include "app/views/ui/shell/shell_lifecycle_composer.h"
+#include "tool/draft/draft.h"
+#include "tool/nav/camera_nav.h"
 #include "ui/gis/shell/status_bar.h"
 #include "ui/views/kernel/frame/frame_view.h"
-#include "ui/views/kernel/layout/layout.h"
-#include "ui/views/kernel/layout/splitter.h"
-#include "ui/views/kernel/shell/theme_service.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/map/viewport/draw_host.h"
-#include "ui/views/dialogs/select_one_dialog.h"
 #include "ui/views/primitives/collection/tab_strip.h"
-#include "ui/views/primitives/menu/context_menu.h"
-#include "ui/views/primitives/menu/menu_bar.h"
 
 namespace app {
-namespace detail {
-
-std::string json_escape(const std::string& text);
-
-void catalog_call(content::MapContents* session, const std::string& json);
-
-}  // namespace detail
-
-namespace {
-
-// Copy bookmark labels with a hard cap. A corrupted BrowserSession layout can
-// make bookmarks().size() look huge; vector::reserve then throws length_error
-// and CRT abort() 闁?seen at BrowserView::rebuild_menus during init_shell.
-void collect_bookmark_labels(Browser* browser,
-                             std::vector<std::string>* labels) {
-  if (!browser || !labels) {
-    return;
-  }
-  labels->clear();
-  const content::ViewNavigation* nav = browser->navigation();
-  if (!nav) {
-    return;
-  }
-  const auto& bookmarks = nav->bookmarks();
-  const size_t n = bookmarks.size();
-  constexpr size_t kCap = 512;
-  if (n == 0 || n > kCap) {
-    return;
-  }
-  labels->reserve(n);
-  for (const content::ViewBookmark& mark : bookmarks) {
-    labels->push_back(mark.label);
-  }
-}
-
-std::vector<ui::views::AmboxView::Group> enabled_plugin_groups(
-    plugin::Registry* registry,
-    content::PluginHost* host) {
-  std::vector<ui::views::AmboxView::Group> groups;
-  if (!registry) {
-    return groups;
-  }
-  std::map<std::string, size_t> index;
-  for (const plugin::PluginRecord& rec : registry->list()) {
-    if (rec.state != plugin::PluginState::kEnabled) {
-      continue;
-    }
-    ui::views::AmboxView::Group group;
-    group.name =
-        rec.manifest.name.empty() ? rec.manifest.id : rec.manifest.name;
-    index.emplace(rec.manifest.id, groups.size());
-    groups.push_back(std::move(group));
-  }
-  if (!host) {
-    return groups;
-  }
-  host->for_each_command([&](std::string_view plugin_id,
-                             std::string_view command_id,
-                             std::string_view title) {
-    // Guard against cross-DLL PluginHost vtable slips that pass garbage
-    // string_views (would throw bad_alloc / length_error on construct).
-    constexpr size_t kMaxId = 256;
-    if (plugin_id.empty() || plugin_id.size() > kMaxId ||
-        command_id.empty() || command_id.size() > kMaxId ||
-        title.size() > kMaxId) {
-      return;
-    }
-    const auto it = index.find(std::string(plugin_id));
-    if (it == index.end()) {
-      return;
-    }
-    ui::views::AmboxView::Item item;
-    item.id = std::string(command_id);
-    item.label = title.empty() ? item.id : std::string(title);
-    groups[it->second].items.push_back(std::move(item));
-  });
-  return groups;
-}
-
-}  // namespace
 
 std::unique_ptr<BrowserUiDelegate> create_browser_ui(Browser* browser) {
   return std::make_unique<BrowserView>(browser);
@@ -173,461 +53,39 @@ BrowserView::BrowserView(Browser* browser)
       inspect_(std::make_unique<InspectComposer>(this)),
       inspector_sync_(std::make_unique<InspectorSyncComposer>(this)),
       debug_console_(std::make_unique<DebugConsoleComposer>(this)),
-      shell_layout_(std::make_unique<ShellLayoutComposer>(this)) {}
+      shell_layout_(std::make_unique<ShellLayoutComposer>(this)),
+      shell_lifecycle_(std::make_unique<ShellLifecycleComposer>(this)),
+      catalog_composer_(std::make_unique<CatalogComposer>(this)),
+      menu_composer_(std::make_unique<MenuComposer>(this)),
+      ambox_composer_(std::make_unique<AmboxComposer>(this)),
+      inspector_host_(std::make_unique<InspectorHostComposer>(this)) {}
 
 BrowserView::~BrowserView() {
   prepare_shell_close();
 }
 
-void BrowserView::prepare_shell_close() {
-  remove_shell_wheel_forward();
-  if (map_edit_) {
-    map_edit_->detach();
-  }
-  if (map_data_) {
-    map_data_->detach();
-  }
-  if (map_scene_) {
-    map_scene_->detach();
-  }
-}
-
-namespace {
-constexpr UINT_PTR kShellWheelSubclassId = 0x57484C45u;  // 'WHLE'
-}  // namespace
-
-void BrowserView::install_shell_wheel_forward() {
-  HWND shell = widget_.hwnd();
-  if (!shell || !IsWindow(shell) || shell_wheel_subclassed_) {
-    return;
-  }
-  if (SetWindowSubclass(shell, shell_wheel_subclass_proc, kShellWheelSubclassId,
-                        reinterpret_cast<DWORD_PTR>(this))) {
-    shell_wheel_subclassed_ = true;
-  }
-}
-
-void BrowserView::remove_shell_wheel_forward() {
-  HWND shell = widget_.hwnd();
-  if (shell_wheel_subclassed_ && shell && IsWindow(shell)) {
-    RemoveWindowSubclass(shell, shell_wheel_subclass_proc,
-                         kShellWheelSubclassId);
-  }
-  shell_wheel_subclassed_ = false;
-}
-
-LRESULT CALLBACK BrowserView::shell_wheel_subclass_proc(HWND hwnd, UINT msg,
-                                                       WPARAM wparam,
-                                                       LPARAM lparam,
-                                                       UINT_PTR id,
-                                                       DWORD_PTR data) {
-  auto* self = reinterpret_cast<BrowserView*>(data);
-  // Posted by deferred China seed when VIEWS_START_MAP_TAB is set — must
-  // not nest select_map_tab inside the seed timer / switch_map_tab wait.
-  constexpr UINT kReselectTab = WM_APP + 0x5354;  // 'ST'
-  constexpr UINT kExtentChangedUi = WM_APP + 0x5253;  // 'RS'
-  if (self && id == kShellWheelSubclassId && msg == kReselectTab) {
-    const int idx = static_cast<int>(wparam);
-    if (idx >= 0 && idx <= 2) {
-      self->select_map_tab(idx);
-      LOGGING(LOG_INFO, "startup: posted reselect map tab=%d after China seed",
-              idx);
-    }
-    return 0;
-  }
-  if (self && id == kShellWheelSubclassId && msg == kExtentChangedUi) {
-    auto* extent = reinterpret_cast<content::Extent2*>(lparam);
-    if (extent) {
-      if (self->browser_) {
-        self->browser_->apply_extent_changed_on_ui(*extent);
-      }
-      delete extent;
-    }
-    return 0;
-  }
-  if (self && id == kShellWheelSubclassId &&
-      (msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL)) {
-    // FlyCube present uses SW_SHOWNOACTIVATE; focus stays on horizon so wheel
-    // arrives here. Forward when the cursor is over Map / Data / 3D input.
-    const POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
-    for (ui::views::DrawHost* pane :
-         {self->map_edit_, self->map_data_, self->map_scene_}) {
-      if (!pane) {
-        continue;
-      }
-      HWND map = pane->input_hwnd();
-      if (!map || !IsWindow(map) || !IsWindowVisible(map)) {
-        continue;
-      }
-      RECT rc = {};
-      GetWindowRect(map, &rc);
-      if (PtInRect(&rc, pt)) {
-        SendMessageW(map, msg, wparam, lparam);
-        return 0;
-      }
-    }
-  }
-  return DefSubclassProc(hwnd, msg, wparam, lparam);
-}
-
-namespace {
-
-// SEH helpers: china OGR / fit can AV when content/gis DLLs are mid-rebuild
-// (plain_browse / visual_review #6). Keep C++ objects out of these frames.
-bool seh_seed_default(content::MapScene* doc, bool allow_china) {
-  if (!doc) {
-    return false;
-  }
-  __try {
-    doc->seed_default(allow_china);
-    return true;
-  } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return false;
-  }
-}
-
-bool seh_fit_and_push_extent(Browser* browser) {
-  if (!browser) {
-    return false;
-  }
-  __try {
-    browser->fit_map_extent();
-    browser->push_shared_extent();
-    return true;
-  } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return false;
-  }
-}
-
-}  // namespace
-
 bool BrowserView::init_shell() {
-  BASE_TRACE_EVENT("InitShell.body", "startup");
-  {
-    BASE_TRACE_EVENT("Widget.init", "startup");
-    ui::views::Widget::InitParams params;
-    params.title = L"SmartGIS Views";
-    // Client DIPs (Widget scales + AdjustWindowRect). Physical-only 1280x800
-    // looked ~853x533 on 150% DPI hosts.
-    params.width = 1280;
-    params.height = 800;
-    params.size_in_dips = true;
-    params.frame_kind = ui::views::Widget::FrameKind::kCustom;
-    if (!widget_.init(params)) {
-      return false;
-    }
-  }
-  // Mid snapshots → *.partial-*.txt; final dump is after first show only.
-  base::trace::dump_startup_profile_partial("post-widget");
-  widget_.set_will_close([this]() {
-    if (browser_) {
-      browser_->prepare_close();
-    }
-  });
-  widget_.set_on_shell_published(
-      [this](const ui::views::Rect& dirty) { commit_widget_shell_to_maps(dirty); });
-  install_shell_wheel_forward();
-
-  {
-    BASE_TRACE_EVENT("BuildContents", "startup");
-    build_contents();
-  }
-  base::trace::dump_startup_profile_partial("post-build");
-  {
-    BASE_TRACE_EVENT("SeedDocument", "startup");
-    // Showcase / harness set SKIP_AMBOX_CATALOG before Browser::init.
-    // Skip china OGR bootstrap so plugin-showcase can reach Scene3D bodies;
-    // product defer_china_seed() leaves the doc empty until Browser::show.
-    // Real-data policy: never invent demo features on either path.
-    const bool skip_china_seed = []() {
-      const char* skip = base::switch_cstr("skip-ambox-catalog");
-      return skip && skip[0] != '\0' && skip[0] != '0';
-    }();
-    const bool defer_china = browser_->defer_china_seed();
-    if (skip_china_seed || defer_china) {
-      if (skip_china_seed) {
-        std::fprintf(stderr,
-                     "startup: SeedDocument empty (SKIP_AMBOX_CATALOG)\n");
-      } else {
-        std::fprintf(stderr,
-                     "startup: SeedDocument empty (defer_china_seed)\n");
-      }
-      if (!seh_seed_default(browser_->document(), /*allow_china=*/false)) {
-        std::fprintf(stderr, "startup: SeedDocument clear SEH fail\n");
-      }
-    } else {
-      // Match --ui-showcase=shell: open china_city before first paint. Skip
-      // O(n×m) land-clip on this sync path so bare launch stays interactive;
-      // hillshade still bakes on the first settled MapIR after show.
-      base::set_switch("skip-china-land-clip", "1");
-      {
-        BASE_TRACE_EVENT("SeedDocument.Default", "startup");
-        if (!seh_seed_default(browser_->document(), /*allow_china=*/true)) {
-          std::fprintf(stderr, "startup: SeedDocument china SEH fail\n");
-        }
-      }
-      base::set_switch("skip-china-land-clip", "");
-      std::fprintf(stderr, "startup: SeedDocument china=%d layers=%zu feats=%zu\n",
-                   browser_->document() &&
-                           browser_->document()->has_china_extent()
-                       ? 1
-                       : 0,
-                   browser_->document()
-                       ? browser_->document()->layer_count()
-                       : 0u,
-                   browser_->document()
-                       ? browser_->document()->feature_count()
-                       : 0u);
-    }
-  }
-  {
-    BASE_TRACE_EVENT("BindPresenters", "startup");
-    browser_->map2d()->bind(browser_->document(), browser_->view_frame());
-    browser_->scene3d()->bind_orbit(browser_->orbit_frame());
-    browser_->scene3d()->bind_label_frame(browser_->view_frame());
-    browser_->scene3d()->bind_map(browser_->document());
-    browser_->pull_orbit_extent();
-    // Fit world extent BEFORE FlyCube attach so the first display-thread
-    // present_gpu uses a real camera (not a degenerate default extent).
-    // Showcase skip-china seed: fit_map_extent AVd on demo-only document /
-    // skewed ui_ hwnd during early init (cdb world3d-early). Scene3D framing
-    // is applied later by apply_china_scene3d_product_defaults.
-    const bool skip_fit = []() {
-      const char* skip = base::switch_cstr("skip-ambox-catalog");
-      return skip && skip[0] != '\0' && skip[0] != '0';
-    }();
-    if (!skip_fit) {
-      if (!seh_fit_and_push_extent(browser_)) {
-        std::fprintf(stderr, "startup: fit/push_shared_extent SEH fail\n");
-      }
-    }
-    // Showcase SKIP_AMBOX_CATALOG: skip push_shared_extent too — under
-    // parallel gis_d rebuilds it AVd after SeedDocument (exit 3, no marks).
-    wire_map_scene();
-  }
-  // Snapshot before FlyCube attach — often the slowest / hangiest startup step.
-  base::trace::dump_startup_profile_partial("pre-attach");
-  {
-    BASE_TRACE_EVENT("AttachViewports", "startup");
-    attach_viewports();
-  }
-  browser_->scene3d()->bind_contents(
-      browser_->map_session(), map_scene_ ? map_scene_->view_id() : 0);
-  browser_->pull_orbit_extent();
-  if (browser_->map_session()) {
-    browser_->map_session()->SetObserver(browser_);
-  }
-  {
-    BASE_TRACE_EVENT("WireShell", "startup");
-    // Re-fit after HWND sizes settle (layout may change client rect post-attach).
-    // Same showcase skip as BindPresenters — demo-only seed AVs in fit_map_extent
-    // / push_shared_extent (ui_ offset freefill under parallel ninja + SKIP_AMBOX).
-    // ui.shell china seed later calls fit_map_extent (which pushes extent).
-    const bool skip_fit_push = []() {
-      const char* skip = base::switch_cstr("skip-ambox-catalog");
-      return skip && skip[0] != '\0' && skip[0] != '0';
-    }();
-    if (!skip_fit_push) {
-      if (!seh_fit_and_push_extent(browser_)) {
-        std::fprintf(stderr, "startup: post-attach fit/push SEH fail\n");
-      }
-    }
-    // Catalog, inspector sync, tool seams, and HWND gestures run in
-    // finish_deferred_shell_wiring() after WaitFirstMapPresent (show_shell).
-    // China 3D atmosphere (same defaults as --atmosphere-showcase=full) is
-    // seeded on first switch to the 3D tab — see apply_china_scene3d_* in
-    // switch_map_tab — so init_shell does not pay DEM/atmosphere cost before
-    // the Map pane is interactive.
-  }
-  return true;
-}
-
-void BrowserView::finish_deferred_shell_wiring() {
-  BASE_TRACE_EVENT("WireShell.deferred", "startup");
-  wire_catalog();
-  wire_edit_feedback();
-  wire_tool_seams();
-  sync_inspectors_from_scene();
-  sync_status();
-  attach_hwnd_gestures();
+  return shell_lifecycle_->init_shell();
 }
 
 void BrowserView::show_shell() {
-  BASE_TRACE_EVENT("ShowShell", "startup");
-  {
-    BASE_TRACE_EVENT("ShowWindow", "startup");
-    widget_.show();
-  }
-  // ShowWindow may present an empty compositor front (async raster). Re-layout
-  // and schedule shell paint only — do not call invalidate_map_overlays() here:
-  // that syncs paint_map_content while ContentMapView / Map2dPresenter are
-  // still settling and has AVd in Map2dSoftwarePainter (STL orphan) under
-  // --self-test. Kick the active map HWND asynchronously (InvalidateRect,
-  // no UpdateWindow).
-  widget_.layout_contents();
-  // Catalog|Map splitter can lock a both-flex seed before preferred widths
-  // settle (grey slab + squeezed map). Re-assert Catalog 288 DIP and reseed.
-  if (catalog_ && catalog_map_) {
-    catalog_->set_preferred_size({288, 0});
-    catalog_map_->reseed();
-    widget_.layout_contents();
-    LOGGING(LOG_INFO, "layout: catalog_map reseed catalog_w=%d map_tabs_x=%d",
-            catalog_->bounds().width,
-            map_tabs_ ? map_tabs_->bounds().x : -1);
-  }
-  // Work splitter: re-pin inspector 320 and reseed so map_column stays flex
-  // primary (SecondaryFixed) — proportional seed crushed Map beside Feature.
-  if (inspector_tabs_ && catalog_map_) {
-    if (ui::views::View* insp_host = inspector_tabs_->parent()) {
-      insp_host->set_preferred_size({320, 0});
-    }
-    inspector_tabs_->set_preferred_size({320, 0});
-    ui::views::View* map_col = catalog_map_->parent();
-    if (map_col) {
-      map_col->set_preferred_size({0, 0});
-    }
-    if (map_col) {
-      if (auto* work = dynamic_cast<ui::views::Splitter*>(map_col->parent())) {
-        work->reseed();
-        widget_.layout_contents();
-      }
-    }
-  }
-  if (menu_bar_) {
-    // Re-measure File/Edit/View/Layer after DPI / font attach (DIP→px height).
-    menu_bar_->clear();
-    rebuild_menus();
-    widget_.layout_contents();
-    menu_bar_->schedule_paint();
-  }
-  // Re-seed main_split after the HWND client is final so Diagnostic Tools
-  // preferred (DIP→px) is not locked against a create-time tiny inner height.
-  if (diagnostic_tools_) {
-    for (ui::views::View* p = diagnostic_tools_->parent(); p;
-         p = p->parent()) {
-      if (auto* split = dynamic_cast<ui::views::Splitter*>(p)) {
-        split->reseed();
-        widget_.layout_contents();
-        LOGGING(LOG_INFO,
-                "layout: main_split reseed diagnostic_h=%d work_h=%d",
-                diagnostic_tools_->bounds().height,
-                split->child_count() > 0 ? split->child_at(0)->bounds().height
-                                         : -1);
-        break;
-      }
-    }
-  }
-  widget_.schedule_paint();
-  if (HWND shell = widget_.hwnd()) {
-    if (IsWindow(shell)) {
-      InvalidateRect(shell, nullptr, FALSE);
-    }
-  }
-  // SKIP_AMBOX skips the 15s WaitFirstMapPresent; HWND record otherwise
-  // captures empty compositor front (near-black horizon) + black map hole.
-  widget_.pump_until_shell_published(400);
-  if (ui::views::DrawHost* pane = active_map()) {
-    pane->sync_native_bounds();
-    // Init may have finished while the shell was still hidden; lift the DXGI
-    // popup now that horizon is shown (inactive tabs stay hidden below).
-    // Also bumps request_frame for the first china present.
-    pane->set_gpu_present_visible(true);
-    // Do NOT fit_map_extent / invalidate_frame_cache here: Display may hold
-    // the map2d cache mutex on the first china present (~8s Debug). Fit's
-    // overlay invalidate can also re-enter while this pump waits. Browser::show
-    // fits after show_shell returns.
-    pane->invalidate_native();
-    if (HWND map = pane->native_view()) {
-      if (IsWindow(map)) {
-        InvalidateRect(map, nullptr, FALSE);
-      }
-    }
-    // Always drain a short first map paint so HWND capture is not a black
-    // hole (SKIP_AMBOX still skips the 15s WaitFirstMapPresent below).
-    {
-      HWND shell_hwnd = widget_.hwnd();
-      const DWORD t_short = GetTickCount();
-      while (shell_hwnd && IsWindow(shell_hwnd) &&
-             GetTickCount() - t_short < 250u) {
-        if (pane->last_content_present_ok() ||
-            (browser_->map2d() &&
-             browser_->map2d()->layout_build_count() > 0)) {
-          break;
-        }
-        MSG msg = {};
-        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
-          TranslateMessage(&msg);
-          DispatchMessageW(&msg);
-        }
-        Sleep(10);
-      }
-    }
-    // Product path: do not block shell interactivity on a full first map
-    // present (FlyCube token + carto layout often ~2s+ and nested HillshadeBake).
-    // Invalidate above already schedules the first frame; China seed (when
-    // deferred) refreshes after show. Opt-in sync wait for harness / agents
-    // that need a deterministic first carto frame before continuing:
-    //   SYNC_FIRST_MAP_PRESENT=1
-    // Showcase skips Map Edit present attach (SKIP_AMBOX_CATALOG) — never
-    // spin waiting for a frame that will never arrive.
-    const bool skip_wait = []() {
-      const char* skip = base::switch_cstr("skip-ambox-catalog");
-      if (skip && skip[0] != '\0' && skip[0] != '0') {
-        return true;
-      }
-      const char* sync = base::switch_cstr("sync-first-map-present");
-      const bool want_sync = sync && sync[0] == '1' && sync[1] == '\0';
-      return !want_sync;
-    }() || pane->attach_mode() == ui::views::DrawHost::AttachMode::kNone;
-    if (!skip_wait) {
-      BASE_TRACE_EVENT("WaitFirstMapPresent", "startup");
-      uint32_t want = pane->frame_request();
-      HWND shell_hwnd = widget_.hwnd();
-      const DWORD t0 = GetTickCount();
-      const bool content_sot =
-          pane->attach_mode() ==
-          ui::views::DrawHost::AttachMode::kContentMapView;
-      while (shell_hwnd && IsWindow(shell_hwnd) &&
-             GetTickCount() - t0 < 15000u) {
-        if (content_sot) {
-          // GDI overlay / SharedSurface SoT: layout rebuild or content blit.
-          if (pane->last_content_present_ok() ||
-              (browser_->map2d() &&
-               browser_->map2d()->layout_build_count() > 0)) {
-            break;
-          }
-        } else {
-          const bool token_ok = pane->last_gpu_present_ok() &&
-                                pane->frame_presented() >= want;
-          const bool drew_carto =
-              browser_->map2d() && browser_->map2d()->last_gpu_present_drew() &&
-              browser_->map2d()->layout_build_count() > 0;
-          if (token_ok && drew_carto) {
-            break;
-          }
-          if (token_ok && !drew_carto && browser_->map2d()) {
-            // Skip (or empty layout) satisfied the token — force a real Pass
-            // submit before leaving the pump.
-            browser_->map2d()->note_surface_reset();
-            pane->invalidate_native();
-            want = pane->frame_request();
-          }
-        }
-        MSG msg = {};
-        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
-          TranslateMessage(&msg);
-          DispatchMessageW(&msg);
-        }
-        Sleep(10);
-      }
-    }
-  }
-  if (map_data_ && map_data_ != active_map()) {
-    map_data_->set_gpu_present_visible(false);
-  }
-  if (map_scene_ && map_scene_ != active_map()) {
-    map_scene_->set_gpu_present_visible(false);
-  }
+  shell_lifecycle_->show_shell();
+}
+
+void BrowserView::finish_deferred_shell_wiring() {
+  shell_lifecycle_->finish_deferred_shell_wiring();
+}
+
+void BrowserView::prepare_shell_close() {
+  shell_lifecycle_->prepare_shell_close();
+}
+
+void BrowserView::install_shell_wheel_forward() {
+  shell_lifecycle_->install_shell_wheel_forward();
+}
+
+void BrowserView::remove_shell_wheel_forward() {
+  shell_lifecycle_->remove_shell_wheel_forward();
 }
 
 int BrowserView::run_shell_loop() {
@@ -653,111 +111,11 @@ void BrowserView::build_contents() {
 }
 
 void BrowserView::wire_catalog() {
-  if (!catalog_ || !catalog_->layer_tree()) {
-    return;
-  }
-  sync_catalog_from_scene();
-  // Bare launch seeds china_city (same pack as harness). Label Sources/Maps
-  // to match --ui-showcase=shell so interactive fix loops see china_city.
-  if (browser_ && browser_->document() &&
-      browser_->document()->has_china_extent()) {
-    catalog_->set_source_names({"china_city"});
-    catalog_->set_map_docs({{"china_city", "", "China", false}});
-  } else {
-    catalog_->set_source_names({"Memory"});
-    catalog_->set_map_docs({{"map.untitled", "", "Untitled map", false}});
-  }
-  catalog_->set_command(
-      [this](const std::string& id) { browser_->on_catalog_command(id); });
-  catalog_->layer_tree()->set_visible_changed(
-      [this](const std::string& id, bool visible) {
-        browser_->document()->set_layer_visible(id, visible);
-        content::MapContents* session = active_map()
-                                            ? active_map()->map_contents()
-                                            : browser_->map_session();
-        detail::catalog_call(
-            session, std::string("{\"op\":\"set_visible\",\"id\":\"") +
-                         detail::json_escape(id) + "\",\"visible\":" +
-                         (visible ? "true" : "false") + "}");
-        // Visibility is in ContentFingerprint; presenter drops MapIR only when
-        // the hash moved (stale Land/jet must not StaticReuse).
-        if (browser_->map2d()) {
-          browser_->map2d()->invalidate_frame_cache();
-        }
-        invalidate_map_overlays();
-        sync_inspectors_from_scene();
-        if (status_bar_) {
-          status_bar_->set_message(std::string("Layer ") + id +
-                                   (visible ? ": visible" : ": hidden"));
-        }
-      });
-  catalog_->layer_tree()->set_selection_changed([this](const std::string& id) {
-    browser_->document()->select_layer(id);
-    content::MapContents* session = active_map() ? active_map()->map_contents()
-                                                 : browser_->map_session();
-    detail::catalog_call(session,
-                         std::string("{\"op\":\"select_layer\",\"id\":\"") +
-                             detail::json_escape(id) + "\"}");
-    sync_inspectors_from_scene();
-    invalidate_map_overlays();
-    if (status_bar_) {
-      status_bar_->set_message("Active layer: " + id);
-    }
-  });
+  catalog_composer_->wire_catalog();
 }
 
 void BrowserView::sync_catalog_from_scene() {
-  if (!catalog_ || !browser_ || !browser_->document()) {
-    return;
-  }
-  auto to_views_kind = [](content::LayerKind k) {
-    switch (k) {
-      case content::LayerKind::kGroup:
-        return ui::views::LayerKind::kGroup;
-      case content::LayerKind::kVector:
-        return ui::views::LayerKind::kVector;
-      case content::LayerKind::kRaster:
-        return ui::views::LayerKind::kRaster;
-      case content::LayerKind::kUnknown:
-      default:
-        return ui::views::LayerKind::kUnknown;
-    }
-  };
-  std::function<ui::views::LayerTree::LayerDesc(const content::LayerDesc&)>
-      convert = [&](const content::LayerDesc& d) {
-        ui::views::LayerTree::LayerDesc row;
-        row.id = d.id;
-        // china_city PLPT stems are short (area/line/point/text); show product
-        // labels so the Layers panel stays legible on dark horizon.
-        if (d.name == "area") {
-          row.name = "Land";
-        } else if (d.name == "line") {
-          row.name = "Lines";
-        } else if (d.name == "point") {
-          row.name = "Points";
-        } else if (d.name == "text") {
-          row.name = "Labels";
-        } else {
-          row.name = d.name;
-        }
-        row.visible = d.visible;
-        row.active = d.active;
-        row.kind = to_views_kind(d.kind);
-        row.expanded = d.expanded;
-        row.children.reserve(d.children.size());
-        for (const content::LayerDesc& child : d.children) {
-          row.children.push_back(convert(child));
-        }
-        return row;
-      };
-  std::vector<ui::views::LayerTree::LayerDesc> layers;
-  const std::vector<content::LayerDesc> descs =
-      browser_->document()->layer_descs();
-  layers.reserve(descs.size());
-  for (const content::LayerDesc& d : descs) {
-    layers.push_back(convert(d));
-  }
-  catalog_->populate_layers(layers);
+  catalog_composer_->sync_catalog_from_scene();
 }
 
 bool BrowserView::scene3d_tab_active() const {
@@ -765,195 +123,23 @@ bool BrowserView::scene3d_tab_active() const {
 }
 
 void BrowserView::on_map_right_click(HWND map_hwnd, int view_x, int view_y) {
-  if (!map_hwnd || !browser_) {
-    return;
-  }
-  // TrackPopupMenu pumps messages; calling it from the map HWND subclass
-  // during WM_RBUTTONUP re-enters the gesture/input stack and can AV. Defer
-  // one tick like schedule_menu_rebuild (MapLibre-like: RMB = menu only).
-  pending_map_menu_hwnd_ = map_hwnd;
-  pending_map_menu_x_ = view_x;
-  pending_map_menu_y_ = view_y;
-  HWND owner = hwnd();
-  if (!owner) {
-    show_pending_map_context_menu();
-    return;
-  }
-  constexpr UINT_PTR kMapCtxTimer = 0x4D4354u;  // 'MCT'
-  SetPropW(owner, L"MapCtxBrowser", reinterpret_cast<HANDLE>(this));
-  KillTimer(owner, kMapCtxTimer);
-  SetTimer(owner, kMapCtxTimer, 1,
-           [](HWND timer_hwnd, UINT, UINT_PTR id, DWORD) {
-             KillTimer(timer_hwnd, id);
-             auto* self = reinterpret_cast<BrowserView*>(
-                 GetPropW(timer_hwnd, L"MapCtxBrowser"));
-             if (self) {
-               self->show_pending_map_context_menu();
-             }
-           });
+  menu_composer_->on_map_right_click(map_hwnd, view_x, view_y);
 }
 
 void BrowserView::show_pending_map_context_menu() {
-  HWND map_hwnd = pending_map_menu_hwnd_;
-  const int view_x = pending_map_menu_x_;
-  const int view_y = pending_map_menu_y_;
-  pending_map_menu_hwnd_ = nullptr;
-  if (!map_hwnd || !IsWindow(map_hwnd) || !browser_) {
-    return;
-  }
-  // Headless / self-test: skip modal popup (would hang the pump).
-  if (base::switch_cstr("skip-map-context-menu")) {
-    return;
-  }
-  std::vector<std::string> labels;
-  collect_bookmark_labels(browser_, &labels);
-  const std::vector<ui::views::MenuItem> items = navigation_menu_items(
-      labels, [this, view_x, view_y](std::string_view id, int index) {
-        browser_->on_view_command(id, index, true, view_x, view_y);
-      });
-  POINT pt{view_x, view_y};
-  ClientToScreen(map_hwnd, &pt);
-  ui::views::show_context_menu(map_hwnd, ui::views::Point{pt.x, pt.y}, items);
+  menu_composer_->show_pending_map_context_menu();
 }
 
 void BrowserView::schedule_menu_rebuild() {
-  HWND owner = hwnd();
-  if (!owner) {
-    rebuild_menus();
-    return;
-  }
-  constexpr UINT_PTR kMenuTimer = 0x4D4E55u;
-  SetPropW(owner, L"MenuBrowser", reinterpret_cast<HANDLE>(this));
-  KillTimer(owner, kMenuTimer);
-  SetTimer(owner, kMenuTimer, 1,
-           [](HWND timer_hwnd, UINT, UINT_PTR id, DWORD) {
-             KillTimer(timer_hwnd, id);
-             auto* self = reinterpret_cast<BrowserView*>(
-                 GetPropW(timer_hwnd, L"MenuBrowser"));
-             if (self) {
-               self->rebuild_menus();
-             }
-           });
+  menu_composer_->schedule_menu_rebuild();
 }
 
 void BrowserView::rebuild_menus() {
-  if (!menu_bar_ || !browser_) {
-    return;
-  }
-  std::vector<std::string> labels;
-  collect_bookmark_labels(browser_, &labels);
-  ShellMenus menus = build_shell_menus(
-      labels, [this](std::string_view id, int index) {
-        if (id == "shell.open") {
-          browser_->on_open();
-          return;
-        }
-        if (id == "shell.save") {
-          browser_->on_save_document();
-          return;
-        }
-        if (id == "shell.export") {
-          browser_->on_export_document();
-          return;
-        }
-        if (id == "shell.exit") {
-          on_exit();
-          return;
-        }
-        if (id == "view.debug_console") {
-          toggle_debug_console();
-          return;
-        }
-        if (id == "view.theme.dark") {
-          ui::views::ThemeService::get().set_theme("dark");
-          return;
-        }
-        if (id == "view.theme.light") {
-          ui::views::ThemeService::get().set_theme("light");
-          return;
-        }
-        if (id == "view.preferences") {
-          std::vector<std::string> labels;
-          std::vector<std::string> ids;
-          for (const auto& pack : ui::views::ThemeService::get().packs()) {
-            labels.push_back(pack.label);
-            ids.push_back(pack.id);
-          }
-          std::string chosen;
-          if (ui::views::SelectOneDialog::run(widget_.hwnd(), labels,
-                                              &chosen)) {
-            for (size_t i = 0; i < labels.size(); ++i) {
-              if (labels[i] == chosen) {
-                ui::views::ThemeService::get().set_theme(ids[i]);
-                break;
-              }
-            }
-          }
-          return;
-        }
-        if (id.starts_with("catalog.")) {
-          browser_->on_catalog_command(std::string(id));
-          return;
-        }
-        browser_->on_view_command(id, index, false, 0, 0);
-      });
-  menu_bar_->clear();
-  menu_bar_->add_menu("File", std::move(menus.file));
-  menu_bar_->add_menu("Edit", std::move(menus.edit));
-  menu_bar_->add_menu("View", std::move(menus.view));
-  menu_bar_->add_menu("Layer", std::move(menus.layer));
+  menu_composer_->rebuild_menus();
 }
 
 void BrowserView::populate_ambox() {
-  if (!ambox_) {
-    return;
-  }
-  // Soft-skip catalog walk when parallel rebuilds leave CommandCatalog maps
-  // unreadable (AV in tool::CommandCatalog::for_each). FPS bench used to
-  // skip the whole populate — that left clear/point/polygon sharing the
-  // default cursor glyph. Keep workspace chips; still avoid plugin registry
-  // walks when benching (freefill AV under Debug rebuilds).
-  const bool fps_benching = [] {
-    const char* bench = base::switch_cstr("map2d-fps-bench-ms");
-    return bench && bench[0] != '\0' && std::atoi(bench) > 0;
-  }();
-  // Match wire_report_panel / wire_edit_feedback: any non-empty non-"0" skip.
-  if (const char* skip = base::switch_cstr("skip-ambox-catalog");
-      skip && skip[0] != '\0' && skip[0] != '0') {
-    return;
-  }
-  std::vector<tool::CommandCatalog*> catalogs;
-  if (browser_->edit_host() && browser_->edit_host()->workspace()) {
-    catalogs.push_back(&browser_->edit_host()->workspace()->catalog());
-  }
-  // Skip PluginShell::commands()/registry on first BuildContents: parallel
-  // Debug links have AVd catalog_.get() on freefill (0xCD) while plugins()
-  // still looks live. Workspace catalog is enough until on_plugins refreshes.
-  std::vector<ui::views::AmboxView::Group> plugin_groups;
-  if (!fps_benching && ambox_include_plugins_ && browser_->plugins()) {
-    PluginShell* shell = browser_->plugins();
-    const auto shell_addr = reinterpret_cast<uintptr_t>(shell);
-    // MSVC Debug freefill / freed-heap markers (populate_ambox AV dumps).
-    const auto lo24 = shell_addr & 0xffffff00ull;
-    const bool poison = shell_addr < 0x10000u || lo24 == 0xcdcdcd00ull ||
-                        lo24 == 0xdddddd00ull || lo24 == 0xcccccc00ull ||
-                        lo24 == 0xfeeefeeeull || lo24 == 0xababab00ull;
-    if (!poison) {
-      if (tool::CommandCatalog* plugin_catalog = shell->commands()) {
-        catalogs.push_back(plugin_catalog);
-      }
-      if (shell->registry() && shell->host()) {
-        plugin_groups =
-            enabled_plugin_groups(shell->registry(), shell->host());
-      }
-    }
-  }
-  // Map tool bar owns Select/Edit workspace chips. Right dock lists plugin
-  // AMBox groups only — twin chip strips failed visual_review #3.
-  ambox_->populate_from_commands(catalogs, plugin_groups);
-  if (side_ambox_) {
-    side_ambox_->set_groups(std::move(plugin_groups));
-  }
+  ambox_composer_->populate_ambox();
 }
 
 void BrowserView::set_status_message(const std::string& text) {
@@ -971,117 +157,27 @@ void BrowserView::on_exit() {
 }
 
 void BrowserView::on_plugins() {
-  if (browser_->plugins()) {
-    (void)browser_->plugins()->ensure_builtins();
-    // Re-bind after builtins so report callbacks see a live PluginHost.
-    ensure_inspector_tab(report_tab_);
-    attach_report_plugin_bridge();
-    PluginCatalogView::run_modal(widget_.hwnd(), browser_->plugins()->registry(),
-                                 browser_->plugins()->host());
-    ambox_include_plugins_ = true;
-    populate_ambox();
-    ambox_include_plugins_ = false;
-  }
+  ambox_composer_->on_plugins();
 }
 
 void BrowserView::on_processing() {
-  // Prefer Analysis; fall back to Processing — both may be lazy.
-  const int prefer =
-      spatial_analysis_tab_ >= 0 ? spatial_analysis_tab_ : processing_tab_;
-  ensure_inspector_tab(prefer);
-  ensure_inspector_tab(processing_tab_);
-  show_inspector_tab_index(prefer);
-  if (spatial_analysis_panel_ &&
-      !spatial_analysis_panel_->selected_id().empty()) {
-    set_status_message(std::string("Analysis: ") +
-                       spatial_analysis_panel_->selected_id());
-  } else if (processing_panel_ && !processing_panel_->selected_id().empty()) {
-    set_status_message(std::string("Processing: ") +
-                       processing_panel_->selected_id());
-  } else {
-    set_status_message("Spatial analysis toolbox");
-  }
+  inspector_host_->on_processing();
 }
 
 void BrowserView::ensure_processing_panel() {
-  ensure_inspector_tab(processing_tab_);
+  inspector_host_->ensure_processing_panel();
 }
 
 void BrowserView::activate_inspector_tab(int index) {
-  show_inspector_tab_index(index);
+  inspector_host_->activate_inspector_tab(index);
 }
 
 void BrowserView::show_inspector_tab_index(int index) {
-  ensure_inspector_tab(index);
-  if (inspector_tabs_ && index >= 0) {
-    inspector_tabs_->set_active(index);
-  }
+  inspector_host_->show_inspector_tab_index(index);
 }
 
 void BrowserView::ensure_inspector_tab(int index) {
-  if (!inspector_tabs_ || index < 0) {
-    return;
-  }
-  if (index == feature_info_tab_ && !feature_info_) {
-    auto panel = std::make_unique<ui::views::FeatureInfo>();
-    feature_info_ = panel.get();
-    inspector_tabs_->replace_page(index, std::move(panel));
-    wire_edit_feedback();
-  } else if (index == feature_info_tab_ + 1 && feature_info_tab_ >= 0 &&
-             !attribute_table_) {
-    auto panel = std::make_unique<ui::views::AttributeTable>();
-    attribute_table_ = panel.get();
-    inspector_tabs_->replace_page(index, std::move(panel));
-    wire_edit_feedback();
-  } else if (index == measure_tab_ && !measure_panel_) {
-    auto panel = std::make_unique<ui::views::MeasurePanel>();
-    measure_panel_ = panel.get();
-    inspector_tabs_->replace_page(index, std::move(panel));
-    wire_measure_panel();
-  } else if (index == selection_tab_ && !selection_panel_) {
-    auto panel = std::make_unique<ui::views::SelectionPanel>();
-    selection_panel_ = panel.get();
-    inspector_tabs_->replace_page(index, std::move(panel));
-    wire_selection_panel();
-  } else if (index == layer_props_tab_ && !layer_properties_panel_) {
-    auto panel = std::make_unique<ui::views::LayerPropertiesPanel>();
-    layer_properties_panel_ = panel.get();
-    inspector_tabs_->replace_page(index, std::move(panel));
-    wire_layer_properties_panel();
-  } else if (index == legend_tab_ && !legend_panel_) {
-    auto panel = std::make_unique<ui::views::LegendPanel>();
-    legend_panel_ = panel.get();
-    inspector_tabs_->replace_page(index, std::move(panel));
-    wire_legend_panel();
-  } else if (index == spatial_analysis_tab_ && !spatial_analysis_panel_) {
-    auto panel = std::make_unique<ui::views::SpatialAnalysisPanel>();
-    spatial_analysis_panel_ = panel.get();
-    inspector_tabs_->replace_page(index, std::move(panel));
-    wire_spatial_analysis_panel();
-  } else if (index == processing_tab_ && !processing_panel_) {
-    auto panel = std::make_unique<ui::views::ProcessingPanel>();
-    processing_panel_ = panel.get();
-    inspector_tabs_->replace_page(index, std::move(panel));
-    wire_processing_panel();
-  } else if (index == playback_tab_ && !result_playback_panel_) {
-    auto panel = std::make_unique<ui::views::ResultPlaybackPanel>();
-    result_playback_panel_ = panel.get();
-    inspector_tabs_->replace_page(index, std::move(panel));
-    wire_result_playback_panel();
-  } else if (index == report_tab_ && !report_panel_) {
-    auto panel = std::make_unique<ReportPanel>();
-    report_panel_ = panel.get();
-    inspector_tabs_->replace_page(index, std::move(panel));
-    // P1-3: WebView2 ReportBrowser is created inside wire_report_panel.
-    wire_report_panel();
-  } else if (index == atmosphere_tab_ && !atmosphere_panel_) {
-    if (browser_->plugins()) {
-      (void)browser_->plugins()->ensure_builtins();
-      if (content::PluginHost* host = browser_->plugins()->host()) {
-        (void)host->open_dock("world3d.atmosphere");
-      }
-    }
-  }
+  inspector_host_->ensure_inspector_tab(index);
 }
 
 void BrowserView::sync_status() {
@@ -1090,6 +186,17 @@ void BrowserView::sync_status() {
     return;
   }
   status_bar_->set_status(detail::wide_to_utf8(pane->status_text()));
+  // Keep Map|3D underline aligned with the live GPU present face. A mouse
+  // set_active or plugin present_dataset can leave chrome on Map while
+  // Scene3d is showing (plain-launch visual_review #6).
+  if (map_tabs_ && map_scene_ && map_scene_->present_hwnd() &&
+      IsWindow(map_scene_->present_hwnd()) &&
+      IsWindowVisible(map_scene_->present_hwnd()) &&
+      map_tabs_->active() != 1) {
+    map_tabs_->set_active(1);
+    map_tabs_->schedule_paint();
+    widget_.schedule_paint();
+  }
 }
 
 void BrowserView::select_map_tab(int index) {
@@ -1097,7 +204,7 @@ void BrowserView::select_map_tab(int index) {
 }
 
 void BrowserView::show_feature_info_tab() {
-  show_inspector_tab_index(feature_info_tab_ >= 0 ? feature_info_tab_ : 0);
+  inspector_host_->show_feature_info_tab();
 }
 
 void BrowserView::schedule_overlay_full_redraw() {
@@ -1127,9 +234,6 @@ void BrowserView::schedule_overlay_full_redraw() {
            });
 }
 
-// Thin forwards to horizon composers (deep split of former multi-TU
-// BrowserView method bodies).
-
 void BrowserView::attach_viewports() {
   map_pages_->attach_viewports();
 }
@@ -1154,7 +258,8 @@ void BrowserView::wire_tool_seams() {
   map_pages_->wire_tool_seams();
 }
 
-void BrowserView::for_each_draw_host(const std::function<void(ui::views::DrawHost*)>& fn) const {
+void BrowserView::for_each_draw_host(
+    const std::function<void(ui::views::DrawHost*)>& fn) const {
   map_pages_->for_each_draw_host(fn);
 }
 
@@ -1223,7 +328,7 @@ void BrowserView::attach_hwnd_gestures() {
   map_pages_->attach_hwnd_gestures();
 }
 
-void BrowserView::configure_gestures(MapHwndGestures* gestures) {
+void BrowserView::configure_gestures(content::MapHwndGestures* gestures) {
   map_pages_->configure_gestures(gestures);
 }
 
@@ -1271,7 +376,8 @@ void BrowserView::run_processing_operator(const std::string& processing_id) {
   processing_->run_processing_operator(processing_id);
 }
 
-void BrowserView::run_processing_operator(const std::string& processing_id, const std::string& distance) {
+void BrowserView::run_processing_operator(const std::string& processing_id,
+                                          const std::string& distance) {
   processing_->run_processing_operator(processing_id, distance);
 }
 
@@ -1344,74 +450,7 @@ void BrowserView::toggle_debug_console() {
 }
 
 void BrowserView::attach_plugin_shell_ui() {
-  if (!browser_ || !browser_->plugins() || !browser_->plugins()->host()) {
-    return;
-  }
-  plugin::ShellUiSink* ui = plugin::shell_ui(browser_->plugins()->host());
-  if (!ui) {
-    return;
-  }
-  ui->set_bridges(
-      [this](std::string_view dock_id, std::string_view title,
-             std::unique_ptr<ui::views::View> page) {
-        if (!page || !inspector_tabs_) {
-          return false;
-        }
-        std::function<ui::views::AtmospherePanel*(ui::views::View*)> find_atmo =
-            [&](ui::views::View* v) -> ui::views::AtmospherePanel* {
-          if (!v) {
-            return nullptr;
-          }
-          if (auto* p = dynamic_cast<ui::views::AtmospherePanel*>(v)) {
-            return p;
-          }
-          for (size_t i = 0; i < v->child_count(); ++i) {
-            if (auto* p = find_atmo(v->child_at(i))) {
-              return p;
-            }
-          }
-          return nullptr;
-        };
-        if (dock_id == "world3d.atmosphere" && atmosphere_tab_ >= 0) {
-          atmosphere_panel_ = find_atmo(page.get());
-          return inspector_tabs_->replace_page(atmosphere_tab_,
-                                               std::move(page));
-        }
-        (void)title;
-        inspector_tabs_->add_tab(std::string(title), std::move(page));
-        return true;
-      },
-      [this](int tab) {
-        if (!diagnostic_tools_) {
-          return false;
-        }
-        diagnostic_tools_->set_visible_tools(true);
-        diagnostic_tools_->set_active_tab(tab);
-        return true;
-      },
-      [this](std::string_view panel) {
-        if (panel == "measure") {
-          show_inspector_tab_index(measure_tab_);
-          return true;
-        }
-        if (panel == "selection") {
-          show_inspector_tab_index(selection_tab_);
-          return true;
-        }
-        if (panel == "legend") {
-          show_inspector_tab_index(legend_tab_);
-          return true;
-        }
-        if (panel == "layer") {
-          show_inspector_tab_index(layer_props_tab_);
-          return true;
-        }
-        if (panel == "atmosphere") {
-          show_inspector_tab_index(atmosphere_tab_);
-          return true;
-        }
-        return false;
-      });
+  inspector_host_->attach_plugin_shell_ui();
 }
 
 }  // namespace app

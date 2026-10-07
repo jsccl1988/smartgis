@@ -18,8 +18,9 @@ namespace ui {
 namespace views {
 namespace {
 
-// Matches paint_schedule is_large_dirty (area > client/5) inverted: hover-sized
-// dirty must not take the full-DIB swap path when a matching front exists.
+// Matches paint_schedule is_large_dirty inverted (U4): dirty under ~1/4 of the
+// client stays a subset publish when a matching front exists. Was 1/5 — raise
+// slightly so menu/panel dirties prefer dirty-rect raster over full-DIB swap.
 bool is_small_raster_dirty(const Rect& dirty, int width_px, int height_px) {
   if (dirty.width <= 0 || dirty.height <= 0 || width_px <= 0 || height_px <= 0) {
     return false;
@@ -28,7 +29,7 @@ bool is_small_raster_dirty(const Rect& dirty, int width_px, int height_px) {
                                   static_cast<std::int64_t>(dirty.height);
   const std::int64_t frame_area =
       static_cast<std::int64_t>(width_px) * static_cast<std::int64_t>(height_px);
-  return dirty_area * 5 < frame_area;
+  return dirty_area * 4 < frame_area;
 }
 
 Rect clamp_raster_dirty(Rect dirty, int width_px, int height_px) {

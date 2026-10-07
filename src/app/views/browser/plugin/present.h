@@ -9,8 +9,8 @@
 #include <string_view>
 
 namespace content {
+class BrowserSession;
 class MapScene;
-class Map2dPresenter;
 class PluginHost;
 }
 
@@ -24,12 +24,12 @@ class PluginShell;
 namespace detail {
 
 // Switch the shell Map / Scene3D tab so plugin results paint in the main view.
-void present_plugin_map2d(BrowserUiDelegate* ui, content::Map2dPresenter* map2d,
+void present_plugin_map2d(BrowserUiDelegate* ui, content::BrowserSession* session,
                           const std::function<void()>& fit_extent);
 void present_plugin_scene3d(BrowserUiDelegate* ui);
 
 // surface 0 = main tabs; surface 1 = shared MapPreview / WorldPreview window.
-bool present_plugin_dataset(Browser* browser, content::Map2dPresenter* map2d,
+bool present_plugin_dataset(Browser* browser,
                             const std::function<void()>& fit_extent,
                             std::string_view path, int face, int surface);
 
@@ -43,8 +43,8 @@ std::string present_frame_processing_id(content::PluginHost* host,
 bool present_plugin_frame(PluginShell* plugins, PluginPlayback* session,
                           int index);
 
-int export_plugin_frames(PluginShell* plugins, PluginPlayback* session,
-                         content::Map2dPresenter* map2d,
+int export_plugin_frames(PluginShell* plugins, PluginPlayback* playback,
+                         content::BrowserSession* session,
                          const std::string& dir_leaf);
 
 }  // namespace detail

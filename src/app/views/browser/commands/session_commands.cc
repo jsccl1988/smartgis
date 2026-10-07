@@ -11,7 +11,7 @@
 #include <utility>
 
 #include "app/views/browser/plugin/plugin_shell.h"
-#include "vista/component/world/atmosphere/field/field_channel.h"
+#include "content/browser/session/browser_session.h"
 #include "plugin/runtime/processing/builtin_ops.h"
 #include "plugin/runtime/processing/ops_runner.h"
 #include "ui/gis/shell/atmosphere_panel.h"
@@ -90,7 +90,8 @@ bool Browser::run_m2_harness_hooks(std::string* err) {
   if (!plugin::run_builtin_op("native.buffer", buf_args)) {
     return fail("m2: run native.buffer failed");
   }
-  if (!session_->document().open_path(out_buf.string()) || session_->document().feature_count() < 1) {
+  if (!session_->open_document(out_buf.string()) ||
+      session_->document_feature_count() < 1) {
     return fail("m2: buffer write-back produced no features");
   }
 
@@ -101,7 +102,8 @@ bool Browser::run_m2_harness_hooks(std::string* err) {
   if (!plugin::run_builtin_op("native.clip", clip_args)) {
     return fail("m2: run native.clip failed");
   }
-  if (!session_->document().open_path(out_clip.string()) || session_->document().feature_count() < 1) {
+  if (!session_->open_document(out_clip.string()) ||
+      session_->document_feature_count() < 1) {
     return fail("m2: clip write-back produced no features");
   }
 
@@ -117,27 +119,14 @@ bool Browser::run_m2_harness_hooks(std::string* err) {
 }
 
 bool Browser::apply_atmosphere_fields(std::string_view spec) {
-  const bool ok = session_->scene3d().atmosphere_session().load_fields(spec);
+  const bool ok = session_->load_scene3d_fields(spec);
   ui::views::AtmospherePanel* panel = ui_ ? ui_->atmosphere_panel() : nullptr;
   if (ok && panel) {
     double t_min = 0.0;
     double t_max = 3600.0;
-    if (auto* env = session_->scene3d().atmosphere_session().environment()) {
-      static const vista::atmosphere::FieldChannel kRangeOrder[] = {
-          vista::atmosphere::FieldChannel::kWaveHs,
-          vista::atmosphere::FieldChannel::kCloudCover,
-          vista::atmosphere::FieldChannel::kWindU,
-          vista::atmosphere::FieldChannel::kWindV,
-          vista::atmosphere::FieldChannel::kWaveDir,
-          vista::atmosphere::FieldChannel::kCloudBase,
-          vista::atmosphere::FieldChannel::kCloudTop,
-          vista::atmosphere::FieldChannel::kSeaMask,
-      };
-      for (vista::atmosphere::FieldChannel ch : kRangeOrder) {
-        if (env->timed_field_range(ch, &t_min, &t_max)) {
-          break;
-        }
-      }
+    if (!session_->scene3d_time_range(&t_min, &t_max)) {
+      t_min = 0.0;
+      t_max = 3600.0;
     }
     if (t_max < t_min) {
       std::swap(t_min, t_max);
@@ -146,7 +135,7 @@ bool Browser::apply_atmosphere_fields(std::string_view spec) {
       t_max = t_min + 1.0;
     }
     panel->set_time_range(t_min, t_max);
-    panel->set_time_sec(session_->scene3d().atmosphere_session().time_sec());
+    panel->set_time_sec(session_->scene3d_time_sec());
   }
   if (ui_) {
     if (ok) {

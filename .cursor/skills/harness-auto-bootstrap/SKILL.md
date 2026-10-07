@@ -175,7 +175,7 @@ Debug product cold start, sync China, sync first present:
 
 - Same hot span unchanged **3+** iterations
 - First present timeout / blank map after a “perf” change
-- Crash / AV → `windbg-crash-diagnose`, then return here
+- Crash / AV / hang → `auto-diagnose-fix`, then return here
 
 ## Communication
 

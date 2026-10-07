@@ -26,12 +26,15 @@ inline COLORREF rgba_to_colorref(uint32_t rgba) {
 }
 
 // Rasters a MapIR to an HDC (world items projected; pixel_space as-is).
-// |load_raster| resolves DrawKind::kRaster texture_key → tightly packed RGBA8.
+// |borrow_raster| (preferred) or |load_raster| resolves kRaster texture_key
+// → tightly packed RGBA8. Borrow avoids copying the DEM hillshade bake.
 void paint_map_frame_gdi(
     HDC hdc, const vista::MapIR& frame, const vista::View& view,
     bool fill_background,
     const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
-                             int* w, int* h)>& load_raster = {});
+                             int* w, int* h)>& load_raster = {},
+    const std::function<bool(uint32_t texture_key, const uint8_t** rgba, int* w,
+                             int* h)>& borrow_raster = {});
 
 }  // namespace detail
 }  // namespace content

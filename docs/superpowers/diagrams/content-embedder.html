@@ -1,0 +1,355 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content public embedder — 产品只含公开面</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --product: #3d6b9a; --public: #2563a8; --impl: #2f7d62; --plugin: #8a6232;
+    --wait: #1d4f86; --nojoin: #8b3a3a;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta, .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: 1.05fr 1.15fr 1.15fr; gap: 8px; }
+  @media (max-width: 860px) { .lanes { grid-template-columns: 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    background: var(--panel2); min-height: 210px;
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.8rem; color: var(--muted); }
+  .lane li { margin: 3px 0; }
+  .lane.product { border-top: 3px solid var(--product); background: #eef4f8; }
+  .lane.public { border-top: 3px solid var(--public); background: #e8f1fa; }
+  .lane.impl { border-top: 3px solid var(--impl); background: #e7f4ee; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .flow { fill: none; stroke: #8a96a8; stroke-width: 1.6; marker-end: url(#arrow); }
+  .flow.wait { stroke: var(--wait); stroke-width: 2.2; }
+  .flow.block { stroke: var(--nojoin); stroke-dasharray: 4 3; marker-end: url(#arrowStop); }
+  .node { transition: stroke 0.25s, fill 0.25s; }
+  .pulse { stroke-dasharray: 7 5; animation: dash 0.9s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  .stage-note {
+    margin-top: 8px; min-height: 2.6em; font-size: 0.85rem; color: var(--text);
+  }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+  button {
+    appearance: none; border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .legend { color: var(--muted); font-size: 0.82rem; }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .pill {
+    display: inline-block; font-size: 0.75rem; font-weight: 650;
+    border-radius: 4px; padding: 1px 6px; margin-right: 4px;
+  }
+  .pill-wait { background: #e8f1fa; color: var(--wait); }
+  .pill-stop { background: #f8ecec; color: var(--nojoin); }
+  .pill-plugin { background: #f8efe4; color: var(--plugin); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Content public embedder — 产品只含公开面</h1>
+    <p>
+      产品（今天 <code>app/views</code>，以及未来 exe）只实现 <code>ContentClient</code> 并包含
+      <code>content/public</code> 的七个既有头。<code>content</code> 不依赖 <code>src/app</code> 或
+      <code>ui/views</code>。插件只经 <code>PluginHost</code> 进入，不走第二条嵌入轴。
+    </p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md#content-public-embedder">§Content public embedder</a>
+      · 目录层（另一张图，不在本图重开 C11）：<a href="./content-browser-layers.html">content/browser 责任层</a>
+    </div>
+    <div class="rel">相关：
+      <a href="./ui-views-shell-architecture.html">Views shell</a>
+      <a href="../../../src/content/README.md">src/content/README.md</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 泳道（谁拥有哪一层）</h2>
+    <div class="lanes">
+      <div class="lane product">
+        <h3>产品 · embedder</h3>
+        <ul>
+          <li>今天：<code>app/views</code>（SmartGIS.exe）</li>
+          <li>未来：另一套壳的 exe，不包含 <code>app/views</code></li>
+          <li>实现 <code>ContentClient</code>（仅浏览器进程钩子）</li>
+          <li>运行时调用七个头，不包含实现目录</li>
+        </ul>
+      </div>
+      <div class="lane public">
+        <h3>content/public · 唯一嵌入 API</h3>
+        <ul>
+          <li><code>ContentClient</code> + <code>content_main(params, ContentClient&amp;)</code></li>
+          <li><code>MapContents</code> · <code>GisDocument</code> · <code>ViewHost</code></li>
+          <li><code>PluginHost</code> · <code>EventBus</code> · <code>map_layer_types</code> · <code>map_bootstrap</code></li>
+          <li>七个既有头签名不动；新增只这一份 client 头</li>
+        </ul>
+      </div>
+      <div class="lane impl">
+        <h3>content 实现 · 产品不可见</h3>
+        <ul>
+          <li><code>browser</code> / <code>renderer</code> / <code>view</code> / <code>embed</code> / <code>app</code></li>
+          <li>renderer / gpu 分发在这一侧完成</li>
+          <li><code>BrowserSession</code> · <code>ViewFrame</code> · presenter 留在这里</li>
+          <li><code>CapabilityHost</code> 是 <code>il.runtime</code> 缝，不进 public</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（谁等待，谁永不 join）</h2>
+    <svg class="diagram" id="flow" viewBox="0 0 1040 520" role="img" aria-label="产品到公开面到 content 实现的嵌入流">
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#5a6a7e"/>
+        </marker>
+        <marker id="arrowWait" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#1d4f86"/>
+        </marker>
+        <marker id="arrowStop" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8b3a3a"/>
+        </marker>
+      </defs>
+
+      <rect x="16" y="16" width="250" height="488" rx="8" fill="#eef4f8" stroke="#d8dee6"/>
+      <rect x="390" y="16" width="250" height="488" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <rect x="774" y="16" width="250" height="488" rx="8" fill="#e7f4ee" stroke="#d8dee6"/>
+      <text x="28" y="40" class="box-title" fill="#3d6b9a">产品</text>
+      <text x="402" y="40" class="box-title" fill="#2563a8">content/public</text>
+      <text x="786" y="40" class="box-title" fill="#2f7d62">content 实现</text>
+
+      <g id="n-views" class="node">
+        <rect x="32" y="58" width="218" height="52" rx="6" fill="#fff" stroke="#3d6b9a"/>
+        <text x="44" y="78" class="box-title">app/views</text>
+        <text x="44" y="96" class="box-sub">今天的 SmartGIS.exe</text>
+      </g>
+      <g id="n-future" class="node">
+        <rect x="32" y="122" width="218" height="44" rx="6" fill="#fff" stroke="#3d6b9a"/>
+        <text x="44" y="148" class="box-title">未来产品 exe</text>
+      </g>
+      <g id="n-client-impl" class="node">
+        <rect x="32" y="180" width="218" height="64" rx="6" fill="#fff" stroke="#1d4f86"/>
+        <text x="44" y="202" class="box-title">实现 ContentClient</text>
+        <text x="44" y="220" class="box-sub">只提供 browser_main</text>
+        <text x="44" y="236" class="box-sub">产品在此等待</text>
+      </g>
+      <g id="n-plugin" class="node">
+        <rect x="32" y="390" width="218" height="64" rx="6" fill="#fff" stroke="#8a6232"/>
+        <text x="44" y="414" class="box-title">plugin/product</text>
+        <text x="44" y="432" class="box-sub">进程内插件，不是新产品</text>
+        <text x="44" y="448" class="box-sub">不实现 ContentClient</text>
+      </g>
+
+      <g id="n-main" class="node">
+        <rect x="406" y="58" width="218" height="52" rx="6" fill="#fff" stroke="#2563a8"/>
+        <text x="418" y="78" class="box-title">content_main</text>
+        <text x="418" y="96" class="box-sub">params, ContentClient&amp;</text>
+      </g>
+      <g id="n-client" class="node">
+        <rect x="406" y="124" width="218" height="52" rx="6" fill="#fff" stroke="#1d4f86"/>
+        <text x="418" y="144" class="box-title">ContentClient</text>
+        <text x="418" y="162" class="box-sub">浏览器进程钩子</text>
+      </g>
+      <g id="n-seven" class="node">
+        <rect x="406" y="190" width="218" height="118" rx="6" fill="#fff" stroke="#2563a8"/>
+        <text x="418" y="210" class="box-title">七个既有头</text>
+        <text x="418" y="228" class="box-sub">MapContents · GisDocument</text>
+        <text x="418" y="244" class="box-sub">ViewHost · PluginHost</text>
+        <text x="418" y="260" class="box-sub">EventBus · map_layer_types</text>
+        <text x="418" y="276" class="box-sub">map_bootstrap</text>
+        <text x="418" y="294" class="box-sub">签名不变</text>
+      </g>
+      <g id="n-pluginhost" class="node">
+        <rect x="406" y="390" width="218" height="52" rx="6" fill="#fff" stroke="#8a6232"/>
+        <text x="418" y="412" class="box-title">PluginHost</text>
+        <text x="418" y="430" class="box-sub">插件的唯一入口</text>
+      </g>
+
+      <g id="n-browser" class="node">
+        <rect x="790" y="58" width="218" height="52" rx="6" fill="#fff" stroke="#2f7d62"/>
+        <text x="802" y="78" class="box-title">browser 回调</text>
+        <text x="802" y="96" class="box-sub">调用 ContentClient</text>
+      </g>
+      <g id="n-dispatch" class="node">
+        <rect x="790" y="124" width="218" height="72" rx="6" fill="#fff" stroke="#8b3a3a"/>
+        <text x="802" y="146" class="box-title">renderer / gpu 分发</text>
+        <text x="802" y="164" class="box-sub">RendererMain · GpuMain</text>
+        <text x="802" y="182" class="box-sub">产品永不 join</text>
+      </g>
+      <g id="n-types" class="node">
+        <rect x="790" y="210" width="218" height="72" rx="6" fill="#fff" stroke="#2f7d62"/>
+        <text x="802" y="232" class="box-title">留在实现里</text>
+        <text x="802" y="250" class="box-sub">BrowserSession · ViewFrame</text>
+        <text x="802" y="266" class="box-sub">presenter · CapabilityHost</text>
+      </g>
+      <g id="n-fence" class="node">
+        <rect x="790" y="360" width="218" height="82" rx="6" fill="#fff" stroke="#8b3a3a"/>
+        <text x="802" y="382" class="box-title">依赖篱笆</text>
+        <text x="802" y="400" class="box-sub">content ↛ app / ui/views</text>
+        <text x="802" y="416" class="box-sub">产品 ↛ browser renderer</text>
+        <text x="802" y="432" class="box-sub">view · embed · app</text>
+      </g>
+
+      <path id="e-call" class="flow wait" marker-end="url(#arrowWait)" d="M250 84 H406"/>
+      <path id="e-hook" class="flow wait" marker-end="url(#arrowWait)" d="M624 150 H790"/>
+      <path id="e-dispatch" class="flow" marker-end="url(#arrow)" d="M624 90 H700 V156 H790" stroke="#2f7d62"/>
+      <path id="e-api" class="flow" marker-end="url(#arrow)" d="M624 248 H790"/>
+      <path id="e-plugin" class="flow" marker-end="url(#arrow)" d="M250 422 H406" stroke="#8a6232"/>
+      <path id="e-nojoin" class="flow block" d="M790 168 H640"/>
+      <path id="e-plugin-stop" class="flow block" d="M141 390 V260"/>
+      <text x="648" y="164" class="box-sub" fill="#8b3a3a">永不 join</text>
+      <text x="118" y="276" class="box-sub" fill="#8b3a3a">不 join</text>
+      <text x="300" y="74" class="box-sub" fill="#1d4f86">等待</text>
+    </svg>
+    <p class="stage-note" id="stage-note">
+      <span class="pill pill-wait">等待</span>
+      产品调用 <code>content_main</code>，然后停在 <code>ContentClient::browser_main</code>。
+    </p>
+    <div class="controls">
+      <button type="button" id="b-wait" class="on">1 产品等待</button>
+      <button type="button" id="b-dispatch">2 renderer/gpu 不 join</button>
+      <button type="button" id="b-plugin">3 插件只进 PluginHost</button>
+      <span class="legend" id="play-label">自动播放</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. 阶段</h2>
+    <table class="map">
+      <thead>
+        <tr><th>阶段</th><th>谁在动</th><th>谁等待</th><th>谁不 join</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>产品 → <code>content_main(params, ContentClient&amp;)</code></td>
+          <td>产品停在浏览器进程钩子，直到浏览器循环返回</td>
+          <td>产品不进入 <code>content/renderer</code> 或 gpu 入口</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>content 读 <code>--type</code>，在实现内部调用 <code>RendererMain</code> / <code>GpuMain</code></td>
+          <td>浏览器进程以外，产品客户端不被调用</td>
+          <td>renderer / gpu <strong>永不 join</strong> 产品。<code>ContentClient</code> 不声明这两个入口</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><code>plugin/product</code> → <code>PluginHost</code></td>
+          <td>插件命令走宿主回调，不阻塞 <code>content_main</code> 的进程分发</td>
+          <td>插件 <strong>不 join</strong> <code>ContentClient</code> 轴，也不变成第二个 exe 壳</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="legend" style="margin-top:8px">
+      <span class="pill pill-wait">实线</span> 嵌入合同
+      <span class="pill pill-stop">虚线</span> 禁止跨层：产品不包含实现目录；renderer/gpu 不回到产品
+      <span class="pill pill-plugin">插件</span> 只接触 <code>PluginHost</code>
+    </p>
+  </section>
+</div>
+<script>
+(function () {
+  var stages = ["wait", "dispatch", "plugin"];
+  var notes = {
+    wait: "<span class=\"pill pill-wait\">等待</span> 产品调用 <code>content_main</code>，然后停在 <code>ContentClient::browser_main</code>。renderer / gpu 这一拍不参与。",
+    dispatch: "<span class=\"pill pill-stop\">永不 join</span> <code>--type=renderer|gpu</code> 在 content 内部分发。<code>ContentClient</code> 不被调用，产品头不包含 <code>content/renderer</code>。",
+    plugin: "<span class=\"pill pill-plugin\">另一条轴</span> 插件只进入 <code>PluginHost</code>。它们不实现 <code>ContentClient</code>，也不等待 <code>content_main</code>。"
+  };
+  var highlight = {
+    wait: ["n-views", "n-future", "n-client-impl", "n-main", "n-client", "n-browser", "e-call", "e-hook"],
+    dispatch: ["n-main", "n-dispatch", "e-dispatch", "e-nojoin"],
+    plugin: ["n-plugin", "n-pluginhost", "e-plugin", "e-plugin-stop"]
+  };
+  var buttons = {
+    wait: document.getElementById("b-wait"),
+    dispatch: document.getElementById("b-dispatch"),
+    plugin: document.getElementById("b-plugin")
+  };
+  var note = document.getElementById("stage-note");
+  var index = 0;
+  var timer = null;
+
+  function paint(name) {
+    var on = {};
+    highlight[name].forEach(function (id) { on[id] = true; });
+    document.querySelectorAll("#flow .node rect, #flow .flow").forEach(function (el) {
+      var id = el.id || (el.parentNode && el.parentNode.id);
+      var active = !!on[id];
+      if (el.tagName === "rect") {
+        el.setAttribute("stroke-width", active ? "2.4" : "1");
+        el.setAttribute("fill", active ? "#fffdf6" : "#fff");
+      } else if (active) {
+        el.classList.add("pulse");
+      } else {
+        el.classList.remove("pulse");
+      }
+    });
+    note.innerHTML = notes[name];
+    Object.keys(buttons).forEach(function (key) {
+      buttons[key].classList.toggle("on", key === name);
+    });
+  }
+
+  function show(name) {
+    index = stages.indexOf(name);
+    paint(name);
+  }
+
+  Object.keys(buttons).forEach(function (key) {
+    buttons[key].addEventListener("click", function () {
+      if (timer) { clearInterval(timer); timer = null; }
+      document.getElementById("play-label").textContent = "已暂停";
+      show(key);
+    });
+  });
+
+  paint("wait");
+  timer = setInterval(function () {
+    index = (index + 1) % stages.length;
+    paint(stages[index]);
+  }, 2800);
+})();
+</script>
+</body>
+</html>

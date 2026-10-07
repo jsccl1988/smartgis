@@ -9,6 +9,7 @@
 
 #include "vista/mesh/detail/mesh_append.h"
 #include "vista/mesh/detail/mesh_scratch.h"
+#include "vista/mesh/detail/mesh_simd.h"
 #include "vista/mesh/detail/tess_trace.h"
 #include "ogrsf_frmts.h"
 
@@ -90,27 +91,20 @@ void tessellate_ring_fan(const OGRLinearRing* ring, const FillTessOptions& opts,
   const int max_verts =
       opts.max_fan_verts > 3 ? opts.max_fan_verts : 8192;
 
-  // Envelope extrema (always retained when decimating).
+  // Pull OGR ring once into contiguous SoA — RDP / extrema hit virtual
+  // getX/getY otherwise, and SIMD needs dense buffers.
+  std::vector<double> xs(static_cast<size_t>(n));
+  std::vector<double> ys(static_cast<size_t>(n));
+  for (int i = 0; i < n; ++i) {
+    xs[static_cast<size_t>(i)] = ring->getX(i);
+    ys[static_cast<size_t>(i)] = ring->getY(i);
+  }
+
   int i_n = 0;
   int i_s = 0;
   int i_e = 0;
   int i_w = 0;
-  for (int i = 1; i < n; ++i) {
-    const double x = ring->getX(i);
-    const double y = ring->getY(i);
-    if (y > ring->getY(i_n)) {
-      i_n = i;
-    }
-    if (y < ring->getY(i_s)) {
-      i_s = i;
-    }
-    if (x > ring->getX(i_e)) {
-      i_e = i;
-    }
-    if (x < ring->getX(i_w)) {
-      i_w = i;
-    }
-  }
+  find_xy_extrema(xs.data(), ys.data(), n, &i_n, &i_s, &i_e, &i_w);
 
   std::vector<int> keep;
   keep.reserve(static_cast<size_t>((std::min)(n, max_verts) + 8));
@@ -150,36 +144,8 @@ void tessellate_ring_fan(const OGRLinearRing* ring, const FillTessOptions& opts,
       if (s.b <= s.a + 1) {
         continue;
       }
-      const double ax = ring->getX(s.a);
-      const double ay = ring->getY(s.a);
-      const double bx = ring->getX(s.b);
-      const double by = ring->getY(s.b);
-      const double dx = bx - ax;
-      const double dy = by - ay;
-      const double len2 = dx * dx + dy * dy;
-      int farthest = -1;
-      double best = tol2;
-      for (int i = s.a + 1; i < s.b; ++i) {
-        const double px = ring->getX(i);
-        const double py = ring->getY(i);
-        double d2;
-        if (len2 <= kEps) {
-          const double ex = px - ax;
-          const double ey = py - ay;
-          d2 = ex * ex + ey * ey;
-        } else {
-          const double t = ((px - ax) * dx + (py - ay) * dy) / len2;
-          const double qx = ax + t * dx;
-          const double qy = ay + t * dy;
-          const double ex = px - qx;
-          const double ey = py - qy;
-          d2 = ex * ex + ey * ey;
-        }
-        if (d2 > best) {
-          best = d2;
-          farthest = i;
-        }
-      }
+      const int farthest =
+          rdp_farthest_index(xs.data(), ys.data(), s.a, s.b, tol2);
       if (farthest < 0) {
         continue;
       }
@@ -221,7 +187,7 @@ void tessellate_ring_fan(const OGRLinearRing* ring, const FillTessOptions& opts,
   std::vector<PolyPt>& pts = *pts_holder;
   pts.reserve(keep.size());
   for (int i : keep) {
-    pts.push_back({ring->getX(i), ring->getY(i), 0});
+    pts.push_back({xs[static_cast<size_t>(i)], ys[static_cast<size_t>(i)], 0});
   }
   if (pts.size() < 3) {
     return;

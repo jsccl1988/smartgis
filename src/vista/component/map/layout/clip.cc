@@ -29,7 +29,7 @@ std::unique_ptr<OGRPolygon> make_aabb_polygon(const LayoutTile& tile) {
 
 bool prepare_tile_clip(const OGRGeometry* geom, const LayoutTile* tile,
                        std::vector<std::unique_ptr<OGRGeometry>>* store,
-                       const OGRGeometry** use) {
+                       const OGRGeometry** use, bool intersect) {
   if (!use) {
     return false;
   }
@@ -37,7 +37,7 @@ bool prepare_tile_clip(const OGRGeometry* geom, const LayoutTile* tile,
   if (!geom) {
     return false;
   }
-  if (!tile || !store) {
+  if (!tile) {
     return true;
   }
   OGREnvelope env;
@@ -45,7 +45,8 @@ bool prepare_tile_clip(const OGRGeometry* geom, const LayoutTile* tile,
   if (!aabb_intersects(env.MinX, env.MinY, env.MaxX, env.MaxY, *tile)) {
     return false;
   }
-  if (aabb_contained(env.MinX, env.MinY, env.MaxX, env.MaxY, *tile)) {
+  if (!intersect || !store ||
+      aabb_contained(env.MinX, env.MinY, env.MaxX, env.MaxY, *tile)) {
     return true;
   }
   std::unique_ptr<OGRPolygon> clip = make_aabb_polygon(*tile);
@@ -57,6 +58,12 @@ bool prepare_tile_clip(const OGRGeometry* geom, const LayoutTile* tile,
   store->emplace_back(hit);
   *use = store->back().get();
   return true;
+}
+
+bool prepare_tile_clip(const OGRGeometry* geom, const LayoutTile* tile,
+                       std::vector<std::unique_ptr<OGRGeometry>>* store,
+                       const OGRGeometry** use) {
+  return prepare_tile_clip(geom, tile, store, use, /*intersect=*/true);
 }
 
 }  // namespace detail

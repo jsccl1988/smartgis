@@ -5,17 +5,18 @@ import("//build/smartgis.gni")
 import("//testing/benchmark.gni")
 import("//testing/test.gni")
 
-# DEM domain (raster, hillshade, land mask). No World type in these headers.
-# Seed-into-World lives in //src/vista/component/world:world_sources (terrain/seed).
+# DEM domain layers under dem/{raster,shade,mask,bake,nv,cache,contour,height}.
+# No World type in these headers. Seed-into-World lives in
+# //src/vista/component/world:world_sources (terrain/seed).
 
 _thrust_gis_obj = "$root_out_dir/obj/vista_thrust_gis.cu.obj"
 if (has_cuda) {
   action("thrust_gis_cu") {
     script = "//build/nvcc_obj.py"
-    sources = [ "process/nv/thrust_gis.cu" ]
+    sources = [ "dem/nv/thrust_gis.cu" ]
     inputs = [
-      "process/nv/thrust_gis.h",
-      "process/nv/bake_pixel.h",
+      "dem/nv/thrust_gis.h",
+      "dem/nv/bake_pixel.h",
       "//build/nvcc_obj.py",
     ]
     outputs = [ _thrust_gis_obj ]
@@ -23,7 +24,7 @@ if (has_cuda) {
       "--nvcc",
       cuda_home + "/bin/nvcc.exe",
       "--src",
-      rebase_path("process/nv/thrust_gis.cu", root_build_dir),
+      rebase_path("dem/nv/thrust_gis.cu", root_build_dir),
       "--out",
       rebase_path(_thrust_gis_obj, root_build_dir),
       "--include",
@@ -39,9 +40,9 @@ if (has_cuda) {
 
 source_set("land_mask") {
   sources = [
-    "process/land_mask.cc",
-    "process/land_mask.h",
-    "process/nv/thrust_gis.h",
+    "dem/mask/land_mask.cc",
+    "dem/mask/land_mask.h",
+    "dem/nv/thrust_gis.h",
   ]
   include_dirs += [ "//src" ]
   deps = [
@@ -54,7 +55,7 @@ source_set("land_mask") {
     libs = [ "cudart.lib" ]
     ldflags = [ rebase_path(_thrust_gis_obj, root_build_dir) ]
   } else {
-    sources += [ "process/nv/thrust_gis_stub.cc" ]
+    sources += [ "dem/nv/thrust_gis_stub.cc" ]
   }
 }
 
@@ -146,18 +147,53 @@ benchmark("dem_io_benchmark") {
   ]
 }
 
+# AVX2-width lit / LOD / minmax via vir-simd. Separate TU so scalar files stay
+# free of /arch:AVX2 (same pattern as map_multiply_avx2).
+source_set("dem_shade_avx2") {
+  sources = [
+    "dem/detail/dem_simd.h",
+    "dem/detail/dem_simd_avx2.cc",
+    "dem/shade/lit_avx2.cc",
+    "dem/shade/lit_kern.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  if (current_cpu == "x64" || current_cpu == "x86") {
+    configs += [ "//src/base/math:math_simd_avx2" ]
+  }
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  public_deps = [ "//src/base/simd:simd" ]
+}
+
 # Compiled into //src/vista:vista (dll_stem = vista).
 source_set("terrain_sources") {
   sources = [
+    "dem/bake/bake_backend.h",
+    "dem/bake/bake_parallel.h",
     "dem/dem_frame.h",
-    "dem/dem_height_field.cc",
-    "dem/dem_height_field.h",
-    "dem/dem_raster.cc",
-    "dem/dem_raster.h",
-    "process/bake_backend.h",
-    "process/bake_parallel.h",
-    "process/dem_hillshade.cc",
-    "process/dem_hillshade.h",
+    "dem/detail/dem_simd.cc",
+    "dem/detail/dem_simd.h",
+    "dem/height/dem_height_field.cc",
+    "dem/height/dem_height_field.h",
+    "dem/raster/bake_util.h",
+    "dem/raster/dem_raster.h",
+    "dem/raster/drape.cc",
+    "dem/raster/grid.cc",
+    "dem/raster/hypso.cc",
+    "dem/raster/load.cc",
+    "dem/raster/material.cc",
+    "dem/raster/mesh.cc",
+    "dem/raster/overlay.cc",
+    "dem/raster/sample.cc",
+    "dem/raster/synthetic.cc",
+    "dem/raster/synthetic.h",
+    "dem/shade/dem_hillshade.cc",
+    "dem/shade/dem_hillshade.h",
+    "dem/shade/lit_kern.h",
+    "dem/shade/lit_dispatch.cc",
   ]
   include_dirs += [ "//src" ]
   configs += [ "//build:legacy" ]
@@ -173,6 +209,7 @@ source_set("terrain_sources") {
   public_deps = [
     ":dem_bake_cache_sources",
     ":dem_contour_sources",
+    ":dem_shade_avx2",
     ":land_mask",
     "//third_party:gdal",
   ]
@@ -189,7 +226,7 @@ group("terrain") {
 
 test("land_mask_test") {
   output_name = "land_mask_test"
-  sources = [ "process/land_mask_test.cc" ]
+  sources = [ "dem/mask/land_mask_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
     ":land_mask",
@@ -205,6 +242,24 @@ test("dem_raster_test") {
   configs = [ "//build:legacy" ]
   deps = [
     ":terrain",
+    "//third_party:gdal",
+  ]
+}
+
+# Dataset × scheme matrix: shade / mesh / hypso under serial|parallel ×
+# scalar|simd|cuda. Writes captures/analysis/terrain_kernel/.
+# Links terrain_sources in-process (not vista.dll) so the matrix can build
+# while vista_d.dll is locked by a running shell.
+test("dem_kernel_benchmark") {
+  output_name = "dem_kernel_benchmark"
+  sources = [ "dem/dem_kernel_benchmark.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":terrain_sources",
+    "//src/base:base",
+    "//src/base/execution:execution",
+    "//src/gis:gis",
     "//third_party:gdal",
   ]
 }

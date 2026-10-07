@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "app/views/browser/browser.h"
+#include "content/browser/present/host/blit_frame_cache.h"
 #include "app/views/il.runtime/backend/horizon/atom/mark.h"
 #include "content/public/view_host.h"
 #include "ui/views/map/viewport/draw_host.h"

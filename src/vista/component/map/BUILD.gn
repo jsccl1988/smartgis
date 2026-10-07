@@ -14,6 +14,8 @@ source_set("map_sources") {
     "batch.h",
     "carto/filter.cc",
     "carto/filter.h",
+    "carto/resolve.cc",
+    "carto/resolve.h",
     "carto/style.cc",
     "carto/collision.cc",
     "carto/collision.h",
@@ -24,8 +26,12 @@ source_set("map_sources") {
     "mvt/mvt.h",
     "place/place.cc",
     "place/place.h",
+    "shade/attach.cc",
+    "shade/attach.h",
     "shade/bake.cc",
     "shade/bake.h",
+    "tile/math.cc",
+    "tile/math.h",
     "layout.cc",
     "layout.h",
     "layout/attrs.cc",
@@ -113,6 +119,7 @@ source_set("map_multiply_avx2") {
     "_USRDLL",
     "VISTA_EXPORTS",
   ]
+  public_deps = [ "//src/base/simd:simd" ]
 }
 
 # Scalar vs AVX2 vs public dispatch. Kernel time only (memcpy is paused).

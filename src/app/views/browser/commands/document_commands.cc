@@ -13,7 +13,7 @@
 #include <windows.h>
 
 #include "app/views/browser/commands/app_commands.h"
-#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
+#include "content/browser/session/browser_session.h"
 #include "content/public/map_contents.h"
 #include "content/public/view_host.h"
 #include "ui/views/dialogs/file_picker.h"
@@ -59,7 +59,7 @@ bool Browser::run_tool_command(std::string_view command_id) {
     // 2D fit does not pull the orbit back out of a clipped DEM. Full on the
     // 3D tab restores the framed yaw/pitch/distance.
     if (ui_->scene3d_tab_active()) {
-      session_->orbit_frame().reset();
+      session_->reset_orbit();
       ui_->invalidate_native_scene();
     }
     ui_->set_status_message("View full extent");
@@ -76,10 +76,11 @@ bool Browser::run_tool_command(std::string_view command_id) {
   }
   if (id == "view.engine.flycube" || id == "view.engine.stereo_gl" ||
       id == "view.engine.gdi") {
-    Scene3dEngine engine = Scene3dEngine::kFlyCube;
+    bool stereo = false;
+    bool gdi = false;
     const char* label = "Views Scene3D (FlyCube/DX12)";
     if (id == "view.engine.stereo_gl") {
-      engine = Scene3dEngine::kStereoGl;
+      stereo = true;
       // Default leftover stereo is D3D11; OpenGL is opt-in.
       bool d3d = true;
       if (const char* api = base::switch_cstr("stereo-api")) {
@@ -97,18 +98,23 @@ bool Browser::run_tool_command(std::string_view command_id) {
       }
       label = d3d ? "Legacy Scene3D (D3D11)" : "Legacy Scene3D (OpenGL)";
     } else if (id == "view.engine.gdi") {
-      engine = Scene3dEngine::kGdi;
+      gdi = true;
       label = "Views Scene3D (GDI)";
     }
-    set_scene3d_engine(engine);
-    session_->scene3d().set_render_engine_name(label);
-    if (engine != Scene3dEngine::kStereoGl) {
-      session_->scene3d_stereo().release();
+    if (stereo) {
+      session_->select_scene3d_stereo_gl(label);
+    } else if (gdi) {
+      session_->select_scene3d_gdi(label);
+    } else {
+      session_->select_scene3d_flycube(label);
+    }
+    if (!stereo) {
+      session_->release_scene3d_stereo();
     }
     ui_->reattach_scene_draw_host();
     if (HWND hwnd = ui_->scene_native_hwnd()) {
-      if (prefer_scene3d_stereo_gl()) {
-        (void)session_->scene3d_stereo().try_attach(hwnd);
+      if (content::BrowserSession::prefers_scene3d_stereo_gl()) {
+        (void)session_->try_attach_scene3d_stereo(hwnd);
       }
       RECT rc = {};
       GetClientRect(hwnd, &rc);
@@ -122,7 +128,7 @@ bool Browser::run_tool_command(std::string_view command_id) {
     return true;
   }
   if (id == "selection.clear") {
-    session_->document().clear_selection();
+    session_->clear_selection();
     host->execute("flash.stop", view_id);
     flash_lit_ = true;
     ui_->sync_flash_timer();
@@ -168,23 +174,23 @@ void Browser::on_open() {
     detail::catalog_call(session, std::string("{\"op\":\"open\",\"path\":\"") +
                                       detail::json_escape(cmd.path) + "\"}");
   }
-  session_->document().open_path(cmd.path);
+  session_->open_document(cmd.path);
   // China sample packs: null style → default carto + carto_source_layer
   // (matches --map2d-showcase=china). open_path already refuses
   // china_city.style.json; still clear in case a prior doc had a style.
-  if (session_->document().has_china_extent()) {
-    session_->document().clear_style_document();
+  if (session_->document_has_china_extent()) {
+    session_->clear_style_document();
   } else {
     // Sibling Style JSON only (path.style.json / stem.style.json).
     std::string style_cand = cmd.path + ".style.json";
-    if (!session_->document().load_style_path(style_cand)) {
+    if (!session_->load_style_path(style_cand)) {
       const size_t slash = cmd.path.find_last_of("/\\");
       const std::string dir =
           slash == std::string::npos ? std::string()
                                      : cmd.path.substr(0, slash + 1);
       const std::string stem = detail::path_stem(cmd.path);
       if (!stem.empty()) {
-        session_->document().load_style_path(dir + stem + ".style.json");
+        session_->load_style_path(dir + stem + ".style.json");
       }
     }
   }
@@ -201,11 +207,11 @@ void Browser::on_open() {
     host->execute("view.refresh", view_id);
   }
   if (ui_->status_bar()) {
-    const char* kind = session_->document().last_open_was_ogr() ? "OGR" : "sample";
+    const char* kind = session_->document_last_open_was_ogr() ? "OGR" : "sample";
     ui_->status_bar()->set_status(std::string("Opened (") + kind + "): " + cmd.path +
-                            " (" + std::to_string(session_->document().layer_count()) +
+                            " (" + std::to_string(session_->document_layer_count()) +
                             " layers, " +
-                            std::to_string(session_->document().feature_count()) +
+                            std::to_string(session_->document_feature_count()) +
                             " features)");
   }
 }
@@ -217,7 +223,7 @@ void Browser::on_save_document() {
     ui_->set_status_message("Save cancelled");
     return;
   }
-  if (!session_->document().write_path(file.path)) {
+  if (!session_->write_document(file.path)) {
     ui_->set_status_message("Save failed");
     return;
   }
@@ -240,7 +246,7 @@ void Browser::on_export_document() {
   if (h <= 0) {
     h = 720;
   }
-  if (!session_->map2d().export_bmp(file.path, w, h)) {
+  if (!session_->map2d_export_bmp(file.path, w, h)) {
     ui_->set_status_message("Export BMP failed");
     return;
   }

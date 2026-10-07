@@ -21,7 +21,7 @@
 #include <windows.h>
 
 #include "app/views/browser/commands/app_commands.h"
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/session/browser_session.h"
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/browser/commands/view_commands.h"
 #include "plugin/runtime/host/catalog/registry.h"
@@ -126,7 +126,7 @@ void Browser::on_catalog_command(const std::string& command_id) {
   if (command_id == "catalog.layer.create") {
     ui::views::CreateLayerDialog::Result out;
     if (ui::views::CreateLayerDialog::run(hwnd, &out)) {
-      if (session_->document().create_layer(out.name, out.geometry_type)) {
+      if (session_->create_layer(out.name, out.geometry_type)) {
         ui_->sync_catalog_from_scene();
         ui_->sync_inspectors_from_scene();
         ui_->invalidate_map_overlays();
@@ -164,8 +164,8 @@ void Browser::on_catalog_command(const std::string& command_id) {
     }
     const std::string name =
         out.name.empty() ? std::string("Basemap") : out.name;
-    session_->document().create_layer(name, out.kind);
-    session_->document().set_basemap_provider(std::move(provider));
+    session_->create_layer(name, out.kind);
+    session_->set_basemap_provider(std::move(provider));
     ui_->sync_catalog_from_scene();
     ui_->sync_inspectors_from_scene();
     ui_->invalidate_map_overlays();
@@ -218,7 +218,7 @@ void Browser::on_catalog_command(const std::string& command_id) {
     if (ui::views::InputTextDialog::run(hwnd, L"Input", "Name", &text) &&
         !text.empty()) {
       if (command_id == "catalog.layer.append") {
-        session_->document().create_layer(text, "point");
+        session_->create_layer(text, "point");
         ui_->sync_catalog_from_scene();
         ui_->sync_inspectors_from_scene();
         ui_->invalidate_map_overlays();
@@ -239,15 +239,15 @@ void Browser::on_catalog_command(const std::string& command_id) {
       detail::catalog_call(
           session, std::string("{\"op\":\"open\",\"path\":\"") +
                        detail::json_escape(file.path) + "\"}");
-      const bool ogr_ok = session_->document().open_path(file.path);
+      const bool ogr_ok = session_->open_document(file.path);
       ui_->sync_catalog_from_scene();
       ui_->sync_inspectors_from_scene();
       fit_map_extent();
       refresh();
       if (ogr_ok) {
         status("OGR opened " + file.path + " (" +
-               std::to_string(session_->document().layer_count()) + " layers, " +
-               std::to_string(session_->document().feature_count()) + " features)");
+               std::to_string(session_->document_layer_count()) + " layers, " +
+               std::to_string(session_->document_feature_count()) + " features)");
       } else {
         status("Opened (sample fallback) " + file.path);
       }
@@ -264,7 +264,7 @@ void Browser::on_catalog_command(const std::string& command_id) {
         ui_->catalog_view() && ui_->catalog_view()->layer_tree()
             ? ui_->catalog_view()->layer_tree()->selected_id()
             : std::string();
-    if (!id.empty() && session_->document().remove_layer(id)) {
+    if (!id.empty() && session_->remove_layer(id)) {
       ui_->sync_catalog_from_scene();
       ui_->sync_inspectors_from_scene();
       ui_->invalidate_map_overlays();
@@ -283,7 +283,7 @@ void Browser::on_catalog_command(const std::string& command_id) {
             ? ui_->catalog_view()->layer_tree()->selected_id()
             : std::string();
     const int delta = (command_id == "catalog.layer.move_up") ? -1 : 1;
-    if (!id.empty() && session_->document().move_layer(id, delta)) {
+    if (!id.empty() && session_->move_layer(id, delta)) {
       ui_->sync_catalog_from_scene();
       ui_->invalidate_map_overlays();
       status(delta < 0 ? "Layer moved up" : "Layer moved down");
@@ -295,7 +295,7 @@ void Browser::on_catalog_command(const std::string& command_id) {
         ui_->catalog_view() && ui_->catalog_view()->layer_tree()
             ? ui_->catalog_view()->layer_tree()->selected_id()
             : std::string();
-    if (!id.empty() && session_->document().select_layer(id)) {
+    if (!id.empty() && session_->select_layer(id)) {
       ui_->sync_catalog_from_scene();
       status("Active layer: " + id);
     }

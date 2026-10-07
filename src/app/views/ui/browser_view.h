@@ -52,28 +52,37 @@ class MapHwndGestures;
 
 namespace app {
 
+class AmboxComposer;
 class Browser;
+class CatalogComposer;
 class DebugConsoleComposer;
 class InspectComposer;
+class InspectorHostComposer;
 class InspectorSyncComposer;
 class MapPagesComposer;
+class MenuComposer;
 class ProcessingComposer;
 class ReportPanel;
 class ShellLayoutComposer;
-using content::MapHwndGestures;
+class ShellLifecycleComposer;
 
 // Views horizon for SmartGisViews: MenuBar, splitters, TabStrip, map panes.
 // Session / present ownership lives on Browser; this type holds Browser* and
 // implements BrowserUiDelegate for status/tab UI push.
-// Panel/page wire logic is composed into *Composer helpers (friend) so this
-// type stays layout + thin forwards — see living shell §shell/ui composers.
+// Wire / lifecycle / chrome live in shell/ + horizon/ + pages/ + panels/
+// *Composer helpers (friends) — see living shell §shell/ui composers.
 class BrowserView : public BrowserUiDelegate {
+  friend class AmboxComposer;
+  friend class CatalogComposer;
   friend class DebugConsoleComposer;
   friend class InspectComposer;
+  friend class InspectorHostComposer;
   friend class InspectorSyncComposer;
   friend class MapPagesComposer;
+  friend class MenuComposer;
   friend class ProcessingComposer;
   friend class ShellLayoutComposer;
+  friend class ShellLifecycleComposer;
 
  public:
   explicit BrowserView(Browser* browser);
@@ -160,9 +169,6 @@ class BrowserView : public BrowserUiDelegate {
   void wire_processing_panel();
   void wire_result_playback_panel();
   void wire_report_panel();
-  // Attach PluginHost→ReportPanel callbacks after PluginShell is live.
-  // Never call from a path that may see a skewed plugins() (0xCD) without
-  // poison/SEH guards — see attach_report_plugin_bridge().
   void attach_report_plugin_bridge();
   void sync_result_playback_timer();
   void wire_measure_panel();
@@ -176,19 +182,13 @@ class BrowserView : public BrowserUiDelegate {
   void bind_gis_python_bridge();
   void toggle_debug_console();
   void show_inspector_tab_index(int index);
-  // Create inspector page content on first select (Measure/Report/…).
   void ensure_inspector_tab(int index);
   void commit_widget_shell_to_maps();
   void commit_widget_shell_to_maps(const ui::views::Rect& dirty);
   void attach_hwnd_gestures();
-  void configure_gestures(MapHwndGestures* gestures);
+  void configure_gestures(content::MapHwndGestures* gestures);
   void install_shell_wheel_forward();
   void remove_shell_wheel_forward();
-  static LRESULT CALLBACK shell_wheel_subclass_proc(HWND hwnd, UINT msg,
-                                                    WPARAM wparam,
-                                                    LPARAM lparam,
-                                                    UINT_PTR id,
-                                                    DWORD_PTR data);
   void rebuild_menus();
   void on_map_right_click(HWND hwnd, int view_x, int view_y);
   void show_pending_map_context_menu();
@@ -293,6 +293,13 @@ class BrowserView : public BrowserUiDelegate {
 
   // Append-only: markup shell layout builder (do not insert above map_*).
   std::unique_ptr<ShellLayoutComposer> shell_layout_;
+
+  // Append-only deep split (shell/ + horizon/) — do not insert above map_*.
+  std::unique_ptr<ShellLifecycleComposer> shell_lifecycle_;
+  std::unique_ptr<CatalogComposer> catalog_composer_;
+  std::unique_ptr<MenuComposer> menu_composer_;
+  std::unique_ptr<AmboxComposer> ambox_composer_;
+  std::unique_ptr<InspectorHostComposer> inspector_host_;
 };
 
 }  // namespace app

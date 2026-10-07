@@ -119,7 +119,7 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
     - **双屏：** BMP burst：主屏 HWND 优先 `BitBlt`（跟手）；副屏/遮挡用 `PrintWindow`。`ffmpeg` 优先 `gdigrab title=`；缺 ffmpeg 时 BMP frames 可后编 `mp4_path`（有则写）。报告含 `virtual_screen` / `rect.on_primary` / `ffmpeg_skip` / `mp4_path`。
     - 缺 ffmpeg **不硬失败**；关窗时的全黑尾帧会被丢弃。
     - 产物：`out/<config>/captures/record/<suite>_<stamp>.mp4` 或 `…/record/*_frames/`；分析回放帧在 `captures/analysis/<topic>/`；报告 / marks / showcase BMP 在 `captures/<scenario>/`（与 harness family 对齐：`browser/` `ui/`）。报告 JSON 含 `record_path` / `steps[]` / `t_ms`。
-  - 症状对照：timeout/`rc=124`→卡死；BMP score / 录像→花屏黑屏；`steps` 时间线 vs 画面→跟手；非零 exit / dump→崩溃（`windbg-crash-diagnose`）。
+  - 症状对照：timeout/`rc=124`→卡死；BMP score / 录像→花屏黑屏；`steps` 时间线 vs 画面→跟手；非零 exit / dump→崩溃（`auto-diagnose-fix`：crash / hang）。
   - 例：`set HARNESS_RECORD=1` 后 `py -3 testing/tools/loop_runner.py --suite browser.world3d.browse --no-build --rounds 1`。双屏强制 BMP：`set HARNESS_RECORD_MODE=bmp`。
   - **As-built note (2026-10-01)：** `wheel_burst` **单向**（每 tick 用给定 `delta`，`sendinput`/`postmessage` 一致，不再 `i%2` 翻转）。`browser.world3d.browse` 仍走 linger/showcase 路径；`browser.map2d.browse`（Views 2D stress）曾会非零退出——正是 forensic 要抓的症状；录像路径已双屏加固。
 - 输入/数字化回归 loop：`py -3 testing/tools/loop_runner.py --suite browser.input`（脚本 `harness/browser/browser.input/browser.input.il`；缺省或失败时回退 C++）。

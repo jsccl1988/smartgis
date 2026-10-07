@@ -16,9 +16,6 @@
 #include "app/views/browser/ui_delegate.h"
 #include "app/views/browser/plugin/playback.h"
 #include "app/views/browser/plugin/preview_host.h"
-#include "content/browser/camera/map_host_extent.h"
-#include "content/browser/session/browser_session.h"
-#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "content/public/event_bus.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_layer_types.h"
@@ -26,8 +23,17 @@
 #include "tool/draft/draft.h"
 
 namespace content {
-class MapContents;
+class BlitFrameCache;
+class BrowserSession;
+class Map2dPresenter;
+class MapHwndGestures;
+class MapScene;
 class MapSceneGisDocument;
+class OrbitFrame;
+class Scene3dPresenter;
+class Scene3dStereoSession;
+class ViewFrame;
+class ViewNavigation;
 }  // namespace content
 
 namespace ui {
@@ -44,28 +50,6 @@ class View;
 }  // namespace ui
 
 namespace app {
-
-using content::MapScene;
-using content::ViewFrame;
-using content::OrbitFrame;
-using content::ViewNavigation;
-using content::ViewBookmark;
-using content::Map2dPresenter;
-using content::Scene3dPresenter;
-using content::Scene3dStereoSession;
-using content::BlitFrameCache;
-using content::MapHwndGestures;
-using content::format_view_scale;
-using content::kChinaLonLatExtent;
-using content::kScene3dDefaultYaw;
-using content::Scene3dEngine;
-using content::prefer_scene3d_flycube;
-using content::prefer_scene3d_gdi;
-using content::prefer_scene3d_scenic;
-using content::prefer_scene3d_stereo_gl;
-using content::scene3d_engine;
-using content::set_scene3d_engine;
-using content::extent_looks_like_china;
 
 class PluginShell;
 
@@ -120,30 +104,23 @@ class Browser : public content::MapContentsObserver {
   ui::views::DrawHost* scene_draw_host() const;
   content::ViewHost* edit_view_host() const;
 
-  content::MapScene* document() { return &session_->document(); }
-  const content::MapScene* document() const { return &session_->document(); }
-  // Out-of-line: parallel ninja + stale shell .obj still import scene3d().
+  // Out-of-line: return impl types without including content/browser here.
+  // Parallel ninja + stale shell .obj still import scene3d().
+  content::MapScene* document();
+  const content::MapScene* document() const;
   content::Scene3dPresenter* scene3d();
   const content::Scene3dPresenter* scene3d() const;
-  content::ViewFrame* view_frame() { return &session_->view_frame(); }
-  const content::ViewFrame* view_frame() const {
-    return &session_->view_frame();
-  }
-  content::OrbitFrame* orbit_frame() { return &session_->orbit_frame(); }
-  const content::OrbitFrame* orbit_frame() const {
-    return &session_->orbit_frame();
-  }
-  content::Map2dPresenter* map2d() { return &session_->map2d(); }
-  const content::Map2dPresenter* map2d() const { return &session_->map2d(); }
-  content::Scene3dStereoSession* scene3d_stereo() {
-    return &session_->scene3d_stereo();
-  }
-  content::BlitFrameCache* blit() { return &session_->blit(); }
-  content::ViewNavigation* navigation() { return &session_->navigation(); }
-  const content::ViewNavigation* navigation() const {
-    return &session_->navigation();
-  }
-  content::MapContents* map_session() { return session_->map_contents(); }
+  content::ViewFrame* view_frame();
+  const content::ViewFrame* view_frame() const;
+  content::OrbitFrame* orbit_frame();
+  const content::OrbitFrame* orbit_frame() const;
+  content::Map2dPresenter* map2d();
+  const content::Map2dPresenter* map2d() const;
+  content::Scene3dStereoSession* scene3d_stereo();
+  content::BlitFrameCache* blit();
+  content::ViewNavigation* navigation();
+  const content::ViewNavigation* navigation() const;
+  content::MapContents* map_session();
   // Out-of-line: parallel ninja + stale shell_ui .obj must not inline
   // plugins_ offsetof (0xCD / freefill → AV in unique_ptr::get during
   // bind_gis_python_bridge / wire_debug_console).
@@ -159,18 +136,12 @@ class Browser : public content::MapContentsObserver {
   // Writes captures/<dir>/frame_XXXX.bmp + playback.json. Returns frame count.
   int export_plugin_frames(const std::string& dir_leaf);
 
-  content::ViewHost* edit_host() { return session_->edit_host(); }
-  content::ViewHost* data_host() { return session_->data_host(); }
-  content::ViewHost* scene_host() { return session_->scene_host(); }
-  content::MapHwndGestures* edit_gestures() {
-    return &session_->edit_gestures();
-  }
-  content::MapHwndGestures* data_gestures() {
-    return &session_->data_gestures();
-  }
-  content::MapHwndGestures* scene_gestures() {
-    return &session_->scene_gestures();
-  }
+  content::ViewHost* edit_host();
+  content::ViewHost* data_host();
+  content::ViewHost* scene_host();
+  content::MapHwndGestures* edit_gestures();
+  content::MapHwndGestures* data_gestures();
+  content::MapHwndGestures* scene_gestures();
 
   bool syncing_extent() const { return syncing_extent_; }
   void set_syncing_extent(bool v) { syncing_extent_ = v; }

@@ -63,6 +63,17 @@ All rights reserved.
   .map th { background: #e8edf3; color: var(--muted); }
   .pulse { stroke-dasharray: 7 5; animation: dash 0.9s linear infinite; }
   @keyframes dash { to { stroke-dashoffset: -24; } }
+  .lanes.proc { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 960px) { .lanes.proc { grid-template-columns: 1fr; } }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  @media (max-width: 960px) { .steps { grid-template-columns: 1fr 1fr; } }
+  .step {
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    background: var(--panel2); font-size: 0.78rem; color: var(--muted); min-height: 92px;
+  }
+  .step strong { display: block; color: var(--text); font-size: 0.8rem; margin-bottom: 4px; }
+  .step.now { border-color: var(--accent); background: #e8f1fa; }
+  .step.hold { background: #f6e8e8; }
 </style>
 </head>
 <body>
@@ -76,9 +87,11 @@ All rights reserved.
       Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Content sink</a>
       · 收紧：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Content browser subdirectory tighten</a>
       · As-built：<a href="../src-layout.md">src-layout</a>
+      · 进程：<a href="../specs/2026-09-27-views-desktop-shell-design.md#content-process-layers">§Content process layers</a>
       · 模块：<a href="../../../src/content/browser/README.md">browser/README.md</a>
     </div>
     <div class="rel">相关图：
+      <a href="./content-embedder.html">嵌入面 content-embedder</a>
       <a href="./ui-views-shell-architecture.html">Views shell</a>
       <a href="./map2d-present-frame.html">Map2d present</a>
       <a href="./debug-console-agent.html">DebugAgent</a>
@@ -200,6 +213,75 @@ All rights reserved.
         <tr><td><code>capability/ debug/</code></td><td><code>:capability</code> / <code>:debug_agent</code></td><td>否</td></tr>
       </tbody>
     </table>
+  </section>
+
+  <section class="panel">
+    <h2>4. 进程泳道（browser / renderer / gpu）</h2>
+    <p class="note">产品默认停在进程内 browser，不等待子进程。公开面见
+      <a href="./content-embedder.html">content-embedder.html</a>。
+      不打开 <code>ENABLE_OOP_RENDER</code>。无 Mojo。
+      <code>MapContents</code> 不与 <code>BrowserSession</code> 合并。不做 C11 目录拍平。
+      C6 不变：重 present/GDI 不进 <code>content.dll</code>。
+      <code>utility</code>（GDAL/IO）不实现。</p>
+    <div class="lanes proc">
+      <div class="lane pub">
+        <h3>browser（默认，进程内）</h3>
+        <ul>
+          <li>app：壳、面板、消息循环；<code>china_product_defaults.cc</code> 留在 app</li>
+          <li>content/browser：文档、相机帧、present 调度、手势、DebugAgent（不进 public）</li>
+          <li><code>content/browser/child</code> 的 ChildProcessHost：同一 PE、<code>--type=</code>、<code>--parent-pid=</code>、<code>--pipe=</code>、Job <code>KILL_ON_JOB_CLOSE</code>、等 Hello</li>
+        </ul>
+      </div>
+      <div class="lane sess">
+        <h3>renderer（OOP 打开后才拆）</h3>
+        <ul>
+          <li>今天走 invitation，启动路径不拉起</li>
+          <li>稍后改到同一 <code>host_protocol</code>；OOP 打开时由 content 拉起</li>
+          <li>拆开之后：文档、工具、命中</li>
+          <li>不引入 Mojo</li>
+        </ul>
+      </div>
+      <div class="lane dll">
+        <h3>gpu（只画）</h3>
+        <ul>
+          <li>现在：GPU 启动统一进 ChildProcessHost；行为不变</li>
+          <li><code>GpuMain</code> 留在 <code>src/gpu</code></li>
+          <li>vista/scenic 的网格、晕渲、大气留在下层；content present 只调度</li>
+          <li>重 present/GDI 不进 <code>content.dll</code></li>
+        </ul>
+      </div>
+    </div>
+    <svg class="diagram" viewBox="0 0 1040 220" role="img" aria-label="默认进程内；renderer 与 gpu 子进程不 join">
+      <rect x="0" y="0" width="1040" height="220" rx="10" fill="#fafbfc" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="22" fill="#2563a8">browser · 产品在此等待</text>
+      <rect x="16" y="34" width="280" height="72" rx="7" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="28" y="58">进程内呈现</text>
+      <text class="box-sub" x="28" y="78">app 壳 + content/browser 会话</text>
+      <text class="box-sub" x="28" y="94">ChildProcessHost 待命，默认不拉起</text>
+
+      <text class="lane-label" x="360" y="22" fill="#b06a1a">renderer · 稍后，默认不 join</text>
+      <rect x="360" y="34" width="300" height="72" rx="7" fill="#f8eedf" stroke="#b06a1a" stroke-dasharray="5 4"/>
+      <text class="box-title" x="372" y="58">invitation → host_protocol</text>
+      <text class="box-sub" x="372" y="78">OOP 打开才由 content 拉起</text>
+      <text class="box-sub" x="372" y="94">拆开后：文档、工具、命中</text>
+
+      <text class="lane-label" x="720" y="22" fill="#2f7d62">gpu · 现在统一启动，默认不 join</text>
+      <rect x="720" y="34" width="300" height="72" rx="7" fill="#e5f3ec" stroke="#2f7d62" stroke-dasharray="5 4"/>
+      <text class="box-title" x="732" y="58">同一 PE · --type=gpu</text>
+      <text class="box-sub" x="732" y="78">--parent-pid= --pipe= · 等 Hello</text>
+      <text class="box-sub" x="732" y="94">GpuMain + vista/scenic 留在下层</text>
+
+      <line class="pulse" x1="28" y1="100" x2="284" y2="100" stroke="#2563a8" stroke-width="1.8"/>
+      <text class="box-sub" x="16" y="168">实线停在 browser：产品默认进程内，不启用 ENABLE_OOP_RENDER。</text>
+      <text class="box-sub" x="16" y="188">虚线框不 join 回来。第 2 步才把 renderer 接到同一管道；第 3 步仅 OOP 打开后拆角色；utility 不实现。</text>
+      <text class="box-sub" x="16" y="208">无 Mojo。C6：重 present/GDI 不进 content.dll。C11 目录拍平不在本图。</text>
+    </svg>
+    <div class="steps">
+      <div class="step now"><strong>1 · 现在</strong>统一 GPU 启动到 ChildProcessHost。行为不变。</div>
+      <div class="step"><strong>2 · 稍后</strong>renderer 从 invitation 改到 host_protocol。不引入 Mojo。</div>
+      <div class="step"><strong>3 · 仅 OOP</strong>角色才拆进程。browser 留 chrome 与共享表面；renderer 持文档、工具、命中；gpu 只画。</div>
+      <div class="step hold"><strong>4 · 不实现</strong>utility（GDAL/IO）仍不做。</div>
+    </div>
   </section>
 </div>
 </body>

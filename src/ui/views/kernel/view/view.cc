@@ -303,7 +303,12 @@ void View::set_exposed_rect(const Rect& rect) {
 }
 
 void View::layout() {
-  ui::gfx::note_layout();
+  // Leaf views with no LayoutManager still enter layout during parent walks;
+  // only count hosts that actually position children (cuts layout_count noise
+  // without skipping required HWND sync).
+  if (layout_ || !children_.empty()) {
+    ui::gfx::note_layout();
+  }
   LayoutScope scope(this);
   if (layout_) {
     layout_->layout(this);
@@ -364,7 +369,14 @@ void View::append_commands_to(ui::gfx::DisplayList* out,
     out->save();
     out->clip_rect(bounds_.x, bounds_.y, bounds_.width, bounds_.height);
   }
-  out->append_from(commands_);
+  // U1: dirty commits only append cmds that hit the dirty rect (save/clip/
+  // restore stay). Full-client commits keep append_from for completeness.
+  if (cull) {
+    out->append_from_clipped(commands_, dirty_or_null->x, dirty_or_null->y,
+                             dirty_or_null->right(), dirty_or_null->bottom());
+  } else {
+    out->append_from(commands_);
+  }
   for (auto& child : children_) {
     if (!child->visible_) {
       continue;

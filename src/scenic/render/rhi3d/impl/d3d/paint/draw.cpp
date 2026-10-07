@@ -984,10 +984,19 @@ long D3dRenderDevice::CaptureBgr24(unsigned char* out_bgr24, int width_px,
   // color_tex_ remains valid after DXGI_SWAP_EFFECT_DISCARD Present.
   D3D11_TEXTURE2D_DESC desc = {};
   color_tex_->GetDesc(&desc);
+  // Staging must be non-MSAA / no bind flags. Color is R8G8B8A8_UNORM.
+  if (desc.Format != DXGI_FORMAT_R8G8B8A8_UNORM &&
+      desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
+    return kErrFailure;
+  }
   const bool need_new = !capture_tex_ || desc.Width != backbuffer_width_ ||
                         desc.Height != backbuffer_height_;
   if (need_new) {
     safe_release(capture_tex_);
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.SampleDesc.Count = 1;
+    desc.SampleDesc.Quality = 0;
     desc.BindFlags = 0;
     desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
     desc.Usage = D3D11_USAGE_STAGING;
@@ -998,28 +1007,44 @@ long D3dRenderDevice::CaptureBgr24(unsigned char* out_bgr24, int width_px,
     }
   }
   context_->CopyResource(capture_tex_, color_tex_);
+  // Ensure CopyResource completes before CPU Map (deferred / multi-queue).
+  context_->Flush();
 
   D3D11_MAPPED_SUBRESOURCE mapped = {};
-  if (FAILED(context_->Map(capture_tex_, 0, D3D11_MAP_READ, 0, &mapped))) {
+  if (FAILED(context_->Map(capture_tex_, 0, D3D11_MAP_READ, 0, &mapped)) ||
+      !mapped.pData) {
     return kErrFailure;
   }
-  const int copy_w = (width_px < static_cast<int>(desc.Width))
-                         ? width_px
-                         : static_cast<int>(desc.Width);
-  const int copy_h = (height_px < static_cast<int>(desc.Height))
-                         ? height_px
-                         : static_cast<int>(desc.Height);
+  const int tex_w = static_cast<int>(desc.Width);
+  const int tex_h = static_cast<int>(desc.Height);
+  const int copy_w = (width_px < tex_w) ? width_px : tex_w;
+  const int copy_h = (height_px < tex_h) ? height_px : tex_h;
+  // Center-crop when the BMP is smaller than the HWND color target. Top-left
+  // of a china orbit frame is mostly navy void → visible-signal gate fails
+  // (d3d_scenic matrix wrote 640x480 signal=0 from a 2150x1156 stereo).
+  const int src_x0 = (tex_w - copy_w) / 2;
+  const int src_y0 = (tex_h - copy_h) / 2;
   std::memset(out_bgr24, 0, static_cast<size_t>(width_px) * height_px * 3u);
   const auto* src = static_cast<const unsigned char*>(mapped.pData);
+  const bool bgra = (desc.Format == DXGI_FORMAT_B8G8R8A8_UNORM);
   // Staging is top-down; BMP/glReadPixels convention is bottom-up.
   for (int y = 0; y < copy_h; ++y) {
-    const unsigned char* row = src + static_cast<size_t>(y) * mapped.RowPitch;
+    const unsigned char* row =
+        src + static_cast<size_t>(src_y0 + y) * mapped.RowPitch +
+        static_cast<size_t>(src_x0) * 4u;
     unsigned char* dst = out_bgr24 + static_cast<size_t>(copy_h - 1 - y) *
                                          static_cast<size_t>(width_px) * 3u;
     for (int x = 0; x < copy_w; ++x) {
-      dst[x * 3 + 0] = row[x * 4 + 2];  // B
-      dst[x * 3 + 1] = row[x * 4 + 1];  // G
-      dst[x * 3 + 2] = row[x * 4 + 0];  // R
+      const unsigned char* px = row + static_cast<size_t>(x) * 4u;
+      if (bgra) {
+        dst[x * 3 + 0] = px[0];  // B
+        dst[x * 3 + 1] = px[1];  // G
+        dst[x * 3 + 2] = px[2];  // R
+      } else {
+        dst[x * 3 + 0] = px[2];  // B from RGBA
+        dst[x * 3 + 1] = px[1];  // G
+        dst[x * 3 + 2] = px[0];  // R
+      }
     }
   }
   context_->Unmap(capture_tex_, 0);

@@ -48,14 +48,14 @@ Target names below are authoritative even while sources are mid-move. `frame/` a
 | `mesh/fill/` | Polygon / ring fill tess | `"vista/mesh/fill/fill_tess.h"` |
 | `mesh/line/` | Stroked ribbon tess (cap/join/dash) | `"vista/mesh/line/line_tess.h"` |
 | `mesh/detail/` | Types, append, scratch pools, process-trace | `"vista/mesh/detail/mesh_types.h"` |
-| `terrain/` | DEM raster, hillshade bake, land mask (no `World` in headers). Horn shade and even-odd mask call `gis/analysis` | `"vista/terrain/dem/dem_raster.h"` |
+| `terrain/` | DEM raster, hillshade bake, land mask (no `World` in headers). Horn shade and even-odd mask call `gis/analysis` | `"vista/terrain/dem/raster/dem_raster.h"` |
 | `domain/` | `DomainSession` seam | `"vista/domain/domain.h"` |
 | `component/world/atmosphere/` | CPU `Environment` + params | `"vista/component/world/atmosphere/environment.h"` |
 | `component/world/atmosphere/field/` | FieldStore / ingest / procedural seed | `"vista/component/world/atmosphere/field/field_store.h"` |
 | `component/world/atmosphere/ocean/` | `OceanSystem` + `cpu_waves` (no RHI) | `"vista/component/world/atmosphere/ocean/ocean_system.h"` |
 | `component/world/atmosphere/cloud/` | CPU `CloudSystem` | `"vista/component/world/atmosphere/cloud/cloud_system.h"` |
 | `pass/world/atmosphere/` | Facade: `AtmosphereFrame` / effects | `"vista/pass/world/atmosphere/atmosphere_frame.h"` |
-| `pass/world/atmosphere/{ocean,cloud,sky,fog,globe}/` | Per-kind recorders; HLSL lives in sibling `*.hlsl` (embed via `embed_hlsl.gni` → `kVs*` / `kPs*` / `kCs*` in `hlsl.h`) | `"vista/pass/world/atmosphere/ocean/ocean_pass.h"` |
+| `pass/world/atmosphere/{ocean,cloud,sky,fog,globe}/` | Per-kind recorders; HLSL lives in per-kind `hlsl/*.hlsl` (embed via `embed_hlsl.gni` → `kVs*` / `kPs*` / `kCs*` in `hlsl.h`) | `"vista/pass/world/atmosphere/ocean/ocean_pass.h"` |
 
 No `map/gpu`, `world/gpu`, or `atmosphere/gpu` nested directories. Headers sit next to their `.cc`. Include guards match the path (`VISTA_COMPONENT_…` / `VISTA_PASS_…`). No `gis/vista/` or `effect/` trees or forwarding headers.
 

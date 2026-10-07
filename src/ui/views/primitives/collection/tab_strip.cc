@@ -228,15 +228,18 @@ bool TabStrip::on_mouse_event(const MouseEvent& e) {
     return false;
   }
   // Activate on press (not only release): OS SendInput / DXGI present focus
-  // races often drop the matching mouse-up, leaving Map selected while the
-  // user intended 3D (plain-launch browse review).
+  // races often drop the matching mouse-up. Let |change_| own set_active —
+  // flipping active_ before change_ made switch_map_tab early-return while
+  // the other GPU present stayed visible (plain-launch visual_review #6).
   if (e.type == MouseEvent::Type::kDown && e.button == 1) {
     const int i = tab_at(e.x, e.y);
     if (i >= 0) {
-      const int previous = active_;
-      set_active(i);
-      if (i != previous && change_) {
-        change_(i);
+      if (i != active_) {
+        if (change_) {
+          change_(i);
+        } else {
+          set_active(i);
+        }
       }
       return true;
     }

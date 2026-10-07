@@ -10,6 +10,8 @@
 #include "app/views/browser/browser.h"
 #include "app/views/browser/ui_delegate.h"
 #include "app/views/il.runtime/backend/horizon/atom/pump.h"
+#include "content/browser/camera/orbit_frame.h"
+#include "content/browser/camera/view_frame.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/public/map_contents.h"

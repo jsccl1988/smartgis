@@ -24,8 +24,7 @@
 #include <windows.h>
 
 #include "app/views/browser/commands/app_commands.h"
-#include "content/browser/camera/map_host_extent.h"
-#include "content/browser/camera/view_frame.h"
+#include "content/browser/session/browser_session.h"
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/browser/commands/view_commands.h"
 #include "plugin/runtime/host/catalog/registry.h"
@@ -99,11 +98,11 @@ void InspectorSyncComposer::sync_inspectors_from_scene() {
     host_->attribute_table_->set_row_tokens(std::move(tokens));
   }
   if (host_->feature_info_) {
-    if (const MapScene::Feature* f = host_->browser_->document()->selected_feature()) {
+    if (const content::MapScene::Feature* f = host_->browser_->document()->selected_feature()) {
       ui::views::FeatureInfo::Hit hit;
-      hit.feature_id = MapScene::feature_token(f->id);
-      for (const MapScene::Layer& layer : host_->browser_->document()->layers()) {
-        for (const MapScene::Feature& candidate : layer.features) {
+      hit.feature_id = content::MapScene::feature_token(f->id);
+      for (const content::MapScene::Layer& layer : host_->browser_->document()->layers()) {
+        for (const content::MapScene::Feature& candidate : layer.features) {
           if (std::memcmp(candidate.id.bytes, f->id.bytes,
                           sizeof(f->id.bytes)) == 0 &&
               candidate.id.len == f->id.len) {
@@ -116,22 +115,22 @@ void InspectorSyncComposer::sync_inspectors_from_scene() {
         }
       }
       switch (f->kind) {
-        case MapScene::GeomKind::kLine:
+        case content::MapScene::GeomKind::kLine:
           hit.geometry_type = "Line";
           break;
-        case MapScene::GeomKind::kPolygon:
+        case content::MapScene::GeomKind::kPolygon:
           hit.geometry_type = "Polygon";
           break;
-        case MapScene::GeomKind::kText:
+        case content::MapScene::GeomKind::kText:
           hit.geometry_type = "Text";
           break;
-        case MapScene::GeomKind::kPoint:
+        case content::MapScene::GeomKind::kPoint:
         default:
           hit.geometry_type = "Point";
           break;
       }
       const double map_scale =
-          host_->browser_->view_frame() ? host_->browser_->view_frame()->scale() : 8.0;
+          host_->browser_->session().view_scale();
       std::vector<std::pair<std::string, std::string>> pairs;
       host_->browser_->document()->fill_feature_info_fields(*f, &pairs, hit.layer_name,
                                                      map_scale);
@@ -183,8 +182,8 @@ void InspectorSyncComposer::wire_edit_feedback() {
       if (token.empty()) {
         return;
       }
-      const content::FeatureId id = MapScene::feature_id_from_token(token);
-      if (!host_->browser_->document()->select_feature(id)) {
+      const content::FeatureId id = content::MapScene::feature_id_from_token(token);
+      if (!host_->browser_->session().select_feature(id)) {
         return;
       }
       host_->sync_selection_panel_from_scene();
@@ -254,7 +253,7 @@ void InspectorSyncComposer::wire_edit_feedback() {
     host_->attribute_table_->set_on_cell_commit(
         [this](const std::string& feature_token, const std::string& field,
                const std::string& value) {
-          if (!host_->browser_->document()->update_feature_field(feature_token, field, value)) {
+          if (!host_->browser_->session().update_feature_field(feature_token, field, value)) {
             host_->set_status_message("Attribute edit failed: " + field);
             return false;
           }
@@ -262,7 +261,7 @@ void InspectorSyncComposer::wire_edit_feedback() {
           if (host && host->edits()) {
             gis::FeatureMutation mutation;
             mutation.op = gis::EditOp::kModify;
-            mutation.id = MapScene::feature_id_from_token(feature_token);
+            mutation.id = content::MapScene::feature_id_from_token(feature_token);
             host->edits()->commit(mutation);
           }
           host_->set_status_message("Updated " + field + "=" + value);
@@ -278,8 +277,8 @@ void InspectorSyncComposer::wire_edit_feedback() {
       if (token.empty()) {
         return;
       }
-      const content::FeatureId id = MapScene::feature_id_from_token(token);
-      if (!host_->browser_->document()->select_feature(id)) {
+      const content::FeatureId id = content::MapScene::feature_id_from_token(token);
+      if (!host_->browser_->session().select_feature(id)) {
         return;
       }
       host_->sync_inspectors_from_scene();

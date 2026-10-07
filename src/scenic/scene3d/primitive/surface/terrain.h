@@ -8,7 +8,7 @@
 #include <memory>
 
 #include "gis/geo/ops/indexed_tin.h"
-#include "vista/terrain/dem/dem_height_field.h"
+#include "vista/terrain/dem/height/dem_height_field.h"
 #include "scenic/render/scenic_impl_export.h"
 #include "scenic/scene3d/primitive/surface/surface_base.h"
 

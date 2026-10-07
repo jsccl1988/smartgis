@@ -4,10 +4,14 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# L4: mogu-style OGR feature load (produce / decode / sink). Header-only.
+# L4: mogu-style OGR feature load (produce / decode / sink) plus map-space
+# ring decimation / feature-part decode. Header-only.
 
 source_set("pipeline") {
-  sources = [ "feature_load_pipeline.h" ]
+  sources = [
+    "feature_load_pipeline.h",
+    "ogr_feature_load.h",
+  ]
   configs += [ "//build:legacy" ]
   public_configs = [ "//build:legacy" ]
   include_dirs += [ "//src" ]
@@ -23,6 +27,26 @@ test("feature_load_pipeline_test") {
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
   # Header-only — do not link ogr_codec / gis.dll (Feature/Tin LNK2005 risk).
+  deps = [
+    ":pipeline",
+    "//src/base:foundation",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+# Dataset × FeatureLoadOptions matrix (custom main; not google/benchmark).
+# Compiles ogr_text_encoding.cc into this PE (GIS_EXPORTS) so
+# load_ogr_feature_parts field UTF-8 works without //src/gis:gis.
+test("feature_load_pipeline_bench") {
+  output_name = "feature_load_pipeline_bench"
+  sources = [
+    "feature_load_pipeline_bench.cc",
+    "../ogr/ogr_text_encoding.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "GIS_EXPORTS" ]
   deps = [
     ":pipeline",
     "//src/base:foundation",

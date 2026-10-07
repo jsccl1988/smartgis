@@ -27,14 +27,18 @@ Release3DRenderDevice(scenic::detail::RenderDevice3d*& pDevice) {
   return S_OK;
 }
 
-// Cross-DLL helpers: RTTI for D3dRenderDevice stays inside this module.
+// Cross-DLL helpers: prefer GetBaseApi + static_cast — dynamic_cast can fail
+// when the device pointer crosses a second LoadLibrary image of this DLL.
 SCENIC_RENDER_D3D_EXPORT long D3dCaptureBgr24(
     scenic::detail::RenderDevice3d* device, unsigned char* out_bgr24, int width_px,
     int height_px) {
-  auto* d3d = dynamic_cast<scenic::detail::D3dRenderDevice*>(device);
-  if (!d3d || !out_bgr24 || width_px <= 0 || height_px <= 0) {
+  if (!device || !out_bgr24 || width_px <= 0 || height_px <= 0) {
     return kErrFailure;
   }
+  if (device->GetBaseApi() != scenic::detail::RA_D3D09) {
+    return kErrFailure;
+  }
+  auto* d3d = static_cast<scenic::detail::D3dRenderDevice*>(device);
   return d3d->CaptureBgr24(out_bgr24, width_px, height_px);
 }
 

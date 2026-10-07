@@ -57,7 +57,7 @@ When this skill is invoked, attached (`@auto-bug-fix` / `/auto-bug-fix`), or fol
 6. Re-run the same `.\build.bat debug harness` and `.\build.bat debug te` (or the specific failing exe after a focused rebuild).
 7. Repeat until the **done bar**.
 
-**Native crash / AV / `.dmp`:** if the runner shows access violation, crash exit, WER dump, or a hung PE that dies under debugger, **follow `windbg-crash-diagnose` first** (cdb → dump/`!analyze` → CBM → root-cause fix), then return here and re-run harness/te until green. Do not treat a crash exit as a vague “test failed” without a stack.
+**Native crash / hang / `.dmp`:** if the runner shows access violation, crash exit, WER dump, hang/timeout (`rc=124`), or a frozen PE, **follow `auto-diagnose-fix` first** (cdb → crash catch or hang dump / `!analyze` → CBM → root-cause fix), then return here and re-run harness/te until green. Do not treat a crash/hang as a vague “test failed” without a stack.
 
 **Done bar:** `.\build.bat debug harness` exit **0** (`loop_runner --gate` PASS) **and** `.\build.bat debug te` exit **0** (unit tests). Ninja-only exit 0 is **not** enough.
 
@@ -80,7 +80,7 @@ Do not treat LNK1168 as a source bug.
 - Same failure unchanged **3+** times
 - Missing VS C++ / **MFC** / Windows SDK / DirectX June 2010 (`d3dx9math.h`)
 - Missing gn/ninja / env write failure
-- Native crash that cannot be caught/analyzed after following `windbg-crash-diagnose` (no cdb / no dump / unreproducible)
+- Native crash/hang that cannot be caught/analyzed after following `auto-diagnose-fix` (no cdb / no dump / unreproducible)
 
 MFC component ID (VS 18): `Microsoft.VisualStudio.Component.VC.v145.MFC.x86.x64`.
 

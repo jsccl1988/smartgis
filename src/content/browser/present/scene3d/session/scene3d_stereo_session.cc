@@ -8,14 +8,18 @@
 namespace content {
 namespace {
 
-HMODULE load_legacy_render() {
+HMODULE load_scenic_impl() {
+  // Product stereo HWND lives in scenic_impl (not leftover legacy_render).
 #ifdef _DEBUG
-  const wchar_t* names[] = {L"legacy_render_d.dll", L"legacy_render.dll",
+  const wchar_t* names[] = {L"scenic_impl_d.dll", L"scenic_impl.dll",
+                            L"legacy_render_d.dll", L"legacy_render.dll",
                             nullptr};
 #else
-  const wchar_t* names[] = {L"legacy_render.dll", L"legacy_render_d.dll",
+  const wchar_t* names[] = {L"scenic_impl.dll", L"scenic_impl_d.dll",
+                            L"legacy_render.dll", L"legacy_render_d.dll",
                             nullptr};
 #endif
+  // Always LoadLibrary (not GetModuleHandle) so release()/FreeLibrary balances.
   // CEF / WinUI often have a cwd that is not out/. Load beside this PE first.
   wchar_t dir[MAX_PATH] = {};
   const DWORD n = GetModuleFileNameW(nullptr, dir, MAX_PATH);
@@ -53,7 +57,7 @@ bool Scene3dStereoSession::try_attach(HWND hwnd) {
   if (!hwnd || !IsWindow(hwnd)) {
     return false;
   }
-  module_ = load_legacy_render();
+  module_ = load_scenic_impl();
   if (!module_) {
     return false;
   }
@@ -67,6 +71,8 @@ bool Scene3dStereoSession::try_attach(HWND hwnd) {
       GetProcAddress(module_, "stereo_hwnd_present"));
   blit_ =
       reinterpret_cast<BlitFn>(GetProcAddress(module_, "stereo_hwnd_blit"));
+  capture_ = reinterpret_cast<CaptureFn>(
+      GetProcAddress(module_, "stereo_hwnd_capture_bgr24"));
   if (!create_ || !destroy_ || !resize_ || !present_) {
     release();
     return false;
@@ -98,6 +104,7 @@ void Scene3dStereoSession::release() {
   resize_ = nullptr;
   present_ = nullptr;
   blit_ = nullptr;
+  capture_ = nullptr;
   module_ = nullptr;
 
   if (view && destroy && module) {
@@ -132,6 +139,7 @@ void Scene3dStereoSession::abandon() {
   resize_ = nullptr;
   present_ = nullptr;
   blit_ = nullptr;
+  capture_ = nullptr;
   module_ = nullptr;
 }
 
@@ -169,6 +177,22 @@ bool Scene3dStereoSession::present_to_dc(HDC hdc, int width_px, int height_px,
     return blit_(view_, hdc, width_px, height_px) != 0;
   }
   return true;
+}
+
+bool Scene3dStereoSession::capture_bgr24(unsigned char* out_bgr24,
+                                         int width_px, int height_px,
+                                         float yaw, float pitch,
+                                         float distance) {
+  if (!view_ || !capture_ || !out_bgr24 || width_px <= 0 || height_px <= 0) {
+    return false;
+  }
+  // Do not resize a live shell-attached stereo to the BMP size. D3D swapchain
+  // recreate under an active DrawHost present path AVs (d3d_scenic matrix).
+  // CaptureBgr24 clamps the copy to min(request, staging texture).
+  if (!present(yaw, pitch, distance)) {
+    return false;
+  }
+  return capture_(view_, out_bgr24, width_px, height_px) != 0;
 }
 
 bool Scene3dStereoSession::try_present_sot(HWND hwnd, HDC hdc, int width_px,

@@ -10,7 +10,7 @@
 #include <fstream>
 #include <string>
 
-#include "vista/terrain/dem/dem_height_field.h"
+#include "vista/terrain/dem/height/dem_height_field.h"
 #include "scenic/scene3d/primitive/surface/pointcloud.h"
 
 namespace {

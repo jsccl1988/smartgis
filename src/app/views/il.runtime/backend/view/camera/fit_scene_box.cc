@@ -79,7 +79,7 @@ bool fit_scene_box(Browser& browser) {
   bool have_box = false;
   {
     content::Scene3dGpuPresent& gpu = cam->gpu();
-    std::lock_guard<std::mutex> lock(gpu.mutex());
+    std::lock_guard<std::recursive_mutex> lock(gpu.mutex());
     have_box = mesh_aabb(gpu.local_xyz(), &mn_x, &mn_y, &mn_z, &mx_x, &mx_y,
                          &mx_z);
   }

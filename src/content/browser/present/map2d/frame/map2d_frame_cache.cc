@@ -106,6 +106,19 @@ bool Map2dFrameCache::load_raster(uint32_t texture_key,
   return !rgba->empty() && *w > 0 && *h > 0;
 }
 
+bool Map2dFrameCache::borrow_raster(uint32_t texture_key, const uint8_t** rgba,
+                                    int* w, int* h) const {
+  std::lock_guard<std::recursive_mutex> lock(mu_);
+  if (!hillshade_ready_ || texture_key != kHillshadeTextureKey || !rgba ||
+      !w || !h || hillshade_rgba_.empty()) {
+    return false;
+  }
+  *rgba = hillshade_rgba_.data();
+  *w = hillshade_w_;
+  *h = hillshade_h_;
+  return *w > 0 && *h > 0;
+}
+
 Map2dFrameCache::ContentFingerprint Map2dFrameCache::make_fingerprint() const {
   ContentFingerprint fp;
   if (!scene_) {
@@ -194,29 +207,46 @@ void Map2dFrameCache::absorb_layer_slices(const vista::MapIR& frame) {
 bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
                                      const ContentFingerprint& fp,
                                      bool reuse_slices) {
-  if (!scene_ || !frame_ || cam.width_px == 0 || cam.height_px == 0) {
-    return false;
+  // Caller may hold mu_ (ensure_full) or not (prepare_for_present). Capture
+  // inputs under lock, tess unlocked so the UI thread is not blocked on china
+  // layout (~1–8s Debug), then publish only if live_layout_gen still matches.
+  const MapScene* scene = nullptr;
+  const ViewFrame* view_frame = nullptr;
+  bool hillshade_ready = false;
+  vista::TileSlot hillshade_slot{};
+  uint64_t layout_build_count = 0;
+  uint64_t build_gen = 0;
+  std::unordered_map<uint64_t, std::vector<vista::DrawItem>> slices_snap;
+
+  {
+    std::lock_guard<std::recursive_mutex> lock(mu_);
+    if (!scene_ || !frame_ || cam.width_px == 0 || cam.height_px == 0) {
+      return false;
+    }
+    scene = scene_;
+    view_frame = frame_;
+    hillshade_ready = hillshade_ready_;
+    hillshade_slot = hillshade_slot_;
+    layout_build_count = layout_build_count_;
+    build_gen =
+        live_layout_gen_.fetch_add(1, std::memory_order_acq_rel) + 1;
+    if (reuse_slices && !layer_slices_.empty()) {
+      slices_snap = layer_slices_;
+    }
   }
 
   const auto layout_wall_t0 = std::chrono::steady_clock::now();
-
-  // Keep cached_frame_ published until this gen is still current after build.
-  // Do not reset TLS/scratch here — Layout::build owns TLS reset, and wiping
-  // arenas while cached_frame_ still aliases them AVs on the next paint.
-  const uint64_t build_gen =
-      live_layout_gen_.fetch_add(1, std::memory_order_acq_rel) + 1;
-
-  MapSliceLookup retained(layer_slices_);
+  MapSliceLookup retained(slices_snap);
   detail::Map2dLayoutParams params;
-  params.scene = scene_;
-  params.frame = frame_;
+  params.scene = scene;
+  params.frame = view_frame;
   params.cam = cam;
-  params.hillshade_ready = hillshade_ready_;
-  params.hillshade_slot = hillshade_slot_;
-  params.layout_build_count = layout_build_count_;
+  params.hillshade_ready = hillshade_ready;
+  params.hillshade_slot = hillshade_slot;
+  params.layout_build_count = layout_build_count;
   params.layout_gen = build_gen;
   params.live_layout_gen = &live_layout_gen_;
-  if (reuse_slices && !layer_slices_.empty()) {
+  if (!slices_snap.empty()) {
     params.retained_slices = &retained;
   }
 
@@ -234,6 +264,12 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
         wall_ms > hillshade_ms ? (wall_ms - hillshade_ms) : wall_ms;
     note_map2d_phase_layout(layout_ms, hillshade_ms);
   };
+
+  std::lock_guard<std::recursive_mutex> lock(mu_);
+  if (live_layout_gen_.load(std::memory_order_acquire) != build_gen) {
+    note_layout();
+    return has_frame_cache_;
+  }
   if (!built.ok) {
     note_layout();
     return has_frame_cache_;
@@ -264,63 +300,77 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
   if (!action) {
     return false;
   }
-  std::lock_guard<std::recursive_mutex> lock(mu_);
-  last_present_reused_layout_ = false;
-  if (!scene_ || !frame_ || width_px == 0 || height_px == 0) {
-    return false;
+  ContentFingerprint fp;
+  CameraKey cam;
+  bool content_dirty = false;
+  bool camera_changed = false;
+  bool settle_rebuild = false;
+  {
+    std::lock_guard<std::recursive_mutex> lock(mu_);
+    last_present_reused_layout_ = false;
+    if (!scene_ || !frame_ || width_px == 0 || height_px == 0) {
+      return false;
+    }
+
+    fp = make_fingerprint();
+    cam = make_camera_key(width_px, height_px);
+
+    content_dirty = !has_frame_cache_ || !(fp == cached_fp_) ||
+                    !cam.same_pixels(cached_cam_) ||
+                    cam.zoom_bucket != cached_cam_.zoom_bucket;
+    camera_changed = has_frame_cache_ && !cam.same_camera(cached_cam_);
+
+    if (!content_dirty && !camera_changed) {
+      if (last_present_was_interactive_) {
+        // Debounce settle (~200ms quiet) so continuous pan→brief pause does not
+        // thrash full layout rebuilds; matches leftover GDI settle policy.
+        constexpr auto kSettleQuiet = std::chrono::milliseconds(200);
+        const auto now = std::chrono::steady_clock::now();
+        if (last_interactive_tp_.time_since_epoch().count() != 0 &&
+            now - last_interactive_tp_ < kSettleQuiet) {
+          *action = PresentAction::kInteractiveReuse;
+          last_present_reused_layout_ = true;
+          pending_interactive_clock_refresh_ = false;
+          return true;
+        }
+        settle_rebuild = true;
+      } else {
+        *action = PresentAction::kStaticReuse;
+        last_present_reused_layout_ = true;
+        pending_interactive_clock_refresh_ = false;
+        return true;
+      }
+    } else if (camera_changed && !content_dirty) {
+      *action = PresentAction::kInteractiveReuse;
+      cached_cam_ = cam;
+      last_present_reused_layout_ = true;
+      pending_interactive_clock_refresh_ = true;
+      return true;
+    }
   }
 
-  const ContentFingerprint fp = make_fingerprint();
-  const CameraKey cam = make_camera_key(width_px, height_px);
-
-  const bool content_dirty = !has_frame_cache_ || !(fp == cached_fp_) ||
-                             !cam.same_pixels(cached_cam_) ||
-                             cam.zoom_bucket != cached_cam_.zoom_bucket;
-  const bool camera_changed =
-      has_frame_cache_ && !cam.same_camera(cached_cam_);
-
+  // Tess unlocked — do not hold mu_ across china layout (UI hang).
   if (content_dirty) {
     *action = PresentAction::kRebuildFull;
     if (!rebuild_layout(cam, fp, /*reuse_slices=*/false)) {
       return false;
     }
+    std::lock_guard<std::recursive_mutex> lock(mu_);
     last_present_reused_layout_ = false;
     pending_interactive_clock_refresh_ = false;
     return true;
   }
-  if (camera_changed) {
-    *action = PresentAction::kInteractiveReuse;
-    cached_cam_ = cam;
-    last_present_reused_layout_ = true;
-    pending_interactive_clock_refresh_ = true;
-    return true;
-  }
-  if (last_present_was_interactive_) {
-    // Debounce settle (~200ms quiet) so continuous pan→brief pause does not
-    // thrash full layout rebuilds; matches leftover GDI settle policy.
-    constexpr auto kSettleQuiet = std::chrono::milliseconds(200);
-    const auto now = std::chrono::steady_clock::now();
-    if (last_interactive_tp_.time_since_epoch().count() != 0 &&
-        now - last_interactive_tp_ < kSettleQuiet) {
-      // Keep interactive bit; do not refresh the quiet timer (else settle never
-      // fires under steady InvalidateRect).
-      *action = PresentAction::kInteractiveReuse;
-      last_present_reused_layout_ = true;
-      pending_interactive_clock_refresh_ = false;
-      return true;
-    }
+  if (settle_rebuild) {
     *action = PresentAction::kSettleRebuild;
     if (!rebuild_layout(cam, fp, /*reuse_slices=*/true)) {
       return false;
     }
+    std::lock_guard<std::recursive_mutex> lock(mu_);
     last_present_reused_layout_ = false;
     pending_interactive_clock_refresh_ = false;
     return true;
   }
-  *action = PresentAction::kStaticReuse;
-  last_present_reused_layout_ = true;
-  pending_interactive_clock_refresh_ = false;
-  return true;
+  return false;
 }
 
 void Map2dFrameCache::note_present_outcome(PresentAction action) {
@@ -337,20 +387,24 @@ void Map2dFrameCache::note_present_outcome(PresentAction action) {
 }
 
 bool Map2dFrameCache::ensure_full(uint32_t width_px, uint32_t height_px) {
-  std::lock_guard<std::recursive_mutex> lock(mu_);
-  if (!scene_ || !frame_ || width_px == 0 || height_px == 0) {
-    return false;
+  ContentFingerprint fp;
+  CameraKey cam;
+  {
+    std::lock_guard<std::recursive_mutex> lock(mu_);
+    if (!scene_ || !frame_ || width_px == 0 || height_px == 0) {
+      return false;
+    }
+    fp = make_fingerprint();
+    cam = make_camera_key(width_px, height_px);
+    const bool dirty = !has_frame_cache_ || !(fp == cached_fp_) ||
+                       !cam.same_camera(cached_cam_);
+    if (!dirty) {
+      last_present_reused_layout_ = true;
+      return true;
+    }
+    last_present_reused_layout_ = false;
+    last_present_was_interactive_ = false;
   }
-  const ContentFingerprint fp = make_fingerprint();
-  const CameraKey cam = make_camera_key(width_px, height_px);
-  const bool dirty = !has_frame_cache_ || !(fp == cached_fp_) ||
-                     !cam.same_camera(cached_cam_);
-  if (!dirty) {
-    last_present_reused_layout_ = true;
-    return true;
-  }
-  last_present_reused_layout_ = false;
-  last_present_was_interactive_ = false;
   return rebuild_layout(cam, fp, /*reuse_slices=*/false);
 }
 

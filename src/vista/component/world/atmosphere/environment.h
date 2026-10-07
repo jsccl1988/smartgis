@@ -17,7 +17,7 @@
 #include "vista/component/world/atmosphere/ocean/ocean_system.h"
 #include "vista/vista_export.h"
 #include "vista/domain/domain.h"
-#include "vista/terrain/process/land_mask.h"
+#include "vista/terrain/dem/mask/land_mask.h"
 
 namespace vista {
 namespace atmosphere {

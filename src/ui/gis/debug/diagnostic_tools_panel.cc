@@ -33,9 +33,9 @@ namespace ui {
 namespace views {
 namespace {
 
-// Compact bottom dock: horizon rows + Output body. Keep below ~1/4 of a
-// 720p work area so the map viewport stays the primary surface.
-constexpr int kDiagPreferredDip = 200;
+// Compact bottom dock: SecondaryFixed seed caps ~1/3 host; 140 DIP keeps the
+// map primary on high-DPI plain launch (was 200 DIP → ~500px @ 2.5x).
+constexpr int kDiagPreferredDip = 140;
 constexpr int kTabsHostMinDip = 110;
 constexpr int kToolbarHeightDip = 26;
 constexpr int kTitleHeightDip = 22;

@@ -43,6 +43,53 @@ void pump_redraw(HWND hwnd, const CaptureOpts& opts, int attempt) {
                 static_cast<DWORD>(attempt) * opts.pump_step_ms);
 }
 
+// Raise the top-level owner above IDE chrome so CAPTUREBLT sees DXGI, not the
+// desktop behind an occluded present HWND (same spirit as bring_hwnd_to_front).
+HWND pin_capture_zorder(HWND hwnd) {
+  if (!hwnd || !IsWindow(hwnd)) {
+    return nullptr;
+  }
+  HWND root = GetAncestor(hwnd, GA_ROOT);
+  if (!root || !IsWindow(root)) {
+    root = hwnd;
+  }
+  ShowWindow(root, SW_SHOWNOACTIVATE);
+  SetWindowPos(root, HWND_TOPMOST, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE);
+  if (hwnd != root) {
+    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE);
+  }
+  const HWND fg = GetForegroundWindow();
+  if (fg && fg != root) {
+    const DWORD my_tid = GetCurrentThreadId();
+    DWORD fg_pid = 0;
+    const DWORD fg_tid = GetWindowThreadProcessId(fg, &fg_pid);
+    const bool attached =
+        fg_tid && fg_tid != my_tid && AttachThreadInput(my_tid, fg_tid, TRUE);
+    BringWindowToTop(root);
+    SetForegroundWindow(root);
+    if (attached) {
+      AttachThreadInput(my_tid, fg_tid, FALSE);
+    }
+  } else {
+    BringWindowToTop(root);
+    SetForegroundWindow(root);
+  }
+  return root;
+}
+
+void unpin_capture_zorder(HWND root, HWND hwnd) {
+  if (hwnd && IsWindow(hwnd) && hwnd != root) {
+    SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+  }
+  if (root && IsWindow(root)) {
+    SetWindowPos(root, HWND_NOTOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+  }
+}
+
 }  // namespace
 
 bool capture_hwnd_bmp(HWND hwnd,
@@ -76,12 +123,9 @@ bool capture_hwnd_bmp(HWND hwnd,
     }
 
     const int attempts = opts.max_attempts < 1 ? 1 : opts.max_attempts;
-    // Raise flip present HWND above shell chrome so CAPTUREBLT sees DXGI,
-    // not a partially occluded clear. Restore z-order after attempts.
-    const bool raised =
-        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
-                     SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE) !=
-        FALSE;
+    // Stay TOPMOST for the whole attempt loop so IDE chrome cannot cover the
+    // DXGI present rect mid-CAPTUREBLT (Python capture_flycube_present_bmp).
+    const HWND root = pin_capture_zorder(hwnd);
     for (int attempt = 0; attempt < attempts; ++attempt) {
       pump_redraw(hwnd, opts, attempt);
       // DXGI flip-model swapchains often make PrintWindow return only the
@@ -99,10 +143,7 @@ bool capture_hwnd_bmp(HWND hwnd,
         break;
       }
     }
-    if (raised) {
-      SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
-                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    }
+    unpin_capture_zorder(root, hwnd);
 
     if (opts.dst_w >= 8 && opts.dst_h >= 8 &&
         (opts.dst_w != width || opts.dst_h != height)) {

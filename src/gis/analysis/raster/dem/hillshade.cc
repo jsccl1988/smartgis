@@ -4,6 +4,7 @@
 #include "gis/analysis/raster/dem/hillshade.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <vector>
 
 #include "base/execution/executor/pool/global_executor.h"
@@ -15,6 +16,16 @@ namespace {
 
 constexpr int kParallelShadeMinRows = 8;
 constexpr int kParallelShadeMinPixels = 4096;
+
+// Honor BAKE_PARALLEL=0 so vista equal-profile serial cells stay serial
+// through Horn shade (gis must not include vista headers).
+bool shade_parallel_wanted() {
+  const char* v = std::getenv("BAKE_PARALLEL");
+  if (v && v[0] == '0' && v[1] == '\0') {
+    return false;
+  }
+  return true;
+}
 
 float sample_elev(const float* heights, int cols, int rows, int col, int row) {
   col = (std::max)(0, (std::min)(cols - 1, col));
@@ -61,7 +72,8 @@ bool horn_lambert_shade_grid(const float* heights, int cols, int rows,
     }
   };
 
-  if (h >= kParallelShadeMinRows && w * h >= kParallelShadeMinPixels) {
+  if (shade_parallel_wanted() && h >= kParallelShadeMinRows &&
+      w * h >= kParallelShadeMinPixels) {
     base::execution::GlobalNThreadPoolExecutor executor;
     base::execution::parallel_for(executor, 0, h, fill_row);
   } else {

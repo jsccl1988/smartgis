@@ -27,6 +27,8 @@ namespace app {
 class BrowserView;
 
 // Map/Data/3D tab horizon: viewports, gestures, overlays, tool seams.
+// Implementation is multi-TU under pages/ (viewport / scene_wire /
+// shell_overlay / tool_seams / gestures / tab_switch + detail/).
 class MapPagesComposer {
  public:
   explicit MapPagesComposer(BrowserView* host);

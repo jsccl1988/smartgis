@@ -106,9 +106,13 @@ class Map2dFrameCache {
   // Soft-fails (returns false) when Style has no hillshade or DEM is missing.
   bool load_raster(uint32_t texture_key, std::vector<uint8_t>* rgba, int* w,
                    int* h) const;
+  // Zero-copy view of the baked hillshade (valid while mu_ / bake live).
+  bool borrow_raster(uint32_t texture_key, const uint8_t** rgba, int* w,
+                     int* h) const;
   bool has_hillshade_underlay() const { return hillshade_ready_; }
 
-  // Recursive: GPU present holds this across prepare + Pass record.
+  // Layout tess runs unlocked (see prepare_for_present). GPU present snaps
+  // MapIR under a short lock then records without holding mu_.
   std::recursive_mutex& mutex() { return mu_; }
 
  private:

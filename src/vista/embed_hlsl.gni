@@ -7,7 +7,7 @@
 # Usage:
 #   import("//src/vista/embed_hlsl.gni")
 #   embed_hlsl("ocean_hlsl") {
-#     sources = [ "ocean/vs_ocean.hlsl", "ocean/ps_ocean.hlsl" ]
+#     sources = [ "ocean/hlsl/vs_ocean.hlsl", "ocean/hlsl/ps_ocean.hlsl" ]
 #     # outputs land under $root_gen_dir/<rebase of each source>.inc
 #   }
 
