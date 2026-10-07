@@ -47,7 +47,7 @@ void register_scenario(const Scenario& scenario) {
   auto it = map.find(scenario.id);
   if (it != map.end()) {
     // A peer may register the same id first with an uninitialized LaunchPolicy
-    // (0xFDFDFDFD scene3d). Fill from this later complete registration.
+    // (poisoned scene3d). Fill from this later complete registration.
     const int scene = static_cast<int>(it->second.policy.scene3d);
     if (scene < 0 || scene > static_cast<int>(Scene3dStartup::kFlyCube)) {
       it->second.policy = scenario.policy;

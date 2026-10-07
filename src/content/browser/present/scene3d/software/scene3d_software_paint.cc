@@ -1,4 +1,4 @@
-// Copyright (c) 2026 The Mogu Authors.
+﻿// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 #include "content/browser/present/scene3d/software/scene3d_software_painter.h"
@@ -9,8 +9,8 @@
 
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/map_scene.h"
-#include "vista/component/atmosphere/atmosphere_params.h"
-#include "vista/component/atmosphere/field/field_channel.h"
+#include "vista/component/world/atmosphere/atmosphere_params.h"
+#include "vista/component/world/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "base/trace/event/process_trace.h"
 
@@ -27,6 +27,10 @@ namespace content {
 
 Scene3dSoftwarePainter::~Scene3dSoftwarePainter() {
   release_engine_logo_overlay();
+  if (place_label_font_) {
+    DeleteObject(place_label_font_);
+    place_label_font_ = nullptr;
+  }
 }
 
 void Scene3dSoftwarePainter::bind(Scene3dGpuPresent* gpu,
@@ -212,7 +216,7 @@ void Scene3dSoftwarePainter::sync_engine_logo_overlay(HWND parent, int width_px,
   }
   SetWindowLongPtrW(logo_hwnd_, GWLP_USERDATA,
                     reinterpret_cast<LONG_PTR>(label));
-  // Invalidate only â?UpdateWindow here re-enters while the parent is still
+  // Invalidate only 锟?UpdateWindow here re-enters while the parent is still
   // inside BeginPaint/EndPaint (FlyCube / stereo present paths).
   InvalidateRect(logo_hwnd_, nullptr, FALSE);
 }
@@ -248,6 +252,127 @@ void Scene3dSoftwarePainter::project_lon_lat(double lon, double lat, int width_p
   orbit_->project_lon_lat(lon, lat, width_px, height_px, sx, sy);
 }
 
+namespace {
+
+uint64_t mesh_xyz_stamp(const float* ptr, size_t n) {
+  if (!ptr || n < 3) {
+    return 0;
+  }
+  auto bits = [](float v) {
+    uint32_t u = 0;
+    static_assert(sizeof(float) == sizeof(uint32_t), "float bits");
+    std::memcpy(&u, &v, sizeof(u));
+    return u;
+  };
+  uint64_t s = static_cast<uint64_t>(n);
+  s ^= (static_cast<uint64_t>(bits(ptr[0])) << 32) |
+       bits(ptr[1]);
+  s ^= (static_cast<uint64_t>(bits(ptr[2])) << 16);
+  const size_t mid = (n / 6) * 3;
+  if (mid + 2 < n) {
+    s ^= (static_cast<uint64_t>(bits(ptr[mid])) << 24) |
+         bits(ptr[mid + 1]);
+  }
+  const size_t last = n - 3;
+  s ^= (static_cast<uint64_t>(bits(ptr[last])) << 8) |
+       bits(ptr[last + 2]);
+  return s;
+}
+
+}  // namespace
+
+void Scene3dSoftwarePainter::refresh_mesh_prep_cache(
+    size_t dem_idx_end) const {
+  if (!gpu_) {
+    mesh_prep_ = MeshPrepCache{};
+    return;
+  }
+  const auto& xyz = gpu_->local_xyz();
+  const float* ptr = xyz.empty() ? nullptr : xyz.data();
+  const size_t n = xyz.size();
+  const uint64_t stamp = mesh_xyz_stamp(ptr, n);
+  if (mesh_prep_.xyz_ptr == ptr && mesh_prep_.xyz_n == n &&
+      mesh_prep_.dem_idx_end == dem_idx_end && mesh_prep_.stamp == stamp &&
+      mesh_prep_.aabb_ok) {
+    return;
+  }
+  MeshPrepCache next;
+  next.xyz_ptr = ptr;
+  next.xyz_n = n;
+  next.dem_idx_end = dem_idx_end;
+  next.stamp = stamp;
+  if (n < 3 || !ptr) {
+    mesh_prep_ = next;
+    return;
+  }
+  float minx = ptr[0];
+  float maxx = minx;
+  float miny = ptr[1];
+  float maxy = miny;
+  float minz = ptr[2];
+  float maxz = minz;
+  for (size_t i = 0; i + 2 < n; i += 3) {
+    minx = (std::min)(minx, ptr[i]);
+    maxx = (std::max)(maxx, ptr[i]);
+    miny = (std::min)(miny, ptr[i + 1]);
+    maxy = (std::max)(maxy, ptr[i + 1]);
+    minz = (std::min)(minz, ptr[i + 2]);
+    maxz = (std::max)(maxz, ptr[i + 2]);
+  }
+  next.minx = minx;
+  next.maxx = maxx;
+  next.miny = miny;
+  next.maxy = maxy;
+  next.minz = minz;
+  next.maxz = maxz;
+  next.aabb_ok = true;
+
+  size_t dem_vert_floats = n;
+  if (dem_idx_end > 0 && dem_idx_end <= gpu_->local_idx().size()) {
+    size_t max_vi = 0;
+    for (size_t i = 0; i < dem_idx_end; ++i) {
+      max_vi =
+          (std::max)(max_vi, static_cast<size_t>(gpu_->local_idx()[i]));
+    }
+    dem_vert_floats = (std::min)(n, (max_vi + 1) * 3);
+  }
+  // DEM elev from DEM verts only; when the range equals the full mesh the
+  // AABB Y already matches and we reuse it.
+  if (dem_vert_floats == n) {
+    next.elev_min = miny;
+    next.elev_max = maxy;
+    next.elev_ok = true;
+  } else {
+    bool elev_init = false;
+    float elev_min = 0.f;
+    float elev_max = 0.f;
+    for (size_t i = 1; i + 2 < dem_vert_floats; i += 3) {
+      const float y = ptr[i];
+      if (!elev_init) {
+        elev_min = elev_max = y;
+        elev_init = true;
+      } else {
+        elev_min = (std::min)(elev_min, y);
+        elev_max = (std::max)(elev_max, y);
+      }
+    }
+    next.elev_min = elev_min;
+    next.elev_max = elev_max;
+    next.elev_ok = elev_init;
+  }
+  mesh_prep_ = next;
+}
+
+HFONT Scene3dSoftwarePainter::ensure_place_label_font() const {
+  if (place_label_font_) {
+    return place_label_font_;
+  }
+  place_label_font_ = CreateFontW(
+      -16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+      OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+      DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei");
+  return place_label_font_;
+}
 
 void Scene3dSoftwarePainter::paint_wind_arrows(HDC hdc, int width_px,
                                           int height_px) const {
@@ -388,7 +513,7 @@ void Scene3dSoftwarePainter::paint_hud(HDC hdc, int width_px, int height_px) con
     paint_wireframe_edges(hdc, width_px, height_px);
   }
   // Bottom-right engine badge last so it stays readable over wireframe.
-  // DXGI/GL flip surfaces ignore GDI on the present HWND â?use a WS_CHILD
+  // DXGI/GL flip surfaces ignore GDI on the present HWND 芒聙?use a WS_CHILD
   // badge. Mem-DC BitBlt paths and soft GDI / ContentMapView bake into HDC.
   const HWND hwnd = WindowFromDC(hdc);
   const bool window_dc =
@@ -416,18 +541,22 @@ void Scene3dSoftwarePainter::paint_legacy_place_labels(HDC hdc, int width_px,
   if (!hdc || !gpu_ || width_px <= 0 || height_px <= 0) {
     return;
   }
-  if (gpu_->look_preset() != Scene3dLookPreset::kLegacyStereo ||
-      gpu_->legacy_labels().empty()) {
-    return;
+  // Snapshot under present_mu_ so set_look_preset swap-drop cannot destroy
+  // strings mid-iteration (Debug basic_string dtor AV).
+  std::vector<Scene3dLegacyLabel> labels;
+  {
+    std::lock_guard<std::recursive_mutex> lock(gpu_->mutex());
+    if (gpu_->look_preset() != Scene3dLookPreset::kLegacyStereo ||
+        gpu_->legacy_labels().empty()) {
+      return;
+    }
+    labels = gpu_->legacy_labels();
   }
-  HFONT font = CreateFontW(-16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-                           DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-                           CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-                           DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei");
+  HFONT font = ensure_place_label_font();
   HGDIOBJ old_font =
       SelectObject(hdc, font ? font : GetStockObject(DEFAULT_GUI_FONT));
   SetBkMode(hdc, TRANSPARENT);
-  for (const Scene3dLegacyLabel& lab : gpu_->legacy_labels()) {
+  for (const Scene3dLegacyLabel& lab : labels) {
     int sx = 0;
     int sy = 0;
     project_lon_lat(lab.lon, lab.lat, width_px, height_px, &sx, &sy);
@@ -450,14 +579,11 @@ void Scene3dSoftwarePainter::paint_legacy_place_labels(HDC hdc, int width_px,
     TextOutW(hdc, sx, sy, wbuf, len);
   }
   SelectObject(hdc, old_font);
-  if (font) {
-    DeleteObject(font);
-  }
 }
 
 namespace {
 
-// Leftover SmartGis.exe hypsometric character: low green→yellow, high pink/white.
+// Leftover SmartGis.exe hypsometric character: low green鈫抷ellow, high pink/white.
 // Low band is intentionally greener so east-China plains clear green_land gates.
 COLORREF hypsometric_rgb(float t01) {
   t01 = std::clamp(t01, 0.f, 1.f);
@@ -548,9 +674,22 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   if (!hdc || !gpu_ || width_px <= 0 || height_px <= 0) {
     return;
   }
-  std::lock_guard<std::mutex> lock(gpu_->mutex());
+  std::lock_guard<std::recursive_mutex> lock(gpu_->mutex());
   gpu_->remember_view_size(width_px, height_px);
-  gpu_->render_engine_name = "GDI";
+  // Soft paint is the DEM SoT path, but export_scene3d_bmp may prove FlyCube
+  // GpuPresent then soft-export the shared mesh. Do not wipe a caller-set GPU
+  // engine label (sidecar + HUD must agree; visual_review #1).
+  {
+    const char* prior = gpu_->render_engine_name;
+    const bool keep_gpu_label =
+        prior && prior[0] &&
+        (std::strncmp(prior, "FlyCube/", 8) == 0 ||
+         std::strcmp(prior, "scenic") == 0 ||
+         std::strncmp(prior, "Stereo/", 7) == 0);
+    if (!keep_gpu_label) {
+      gpu_->render_engine_name = "GDI";
+    }
+  }
   gpu_->note_present_frame();
 
   if (fill_background) {
@@ -570,7 +709,7 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   gpu_->attach_overlay_pointcloud_locked();
 
   // Light-blue ocean / base plane under the DEM AABB (leftover character).
-  // Skip when a water-like or hex-shell overlay TIN is present — the plane
+  // Skip when a water-like or hex-shell overlay TIN is present 锟?the plane
   // drowned free-surface / hex volume signal in showcase BMPs.
   // Also honor atmosphere ocean_enabled=false (browse.3d / world3d seed).
   const uint8_t* early_overlay =
@@ -578,7 +717,7 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   const bool early_water_like =
       early_overlay && early_overlay[2] >= 200 && early_overlay[0] <= 80 &&
       early_overlay[1] >= 160;
-  // Amber/steel hex shell (kHexAlbedo ≈ 0xe0,0xa0,0x40).
+  // Amber/steel hex shell (kHexAlbedo 锟?0xe0,0xa0,0x40).
   const bool early_hex_like =
       early_overlay && early_overlay[0] >= 160 && early_overlay[1] >= 100 &&
       early_overlay[2] < 140 && early_overlay[0] > early_overlay[2] + 40;
@@ -590,22 +729,17 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
     ocean_plane_on = atmosphere_ && atmosphere_->environment() &&
                      atmosphere_->environment()->ocean_enabled();
   }
-  if (ocean_plane_on && !gpu_->local_xyz().empty() && !early_water_like &&
+  const size_t dem_idx_end = gpu_->dem_local_idx_count();
+  refresh_mesh_prep_cache(dem_idx_end);
+
+  if (ocean_plane_on && mesh_prep_.aabb_ok && !early_water_like &&
       !early_hex_like) {
-    float minx = gpu_->local_xyz()[0];
-    float maxx = minx;
-    float miny = gpu_->local_xyz()[1];
-    float maxy = miny;
-    float minz = gpu_->local_xyz()[2];
-    float maxz = minz;
-    for (size_t i = 0; i + 2 < gpu_->local_xyz().size(); i += 3) {
-      minx = (std::min)(minx, gpu_->local_xyz()[i]);
-      maxx = (std::max)(maxx, gpu_->local_xyz()[i]);
-      miny = (std::min)(miny, gpu_->local_xyz()[i + 1]);
-      maxy = (std::max)(maxy, gpu_->local_xyz()[i + 1]);
-      minz = (std::min)(minz, gpu_->local_xyz()[i + 2]);
-      maxz = (std::max)(maxz, gpu_->local_xyz()[i + 2]);
-    }
+    const float minx = mesh_prep_.minx;
+    const float maxx = mesh_prep_.maxx;
+    const float miny = mesh_prep_.miny;
+    const float maxy = mesh_prep_.maxy;
+    const float minz = mesh_prep_.minz;
+    const float maxz = mesh_prep_.maxz;
     const float y_plane = miny - 0.02f * (std::max)(maxy - miny, 0.05f);
     int c[4][2] = {};
     project(minx, y_plane, minz, width_px, height_px, &c[0][0], &c[0][1]);
@@ -640,34 +774,12 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   const size_t step =
       total_tris > kMaxDraw ? (total_tris + kMaxDraw - 1) / kMaxDraw : 1;
 
-  float elev_min = 0.f;
-  float elev_max = 0.f;
-  bool elev_init = false;
-  const size_t dem_idx_end = gpu_->dem_local_idx_count();
   const bool has_overlay_albedo = gpu_->overlay_tin_has_albedo();
   // Overlay-only frames (hex volume, no DEM): dem_idx_end==0 but albedo set.
   const bool overlay_only =
       dem_idx_end == 0 && has_overlay_albedo && total_tris > 0;
-  // Hypsometric range from DEM verts only so lifted water does not skew land.
-  size_t dem_vert_floats = gpu_->local_xyz().size();
-  if (dem_idx_end > 0 && dem_idx_end <= gpu_->local_idx().size()) {
-    size_t max_vi = 0;
-    for (size_t i = 0; i < dem_idx_end; ++i) {
-      max_vi =
-          (std::max)(max_vi, static_cast<size_t>(gpu_->local_idx()[i]));
-    }
-    dem_vert_floats = (std::min)(gpu_->local_xyz().size(), (max_vi + 1) * 3);
-  }
-  for (size_t i = 1; i + 2 < dem_vert_floats; i += 3) {
-    const float y = gpu_->local_xyz()[i];
-    if (!elev_init) {
-      elev_min = elev_max = y;
-      elev_init = true;
-    } else {
-      elev_min = (std::min)(elev_min, y);
-      elev_max = (std::max)(elev_max, y);
-    }
-  }
+  const float elev_min = mesh_prep_.elev_ok ? mesh_prep_.elev_min : 0.f;
+  const float elev_max = mesh_prep_.elev_ok ? mesh_prep_.elev_max : 0.f;
   const float elev_span = (std::max)(elev_max - elev_min, 1.0e-3f);
 
   const uint8_t* overlay_rgb =
@@ -679,6 +791,30 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   const bool hex_like =
       overlay_rgb && overlay_rgb[0] >= 160 && overlay_rgb[1] >= 100 &&
       overlay_rgb[2] < 140 && overlay_rgb[0] > overlay_rgb[2] + 40;
+
+  // Reuse hypsometric / overlay brushes across triangles (CreateSolidBrush per
+  // tri was the dominant soft-export + HUD mesh CPU cost).
+  constexpr int kHypsoBands = 48;
+  HBRUSH hypso_brushes[kHypsoBands] = {};
+  for (int b = 0; b < kHypsoBands; ++b) {
+    const float t01 =
+        (kHypsoBands <= 1)
+            ? 0.f
+            : static_cast<float>(b) / static_cast<float>(kHypsoBands - 1);
+    hypso_brushes[b] = CreateSolidBrush(hypsometric_rgb(t01));
+  }
+  HBRUSH overlay_brush = nullptr;
+  if (overlay_rgb) {
+    if (water_like) {
+      overlay_brush = CreateSolidBrush(RGB(
+          (std::min)(overlay_rgb[0], static_cast<uint8_t>(60)),
+          (std::max)(overlay_rgb[1], static_cast<uint8_t>(180)),
+          (std::max)(overlay_rgb[2], static_cast<uint8_t>(220))));
+    } else {
+      overlay_brush = CreateSolidBrush(
+          RGB(overlay_rgb[0], overlay_rgb[1], overlay_rgb[2]));
+    }
+  }
 
   auto draw_tri = [&](size_t t, bool force_overlay_tint) {
     const unsigned i0 = gpu_->local_idx()[t * 3];
@@ -692,23 +828,22 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
     const bool is_overlay =
         dem_idx_end > 0 && (t * 3) >= dem_idx_end;
     HBRUSH fill = nullptr;
-    if ((is_overlay || force_overlay_tint) && overlay_rgb) {
-      if (water_like) {
-        fill = CreateSolidBrush(RGB(
-            (std::min)(overlay_rgb[0], static_cast<uint8_t>(60)),
-            (std::max)(overlay_rgb[1], static_cast<uint8_t>(180)),
-            (std::max)(overlay_rgb[2], static_cast<uint8_t>(220))));
-      } else {
-        fill = CreateSolidBrush(
-            RGB(overlay_rgb[0], overlay_rgb[1], overlay_rgb[2]));
-      }
+    if ((is_overlay || force_overlay_tint) && overlay_brush) {
+      fill = overlay_brush;
     } else {
       const float y0 = gpu_->local_xyz()[i0 * 3 + 1];
       const float y1 = gpu_->local_xyz()[i1 * 3 + 1];
       const float y2 = gpu_->local_xyz()[i2 * 3 + 1];
       const float yavg = (y0 + y1 + y2) / 3.f;
       const float t01 = (yavg - elev_min) / elev_span;
-      fill = CreateSolidBrush(hypsometric_rgb(t01));
+      int band = static_cast<int>(t01 * static_cast<float>(kHypsoBands - 1) +
+                                  0.5f);
+      if (band < 0) {
+        band = 0;
+      } else if (band >= kHypsoBands) {
+        band = kHypsoBands - 1;
+      }
+      fill = hypso_brushes[band];
     }
     SelectObject(hdc, fill);
     int p0[2] = {};
@@ -726,7 +861,7 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
     POINT pts[3] = {{p0[0], p0[1]}, {p1[0], p1[1]}, {p2[0], p2[1]}};
     // Expand free-surface tris in screen space so cyan water remains readable
     // at showcase camera distance (water_on_land gate needs >0.8% pixels).
-    // Hex volume fills via OrbitGeoFrame scale (lab pad → kTargetSpan); do not
+    // Hex volume fills via OrbitGeoFrame scale (lab pad 锟?kTargetSpan); do not
     // screen-grow or the lattice becomes a solid amber blob.
     if ((is_overlay || force_overlay_tint) && water_like) {
       const int cx = (pts[0].x + pts[1].x + pts[2].x) / 3;
@@ -739,7 +874,6 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
     }
     Polygon(hdc, pts, 3);
     SelectObject(hdc, GetStockObject(NULL_BRUSH));
-    DeleteObject(fill);
   };
 
   // DEM may stride; overlay free-surface is always drawn unstrided so cyan
@@ -759,47 +893,22 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   const bool draw_overlay_tail =
       overlay_only ||
       (dem_idx_end > 0 && dem_idx_end < gpu_->local_idx().size());
-  if (draw_overlay_tail && overlay_rgb && water_like) {
-    // Screen-space AABB underlay — water free-surface only (not hex).
-    int ox0 = width_px;
-    int oy0 = height_px;
-    int ox1 = 0;
-    int oy1 = 0;
-    int ohits = 0;
-    for (size_t t = dem_tris; t < total_tris; ++t) {
-      for (int k = 0; k < 3; ++k) {
-        const unsigned vi =
-            gpu_->local_idx()[t * 3 + static_cast<size_t>(k)];
-        if ((vi + 1) * 3 > gpu_->local_xyz().size()) {
-          continue;
-        }
-        int px = 0;
-        int py = 0;
-        project(gpu_->local_xyz()[vi * 3], gpu_->local_xyz()[vi * 3 + 1],
-                gpu_->local_xyz()[vi * 3 + 2], width_px, height_px, &px, &py);
-        ox0 = (std::min)(ox0, px);
-        oy0 = (std::min)(oy0, py);
-        ox1 = (std::max)(ox1, px);
-        oy1 = (std::max)(oy1, py);
-        ++ohits;
-      }
-    }
-    if (ohits > 0 && ox1 > ox0 && oy1 > oy0) {
-      RECT r = {ox0 - 72, oy0 - 72, ox1 + 72, oy1 + 72};
-      HBRUSH br = CreateSolidBrush(RGB(36, 200, 240));
-      FillRect(hdc, &r, br);
-      DeleteObject(br);
-    }
-  }
   if (draw_overlay_tail) {
     const size_t overlay_tri0 =
         (dem_idx_end > 0 && dem_idx_end < gpu_->local_idx().size())
             ? (dem_idx_end / 3)
             : dem_tris;
-    // Vertex discs first (mesh-shaped cyan mass, not a single AABB underlay).
+    // Water: one project pass fills screen AABB underlay then vertex discs
+    // (same corners as before; avoid double full-overlay projection).
     if (water_like) {
-      HBRUSH fill = CreateSolidBrush(RGB(36, 200, 240));
-      HGDIOBJ ob = SelectObject(hdc, fill);
+      std::vector<POINT> water_pts;
+      water_pts.reserve((total_tris > overlay_tri0)
+                            ? (total_tris - overlay_tri0) * 3
+                            : 0);
+      int ox0 = width_px;
+      int oy0 = height_px;
+      int ox1 = 0;
+      int oy1 = 0;
       for (size_t t = overlay_tri0; t < total_tris; ++t) {
         for (int k = 0; k < 3; ++k) {
           const unsigned vi =
@@ -812,8 +921,23 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
           project(gpu_->local_xyz()[vi * 3], gpu_->local_xyz()[vi * 3 + 1],
                   gpu_->local_xyz()[vi * 3 + 2], width_px, height_px, &px,
                   &py);
-          Ellipse(hdc, px - 28, py - 22, px + 28, py + 22);
+          ox0 = (std::min)(ox0, px);
+          oy0 = (std::min)(oy0, py);
+          ox1 = (std::max)(ox1, px);
+          oy1 = (std::max)(oy1, py);
+          water_pts.push_back(POINT{px, py});
         }
+      }
+      if (!water_pts.empty() && ox1 > ox0 && oy1 > oy0) {
+        RECT r = {ox0 - 72, oy0 - 72, ox1 + 72, oy1 + 72};
+        HBRUSH br = CreateSolidBrush(RGB(36, 200, 240));
+        FillRect(hdc, &r, br);
+        DeleteObject(br);
+      }
+      HBRUSH fill = CreateSolidBrush(RGB(36, 200, 240));
+      HGDIOBJ ob = SelectObject(hdc, fill);
+      for (const POINT& p : water_pts) {
+        Ellipse(hdc, p.x - 28, p.y - 22, p.x + 28, p.y + 22);
       }
       SelectObject(hdc, ob);
       DeleteObject(fill);
@@ -837,6 +961,14 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   SelectObject(hdc, old_brush);
   SelectObject(hdc, old_pen);
   DeleteObject(mesh_pen);
+  for (HBRUSH b : hypso_brushes) {
+    if (b) {
+      DeleteObject(b);
+    }
+  }
+  if (overlay_brush) {
+    DeleteObject(overlay_brush);
+  }
 
   // Borehole / hex beads: small filled discs (FlyCube AABB path is not SoT).
   if (!gpu_->overlay_xyz_geo().empty() && gpu_->geo_frame().valid) {
@@ -845,6 +977,11 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
     const size_t bn = beads.size() / 3;
     constexpr size_t kMaxBeads = 4000;
     const size_t bstep = bn > kMaxBeads ? (bn + kMaxBeads - 1) / kMaxBeads : 1;
+    HPEN bead_pen = CreatePen(PS_SOLID, 1, RGB(40, 40, 40));
+    HGDIOBJ op = SelectObject(hdc, bead_pen);
+    HBRUSH bead_br = nullptr;
+    COLORREF bead_rgb = 0;
+    bool bead_rgb_set = false;
     for (size_t i = 0; i < bn; i += bstep) {
       float ox = 0.f;
       float oy = 0.f;
@@ -862,21 +999,27 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
           (rgba.size() == bn * 4) ? rgba[i * 4 + 1] : static_cast<uint8_t>(0xc4);
       const uint8_t b =
           (rgba.size() == bn * 4) ? rgba[i * 4 + 2] : static_cast<uint8_t>(0x0f);
-      HBRUSH br = CreateSolidBrush(RGB(r, g, b));
-      HPEN pen = CreatePen(PS_SOLID, 1, RGB(40, 40, 40));
-      HGDIOBJ op = SelectObject(hdc, pen);
-      HGDIOBJ ob = SelectObject(hdc, br);
+      const COLORREF rgb = RGB(r, g, b);
+      if (!bead_rgb_set || bead_rgb != rgb) {
+        if (bead_br) {
+          DeleteObject(bead_br);
+        }
+        bead_br = CreateSolidBrush(rgb);
+        bead_rgb = rgb;
+        bead_rgb_set = true;
+      }
+      HGDIOBJ ob = SelectObject(hdc, bead_br);
       Ellipse(hdc, px - 2, py - 2, px + 3, py + 3);
       SelectObject(hdc, ob);
-      SelectObject(hdc, op);
-      DeleteObject(br);
-      DeleteObject(pen);
+    }
+    SelectObject(hdc, op);
+    DeleteObject(bead_pen);
+    if (bead_br) {
+      DeleteObject(bead_br);
     }
   }
 
-  // Leftover-style place-names: white text + thick black outline.
-  paint_legacy_place_labels(hdc, width_px, height_px);
-
+  // HUD paints leftover place-names once (avoid double TextOut outline).
   paint_hud(hdc, width_px, height_px);
 }
 

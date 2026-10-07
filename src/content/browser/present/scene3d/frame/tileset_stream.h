@@ -32,12 +32,15 @@ class TilesetStreamSession {
 
   // Per-frame / per-orbit: stream selection + ensure content under budget.
   // Returns true when visible_uris changed.
+  // |max_tiles| caps select; |max_ensure| caps new decode resolves per pump
+  // (0 = ensure every selected miss, up to |max_tiles|).
   bool pump(vista::World* world, const OrbitFrame* orbit, double max_sse = 0,
-            size_t max_tiles = 16);
+            size_t max_tiles = 16, size_t max_ensure = 2);
 
   // Direct view pump (self-test / harness without OrbitFrame).
   bool pump_view(vista::World* world, const vista::ViewState& view,
-                 double max_sse = 0, size_t max_tiles = 16);
+                 double max_sse = 0, size_t max_tiles = 16,
+                 size_t max_ensure = 2);
 
   bool active() const { return node_id_ != 0; }
   uint64_t node_id() const { return node_id_; }

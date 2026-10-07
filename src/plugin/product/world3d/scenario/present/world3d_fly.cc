@@ -4,14 +4,14 @@
 #include "plugin/product/world3d/scenario/present/world3d_fly.h"
 
 #include "plugin/runtime/host/capability/shell.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scenario/common/host_rhi.h"
 #include "plugin/product/world3d/scene/fly/globe_fly.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "ui/views/map/viewport/draw_host.h"
-#include "vista/pass/atmosphere/globe/globe_pass.h"
+#include "vista/pass/world/atmosphere/globe/globe_pass.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,7 +26,8 @@ bool present_fly_frame(HarnessShell& browser,
                        content::Scene3dPresenter* cam,
                        PluginDeviceSession* session) {
   if (session->borrowed_shell) {
-    return present_shell_scene3d_frame(browser.scene_draw_host(), 400);
+    // Globe albedo/china remesh can exceed 400ms on Debug FlyCube.
+    return present_shell_scene3d_frame(browser.scene_draw_host(), 1500);
   }
   return cam->present_gpu(session->device, kPluginPresentW,
                           kPluginPresentH);
@@ -59,7 +60,7 @@ bool capture_stage_bmp(content::Scene3dPresenter* cam,
   core.pre_capture_pump_ms = 120;
   core.use_grid_lit_policy = false;
   core.retry_dark_frame = true;
-  // Space / early cloud frames are mostly navy + limb — diversity gate is too
+  // Space / early cloud frames are mostly navy + limb -- diversity gate is too
   // strict for those beats.
   core.require_color_diversity = !relax_diversity;
   core.skip_ui_thread_present = session->borrowed_shell;
@@ -106,6 +107,8 @@ World3dGlobeFlyResult run_world3d_globe_fly_presents(
   plugin_mark("globe-fly-begin");
   std::fprintf(stderr,
                "plugin-showcase: world3d fly space→clouds→DEM-hug→ocean\n");
+  // Skim matrices come from orbit_; re-bind in case startup sizeof skew dropped it.
+  cam->bind_orbit(orbit);
 
   // West→east terrain-hug; keep frame count bounded for harness timeout.
   // Animated pass uses orbit path-hug (look-at-origin) — look-at skim during
@@ -156,16 +159,16 @@ World3dGlobeFlyResult run_world3d_globe_fly_presents(
   }
 
   const StageBeat beats[] = {
+      // Diversity on: solid sky-clear PrintWindow frames must not pass.
       {plugin::kWorld3dGlobeFlySpaceT, "fly-space-bmp",
-       L"plugin-showcase-world3d-space.bmp", true, 3, false},
+       L"plugin-showcase-world3d-space.bmp", false, 4, false},
       {plugin::kWorld3dGlobeFlyCloudsT, "fly-clouds-bmp",
-       L"plugin-showcase-world3d-clouds.bmp", true, 4, false},
-      // DEM / ocean: orbit path-hug only. Any make_look_at skim deadlocks
-      // FlyCube present_gpu (request_frame never returns).
+       L"plugin-showcase-world3d-clouds.bmp", false, 4, false},
+      // DEM/ocean stills: forward skim with raised clearance + skim FOV.
       {plugin::kWorld3dGlobeFlyDemT, "fly-dem-bmp",
-       L"plugin-showcase-world3d-dem.bmp", false, 4, false},
+       L"plugin-showcase-world3d-dem.bmp", false, 6, true},
       {plugin::kWorld3dGlobeFlyOceanT, "fly-ocean-bmp",
-       L"plugin-showcase-world3d-ocean.bmp", false, 6, false},
+       L"plugin-showcase-world3d-ocean.bmp", false, 6, true},
   };
   for (const StageBeat& beat : beats) {
     plugin::apply_world3d_globe_flythrough(orbit, beat.t, china_yaw, china_pitch,
@@ -174,7 +177,7 @@ World3dGlobeFlyResult run_world3d_globe_fly_presents(
     if (!present_fly_frame(browser, cam, session)) {
       if (orbit->forward_skim_active()) {
         std::fprintf(stderr,
-                     "plugin-showcase: stage skim present fail t=%.2f — "
+                     "plugin-showcase: stage skim present fail t=%.2f -- "
                      "orbit path-hug for BMP\n",
                      beat.t);
         orbit->clear_forward_skim();

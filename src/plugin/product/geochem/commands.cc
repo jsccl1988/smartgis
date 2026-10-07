@@ -17,6 +17,7 @@
 #include "gis/analysis/geochem/stats.h"
 #include "plugin/product/geochem/views/analyze_dialog.h"
 #include "plugin/product/geochem/present/present.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
@@ -50,70 +51,12 @@ void attach_cached_idw(GeochemCommit* commit) {
   commit->has_idw = true;
 }
 
-bool parse_args(std::string_view json, rapidjson::Document* out) {
-  if (!out) {
-    return false;
-  }
-  out->Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  return !out->HasParseError() && out->IsObject();
-}
-
-bool json_get_string(const rapidjson::Value& obj,
-                     const char* key,
-                     std::string* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsString()) {
-    return false;
-  }
-  *out = std::string(it->value.GetString(), it->value.GetStringLength());
-  return true;
-}
-
-bool json_get_double(const rapidjson::Value& obj, const char* key, double* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
-    return false;
-  }
-  *out = it->value.GetDouble();
-  return true;
-}
-
-bool json_get_int(const rapidjson::Value& obj, const char* key, int* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
-    return false;
-  }
-  *out = it->value.GetInt();
-  return true;
-}
-
-bool json_get_bool(const rapidjson::Value& obj, const char* key, bool* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsBool()) {
-    return false;
-  }
-  *out = it->value.GetBool();
-  return true;
-}
-
 gis::detail::GeochemSampleSet load_samples(const rapidjson::Document& args,
                                            const std::string& element,
                                            std::string* err) {
   gis::detail::GeochemSampleSet set;
   bool use_active = false;
-  json_get_bool(args, "use_active_layer", &use_active);
+  args_json_bool(args, "use_active_layer", &use_active);
   if (use_active) {
     if (err) {
       *err = "no_layer_reader";
@@ -123,7 +66,7 @@ gis::detail::GeochemSampleSet load_samples(const rapidjson::Document& args,
   }
 
   std::string vector_path;
-  json_get_string(args, "vector", &vector_path);
+  args_json_string(args, "vector", &vector_path);
   if (!vector_path.empty()) {
     set = gis::detail::load_geochem_vector(vector_path, element);
     if (!set.ok && err) {
@@ -133,8 +76,8 @@ gis::detail::GeochemSampleSet load_samples(const rapidjson::Document& args,
   }
 
   std::string input;
-  if (!json_get_string(args, "input", &input) || input.empty()) {
-    json_get_string(args, "path", &input);
+  if (!args_json_string(args, "input", &input) || input.empty()) {
+    args_json_string(args, "path", &input);
   }
   if (input.empty()) {
     if (err) {
@@ -213,12 +156,12 @@ bool geochem_load(content::PluginHost* host, std::string_view args_json) {
     return publish(host, g_last_commit, "geochem.load");
   }
   rapidjson::Document args;
-  if (!parse_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"geochem.load\"}");
     return false;
   }
   std::string element = "Cu";
-  json_get_string(args, "element", &element);
+  args_json_string(args, "element", &element);
   std::string err;
   gis::detail::GeochemSampleSet set = load_samples(args, element, &err);
   if (!set.ok) {
@@ -251,16 +194,16 @@ bool geochem_stats(content::PluginHost* host, std::string_view args_json) {
     return publish(host, g_last_commit, "geochem.stats");
   }
   rapidjson::Document args;
-  if (!parse_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"geochem.stats\"}");
     return false;
   }
   std::string element = g_last_element.empty() ? "Cu" : g_last_element;
-  json_get_string(args, "element", &element);
+  args_json_string(args, "element", &element);
   int bins = 10;
   double k_sigma = 2.0;
-  json_get_int(args, "bins", &bins);
-  json_get_double(args, "k_sigma", &k_sigma);
+  args_json_int(args, "bins", &bins);
+  args_json_double(args, "k_sigma", &k_sigma);
 
   std::string err;
   gis::detail::GeochemSampleSet set = load_samples(args, element, &err);
@@ -291,19 +234,19 @@ bool geochem_stats(content::PluginHost* host, std::string_view args_json) {
     return false;
   }
   std::string corr_b;
-  if (json_get_string(args, "correlate", &corr_b) && !corr_b.empty()) {
+  if (args_json_string(args, "correlate", &corr_b) && !corr_b.empty()) {
     commit.correlation =
         gis::detail::compute_geochem_correlation(set, element, corr_b);
   }
   int classes = 5;
-  json_get_int(args, "classes", &classes);
+  args_json_int(args, "classes", &classes);
   commit.legend =
       gis::detail::build_geochem_grade_legend(set, element, classes);
   // Keep prior IDW heat raster when stats republishes sample grades.
   attach_cached_idw(&commit);
 
   std::string stats_out;
-  if (json_get_string(args, "output", &stats_out) && !stats_out.empty()) {
+  if (args_json_string(args, "output", &stats_out) && !stats_out.empty()) {
     if (!gis::detail::run_geochem_stats_op(args_json)) {
       // Still publish viz even if optional file write fails on path shape.
     }
@@ -321,24 +264,24 @@ bool geochem_analyze(content::PluginHost* host, std::string_view args_json) {
     return publish(host, g_last_commit, "geochem.analyze");
   }
   rapidjson::Document args;
-  if (!parse_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"geochem.analyze\"}");
     return false;
   }
   std::string element = "Cu";
-  json_get_string(args, "element", &element);
+  args_json_string(args, "element", &element);
   int bins = 10;
   int cells = 64;
   int classes = 5;
   double k_sigma = 2.0;
   double power = 2.0;
-  json_get_int(args, "bins", &bins);
-  json_get_int(args, "cells", &cells);
-  json_get_int(args, "classes", &classes);
-  json_get_double(args, "k_sigma", &k_sigma);
-  json_get_double(args, "power", &power);
+  args_json_int(args, "bins", &bins);
+  args_json_int(args, "cells", &cells);
+  args_json_int(args, "classes", &classes);
+  args_json_double(args, "k_sigma", &k_sigma);
+  args_json_double(args, "power", &power);
   double threshold = std::numeric_limits<double>::quiet_NaN();
-  json_get_double(args, "threshold", &threshold);
+  args_json_double(args, "threshold", &threshold);
 
   std::string err;
   gis::detail::GeochemSampleSet set = load_samples(args, element, &err);
@@ -358,7 +301,7 @@ bool geochem_analyze(content::PluginHost* host, std::string_view args_json) {
       gis::detail::compute_geochem_stats(set, element, bins, k_sigma);
   commit.has_stats = commit.stats.ok;
   std::string corr_b;
-  if (json_get_string(args, "correlate", &corr_b) && !corr_b.empty()) {
+  if (args_json_string(args, "correlate", &corr_b) && !corr_b.empty()) {
     commit.correlation =
         gis::detail::compute_geochem_correlation(set, element, corr_b);
   }
@@ -378,9 +321,9 @@ bool geochem_analyze(content::PluginHost* host, std::string_view args_json) {
   g_last_idw = commit.idw;
 
   std::string output;
-  json_get_string(args, "output", &output);
+  args_json_string(args, "output", &output);
   std::string mask_out;
-  json_get_string(args, "mask_output", &mask_out);
+  args_json_string(args, "mask_output", &mask_out);
   if (!output.empty()) {
     (void)gis::detail::write_geochem_idw_geotiff(output, commit.idw, mask_out);
   }
@@ -426,10 +369,10 @@ bool geochem_style_apply(content::PluginHost* host, std::string_view args_json) 
     return publish(host, g_last_commit, "geochem.style_apply");
   }
   rapidjson::Document args;
-  parse_args(args_json, &args);
+  parse_args_json(args_json, &args);
   std::string element = g_last_element.empty() ? "Cu" : g_last_element;
   if (args.IsObject()) {
-    json_get_string(args, "element", &element);
+    args_json_string(args, "element", &element);
   }
   if (!g_last_samples.ok) {
     set_operation_result(
@@ -441,7 +384,7 @@ bool geochem_style_apply(content::PluginHost* host, std::string_view args_json) 
   commit.element = element;
   int classes = 5;
   if (args.IsObject()) {
-    json_get_int(args, "classes", &classes);
+    args_json_int(args, "classes", &classes);
   }
   commit.legend =
       gis::detail::build_geochem_grade_legend(g_last_samples, element, classes);

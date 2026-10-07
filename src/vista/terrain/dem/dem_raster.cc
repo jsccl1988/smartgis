@@ -956,10 +956,11 @@ std::string find_sample_global_dem_path() {
       return dem_path_override_store();
     }
   }
+  // Shared out/data first; then <exe>/plugins (out/<config>/plugins).
   static const char* kGlobalDemRel[] = {
       "..\\data\\global_dem.tif",
       "..\\data\\global_dem.tiff",
-      "..\\plugins\\world3d\\data\\global_dem.tif",
+      "plugins\\world3d\\data\\global_dem.tif",
       "data\\global_dem.tif",
       "data\\global_dem.tiff",
   };
@@ -993,25 +994,24 @@ std::string find_sample_imagery_path() {
 
 std::string find_sample_global_imagery_path() {
   // Product GDAL is GTiff-only — prefer .tif over PNG/JPEG.
+  // Shared out/data first; then <exe>/plugins (out/<config>/plugins).
   static const char* kGlobalImageryRel[] = {
       "..\\data\\global_terrain.tif",
       "..\\data\\global_imagery.tif",
-      "..\\plugins\\world3d\\data\\global_terrain.tif",
+      "plugins\\world3d\\data\\global_terrain.tif",
       "..\\data\\global_terrain.png",
       "..\\data\\blue_marble.png",
-      "..\\plugins\\world3d\\data\\global_terrain.png",
+      "plugins\\world3d\\data\\global_terrain.png",
       "..\\data\\global_terrain.jpg",
       "..\\data\\global_terrain.jpeg",
       "..\\data\\blue_marble.jpg",
-      "..\\plugins\\world3d\\data\\global_terrain.jpg",
+      "plugins\\world3d\\data\\global_terrain.jpg",
   };
-  const std::string global =
-      first_existing_rel(module_dir_for_samples(), kGlobalImageryRel,
-                         std::size(kGlobalImageryRel));
-  if (!global.empty()) {
-    return global;
-  }
-  return find_sample_imagery_path();
+  // Do not fall back to china_rs / regional orthophoto — that atlas is UV-
+  // stretched across the full sphere and reads as a mossy "wrong Earth".
+  // Missing global albedo → hypsometric / ocean-blue bake in GlobePass.
+  return first_existing_rel(module_dir_for_samples(), kGlobalImageryRel,
+                            std::size(kGlobalImageryRel));
 }
 
 bool load_imagery_rgba(const char* path, std::vector<uint8_t>* rgba, int* out_w,

@@ -55,36 +55,38 @@ def _gauss(lon: float, lat: float, cx: float, cy: float, sx: float, sy: float,
 
 
 def synthetic_global_meters(lon: float, lat: float) -> float:
-    """Coarse continental relief for splash globe (meters). Ocean ≈ 0."""
-    if abs(lat) > 78.0:
-        return 40.0 if abs(lat) > 82.0 else 120.0
+    """Coarse continents on an ocean-dominant splash globe (meters). Ocean ≈ 0."""
+    if abs(lat) > 82.0:
+        return 80.0
 
     m = 0.0
-    # Eurasia / Siberia
-    m += _gauss(lon, lat, 90.0, 55.0, 70.0, 20.0, 700.0)
-    m += _gauss(lon, lat, 105.0, 35.0, 22.0, 12.0, 1400.0)
-    m += _gauss(lon, lat, 25.0, 50.0, 25.0, 12.0, 500.0)
+    # Compact continents so equirect albedo reads as a blue ocean planet.
+    # Eurasia / China
+    m += _gauss(lon, lat, 100.0, 40.0, 28.0, 14.0, 900.0)
+    m += _gauss(lon, lat, 105.0, 35.0, 14.0, 9.0, 1600.0)
+    m += _gauss(lon, lat, 30.0, 50.0, 18.0, 10.0, 450.0)
     # Himalaya / Tibet
-    m += _gauss(lon, lat, 88.0, 30.0, 12.0, 5.0, 3200.0)
+    m += _gauss(lon, lat, 88.0, 30.0, 9.0, 4.0, 2800.0)
     # Africa
-    m += _gauss(lon, lat, 20.0, 5.0, 18.0, 32.0, 750.0)
+    m += _gauss(lon, lat, 20.0, 8.0, 12.0, 22.0, 650.0)
     # North America
-    m += _gauss(lon, lat, -100.0, 45.0, 32.0, 18.0, 850.0)
-    m += _gauss(lon, lat, -110.0, 40.0, 8.0, 14.0, 1600.0)
+    m += _gauss(lon, lat, -100.0, 45.0, 20.0, 12.0, 700.0)
+    m += _gauss(lon, lat, -110.0, 40.0, 6.0, 10.0, 1400.0)
     # South America
-    m += _gauss(lon, lat, -58.0, -10.0, 16.0, 26.0, 650.0)
-    m += _gauss(lon, lat, -70.0, -20.0, 4.0, 28.0, 2400.0)
-    # Australia / Indonesia
-    m += _gauss(lon, lat, 135.0, -25.0, 16.0, 12.0, 450.0)
-    m += _gauss(lon, lat, 115.0, 0.0, 18.0, 8.0, 400.0)
-    # Greenland / Antarctica
-    m += _gauss(lon, lat, -40.0, 72.0, 12.0, 8.0, 1800.0)
-    m += _gauss(lon, lat, 0.0, -80.0, 60.0, 8.0, 2200.0)
+    m += _gauss(lon, lat, -60.0, -12.0, 10.0, 18.0, 550.0)
+    m += _gauss(lon, lat, -70.0, -20.0, 3.5, 20.0, 2000.0)
+    # Australia
+    m += _gauss(lon, lat, 135.0, -25.0, 12.0, 9.0, 400.0)
+    # Greenland / Antarctica rim
+    m += _gauss(lon, lat, -40.0, 72.0, 10.0, 6.0, 1400.0)
+    m += _gauss(lon, lat, 0.0, -80.0, 40.0, 6.0, 1800.0)
 
-    m -= _gauss(lon, lat, -150.0, 0.0, 50.0, 40.0, 900.0)
-    m -= _gauss(lon, lat, -30.0, 20.0, 35.0, 25.0, 700.0)
-    m -= _gauss(lon, lat, 60.0, -20.0, 30.0, 20.0, 600.0)
-    m -= _gauss(lon, lat, -40.0, -40.0, 40.0, 25.0, 500.0)
+    # Carve ocean basins so open water dominates the sphere.
+    m -= _gauss(lon, lat, -150.0, 0.0, 55.0, 42.0, 1200.0)
+    m -= _gauss(lon, lat, -30.0, 15.0, 40.0, 28.0, 900.0)
+    m -= _gauss(lon, lat, 60.0, -20.0, 35.0, 22.0, 800.0)
+    m -= _gauss(lon, lat, -40.0, -40.0, 45.0, 28.0, 700.0)
+    m -= _gauss(lon, lat, 160.0, 20.0, 40.0, 25.0, 700.0)
     return max(0.0, min(8800.0, m))
 
 
@@ -204,24 +206,29 @@ def build_global_dem(cols: int, rows: int, out: Path) -> None:
 
 
 def terrain_rgba(h: float, lat: float) -> tuple[int, int, int, int]:
-    """Satellite-ish land tint; ocean alpha 0 for globe PS ocean tint."""
+    """Generic ocean-blue planet albedo; muted land (no neon / chrome peaks)."""
+    # Deep / mid ocean — dominant look for space and near-earth globe.
     if h < 1.0:
-        t = max(0.0, min(1.0, (abs(lat) / 70.0)))
-        r = int(8 + 10 * t)
-        g = int(28 + 20 * t)
-        b = int(70 + 30 * (1.0 - t * 0.3))
+        t = max(0.0, min(1.0, (abs(lat) / 75.0)))
+        r = int(6 + 8 * t)
+        g = int(42 + 18 * t)
+        b = int(110 + 28 * (1.0 - t * 0.25))
         return r, g, b, 0
-    if h < 200.0:
-        return 54, 120, 52, 255
-    if h < 800.0:
-        return 90, 130, 55, 255
-    if h < 2000.0:
-        return 140, 125, 70, 255
-    if h < 4000.0:
-        return 170, 150, 110, 255
-    if abs(lat) > 60.0 or h > 5500.0:
-        return 230, 235, 240, 255
-    return 210, 205, 195, 255
+    # Coastal shallows stay blue-green so coasts do not flash chartreuse.
+    if h < 80.0:
+        return 28, 88, 78, 255
+    if h < 400.0:
+        return 62, 108, 58, 255
+    if h < 1200.0:
+        return 96, 112, 62, 255
+    if h < 2800.0:
+        return 128, 118, 78, 255
+    if h < 4500.0:
+        return 148, 132, 102, 255
+    # High peaks: taupe, not near-white (white + Lambert → chrome glare).
+    if abs(lat) > 62.0 or h > 5500.0:
+        return 168, 170, 172, 255
+    return 155, 145, 128, 255
 
 
 def write_png_rgba(path: Path, cols: int, rows: int, rgba: bytes) -> None:

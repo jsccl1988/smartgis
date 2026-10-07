@@ -20,12 +20,9 @@ script "plugin.mine" {
 
     // --- plugin ---
     require_plugins();
+    // C++ body frames the pad, orbits the lithology cube, and marks
+    // fit-box-ok / camera-fly-ok. Post-showcase IL fit_scene_box / camera_fly
+    // has AV'd FlyCube ExitProcess after a live overlay present.
     run_plugin_command("mine.scenario.showcase");
-    // Lithology cube AABB → best viewport, then orbit the volume.
-    fit_scene_box();
-    pump(ms=200);
-    mark("fit-box-ok");
-    camera_fly(mode="orbit", ms=1800, steps=22);
-    mark("camera-fly-ok");
   }
 }

@@ -5,10 +5,10 @@
 
 #include "content/public/gis_document.h"
 #include "content/public/plugin_host.h"
-#include "plugin/product/world3d/scene/detail/contribute.h"
 #include "plugin/product/world3d/scene/detail/host.h"
-#include "plugin/product/world3d/scene/detail/json.h"
+#include "plugin/runtime/host/capability/contribute.h"
 #include "plugin/product/world3d/scene/pointcloud/present.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/product/world3d/scene/present/style.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "tool/command/command.h"
@@ -46,13 +46,13 @@ bool commit_pointcloud(content::PluginHost* host, const float* xyz,
 bool process_add_pointcloud(content::PluginHost* host,
                             std::string_view args_json) {
   rapidjson::Document args;
-  if (!detail::parse_scene_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"model3d.add_pointcloud\"}");
     return false;
   }
   std::string path;
-  if (!detail::scene_json_get_string(args, "path", &path) || path.empty()) {
+  if (!args_json_string(args, "path", &path) || path.empty()) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"model3d.add_pointcloud\"}");
     return false;
@@ -96,12 +96,12 @@ bool attach_pointcloud_result(content::PluginHost* host,
 
 bool process_pdal_read(content::PluginHost* host, std::string_view args_json) {
   rapidjson::Document args;
-  if (!detail::parse_scene_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"world3d.pdal_read\"}");
     return false;
   }
   std::string path;
-  if (!detail::scene_json_get_string(args, "path", &path) || path.empty()) {
+  if (!args_json_string(args, "path", &path) || path.empty()) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"world3d.pdal_read\"}");
     return false;
   }
@@ -149,7 +149,7 @@ bool process_pdal_read(content::PluginHost* host, std::string_view args_json) {
 bool process_pdal_pipeline(content::PluginHost* host,
                            std::string_view args_json) {
   rapidjson::Document args;
-  if (!detail::parse_scene_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"world3d.pdal_pipeline\"}");
     return false;
@@ -164,7 +164,7 @@ bool process_pdal_pipeline(content::PluginHost* host,
     rapidjson::Writer<rapidjson::StringBuffer> w(buf);
     wrap.Accept(w);
     pipeline_json = buf.GetString();
-  } else if (!detail::scene_json_get_string(args, "pipeline_json",
+  } else if (!args_json_string(args, "pipeline_json",
                                             &pipeline_json) ||
              pipeline_json.empty()) {
     set_operation_result(
@@ -232,20 +232,21 @@ bool register_world3d_pointcloud(content::PluginHost* host) {
   }
   g_host = host;
   return contribute_command_aliases(
-             host,
+             host, kWorld3dPluginId,
              {{"model3d.add_pointcloud", "Add point cloud"},
               {"world3d.add_pointcloud", "加载点云"}},
              "tools", handle_add_pointcloud) &&
          contribute_processing_aliases(
-             host,
+             host, kWorld3dPluginId,
              {{"model3d.add_pointcloud", "Add point cloud"},
               {"world3d.add_pointcloud", "加载点云"}},
              process_add_pointcloud) &&
          contribute_processing_aliases(
-             host, {{"world3d.pdal_read", "PDAL read LAS/LAZ"}},
-             process_pdal_read) &&
+             host, kWorld3dPluginId,
+             {{"world3d.pdal_read", "PDAL read LAS/LAZ"}}, process_pdal_read) &&
          contribute_processing_aliases(
-             host, {{"world3d.pdal_pipeline", "PDAL pipeline JSON"}},
+             host, kWorld3dPluginId,
+             {{"world3d.pdal_pipeline", "PDAL pipeline JSON"}},
              process_pdal_pipeline);
 }
 

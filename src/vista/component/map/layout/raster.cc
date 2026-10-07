@@ -13,9 +13,23 @@ namespace detail {
 
 void apply_background(const gis::style::StyleLayer& layer, double zoom,
                       MapIR* frame) {
+  if (!frame) {
+    return;
+  }
+  // ResolvedPaint defaults background_color to opaque black. A failed parse
+  // must not overwrite MapIR's carto ocean/cream clear — that turns jet
+  // ocean (a=0) into a black hole under the DEM sheet.
+  const auto found = layer.paint.find("background-color");
+  if (found == layer.paint.end() || found->second.empty()) {
+    return;
+  }
+  uint32_t argb = 0;
+  if (!gis::style::parse_color(found->second, &argb)) {
+    return;
+  }
   gis::style::ResolvedPaint paint;
   gis::style::fill_resolved_paint(layer, nullptr, {}, zoom, &paint);
-  frame->background_rgba = paint.background_color;
+  frame->background_rgba = argb;
   frame->background_opacity = paint.background_opacity;
 }
 

@@ -4,7 +4,7 @@
 #include "plugin/product/world3d/scenario/present/present_warmup.h"
 
 #include "plugin/runtime/host/capability/shell.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scenario/common/host_rhi.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "ui/views/map/viewport/draw_host.h"

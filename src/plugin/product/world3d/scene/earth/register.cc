@@ -4,10 +4,10 @@
 #include "plugin/product/world3d/scene/earth/register.h"
 
 #include "content/public/plugin_host.h"
-#include "plugin/product/world3d/scene/detail/contribute.h"
 #include "plugin/product/world3d/scene/detail/host.h"
-#include "plugin/product/world3d/scene/detail/json.h"
 #include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/host/capability/contribute.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "tool/command/command.h"
 
@@ -38,22 +38,22 @@ bool process_fly_to(content::PluginHost* host, std::string_view args_json) {
     return detail::fail_no_scene_processing("world3d.fly_to");
   }
   rapidjson::Document args;
-  if (!detail::parse_scene_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"world3d.fly_to\"}");
     return false;
   }
   double lon = 0.0;
   double lat = 0.0;
-  if (!detail::scene_json_get_double(args, "lon", &lon) ||
-      !detail::scene_json_get_double(args, "lat", &lat)) {
+  if (!args_json_double(args, "lon", &lon) ||
+      !args_json_double(args, "lat", &lat)) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"world3d.fly_to\",\"need\":\"lon,lat\"}");
     return false;
   }
   double distance = 1.6;
   double span_deg = 4.0;
-  (void)detail::scene_json_get_double(args, "distance", &distance);
-  (void)detail::scene_json_get_double(args, "span_deg", &span_deg);
+  (void)args_json_double(args, "distance", &distance);
+  (void)args_json_double(args, "span_deg", &span_deg);
   if (!detail::world3d_scene_sink(host)->fly_to(
           lon, lat, static_cast<float>(distance), span_deg)) {
     set_operation_result("{\"error\":\"fly_failed\",\"op\":\"world3d.fly_to\"}");
@@ -69,13 +69,13 @@ bool process_attach_city_tileset(content::PluginHost* host,
     return detail::fail_no_scene_processing("world3d.attach_city_tileset");
   }
   rapidjson::Document args;
-  if (!detail::parse_scene_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"world3d.attach_city_tileset\"}");
     return false;
   }
   std::string path;
-  (void)detail::scene_json_get_string(args, "path", &path);
+  (void)args_json_string(args, "path", &path);
   if (!detail::world3d_scene_sink(host)->attach_tileset(path)) {
     set_operation_result(
         "{\"error\":\"attach_failed\",\"op\":\"world3d.attach_city_tileset\"}");
@@ -91,13 +91,13 @@ bool process_load_global_dem(content::PluginHost* host,
     return detail::fail_no_scene_processing("world3d.load_global_dem");
   }
   rapidjson::Document args;
-  if (!detail::parse_scene_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"world3d.load_global_dem\"}");
     return false;
   }
   std::string path;
-  (void)detail::scene_json_get_string(args, "path", &path);
+  (void)args_json_string(args, "path", &path);
   std::string result;
   if (!detail::world3d_scene_sink(host)->load_global_dem(path, &result)) {
     if (result.empty()) {
@@ -122,15 +122,15 @@ bool process_set_satellite_cloud(content::PluginHost* host,
     return detail::fail_no_scene_processing("world3d.set_satellite_cloud");
   }
   rapidjson::Document args;
-  if (!detail::parse_scene_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"world3d.set_satellite_cloud\"}");
     return false;
   }
   std::string path;
-  (void)detail::scene_json_get_string(args, "path", &path);
+  (void)args_json_string(args, "path", &path);
   bool enabled = true;
-  (void)detail::scene_json_get_bool(args, "enabled", &enabled);
+  (void)args_json_bool(args, "enabled", &enabled);
   std::string result;
   if (!detail::world3d_scene_sink(host)->set_satellite_cloud(path, enabled,
                                                             &result)) {
@@ -157,7 +157,7 @@ bool process_set_atmosphere(content::PluginHost* host,
     return detail::fail_no_scene_processing("world3d.set_atmosphere");
   }
   rapidjson::Document args;
-  if (!detail::parse_scene_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"world3d.set_atmosphere\"}");
     return false;
@@ -166,10 +166,10 @@ bool process_set_atmosphere(content::PluginHost* host,
   bool ocean = true;
   bool cloud = true;
   bool fog = true;
-  (void)detail::scene_json_get_bool(args, "sky", &sky);
-  (void)detail::scene_json_get_bool(args, "ocean", &ocean);
-  (void)detail::scene_json_get_bool(args, "cloud", &cloud);
-  (void)detail::scene_json_get_bool(args, "fog", &fog);
+  (void)args_json_bool(args, "sky", &sky);
+  (void)args_json_bool(args, "ocean", &ocean);
+  (void)args_json_bool(args, "cloud", &cloud);
+  (void)args_json_bool(args, "fog", &fog);
   if (!detail::world3d_scene_sink(host)->set_atmosphere(sky, ocean, cloud,
                                                        fog)) {
     set_operation_result(
@@ -186,13 +186,13 @@ bool process_apply_look(content::PluginHost* host, std::string_view args_json) {
     return detail::fail_no_scene_processing("world3d.apply_look");
   }
   rapidjson::Document args;
-  if (!detail::parse_scene_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"world3d.apply_look\"}");
     return false;
   }
   std::string mode;
-  if (!detail::scene_json_get_string(args, "mode", &mode) || mode.empty()) {
+  if (!args_json_string(args, "mode", &mode) || mode.empty()) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"world3d.apply_look\",\"need\":\"mode\"}");
     return false;
@@ -221,12 +221,12 @@ bool process_fly_globe(content::PluginHost* host, std::string_view args_json) {
     return detail::fail_no_scene_processing("world3d.fly_globe");
   }
   rapidjson::Document args;
-  if (!detail::parse_scene_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"world3d.fly_globe\"}");
     return false;
   }
   double t = 0.48;
-  (void)detail::scene_json_get_double(args, "t", &t);
+  (void)args_json_double(args, "t", &t);
   std::string result;
   if (!sink->fly_globe(static_cast<float>(t), &result)) {
     if (result.empty()) {
@@ -313,50 +313,63 @@ bool register_world3d_earth(content::PluginHost* host) {
   }
   g_host = host;
   return contribute_command_aliases(
-             host, {{"world3d.open_earth", "打开真三维地球"}}, "tools",
+             host, kWorld3dPluginId,
+             {{"world3d.open_earth", "打开真三维地球"}}, "tools",
              handle_open_earth) &&
-         contribute_command_aliases(host, {{"world3d.fly_to", "飞行到"}},
-                                    "tools", handle_fly_to) &&
+         contribute_command_aliases(host, kWorld3dPluginId,
+                                    {{"world3d.fly_to", "飞行到"}}, "tools",
+                                    handle_fly_to) &&
          contribute_command_aliases(
-             host, {{"world3d.attach_city_tileset", "挂载城市瓦片"}}, "tools",
+             host, kWorld3dPluginId,
+             {{"world3d.attach_city_tileset", "挂载城市瓦片"}}, "tools",
              handle_attach_city_tileset) &&
          contribute_command_aliases(
-             host, {{"world3d.load_global_dem", "加载全球DEM"}}, "tools",
+             host, kWorld3dPluginId,
+             {{"world3d.load_global_dem", "加载全球DEM"}}, "tools",
              handle_load_global_dem) &&
          contribute_command_aliases(
-             host, {{"world3d.set_satellite_cloud", "卫星云图"}}, "tools",
+             host, kWorld3dPluginId,
+             {{"world3d.set_satellite_cloud", "卫星云图"}}, "tools",
              handle_set_satellite_cloud) &&
          contribute_command_aliases(
-             host, {{"world3d.set_atmosphere", "大气层开关"}}, "tools",
+             host, kWorld3dPluginId,
+             {{"world3d.set_atmosphere", "大气层开关"}}, "tools",
              handle_set_atmosphere) &&
          contribute_command_aliases(
-             host, {{"world3d.apply_look", "地球外观预设"}}, "tools",
-             handle_apply_look) &&
+             host, kWorld3dPluginId, {{"world3d.apply_look", "地球外观预设"}},
+             "tools", handle_apply_look) &&
          contribute_command_aliases(
-             host, {{"world3d.fly_globe", "地球飞入"}}, "tools",
-             handle_fly_globe) &&
+             host, kWorld3dPluginId, {{"world3d.fly_globe", "地球飞入"}},
+             "tools", handle_fly_globe) &&
          contribute_processing_aliases(
-             host, {{"world3d.open_earth", "打开真三维地球"}},
+             host, kWorld3dPluginId,
+             {{"world3d.open_earth", "打开真三维地球"}},
              process_open_earth) &&
-         contribute_processing_aliases(host, {{"world3d.fly_to", "飞行到"}},
+         contribute_processing_aliases(host, kWorld3dPluginId,
+                                       {{"world3d.fly_to", "飞行到"}},
                                        process_fly_to) &&
          contribute_processing_aliases(
-             host, {{"world3d.attach_city_tileset", "挂载城市瓦片"}},
+             host, kWorld3dPluginId,
+             {{"world3d.attach_city_tileset", "挂载城市瓦片"}},
              process_attach_city_tileset) &&
          contribute_processing_aliases(
-             host, {{"world3d.load_global_dem", "加载全球DEM"}},
+             host, kWorld3dPluginId,
+             {{"world3d.load_global_dem", "加载全球DEM"}},
              process_load_global_dem) &&
          contribute_processing_aliases(
-             host, {{"world3d.set_satellite_cloud", "卫星云图"}},
+             host, kWorld3dPluginId,
+             {{"world3d.set_satellite_cloud", "卫星云图"}},
              process_set_satellite_cloud) &&
          contribute_processing_aliases(
-             host, {{"world3d.set_atmosphere", "大气层开关"}},
+             host, kWorld3dPluginId,
+             {{"world3d.set_atmosphere", "大气层开关"}},
              process_set_atmosphere) &&
          contribute_processing_aliases(
-             host, {{"world3d.apply_look", "地球外观预设"}},
+             host, kWorld3dPluginId, {{"world3d.apply_look", "地球外观预设"}},
              process_apply_look) &&
          contribute_processing_aliases(
-             host, {{"world3d.fly_globe", "地球飞入"}}, process_fly_globe);
+             host, kWorld3dPluginId, {{"world3d.fly_globe", "地球飞入"}},
+             process_fly_globe);
 }
 
 }  // namespace detail

@@ -144,6 +144,10 @@ class VISTA_EXPORT WorldPass {
   size_t mesh_count() const { return meshes_.size(); }
   const GpuMesh* mesh_at(size_t index) const;
 
+  // Last rebuild_meshes wall inside record_draws / ensure_meshes (0 when warm
+  // StaticReuse skipped upload). Scene3d phase clocks read this after present.
+  int64_t last_rebuild_ms() const { return last_rebuild_ms_; }
+
   // Programs created on the Device passed to record. Recreated when that
   // Device pointer changes.
   render::rhi::Pipeline* solid_pipeline() const { return solid_pipeline_; }
@@ -172,6 +176,7 @@ class VISTA_EXPORT WorldPass {
   render::rhi::Pipeline* lit_textured_pipeline_ = nullptr;
   std::vector<GpuMesh> meshes_;
   bool meshes_dirty_;
+  int64_t last_rebuild_ms_ = 0;
   uint32_t upload_width_;
   uint32_t upload_height_;
   bool view_ortho_set_;

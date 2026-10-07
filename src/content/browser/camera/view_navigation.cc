@@ -44,7 +44,7 @@ bool extents_equal(const content::Extent2& a, const content::Extent2& b) {
 std::string format_view_scale(const content::Extent2& extent,
                               int viewport_width_px) {
   if (viewport_width_px <= 0) {
-    return "1:—";
+    return "1:--";
   }
   const double width = extent.xmax - extent.xmin;
   if (!(width > 0.0)) {

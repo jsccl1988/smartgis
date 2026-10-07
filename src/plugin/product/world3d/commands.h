@@ -65,7 +65,8 @@ bool publish_hex_grid(const HexGridCommit& commit);
 
 // Host façade: wires DEM, True-Earth scene, 2D orthogrid, and 3D hex layers.
 // Command ids stay baogrid.* / orthogrid.* / orthogrid3d.* / model3d.* /
-// world3d.* for AM, harness, and host_test.
+// world3d.* for AM, harness, and host_test. Pack ensure for those prefixes is
+// owned by scenario/register (ensure_world3d_pack); this is the scene half.
 bool register_world3d(content::PluginHost* host);
 
 }  // namespace plugin

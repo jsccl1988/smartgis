@@ -29,7 +29,7 @@
 #include "content/public/map_contents.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "vista/component/atmosphere/field/field_channel.h"
+#include "vista/component/world/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "gis/edit/session.h"
 #include "gis/tile/layer/tile_map_layer.h"

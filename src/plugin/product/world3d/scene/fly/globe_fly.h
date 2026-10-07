@@ -48,8 +48,8 @@ void world3d_china_aim_yaw_pitch(float* yaw, float* pitch);
 
 inline constexpr float kWorld3dGlobeFlySpaceT = 0.06f;
 inline constexpr float kWorld3dGlobeFlyCloudsT = 0.28f;
-// Mid terrain-hug over central China DEM (horizontal forward).
-inline constexpr float kWorld3dGlobeFlyDemT = 0.78f;
+// Terrain-hug over inland China DEM (before coast cyan water).
+inline constexpr float kWorld3dGlobeFlyDemT = 0.70f;
 // East China coast / nearshore (Gerstner + land in frame).
 inline constexpr float kWorld3dGlobeFlyOceanT = 0.86f;
 // High-China DEM hold for suite landish score BMP.

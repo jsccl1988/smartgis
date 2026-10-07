@@ -22,7 +22,7 @@
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scenario/seed/world3d_seed.h"
 #include "plugin/runtime/host/capability/shell.h"
 #include "ui/views/map/viewport/draw_host.h"

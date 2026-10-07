@@ -27,6 +27,8 @@ class Scene3dOverlays {
                      const float* uv, int uv_float_count);
   void clear_tin();
 
+  // |force| = DEM rebuilt (orbit frame may have moved). Warm presents pass
+  // force=false when !*_dirty_ so existing World overlay nodes are kept.
   void attach_pointcloud(vista::World* world, const OrbitGeoFrame& geo,
                          const std::vector<float>& local_xyz,
                          size_t dem_xyz_count, bool force);

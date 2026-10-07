@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// Orthogrid map2d showcase. Same IR lanes as browser.map2d.browse.
-// Payload: map2d.scenario.orthogrid (smartgis.map2d).
+// Orthogrid map2d showcase. Atomic IL: map2d.seed(mode=orthogrid) + export_bmp.
+// Frame: map2d_orthogrid. C++ fallback: map2d.scenario.orthogrid when IL off.
 
 script "browser.map2d.orthogrid" {
   seq @inproc {
@@ -16,13 +16,23 @@ script "browser.map2d.orthogrid" {
     wait_viewport(face="map", ms=30000, frame=0);
     mark("map-ready");
 
-    // --- plugin ---
+    // --- plugin: seed ---
     require_plugins();
-    run_plugin_command("map2d.scenario.orthogrid");
-    fit_extent();
-    pump(ms=300);
-    invalidate_map2d();
-    pump(ms=200);
+    select_map_tab(0);
+    pump(ms=400);
+    run_processing(
+      id="map2d.seed",
+      args="{\"mode\":\"orthogrid\"}"
+    );
+    mark("orthogrid-ok");
+    mark("map2d-seed-plugin");
+
+    // --- view: frame export ---
+    stop_map_timers();
+    export_bmp(leaf="map2d-showcase-orthogrid.bmp", frame="map2d_orthogrid");
+    mark("fit-ok");
     mark("extent-ok");
+    mark("pass");
+    detach_maps();
   }
 }

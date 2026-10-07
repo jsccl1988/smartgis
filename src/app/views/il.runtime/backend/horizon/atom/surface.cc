@@ -72,19 +72,33 @@ void sync_draw_host_after_resize(ui::views::DrawHost* pane) {
     pane->sync_native_bounds();
     return;
   }
+  int prev_w = 0;
+  int prev_h = 0;
+  if (HWND before = pane->native_view()) {
+    if (IsWindow(before)) {
+      RECT prev = {};
+      GetClientRect(before, &prev);
+      prev_w = prev.right;
+      prev_h = prev.bottom;
+    }
+  }
   pane->sync_native_bounds();
   if (HWND map = pane->native_view()) {
     if (IsWindow(map)) {
       RECT rc = {};
       GetClientRect(map, &rc);
       if (rc.right > 0 && rc.bottom > 0) {
-        SendMessageW(map, WM_SIZE, SIZE_RESTORED,
-                     MAKELPARAM(rc.right, rc.bottom));
+        // Same client size: do not re-post WM_SIZE (would clear shell overlay
+        // and rebuild DXGI before DrawHost same-size guard landed).
+        if (rc.right != prev_w || rc.bottom != prev_h) {
+          SendMessageW(map, WM_SIZE, SIZE_RESTORED,
+                       MAKELPARAM(rc.right, rc.bottom));
+          InvalidateRect(map, nullptr, FALSE);
+          pane->invalidate_native();
+        }
       }
-      InvalidateRect(map, nullptr, FALSE);
     }
   }
-  pane->invalidate_native();
 }
 
 }  // namespace

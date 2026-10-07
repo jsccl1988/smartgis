@@ -13,6 +13,10 @@ namespace content {
 // Product Scene3d present engine. Selected at runtime (View menu / API),
 // `--scene3d-engine`, or harness env SCENE3D_ENGINE (switch wins if both set).
 // Leftover GL vs D3D11 under kStereoGl is STEREO_API / SCENE3D_SHOWCASE_D3D.
+//
+// Prep parallel (GPUSCENE_PREP_PARALLEL / --gpuscene-prep-parallel) stays
+// product default OFF until frustum cull is honest (see vista prep_cull +
+// equal-profile plan M3). Scene3d session must not force it on.
 enum class Scene3dEngine : uint32_t {
   kFlyCube = 0,   // DX12 RHI (default product SoT)
   kStereoGl = 1,  // Leftover stereo (OpenGL or D3D11 via STEREO_API)

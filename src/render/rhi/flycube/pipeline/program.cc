@@ -469,14 +469,12 @@ bool FlycubeProgram::replay_dispatch(::CommandList* list, const Dispatch& item) 
     if (binding.kind == BindingKind::kUav) {
       GpuTexture* tex = find_texture(item.uavs, binding.slot);
       if (tex && tex->shared()) {
-        list->ResourceBarrier({{tex->shared(), ResourceState::kCommon,
-                                ResourceState::kUnorderedAccess}});
+        tex->barrier_to(list, ResourceState::kUnorderedAccess);
       }
     } else if (binding.kind == BindingKind::kSrv) {
       GpuTexture* tex = find_texture(item.srvs, binding.slot);
       if (tex && tex->shared()) {
-        list->ResourceBarrier({{tex->shared(), ResourceState::kCommon,
-                                ResourceState::kNonPixelShaderResource}});
+        tex->barrier_to(list, ResourceState::kNonPixelShaderResource);
       }
     }
   }
@@ -503,8 +501,7 @@ bool FlycubeProgram::replay_dispatch(::CommandList* list, const Dispatch& item) 
       }
       list->UAVResourceBarrier(tex->shared());
       if (binding.slot == 0) {
-        list->ResourceBarrier({{tex->shared(), ResourceState::kUnorderedAccess,
-                                ResourceState::kAllShaderResource}});
+        tex->barrier_to(list, ResourceState::kAllShaderResource);
       }
     }
   }

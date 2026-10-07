@@ -40,6 +40,8 @@ class VISTA_EXPORT MapEffect final : public render::graph::Effect {
             bool record_all = false);
 
   render::graph::EffectSlot slot() const override;
+  // MapPass encode clears when world_items run with ColorLoadOp::kClear.
+  bool clears_color() const override;
   bool record(const render::graph::RecordContext& ctx) override;
 
  private:

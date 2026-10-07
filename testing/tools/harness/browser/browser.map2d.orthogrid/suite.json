@@ -2,7 +2,8 @@
     "id":  "browser.map2d.orthogrid",
     "kind":  "integration",
     "argv":  [
-                 "--map2d-showcase=orthogrid"
+                 "--map2d-showcase=orthogrid",
+                 "--map2d-showcase-il=1"
              ],
     "script":  "browser.map2d.orthogrid.il",
     "env":  {

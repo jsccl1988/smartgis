@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// StyleDocument align showcase. Same IR lanes as browser.map2d.browse.
-// Payload: map2d.scenario.align (smartgis.map2d).
+// StyleDocument align showcase. Atomic IL: map2d.seed(mode=align) + export_bmp.
+// Frame: map2d_china. C++ fallback: map2d.scenario.align when IL off.
 
 script "browser.map2d.align" {
   seq @inproc {
@@ -16,13 +16,26 @@ script "browser.map2d.align" {
     wait_viewport(face="map", ms=30000, frame=0);
     mark("map-ready");
 
-    // --- plugin ---
+    // --- plugin: seed ---
     require_plugins();
-    run_plugin_command("map2d.scenario.align");
-    fit_extent();
+    select_map_tab(0);
+    pump(ms=400);
+    stop_map_timers();
+    run_processing(
+      id="map2d.seed",
+      args="{\"mode\":\"align\"}"
+    );
+    mark("china-ok");
+    mark("map2d-seed-plugin");
     pump(ms=300);
     invalidate_map2d();
     pump(ms=200);
+
+    // --- view: frame export ---
+    export_bmp(leaf="map2d-showcase-align.bmp", frame="map2d_china");
+    mark("fit-ok");
     mark("extent-ok");
+    mark("pass");
+    detach_maps();
   }
 }

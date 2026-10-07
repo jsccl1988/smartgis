@@ -3,23 +3,24 @@
 
 #include "plugin/product/world3d/scenario/register.h"
 
-#include "app/views/app/cmdline/views_launch_options.h"
 #include "content/browser/camera/orbit_frame.h"
+#include "plugin/product/world3d/scenario/atmosphere/mode.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/public/plugin_host.h"
 #include "plugin/product/world3d/scenario/atmosphere/session/device_session.h"
 #include "plugin/product/world3d/scenario/atmosphere/seed/mode_seed.h"
 #include "plugin/product/world3d/scenario/atmosphere/present/present_run.h"
-#include "plugin/product/world3d/scenario/atmosphere/common/progress.h"
 #include "plugin/product/world3d/scenario/atmosphere/session/session_finish.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
+#include "plugin/product/world3d/commands.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scenario/interact.h"
 #include "plugin/product/world3d/scenario/product/orthogrid.h"
 #include "plugin/product/world3d/scenario/product/orthogrid3d.h"
 #include "plugin/product/world3d/scenario/product/world3d.h"
 #include "plugin/product/world3d/scenario/product/world_preview.h"
+#include "plugin/runtime/host/capability/scenario_command.h"
+#include "plugin/runtime/host/capability/pack_ensure.h"
 #include "plugin/runtime/host/capability/scenario.h"
-#include "plugin/runtime/host/capability/shell.h"
 #include "tool/command/command.h"
 
 #include <cstdio>
@@ -30,27 +31,19 @@ namespace {
 
 constexpr const char* kPluginId = "smartgis.world3d";
 
-bool run_bound(content::PluginHost* host, int (*fn)(HarnessShell&)) {
-  HarnessShell* shell = harness_shell(host);
-  if (!shell || !fn) {
-    set_harness_scenario_exit(1);
-    return false;
-  }
+void prep_world3d_shell(HarnessShell* shell) {
   detail::bind_plugin_scenario_shell(shell);
   detail::bind_atmosphere_scenario_shell(shell);
-  set_harness_scenario_exit(fn(*shell));
-  return harness_scenario_exit() == 0;
 }
 
 bool contribute_one(content::PluginHost* host, std::string_view command_id,
-                    std::string_view title, int (*fn)(HarnessShell&)) {
-  return host->contribute_command(
-      kPluginId, command_id, title, "tools",
-      [host, fn](const tool::CommandArgs&) { return run_bound(host, fn); });
+                    std::string_view title, HarnessScenarioFn fn) {
+  return contribute_scenario_command(host, kPluginId, command_id, title, fn,
+                                     prep_world3d_shell);
 }
 
-int run_atmosphere(HarnessShell& browser, app::AtmosphereShowcaseMode mode) {
-  const char* name = app::atmosphere_showcase_name(mode);
+int run_atmosphere(HarnessShell& browser, AtmosphereShowcaseMode mode) {
+  const char* name = atmosphere_showcase_name(mode);
   std::fprintf(stderr, "atmosphere-showcase mode=%s\n", name);
   detail::atmosphere_mark(name);
   detail::atmosphere_mark("tab3d");
@@ -96,34 +89,29 @@ int scenario_orthogrid3d(HarnessShell& browser) {
   return detail::run_orthogrid3d(browser);
 }
 int scenario_atmosphere_land(HarnessShell& browser) {
-  return run_atmosphere(browser, app::AtmosphereShowcaseMode::kLand);
+  return run_atmosphere(browser, AtmosphereShowcaseMode::kLand);
 }
 int scenario_atmosphere_ocean(HarnessShell& browser) {
-  return run_atmosphere(browser, app::AtmosphereShowcaseMode::kOcean);
+  return run_atmosphere(browser, AtmosphereShowcaseMode::kOcean);
 }
 int scenario_atmosphere_full(HarnessShell& browser) {
-  return run_atmosphere(browser, app::AtmosphereShowcaseMode::kFull);
+  return run_atmosphere(browser, AtmosphereShowcaseMode::kFull);
 }
 int scenario_atmosphere_coast(HarnessShell& browser) {
-  return run_atmosphere(browser, app::AtmosphereShowcaseMode::kCoast);
+  return run_atmosphere(browser, AtmosphereShowcaseMode::kCoast);
 }
 int scenario_atmosphere_legacy(HarnessShell& browser) {
-  return run_atmosphere(browser, app::AtmosphereShowcaseMode::kLegacy);
+  return run_atmosphere(browser, AtmosphereShowcaseMode::kLegacy);
 }
 int scenario_atmosphere_globe(HarnessShell& browser) {
-  return run_atmosphere(browser, app::AtmosphereShowcaseMode::kGlobe);
+  return run_atmosphere(browser, AtmosphereShowcaseMode::kGlobe);
 }
 
 bool register_world3d_scenario(content::PluginHost* host) {
-  register_world3d_interact_verbs();
   if (!host) {
     return false;
   }
-  if (tool::CommandCatalog* catalog = host->commands()) {
-    if (catalog->contains("world3d.scenario.showcase")) {
-      return true;
-    }
-  }
+  // Per-id contribute_one is idempotent; do not bail after only world3d.*.
   return contribute_one(host, "world3d.scenario.showcase",
                         "World3d Scene3D showcase", scenario_world3d) &&
          contribute_one(host, "world3d.scenario.world_preview",
@@ -151,9 +139,34 @@ bool register_world3d_scenario(content::PluginHost* host) {
 }
 
 namespace {
-struct World3dInteractOnce {
-  World3dInteractOnce() { register_world3d_interact_verbs(); }
-} k_world3d_interact_once;
+
+// Single ensure entry for every world3d-owned pack prefix. Chains scene /
+// command registration (register_world3d) then harness scenario contributions
+// (register_world3d_scenario). Do not also call register_command_pack from
+// commands.cc -- overlapping prefixes would append a second ensure and fight.
+bool ensure_world3d_pack(content::PluginHost* host) {
+  // DLL PLUGIN_PACK_REGISTER / prior ensure may already have wired scenes;
+  // ignore false so scenario contribute still runs.
+  (void)register_world3d(host);
+  return register_world3d_scenario(host);
+}
+
+struct World3dHarnessOnce {
+  World3dHarnessOnce() {
+    // Static init before any ensure_for_command: interact ops must be present
+    // when packs are later ensured.
+    register_world3d_interact_ops();
+    // One ensure fn per prefix -- covers scene + scenario together.
+    register_command_pack("world3d", ensure_world3d_pack);
+    register_command_pack("baogrid", ensure_world3d_pack);
+    register_command_pack("orthogrid", ensure_world3d_pack);
+    // Boundary match: orthogrid vs orthogrid3d; keep an explicit prefix.
+    register_command_pack("orthogrid3d", ensure_world3d_pack);
+    register_command_pack("model3d", ensure_world3d_pack);
+    register_command_pack("atmosphere", ensure_world3d_pack);
+  }
+} k_world3d_harness_once;
+
 }  // namespace
 
 }  // namespace plugin

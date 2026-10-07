@@ -36,9 +36,11 @@ render::rhi::Texture* upload_rgba_texture(render::rhi::Device* device,
                                           const void* pixels,
                                           uint32_t byte_size);
 
-render::rhi::Texture* upload_rgba_texture_wh(render::rhi::Device* device,
-                                             const void* pixels, uint32_t width,
-                                             uint32_t height);
+// When |existing| matches |width|x|height|, re-upload in place (cold remesh
+// after ocean height alloc keeps the DEM albedo SRV without create/destroy).
+render::rhi::Texture* upload_rgba_texture_wh(
+    render::rhi::Device* device, const void* pixels, uint32_t width,
+    uint32_t height, render::rhi::Texture* existing = nullptr);
 
 render::rhi::Texture* upload_layer_texture(render::rhi::Device* device,
                                            const gis::MapLayer* layer);

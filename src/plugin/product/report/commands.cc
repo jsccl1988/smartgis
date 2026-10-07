@@ -8,6 +8,9 @@
 
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/host/capability/pack_ensure.h"
+#include "plugin/runtime/host/capability/scenario.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "tool/command/command.h"
 
@@ -18,30 +21,23 @@ namespace {
 
 constexpr const char* kPluginId = "smartgis.report";
 
-bool json_get_string(std::string_view json, const char* key, std::string* out) {
-  if (!out || !key || json.empty()) {
-    return false;
+struct ReportPackOnce {
+  ReportPackOnce() {
+    register_command_pack("report", [](content::PluginHost* host) {
+      return register_report(host);
+    });
   }
-  rapidjson::Document doc;
-  doc.Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  if (doc.HasParseError() || !doc.IsObject()) {
-    return false;
-  }
-  const auto it = doc.FindMember(key);
-  if (it == doc.MemberEnd() || !it->value.IsString()) {
-    return false;
-  }
-  *out = std::string(it->value.GetString(), it->value.GetStringLength());
-  return !out->empty();
-}
+} k_report_pack_once;
 
 bool process_open(content::PluginHost* host, std::string_view args_json) {
   std::string path;
-  if (!json_get_string(args_json, "path", &path) &&
-      !json_get_string(args_json, "dir", &path)) {
-    if (!args_json.empty() && args_json.front() != '{') {
-      path.assign(args_json);
+  rapidjson::Document args;
+  if (parse_args_json(args_json, &args)) {
+    if (!args_json_string(args, "path", &path)) {
+      (void)args_json_string(args, "dir", &path);
     }
+  } else if (!args_json.empty() && args_json.front() != '{') {
+    path.assign(args_json);
   }
   if (path.empty()) {
     set_operation_result("{\"error\":\"bad_args\"}");
@@ -58,7 +54,11 @@ bool process_open(content::PluginHost* host, std::string_view args_json) {
 
 bool process_post(content::PluginHost* host, std::string_view args_json) {
   std::string json;
-  if (!json_get_string(args_json, "json", &json)) {
+  rapidjson::Document args;
+  if (parse_args_json(args_json, &args)) {
+    (void)args_json_string(args, "json", &json);
+  }
+  if (json.empty()) {
     json.assign(args_json);
   }
   if (json.empty()) {
@@ -115,7 +115,9 @@ bool register_report(content::PluginHost* host) {
           kPluginId, "report.scenario.showcase", "Harness report scenario",
           "tools",
           [host](const tool::CommandArgs& args) {
-            return process_scenario(host, args.payload);
+            const bool ok = process_scenario(host, args.payload);
+            set_harness_scenario_exit(ok ? 0 : 1);
+            return ok;
           })) {
     return false;
   }

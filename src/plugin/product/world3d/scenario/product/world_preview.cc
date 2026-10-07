@@ -11,7 +11,7 @@
 #include "plugin/runtime/host/capability/shell.h"
 #include "plugin/runtime/host/capability/marks.h"
 #include "plugin/runtime/host/capability/shell.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"

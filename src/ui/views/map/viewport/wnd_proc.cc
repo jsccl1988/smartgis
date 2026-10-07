@@ -208,6 +208,32 @@ void DrawHost::handle_size(HWND hwnd, int cx, int cy) {
   if (cx <= 0 || cy <= 0) {
     release_backbuffer();
   }
+  if (mode_ == AttachMode::kGpuPresent && cx > 0 && cy > 0) {
+    uint32_t rw = static_cast<uint32_t>(cx);
+    uint32_t rh = static_cast<uint32_t>(cy);
+    if (role_ == Role::kScene3d) {
+      detail::clamp_scene3d_swapchain_size(&rw, &rh);
+    }
+    {
+      std::lock_guard<std::mutex> lock(display_mu_);
+      // Same swapchain extent: ignore no-op WM_SIZE (sync_draw_host_after_resize
+      // / SWP_FRAMECHANGED). Clearing shell + DXGI reinit punched StaticReuse
+      // every time and flapped shell_generation.
+      if (display_init_ == DisplayInit::kOk && rhi_device_ &&
+          display_client_w_ == rw && display_client_h_ == rh) {
+        // Scene3d Init presents a navy clear and deliberately skips
+        // present_gpu. Lazy attach then posts WM_SIZE at the same client
+        // size — a hard return left BeginFrame starved when the present
+        // timer had not yet advanced frame_request_ (HUD stuck on soft
+        // GDI / Fps~0). Wake the mailbox for the first real present_gpu.
+        if (!last_gpu_present_ok_.load(std::memory_order_acquire)) {
+          frame_request_.fetch_add(1, std::memory_order_acq_rel);
+          signal_display();
+        }
+        return;
+      }
+    }
+  }
   if (cx > 0 && cy > 0) {
     clear_shell_overlay();
   }

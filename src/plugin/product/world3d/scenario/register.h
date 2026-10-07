@@ -12,6 +12,8 @@ namespace plugin {
 
 class HarnessShell;
 
+// Contributes world3d / orthogrid / atmosphere scenario commands. Invoked from
+// ensure_world3d_pack (sole pack-ensure entry) after register_world3d.
 bool register_world3d_scenario(content::PluginHost* host);
 
 int scenario_world3d(HarnessShell& browser);

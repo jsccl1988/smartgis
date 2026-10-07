@@ -1,4 +1,4 @@
-// Copyright (c) 2026 The Mogu Authors.
+﻿// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <iterator>
 #include <vector>
@@ -17,10 +18,10 @@
 #include "content/browser/present/scene3d/frame/terrain_mesh.h"
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
 #include "content/browser/present/scene3d/scene3d_phase_profile.h"
-#include "vista/pass/atmosphere/atmosphere_effects.h"
+#include "vista/pass/world/atmosphere/atmosphere_effects.h"
 #include "vista/pass/world/opaque_effect.h"
 #include "vista/pass/world/pass.h"
-#include "vista/component/atmosphere/environment.h"
+#include "vista/component/world/atmosphere/environment.h"
 #include "render/graph/frame_graph.h"
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
@@ -79,16 +80,25 @@ void Scene3dGpuPresent::set_wireframe_enabled(bool on) {
 }
 
 void Scene3dGpuPresent::set_look_preset(Scene3dLookPreset preset) {
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
+  // Drop leftover labels only when leaving kLegacyStereo. Unconditional
+  // swap-drop on every atmosphere set raced with software paint iterating
+  // legacy_labels_ without the mutex (select_map_tab 鈫?string dtor AV at
+  // 0xC0000005). Paint already gates on look_preset_ == kLegacyStereo.
+  const bool leaving_legacy =
+      look_preset_ == Scene3dLookPreset::kLegacyStereo &&
+      preset != Scene3dLookPreset::kLegacyStereo;
   look_preset_ = preset;
-  if (preset != Scene3dLookPreset::kLegacyStereo) {
-    legacy_labels_.clear();
+  if (leaving_legacy) {
+    std::vector<Scene3dLegacyLabel> drop;
+    legacy_labels_.swap(drop);
     legacy_coast_seeded_ = false;
     legacy_overlays_attempted_ = false;
   }
 }
 
 bool Scene3dGpuPresent::ensure_legacy_overlays() {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   return ensure_legacy_overlays_locked();
 }
 
@@ -151,12 +161,12 @@ bool Scene3dGpuPresent::ensure_legacy_overlays_locked() {
 void Scene3dGpuPresent::set_overlay_pointcloud(const float* xyz_lon_lat_elev,
                                                int point_count,
                                                const uint8_t* rgba) {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   overlays_.set_pointcloud(xyz_lon_lat_elev, point_count, rgba);
 }
 
 void Scene3dGpuPresent::clear_overlay_pointcloud() {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   overlays_.clear_pointcloud();
 }
 
@@ -165,7 +175,7 @@ void Scene3dGpuPresent::set_overlay_tin_mesh(const float* xyz_lon_lat_elev,
                                              const unsigned* indices,
                                              int index_count,
                                              const uint8_t* albedo_rgba) {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   overlays_.set_tin(xyz_lon_lat_elev, point_count, indices, index_count,
                     albedo_rgba);
 }
@@ -173,18 +183,18 @@ void Scene3dGpuPresent::set_overlay_tin_mesh(const float* xyz_lon_lat_elev,
 void Scene3dGpuPresent::set_overlay_tin_drape(const uint8_t* rgba, uint32_t width,
                                               uint32_t height, const float* uv,
                                               int uv_float_count) {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   overlays_.set_tin_drape(rgba, width, height, uv, uv_float_count);
 }
 
 void Scene3dGpuPresent::clear_overlay_tin_mesh() {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   overlays_.clear_tin();
 }
 
 void Scene3dGpuPresent::set_dem_drape_rgba(const uint8_t* rgba, uint32_t width,
                                            uint32_t height) {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   dem_drape_rgba_.clear();
   dem_drape_w_ = 0;
   dem_drape_h_ = 0;
@@ -199,7 +209,7 @@ void Scene3dGpuPresent::set_dem_drape_rgba(const uint8_t* rgba, uint32_t width,
 }
 
 void Scene3dGpuPresent::clear_dem_drape() {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   dem_drape_rgba_.clear();
   dem_drape_w_ = 0;
   dem_drape_h_ = 0;
@@ -229,7 +239,7 @@ void Scene3dGpuPresent::set_studio_block(bool on) {
 
 bool Scene3dGpuPresent::attach_tileset_json(const char* json, size_t len,
                                             const char* name) {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   TilesetStreamSession* stream = live_tileset_stream_locked();
   if (!stream) {
     tileset_stream_ = std::make_unique<TilesetStreamSession>();
@@ -239,7 +249,7 @@ bool Scene3dGpuPresent::attach_tileset_json(const char* json, size_t len,
 }
 
 void Scene3dGpuPresent::set_tileset_content_root(const std::string& root) {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   TilesetStreamSession* stream = live_tileset_stream_locked();
   if (!stream) {
     tileset_stream_ = std::make_unique<TilesetStreamSession>();
@@ -249,7 +259,7 @@ void Scene3dGpuPresent::set_tileset_content_root(const std::string& root) {
 }
 
 void Scene3dGpuPresent::clear_tileset() {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   TilesetStreamSession* stream = live_tileset_stream_locked();
   if (!stream) {
     return;
@@ -258,12 +268,12 @@ void Scene3dGpuPresent::clear_tileset() {
 }
 
 TilesetStreamSession* Scene3dGpuPresent::tileset_stream() {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   return live_tileset_stream_locked();
 }
 
 const TilesetStreamSession* Scene3dGpuPresent::tileset_stream() const {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   return live_tileset_stream_locked();
 }
 
@@ -311,7 +321,18 @@ Extent2 Scene3dGpuPresent::world_extent() const {
 render::rhi::CameraMatrices Scene3dGpuPresent::camera_matrices(
     float aspect) const {
   if (!orbit_) {
-    return {};
+    // Never hand FlyCube an identity view/proj (default CameraMatrices) — the
+    // globe at R≈2 is clipped and HWND capture shows only clear-color sky.
+    static int once = 0;
+    if (once < 2) {
+      ++once;
+      std::fprintf(stderr,
+                   "scene3d.present: orbit_ unset — using fallback orbit "
+                   "camera (bind_orbit missing)\n");
+    }
+    const float asp = aspect > 0.05f ? aspect : 1.333f;
+    return render::rhi::make_orbit_camera(yaw(), pitch(), distance(),
+                                          kScene3dFovY, asp, 0.1f, 100.f);
   }
   return orbit_->camera_matrices(aspect);
 }
@@ -325,7 +346,7 @@ render::rhi::CameraMatrices Scene3dGpuPresent::camera_matrices_ortho(
 }
 
 void Scene3dGpuPresent::abandon(AtmosphereSession* atmosphere) {
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   if (atmosphere) {
     atmosphere->release_passes();
   }
@@ -385,7 +406,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
             device, width_px, height_px);
     return false;
   }
-  std::lock_guard<std::mutex> lock(present_mu_);
+  std::lock_guard<std::recursive_mutex> lock(present_mu_);
   remember_view_size(static_cast<int>(width_px), static_cast<int>(height_px));
   // Globe path draws DEM on the UV sphere in AtmosphereFrame -- skip flat
   // terrain rebuild/sync. Rebuilding china_dem into WorldPass then swapping
@@ -507,7 +528,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       if (inst->has_paint) {
         break;
       }
-      // Zone / lithology atlases must stay textured — solid albedo paint
+      // Zone / lithology atlases must stay textured 鈥?solid albedo paint
       // collapses orthogrid3d to one amber parallelogram (color_buckets=2).
       if (overlays_.tin_has_drape()) {
         break;
@@ -644,6 +665,19 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   } else {
     gpu_scene_.clear_view_camera();
   }
+  {
+    static int cam_log = 0;
+    if (cam_log < 3) {
+      ++cam_log;
+      std::fprintf(
+          stderr,
+          "scene3d.present camera kind=%d view00=%.3f view_t=(%.3f,%.3f,%.3f) "
+          "proj00=%.3f dist=%.3f yaw=%.2f pitch=%.2f aspect=%.3f orbit=%p\n",
+          static_cast<int>(cam.kind), cam.view[0], cam.view[12], cam.view[13],
+          cam.view[14], cam.proj[0], distance(), yaw(), pitch(), aspect,
+          static_cast<const void*>(orbit_));
+    }
+  }
   render_engine_name = render::rhi::backend_display_name(device->backend());
   note_present_frame();
 
@@ -680,7 +714,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     return false;
   }
   // Optional isolate: ATMOSPHERE_SKIP_OCEAN=1 keeps sky/DEM without ocean
-  // (debug atmosphere.full near-black China). Skip prepare_gpu too  height
+  // (debug atmosphere.full near-black China). Skip prepare_gpu too 聺 height
   // texture alloc still recycles FlyCube SRVs and blacks DEM albedo.
   const bool skip_ocean = []() {
     if (const char* e = base::switch_cstr("atmosphere-skip-ocean")) {
@@ -694,7 +728,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   base::ElapsedTimer ocean_prep_timer;
   // Cold path only: allocate ocean height before DEM remesh so FlyCube does
   // not recycle hypsometric albedo as the height map. Warm frames (already
-  // synced after ocean) skip prepare_gpu  OceanPass::record does one
+  // synced after ocean) skip prepare_gpu 聺 OceanPass::record does one
   // Gerstner/upload instead of prepare_gpu + record double work.
   const bool need_ocean_height_before_dem =
       ocean_on && !skip_ocean && !dem_gpu_synced_after_ocean_;
@@ -750,10 +784,8 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   const bool need_rebuild =
       !globe_on &&
       gpu_scene_.needs_mesh_upload(device, width_px, height_px);
-  // Upload time is inside graph::present (record_draws). Do not split that
-  // call; rebuild_count is the warm/cold signal.
-  note_scene3d_phase_upload(0);
-  note_scene3d_phase_rebuild(0, need_rebuild ? 1 : 0);
+  // rebuild_count is the warm/cold signal; upload/rebuild ms come from
+  // WorldPass::last_rebuild_ms after graph::present (record_draws).
 
   const bool skip_post = []() {
     if (const char* e = base::switch_cstr("atmosphere-skip-post")) {
@@ -793,6 +825,9 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
             render_engine_name);
     return false;
   }
+  const int64_t rebuild_ms = gpu_scene_.last_rebuild_ms();
+  note_scene3d_phase_upload(rebuild_ms);
+  note_scene3d_phase_rebuild(rebuild_ms, need_rebuild ? 1 : 0);
   note_scene3d_phase_record(static_cast<int64_t>(
       record_timer.elapsed_milliseconds() + 0.5));
   // graph::present owns execute + present. No second clock without a new

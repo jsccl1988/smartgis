@@ -21,6 +21,8 @@ config("plugin_host_config") {
 source_set("host_sources") {
   sources = [
     "plugin_host_export.h",
+    "catalog/contribute_index.cc",
+    "catalog/contribute_index.h",
     "catalog/manifest.cc",
     "catalog/manifest.h",
     "catalog/official_key.h",
@@ -41,7 +43,13 @@ source_set("host_sources") {
     "native/scan.cc",
     "native/scan.h",
     "capability/capability.h",
+    "capability/contribute.h",
+    "capability/scenario_command.h",
+    "capability/scenario_shell.cc",
+    "capability/scenario_shell.h",
     "capability/marks.h",
+    "capability/pack_ensure.cc",
+    "capability/pack_ensure.h",
     "capability/scenario.cc",
     "capability/scenario.h",
     "capability/shell.h",
@@ -55,10 +63,15 @@ source_set("host_sources") {
     "capability/shell_ui.h",
     "present/gis_present.cc",
     "present/gis_present.h",
+    "processing/args_json.cc",
+    "processing/args_json.h",
     "processing/operation_result.cc",
     "processing/operation_result.h",
     "processing/processing.cc",
     "processing/processing.h",
+    "processing/reexport_file.cc",
+    "processing/reexport_file.h",
+
     "ui/manager_view.cc",
     "ui/manager_view.h",
   ]

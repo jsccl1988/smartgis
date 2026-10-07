@@ -4,7 +4,6 @@
 #include "plugin/product/flood/commands.h"
 
 #include <cmath>
-#include <cstdio>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -16,7 +15,9 @@
 #include "gis/analysis/raster/dem/flood_fill.h"
 #include "plugin/product/flood/views/inundate_dialog.h"
 #include "plugin/product/flood/present/present.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
+#include "plugin/runtime/host/processing/reexport_file.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
 #include "tool/command/command.h"
@@ -30,52 +31,6 @@ constexpr const char* kPluginId = "smartgis.flood";
 
 std::string g_last_output;
 gis::detail::FloodFillResult g_last_fill;
-
-bool parse_args(std::string_view json, rapidjson::Document* out) {
-  if (!out) {
-    return false;
-  }
-  out->Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  return !out->HasParseError() && out->IsObject();
-}
-
-bool json_get_string(const rapidjson::Value& obj,
-                     const char* key,
-                     std::string* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsString()) {
-    return false;
-  }
-  *out = std::string(it->value.GetString(), it->value.GetStringLength());
-  return true;
-}
-
-bool json_get_double(const rapidjson::Value& obj, const char* key, double* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
-    return false;
-  }
-  *out = it->value.GetDouble();
-  return true;
-}
-
-bool json_get_int(const rapidjson::Value& obj, const char* key, int* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
-    return false;
-  }
-  *out = it->value.GetInt();
-  return true;
-}
 
 bool sample_dem_z(const std::string& dem, double x, double y, double* z) {
   if (!z) {
@@ -161,28 +116,28 @@ bool flood_inundate(content::PluginHost* host, std::string_view args_json) {
     return true;
   }
   rapidjson::Document args;
-  if (!parse_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"flood.inundate\"}");
     return false;
   }
   std::string dem;
   std::string output;
-  if (!json_get_string(args, "dem", &dem) || dem.empty() ||
-      !json_get_string(args, "output", &output) || output.empty()) {
+  if (!args_json_string(args, "dem", &dem) || dem.empty() ||
+      !args_json_string(args, "output", &output) || output.empty()) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"flood.inundate\"}");
     return false;
   }
   double seed_x = 0;
   double seed_y = 0;
-  if (!json_get_double(args, "seed_x", &seed_x) ||
-      !json_get_double(args, "seed_y", &seed_y)) {
+  if (!args_json_double(args, "seed_x", &seed_x) ||
+      !args_json_double(args, "seed_y", &seed_y)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"flood.inundate\"}");
     return false;
   }
   double water_level = 0;
   double water_depth = 0;
-  const bool has_level = json_get_double(args, "water_level", &water_level);
-  const bool has_depth = json_get_double(args, "water_depth", &water_depth);
+  const bool has_level = args_json_double(args, "water_level", &water_level);
+  const bool has_depth = args_json_double(args, "water_depth", &water_depth);
   if (!has_level && !has_depth) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"flood.inundate\"}");
     return false;
@@ -197,9 +152,9 @@ bool flood_inundate(content::PluginHost* host, std::string_view args_json) {
     water_level = seed_z + water_depth;
   }
   int frames = 1;
-  json_get_int(args, "frames", &frames);
+  args_json_int(args, "frames", &frames);
   std::string frames_dir;
-  json_get_string(args, "frames_dir", &frames_dir);
+  args_json_string(args, "frames_dir", &frames_dir);
 
   gis::detail::FloodFillResult result =
       gis::detail::run_flood_fill(dem, seed_x, seed_y, water_level, frames);
@@ -221,60 +176,7 @@ bool flood_inundate(content::PluginHost* host, std::string_view args_json) {
 }
 
 bool flood_export_mask(content::PluginHost*, std::string_view args_json) {
-  rapidjson::Document args;
-  std::string dest = g_last_output;
-  if (parse_args(args_json, &args)) {
-    std::string out;
-    if (json_get_string(args, "output", &out) && !out.empty()) {
-      dest = out;
-    }
-  }
-  if (dest.empty()) {
-    set_operation_result(
-        "{\"error\":\"no_output\",\"op\":\"flood.export_mask\"}");
-    return false;
-  }
-  if (!g_last_output.empty() && dest != g_last_output) {
-    FILE* in = nullptr;
-    FILE* out = nullptr;
-    if (fopen_s(&in, g_last_output.c_str(), "rb") != 0 || !in) {
-      set_operation_result(
-          "{\"error\":\"missing_source\",\"op\":\"flood.export_mask\"}");
-      return false;
-    }
-    if (fopen_s(&out, dest.c_str(), "wb") != 0 || !out) {
-      fclose(in);
-      set_operation_result(
-          "{\"error\":\"write_failed\",\"op\":\"flood.export_mask\"}");
-      return false;
-    }
-    char buf[4096];
-    size_t n = 0;
-    while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
-      if (fwrite(buf, 1, n, out) != n) {
-        fclose(in);
-        fclose(out);
-        set_operation_result(
-            "{\"error\":\"write_failed\",\"op\":\"flood.export_mask\"}");
-        return false;
-      }
-    }
-    fclose(in);
-    fclose(out);
-    g_last_output = dest;
-  } else {
-    FILE* f = nullptr;
-    if (fopen_s(&f, dest.c_str(), "rb") != 0 || !f) {
-      set_operation_result(
-          "{\"error\":\"missing_output\",\"op\":\"flood.export_mask\"}");
-      return false;
-    }
-    fclose(f);
-  }
-  set_operation_result(
-      std::string("{\"ok\":true,\"op\":\"flood.export_mask\",\"output\":\"") +
-      dest + "\"}");
-  return true;
+  return reexport_cached_file(&g_last_output, args_json, "flood.export_mask");
 }
 
 bool flood_present_frame(content::PluginHost* host,
@@ -292,8 +194,8 @@ bool flood_present_frame(content::PluginHost* host,
   }
   int index = 0;
   rapidjson::Document args;
-  if (parse_args(args_json, &args)) {
-    json_get_int(args, "index", &index);
+  if (parse_args_json(args_json, &args)) {
+    args_json_int(args, "index", &index);
   }
   const int frame_count =
       g_last_fill.frame_masks.empty()

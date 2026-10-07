@@ -19,7 +19,7 @@
                        ],
     "bmp":  {
                 "path":  "plugin-showcase-flood.bmp",
-                "score_id":  "plugin_map2d",
+                "score_id":  "plugin_flood",
                 "accept_nonzero_rc_if_bmp":  true,
                 "min_bytes":  10000
             },

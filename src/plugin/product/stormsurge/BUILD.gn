@@ -38,6 +38,7 @@ source_set("stormsurge_views") {
     "//src/plugin/runtime/widgets:widgets",
     "//src/tool:tool",
     "//src/ui/views:views",
+    "//src/vista:vista",
     "//third_party:gdal",
     "//third_party:rapidjson",
   ]

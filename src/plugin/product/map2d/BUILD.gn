@@ -33,8 +33,8 @@ source_set("map2d_views") {
     "print/views/print_preview_dialog.h",
     "seed/seed.cc",
     "seed/seed.h",
-    "verbs.cc",
-    "verbs.h",
+    "ops.cc",
+    "ops.h",
   ]
   include_dirs += [
     ".",

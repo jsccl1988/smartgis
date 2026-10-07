@@ -16,6 +16,7 @@
                            "orbit-coast",
                            "present-ok",
                            "playback-water-tin",
+                           "precip-anim-ok",
                            "bmp-ok",
                            "tab3d-horizon",
                            "pass",
@@ -47,6 +48,6 @@
                                             "no_black_frame",
                                             "dem_seam_ok"
                                         ],
-                          "expect_notes":  "cyan/blue water TIN distinct from DEM hypsometric; water_on_land_frac gate"
+                          "expect_notes":  "thin surface grid + depth isolines on water; precip ramp expands wet mask across f00..f07; water_on_land_frac gate"
                       }
 }

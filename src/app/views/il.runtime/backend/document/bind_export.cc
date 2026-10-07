@@ -3,11 +3,13 @@
 
 #include "app/views/il.runtime/backend/document/document_bind.h"
 
+#include <cstdlib>
 #include <string>
 
 #include "app/views/browser/browser.h"
 #include "app/views/il.runtime/bind/slots.h"
 #include "app/views/il.runtime/backend/view/shot/export.h"
+#include "app/views/il.runtime/backend/view/pixel/bmp.h"
 #include "app/views/util/charset.h"
 #include "app/views/util/exe_sidecar_path.h"
 
@@ -37,7 +39,18 @@ bool export_bmp_leaf(Browser& browser,
   if (frame == "scene3d") {
     return export_scene3d_bmp(&browser, bmp_w);
   }
-  return export_map2d_bmp(&browser, bmp_w, frame);
+  Map2dExportOpts opts;
+  auto dim = [](const char* key, int fallback, int lo, int hi) {
+    const char* raw = std::getenv(key);
+    if (!raw || !raw[0]) {
+      return fallback;
+    }
+    const int v = std::atoi(raw);
+    return (v >= lo && v <= hi) ? v : fallback;
+  };
+  opts.width = dim("MAP2D_SHOWCASE_W", kCaptureW, 320, 3840);
+  opts.height = dim("MAP2D_SHOWCASE_H", kCaptureH, 240, 2160);
+  return export_map2d_bmp(&browser, bmp_w, frame, opts);
 }
 
 }  // namespace

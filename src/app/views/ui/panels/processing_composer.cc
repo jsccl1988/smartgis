@@ -137,8 +137,11 @@ void ProcessingComposer::wire_report_panel() {
     return;
   }
   std::unique_ptr<plugin::ReportBrowser> backend;
-  if (const char* be = base::switch_cstr("report-browser");
-      be && (std::strcmp(be, "fake") == 0 || std::strcmp(be, "0") == 0)) {
+  const char* be = base::switch_cstr("report-browser");
+  if (!be || !be[0]) {
+    be = std::getenv("REPORT_BROWSER");
+  }
+  if (be && (std::strcmp(be, "fake") == 0 || std::strcmp(be, "0") == 0)) {
     backend = std::make_unique<plugin::FakeReportBrowser>();
   } else {
     backend = std::make_unique<plugin::WebView2ReportBrowser>();

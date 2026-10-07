@@ -401,7 +401,16 @@ void DrawHost::display_thread_main() {
         mark_gpu_surface_dirty();
         // Scene3d Init Present is a navy clear — do not lift the popup until
         // present_gpu actually draws DEM (reveal_gpu_present_if_ready).
-        if (role_ != Role::kScene3d) {
+        // Still run one present_gpu now: lazy 3D attach often posts WM_SIZE at
+        // the same client size as Init, and the same-size early-out used to
+        // skip Resize's immediate redraw (last_gpu_present_ok stayed false).
+        if (role_ == Role::kScene3d &&
+            has_gpu_cb_.load(std::memory_order_acquire) &&
+            !present_paused_.load(std::memory_order_acquire)) {
+          const uint32_t token =
+              frame_request_.fetch_add(1, std::memory_order_acq_rel) + 1;
+          display_run_present(desc.width, desc.height, token);
+        } else if (role_ != Role::kScene3d) {
           reveal_gpu_present_if_ready();
         }
         display_cv_.notify_all();

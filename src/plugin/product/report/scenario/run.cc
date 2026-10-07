@@ -14,7 +14,7 @@
 #include "plugin/runtime/host/capability/marks.h"
 #include "plugin/runtime/host/capability/shell.h"
 #include "app/views/il.runtime/backend/plugin/dispatch.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/web/fake_report_browser.h"
@@ -23,7 +23,7 @@ namespace plugin {
 namespace detail {
 namespace {
 
-plugin::FakeReportHarnessShell& report_showcase_fake() {
+plugin::FakeReportBrowser& report_showcase_fake() {
   static plugin::FakeReportBrowser fake;
   return fake;
 }
@@ -70,7 +70,7 @@ int run_report(HarnessShell& browser) {
       browser.detach_maps();
       return 1;
     }
-    plugin::FakeReportHarnessShell& fake = report_showcase_fake();
+    plugin::FakeReportBrowser& fake = report_showcase_fake();
     fake.add_allowed_root(rep_path);
     report->set_bridges(
         [](std::string_view dir) {

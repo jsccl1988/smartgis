@@ -4,7 +4,7 @@
 #ifndef PLUGIN_PRODUCT_WORLD3D_SCENARIO_ATMOSPHERE_GLOBE_PRESENT_H_
 #define PLUGIN_PRODUCT_WORLD3D_SCENARIO_ATMOSPHERE_GLOBE_PRESENT_H_
 
-#include "app/views/app/cmdline/views_launch_options.h"
+#include "plugin/product/world3d/scenario/atmosphere/mode.h"
 
 #include <windows.h>
 
@@ -23,8 +23,6 @@ class DrawHost;
 
 namespace plugin {
 namespace detail {
-
-using AtmosphereShowcaseMode = ::app::AtmosphereShowcaseMode;
 
 // Result of the cinematic globe fly-in present pass.
 struct AtmosphereGlobeFlyResult {

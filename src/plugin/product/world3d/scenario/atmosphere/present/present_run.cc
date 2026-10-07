@@ -8,7 +8,7 @@
 #include "plugin/product/world3d/scenario/atmosphere/capture/capture.h"
 #include "plugin/product/world3d/scenario/atmosphere/present/globe_present.h"
 #include "plugin/product/world3d/scenario/atmosphere/present/present_linger.h"
-#include "plugin/product/world3d/scenario/atmosphere/common/progress.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scenario/atmosphere/session/session_finish.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "content/browser/camera/orbit_frame.h"

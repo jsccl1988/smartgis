@@ -32,7 +32,7 @@
 #include "content/public/map_contents.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "vista/component/atmosphere/field/field_channel.h"
+#include "vista/component/world/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "gis/edit/session.h"
 #include "gis/tile/layer/tile_map_layer.h"
@@ -164,7 +164,8 @@ void Browser::fit_map_extent() {
     } else {
       bar->set_crs_text("local");
     }
-    // Compact message — status cell is leftmost; avoid jammed "Layers: N Features: M".
+    // Compact message -- status cell is leftmost; avoid jammed
+    // "Layers: N Features: M".
     bar->set_message(std::format(
         "{} layers · {} feats", session_->document().layer_count(),
         session_->document().feature_count()));
@@ -395,6 +396,7 @@ void Browser::handle_draft(const tool::Draft& draft) {
       }
       if (content::extent_nonempty(box)) {
         session_->view_frame().apply_world_extent(box, vw, vh);
+        // ZoomToRect is camera-only; fingerprint gate keeps layout warm.
         session_->map2d().invalidate_frame_cache();
         push_shared_extent();
         adopt_or_commit_extent();
@@ -476,21 +478,57 @@ void Browser::refresh_scale() {
       raw_w));
 }
 
+namespace {
+
+// ViewNavigation::reset/commit can AV when BrowserSession layout was built
+// against a skewed map_scene/presenter sizeof (parallel ninja). Keep showcase
+// init alive — same SEH pattern as seh_fit_and_push_extent.
+bool seh_nav_reset_or_commit(content::ViewNavigation* nav,
+                             const content::Extent2& now,
+                             bool baselined) {
+  if (!nav) {
+    return false;
+  }
+  __try {
+    if (!baselined) {
+      nav->reset(now);
+    } else {
+      nav->commit(now);
+    }
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return false;
+  }
+}
+
+}  // namespace
+
 void Browser::adopt_or_commit_extent() {
-  // Guard: draft_nav.cc is a separate Browser TU. A stale .obj vs browser.obj
-  // under parallel ninja reads ui_ at the wrong offset (NULL / 0xCD) and AVs
-  // here during init_shell fit_map_extent 聴 rebuild shell_browser together.
-  if (!ui_) {
+  // Prefer HWND client size (browser.cc hwnd()) so this TU never loads ui_ at
+  // a possibly stale unique_ptr offset during init_shell fit_map_extent.
+  if (!session_) {
     return;
   }
   int w = 800;
   int h = 600;
-  ui_->active_view_size(&w, &h);
+  if (HWND horizon = hwnd()) {
+    if (IsWindow(horizon)) {
+      RECT rc = {};
+      GetClientRect(horizon, &rc);
+      if (rc.right > 32) {
+        w = rc.right;
+      }
+      if (rc.bottom > 32) {
+        h = rc.bottom;
+      }
+    }
+  } else if (ui_) {
+    ui_->active_view_size(&w, &h);
+  }
   const content::Extent2 now = session_->view_frame().view_world_extent(w, h);
-  if (!navigation_baselined_) {
-    session_->navigation().reset(now);
-  } else {
-    session_->navigation().commit(now);
+  if (!seh_nav_reset_or_commit(&session_->navigation(), now,
+                               navigation_baselined_)) {
+    std::fprintf(stderr, "startup: navigation reset/commit SEH fail\n");
   }
 }
 

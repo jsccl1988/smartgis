@@ -3,7 +3,6 @@
 
 #include "plugin/product/traffic/commands.h"
 
-#include <cstdio>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -12,7 +11,9 @@
 #include "gis/analysis/network/cost_path.h"
 #include "plugin/product/traffic/views/shortest_path_dialog.h"
 #include "plugin/product/traffic/present/present.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
+#include "plugin/runtime/host/processing/reexport_file.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
 #include "plugin/runtime/widgets/present_surface_picker.h"
@@ -39,51 +40,6 @@ int traffic_prefix_points(int point_count, int frames, int frame_index) {
   return prefix < 2 ? 2 : prefix;
 }
 
-bool parse_args(std::string_view json, rapidjson::Document* out) {
-  if (!out) {
-    return false;
-  }
-  out->Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  return !out->HasParseError() && out->IsObject();
-}
-
-bool json_get_string(const rapidjson::Value& obj,
-                     const char* key,
-                     std::string* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsString()) {
-    return false;
-  }
-  *out = std::string(it->value.GetString(), it->value.GetStringLength());
-  return true;
-}
-
-bool json_get_double(const rapidjson::Value& obj, const char* key, double* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
-    return false;
-  }
-  *out = it->value.GetDouble();
-  return true;
-}
-
-bool json_get_int(const rapidjson::Value& obj, const char* key, int* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
-    return false;
-  }
-  *out = it->value.GetInt();
-  return true;
-}
 
 bool traffic_cost_path(content::PluginHost* host, std::string_view args_json) {
   if (host) {
@@ -122,14 +78,14 @@ bool traffic_cost_path(content::PluginHost* host, std::string_view args_json) {
     return true;
   }
   rapidjson::Document args;
-  if (!parse_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"traffic.cost_path\"}");
     return false;
   }
   std::string network;
   std::string output;
-  if (!json_get_string(args, "network", &network) || network.empty() ||
-      !json_get_string(args, "output", &output) || output.empty()) {
+  if (!args_json_string(args, "network", &network) || network.empty() ||
+      !args_json_string(args, "output", &output) || output.empty()) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"traffic.cost_path\"}");
     return false;
   }
@@ -137,17 +93,17 @@ bool traffic_cost_path(content::PluginHost* host, std::string_view args_json) {
   double start_y = 0;
   double end_x = 0;
   double end_y = 0;
-  if (!json_get_double(args, "start_x", &start_x) ||
-      !json_get_double(args, "start_y", &start_y) ||
-      !json_get_double(args, "end_x", &end_x) ||
-      !json_get_double(args, "end_y", &end_y)) {
+  if (!args_json_double(args, "start_x", &start_x) ||
+      !args_json_double(args, "start_y", &start_y) ||
+      !args_json_double(args, "end_x", &end_x) ||
+      !args_json_double(args, "end_y", &end_y)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"traffic.cost_path\"}");
     return false;
   }
   std::string weight_field;
-  json_get_string(args, "weight_field", &weight_field);
+  args_json_string(args, "weight_field", &weight_field);
   int frames = 24;
-  json_get_int(args, "frames", &frames);
+  args_json_int(args, "frames", &frames);
 
   const gis::detail::CostPathResult path = gis::detail::run_cost_path(
       network, start_x, start_y, end_x, end_y, weight_field);
@@ -176,61 +132,7 @@ bool traffic_cost_path(content::PluginHost* host, std::string_view args_json) {
 }
 
 bool traffic_export_path(content::PluginHost*, std::string_view args_json) {
-  rapidjson::Document args;
-  std::string dest = g_last_output;
-  if (parse_args(args_json, &args)) {
-    std::string out;
-    if (json_get_string(args, "output", &out) && !out.empty()) {
-      dest = out;
-    }
-  }
-  if (dest.empty()) {
-    set_operation_result(
-        "{\"error\":\"no_output\",\"op\":\"traffic.export_path\"}");
-    return false;
-  }
-  // Re-export: if dest differs from last, copy last → dest; else verify exists.
-  if (!g_last_output.empty() && dest != g_last_output) {
-    FILE* in = nullptr;
-    FILE* out = nullptr;
-    if (fopen_s(&in, g_last_output.c_str(), "rb") != 0 || !in) {
-      set_operation_result(
-          "{\"error\":\"missing_source\",\"op\":\"traffic.export_path\"}");
-      return false;
-    }
-    if (fopen_s(&out, dest.c_str(), "wb") != 0 || !out) {
-      fclose(in);
-      set_operation_result(
-          "{\"error\":\"write_failed\",\"op\":\"traffic.export_path\"}");
-      return false;
-    }
-    char buf[4096];
-    size_t n = 0;
-    while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
-      if (fwrite(buf, 1, n, out) != n) {
-        fclose(in);
-        fclose(out);
-        set_operation_result(
-            "{\"error\":\"write_failed\",\"op\":\"traffic.export_path\"}");
-        return false;
-      }
-    }
-    fclose(in);
-    fclose(out);
-    g_last_output = dest;
-  } else {
-    FILE* f = nullptr;
-    if (fopen_s(&f, dest.c_str(), "rb") != 0 || !f) {
-      set_operation_result(
-          "{\"error\":\"missing_output\",\"op\":\"traffic.export_path\"}");
-      return false;
-    }
-    fclose(f);
-  }
-  set_operation_result(
-      std::string("{\"ok\":true,\"op\":\"traffic.export_path\",\"output\":\"") +
-      dest + "\"}");
-  return true;
+  return reexport_cached_file(&g_last_output, args_json, "traffic.export_path");
 }
 
 bool traffic_present_frame(content::PluginHost* host,
@@ -248,8 +150,8 @@ bool traffic_present_frame(content::PluginHost* host,
   }
   int index = 0;
   rapidjson::Document args;
-  if (parse_args(args_json, &args)) {
-    json_get_int(args, "index", &index);
+  if (parse_args_json(args_json, &args)) {
+    args_json_int(args, "index", &index);
   }
   const int point_count = static_cast<int>(g_last_path.xy.size() / 2);
   const int frames = g_last_frames > 0 ? g_last_frames : 1;

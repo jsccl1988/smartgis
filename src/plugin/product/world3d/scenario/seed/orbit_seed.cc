@@ -4,7 +4,7 @@
 #include "plugin/product/world3d/scenario/seed/orbit_seed.h"
 
 #include "plugin/runtime/host/capability/shell.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/stormsurge/scenario/seed.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
@@ -90,6 +90,7 @@ void seed_stormsurge_orbit(HarnessShell& browser, content::Scene3dPresenter* cam
   }
   // Drop stale national DEM; present rebuilds china_dem for this coast pad.
   cam->abandon_mesh();
+  // Hairline grid lives on the water atlas drape; mesh wireframe is too heavy.
   cam->gpu().set_wireframe_enabled(false);
   cam->gpu().set_studio_block(false);
   orbit->reset();

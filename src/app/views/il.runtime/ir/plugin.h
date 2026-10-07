@@ -14,15 +14,7 @@ namespace ir {
 
 // PluginHost lane: commands, processing, playback, reports, paths.
 // Variable binding ($var / as=) stays in the language backend. Only host.plugin.
-
-inline bool map2d_run(content::CapabilityHost& host, std::string_view mode) {
-  return host.plugin.map2d_run && host.plugin.map2d_run(std::string(mode));
-}
-
-inline bool atmosphere_run(content::CapabilityHost& host, std::string_view mode) {
-  return host.plugin.atmosphere_run &&
-         host.plugin.atmosphere_run(std::string(mode));
-}
+// Coarse scenario ops (map2d_run / …) are plugin::register_scenario_op.
 
 inline bool run_processing(content::CapabilityHost& host,
                            std::string_view id,

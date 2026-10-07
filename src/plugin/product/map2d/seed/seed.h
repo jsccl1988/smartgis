@@ -22,11 +22,9 @@ enum class Map2dSeedMode {
 bool parse_map2d_seed_mode(std::string_view id, Map2dSeedMode* out);
 const char* map2d_seed_mode_name(Map2dSeedMode mode);
 
-// Opens china_city (present_dataset), optional align StyleDocument, or
-// orthogrid.create_orth_grid. Returns false if host/document/sample missing.
-// China/align require the document already opened on the UI thread
-// (`present_dataset` / MapScene::open_path). Processing runs on the utility
-// pool and must not call PluginHost::present_dataset.
+// ProcessingPool: compute (host=nullptr) then present (real host) on UI drain.
+// China/align present opens china_city when empty; orthogrid solve→publish.
+// Matches flood.inundate null-host compute / real-host present split.
 bool seed_map2d(content::PluginHost* host, Map2dSeedMode mode);
 
 // JSON `{"mode":"china"|"align"|"orthogrid"}` or a bare mode string.

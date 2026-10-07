@@ -6,14 +6,18 @@
 #include <string>
 #include <string_view>
 
+#include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/public/plugin_host.h"
-#include "plugin/runtime/host/capability/capability.h"
 #include "plugin/product/world3d/commands.h"
-#include "plugin/product/world3d/scene/detail/contribute.h"
-#include "plugin/product/world3d/scene/hexgrid/present/mesh.h"
-#include "plugin/product/world3d/scene/hexgrid/solve/boundary_solve.h"
-#include "plugin/product/world3d/scene/hexgrid/sample/sample_volume.h"
+#include "plugin/product/world3d/scene/detail/host.h"
 #include "plugin/product/world3d/scene/hexgrid/io/vtk_structured.h"
+#include "plugin/product/world3d/scene/hexgrid/present/mesh.h"
+#include "plugin/product/world3d/scene/hexgrid/sample/sample_volume.h"
+#include "plugin/product/world3d/scene/hexgrid/solve/boundary_solve.h"
+#include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/host/capability/contribute.h"
+#include "plugin/runtime/host/capability/shell.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "tool/command/command.h"
 #include "ui/views/dialogs/file_picker.h"
@@ -28,45 +32,15 @@ constexpr const char* kMenuId = "tools.orthogrid3d";
 content::PluginHost* g_present_host = nullptr;
 detail::HexCornerSolve g_last_hex;
 
-int json_get_int(std::string_view json, const char* key, int fallback) {
-  if (!key || json.empty()) {
-    return fallback;
+content::Scene3dPresenter* harness_scene3d(content::PluginHost* host) {
+  if (HarnessShell* shell = harness_shell(host)) {
+    return shell->scene3d();
   }
-  rapidjson::Document doc;
-  doc.Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  if (doc.HasParseError() || !doc.IsObject()) {
-    return fallback;
-  }
-  const auto it = doc.FindMember(key);
-  if (it == doc.MemberEnd() || !it->value.IsInt()) {
-    return fallback;
-  }
-  return it->value.GetInt();
+  return nullptr;
 }
 
-bool json_get_string(std::string_view json,
-                     const char* key,
-                     std::string* out) {
-  if (!out || !key || json.empty()) {
-    return false;
-  }
-  rapidjson::Document doc;
-  doc.Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  if (doc.HasParseError() || !doc.IsObject()) {
-    return false;
-  }
-  const auto it = doc.FindMember(key);
-  if (it == doc.MemberEnd() || !it->value.IsString()) {
-    return false;
-  }
-  *out = std::string(it->value.GetString(), it->value.GetStringLength());
-  return !out->empty();
-}
-
-bool parse_corners(std::string_view json, detail::Xyz corners[8]) {
-  rapidjson::Document doc;
-  doc.Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  if (doc.HasParseError() || !doc.IsObject()) {
+bool parse_corners(const rapidjson::Document& doc, detail::Xyz corners[8]) {
+  if (!doc.IsObject()) {
     return false;
   }
   const auto it = doc.FindMember("corners");
@@ -115,7 +89,8 @@ bool commit_solved(content::PluginHost* host,
       set_operation_result("{\"error\":\"no_hexgrid_seam\"}");
       return false;
     }
-    if (!present_hex_grid_mesh(gis, plugin::scene3d_sink(host), nullptr, commit)) {
+    if (!present_hex_grid_mesh(gis, plugin::scene3d_sink(host),
+                               harness_scene3d(host), commit)) {
       set_operation_result("{\"error\":\"mesh_commit_failed\"}");
       return false;
     }
@@ -152,7 +127,8 @@ bool orthogrid3d_present_frame(content::PluginHost* host,
   commit.cell_orth =
       g_last_hex.cell_orth.empty() ? nullptr : g_last_hex.cell_orth.data();
   commit.cell_orth_count = static_cast<int>(g_last_hex.cell_orth.size());
-  if (!present_hex_grid_mesh(gis, plugin::scene3d_sink(host), nullptr, commit)) {
+  if (!present_hex_grid_mesh(gis, plugin::scene3d_sink(host),
+                             harness_scene3d(host), commit)) {
     set_operation_result(
         "{\"error\":\"present_failed\",\"op\":\"orthogrid3d.present_frame\"}");
     return false;
@@ -166,9 +142,17 @@ bool orthogrid3d_present_frame(content::PluginHost* host,
 
 bool create_hex_grid_processing(content::PluginHost* host,
                                 std::string_view args_json) {
-  const int nx = json_get_int(args_json, "nx", detail::k_demo_nx);
-  const int ny = json_get_int(args_json, "ny", detail::k_demo_ny);
-  const int nz = json_get_int(args_json, "nz", detail::k_demo_nz);
+  rapidjson::Document args;
+  if (!parse_args_json(args_json, &args)) {
+    set_operation_result("{\"error\":\"bad_args\"}");
+    return false;
+  }
+  int nx = detail::k_demo_nx;
+  int ny = detail::k_demo_ny;
+  int nz = detail::k_demo_nz;
+  (void)args_json_int(args, "nx", &nx);
+  (void)args_json_int(args, "ny", &ny);
+  (void)args_json_int(args, "nz", &nz);
   const int nx_use = nx < 3 ? 3 : nx;
   const int ny_use = ny < 3 ? 3 : ny;
   const int nz_use = nz < 3 ? 3 : nz;
@@ -178,11 +162,11 @@ bool create_hex_grid_processing(content::PluginHost* host,
   }
 
   std::string vts_path;
-  json_get_string(args_json, "vts_path", &vts_path);
+  (void)args_json_string(args, "vts_path", &vts_path);
 
   detail::Xyz corners[8];
   const detail::HexCornerSolve solved =
-      parse_corners(args_json, corners)
+      parse_corners(args, corners)
           ? detail::solve_hex_from_corners(corners, nx_use, ny_use, nz_use)
           : detail::solve_hex_from_quarry_sample(nx_use, ny_use, nz_use);
   if (!solved.ok) {
@@ -220,8 +204,8 @@ bool publish_hex_grid(const HexGridCommit& commit) {
     return false;
   }
   return present_hex_grid_mesh(g_present_host->gis_document(),
-                               plugin::scene3d_sink(g_present_host), nullptr,
-                               commit);
+                               plugin::scene3d_sink(g_present_host),
+                               harness_scene3d(g_present_host), commit);
 }
 
 namespace detail {
@@ -232,21 +216,24 @@ bool register_world3d_hexgrid(content::PluginHost* host) {
   }
   g_present_host = host;
   if (!contribute_command_aliases(
-          host, {{"orthogrid3d.generate", "Generate 3D orth grid"}}, kMenuId,
+          host, kWorld3dPluginId,
+          {{"orthogrid3d.generate", "Generate 3D orth grid"}}, kMenuId,
           [host](const tool::CommandArgs& args) {
             return handle_generate(host, args);
           })) {
     return false;
   }
   if (!contribute_command_aliases(
-          host, {{"orthogrid3d.export_vts", "Export hex grid VTK"}}, kMenuId,
+          host, kWorld3dPluginId,
+          {{"orthogrid3d.export_vts", "Export hex grid VTK"}}, kMenuId,
           [host](const tool::CommandArgs& args) {
             return handle_export_vts(host, args);
           })) {
     return false;
   }
   if (!contribute_command_aliases(
-          host, {{"orthogrid3d.create_hex_grid", "Create 3D orth hex grid"}},
+          host, kWorld3dPluginId,
+          {{"orthogrid3d.create_hex_grid", "Create 3D orth hex grid"}},
           kMenuId,
           [host](const tool::CommandArgs& args) {
             return create_hex_grid_processing(host, args.payload);
@@ -254,12 +241,13 @@ bool register_world3d_hexgrid(content::PluginHost* host) {
     return false;
   }
   if (!contribute_processing_aliases(
-          host, {{"orthogrid3d.create_hex_grid", "Create 3D orth hex grid"}},
+          host, kWorld3dPluginId,
+          {{"orthogrid3d.create_hex_grid", "Create 3D orth hex grid"}},
           create_hex_grid_processing)) {
     return false;
   }
   return host->contribute_processing(
-      detail::kWorld3dPluginId,
+      kWorld3dPluginId,
       {"orthogrid3d.present_frame", "Re-present hex grid frame"},
       orthogrid3d_present_frame);
 }

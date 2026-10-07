@@ -73,37 +73,36 @@ All rights reserved.
     <h2>分层</h2>
     <div class="lanes">
       <div class="lane ui">
-        <h3>登记表 + IL</h3>
-        <p>场景 id 仍是 <code>map2d.*</code> <code>atmosphere.*</code> <code>plugin.*</code></p>
-        <p>HWND / present / BMP / mark 在 <code>capability</code></p>
-        <p>CLI 开关名保持不变（skills / equal-profile）</p>
+        <h3>IL + chrome 胶水</h3>
+        <p>槽位只有 <code>run_plugin_command</code> 等通用函数</p>
+        <p><code>dispatch</code>：HarnessShell + <code>ensure_for_command</code> + <code>execute</code></p>
+        <p>不 <code>#include</code> 各 pack 的 <code>register_*</code></p>
       </div>
       <div class="lane cpu">
-        <h3>PluginHost</h3>
-        <p><code>run_processing</code> / <code>present_dataset</code> / <code>contribute_export_frame</code></p>
-        <p><code>ReportBridge</code> · <code>Scene3dSink</code> 不透明能力</p>
-        <p>不新增 <code>GisDocument::open_path</code></p>
+        <h3>动态 ensure</h3>
+        <p><code>scan</code> → <code>contribute_index</code>（无 DLL）</p>
+        <p>进程内 ensure（harness）→ index enable → <code>init</code></p>
+        <p><code>register_scenario_op</code>（mode→command_id）</p>
       </div>
       <div class="lane gpu">
         <h3>产品包</h3>
-        <p><code>smartgis.map2d</code> — <code>map2d.seed</code></p>
-        <p><code>smartgis.world3d</code> — look / fly / orthogrid / preview</p>
-        <p><code>smartgis.report</code> — <code>report.open</code> / <code>post</code></p>
-        <p>mine / flood / traffic / geochem / stormsurge / print 复用</p>
+        <p>无 chrome god-list；不用 <code>init_all</code></p>
+        <p>mode 表在 <code>scenario/interact.cc</code></p>
+        <p><code>plugin.json</code> contributes 建索引</p>
       </div>
     </div>
   </section>
 
   <section class="panel">
-    <h2>原则流（seed → present → capture）</h2>
+    <h2>原则流（IL → ensure → execute）</h2>
     <div class="flow">
-      <div class="step active"><strong>1</strong>CLI 解析为 scenario id</div>
+      <div class="step active"><strong>1</strong>IL op / command_id</div>
       <span class="arrow">→</span>
-      <div class="step"><strong>2</strong>产品 <code>run_processing</code> 填文档 / 外观</div>
+      <div class="step"><strong>2</strong><code>run_plugin_command</code></div>
       <span class="arrow">→</span>
-      <div class="step"><strong>3</strong><code>capability</code> 拥有 HWND 与帧时钟</div>
+      <div class="step"><strong>3</strong><code>ensure_for_command</code>（最长前缀）</div>
       <span class="arrow">→</span>
-      <div class="step"><strong>4</strong>export_frame + BMP + marks</div>
+      <div class="step"><strong>4</strong><code>PluginHost::execute</code> + capture</div>
     </div>
   </section>
 

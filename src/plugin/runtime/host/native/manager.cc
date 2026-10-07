@@ -4,6 +4,7 @@
 #include "plugin/runtime/host/native/manager.h"
 
 #include "content/public/plugin_host.h"
+#include "plugin/runtime/host/catalog/contribute_index.h"
 #include "plugin/runtime/host/catalog/resource_roots.h"
 
 namespace plugin {
@@ -81,6 +82,11 @@ int PluginManager::scan_directory(const std::string& plugins_dir) {
       set_resource_root(d.manifest.id, d.directory);
     }
     ++added;
+  }
+  // Manifest contributes → owner index (no LoadLibrary). Enables
+  // ensure_for_command to resolve packs discovered on disk.
+  if (registry_) {
+    rebuild_contribute_index(*registry_);
   }
   return added;
 }

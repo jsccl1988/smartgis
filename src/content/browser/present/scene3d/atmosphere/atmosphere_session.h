@@ -12,14 +12,14 @@
 
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
 #include "content/public/map_layer_types.h"
-#include "vista/pass/atmosphere/cloud/cloud_pass.h"
-#include "vista/pass/atmosphere/fog/fog_pass.h"
-#include "vista/pass/atmosphere/atmosphere_frame.h"
-#include "vista/pass/atmosphere/globe/globe_pass.h"
-#include "vista/pass/atmosphere/globe/sat_cloud_pass.h"
-#include "vista/pass/atmosphere/ocean/ocean_pass.h"
-#include "vista/pass/atmosphere/sky/sky_pass.h"
-#include "vista/component/atmosphere/environment.h"
+#include "vista/pass/world/atmosphere/cloud/cloud_pass.h"
+#include "vista/pass/world/atmosphere/fog/fog_pass.h"
+#include "vista/pass/world/atmosphere/atmosphere_frame.h"
+#include "vista/pass/world/atmosphere/globe/globe_pass.h"
+#include "vista/pass/world/atmosphere/globe/sat_cloud_pass.h"
+#include "vista/pass/world/atmosphere/ocean/ocean_pass.h"
+#include "vista/pass/world/atmosphere/sky/sky_pass.h"
+#include "vista/component/world/atmosphere/environment.h"
 
 namespace content {
 
@@ -89,9 +89,11 @@ class AtmosphereSession {
 
   // Wall-clock advance for ocean FFT / cloud animation. Called from
   // prepare_for_present; also usable by showcase linger loops.
+  // Advances time + sun only; does not invalidate sea-mask / overlay dirty.
   void advance_sim_time();
 
   // Project GIS samples onto pass POD (no CommandList). Uses bound gpu geo.
+  // Does not call OceanPass::prepare_gpu �?that stays cold-once in present.
   bool prepare_for_present();
   void release_passes();
 
@@ -136,7 +138,7 @@ class AtmosphereSession {
   const MapScene* scene_ = nullptr;
   Scene3dGpuPresent* gpu_ = nullptr;
 
-  // Flags first — pass POD sizes shift often; keep enable bits at stable
+  // Flags first �?pass POD sizes shift often; keep enable bits at stable
   // offsets so inlined getters in other TUs cannot read a stale layout.
   bool wind_overlay_enabled_ = false;
   bool globe_enabled_ = false;

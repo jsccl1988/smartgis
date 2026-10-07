@@ -178,11 +178,11 @@ bool FlycubeDevice::upload_gpu_texture(GpuTexture* gpu, const void* data,
       return false;
     }
     fc_list->Reset();
-    fc_list->ResourceBarrier({{gpu->shared(), ResourceState::kCommon,
-                               ResourceState::kCopyDest}});
+    // Re-uploads (china LOD remesh / sat_cloud refresh) leave the texture in
+    // AllShaderResource — never assume COMMON or D3D12 device-removes.
+    gpu->barrier_to(fc_list.get(), ResourceState::kCopyDest);
     fc_list->CopyBufferToTexture(upload, gpu->shared(), {region});
-    fc_list->ResourceBarrier({{gpu->shared(), ResourceState::kCopyDest,
-                               ResourceState::kAllShaderResource}});
+    gpu->barrier_to(fc_list.get(), ResourceState::kAllShaderResource);
     fc_list->Close();
     command_queue_->ExecuteCommandLists({fc_list});
     wait_for_idle();

@@ -202,10 +202,14 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       const char* e = base::switch_cstr("map2d-fps-bench-ms");
       return e && e[0] != '\0' && std::atoi(e) > 0;
     }();
+    // Shell presence + generation must match the last drew frame. gen==0 with
+    // pixels is treated as unstable (DrawHost uses 0 as "always copy").
     const bool shell_stable =
         fps_bench ||
         (shell_present == last_had_shell_ &&
-         (!shell_present || shell_generation == last_shell_generation_));
+         (!shell_present ||
+          (shell_generation != 0 &&
+           shell_generation == last_shell_generation_)));
     const bool reuse_action =
         action == Map2dFrameCache::PresentAction::kStaticReuse ||
         (fps_bench &&
@@ -264,7 +268,10 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     g_full.fetch_add(1, std::memory_order_relaxed);
     if (ok) {
       last_had_shell_ = shell_present;
-      last_shell_generation_ = shell_present ? shell_generation : 0;
+      // Only latch non-zero gens — 0 means "unversioned" and must not pretend
+      // shell_stable on the next StaticReuse check.
+      last_shell_generation_ =
+          shell_present && shell_generation != 0 ? shell_generation : 0;
     }
     if (!ok) {
       const auto& cam = cache_->camera();

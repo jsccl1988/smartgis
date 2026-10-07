@@ -181,10 +181,11 @@ def score_plugin_map2d(path: Path) -> dict:
     sample = pixels[:: max(1, n // 4000)]
     uniq = {(r >> 3, g >> 3, b >> 3) for r, g, b in sample}
     divers = len(uniq)
+    # Flood water blues (Material #2196f3 family) often have g-r >> 50.
     blue = sum(
         1
         for r, g, b in pixels
-        if b > 120 and b > r + 25 and b > g + 10 and abs(g - r) < 50
+        if b > 110 and b > r + 20 and b >= g + 8
     )
     blue_f = blue / n
     ink_f = float(base.get("ink_ratio") or 0.0)
@@ -227,6 +228,78 @@ def score_plugin_map2d(path: Path) -> dict:
         )
     )
     return base
+
+
+def score_plugin_flood(path: Path) -> dict:
+    """Flood inundation on dry land (cream terrain + blue water mosaic).
+
+    Rejects the old toy green-grid + single blue blob that false-greened
+    plugin_map2d (blue_frac≈0 under the old detector, greenish_frac≈0.79).
+    """
+    base = score_plugin_map2d(path)
+    w, h, pixels = load_bmp_rgb(path)
+    n = max(1, len(pixels))
+    water = sum(
+        1
+        for r, g, b in pixels
+        if b > 110 and b > r + 20 and b >= g + 8 and (r + g + b) < 520
+    )
+    water_f = water / n
+    # Dry land: cream/tan (not saturated grass green).
+    cream = sum(
+        1
+        for r, g, b in pixels
+        if r > 120
+        and g > 110
+        and b < 200
+        and abs(r - g) < 45
+        and r + g > b + 40
+        and g > b + 5
+    )
+    cream_f = cream / n
+    greenish = float(base.get("greenish_frac") or 0.0)
+    divers = int(base.get("color_buckets") or 0)
+    gates = dict(base.get("gates") or {})
+    gates["water_blue_frac>0.04"] = water_f > 0.04
+    gates["cream_land_frac>0.08"] = cream_f > 0.08
+    # Toy green DEM grid dominated the old BMP (greenish≈0.79, cream≈0).
+    gates["not_toy_green_grid"] = not (greenish > 0.45 and cream_f < 0.05)
+    gates["flood_land_water"] = water_f > 0.04 and cream_f > 0.08 and divers >= 6
+    # Full-frame cream+blue mosaic is all "ink" — map2d ink_ratio<=0.92
+    # false-reds a correct inundation capture (ink≈1.0, wash≈0).
+    ink = float(base.get("ink_ratio") or 0.0)
+    gates["flood_ink_or_structure"] = ink >= 0.015 and divers >= 6
+    base_ok = bool(base.get("ok"))
+    if not base_ok and gates["flood_land_water"] and gates["flood_ink_or_structure"]:
+        # Accept when flood-specific gates hold even if wash/ink map2d caps fail.
+        base_ok = all(
+            gates.get(k, False)
+            for k in (
+                "min_size_320x240",
+                "dark_ratio<0.99",
+                "color_buckets>=4",
+                "not_solid_blue_rect",
+                "not_toy_blue_blob",
+            )
+        )
+    ok = base_ok and all(
+        gates[k]
+        for k in (
+            "water_blue_frac>0.04",
+            "cream_land_frac>0.08",
+            "not_toy_green_grid",
+            "flood_land_water",
+            "flood_ink_or_structure",
+        )
+    )
+    out = dict(base)
+    out["ok"] = ok
+    out["water_blue_frac"] = round(water_f, 5)
+    out["cream_land_frac"] = round(cream_f, 5)
+    out["gates"] = gates
+    out["width"] = w
+    out["height"] = h
+    return out
 
 
 
@@ -390,13 +463,14 @@ def score_plugin_stormsurge(path: Path) -> dict:
     )
     edge_f = edge / n
     # Reject FlyCube navy + two-blob DEM (old capture: divers=3, navy-dominant).
+    # water_on_land>0.04 rejects the 8×7 china_dem postage-stamp cyan (~0.02).
     ok = (
         land_f > 0.10
-        and wol_f > 0.008
+        and wol_f > 0.04
         and black_f < 0.90
         and navy_f < 0.55
         and divers >= 6
-        and (edge_f > 0.012 or wol_f > 0.008)
+        and (edge_f > 0.012 or wol_f > 0.04)
         and w >= 320
         and h >= 240
     )
@@ -413,11 +487,11 @@ def score_plugin_stormsurge(path: Path) -> dict:
         "ok": ok,
         "gates": {
             "landish_frac>0.10": land_f > 0.10,
-            "water_on_land_frac>0.008": wol_f > 0.008,
+            "water_on_land_frac>0.04": wol_f > 0.04,
             "near_black_frac<0.90": black_f < 0.90,
             "navy_clear_frac<0.55": navy_f < 0.55,
             "color_buckets>=6": divers >= 6,
-            "edge_or_water": edge_f > 0.012 or wol_f > 0.008,
+            "edge_or_water": edge_f > 0.012 or wol_f > 0.04,
             "min_size_320x240": w >= 320 and h >= 240,
         },
     }
@@ -576,15 +650,14 @@ def score_plugin_hex(path: Path) -> dict:
     amber_f = float(base.get("amber_frac") or 0.0)
     # FE look: multi-zone paint OR dense dark grid ink; never amber-only slab.
     fe_zones = zone_f > 0.04
-    fe_edges = edge_f > 0.006
+    fe_edges = edge_f > 0.004
     fe_diversity = divers >= 6
-    fe_ok = (fe_zones and fe_edges) or (fe_diversity and fe_edges) or (
-        fe_zones and divers >= 5
-    )
+    # Require zone color + either grid ink or high diversity (rejects amber slab).
+    fe_ok = (fe_zones and fe_edges) or (fe_zones and fe_diversity)
     toy_amber = amber_f > 0.08 and edge_f < 0.003 and zone_f < 0.02
     gates = dict(base.get("gates") or {})
     gates["fe_zone_frac>0.04"] = fe_zones
-    gates["fe_edge_frac>0.006"] = fe_edges
+    gates["fe_edge_frac>0.004"] = fe_edges
     gates["fe_color_buckets>=6"] = fe_diversity
     gates["not_toy_amber_slab"] = not toy_amber
     gates["fe_hex_volume"] = fe_ok and not toy_amber

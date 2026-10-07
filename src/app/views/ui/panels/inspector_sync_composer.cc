@@ -33,7 +33,7 @@
 #include "content/public/map_contents.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "vista/component/atmosphere/field/field_channel.h"
+#include "vista/component/world/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "gis/edit/session.h"
 #include "gis/tile/layer/tile_map_layer.h"
@@ -153,7 +153,7 @@ void InspectorSyncComposer::sync_inspectors_from_scene() {
 void InspectorSyncComposer::sync_result_playback_from_session() {
   // Require the panel to be under this shell Widget. Skip during early
   // wire_map_scene if the panel pointer is skewed (stale shell_ui .obj) or
-  // not yet reparented 鈥?Slider::set_value 鈫?schedule_paint on a garbage
+  // not yet reparented �?Slider::set_value �?schedule_paint on a garbage
   // host_->widget_ was STATUS_HEAP_CORRUPTION / AV at init_shell.
   if (!host_->result_playback_panel_ ||
       host_->result_playback_panel_->widget() != &host_->widget_) {
@@ -195,7 +195,7 @@ void InspectorSyncComposer::wire_edit_feedback() {
   // Showcase / self-test set SKIP_AMBOX_CATALOG. Edit subscriptions are not
   // required for BMP export. A skewed Browser/BrowserSession layout (stale
   // shell_browser .obj under parallel ninja) makes edit_host() return
-  // 0xCD-filled garbage 鈫?STATUS_HEAP_CORRUPTION in ViewHost::events().
+  // 0xCD-filled garbage �?STATUS_HEAP_CORRUPTION in ViewHost::events().
   if (const char* skip = base::switch_cstr("skip-ambox-catalog");
       skip && skip[0] != '\0' && skip[0] != '0') {
     return;

@@ -7,6 +7,7 @@ import("//testing/test.gni")
 # Node graph plus CPU instance sync, tessellation, cull, and the spatial index.
 # Codecs live in //src/vista/assets. DEM math lives in //src/vista/terrain.
 # Generic geometry tessellation lives in //src/vista/mesh.
+# Atmosphere CPU IR lives under atmosphere/ (colocated with world for now).
 # Device upload is //src/vista/pass/world. This target assert_no_deps render.
 
 source_set("world_sources") {
@@ -117,5 +118,174 @@ test("pointcloud_test") {
     ":world",
     "//third_party:gdal",
     "//third_party:laszip",
+  ]
+}
+
+# cpu_waves (+ detail/math.h): GPU ocean may consume without pulling land_mask.
+source_set("atmosphere_cpu_sources") {
+  sources = [
+    "atmosphere/detail/math.h",
+    "atmosphere/ocean/cpu_waves.cc",
+    "atmosphere/ocean/cpu_waves.h",
+  ]
+  include_dirs += [ "//src" ]
+  assert_no_deps = [ "//src/render:render" ]
+}
+
+source_set("session_sources") {
+  sources = [
+    "atmosphere/atmosphere_params.h",
+    "atmosphere/cloud/cloud_system.cc",
+    "atmosphere/cloud/cloud_system.h",
+    "atmosphere/contour/contour_color_scale.cc",
+    "atmosphere/contour/contour_color_scale.h",
+    "atmosphere/contour/contour_sheet.cc",
+    "atmosphere/contour/contour_sheet.h",
+    "atmosphere/environment.cc",
+    "atmosphere/environment.h",
+    "atmosphere/field/field_channel.h",
+    "atmosphere/field/field_ingest.cc",
+    "atmosphere/field/field_ingest.h",
+    "atmosphere/field/field_store.cc",
+    "atmosphere/field/field_store.h",
+    "atmosphere/field/procedural.cc",
+    "atmosphere/field/procedural.h",
+    "atmosphere/ocean/ocean_system.cc",
+    "atmosphere/ocean/ocean_system.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  assert_no_deps = [ "//src/render:render" ]
+  public_deps = [
+    "//src/vista/domain:domain_sources",
+    "//src/vista/terrain:land_mask",
+    "//src/base:foundation",
+    "//third_party:gdal",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/vista/terrain:terrain_sources",
+  ]
+}
+
+# In-process VISTA_EXPORTS copies: LNK1168 on vista_d.dll is residual P4 debt.
+test("field_store_test") {
+  output_name = "field_store_test"
+  sources = [
+    "atmosphere/field/field_store.cc",
+    "atmosphere/field/field_store_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [ "//src/base:base" ]
+}
+
+test("procedural_test") {
+  output_name = "procedural_test"
+  sources = [
+    "atmosphere/field/field_store.cc",
+    "atmosphere/field/procedural.cc",
+    "atmosphere/field/procedural_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [
+    "//src/base:base",
+    "//src/vista/terrain:land_mask",
+  ]
+}
+
+test("field_ingest_test") {
+  output_name = "field_ingest_test"
+  sources = [
+    "atmosphere/field/field_ingest.cc",
+    "atmosphere/field/field_store.cc",
+    "atmosphere/field/field_ingest_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:foundation",
+    "//third_party:gdal",
+  ]
+}
+
+test("cloud_system_test") {
+  output_name = "cloud_system_test"
+  sources = [
+    "atmosphere/cloud/cloud_system.cc",
+    "atmosphere/cloud/cloud_system_test.cc",
+    "atmosphere/field/field_store.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [ "//src/base:base" ]
+}
+
+test("ocean_system_test") {
+  output_name = "ocean_system_test"
+  sources = [
+    "atmosphere/field/field_store.cc",
+    "atmosphere/ocean/ocean_system.cc",
+    "atmosphere/ocean/ocean_system_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [ "//src/base:base" ]
+}
+
+test("contour_sheet_test") {
+  output_name = "contour_sheet_test"
+  sources = [
+    "atmosphere/contour/contour_color_scale.cc",
+    "atmosphere/contour/contour_sheet.cc",
+    "atmosphere/contour/contour_sheet_test.cc",
+    "atmosphere/field/field_store.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [
+    "//src/base:base",
+    "//src/base/execution:execution",
+    "//src/vista/terrain:dem_contour_sources",
+    "//src/vista/terrain:land_mask",
+  ]
+}
+
+test("environment_test") {
+  output_name = "environment_test"
+  sources = [
+    "atmosphere/cloud/cloud_system.cc",
+    "atmosphere/contour/contour_color_scale.cc",
+    "atmosphere/contour/contour_sheet.cc",
+    "atmosphere/environment.cc",
+    "atmosphere/environment_test.cc",
+    "atmosphere/field/field_ingest.cc",
+    "atmosphere/field/field_store.cc",
+    "atmosphere/ocean/ocean_system.cc",
+    "atmosphere/field/procedural.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [
+    "//src/base:base",
+    "//src/base/execution:execution",
+    "//src/vista/domain:domain_sources",
+    "//src/vista/terrain:dem_contour_sources",
+    "//src/vista/terrain:land_mask",
+    "//third_party:gdal",
   ]
 }

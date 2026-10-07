@@ -12,13 +12,15 @@
 #include <vector>
 
 #include "content/public/plugin_host.h"
-#include "plugin/runtime/host/capability/capability.h"
 #include "gis/analysis/raster/dem/storm_surge.h"
 #include "gis/analysis/raster/dem/storm_surge_stats.h"
 #include "plugin/product/stormsurge/present/mask.h"
 #include "plugin/product/stormsurge/present/water_mesh.h"
 #include "plugin/product/stormsurge/views/run_dialog.h"
+#include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
+#include "plugin/runtime/host/processing/reexport_file.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
 #include "plugin/runtime/widgets/present_surface_picker.h"
@@ -38,51 +40,6 @@ std::string g_last_depth_output;
 std::string g_coast_path;
 gis::detail::StormSurgeResult g_last_surge;
 
-bool parse_args(std::string_view json, rapidjson::Document* out) {
-  if (!out) {
-    return false;
-  }
-  out->Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  return !out->HasParseError() && out->IsObject();
-}
-
-bool json_get_string(const rapidjson::Value& obj,
-                     const char* key,
-                     std::string* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsString()) {
-    return false;
-  }
-  *out = std::string(it->value.GetString(), it->value.GetStringLength());
-  return true;
-}
-
-bool json_get_double(const rapidjson::Value& obj, const char* key, double* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
-    return false;
-  }
-  *out = it->value.GetDouble();
-  return true;
-}
-
-bool json_get_int(const rapidjson::Value& obj, const char* key, int* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
-    return false;
-  }
-  *out = it->value.GetInt();
-  return true;
-}
 
 double result_water_level(const gis::detail::StormSurgeResult& result) {
   if (!result.surge_levels.empty()) {
@@ -110,6 +67,17 @@ bool stormsurge_present(content::PluginHost* host) {
         "{\"error\":\"no_stormsurge_seam\",\"op\":\"stormsurge.run\"}");
     return false;
   }
+  // Switch Scene3D tab / adopt playback before water TIN so china contour
+  // cannot replace the cyan overlay (peer mine publish_viz order).
+  if (content::PluginHost::Playback* pb = host->playback()) {
+    pb->clear();
+    for (int i = 0; i < frame_count; ++i) {
+      pb->push_frame("{\"index\":" + std::to_string(i) + "}");
+    }
+    pb->set_index(static_cast<size_t>(frame_count > 0 ? frame_count - 1 : 0));
+  }
+  (void)host->present_dataset(kPluginId, "", 1);
+
   for (int i = 0; i < frame_count; ++i) {
     const unsigned char* mask =
         result.frame_masks.empty()
@@ -119,6 +87,7 @@ bool stormsurge_present(content::PluginHost* host) {
         (i < static_cast<int>(result.surge_levels.size()))
             ? result.surge_levels[static_cast<size_t>(i)]
             : water_level;
+    // nullptr scene3d: clear/commit via Scene3dSink only (shell bridges).
     if (!present_stormsurge_mask(gis, sink, nullptr, mask, result.width,
                                  result.height, result.geotransform, i == 0,
                                  frame_level)) {
@@ -136,9 +105,16 @@ bool stormsurge_present(content::PluginHost* host) {
     if (point_count < 3 || triangle_count < 1) {
       continue;
     }
-    if (!present_stormsurge_water_mesh(gis, sink, nullptr, mesh.xyz.data(),
-                                       point_count, mesh.indices.data(),
-                                       triangle_count)) {
+    const float* depth = result.depth.empty() ? nullptr : result.depth.data();
+    if (!result.frame_depths.empty() &&
+        i < static_cast<int>(result.frame_depths.size()) &&
+        !result.frame_depths[static_cast<size_t>(i)].empty()) {
+      depth = result.frame_depths[static_cast<size_t>(i)].data();
+    }
+    if (!present_stormsurge_water_mesh(
+            gis, sink, nullptr, mesh.xyz.data(), point_count,
+            mesh.indices.data(), triangle_count, depth, result.width,
+            result.height, result.geotransform)) {
       set_operation_result(
           "{\"error\":\"no_stormsurge_water_mesh\",\"op\":\"stormsurge.run\"}");
       return false;
@@ -150,14 +126,6 @@ bool stormsurge_present(content::PluginHost* host) {
         "{\"error\":\"empty_water_mesh\",\"op\":\"stormsurge.run\"}");
     return false;
   }
-  if (content::PluginHost::Playback* pb = host->playback()) {
-    pb->clear();
-    for (int i = 0; i < frame_count; ++i) {
-      pb->push_frame("{\"index\":" + std::to_string(i) + "}");
-    }
-    pb->set_index(static_cast<size_t>(frame_count > 0 ? frame_count - 1 : 0));
-  }
-  (void)host->present_dataset(kPluginId, "", 1);
   set_operation_result(
       std::string("{\"ok\":true,\"op\":\"stormsurge.run\",\"width\":") +
       std::to_string(result.width) + ",\"height\":" +
@@ -168,10 +136,15 @@ bool stormsurge_present(content::PluginHost* host) {
 
 bool stormsurge_present_frame(content::PluginHost* host,
                               std::string_view args_json) {
-  if (!host || !g_last_surge.ok) {
+  // ProcessingPool compute phase calls with a null host; session is already
+  // in g_last_surge from stormsurge.run. Present re-enters with the real host.
+  if (!g_last_surge.ok) {
     set_operation_result(
         "{\"error\":\"no_stormsurge_session\",\"op\":\"stormsurge.present_frame\"}");
     return false;
+  }
+  if (!host) {
+    return true;
   }
   content::GisDocument* gis = host->gis_document();
   if (!gis) {
@@ -181,8 +154,8 @@ bool stormsurge_present_frame(content::PluginHost* host,
   }
   int index = 0;
   rapidjson::Document args;
-  if (parse_args(args_json, &args)) {
-    json_get_int(args, "index", &index);
+  if (parse_args_json(args_json, &args)) {
+    args_json_int(args, "index", &index);
   }
   const gis::detail::StormSurgeResult& result = g_last_surge;
   const int frame_count =
@@ -217,9 +190,16 @@ bool stormsurge_present_frame(content::PluginHost* host,
   const int point_count = static_cast<int>(mesh.xyz.size() / 3);
   const int triangle_count = static_cast<int>(mesh.indices.size() / 3);
   if (point_count >= 3 && triangle_count >= 1) {
-    if (!present_stormsurge_water_mesh(gis, sink, nullptr, mesh.xyz.data(),
-                                       point_count, mesh.indices.data(),
-                                       triangle_count)) {
+    const float* depth = result.depth.empty() ? nullptr : result.depth.data();
+    if (!result.frame_depths.empty() &&
+        index < static_cast<int>(result.frame_depths.size()) &&
+        !result.frame_depths[static_cast<size_t>(index)].empty()) {
+      depth = result.frame_depths[static_cast<size_t>(index)].data();
+    }
+    if (!present_stormsurge_water_mesh(
+            gis, sink, nullptr, mesh.xyz.data(), point_count,
+            mesh.indices.data(), triangle_count, depth, result.width,
+            result.height, result.geotransform)) {
       set_operation_result(
           "{\"error\":\"present_failed\",\"op\":\"stormsurge.present_frame\"}");
       return false;
@@ -237,21 +217,21 @@ bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
     return stormsurge_present(host);
   }
   rapidjson::Document args;
-  if (!parse_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"stormsurge.run\"}");
     return false;
   }
   std::string dem;
   std::string output;
-  if (!json_get_string(args, "dem", &dem) || dem.empty() ||
-      !json_get_string(args, "output", &output) || output.empty()) {
+  if (!args_json_string(args, "dem", &dem) || dem.empty() ||
+      !args_json_string(args, "output", &output) || output.empty()) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"stormsurge.run\"}");
     return false;
   }
   std::string coast;
-  json_get_string(args, "coast", &coast);
+  args_json_string(args, "coast", &coast);
   if (coast.empty()) {
-    json_get_string(args, "shoreline", &coast);
+    args_json_string(args, "shoreline", &coast);
   }
   if (coast.empty()) {
     coast = g_coast_path;
@@ -260,8 +240,8 @@ bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
   std::vector<double> seed_xy;
   double seed_x = 0;
   double seed_y = 0;
-  if (json_get_double(args, "seed_x", &seed_x) &&
-      json_get_double(args, "seed_y", &seed_y)) {
+  if (args_json_double(args, "seed_x", &seed_x) &&
+      args_json_double(args, "seed_y", &seed_y)) {
     seed_xy.push_back(seed_x);
     seed_xy.push_back(seed_y);
   }
@@ -278,13 +258,13 @@ bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
   if (levels.empty()) {
     double tide_level = 0;
     double water_level = 0;
-    if (json_get_double(args, "tide_level", &tide_level)) {
+    if (args_json_double(args, "tide_level", &tide_level)) {
       levels.push_back(tide_level);
-    } else if (json_get_double(args, "water_level", &water_level)) {
+    } else if (args_json_double(args, "water_level", &water_level)) {
       levels.push_back(water_level);
     } else {
       double water_depth = 0;
-      if (json_get_double(args, "water_depth", &water_depth)) {
+      if (args_json_double(args, "water_depth", &water_depth)) {
         // Kernel op resolves depth→absolute; here require absolute level.
         set_operation_result(
             "{\"error\":\"need_tide_or_level\",\"op\":\"stormsurge.run\"}");
@@ -295,7 +275,7 @@ bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
   // Optional tide CSV path is accepted by native.storm_surge via run_storm_surge_op;
   // product path prefers explicit levels; pass through when levels still empty.
   std::string tide_series;
-  json_get_string(args, "tide", &tide_series);
+  args_json_string(args, "tide", &tide_series);
   if (levels.empty() && !tide_series.empty()) {
     // Delegate series parse to catalog op (writes files + returns ok).
     if (!gis::detail::run_storm_surge_op(args_json)) {
@@ -323,9 +303,9 @@ bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
   }
 
   int frames = 1;
-  json_get_int(args, "frames", &frames);
+  args_json_int(args, "frames", &frames);
   std::string frames_dir;
-  json_get_string(args, "frames_dir", &frames_dir);
+  args_json_string(args, "frames_dir", &frames_dir);
 
   gis::detail::StormSurgeResult result =
       gis::detail::run_storm_surge(dem, coast, seed_xy, levels, frames);
@@ -343,7 +323,7 @@ bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
   }
 
   std::string depth_output;
-  json_get_string(args, "depth_output", &depth_output);
+  args_json_string(args, "depth_output", &depth_output);
   if (!depth_output.empty()) {
     if (!gis::detail::write_storm_surge_depth_geotiff(depth_output, result,
                                                       frames_dir)) {
@@ -356,7 +336,7 @@ bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
 
   // Optional P2 stats in the same run when stats_output is set.
   std::string stats_output;
-  json_get_string(args, "stats_output", &stats_output);
+  args_json_string(args, "stats_output", &stats_output);
   if (!stats_output.empty()) {
     rapidjson::StringBuffer buf;
     rapidjson::Writer<rapidjson::StringBuffer> w(buf);
@@ -368,13 +348,13 @@ bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
       w.String(g_last_depth_output.c_str());
     }
     std::string impact;
-    json_get_string(args, "impact", &impact);
+    args_json_string(args, "impact", &impact);
     if (!impact.empty()) {
       w.Key("impact");
       w.String(impact.c_str());
     }
     double buffer_distance = 0;
-    if (json_get_double(args, "buffer_distance", &buffer_distance) &&
+    if (args_json_double(args, "buffer_distance", &buffer_distance) &&
         buffer_distance > 0) {
       w.Key("buffer_distance");
       w.Double(buffer_distance);
@@ -382,7 +362,7 @@ bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
     w.Key("output");
     w.String(stats_output.c_str());
     std::string class_mask_output;
-    if (json_get_string(args, "class_mask_output", &class_mask_output) &&
+    if (args_json_string(args, "class_mask_output", &class_mask_output) &&
         !class_mask_output.empty()) {
       w.Key("class_mask_output");
       w.String(class_mask_output.c_str());
@@ -405,71 +385,18 @@ bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
 }
 
 bool stormsurge_export(content::PluginHost*, std::string_view args_json) {
-  rapidjson::Document args;
-  std::string dest = g_last_output;
-  if (parse_args(args_json, &args)) {
-    std::string out;
-    if (json_get_string(args, "output", &out) && !out.empty()) {
-      dest = out;
-    }
-  }
-  if (dest.empty()) {
-    set_operation_result(
-        "{\"error\":\"no_output\",\"op\":\"stormsurge.export\"}");
-    return false;
-  }
-  if (!g_last_output.empty() && dest != g_last_output) {
-    FILE* in = nullptr;
-    FILE* out = nullptr;
-    if (fopen_s(&in, g_last_output.c_str(), "rb") != 0 || !in) {
-      set_operation_result(
-          "{\"error\":\"missing_source\",\"op\":\"stormsurge.export\"}");
-      return false;
-    }
-    if (fopen_s(&out, dest.c_str(), "wb") != 0 || !out) {
-      fclose(in);
-      set_operation_result(
-          "{\"error\":\"write_failed\",\"op\":\"stormsurge.export\"}");
-      return false;
-    }
-    char buf[4096];
-    size_t n = 0;
-    while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
-      if (fwrite(buf, 1, n, out) != n) {
-        fclose(in);
-        fclose(out);
-        set_operation_result(
-            "{\"error\":\"write_failed\",\"op\":\"stormsurge.export\"}");
-        return false;
-      }
-    }
-    fclose(in);
-    fclose(out);
-    g_last_output = dest;
-  } else {
-    FILE* f = nullptr;
-    if (fopen_s(&f, dest.c_str(), "rb") != 0 || !f) {
-      set_operation_result(
-          "{\"error\":\"missing_output\",\"op\":\"stormsurge.export\"}");
-      return false;
-    }
-    fclose(f);
-  }
-  set_operation_result(
-      std::string("{\"ok\":true,\"op\":\"stormsurge.export\",\"output\":\"") +
-      dest + "\"}");
-  return true;
+  return reexport_cached_file(&g_last_output, args_json, "stormsurge.export");
 }
 
 bool stormsurge_load_coast(content::PluginHost*, std::string_view args_json) {
   rapidjson::Document args;
-  if (!parse_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"stormsurge.load_coast\"}");
     return false;
   }
   std::string coast;
-  if (!json_get_string(args, "coast", &coast) || coast.empty()) {
+  if (!args_json_string(args, "coast", &coast) || coast.empty()) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"stormsurge.load_coast\"}");
     return false;
@@ -489,18 +416,18 @@ bool stormsurge_load_coast(content::PluginHost*, std::string_view args_json) {
 
 bool stormsurge_stats(content::PluginHost*, std::string_view args_json) {
   rapidjson::Document args;
-  if (!parse_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"stormsurge.stats\"}");
     return false;
   }
   std::string mask;
-  json_get_string(args, "mask", &mask);
+  args_json_string(args, "mask", &mask);
   if (mask.empty()) {
     mask = g_last_output;
   }
   std::string output;
-  json_get_string(args, "output", &output);
+  args_json_string(args, "output", &output);
   if (output.empty()) {
     output = "stormsurge_stats.json";
   }
@@ -516,7 +443,7 @@ bool stormsurge_stats(content::PluginHost*, std::string_view args_json) {
   w.Key("mask");
   w.String(mask.c_str());
   std::string depth;
-  json_get_string(args, "depth", &depth);
+  args_json_string(args, "depth", &depth);
   if (depth.empty()) {
     depth = g_last_depth_output;
   }
@@ -525,32 +452,32 @@ bool stormsurge_stats(content::PluginHost*, std::string_view args_json) {
     w.String(depth.c_str());
   }
   std::string impact;
-  json_get_string(args, "impact", &impact);
+  args_json_string(args, "impact", &impact);
   if (!impact.empty()) {
     w.Key("impact");
     w.String(impact.c_str());
   }
   double buffer_distance = 0;
-  if (json_get_double(args, "buffer_distance", &buffer_distance)) {
+  if (args_json_double(args, "buffer_distance", &buffer_distance)) {
     w.Key("buffer_distance");
     w.Double(buffer_distance);
   }
   w.Key("output");
   w.String(output.c_str());
   std::string class_mask_output;
-  if (json_get_string(args, "class_mask_output", &class_mask_output) &&
+  if (args_json_string(args, "class_mask_output", &class_mask_output) &&
       !class_mask_output.empty()) {
     w.Key("class_mask_output");
     w.String(class_mask_output.c_str());
   }
   std::string buffer_output;
-  if (json_get_string(args, "buffer_output", &buffer_output) &&
+  if (args_json_string(args, "buffer_output", &buffer_output) &&
       !buffer_output.empty()) {
     w.Key("buffer_output");
     w.String(buffer_output.c_str());
   }
   std::string overlap_output;
-  if (json_get_string(args, "overlap_output", &overlap_output) &&
+  if (args_json_string(args, "overlap_output", &overlap_output) &&
       !overlap_output.empty()) {
     w.Key("overlap_output");
     w.String(overlap_output.c_str());
@@ -582,6 +509,11 @@ void show_dialog(const wchar_t* title, std::unique_ptr<ui::views::View> body) {
 bool register_stormsurge(content::PluginHost* host) {
   if (!host) {
     return false;
+  }
+  if (tool::CommandCatalog* catalog = host->commands()) {
+    if (catalog->contains("stormsurge.run")) {
+      return true;
+    }
   }
   if (!host->contribute_command(
           kPluginId, "stormsurge.run", "风暴潮淹没分析", "tools",

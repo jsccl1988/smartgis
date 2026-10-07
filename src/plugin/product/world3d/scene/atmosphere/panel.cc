@@ -7,8 +7,9 @@
 #include <utility>
 
 #include "content/public/plugin_host.h"
-#include "plugin/product/world3d/scene/detail/contribute.h"
+#include "plugin/product/world3d/scene/detail/host.h"
 #include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/host/capability/contribute.h"
 #include "plugin/runtime/widgets/present_surface_picker.h"
 #include "ui/gis/shell/atmosphere_panel.h"
 
@@ -95,8 +96,8 @@ bool contribute_atmosphere_panel(content::PluginHost* host) {
     return false;
   }
   return contribute_command_aliases(
-      host, {{"world3d.atmosphere_panel", "Atmosphere"}}, "view",
-      [host](const tool::CommandArgs&) {
+      host, kWorld3dPluginId, {{"world3d.atmosphere_panel", "Atmosphere"}},
+      "view", [host](const tool::CommandArgs&) {
         return host && host->open_dock("world3d.atmosphere");
       });
 }

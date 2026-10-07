@@ -14,10 +14,11 @@
 #include <string>
 #include <vector>
 
-#include "plugin/runtime/host/capability/shell.h"
-#include "content/public/plugin_host.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
 #include "app/views/util/exe_sidecar_path.h"
+#include "content/public/plugin_host.h"
+#include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
+#include "plugin/runtime/host/capability/shell.h"
 #include "vista/terrain/dem/dem_raster.h"
 
 #include "cpl_conv.h"
@@ -297,6 +298,21 @@ bool dem_elevation_percentile(const char* dem_path, double frac, double* z) {
   return std::isfinite(*z);
 }
 
+// National china_dem is ~0.04° (~4 km). A Wuhan coast pad is only ~8×7 cells —
+// too coarse for a readable inundation TIN. Prefer the schematic sample then.
+bool crop_has_min_pixels(const char* dem_path, int min_dim) {
+  if (!dem_path || min_dim < 2) {
+    return false;
+  }
+  GDALAllRegister();
+  GDALDatasetUniquePtr ds(
+      static_cast<GDALDataset*>(GDALOpen(dem_path, GA_ReadOnly)));
+  if (!ds) {
+    return false;
+  }
+  return ds->GetRasterXSize() >= min_dim && ds->GetRasterYSize() >= min_dim;
+}
+
 bool try_crop_china_dem(char* dem_utf8, size_t dem_cap) {
   const std::string src = vista::find_sample_dem_path();
   if (src.empty() || !path_exists_utf8(src.c_str())) {
@@ -311,7 +327,13 @@ bool try_crop_china_dem(char* dem_utf8, size_t dem_cap) {
                           kStormSurgeMaxLat, 384, GDT_Float32)) {
     return false;
   }
-  return path_exists_utf8(dem_utf8);
+  constexpr int kMinInundationDim = 64;
+  if (!path_exists_utf8(dem_utf8) ||
+      !crop_has_min_pixels(dem_utf8, kMinInundationDim)) {
+    plugin_mark("china-dem-crop-too-coarse");
+    return false;
+  }
+  return true;
 }
 
 }  // namespace
@@ -485,7 +507,8 @@ bool seed_stormsurge_processing(HarnessShell& browser, const char* dem_utf8,
   const std::string out_esc = json_escape_path(out_utf8);
   const std::string coast_args =
       std::string("{\"coast\":\"") + coast_esc + "\"}";
-  if (!browser.plugin_host()->run_processing("stormsurge.load_coast", coast_args)) {
+  if (!run_processing_flushed(browser.plugin_host(), "stormsurge.load_coast",
+                              coast_args)) {
     plugin_mark("stormsurge-coast-fail");
     return false;
   }
@@ -499,25 +522,59 @@ bool seed_stormsurge_processing(HarnessShell& browser, const char* dem_utf8,
   } else {
     plugin_mark("dem-seed-z-skip");
   }
-  // Tide above the valley seed, but below the 70th-percentile DEM so hills
-  // stay dry (seed_z+6 drowned the Wuhan china_dem crop in Scene3D).
-  double tide = seed_z + 2.5;
+  // Target ~p35 free-surface: a readable basin on the schematic 320×240 DEM
+  // (relief ~100 m). Cap below p70 so hills stay dry. The old seed_z+4 m
+  // clamp only wet a single 8×7 china_dem cell (inspect PNG cyan postage stamp).
+  double tide = seed_z + 8.0;
+  double p35 = seed_z;
   double p70 = seed_z;
-  if (dem_elevation_percentile(dem_utf8, 0.70, &p70) && p70 > seed_z + 1.0) {
-    const double relief = p70 - seed_z;
-    tide = seed_z + std::clamp(relief * 0.40, 1.5, 4.0);
-    if (tide >= p70) {
-      tide = seed_z + relief * 0.40;
+  const bool have_p35 = dem_elevation_percentile(dem_utf8, 0.35, &p35);
+  const bool have_p70 = dem_elevation_percentile(dem_utf8, 0.70, &p70);
+  if (have_p35 && p35 > seed_z + 2.0) {
+    tide = p35;
+  }
+  if (have_p70 && p70 > seed_z + 1.0) {
+    const double ceiling = p70 - 0.5;
+    if (tide > ceiling) {
+      tide = ceiling;
+    }
+    const double floor_z = seed_z + std::clamp((p70 - seed_z) * 0.20, 4.0, 25.0);
+    if (tide < floor_z) {
+      tide = (std::min)(floor_z, ceiling);
     }
   }
-  char tide_buf[64] = {};
-  std::snprintf(tide_buf, sizeof(tide_buf), "%.3f", tide);
+  // Precipitation ramp (mm) → depth above seed → absolute surge levels.
+  // Product semantic: rain accumulates, free-surface rises, wet mask grows.
+  constexpr int kPrecipFrames = 8;
+  constexpr double kPrecipMmStep = 25.0;
+  constexpr double kMmToDepthM = 0.055;  // 25 mm → ~1.4 m; 200 mm → ~11 m
+  std::string levels_json = "[";
+  for (int f = 0; f < kPrecipFrames; ++f) {
+    const double precip_mm = kPrecipMmStep * static_cast<double>(f + 1);
+    const double depth_m = precip_mm * kMmToDepthM;
+    double level = seed_z + depth_m;
+    if (level > tide) {
+      level = tide;
+    }
+    if (level < seed_z + 0.5) {
+      level = seed_z + 0.5;
+    }
+    char lb[64] = {};
+    std::snprintf(lb, sizeof(lb), "%.3f", level);
+    if (f > 0) {
+      levels_json += ",";
+    }
+    levels_json += lb;
+  }
+  levels_json += "]";
   const std::string run_args =
       std::string("{\"dem\":\"") + dem_esc + "\",\"output\":\"" + out_esc +
       "\",\"seed_x\":" + std::to_string(seed_lon) +
       ",\"seed_y\":" + std::to_string(seed_lat) +
-      ",\"tide_level\":" + tide_buf + ",\"frames\":8}";
-  if (!browser.plugin_host()->run_processing("stormsurge.run", run_args)) {
+      ",\"surge_levels\":" + levels_json + ",\"frames\":" +
+      std::to_string(kPrecipFrames) + "}";
+  if (!run_processing_flushed(browser.plugin_host(), "stormsurge.run",
+                              run_args)) {
     plugin_mark("stormsurge-china-run-fail");
     char schematic[MAX_PATH * 3] = {};
     if (!resolve_stormsurge_sample(L"stormsurge_dem_sample.tif", schematic,
@@ -526,16 +583,20 @@ bool seed_stormsurge_processing(HarnessShell& browser, const char* dem_utf8,
       return false;
     }
     const std::string sch_esc = json_escape_path(schematic);
+    // Schematic basin: precip ramp toward 58 m free-surface.
     const std::string fallback =
         std::string("{\"dem\":\"") + sch_esc + "\",\"coast\":\"" + coast_esc +
         "\",\"output\":\"" + out_esc +
-        "\",\"seed_x\":114.30,\"seed_y\":30.55,\"tide_level\":58.0,\"frames\":8}";
-    if (!browser.plugin_host()->run_processing("stormsurge.run", fallback)) {
+        "\",\"seed_x\":114.30,\"seed_y\":30.55,"
+        "\"surge_levels\":[28,34,40,46,50,54,56,58],\"frames\":8}";
+    if (!run_processing_flushed(browser.plugin_host(), "stormsurge.run",
+                                fallback)) {
       plugin_mark("stormsurge-run-fail");
       return false;
     }
     plugin_mark("stormsurge-schematic-fallback");
   }
+  plugin_mark("precip-levels-ok");
   plugin_mark("stormsurge-ok");
   return true;
 }

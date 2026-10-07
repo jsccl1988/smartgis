@@ -80,9 +80,15 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
 
   {
     BASE_TRACE_EVENT("PeekPluginStartup", "startup");
-    app::peek_plugin_startup(options.plugins_dir, &options.scenario_id,
+    // CLI --plugin-showcase wins when set; plugin.json startup.scenario fills
+    // only when the argv scenario is empty (interactive / pack-default).
+    std::string peeked_scenario;
+    app::peek_plugin_startup(options.plugins_dir, &peeked_scenario,
                              &options.plugin_present,
                              &options.atmosphere_fields);
+    if (options.scenario_id.empty()) {
+      options.scenario_id = std::move(peeked_scenario);
+    }
   }
 
   if (app::is_harness_launch(options)) {

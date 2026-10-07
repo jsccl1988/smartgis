@@ -5,6 +5,7 @@
     "--ui-showcase",
     "catalog"
   ],
+  "script": "ui.catalog.il",
   "env": {
     "UI_SHOWCASE_LINGER_MS": "0",
     "UI_FORENSICS": "1",

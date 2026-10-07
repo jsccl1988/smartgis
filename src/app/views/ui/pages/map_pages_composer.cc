@@ -40,8 +40,8 @@
 #include "content/public/map_contents.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "vista/component/atmosphere/field/field_channel.h"
-#include "vista/component/atmosphere/environment.h"
+#include "vista/component/world/atmosphere/field/field_channel.h"
+#include "vista/component/world/atmosphere/environment.h"
 #include "vista/terrain/process/land_mask.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
@@ -203,7 +203,7 @@ void MapPagesComposer::attach_viewports() {
     bool attach_now;
   };
   // Only DX12-init the visible Map Edit pane at startup. Data + 3D realize
-  // HWND only 锟?three FlyCube devices each busy-waited up to ~5s and made
+  // HWND only �?three FlyCube devices each busy-waited up to ~5s and made
   // SmartGisViews feel stuck on launch (debug D3D12 layers amplify this).
   // Realize + second layout BEFORE attach so FlyCube Init samples the tab-body
   // client size (not a stale multi-k px rect that leaves a navy-clear present).
@@ -293,8 +293,7 @@ void MapPagesComposer::wire_map_scene() {
         return;
       }
       content::Map2dPresenter* map2d = host_->browser_->map2d();
-      // input_hwnd() returns the present popup only while it is visible —
-      // skip full GDI only then, else the embed stays navy/ocean until reveal.
+      // input_hwnd() returns the present popup only while it is visible �?      // skip full GDI only then, else the embed stays navy/ocean until reveal.
       const bool flycube_present_visible =
           pane &&
           pane->attach_mode() == ui::views::DrawHost::AttachMode::kGpuPresent &&
@@ -334,7 +333,7 @@ void MapPagesComposer::wire_map_scene() {
     }
     const auto mode = host_->map_scene_ ? host_->map_scene_->attach_mode()
                                  : ui::views::DrawHost::AttachMode::kNone;
-    // Priority: FlyCube 锟?(opt-in) leftover GL stereo 锟?ContentMapView 锟?GDI DEM.
+    // Priority: FlyCube �?(opt-in) leftover GL stereo �?ContentMapView �?GDI DEM.
     const bool flycube = mode == ui::views::DrawHost::AttachMode::kGpuPresent;
     const bool content_map =
         mode == ui::views::DrawHost::AttachMode::kContentMapView;
@@ -345,7 +344,7 @@ void MapPagesComposer::wire_map_scene() {
       return;
     }
     // When FlyCube is the product SoT (default), never re-attach leftover GL
-    // on the same HWND 锟?try_present_sot would race the DX12 swapchain and
+    // on the same HWND �?try_present_sot would race the DX12 swapchain and
     // permanently stamp the HUD badge as Stereo/GL even after RHI recovers.
     // Stereo/GL is only allowed when the user selected that engine.
     const bool allow_stereo_fallback =
@@ -362,18 +361,30 @@ void MapPagesComposer::wire_map_scene() {
     }
     if (content_map && host_->map_scene_ &&
         host_->map_scene_->last_content_present_ok()) {
-      // SharedSurface actually blitted — HUD only. Empty ContentMapView
+      // SharedSurface actually blitted �?HUD only. Empty ContentMapView
       // (no GPU frames) must fall through to Scene3dPresenter::paint or the
       // 3D tab stays navy (scenic / GDI product HWND SoT).
       host_->browser_->scene3d()->set_render_engine_name("ContentMapView");
       host_->browser_->scene3d()->paint_hud(hdc, w, h);
       return;
     }
-    // FlyCube attached but present not yet ok (or failed): software DEM SoT
-    // into the paint DC. Keep the RHI label so the badge is not "Stereo/GL".
-    if (flycube) {
+    // Product FlyCube: never bake soft DEM on the UI thread while waiting for
+    // GpuPresent / first present_gpu. Soft paint holds present_mu_ and can
+    // starve Display reveal (Engine:GDI Fps~0.02). Opaque + HUD only.
+    if (content::prefer_scene3d_flycube() && !gpu_ok) {
       host_->browser_->scene3d()->set_render_engine_name("FlyCube/DX12");
-    } else if (content::prefer_scene3d_scenic()) {
+      HBRUSH bg = CreateSolidBrush(RGB(120, 165, 210));
+      RECT full = {0, 0, w, h};
+      FillRect(hdc, &full, bg);
+      DeleteObject(bg);
+      host_->browser_->scene3d()->paint_hud(hdc, w, h);
+      if (host_->map_scene_) {
+        host_->map_scene_->request_frame();
+      }
+      return;
+    }
+    // Explicit GDI / scenic / Content fallbacks: software DEM SoT.
+    if (content::prefer_scene3d_scenic()) {
       host_->browser_->scene3d()->set_render_engine_name("scenic");
     } else if (content::prefer_scene3d_gdi()) {
       host_->browser_->scene3d()->set_render_engine_name("GDI");
@@ -390,6 +401,13 @@ void MapPagesComposer::wire_map_scene() {
     // Per-pane shell: shared Map2dPresenter content, pane-local DrawRequest.shell.
     pane->set_gpu_present(
         [this, pane](void* device, uint32_t w, uint32_t h) -> bool {
+          // Display Init/Resize marks the swapchain dirty; consume here so
+          // StaticReuse cannot keep a hollow backbuffer (flag was unused).
+          if (pane->consume_gpu_surface_dirty()) {
+            if (content::Map2dPresenter* map2d = host_->browser_->map2d()) {
+              map2d->note_surface_reset();
+            }
+          }
           std::vector<uint8_t> shell_copy;
           ui::gfx::ShellRaster shell{};
           uint64_t gen = 0;
@@ -405,6 +423,9 @@ void MapPagesComposer::wire_map_scene() {
     host_->map_scene_->set_overlay_paint(paint3d);
     host_->map_scene_->set_gpu_present(
         [this](void* device, uint32_t w, uint32_t h) -> bool {
+          // Scene3d has no Map2d-style note_surface_reset; Display already
+          // clears last_gpu_present_ok_ on Init/Resize. Do not consume the
+          // dirty flag here (would drop it without forcing a redraw latch).
           std::vector<uint8_t> shell_copy;
           ui::gfx::ShellRaster shell{};
           uint64_t gen = 0;
@@ -433,7 +454,7 @@ void MapPagesComposer::commit_widget_shell_to_maps() {
 
 
 void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty) {
-  // Copy under ShellCompositor::mu_ — borrowed shell_raster() bits race the
+  // Copy under ShellCompositor::mu_ �?borrowed shell_raster() bits race the
   // raster worker's DIB swap/release and corrupt the process heap
   // (0xC0000374) when overlay crop memcpy runs unlocked.
   std::vector<std::uint8_t> shell_copy;
@@ -443,7 +464,7 @@ void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty)
       !shell.bgra || shell.width_px == 0 || shell.height_px == 0) {
     return;
   }
-  // Hidden tab bodies keep a full client rect after SW_HIDE — they must not
+  // Hidden tab bodies keep a full client rect after SW_HIDE �?they must not
   // receive BGRA crops (and must not keep per-pane "missing" true).
   auto pane_overlay_live = [](ui::views::DrawHost* pane) -> bool {
     if (!pane) {
@@ -456,7 +477,7 @@ void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty)
     }
     return IsWindowVisible(hwnd) != FALSE;
   };
-  // U3: unchanged published generation — skip MapWindowPoints + BGRA memcpy.
+  // U3: unchanged published generation �?skip MapWindowPoints + BGRA memcpy.
   // Per-pane slots alone were wrong when they counted hidden map_scene_ as
   // missing: dirty-filtered edit publish + invalidate_map_overlays then
   // re-copied the scene HWND every time (overlay_copy_bytes ×2.4).
@@ -527,7 +548,7 @@ void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty)
       }
     }
     if (!slot) {
-      // Never steal another pane's slot — that would drop gen-skip for both.
+      // Never steal another pane's slot �?that would drop gen-skip for both.
       if (!empty) {
         return;
       }
@@ -558,7 +579,7 @@ void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty)
     slot->width = crop_w;
     slot->height = crop_h;
   });
-  // Mark gen consumed even when dirty-filter skipped every pane — matches the
+  // Mark gen consumed even when dirty-filter skipped every pane �?matches the
   // pre-regression U3 coalesce (tab switch clears this for HUD reseed).
   if (gen != 0) {
     host_->last_shell_overlay_gen_ = gen;
@@ -596,7 +617,7 @@ void MapPagesComposer::sync_flash_timer() {
 
 void MapPagesComposer::wire_tool_seams() {
   // Snapshot owned host pointers once. Do not iterate a temporary list that
-  // re-reads session getters after map2d/scene3d bind 锟?a skewed BrowserSession
+  // re-reads session getters after map2d/scene3d bind �?a skewed BrowserSession
   // layout can poison trailing unique_ptrs mid-init_shell.
   content::ViewHost* const hosts[3] = {
       host_->browser_->edit_host(), host_->browser_->data_host(), host_->browser_->scene_host()};
@@ -702,7 +723,7 @@ void MapPagesComposer::for_each_draw_host(
 void MapPagesComposer::invalidate_map_overlays() {
   // If the shell DIB is not published yet, schedule a paint so the next
   // OnShellPublished can crop overlays; otherwise maps stay on a clear color.
-  // Do not borrow shell_raster() bits here — generation alone is enough.
+  // Do not borrow shell_raster() bits here �?generation alone is enough.
   if (host_->widget_.shell_generation() == 0) {
     host_->widget_.schedule_paint();
   }
@@ -734,7 +755,7 @@ void MapPagesComposer::attach_hwnd_gestures() {
   };
   // Only wire gestures for panes that already own a present device. Data/3D
   // are HWND-only until first tab focus (see attach_viewports / switch_map_tab).
-  // Prefer input_hwnd() (FlyCube DXGI popup when visible) 锟?subclassing the
+  // Prefer input_hwnd() (FlyCube DXGI popup when visible) �?subclassing the
   // embed alone leaves pan/pinch/right-click dead under the present surface.
   auto try_attach = [&](ui::views::DrawHost* pane, MapHwndGestures* g) {
     if (!pane || !g) {
@@ -802,19 +823,24 @@ void MapPagesComposer::switch_map_tab(int i) {
     }
     if (host_->map_tabs_->active() == i) {
       // Same-tab reselect is normally a no-op. Recover when the 3D tab is
-      // already selected but FlyCube never reached GpuPresent (kNone /
-      // software placeholder) — otherwise interact orbit/export stays on
-      // GDI soft paint and HWND record never shows a live 3D SoT.
-      const bool need_flycube_recover =
-          i == 1 && host_->map_scene_ && content::prefer_scene3d_flycube() &&
-          host_->map_scene_->attach_mode() !=
-              ui::views::DrawHost::AttachMode::kGpuPresent;
-      if (!need_flycube_recover) {
+      // already selected but FlyCube never reached a live present (kNone /
+      // software placeholder / GpuPresent with navy clear only).
+      if (i == 1 && host_->map_scene_ && content::prefer_scene3d_flycube()) {
+        const auto mode = host_->map_scene_->attach_mode();
+        if (mode == ui::views::DrawHost::AttachMode::kGpuPresent) {
+          if (!host_->map_scene_->last_gpu_present_ok()) {
+            host_->map_scene_->set_gpu_present_visible(true);
+            host_->map_scene_->resume_present_timer();
+            host_->map_scene_->request_frame();
+          }
+          return;
+        }
+        if (mode != ui::views::DrawHost::AttachMode::kNone) {
+          host_->map_scene_->detach();
+        }
+        // Fall through to lazy attach below.
+      } else {
         return;
-      }
-      if (host_->map_scene_->attach_mode() !=
-          ui::views::DrawHost::AttachMode::kNone) {
-        host_->map_scene_->detach();
       }
     }
   }
@@ -850,8 +876,7 @@ void MapPagesComposer::switch_map_tab(int i) {
   for (auto& s : host_->last_shell_overlay_crops_) {
     s.gen = 0;
   }
-  // Tab body bounds must be current before FlyCube Init / ShowWindow —
-  // deferred 3D pane was realize_native'd hidden; a stale 1x1 client
+  // Tab body bounds must be current before FlyCube Init / ShowWindow �?  // deferred 3D pane was realize_native'd hidden; a stale 1x1 client
   // makes DX12 attach "succeed" then present a blank swapchain.
   host_->widget_.layout_contents();
   if (host_->map_tabs_) {
@@ -878,7 +903,7 @@ void MapPagesComposer::switch_map_tab(int i) {
         }
       }
     }
-    // Owned DXGI present popups are top-level — hiding the embed alone leaves
+    // Owned DXGI present popups are top-level �?hiding the embed alone leaves
     // Map-Edit's present covering Scene3d (navy clear / wrong SoT).
     pane->set_gpu_present_visible(show);
   };
@@ -896,12 +921,12 @@ void MapPagesComposer::switch_map_tab(int i) {
       if (prefer_scene3d_stereo_gl()) {
         (void)host_->browser_->scene3d_stereo()->try_attach(hwnd);
       } else {
-        // Never call release()/destroy_ under FlyCube/GDI 锟?stale leftover GL
+        // Never call release()/destroy_ under FlyCube/GDI �?stale leftover GL
         // teardown remaps heap (same class as mine Scene3D tab AV).
         host_->browser_->scene3d_stereo()->abandon();
       }
     }
-    // Shared with --atmosphere-showcase=full. Seed before tool activate 锟?    // trackball can emit a draft that nudges yaw off China framing.
+    // Shared with --atmosphere-showcase=full. Seed before tool activate �?    // trackball can emit a draft that nudges yaw off China framing.
     const ChinaScene3dAtmoFlags atmo =
         apply_china_scene3d_atmosphere(*host_->browser_);
     if (host_->atmosphere_panel_) {
@@ -920,7 +945,7 @@ void MapPagesComposer::switch_map_tab(int i) {
   if (ui::views::DrawHost* pane = host_->active_map()) {
     if (pane->attach_mode() == ui::views::DrawHost::AttachMode::kNone) {
       LOGGING(LOG_INFO, "rhi.switch_map_tab lazy attach tab=%d", i);
-      // Reseed Catalog|Map and main_split before Init — a prior OS
+      // Reseed Catalog|Map and main_split before Init �?a prior OS
       // window(resize) can leave PrimaryFixed catalog / SecondaryFixed
       // Diagnostic seeds crushing the deferred Scene3d HWND to ~40x93.
       if (i == 1) {
@@ -931,8 +956,8 @@ void MapPagesComposer::switch_map_tab(int i) {
             host_->diagnostic_tools_->is_tools_visible()) {
           host_->diagnostic_tools_->set_visible_tools(false);
         }
-        // Re-pin Catalog to the product dock width before reseed — china
-        // catalog sync can leave preferred ≈750 and crush the map column.
+        // Re-pin Catalog to the product dock width before reseed �?china
+        // catalog sync can leave preferred �?50 and crush the map column.
         if (host_->catalog_) {
           host_->catalog_->set_preferred_size({288, 0});
         }
@@ -1009,7 +1034,7 @@ void MapPagesComposer::switch_map_tab(int i) {
       if (IsWindow(hwnd)) {
         RECT rc = {};
         GetClientRect(hwnd, &rc);
-        // Post size notify — SendMessage re-enters paint and has hung Phase C
+        // Post size notify �?SendMessage re-enters paint and has hung Phase C
         // (3D→Map) under china DEM / ContentMapView.
         if (rc.right > 0 && rc.bottom > 0) {
           PostMessageW(hwnd, WM_SIZE, SIZE_RESTORED,
@@ -1027,7 +1052,7 @@ void MapPagesComposer::switch_map_tab(int i) {
     }
   }
 
-  // China orbit AFTER tool activate 锟?activate("view3d.trackball") historically
+  // China orbit AFTER tool activate �?activate("view3d.trackball") historically
   // left yaw~0.42 (blank/navy) while showcase keeps ~2.59.
   if (i == 1 && host_->map_scene_ && host_->browser_) {
     apply_china_scene3d_orbit(*host_->browser_);
@@ -1046,7 +1071,7 @@ void MapPagesComposer::switch_map_tab(int i) {
   // Tab switch changes native HWND visibility + client size. Force a shell
   // repaint so WS_CLIPCHILDREN does not leave a hollow horizon hole, and kick
   // only the active map's next frame (avoid UpdateWindow / full overlay
-  // invalidate during lazy attach 锟?that re-entered ContentMapView paint).
+  // invalidate during lazy attach �?that re-entered ContentMapView paint).
   host_->widget_.schedule_paint();
   if (HWND shell = host_->widget_.hwnd()) {
     if (IsWindow(shell)) {
@@ -1057,11 +1082,11 @@ void MapPagesComposer::switch_map_tab(int i) {
     pane->sync_native_bounds();
     pane->invalidate_native();
     // Active pane must show its present surface. Using (i == 1) wrongly hid
-    // Map-Edit GPU present on 3D→2D (Phase C) when FlyCube-2D was attached.
+    // Map-Edit GPU present on 3D�?D (Phase C) when FlyCube-2D was attached.
     pane->set_gpu_present_visible(true);
     pane->resume_present_timer();
   }
-  // Rebind both tabs: 3D lazy attach needs input_hwnd(); 3D→2D must restore
+  // Rebind both tabs: 3D lazy attach needs input_hwnd(); 3D�?D must restore
   // Map-Edit subclass or pan/wheel after interact Phase C hits a dead HWND.
   host_->attach_hwnd_gestures();
   host_->sync_status();

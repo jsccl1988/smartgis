@@ -51,10 +51,10 @@ Vista tests live under `//src/vista:vista_test_all` (not `gis_test_all`).
 | MVT → MapFrame | vista/component/map/mvt | Y `tile_test` (deps vista.dll) | N |
 | World / DEM / land mask | vista/component/world | Y `world_*` / dem / land_mask | N |
 | Assets model / tileset | vista/assets | Y `model_test` / `tileset_test` | N |
-| Atmosphere field / systems | vista/component/atmosphere | Y field/procedural/ingest + cloud/ocean/env | N |
+| Atmosphere field / systems | vista/component/world/atmosphere | Y field/procedural/ingest + cloud/ocean/env | N |
 | Map GPU pass | vista/pass/map | Y `map_effect_test` | N |
 | GpuScene | vista/pass/world | Y `scene_gpu_test` / `unified_draw_test` | N |
-| Atmosphere GPU | vista/pass/atmosphere | Y cloud/ocean/sky/fog/globe/frame | N |
+| Atmosphere GPU | vista/pass/world/atmosphere | Y cloud/ocean/sky/fog/globe/frame | N |
 
 ## Entry
 

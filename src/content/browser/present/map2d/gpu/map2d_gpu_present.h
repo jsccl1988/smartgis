@@ -68,11 +68,11 @@ class Map2dGpuPresent {
   bool last_present_drew() const { return last_present_drew_; }
   // After DXGI Resize/initialize the swapchain is clear — clear the skip latch
   // so the next present re-submits Pass (StaticReuse must not keep hollow).
+  // Keep last shell generation: overlay pixels are still staged on DrawHost;
+  // wiping them forced an extra full present after the mandatory redraw.
   void note_surface_reset() {
     last_present_ok_ = false;
     last_present_drew_ = false;
-    last_shell_generation_ = 0;
-    last_had_shell_ = false;
   }
   uint64_t layout_build_count() const;
   bool last_present_reused_layout() const;

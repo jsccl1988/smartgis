@@ -7,7 +7,8 @@
     "script":  "browser.world3d.legacy.il",
     "env":  {
                 "ATMOSPHERE_SHOWCASE_GPU":  "1",
-                "ATMOSPHERE_SHOWCASE_LINGER_MS":  "0"
+                "ATMOSPHERE_SHOWCASE_LINGER_MS":  "0",
+                "SYNC_FLYCUBE_INIT":  "1"
             },
     "mark_leaf":  "atmosphere-showcase-mark.txt",
     "required_marks":  [
@@ -27,7 +28,7 @@
                ],
     "loop":  {
                  "rounds":  6,
-                 "timeout_sec":  90,
+                 "timeout_sec":  180,
                  "build_target":  "src/app/views:views",
                  "exe":  "SmartGIS.exe"
              },

@@ -342,10 +342,23 @@ int run_map2d_presenter_tests() {
     expect(!presenter.last_present_reused_layout(),
            "settle is a full rebuild");
 
+    // Fingerprint-stable: public invalidate must not bump layout_builds.
     presenter.invalidate_frame_cache();
-    expect(presenter.present_gpu(device.get(), 128, 128), "after invalidate");
+    expect(presenter.present_gpu(device.get(), 128, 128),
+           "noop invalidate present");
+    expect(presenter.layout_build_count() == 2,
+           "fingerprint-stable invalidate skips layout rebuild");
+
+    // Visibility moves content_hash — must drop published MapIR.
+    expect(!scene.layers().empty(), "china has layers");
+    const std::string lid = scene.layers().front().id;
+    const bool was_vis = scene.layers().front().visible;
+    expect(scene.set_layer_visible(lid, !was_vis), "toggle layer visible");
+    presenter.invalidate_frame_cache();
+    expect(presenter.present_gpu(device.get(), 128, 128),
+           "after content invalidate");
     expect(presenter.layout_build_count() == 3,
-           "invalidate forces a new layout build");
+           "content invalidate forces a new layout build");
   }
 
   {

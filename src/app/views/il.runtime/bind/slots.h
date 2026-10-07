@@ -127,8 +127,6 @@ using slot_capture_browse_still =
 using slot_fit_scene_box = host_member<&Host::view, &Vw::fit_scene_box>;
 using slot_camera_fly = host_member<&Host::view, &Vw::camera_fly>;
 
-using slot_map2d_run = host_member<&Host::plugin, &Pl::map2d_run>;
-using slot_atmosphere_run = host_member<&Host::plugin, &Pl::atmosphere_run>;
 using slot_run_plugin_command = host_member<&Host::plugin, &Pl::run_plugin_command>;
 using slot_run_processing = host_member<&Host::plugin, &Pl::run_processing>;
 using slot_require_plugins = host_member<&Host::plugin, &Pl::require_plugins>;

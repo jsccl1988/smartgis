@@ -2,7 +2,8 @@
     "id":  "browser.map2d.china",
     "kind":  "integration",
     "argv":  [
-                 "--map2d-showcase=china"
+                 "--map2d-showcase=china",
+                 "--map2d-showcase-il=1"
              ],
     "script":  "browser.map2d.china.il",
     "env":  {

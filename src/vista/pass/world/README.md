@@ -29,14 +29,25 @@ Namespace stays `vista` / `vista::detail`. Do not add `vista::pass`.
 | `detail/draw.*` | per-`NodeKind` `record_kind` | yes |
 | `detail/record.cc` | `WorldPass::record_draws` / `record` | yes |
 | `cull/frustum_camera.*` | `CameraMatrices` → frustum planes | camera header only |
+| `atmosphere/` | `AtmosphereFrame` / effects facade | yes |
+| `atmosphere/{ocean,cloud,sky,fog,globe}/` | Per-kind environment recorders | yes |
+| `atmosphere/detail/` | Shared mesh / raster / field_texture helpers | yes |
 
 `WorldPass::sync_from(const World&)` and `record_draws` stay on this object.
 Content holds one long-lived `WorldPass`. Terrain upload / solid gate / `kTerrain`
 record live in `terrain/TerrainPass` (composed internally). Paint RGBA mapping lives in
 `"vista/component/world/instance/paint.h"` (`rgba_from_resolved_paint`), not on the GPU facade.
 
+Atmosphere GPU passes live under `atmosphere/` (formerly `pass/atmosphere`; that
+old path is gone — `pass/world/atmosphere` is canonical). Public includes use
+`"vista/pass/world/atmosphere/…"` (scheme C, no forwarding header). GN keeps a
+separate `atmosphere_pass_sources` so GPU atmosphere must not depend on
+`session_sources`. Per-kind HLSL is sibling `*.hlsl`; `embed_hlsl.gni` embeds
+them into `*.hlsl.inc` for the thin `hlsl.h` `kVs*` / `kPs*` / `kCs*` pointers.
+
 GN: `world_pass_sources` depends on `//src/vista/component/world:world_sources` and
-`//src/render:render`.
+`//src/render:render`. `atmosphere_pass_sources` depends on
+`//src/vista/component/world:atmosphere_cpu_sources` and `//src/render:render`.
 
 ## Env
 
@@ -51,7 +62,9 @@ The env string `GPUSCENE_PREP_PARALLEL` is unchanged so harness switches keep wo
 CPU index `vista/component/world/space/index/aabb_octree.*` wraps unibn. With cull on, `prep_cull_meshes` builds a frame-local octree (not stored on `WorldPass`).
 
 Tests: `//src/vista/pass/world:scene_gpu_test` (`scene_gpu_test`), `unified_draw_test`,
-`terrain_pass_test`.
+`terrain_pass_test`, plus atmosphere Null-RHI smokes (`cloud_pass_test`,
+`ocean_pass_test`, `sky_pass_test`, `fog_pass_test`, `globe_pass_test`,
+`atmosphere_frame_test`).
 
 ---
 

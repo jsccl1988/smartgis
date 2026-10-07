@@ -9,7 +9,7 @@
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "plugin/product/world3d/scene/look/look.h"
-#include "vista/component/atmosphere/environment.h"
+#include "vista/component/world/atmosphere/environment.h"
 
 #include <cstdio>
 

@@ -5,12 +5,31 @@
 
 #include <string>
 
-#include "plugin/runtime/host/capability/shell.h"
 #include "content/public/plugin_host.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
+#include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
+#include "plugin/runtime/host/capability/shell.h"
+#include "plugin/runtime/host/processing/processing.h"
 
 namespace plugin {
 namespace detail {
+namespace {
+
+// PluginHost::run_processing only enqueues; present (overlay TIN) runs on
+// ProcessingPool::flush_for_test. Showcase seeds must drain before marks.
+bool run_processing_flushed(content::PluginHost* host, const char* id,
+                            const std::string& args) {
+  if (!host || !host->run_processing(id, args)) {
+    return false;
+  }
+  if (ProcessingPool* pool = processing_pool(host)) {
+    pool->flush_for_test();
+    return pool->last_ok();
+  }
+  return true;
+}
+
+}  // namespace
 
 bool resolve_mine_boreholes_csv(char* out_utf8, size_t out_cap) {
   const wchar_t* rels[] = {L"..\\data\\plugin\\mine_boreholes.csv",
@@ -28,8 +47,8 @@ bool seed_mine_processing(HarnessShell& browser, const char* csv_utf8) {
   const std::string interp_args =
       std::string("{\"input\":\"") + csv_esc +
       "\",\"stratum_id\":\"clay\"}";
-  if (!browser.plugin_host()->run_processing("mine.interpolate_stratum",
-                                         interp_args)) {
+  if (!run_processing_flushed(browser.plugin_host(), "mine.interpolate_stratum",
+                              interp_args)) {
     plugin_mark("mine-interp-fail");
     return false;
   }
@@ -38,7 +57,8 @@ bool seed_mine_processing(HarnessShell& browser, const char* csv_utf8) {
   const std::string prism_args =
       std::string("{\"input\":\"") + csv_esc +
       "\",\"top_stratum_id\":\"clay\",\"bottom_stratum_id\":\"sand\"}";
-  if (!browser.plugin_host()->run_processing("mine.prism_volume", prism_args)) {
+  if (!run_processing_flushed(browser.plugin_host(), "mine.prism_volume",
+                              prism_args)) {
     plugin_mark("prism-fail");
     return false;
   }

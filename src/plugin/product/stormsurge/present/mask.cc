@@ -133,8 +133,11 @@ bool present_stormsurge_mask(content::GisDocument* doc,
   if (begin_session) {
     (void)apply_style_resource(doc, "smartgis.stormsurge",
                                "stormsurge.style.json");
+    // Prefer sink clear when scene3d is null (native pack → shell bridges).
     if (scene3d) {
       scene3d->clear_overlay_tin_mesh();
+    } else if (sink) {
+      sink->clear_overlay_tin_mesh();
     }
     if (sink) {
       sink->invalidate();

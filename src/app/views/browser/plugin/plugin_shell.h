@@ -75,6 +75,13 @@ class PluginShell {
   // processing / catalog enable — not all packs at once.
   bool ensure_builtins();
 
+  // Scan manifests only (no enable-all). Safe for harness single-pack dispatch.
+  bool ensure_discovered();
+
+  // Dynamic pack ensure: in-process prefix table, else Registry/manifest
+  // LoadLibrary for the owning plugin. Does not enable every pack.
+  bool ensure_command(std::string_view command_id);
+
   // Product / harness: apply plugin.json `startup` (commands / seed / viewport).
   // Viewport string is `map2d` / `scene3d` / empty (highest `priority` wins).
   bool apply_startup();
@@ -85,6 +92,7 @@ class PluginShell {
   void init_python();
   bool start_builtins();
   void install_builtin_resource_roots();
+  void install_command_pack_enable();
 
   std::unique_ptr<tool::CommandCatalog> catalog_;
   std::unique_ptr<content::PluginHost> host_;
@@ -100,6 +108,7 @@ class PluginShell {
   bool shutdown_done_ = false;
   bool builtins_started_ = false;
   bool startup_applied_ = false;
+  bool discovered_ = false;
 };
 
 }  // namespace app

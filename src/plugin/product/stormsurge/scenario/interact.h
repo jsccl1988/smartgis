@@ -6,8 +6,8 @@
 
 namespace plugin {
 
-// Registers Interact verb `stormsurge_run` → stormsurge.scenario.showcase.
-void register_stormsurge_interact_verbs();
+// Registers Interact op `stormsurge_run` → stormsurge.scenario.showcase.
+void register_stormsurge_interact_ops();
 
 }  // namespace plugin
 

@@ -88,7 +88,10 @@ void apply_scene3d(const LaunchPolicy& policy) {
 
 LaunchPolicy product_startup_policy() {
   LaunchPolicy p;
-  p.scene3d = Scene3dStartup::kLeave;
+  // Pin FlyCube for bare SmartGIS.exe. kLeave left a window where a stale
+  // SCENE3D_ENGINE / poisoned Scenario default could keep Scene3dEngine::kGdi
+  // and land the 3D tab on Scene3dSoftwarePainter (Engine:GDI Fps~0).
+  p.scene3d = Scene3dStartup::kFlyCube;
   p.map2d = Map2dStartup::kProduct;
   p.skip_ambox_catalog = false;
   p.force_gdi_overlay = false;

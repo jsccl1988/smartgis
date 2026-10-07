@@ -11,15 +11,8 @@ namespace app {
 
 class Browser;
 
-// Kind of in-process harness path (aligns with suite.json "kind").
-// Showcase was removed from il.runtime; all Views suites are integration
-// (IR-ordered *.il) or the legacy harness alias.
-enum class ScenarioKind {
-  kHarness,
-  kIntegration,
-};
-
 // Scene3d engine applied before Browser::init when SCENE3D_ENGINE is unset.
+// Product packs own scenario bodies; chrome only pins the engine face.
 enum class Scene3dStartup {
   kLeave,
   kGdi,
@@ -37,7 +30,8 @@ enum class Map2dStartup {
   kPluginScene3d,
 };
 
-// Present / catalog gates for one registered non-main entry.
+// Present / catalog gates for one registered suite entry. Applied before
+// Browser::init; suite selection itself is plugin.json `startup.scenario`.
 struct LaunchPolicy {
   Scene3dStartup scene3d = Scene3dStartup::kGdi;
   Map2dStartup map2d = Map2dStartup::kContentGdi;
@@ -45,11 +39,11 @@ struct LaunchPolicy {
   bool force_gdi_overlay = false;
 };
 
-// One registered suite entry. |id| matches
-// testing/tools/harness/<family>/<id>/suite.json.
+// One chrome launch-table entry. |id| matches
+// testing/tools/harness/<family>/<id>/suite.json and plugin.json
+// startup.scenario. GIS payloads dispatch via |plugin_command| / |suite_id|.
 struct Scenario {
   const char* id = nullptr;
-  ScenarioKind kind = ScenarioKind::kIntegration;
   const wchar_t* mark_leaf = nullptr;
   const char* suite_id = nullptr;
   const char* plugin_command = nullptr;
@@ -62,7 +56,7 @@ void register_scenario(const Scenario& scenario);
 
 const Scenario* find_scenario(std::string_view id);
 
-// Ensures built-in scenarios (browse / console / input) are registered.
+// Ensures built-in chrome launch rows are registered.
 void ensure_builtin_scenarios();
 
 // Suite script, then optional plugin command, then optional C++ |run|.

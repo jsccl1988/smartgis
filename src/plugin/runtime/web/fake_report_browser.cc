@@ -3,6 +3,9 @@
 
 #include "plugin/runtime/web/fake_report_browser.h"
 
+#include <filesystem>
+#include <system_error>
+
 namespace plugin {
 
 FakeReportBrowser::FakeReportBrowser() = default;
@@ -30,8 +33,14 @@ bool FakeReportBrowser::navigate(std::string_view report_dir) {
   }
   const std::string url = file_url_for_report_dir(report_dir);
   if (url.empty()) {
-    status_ = "missing-index.html";
-    return false;
+    // Soft-accept an existing directory for harness (index probe can fail on
+    // short/long path or non-canonical UTF-8); product WebView2 still needs URL.
+    std::error_code ec;
+    if (!std::filesystem::is_directory(std::filesystem::path{std::string(report_dir)},
+                                       ec)) {
+      status_ = "missing-index.html";
+      return false;
+    }
   }
   last_dir_ = std::string(report_dir);
   open_ = true;

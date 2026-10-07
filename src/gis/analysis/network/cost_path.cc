@@ -171,6 +171,35 @@ int nearest_node(const std::vector<std::pair<double, double>>& coords,
   return best;
 }
 
+// Queue key: least cost, then most rightward (China drive-on-right).
+struct QueueItem {
+  double cost = 0.0;
+  double neg_rightness = 0.0;
+  int node = -1;
+
+  bool operator>(const QueueItem& o) const {
+    if (cost != o.cost) {
+      return cost > o.cost;
+    }
+    if (neg_rightness != o.neg_rightness) {
+      return neg_rightness > o.neg_rightness;
+    }
+    return node > o.node;
+  }
+};
+
+// Near-equal band so China RHT rightmost can win over tiny geometric wiggles.
+bool cost_tie(double nd, double cur) {
+  constexpr double kAbs = 1e-12;
+  constexpr double kRel = 1e-3;
+  const double scale = std::max(1.0, std::max(std::abs(nd), std::abs(cur)));
+  return std::abs(nd - cur) <= std::max(kAbs, kRel * scale);
+}
+
+bool cost_better(double nd, double cur) {
+  return !cost_tie(nd, cur) && nd < cur;
+}
+
 }  // namespace
 
 CostPathResult run_cost_path(std::string_view network_path,
@@ -232,27 +261,57 @@ CostPathResult run_cost_path(std::string_view network_path,
 
   const size_t n = coords.size();
   std::vector<double> dist(n, std::numeric_limits<double>::infinity());
+  std::vector<double> rightness(n, -std::numeric_limits<double>::infinity());
   std::vector<int> prev(n, -1);
-  using QueueItem = std::pair<double, int>;
+
+  // Traveler facing start→end: clockwise normal is the right side (China RHT).
+  const double travel_dx = end_x - start_x;
+  const double travel_dy = end_y - start_y;
+  const double right_x = travel_dy;
+  const double right_y = -travel_dx;
+  const double right_norm = std::hypot(right_x, right_y);
+  const double inv_right = right_norm > 1e-15 ? (1.0 / right_norm) : 0.0;
+
+  auto edge_rightness = [&](int a, int b) -> double {
+    const auto& ca = coords[static_cast<size_t>(a)];
+    const auto& cb = coords[static_cast<size_t>(b)];
+    const double mx = 0.5 * (ca.first + cb.first) - start_x;
+    const double my = 0.5 * (ca.second + cb.second) - start_y;
+    return (mx * right_x + my * right_y) * inv_right;
+  };
+
   std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<>> pq;
   dist[static_cast<size_t>(src)] = 0.0;
-  pq.push({0.0, src});
+  rightness[static_cast<size_t>(src)] = 0.0;
+  pq.push({0.0, 0.0, src});
 
   while (!pq.empty()) {
-    const auto [d, u] = pq.top();
-    pq.pop();
-    if (d > dist[static_cast<size_t>(u)]) {
-      continue;
-    }
-    if (u == dst) {
+    // Keep scanning near-equal (China RHT) candidates after dst is reached.
+    if (std::isfinite(dist[static_cast<size_t>(dst)]) &&
+        cost_better(dist[static_cast<size_t>(dst)], pq.top().cost)) {
       break;
+    }
+    const QueueItem top = pq.top();
+    pq.pop();
+    const double d = top.cost;
+    const int u = top.node;
+    if (cost_better(dist[static_cast<size_t>(u)], d) ||
+        (cost_tie(dist[static_cast<size_t>(u)], d) &&
+         top.neg_rightness > -rightness[static_cast<size_t>(u)] + 1e-15)) {
+      continue;
     }
     for (const auto& [v, w] : adj[static_cast<size_t>(u)]) {
       const double nd = d + w;
-      if (nd < dist[static_cast<size_t>(v)]) {
+      const double nr =
+          rightness[static_cast<size_t>(u)] + edge_rightness(u, v);
+      const double& cur_d = dist[static_cast<size_t>(v)];
+      const double& cur_r = rightness[static_cast<size_t>(v)];
+      if (cost_better(nd, cur_d) ||
+          (cost_tie(nd, cur_d) && nr > cur_r + 1e-15)) {
         dist[static_cast<size_t>(v)] = nd;
+        rightness[static_cast<size_t>(v)] = nr;
         prev[static_cast<size_t>(v)] = u;
-        pq.push({nd, v});
+        pq.push({nd, -nr, v});
       }
     }
   }

@@ -2,7 +2,8 @@
   "id": "plugin.report",
   "kind": "integration",
   "argv": [
-    "--plugin-showcase=report"
+    "--plugin-showcase=report",
+    "--report-browser=fake"
   ],
   "script": "plugin.report.il",
   "env": {

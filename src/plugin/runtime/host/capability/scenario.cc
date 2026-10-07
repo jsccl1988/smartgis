@@ -6,59 +6,121 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "content/browser/capability/host.h"
 
 namespace plugin {
 namespace {
 
-struct Verb {
-  ScenarioVerbFn fn = nullptr;
+struct ModeBinding {
+  std::string mode;
+  std::string command_id;
+};
+
+struct Op {
+  ScenarioOpFn fn = nullptr;
   std::string default_mode;
+  std::string fixed_command;
+  std::vector<ModeBinding> modes;
 };
 
 std::mutex g_mu;
-std::unordered_map<std::string, Verb> g_verbs;
+std::unordered_map<std::string, Op> g_ops;
 int g_last_exit = 1;
+
+bool run_plugin_command(content::CapabilityHost& host, const char* command_id) {
+  return command_id && host.plugin.run_plugin_command &&
+         host.plugin.run_plugin_command(command_id);
+}
+
+bool exec_op(content::CapabilityHost& host, const Op& op,
+             std::string_view mode) {
+  std::string resolved(mode);
+  if (resolved.empty()) {
+    resolved = op.default_mode;
+  }
+  if (op.fn) {
+    return op.fn(host, resolved);
+  }
+  if (!op.modes.empty()) {
+    for (const ModeBinding& m : op.modes) {
+      if (m.mode == resolved) {
+        return run_plugin_command(host, m.command_id.c_str());
+      }
+    }
+    return false;
+  }
+  if (!op.fixed_command.empty()) {
+    return run_plugin_command(host, op.fixed_command.c_str());
+  }
+  return false;
+}
 
 }  // namespace
 
-void register_scenario_verb(std::string_view name,
-                            ScenarioVerbFn fn,
-                            std::string_view default_mode) {
+void register_scenario_op(std::string_view name,
+                          ScenarioOpFn fn,
+                          std::string_view default_mode) {
   if (name.empty() || !fn) {
     return;
   }
   std::lock_guard<std::mutex> lock(g_mu);
-  g_verbs.insert_or_assign(std::string(name),
-                           Verb{fn, std::string(default_mode)});
+  g_ops.insert_or_assign(std::string(name),
+                         Op{fn, std::string(default_mode), {}, {}});
 }
 
-bool has_scenario_verb(std::string_view name) {
+void register_scenario_command_op(std::string_view name,
+                                  std::string_view command_id,
+                                  std::string_view default_mode) {
+  if (name.empty() || command_id.empty()) {
+    return;
+  }
   std::lock_guard<std::mutex> lock(g_mu);
-  return g_verbs.contains(std::string(name));
+  Op op;
+  op.default_mode = std::string(default_mode);
+  op.fixed_command = std::string(command_id);
+  g_ops.insert_or_assign(std::string(name), std::move(op));
 }
 
-std::optional<bool> try_exec_scenario_verb(content::CapabilityHost& host,
-                                           std::string_view name,
-                                           std::string_view mode) {
-  Verb v;
+void register_scenario_mode_op(std::string_view name,
+                               std::string_view default_mode,
+                               std::initializer_list<ScenarioModeBinding> modes) {
+  if (name.empty() || modes.size() == 0) {
+    return;
+  }
+  Op op;
+  op.default_mode = std::string(default_mode);
+  op.modes.reserve(modes.size());
+  for (const ScenarioModeBinding& m : modes) {
+    if (!m.mode || !m.command_id) {
+      return;
+    }
+    op.modes.push_back(ModeBinding{m.mode, m.command_id});
+  }
+  std::lock_guard<std::mutex> lock(g_mu);
+  g_ops.insert_or_assign(std::string(name), std::move(op));
+}
+
+bool has_scenario_op(std::string_view name) {
+  std::lock_guard<std::mutex> lock(g_mu);
+  return g_ops.contains(std::string(name));
+}
+
+std::optional<bool> try_exec_scenario_op(content::CapabilityHost& host,
+                                         std::string_view name,
+                                         std::string_view mode) {
+  Op op;
   {
     std::lock_guard<std::mutex> lock(g_mu);
-    const auto it = g_verbs.find(std::string(name));
-    if (it == g_verbs.end()) {
+    const auto it = g_ops.find(std::string(name));
+    if (it == g_ops.end()) {
       return std::nullopt;
     }
-    v = it->second;
+    op = it->second;
   }
-  std::string resolved(mode);
-  if (resolved.empty()) {
-    resolved = v.default_mode;
-  }
-  if (!v.fn) {
-    return false;
-  }
-  return v.fn(host, resolved);
+  return exec_op(host, op, mode);
 }
 
 void set_harness_scenario_exit(int rc) {

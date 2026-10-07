@@ -64,6 +64,8 @@ class Map2dPresenter {
 
   bool hosts_scenic_present() const;
 
+  // Drops published MapIR / GPU·software latches only when scene/layer
+  // fingerprint changed. Camera-only callers are no-ops (layout_builds_delta).
   void invalidate_frame_cache();
 
   bool present_gpu(render::rhi::Device* device, uint32_t width_px,

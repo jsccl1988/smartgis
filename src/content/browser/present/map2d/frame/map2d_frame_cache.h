@@ -33,7 +33,11 @@ class Map2dFrameCache {
   Map2dFrameCache& operator=(const Map2dFrameCache&) = delete;
 
   void bind(const MapScene* scene, const ViewFrame* frame);
+  // Unconditional drop of published MapIR (bind / GPU latch reset).
   void invalidate();
+  // True when a published frame exists and scene/layer fingerprint moved.
+  // Camera-only changes stay false — prepare_for_present handles extent.
+  bool content_differs_from_cache() const;
 
   // Scene identity for StaticReuse. Counts alone miss visibility toggles and
   // same-count feature swaps; content_hash covers id/visible/count/endpoints.

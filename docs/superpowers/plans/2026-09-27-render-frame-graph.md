@@ -100,13 +100,13 @@ CPU 不动：`src/gis/map2d`（`MapFrame` / `ViewMode`）、`src/gis/scene/atmos
 不加载 `render.dll` 的测试保持今天的形状：自己列出 `.cc`，`deps = [ "//src/render:rhi_sources" ]`，`defines = [ "RENDER_EXPORTS" ]`（让 `rhi.h` 的导出宏和静态 `rhi_sources` 一致），不 `deps` `:render`。这是为了避开 DLL 文件锁（现注释里的 LNK1168），不是把 pass 再编进 DLL。
 
 - [x] 新建 `src/vista/component/map/BUILD.gn`。`source_set("map_sources")` 的 `sources` 照搬今天 `src/render/map2d/BUILD.gn` 的 `map2d_sources`（`pass`、`map_effect`、`glyph_windows`、`detail/*`）。`include_dirs += [ "//src" ]`。`libs = [ "gdiplus.lib" ]`。`deps = [ "//src/render:render" ]`。没有 `RENDER_EXPORTS`。不要 `group` 转发到 `:render`。
-- [x] 新建 `src/vista/component/atmosphere/BUILD.gn`。`source_set("atmosphere_sources")` 的 `sources` 照搬今天 `atmosphere_sources`（ocean / cloud / sky / fog / common / frame，含 `atmosphere_effects`）。`include_dirs += [ "//src" ]`。`deps = [ "//src/render:render" ]`。没有 `RENDER_EXPORTS`。不要 `group` 转发到 `:render`。
-- [x] `git mv src/render/map2d` 下的源文件到 `src/vista/component/map/`（保持 `detail/`）。`git mv src/render/atmosphere` 下的源文件到 `src/vista/component/atmosphere/`（保持 `ocean/` `cloud/` `sky/` `fog/` `common/` `frame/` `detail/`）。删掉两个旧 `BUILD.gn` 和空目录。`src/render/map2d` 与 `src/render/atmosphere` 不再存在。
+- [x] 新建 `src/vista/component/world/atmosphere/BUILD.gn`。`source_set("atmosphere_sources")` 的 `sources` 照搬今天 `atmosphere_sources`（ocean / cloud / sky / fog / common / frame，含 `atmosphere_effects`）。`include_dirs += [ "//src" ]`。`deps = [ "//src/render:render" ]`。没有 `RENDER_EXPORTS`。不要 `group` 转发到 `:render`。
+- [x] `git mv src/render/map2d` 下的源文件到 `src/vista/component/map/`（保持 `detail/`）。`git mv src/render/atmosphere` 下的源文件到 `src/vista/component/world/atmosphere/`（保持 `ocean/` `cloud/` `sky/` `fog/` `common/` `frame/` `detail/`）。删掉两个旧 `BUILD.gn` 和空目录。`src/render/map2d` 与 `src/render/atmosphere` 不再存在。
 - [x] 命名空间：`render::map2d` → `effect::map`，`render::atmosphere` → `effect::atmosphere`。`detail` 仍是第三段。只替换 `render::map2d` / `render::atmosphere`，不要动 `gis::map2d` / `gis::atmosphere`。`gis::map2d` 改成 `gis::vista` 是第 11 节。
-- [x] Include：`"render/map2d/` → `"vista/component/map/`，`"render/atmosphere/` → `"vista/component/atmosphere/`。Include guard 前缀 `RENDER_MAP2D_` → `EFFECT_MAP_`，`RENDER_ATMOSPHERE_` → `EFFECT_ATMOSPHERE_`。
+- [x] Include：`"render/map2d/` → `"vista/component/map/`，`"render/atmosphere/` → `"vista/component/world/atmosphere/`。Include guard 前缀 `RENDER_MAP2D_` → `EFFECT_MAP_`，`RENDER_ATMOSPHERE_` → `EFFECT_ATMOSPHERE_`。
 - [x] 从 `//src/render:render` 的 `deps` 删除 `//src/render/atmosphere:atmosphere_sources` 和 `//src/render/map2d:map2d_sources`。改 `src/render/BUILD.gn` 文件头注释：DLL 不再包含 atmosphere 与 map2d。
 - [x] 调用方改依赖（见下面的 GN 表）。`frame_graph_test` 增加 `//src/vista/component/map:map_sources`，不要加 atmosphere。
-- [x] 改 `src/render/README.md` 目录表：删掉 `atmosphere/` 与 `map2d/` 两行；写明 GPU pass 在 `src/vista/component/map` 与 `src/vista/component/atmosphere`，经 `source_set` 链进调用方，不进 `render.dll`。As-built 段里的 `render::map2d::Pass` 改为 `vista::Pass`，测试标签改为 `//src/vista/component/map:map_effect_test`。
+- [x] 改 `src/render/README.md` 目录表：删掉 `atmosphere/` 与 `map2d/` 两行；写明 GPU pass 在 `src/vista/component/map` 与 `src/vista/component/world/atmosphere`，经 `source_set` 链进调用方，不进 `render.dll`。As-built 段里的 `render::map2d::Pass` 改为 `vista::Pass`，测试标签改为 `//src/vista/component/map:map_effect_test`。
 - [x] `docs/README.md` 帧图那一行补半句：GPU 地图与大气 pass 在 `src/vista`，不在 `render.dll`。规格路径不变。
 - [x] `src/README.md` 与 `docs/superpowers/src-layout.md` 的「五层」补上 `effect`：`src/vista/{map,atmosphere}` 是 `source_set`，不是 DLL。`render` 行保持 `rhi` / `scene` / `graph` / `skia` / `math`。根 `README.md` 若仍只写 GIS / UI / render，补上 `effect` 是调用方链接的 pass，不是新产品 DLL。
 - [x] 不要改归档计划，不要实现其余领域，不要搬 CPU 树。CPU 并进 `src/gis/vista` 是第 11 节。
@@ -147,7 +147,7 @@ build.bat map_scene_test
 
 `map_effect.h` 与 `pass.h` 自己不包含 `render/map2d/`。它们包含的 `gis/map2d/frame.h` 和 `render/graph/frame_graph.h`、`render/rhi/rhi.h` 保持不动。删掉其中的 `render/render_export.h`。
 
-`render/atmosphere/` → `vista/component/atmosphere/`：
+`render/atmosphere/` → `vista/component/world/atmosphere/`：
 
 | 旧 include | 文件 |
 | --- | --- |
@@ -201,13 +201,13 @@ build.bat map_scene_test
 | `//src/render/map2d:map2d_sources` | `//src/vista/component/map:map_sources` |
 | `//src/render/map2d:map2d`（`public_deps` → `:render`） | 删除。调用方改依赖 `map_sources`。RHI 仍走已有的 `//src/render:rhi` |
 | `//src/render/map2d:map2d_pass_test` | `//src/vista/component/map:map_effect_test` |
-| `//src/render/atmosphere:atmosphere_sources` | `//src/vista/component/atmosphere:atmosphere_sources` |
+| `//src/render/atmosphere:atmosphere_sources` | `//src/vista/component/world:atmosphere_sources` |
 | `//src/render/atmosphere:atmosphere`（`public_deps` → `:render`） | 删除 |
-| `//src/render/atmosphere:cloud_pass_test` | `//src/vista/component/atmosphere:cloud_pass_test` |
-| `//src/render/atmosphere:ocean_pass_test` | `//src/vista/component/atmosphere:ocean_pass_test` |
-| `//src/render/atmosphere:sky_pass_test` | `//src/vista/component/atmosphere:sky_pass_test` |
-| `//src/render/atmosphere:fog_pass_test` | `//src/vista/component/atmosphere:fog_pass_test` |
-| `//src/render/atmosphere:atmosphere_frame_test` | `//src/vista/component/atmosphere:atmosphere_frame_test` |
+| `//src/render/atmosphere:cloud_pass_test` | `//src/vista/component/world:cloud_pass_test` |
+| `//src/render/atmosphere:ocean_pass_test` | `//src/vista/component/world:ocean_pass_test` |
+| `//src/render/atmosphere:sky_pass_test` | `//src/vista/component/world:sky_pass_test` |
+| `//src/render/atmosphere:fog_pass_test` | `//src/vista/component/world:fog_pass_test` |
+| `//src/render/atmosphere:atmosphere_frame_test` | `//src/vista/component/world:atmosphere_frame_test` |
 
 调用方 `deps`：
 
@@ -215,8 +215,8 @@ build.bat map_scene_test
 | --- | --- | --- |
 | `src/app/views/BUILD.gn` `map_scene` | `//src/render/map2d:map2d` | `//src/vista/component/map:map_sources` |
 | `src/app/views/BUILD.gn` `map_scene_test` | `//src/render/map2d:map2d` | `//src/vista/component/map:map_sources` |
-| `src/app/views/BUILD.gn` `scene3d_controller` | 无直接 atmosphere 标签（符号来自 DLL） | 增加 `//src/vista/component/atmosphere:atmosphere_sources` |
-| `src/app/views/BUILD.gn` `scene3d_controller_test` | 无 | 增加 `//src/vista/component/atmosphere:atmosphere_sources` |
+| `src/app/views/BUILD.gn` `scene3d_controller` | 无直接 atmosphere 标签（符号来自 DLL） | 增加 `//src/vista/component/world:atmosphere_sources` |
+| `src/app/views/BUILD.gn` `scene3d_controller_test` | 无 | 增加 `//src/vista/component/world:atmosphere_sources` |
 | `src/render/graph/BUILD.gn` `frame_graph_test` | `:graph`、`//src/gis:gis`、`//third_party:gdal` | 保持，并增加 `//src/vista/component/map:map_sources`。不要加 atmosphere |
 | 根 `BUILD.gn` `test_shell` | `//src/render/map2d:map2d_pass_test` | `//src/vista/component/map:map_effect_test` |
 
@@ -257,7 +257,7 @@ build.bat scene_gpu_test
 | `src/gis/scene/world/` | `src/vista/scene/`（含 `scene/scene/` + `terrain/`） |
 | `src/gis/scene/assets/` | `src/vista/assets/` |
 | `src/gis/scene/domain/` | `src/vista/domain/` |
-| `src/gis/scene/atmosphere/` | `src/vista/component/atmosphere/`（11b 再收到 `domain/atmosphere/`） |
+| `src/gis/scene/atmosphere/` | `src/vista/component/world/atmosphere/`（11b 再收到 `domain/atmosphere/`） |
 
 - [x] 命名空间：`gis::map2d` → `gis::vista`（含 `detail`）。`gis::World`、`gis::DomainKind`、`gis::DomainSession` 留在 `gis`。
 - [x] Include / guard / `BUILD.gn` / present README：已按当时 `vista/{frame,scene,assets,domain,atmosphere}` 前缀改完（见下方历史表，仅作考古）。
@@ -270,8 +270,8 @@ build.bat scene_gpu_test
 - [x] `git mv src/vista/scene` → `src/vista/component/world`。把 `world/scene/scene.{h,cc}`（及 `scene_test.cc`）升到 `world/` 并列：`world.h` / `world.cc` / `world_test.cc`（不要 `world/world/`）。`terrain/` 留在 `world/terrain/`。不留转发头。搬完后 `src/vista/scene` 不再存在。
 - [x] Include：`"vista/scene/scene/scene.h"` → `"vista/component/world/world.h"`；`"vista/scene/terrain/"` → `"vista/component/world/terrain/"`。Guard：`GIS_VISTA_SCENE_H_` → `GIS_VISTA_WORLD_H_`。类仍是 `gis::World`。
 - [x] GN：`//src/vista/scene:` → `//src/vista/component/world:`（目标名 `world_sources`、`land_mask`、`world`；测试 `world_test`；已删 `scene` 别名 group）。更新 `src/gis/BUILD.gn`、`frame/BUILD.gn`、`domain/atmosphere` 与所有树外 `deps`。
-- [x] `git mv src/vista/component/atmosphere` → `src/vista/domain/atmosphere`（保留 `field/`、`systems/`）。不留转发头。搬完后顶栏不再有 `vista/component/atmosphere`。
-- [x] Include：`"vista/component/atmosphere/"` → `"vista/domain/atmosphere/"`。GN：`//src/vista/component/atmosphere:` → `//src/vista/domain/atmosphere:`（独立 `domain/atmosphere/BUILD.gn`）。`domain.h` 仍在 `vista/domain/domain.h`。
+- [x] `git mv src/vista/component/world/atmosphere` → `src/vista/domain/atmosphere`（保留 `field/`、`systems/`）。不留转发头。搬完后顶栏不再有 `vista/component/atmosphere`。
+- [x] Include：`"vista/component/world/atmosphere/"` → `"vista/domain/atmosphere/"`。GN：`//src/vista/component/world:` → `//src/vista/domain/atmosphere:`（独立 `domain/atmosphere/BUILD.gn`）。`domain.h` 仍在 `vista/domain/domain.h`。
 - [x] 命名空间：不要引入第三层 `gis::vista::atmosphere`。现有 `gis::atmosphere`（`Environment` 等）可保持；本步不改类名。
 - [x] `src/gis/BUILD.gn` 文件头改成 `vista/{frame,world,assets,domain}`，并写明 `domain/atmosphere` 是唯一已实现的 `DomainKind` 会话包；`frame` = CPU `MapFrame`；`world` = `gis::World` 节点图。
 - [ ] 人跑：`build.bat frame_test`、`build.bat world_test`、`build.bat environment_test`，以及 `scene3d_controller_test` / `map_scene_test` / `scene_gpu_test`（由人执行；代理不编译）。
@@ -288,7 +288,7 @@ build.bat scene_gpu_test
 | --- | --- |
 | `vista/scene/scene/scene.h` | `vista/component/world/world.h` |
 | `vista/scene/terrain/` | `vista/component/world/terrain/` |
-| `vista/component/atmosphere/` | `vista/domain/atmosphere/` |
+| `vista/component/world/atmosphere/` | `vista/domain/atmosphere/` |
 
 #### 11a GN 标签（已完成）
 
@@ -298,7 +298,7 @@ build.bat scene_gpu_test
 | `//src/gis/scene/world:` | `//src/vista/scene:` | `//src/vista/component/world:` |
 | `//src/gis/scene/assets:` | `//src/vista/assets:` | 不变 |
 | `//src/gis/scene/domain:` | `//src/vista/domain:` | 不变（`domain.h`） |
-| `//src/gis/scene/atmosphere:` | `//src/vista/component/atmosphere:` | `//src/vista/domain/atmosphere:` |
+| `//src/gis/scene/atmosphere:` | `//src/vista/component/world:` | `//src/vista/domain/atmosphere:` |
 
 `//src/vista/component/world:` 目标：`world_sources`、`land_mask`、`world`、`world_test`、`land_mask_test`、`dem_raster_test`、`tessellate_style_test`（无 `scene` 别名 group）。`//src/vista/domain/atmosphere:`：`atmosphere_sources`、`atmosphere`、各 `*_test`。
 

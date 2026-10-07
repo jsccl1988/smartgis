@@ -5,7 +5,8 @@
 
 #include "plugin/runtime/host/capability/shell.h"
 #include "plugin/product/world3d/scenario/common/host_rhi.h"
-#include "plugin/product/world3d/scenario/atmosphere/common/progress.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
+#include "base/process/switches.h"
 
 #include <cstdio>
 
@@ -18,6 +19,11 @@ int prepare_atmosphere_device_session(HarnessShell& browser,
     return 50;
   }
   *out = AtmosphereDeviceSession{};
+  // Borrow waits on DrawHost::rhi_device(); default FlyCube Init is async and
+  // often still null after pump (visual_review #5 device-missing).
+  if (!base::switch_cstr("sync-flycube-init")) {
+    base::set_switch("sync-flycube-init", "1");
+  }
 
   RhiPresentSessionOpts opts;
   opts.gpu_env = "atmosphere-showcase-gpu";

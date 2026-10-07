@@ -79,6 +79,14 @@ void Map2dFrameCache::invalidate() {
   clear_hillshade_bake();
 }
 
+bool Map2dFrameCache::content_differs_from_cache() const {
+  std::lock_guard<std::recursive_mutex> lock(mu_);
+  if (!has_frame_cache_) {
+    return false;
+  }
+  return !(make_fingerprint() == cached_fp_);
+}
+
 bool Map2dFrameCache::has_frame() const {
   std::lock_guard<std::recursive_mutex> lock(mu_);
   return has_frame_cache_;

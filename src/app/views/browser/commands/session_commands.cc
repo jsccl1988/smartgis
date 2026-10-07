@@ -11,7 +11,7 @@
 #include <utility>
 
 #include "app/views/browser/plugin/plugin_shell.h"
-#include "vista/component/atmosphere/field/field_channel.h"
+#include "vista/component/world/atmosphere/field/field_channel.h"
 #include "plugin/runtime/processing/builtin_ops.h"
 #include "plugin/runtime/processing/ops_runner.h"
 #include "ui/gis/shell/atmosphere_panel.h"

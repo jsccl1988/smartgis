@@ -4,7 +4,7 @@
 #include "plugin/product/world3d/scenario/capture/capture.h"
 
 #include "plugin/product/world3d/scenario/common/host_rhi.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 
 namespace plugin {
 namespace detail {

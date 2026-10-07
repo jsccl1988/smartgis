@@ -121,11 +121,19 @@ CameraMatrices make_look_at_camera(float eye_x, float eye_y, float eye_z,
   CameraMatrices camera = make_perspective_camera(fov_y_radians, aspect, near_z,
                                                   far_z);
   camera.kind = CameraKind::kPerspective;
-  // Match make_orbit_camera (+Y up). Radial-up at China skim latitudes rolled
-  // the basis enough that FlyCube present hung; +Y stays stable for globe hug.
+  // Globe skim (|eye|≳1): geocentric radial up keeps the planet under the
+  // horizon. World +Y up rolled the view so a narrow FOV saw only starfield.
+  // Degenerate when looking nearly along radial — fall back to +Y.
+  const float elen =
+      std::sqrt(eye_x * eye_x + eye_y * eye_y + eye_z * eye_z);
   float ux = 0.f;
   float uy = 1.f;
   float uz = 0.f;
+  if (elen > 1.0f) {
+    ux = eye_x / elen;
+    uy = eye_y / elen;
+    uz = eye_z / elen;
+  }
   float fx = center_x - eye_x;
   float fy = center_y - eye_y;
   float fz = center_z - eye_z;
@@ -135,17 +143,10 @@ CameraMatrices make_look_at_camera(float eye_x, float eye_y, float eye_z,
     fy /= fl;
     fz /= fl;
     const float parallel = std::fabs(fx * ux + fy * uy + fz * uz);
-    if (parallel > 0.98f) {
-      // Look nearly vertical — use geocentric radial as up.
-      ux = eye_x;
-      uy = eye_y;
-      uz = eye_z;
-      const float ul = std::sqrt(ux * ux + uy * uy + uz * uz);
-      if (ul > 1e-8f) {
-        ux /= ul;
-        uy /= ul;
-        uz /= ul;
-      }
+    if (parallel > 0.97f) {
+      ux = 0.f;
+      uy = 1.f;
+      uz = 0.f;
     }
   }
   look_at(camera.view, eye_x, eye_y, eye_z, center_x, center_y, center_z, ux,

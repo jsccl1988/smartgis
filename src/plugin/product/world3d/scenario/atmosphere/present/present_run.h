@@ -4,7 +4,7 @@
 #ifndef PLUGIN_PRODUCT_WORLD3D_SCENARIO_ATMOSPHERE_PRESENT_RUN_H_
 #define PLUGIN_PRODUCT_WORLD3D_SCENARIO_ATMOSPHERE_PRESENT_RUN_H_
 
-#include "app/views/app/cmdline/views_launch_options.h"
+#include "plugin/product/world3d/scenario/atmosphere/mode.h"
 #include "plugin/product/world3d/scenario/atmosphere/session/device_session.h"
 #include "plugin/product/world3d/scenario/atmosphere/seed/mode_seed.h"
 

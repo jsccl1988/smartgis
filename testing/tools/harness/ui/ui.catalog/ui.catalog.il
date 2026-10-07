@@ -12,14 +12,16 @@ script "ui.catalog" {
     mark("pump-post");
     require_hwnd();
     mark("hwnd-ok");
-    resolve_data(kind="data", leaf="china_city.gpkg", as="china");
-    require_var(name="china", fail_mark="china-seed-miss");
-    open_map(var="china");
-    fit_extent();
     mark("interact-pre");
     apply_scenario_panels("catalog");
+    // Pin Maps — seed leaves Layers active (visual_review #3).
+    catalog_tab(index=2);
+    pump(ms=200);
+    mark("catalog-maps");
     mark("interact-post");
     layout_gate("catalog");
+    catalog_tab(index=2);
+    pump(ms=120);
     ui_present_capture("catalog");
   }
 }

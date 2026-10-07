@@ -48,6 +48,25 @@ native_plugin("flood_native") {
   data_deps = [ ":flood_resources" ]
 }
 
+source_set("flood_harness") {
+  sources = [
+    "scenario/register.cc",
+    "scenario/register.h",
+    "scenario/run.cc",
+    "scenario/run.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    ":flood_views",
+    "//src/content:content",
+    "//src/plugin/product/world3d:world3d_harness",
+    "//src/plugin/runtime/host:host",
+  ]
+}
+
 test("flood_inundate_test") {
   output_name = "flood_inundate_test"
   sources = [ "tests/inundate_test.cc" ]

@@ -1,0 +1,229 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//src/vista/embed_hlsl.gni")
+import("//testing/test.gni")
+
+# Atmosphere GPU passes under pass/world/atmosphere (merged from pass/atmosphere;
+# that old path is gone — this tree is canonical).
+# Public facade: AtmosphereFrame / effects.
+# Per-kind recorders under ocean/ cloud/ sky/ fog/ globe/.
+# Shared raster/mesh/field_texture is detail/.
+# Depends on atmosphere_cpu_sources (cpu_waves). Must not depend on
+# session_sources (that set pulls land_mask).
+#
+# HLSL: sibling *.hlsl next to each pass; embed_hlsl → $root_gen_dir *.hlsl.inc.
+
+_atmosphere_hlsl = [
+  "cloud/vs_cloud.hlsl",
+  "cloud/ps_cloud.hlsl",
+  "fog/vs_fog.hlsl",
+  "fog/ps_fog.hlsl",
+  "globe/vs_globe.hlsl",
+  "globe/ps_globe.hlsl",
+  "globe/vs_sat_cloud.hlsl",
+  "globe/ps_sat_cloud.hlsl",
+  "ocean/vs_ocean.hlsl",
+  "ocean/ps_ocean.hlsl",
+  "ocean/cs_ocean_spectrum.hlsl",
+  "ocean/cs_ocean_bit_reverse.hlsl",
+  "ocean/cs_ocean_butterfly.hlsl",
+  "ocean/cs_ocean_displacement_spectrum.hlsl",
+  "ocean/cs_ocean_height_encode.hlsl",
+  "ocean/cs_ocean_gaussian_h.hlsl",
+  "ocean/cs_ocean_gaussian_v.hlsl",
+  "sky/vs_sky.hlsl",
+  "sky/ps_sky.hlsl",
+]
+
+embed_hlsl("atmosphere_hlsl_embed") {
+  sources = _atmosphere_hlsl
+}
+
+# Generated *.hlsl.inc live under $root_gen_dir/src/vista/... so product
+# #include "vista/..." paths resolve the same as //src.
+config("atmosphere_hlsl_gen") {
+  # BUILDCONFIG already seeds include_dirs; append (do not replace).
+  include_dirs += [ "$root_gen_dir/src" ]
+}
+
+source_set("atmosphere_pass_sources") {
+  sources = [
+    "atmosphere_effects.cc",
+    "atmosphere_effects.h",
+    "atmosphere_frame.cc",
+    "atmosphere_frame.h",
+    "cloud/cloud_pass.cc",
+    "cloud/cloud_pass.h",
+    "cloud/constants.h",
+    "cloud/hlsl.h",
+    "detail/field_texture.cc",
+    "detail/field_texture.h",
+    "detail/mesh.h",
+    "detail/raster.h",
+    "fog/constants.h",
+    "fog/fog_pass.cc",
+    "fog/fog_pass.h",
+    "fog/hlsl.h",
+    "globe/constants.h",
+    "globe/globe_pass.cc",
+    "globe/globe_pass.h",
+    "globe/hlsl.h",
+    "globe/sat_cloud_pass.cc",
+    "globe/sat_cloud_pass.h",
+    "ocean/constants.h",
+    "ocean/gpu_fields.cc",
+    "ocean/gpu_fields.h",
+    "ocean/hlsl.h",
+    "ocean/ocean_pass.cc",
+    "ocean/ocean_pass.h",
+    "sky/constants.h",
+    "sky/hlsl.h",
+    "sky/sky_pass.cc",
+    "sky/sky_pass.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ ":atmosphere_hlsl_gen" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [
+    ":atmosphere_hlsl_embed",
+    "//src/vista/component/world:atmosphere_cpu_sources",
+    "//src/render:render",
+  ]
+}
+
+# In-process Null RHI smoke (RENDER_EXPORTS) to avoid LNK1168 on render.dll.
+test("cloud_pass_test") {
+  output_name = "cloud_pass_test"
+  sources = [
+    "cloud/cloud_pass.cc",
+    "cloud/cloud_pass_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ ":atmosphere_hlsl_gen" ]
+  defines = [
+    "RENDER_EXPORTS",
+    "VISTA_EXPORTS",
+  ]
+  deps = [
+    ":atmosphere_hlsl_embed",
+    "//src/base:base",
+    "//src/render:rhi_sources",
+  ]
+}
+
+test("ocean_pass_test") {
+  output_name = "ocean_pass_test"
+  sources = [
+    "detail/field_texture.cc",
+    "ocean/gpu_fields.cc",
+    "ocean/ocean_pass.cc",
+    "ocean/ocean_pass_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ ":atmosphere_hlsl_gen" ]
+  defines = [
+    "RENDER_EXPORTS",
+    "VISTA_EXPORTS",
+  ]
+  deps = [
+    ":atmosphere_hlsl_embed",
+    "//src/vista/component/world:atmosphere_cpu_sources",
+    "//src/base:base",
+    "//src/render:rhi_sources",
+  ]
+}
+
+test("sky_pass_test") {
+  output_name = "sky_pass_test"
+  sources = [
+    "sky/sky_pass.cc",
+    "sky/sky_pass_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ ":atmosphere_hlsl_gen" ]
+  defines = [
+    "RENDER_EXPORTS",
+    "VISTA_EXPORTS",
+  ]
+  deps = [
+    ":atmosphere_hlsl_embed",
+    "//src/base:base",
+    "//src/render:rhi_sources",
+  ]
+}
+
+test("fog_pass_test") {
+  output_name = "fog_pass_test"
+  sources = [
+    "fog/fog_pass.cc",
+    "fog/fog_pass_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ ":atmosphere_hlsl_gen" ]
+  defines = [
+    "RENDER_EXPORTS",
+    "VISTA_EXPORTS",
+  ]
+  deps = [
+    ":atmosphere_hlsl_embed",
+    "//src/base:base",
+    "//src/render:rhi_sources",
+  ]
+}
+
+test("atmosphere_frame_test") {
+  output_name = "atmosphere_frame_test"
+  sources = [
+    "cloud/cloud_pass.cc",
+    "detail/field_texture.cc",
+    "fog/fog_pass.cc",
+    "atmosphere_frame.cc",
+    "atmosphere_frame_test.cc",
+    "globe/globe_pass.cc",
+    "globe/sat_cloud_pass.cc",
+    "ocean/gpu_fields.cc",
+    "ocean/ocean_pass.cc",
+    "sky/sky_pass.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ ":atmosphere_hlsl_gen" ]
+  defines = [
+    "RENDER_EXPORTS",
+    "VISTA_EXPORTS",
+  ]
+  deps = [
+    ":atmosphere_hlsl_embed",
+    "//src/vista/component/world:atmosphere_cpu_sources",
+    "//src/vista/terrain:dem_contour_sources",
+    "//src/vista/terrain:land_mask",
+    "//src/base:base",
+    "//src/base/execution:execution",
+    "//src/render:programs_sources",
+    "//src/render:rhi_sources",
+  ]
+}
+
+test("globe_pass_test") {
+  output_name = "globe_pass_test"
+  sources = [
+    "globe/globe_pass.cc",
+    "globe/globe_pass_test.cc",
+    "globe/sat_cloud_pass.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ ":atmosphere_hlsl_gen" ]
+  defines = [
+    "RENDER_EXPORTS",
+    "VISTA_EXPORTS",
+  ]
+  deps = [
+    ":atmosphere_hlsl_embed",
+    "//src/vista/terrain:dem_contour_sources",
+    "//src/vista/terrain:land_mask",
+    "//src/base:base",
+    "//src/base/execution:execution",
+    "//src/render:rhi_sources",
+  ]
+}

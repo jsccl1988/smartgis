@@ -14,20 +14,6 @@
 #include "app/views/il.runtime/backend/horizon/atom/pump.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "content/public/plugin_host.h"
-#include "plugin/product/flood/commands.h"
-#include "plugin/product/geochem/commands.h"
-#include "plugin/product/map2d/commands.h"
-#include "plugin/product/map2d/scenario/hwnd_register.h"
-#include "plugin/product/map2d/scenario/register.h"
-#include "plugin/product/mine/commands.h"
-#include "plugin/product/mine/scenario/register.h"
-#include "plugin/product/report/commands.h"
-#include "plugin/product/stormsurge/commands.h"
-#include "plugin/product/stormsurge/scenario/register.h"
-#include "plugin/product/traffic/commands.h"
-#include "plugin/product/traffic/scenario/register.h"
-#include "plugin/product/world3d/commands.h"
-#include "plugin/product/world3d/scenario/register.h"
 #include "plugin/runtime/host/capability/scenario.h"
 #include "plugin/runtime/host/capability/shell.h"
 #include "tool/command/command.h"
@@ -176,42 +162,34 @@ int dispatch_plugin_command(Browser& browser, const char* command_id,
   if (!host || !command_id || !command_id[0]) {
     return 1;
   }
+  PluginShell* shell = browser.plugins();
   BrowserHarnessShell adapter(browser);
   (void)host->set_capability(plugin::kCapabilityHarness,
                              static_cast<void*>(&adapter));
-  // Register only the owning pack. Do not ensure_builtins() (avoids traffic).
-  const std::string_view id(command_id);
-  if (id.starts_with("map2d") || id.starts_with("print.")) {
-    (void)plugin::register_map2d(host);
-    (void)plugin::register_map2d_scenario(host);
-    (void)plugin::register_map2d_scenarios(host);
-  } else if (id.starts_with("report")) {
-    (void)plugin::register_report(host);
-  } else if (id.starts_with("world3d") || id.starts_with("baogrid") ||
-             id.starts_with("orthogrid") || id.starts_with("model3d") ||
-             id.starts_with("atmosphere")) {
-    (void)plugin::register_world3d(host);
-    (void)plugin::register_world3d_scenario(host);
-  } else if (id.starts_with("traffic")) {
-    (void)plugin::register_traffic(host);
-    (void)plugin::register_traffic_scenario(host);
-  } else if (id.starts_with("flood")) {
-    (void)plugin::register_flood(host);
-  } else if (id.starts_with("mine")) {
-    (void)plugin::register_mine(host);
-    (void)plugin::register_mine_scenario(host);
-  } else if (id.starts_with("geochem")) {
-    (void)plugin::register_geochem(host);
-  } else if (id.starts_with("stormsurge")) {
-    (void)plugin::register_stormsurge(host);
-    (void)plugin::register_stormsurge_scenario(host);
+  // Dynamic: in-process pack self-reg + Registry/manifest LoadLibrary.
+  // Do not ensure_builtins() (avoids enabling every appended builtin).
+  if (shell) {
+    (void)shell->ensure_command(command_id);
   }
   tool::CommandArgs args;
   args.payload = std::string(payload);
   const bool ok = host->execute(command_id, args);
-  const int rc = id.find(".scenario") != std::string_view::npos
-                     ? plugin::harness_scenario_exit()
-                     : (ok ? 0 : 1);
+  const std::string_view id(command_id);
+  int rc = ok ? 0 : 1;
+  if (id.find(".scenario") != std::string_view::npos) {
+    // HarnessShell bodies publish via set_harness_scenario_exit. Prefer that
+    // code even when execute() is false (e.g. prepare returned 50). Processing-
+    // style commands (report) set exit 0 on success; default exit 1 must not
+    // override a successful execute that forgot to clear it.
+    const int harness_rc = plugin::harness_scenario_exit();
+    if (ok) {
+      if (harness_rc == 0 || harness_rc > 1) {
+        rc = harness_rc;
+      }
+    } else if (harness_rc != 0) {
+      rc = harness_rc;
+    }
+  }
   (void)host->set_capability(plugin::kCapabilityHarness, nullptr);
   return rc;
 }

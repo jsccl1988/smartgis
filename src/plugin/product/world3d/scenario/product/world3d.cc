@@ -8,13 +8,15 @@
 #include <cstdio>
 
 #include "plugin/runtime/host/capability/shell.h"
-#include "plugin/runtime/host/capability/shell.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/runtime/host/capability/marks.h"
 #include "plugin/product/world3d/scenario/capture/capture.h"
 #include "plugin/product/world3d/scenario/session/device_session.h"
 #include "plugin/product/world3d/scenario/present/present_warmup.h"
 #include "plugin/product/world3d/scenario/present/world3d_fly.h"
 #include "plugin/product/world3d/scenario/seed/world3d_seed.h"
+#include "plugin/product/world3d/scene/earth/tiles.h"
+#include "plugin/product/world3d/scene/pointcloud/overlay.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
@@ -80,6 +82,9 @@ int run_world3d_scene3d(HarnessShell& browser) {
     browser.detach_maps();
     return 50;
   }
+  // Present camera_matrices() is identity when gpu_.orbit_ is unset. Startup
+  // bind_orbit can be lost under scene3d_present sizeof skew; re-bind here.
+  cam->bind_orbit(orbit);
   plugin_mark("cam-ok");
 
   if (bare) {
@@ -93,7 +98,17 @@ int run_world3d_scene3d(HarnessShell& browser) {
   if (cam->atmosphere_session().globe_enabled()) {
     plugin_mark("earth-tiles-skip");
   } else {
-    try_attach_world3d_city_tiles(cam);
+    switch (plugin::try_attach_world3d_city_tiles(cam)) {
+      case plugin::World3dCityTilesResult::kAttached:
+        plugin_mark("earth-tiles");
+        break;
+      case plugin::World3dCityTilesResult::kAttachFailed:
+        plugin_mark("earth-tiles-attach-fail");
+        break;
+      case plugin::World3dCityTilesResult::kSkipped:
+        plugin_mark("earth-tiles-skip");
+        break;
+    }
   }
   plugin_mark("tiles-ok");
 
@@ -120,7 +135,8 @@ int run_world3d_scene3d(HarnessShell& browser) {
       // Planar overlay remaps Y onto the DEM slab; on the unit globe that
       // paints a floating bead wall in front of Earth. Load still gates.
       if (!cam->atmosphere_session().globe_enabled()) {
-        apply_world3d_pointcloud_overlay(cam, cloud);
+        plugin::apply_world3d_pointcloud_overlay(cam, cloud);
+        plugin_mark("overlay-ok");
         cloud_ok = true;
       }
     }

@@ -34,6 +34,8 @@ using Layer = MapScene::Layer;
 using Vertex = MapScene::Vertex;
 using GeomKind = MapScene::GeomKind;
 
+// Writes a classic bottom-up BMP. |bits| is a top-down 32bpp buffer (row 0 =
+// screen top), matching CreateDIBSection(biHeight=-H) used by map2d paint.
 bool write_bmp_file(const std::string& path, int width_px, int height_px,
                     const void* bits, int stride_bytes) {
   if (path.empty() || !bits || width_px <= 0 || height_px <= 0 ||
@@ -49,7 +51,7 @@ bool write_bmp_file(const std::string& path, int width_px, int height_px,
   BITMAPINFOHEADER bih = {};
   bih.biSize = sizeof(BITMAPINFOHEADER);
   bih.biWidth = width_px;
-  bih.biHeight = height_px;
+  bih.biHeight = height_px;  // bottom-up file order
   bih.biPlanes = 1;
   bih.biBitCount = 32;
   bih.biCompression = BI_RGB;
@@ -58,10 +60,19 @@ bool write_bmp_file(const std::string& path, int width_px, int height_px,
   if (fopen_s(&f, path.c_str(), "wb") != 0 || !f) {
     return false;
   }
-  const bool ok =
-      std::fwrite(&bfh, 1, sizeof(bfh), f) == sizeof(bfh) &&
-      std::fwrite(&bih, 1, sizeof(bih), f) == sizeof(bih) &&
-      std::fwrite(bits, 1, image_bytes, f) == image_bytes;
+  bool ok = std::fwrite(&bfh, 1, sizeof(bfh), f) == sizeof(bfh) &&
+            std::fwrite(&bih, 1, sizeof(bih), f) == sizeof(bih);
+  if (ok) {
+    const auto* src = static_cast<const uint8_t*>(bits);
+    for (int y = height_px - 1; y >= 0; --y) {
+      if (std::fwrite(src + static_cast<size_t>(y) * static_cast<size_t>(stride_bytes),
+                      1, static_cast<size_t>(stride_bytes), f) !=
+          static_cast<size_t>(stride_bytes)) {
+        ok = false;
+        break;
+      }
+    }
+  }
   std::fclose(f);
   return ok;
 }
@@ -507,7 +518,10 @@ bool Map2dSoftwarePainter::export_bmp(const std::string& path, int width_px,
   BITMAPINFO bmi = {};
   bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
   bmi.bmiHeader.biWidth = width_px;
-  bmi.bmiHeader.biHeight = height_px;
+  // Top-down DIB: matches present-cache HDCs and DibSurface::top_down=true
+  // (tessellated line meshes write via fill_tri_solid). A bottom-up export
+  // DIB used to invert those software rows vs GDI text/raster.
+  bmi.bmiHeader.biHeight = -height_px;
   bmi.bmiHeader.biPlanes = 1;
   bmi.bmiHeader.biBitCount = 32;
   bmi.bmiHeader.biCompression = BI_RGB;

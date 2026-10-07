@@ -2,7 +2,8 @@
     "id":  "browser.map2d.align",
     "kind":  "integration",
     "argv":  [
-                 "--map2d-showcase=align"
+                 "--map2d-showcase=align",
+                 "--map2d-showcase-il=1"
              ],
     "script":  "browser.map2d.align.il",
     "env":  {

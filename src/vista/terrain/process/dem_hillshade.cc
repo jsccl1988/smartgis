@@ -125,7 +125,10 @@ void compose_elevation_sheet(uint8_t* pixels, int w, int h, const float* lod,
   auto is_isoline = [](const uint8_t* ov4) -> bool {
     const int mx = (std::max)(ov4[0], (std::max)(ov4[1], ov4[2]));
     const int mn = (std::min)(ov4[0], (std::min)(ov4[1], ov4[2]));
-    return mx > 210 && (mx - mn) < 48;
+    // Dark charcoal stamps (paint.cc) or legacy Origin near-white isolines.
+    const bool dark = mx < 90 && (mx - mn) < 40;
+    const bool light = mx > 210 && (mx - mn) < 48;
+    return dark || light;
   };
   for (int row = 0; row < h; ++row) {
     uint8_t* rowp =
@@ -189,16 +192,20 @@ void compose_elevation_sheet(uint8_t* pixels, int w, int h, const float* lod,
       }
       uint8_t* rowp = pixels + i;
       const float t = 0.22f * static_cast<float>(iso_n);
+      // Soft-feather toward dark charcoal isoline (matches paint.cc stamps).
+      constexpr float kIsoR = 28.f;
+      constexpr float kIsoG = 34.f;
+      constexpr float kIsoB = 52.f;
       rowp[0] = static_cast<uint8_t>(
-          std::clamp(static_cast<float>(rowp[0]) * (1.f - t) + 255.f * t, 0.f,
+          std::clamp(static_cast<float>(rowp[0]) * (1.f - t) + kIsoR * t, 0.f,
                      255.f) +
           0.5f);
       rowp[1] = static_cast<uint8_t>(
-          std::clamp(static_cast<float>(rowp[1]) * (1.f - t) + 255.f * t, 0.f,
+          std::clamp(static_cast<float>(rowp[1]) * (1.f - t) + kIsoG * t, 0.f,
                      255.f) +
           0.5f);
       rowp[2] = static_cast<uint8_t>(
-          std::clamp(static_cast<float>(rowp[2]) * (1.f - t) + 255.f * t, 0.f,
+          std::clamp(static_cast<float>(rowp[2]) * (1.f - t) + kIsoB * t, 0.f,
                      255.f) +
           0.5f);
     }

@@ -7,22 +7,22 @@
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
 
 #include "content/browser/document/map_scene.h"
-#include "vista/component/atmosphere/atmosphere_params.h"
-#include "vista/component/atmosphere/cloud/cloud_system.h"
-#include "vista/component/atmosphere/contour/contour_sheet.h"
-#include "vista/component/atmosphere/field/field_channel.h"
-#include "vista/component/atmosphere/field/field_ingest.h"
-#include "vista/component/atmosphere/ocean/ocean_system.h"
+#include "vista/component/world/atmosphere/atmosphere_params.h"
+#include "vista/component/world/atmosphere/cloud/cloud_system.h"
+#include "vista/component/world/atmosphere/contour/contour_sheet.h"
+#include "vista/component/world/atmosphere/field/field_channel.h"
+#include "vista/component/world/atmosphere/field/field_ingest.h"
+#include "vista/component/world/atmosphere/ocean/ocean_system.h"
 #include "vista/terrain/dem/dem_contour.h"
 #include "vista/assets/tileset/tileset.h"
 #include "vista/terrain/dem/dem_frame.h"
 #include "vista/terrain/dem/dem_raster.h"
 #include "vista/component/world/terrain/seed.h"
 #include "vista/component/world/world.h"
-#include "vista/pass/atmosphere/cloud/cloud_pass.h"
-#include "vista/pass/atmosphere/fog/fog_pass.h"
-#include "vista/pass/atmosphere/ocean/ocean_pass.h"
-#include "vista/pass/atmosphere/sky/sky_pass.h"
+#include "vista/pass/world/atmosphere/cloud/cloud_pass.h"
+#include "vista/pass/world/atmosphere/fog/fog_pass.h"
+#include "vista/pass/world/atmosphere/ocean/ocean_pass.h"
+#include "vista/pass/world/atmosphere/sky/sky_pass.h"
 #include "base/trace/event/process_trace.h"
 
 #include <algorithm>
@@ -89,10 +89,13 @@ bool AtmosphereSession::prepare_for_present() {
   if (!prepare_globe() || !prepare_sat_clouds()) {
     return false;
   }
-  // Globe stack owns land/ocean/weather on the sphere — skip flat ocean/cloud.
+  // Globe stack owns land/ocean/weather on the sphere �?skip flat ocean/cloud.
   if (globe_enabled_) {
     return prepare_sky() && prepare_fog();
   }
+  // POD prep only. OceanPass::prepare_gpu stays cold-once in Scene3dGpuPresent
+  // (need_ocean_height_before_dem / dem_gpu_synced_after_ocean_); warm frames
+  // must not call prepare_gpu from here.
   return prepare_ocean() && prepare_clouds() && prepare_sky() && prepare_fog();
 }
 
@@ -130,6 +133,8 @@ void AtmosphereSession::advance_sim_time() {
   set_time_sec(atmosphere_->time_sec() + dt);
   // Dynamic sun: ~full azimuth revolution every ~120s; mild elevation bob so
   // DEM Lambert and ocean/sky specular read as living daylight.
+  // Do not touch sea_mask_cache_* / overlay dirty �?coast mask is extent-keyed
+  // and wave animation is OceanPass::record time, not a FieldStore resample.
   vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
   const double t = atmosphere_->time_sec();
   constexpr double kTwoPi = 6.283185307179586;
@@ -237,19 +242,21 @@ bool AtmosphereSession::apply_contour_suite_defaults() {
   p.contour_dem_offset_m = 500.f;
   p.contour_value_to_meters = 160.f;
   p.contour_dem_vert_exag = 0.35f;
-  p.contour_surface_alpha = 0.55f;
+  // Opaque enough that ring ContourSheet hides wrinkled DEM facets beneath.
+  p.contour_surface_alpha = 0.90f;
 
   vista::atmosphere::FieldGrid grid = field_grid();
-  // Denser than the 32^2 ocean/cloud sample grid so the stacked sheet reads.
-  grid.cols = (std::max)(grid.cols, 64);
-  grid.rows = (std::max)(grid.rows, 48);
+  // Denser sample so the stacked sheet reads as smooth concentric bands.
+  grid.cols = (std::max)(grid.cols, 96);
+  grid.rows = (std::max)(grid.rows, 72);
   if (!env.rebuild_contour_sheet(vista::atmosphere::FieldChannel::kWaveHs, grid,
                                  nullptr)) {
     return false;
   }
 
-  // Globe DEM window: Origin jet + isolines on the sphere albedo.
-  set_elevation_overlay(true, true);
+  // ContourSheet carries jet+curves; do not stamp either onto globe albedo
+  // (isoline/jet wash DEM facets under soft lighting �?chrome glare).
+  set_elevation_overlay(false, false);
 
   if (globe_enabled_ || !gpu_) {
     return env.contour_sheet().has_color_scale() ||
@@ -288,43 +295,44 @@ bool AtmosphereSession::apply_contour_suite_defaults() {
       return sheet.has_color_scale() || sheet.has_surface();
     }
   }
-  constexpr uint8_t kAlbedo[4] = {210, 220, 255, 160};
+  // Alpha must stay at most 200 so attach_tin picks the soft ContourSheet
+  // slab (0.16-0.38). Alpha>200 falls through to the hard 1.05-1.65 cliff
+  // slab and the jet sheet reads as wrinkled folds (ui.scene).
+  constexpr uint8_t kAlbedo[4] = {210, 220, 255, 190};
   gpu_->set_overlay_tin_mesh(geo.data(), static_cast<int>(nverts), idx.data(),
                              static_cast<int>(idx.size()), kAlbedo);
 
   if (mesh.rgba.size() >= nverts * 4u && mesh.uvs.size() >= nverts * 2u &&
       grid.cols >= 8 && grid.rows >= 8 &&
       nverts == static_cast<size_t>(grid.cols) * static_cast<size_t>(grid.rows)) {
-    std::vector<uint8_t> atlas(
-        static_cast<size_t>(grid.cols) * static_cast<size_t>(grid.rows) * 4u);
+    std::vector<uint8_t> atlas;
+    std::vector<float> heights(nverts);
     for (size_t i = 0; i < nverts; ++i) {
-      const float* c = mesh.rgba.data() + i * 4u;
-      atlas[i * 4u + 0] = static_cast<uint8_t>(
-          (std::max)(0, (std::min)(255, static_cast<int>(c[0] * 255.f + 0.5f))));
-      atlas[i * 4u + 1] = static_cast<uint8_t>(
-          (std::max)(0, (std::min)(255, static_cast<int>(c[1] * 255.f + 0.5f))));
-      atlas[i * 4u + 2] = static_cast<uint8_t>(
-          (std::max)(0, (std::min)(255, static_cast<int>(c[2] * 255.f + 0.5f))));
-      atlas[i * 4u + 3] = static_cast<uint8_t>(
-          (std::max)(0, (std::min)(255, static_cast<int>(c[3] * 255.f + 0.5f))));
+      heights[i] = mesh.xyz[i * 3u + 1];
     }
-    std::vector<float> display_h(nverts, 0.f);
-    for (size_t i = 0; i < nverts; ++i) {
-      display_h[i] = mesh.xyz[i * 3u + 1];
-    }
-    std::vector<uint8_t> overlay;
-    if (vista::bake_elevation_overlay_rgba(display_h.data(), grid.cols,
-                                           grid.rows, /*surface=*/false,
-                                           /*curves=*/true, 0.f, &overlay) &&
-        overlay.size() == atlas.size()) {
-      for (size_t i = 0; i + 3 < overlay.size(); i += 4) {
-        if (overlay[i + 3] < 200) {
-          continue;
+    // Jet fill + dark charcoal isolines (paint.cc). White Origin stamps on
+    // a 64x48 grid washed ui.scene; dark 1px strokes stay thin after upscale.
+    if (!vista::bake_elevation_overlay_rgba(heights.data(), grid.cols,
+                                            grid.rows, /*surface=*/true,
+                                            /*curves=*/true, /*interval_m=*/0.f,
+                                            &atlas) ||
+        atlas.size() != nverts * 4u) {
+      atlas.assign(nverts * 4u, 0);
+      for (size_t i = 0; i < nverts; ++i) {
+        const float* c = mesh.rgba.data() + i * 4u;
+        atlas[i * 4u + 0] = static_cast<uint8_t>((std::max)(
+            0, (std::min)(255, static_cast<int>(c[0] * 255.f + 0.5f))));
+        atlas[i * 4u + 1] = static_cast<uint8_t>((std::max)(
+            0, (std::min)(255, static_cast<int>(c[1] * 255.f + 0.5f))));
+        atlas[i * 4u + 2] = static_cast<uint8_t>((std::max)(
+            0, (std::min)(255, static_cast<int>(c[2] * 255.f + 0.5f))));
+        atlas[i * 4u + 3] = 255;
+      }
+    } else {
+      for (size_t i = 3; i < atlas.size(); i += 4) {
+        if (atlas[i] != 0) {
+          atlas[i] = 255;
         }
-        atlas[i + 0] = overlay[i + 0];
-        atlas[i + 1] = overlay[i + 1];
-        atlas[i + 2] = overlay[i + 2];
-        atlas[i + 3] = 255;
       }
     }
     gpu_->set_overlay_tin_drape(atlas.data(),
@@ -353,10 +361,13 @@ void AtmosphereSession::update_globe_detail_lod(float orbit_distance,
   if (!globe_enabled_ || !globe_surface_loaded_) {
     return;
   }
-  // Match DemRaster::lod_max_edge overview (~3.2) and dem_seed_cache_key
-  // near bucket (<2.4). Full china_dem mix by skim (~1.65 R).
-  constexpr float kChinaLoadDist = 3.2f;
-  constexpr float kChinaFullDist = 1.65f;
+  // Match DemRaster::lod_max_edge overview (~3.2 R) and dem_seed_cache_key
+  // near bucket. Full china_dem mix by skim (~1.65 R). Distances scale with
+  // GlobeDrawParams.radius (default 4).
+  const float R = (std::max)(1.f, globe_pass_.params().radius);
+  // Keep space orbit (~2.6 R) above load so space BMP stays global_terrain.
+  const float kChinaLoadDist = 2.4f * R;
+  const float kChinaFullDist = 1.55f * R;
   float blend = 0.f;
   if (orbit_distance <= kChinaFullDist) {
     blend = 1.f;
@@ -682,7 +693,7 @@ bool seed_sea_mask_from_dem(vista::atmosphere::Environment& env,
           static_cast<std::size_t>(col);
       const bool inside = lon >= dem_minx && lon <= dem_maxx &&
                           lat >= dem_miny && lat <= dem_maxy;
-      // Match DemRaster land rebuild: elev > 1 m ⇒ land (sea mask 0).
+      // Match DemRaster land rebuild: elev > 1 m �?land (sea mask 0).
       const bool land = inside && dem.sample_meters(lon, lat) > 1.f;
       sea[idx] = land ? 0.f : 1.f;
     }
@@ -693,7 +704,7 @@ bool seed_sea_mask_from_dem(vista::atmosphere::Environment& env,
   layer.priority = 1;  // Prefer over empty-ring fail-closed layer.
   layer.grid = grid;
   layer.values = std::move(sea);
-  // Timeless procedural mask — default time_sec=0 would invent a timed range
+  // Timeless procedural mask �?default time_sec=0 would invent a timed range
   // and clamp AtmosphereSession::set_time_sec (scene3d time scrub).
   layer.time_sec = std::numeric_limits<double>::quiet_NaN();
   env.field_store().set_layer(layer);
@@ -945,7 +956,7 @@ bool AtmosphereSession::prepare_ocean() {
   max_z += pad;
 
   vista::OceanDrawParams draw;
-  // Wave height: GIS meters → orbit Y (same scale as DEM elev).
+  // Wave height: GIS meters �?orbit Y (same scale as DEM elev).
   draw.significant_wave_height = (std::max)(
       0.01f, gpu_->geo_frame().meters_to_orbit_y(tile.spectrum.significant_wave_height));
   draw.mean_direction_rad = tile.spectrum.mean_direction_rad;
@@ -963,13 +974,13 @@ bool AtmosphereSession::prepare_ocean() {
   draw.patch_half_z = 0.5f * (max_z - min_z);
   draw.patch_half_extent =
       (std::max)(draw.patch_half_x, draw.patch_half_z);
-  // China orbit span ≈ 3.2: keep a readable lip without swallowing DEM peaks.
+  // China orbit span �?3.2: keep a readable lip without swallowing DEM peaks.
   // Prefer Gerstner for interactive full-China (GPU FFT can look flat when the
   // height-map energy is tiny after 1/N² at this scale).
   const bool legacy_stereo =
       gpu_->look_preset() == Scene3dLookPreset::kLegacyStereo;
   if (legacy_stereo) {
-    // Leftover stereo: calm light-blue shelf on black clear. Hs≥0.10 used to
+    // Leftover stereo: calm light-blue shelf on black clear. Hs�?.10 used to
     // submerge coastal/mid DEM (only a mountain strip survived ocean depth).
     draw.significant_wave_height =
         (std::min)((std::max)(draw.significant_wave_height, 0.01f), 0.035f);
@@ -995,7 +1006,7 @@ bool AtmosphereSession::prepare_ocean() {
     draw.shininess = (std::max)(draw.shininess, 180.0f);
     // 33 matches OceanDrawParams default; 65² Gerstner+upload dominated present.
     draw.mesh_resolution = 33;
-    // Mid-tier GIS water: deep navy, muted shelf — never near-cyan albedo.
+    // Mid-tier GIS water: deep navy, muted shelf �?never near-cyan albedo.
     draw.deep_r = 0.02f;
     draw.deep_g = 0.07f;
     draw.deep_b = 0.18f;
@@ -1020,12 +1031,13 @@ bool AtmosphereSession::prepare_ocean() {
       cached_sea_mask_extent_.xmax != frame_extent.xmax ||
       cached_sea_mask_extent_.ymax != frame_extent.ymax;
   if (extent_changed) {
-    // Start at 0 (land). Never pre-fill 1 — a failed/partial fill used to
+    // Start at 0 (land). Never pre-fill 1 �?a failed/partial fill used to
     // leave a full-screen sea mask and black out China DEM.
     cached_sea_mask_.assign(
         static_cast<std::size_t>(kMask) * static_cast<std::size_t>(kMask), 0.f);
     extent.cols = kMask;
     extent.rows = kMask;
+    // Extent-keyed only: advance_sim_time must not reach this branch.
     if (!atmosphere_->ocean_system().fill_sea_mask_grid(
             atmosphere_->field_store(), extent, kMask, kMask,
             atmosphere_->time_sec(), cached_sea_mask_.data(),
@@ -1038,6 +1050,10 @@ bool AtmosphereSession::prepare_ocean() {
     cached_sea_mask_extent_ = frame_extent;
     cached_sea_mask_n_ = kMask;
     sea_mask_cache_valid_ = true;
+  }
+  // Cache hit: rebind is a no-op when OceanPass still holds the same bytes
+  // (memcmp). After OceanPass::release the cache still avoids FieldStore work.
+  if (sea_mask_cache_valid_ && !cached_sea_mask_.empty()) {
     ocean_pass_.set_sea_mask_cpu(kMask, kMask, cached_sea_mask_.data(),
                                  cached_sea_mask_.size());
   }
@@ -1152,7 +1168,7 @@ bool AtmosphereSession::prepare_fog() {
   fog.max_opacity = (std::min)((std::max)(p.fog_max_opacity, 0.06f), 0.12f);
   fog.base_height = gpu_->geo_frame().sea_level_y();
   // Tint haze toward the analytical sky horizon (matches sky pass).
-  // Zero sun_glow for the tint sample — a fixed horizon ray can align with
+  // Zero sun_glow for the tint sample �?a fixed horizon ray can align with
   // the sun and pick up disk/corona, blowing fog to near-white and washing
   // the showcase BMP (blue_sky / landish gates fail).
   float hr = fog.color_r;
@@ -1210,7 +1226,7 @@ bool AtmosphereSession::load_china_globe_detail() {
   }
   china_globe_detail_loaded_ = true;
   if (!globe_pass_.dem_is_global()) {
-    // Base surface is already the China window — no second overlay.
+    // Base surface is already the China window �?no second overlay.
     return false;
   }
   vista::DemRaster dem;
@@ -1235,16 +1251,10 @@ bool AtmosphereSession::load_china_globe_detail() {
     maxy = 54.0;
   }
   dem.fit_vertical_exaggeration();
-  std::string imagery_path = vista::find_sample_imagery_path();
-  if (!imagery_path.empty()) {
-    const bool img_is_global =
-        imagery_path.find("global_terrain") != std::string::npos ||
-        imagery_path.find("global_imagery") != std::string::npos ||
-        imagery_path.find("blue_marble") != std::string::npos;
-    if (img_is_global) {
-      imagery_path.clear();
-    }
-  }
+  // Hypsometric from china_dem heights — global_terrain in the China window
+  // painted the DEM-hug BMP as solid ocean cyan (no land read). Soft Lambert
+  // in ps_globe keeps peaks matte (no chrome). Space orbit still uses
+  // global_terrain via the base equirect (detail_blend=0 above ~2.4 R).
   std::vector<float> heights;
   std::vector<uint8_t> rgba;
   int cols = 0;
@@ -1252,22 +1262,26 @@ bool AtmosphereSession::load_china_globe_detail() {
   int tw = 0;
   int th = 0;
   bool imagery_loaded = false;
-  if (!dem.sample_globe_surface(minx, miny, maxx, maxy, false,
-                                imagery_path.empty() ? nullptr
-                                                     : imagery_path.c_str(),
+  if (!dem.sample_globe_surface(minx, miny, maxx, maxy, false, nullptr,
                                 &heights, &cols, &rows, &rgba, &tw, &th,
                                 &imagery_loaded)) {
     return false;
   }
+  // Drop sampled albedo so GlobePass bakes hypsometric land (green/tan) from
+  // detail heights; empty albedo triggers the height→color path.
+  rgba.clear();
+  tw = 0;
+  th = 0;
+  imagery_loaded = false;
   globe_pass_.set_detail_dem_surface(
       minx, miny, maxx, maxy, cols, rows,
       heights.empty() ? nullptr : heights.data(), heights.size(),
-      rgba.empty() ? nullptr : rgba.data(), tw, th);
+      nullptr, 0, 0);
   std::fprintf(stderr,
                "atmosphere.globe: china_detail=%s envelope=[%.1f,%.1f]-"
                "[%.1f,%.1f] albedo=%s\n",
                path.c_str(), minx, miny, maxx, maxy,
-               imagery_loaded ? imagery_path.c_str() : "(hypsometric)");
+               imagery_loaded ? "(imagery)" : "(hypsometric)");
   std::fflush(stderr);
   return globe_pass_.has_detail_surface();
 }
@@ -1339,7 +1353,7 @@ bool AtmosphereSession::prepare_globe() {
       maxy = 90.0;
     }
 
-    // Terrain / satellite equirect only when DEM is global — otherwise a
+    // Terrain / satellite equirect only when DEM is global �?otherwise a
     // full-earth PNG would be UV-mapped into the China window incorrectly.
     imagery_path = dem_looks_global ? vista::find_sample_global_imagery_path()
                                     : vista::find_sample_imagery_path();
@@ -1369,7 +1383,13 @@ bool AtmosphereSession::prepare_globe() {
                               rgba.empty() ? nullptr : rgba.data(), tw, th);
   {
     vista::GlobeDrawParams gp = globe_pass_.params();
-    gp.height_scale = 9.5e-6f;
+    // Amplify Earth radius so DEM skim clearance/R is small (near-flat).
+    // Space orbit parks at ~3.5 R (above china_detail load) for a readable
+    // full-sphere ocean-blue capture.
+    gp.radius = 2.0f;
+    gp.height_scale = 1.8e-6f;
+    gp.ambient = 0.48f;
+    gp.intensity = 0.38f;
     // Near-earth flythrough / China window: fine UV sphere for DEM slope.
     gp.lon_slices = dem_looks_global ? 384 : 320;
     gp.lat_slices = dem_looks_global ? 192 : 160;
@@ -1377,8 +1397,8 @@ bool AtmosphereSession::prepare_globe() {
   }
   if (dem_looks_global) {
     vista::SatCloudDrawParams sc = sat_cloud_pass_.params();
-    // Sit above exaggerated DEM peaks; keep thin so hillshade/relief reads.
-    sc.shell_radius = 1.12f;
+    // Sit just above mild DEM peaks on the sphere.
+    sc.shell_radius = 2.0f * 1.03f;
     sc.lon_slices = 128;
     sc.lat_slices = 64;
     sc.opacity = 0.38f;

@@ -15,12 +15,14 @@
 #include "gis/geo/ops/geometry_traits.h"
 #include "gis/geo/ops/indexed_tin.h"
 #include "plugin/product/world3d/commands.h"
-#include "plugin/product/world3d/scene/detail/contribute.h"
+#include "plugin/product/world3d/scene/detail/host.h"
 #include "plugin/product/world3d/scene/dem/present/surface.h"
+#include "plugin/runtime/host/capability/contribute.h"
 #include "plugin/product/world3d/scene/dem/loader/heightmap_loader.h"
 #include "plugin/product/world3d/scene/dem/loader/trimesh_loader.h"
 #include "plugin/product/world3d/scene/dem/dialog/heightmap_loader_dialog.h"
 #include "plugin/product/world3d/scene/dem/dialog/trimesh_loader_dialog.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
@@ -82,52 +84,6 @@ bool commit_surface(content::PluginHost* host, const OGRTriangulatedSurface& sur
   return true;
 }
 
-bool parse_args(std::string_view json, rapidjson::Document* out) {
-  if (!out) {
-    return false;
-  }
-  out->Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  return !out->HasParseError() && out->IsObject();
-}
-
-bool json_get_double(const rapidjson::Value& obj, const char* key, double* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
-    return false;
-  }
-  *out = it->value.GetDouble();
-  return true;
-}
-
-bool json_get_long(const rapidjson::Value& obj, const char* key, long* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
-    return false;
-  }
-  *out = it->value.GetInt64();
-  return true;
-}
-
-bool json_get_string(const rapidjson::Value& obj,
-                     const char* key,
-                     std::string* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsString()) {
-    return false;
-  }
-  *out = std::string(it->value.GetString(), it->value.GetStringLength());
-  return true;
-}
-
 int separator_from_name(std::string_view name) {
   if (name == "tab") {
     return ST_TAB;
@@ -140,50 +96,47 @@ int separator_from_name(std::string_view name) {
 
 bool trimesh_from_xyz(content::PluginHost* host, std::string_view args_json) {
   rapidjson::Document args;
-  if (!parse_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"world3d.trimesh_from_xyz\"}");
     return false;
   }
   std::string vertex_path;
-  if (!json_get_string(args, "vertex_path", &vertex_path) ||
+  if (!args_json_string(args, "vertex_path", &vertex_path) ||
       vertex_path.empty()) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"world3d.trimesh_from_xyz\"}");
     return false;
   }
 
   std::string separator = "space";
-  json_get_string(args, "separator", &separator);
-  long head_skip = 0;
-  long line_skip = 0;
-  long col_x = 0;
-  long col_y = 1;
-  long col_z = 2;
-  json_get_long(args, "head_skip", &head_skip);
-  json_get_long(args, "line_skip", &line_skip);
-  json_get_long(args, "col_x", &col_x);
-  json_get_long(args, "col_y", &col_y);
-  json_get_long(args, "col_z", &col_z);
+  args_json_string(args, "separator", &separator);
+  int head_skip = 0;
+  int line_skip = 0;
+  int col_x = 0;
+  int col_y = 1;
+  int col_z = 2;
+  (void)args_json_int(args, "head_skip", &head_skip);
+  (void)args_json_int(args, "line_skip", &line_skip);
+  (void)args_json_int(args, "col_x", &col_x);
+  (void)args_json_int(args, "col_y", &col_y);
+  (void)args_json_int(args, "col_z", &col_z);
 
   double x_scale = 0.05;
   double y_scale = 0.05;
   double z_scale = 0.05;
-  json_get_double(args, "x_scale", &x_scale);
-  json_get_double(args, "y_scale", &y_scale);
-  json_get_double(args, "z_scale", &z_scale);
+  args_json_double(args, "x_scale", &x_scale);
+  args_json_double(args, "y_scale", &y_scale);
+  args_json_double(args, "z_scale", &z_scale);
 
-  const int n_col =
-      std::max({static_cast<int>(col_x), static_cast<int>(col_y),
-                static_cast<int>(col_z)}) +
-      1;
+  const int n_col = std::max({col_x, col_y, col_z}) + 1;
 
   TrimeshFileFmt fmt;
   fmt.nSeparatorType = separator_from_name(separator);
   fmt.nCol = n_col;
-  fmt.iX = static_cast<int>(col_x);
-  fmt.iY = static_cast<int>(col_y);
-  fmt.iZ = static_cast<int>(col_z);
-  fmt.nHeadSkip = static_cast<int>(head_skip);
-  fmt.nLineSkip = static_cast<int>(line_skip);
+  fmt.iX = col_x;
+  fmt.iY = col_y;
+  fmt.iZ = col_z;
+  fmt.nHeadSkip = head_skip;
+  fmt.nLineSkip = line_skip;
 
   OGRTriangulatedSurface surface;
   const long rc =
@@ -209,13 +162,13 @@ bool trimesh_from_xyz(content::PluginHost* host, std::string_view args_json) {
 
 bool heightmap_from_raster(content::PluginHost* host, std::string_view args_json) {
   rapidjson::Document args;
-  if (!parse_args(args_json, &args)) {
+  if (!parse_args_json(args_json, &args)) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"world3d.heightmap_from_raster\"}");
     return false;
   }
   std::string heightmap_path;
-  if (!json_get_string(args, "heightmap_path", &heightmap_path) ||
+  if (!args_json_string(args, "heightmap_path", &heightmap_path) ||
       heightmap_path.empty()) {
     set_operation_result(
         "{\"error\":\"bad_args\",\"op\":\"world3d.heightmap_from_raster\"}");
@@ -229,12 +182,12 @@ bool heightmap_from_raster(content::PluginHost* host, std::string_view args_json
   double x_start = 0.0;
   double y_start = 0.0;
   double z_start = 0.0;
-  json_get_double(args, "x_scale", &x_scale);
-  json_get_double(args, "y_scale", &y_scale);
-  json_get_double(args, "z_scale", &z_scale);
-  json_get_double(args, "x_start", &x_start);
-  json_get_double(args, "y_start", &y_start);
-  json_get_double(args, "z_start", &z_start);
+  args_json_double(args, "x_scale", &x_scale);
+  args_json_double(args, "y_scale", &y_scale);
+  args_json_double(args, "z_scale", &z_scale);
+  args_json_double(args, "x_start", &x_start);
+  args_json_double(args, "y_start", &y_start);
+  args_json_double(args, "z_start", &z_start);
   options.x_scale = static_cast<float>(x_scale);
   options.y_scale = static_cast<float>(y_scale);
   options.z_scale = static_cast<float>(z_scale);
@@ -283,21 +236,23 @@ bool register_world3d_dem(content::PluginHost* host) {
   }
 
   if (!contribute_command_aliases(
-          host, {{"world3d.load_trimesh", "离散点生成DEM"}}, "tools",
+          host, kWorld3dPluginId, {{"world3d.load_trimesh", "离散点生成DEM"}},
+          "tools",
           [host](const tool::CommandArgs&) {
             return host->open_dialog("world3d.trimesh_loader");
           })) {
     return false;
   }
   if (!contribute_command_aliases(
-          host, {{"world3d.load_heightmap", "高度图生成DEM"}}, "tools",
+          host, kWorld3dPluginId,
+          {{"world3d.load_heightmap", "高度图生成DEM"}}, "tools",
           [host](const tool::CommandArgs&) {
             return host->open_dialog("world3d.heightmap_loader");
           })) {
     return false;
   }
   if (!contribute_command_aliases(
-          host, {{"world3d.about", "关于"}}, "tools",
+          host, kWorld3dPluginId, {{"world3d.about", "关于"}}, "tools",
           [host](const tool::CommandArgs&) {
             return host->open_dialog("world3d.about");
           })) {
@@ -333,12 +288,14 @@ bool register_world3d_dem(content::PluginHost* host) {
   }
 
   if (!contribute_processing_aliases(
-          host, {{"world3d.trimesh_from_xyz", "Trimesh from XYZ"}},
+          host, kWorld3dPluginId,
+          {{"world3d.trimesh_from_xyz", "Trimesh from XYZ"}},
           trimesh_from_xyz)) {
     return false;
   }
   return contribute_processing_aliases(
-      host, {{"world3d.heightmap_from_raster", "Heightmap from raster"}},
+      host, kWorld3dPluginId,
+      {{"world3d.heightmap_from_raster", "Heightmap from raster"}},
       heightmap_from_raster);
 }
 

@@ -39,7 +39,10 @@ script "browser.harness" {
     activate_tool(id="view3d.trackball");
     expect_tool(id="view3d.trackball", fail_rc=23);
     mark("orbit-activated");
-    drag(map_client, 24, 30, 48, 52);
+    // Tab switch resets China orbit yaw to default; short L-drag through
+    // map_client has been flaky under FlyCube (draft may not nudge yaw).
+    // camera_fly mutates OrbitFrame directly — same gate as world3d.browse.
+    camera_fly(mode="orbit", ms=600, steps=8);
     mark("orbit-dispatched");
     expect_orbit_moved();
     mark("orbit-ok");

@@ -4,11 +4,12 @@
 #include "plugin/product/stormsurge/scenario/register.h"
 
 #include "content/public/plugin_host.h"
+#include "plugin/product/stormsurge/commands.h"
 #include "plugin/product/stormsurge/scenario/interact.h"
 #include "plugin/product/stormsurge/scenario/run.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
-#include "plugin/runtime/host/capability/scenario.h"
-#include "plugin/runtime/host/capability/shell.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
+#include "plugin/runtime/host/capability/scenario_command.h"
+#include "plugin/runtime/host/capability/pack_ensure.h"
 #include "tool/command/command.h"
 
 namespace plugin {
@@ -16,16 +17,17 @@ namespace {
 
 constexpr const char* kPluginId = "smartgis.stormsurge";
 
-bool run_bound(content::PluginHost* host, int (*fn)(HarnessShell&)) {
-  HarnessShell* shell = harness_shell(host);
-  if (!shell || !fn) {
-    set_harness_scenario_exit(1);
-    return false;
-  }
-  detail::bind_plugin_scenario_shell(shell);
-  set_harness_scenario_exit(fn(*shell));
-  return harness_scenario_exit() == 0;
+bool ensure_stormsurge_pack(content::PluginHost* host) {
+  (void)register_stormsurge(host);
+  return register_stormsurge_scenario(host);
 }
+
+struct StormsurgeHarnessOnce {
+  StormsurgeHarnessOnce() {
+    register_stormsurge_interact_ops();
+    register_command_pack("stormsurge", ensure_stormsurge_pack);
+  }
+} k_stormsurge_harness_once;
 
 }  // namespace
 
@@ -34,26 +36,10 @@ int scenario_stormsurge(HarnessShell& browser) {
 }
 
 bool register_stormsurge_scenario(content::PluginHost* host) {
-  register_stormsurge_interact_verbs();
-  if (!host) {
-    return false;
-  }
-  if (tool::CommandCatalog* catalog = host->commands()) {
-    if (catalog->contains("stormsurge.scenario.showcase")) {
-      return true;
-    }
-  }
-  return host->contribute_command(
-      kPluginId, "stormsurge.scenario.showcase", "Stormsurge Scene3D showcase",
-      "tools", [host](const tool::CommandArgs&) {
-        return run_bound(host, scenario_stormsurge);
-      });
+  return contribute_scenario_command(
+      host, kPluginId, "stormsurge.scenario.showcase",
+      "Stormsurge Scene3D showcase", scenario_stormsurge,
+      detail::bind_plugin_scenario_shell);
 }
-
-namespace {
-struct StormsurgeInteractOnce {
-  StormsurgeInteractOnce() { register_stormsurge_interact_verbs(); }
-} k_stormsurge_interact_once;
-}  // namespace
 
 }  // namespace plugin

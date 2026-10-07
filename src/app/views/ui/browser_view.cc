@@ -679,8 +679,8 @@ void BrowserView::wire_catalog() {
             session, std::string("{\"op\":\"set_visible\",\"id\":\"") +
                          detail::json_escape(id) + "\",\"visible\":" +
                          (visible ? "true" : "false") + "}");
-        // Fingerprint includes visibility, but drop the published MapIR so the
-        // next present cannot StaticReuse a frame that still shows Land/jet.
+        // Visibility is in ContentFingerprint; presenter drops MapIR only when
+        // the hash moved (stale Land/jet must not StaticReuse).
         if (browser_->map2d()) {
           browser_->map2d()->invalidate_frame_cache();
         }

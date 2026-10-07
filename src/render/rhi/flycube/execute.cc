@@ -52,10 +52,14 @@ void FlycubeDevice::replay_draws(::CommandList* fc_list, const Pass& segment,
               ok, skip, segment.draws.size(), width_, height_);
     }
   }
-  if (skip > 0 && !pass_has_depth) {
+  // Depth skips used to be silent after the first ok frame — that hid globe
+  // PSO/binding failures behind a sky-only clear.
+  if (skip > 0) {
     LOGGING(LOG_WARNING,
-            "rhi.flycube replay_draws skip=%u ok=%u pass_depth=0 draws=%zu",
-            skip, ok, segment.draws.size());
+            "rhi.flycube replay_draws skip=%u ok=%u pass_depth=%d draws=%zu "
+            "size=%ux%u",
+            skip, ok, pass_has_depth ? 1 : 0, segment.draws.size(), width_,
+            height_);
   }
 }
 

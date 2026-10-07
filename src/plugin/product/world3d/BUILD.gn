@@ -59,7 +59,6 @@ source_set("world3d_hexgrid") {
   sources = [
     "scene/hexgrid/register.cc",
     "scene/hexgrid/register.h",
-    "scene/detail/contribute.h",
     "scene/hexgrid/present/mesh.cc",
     "scene/hexgrid/present/mesh.h",
     "scene/hexgrid/solve/boundary_solve.cc",
@@ -112,7 +111,6 @@ source_set("world3d_orthogrid") {
     "scene/orthogrid/present/mesh.h",
     "scene/orthogrid/session/session.cc",
     "scene/orthogrid/session/session.h",
-    "scene/detail/contribute.h",
     "scene/orthogrid/solve/boundary_solve.cc",
     "scene/orthogrid/solve/boundary_solve.h",
   ]
@@ -143,7 +141,6 @@ source_set("world3d_dem_commands") {
     "scene/dem/dialog/heightmap_loader_dialog.h",
     "scene/dem/dialog/trimesh_loader_dialog.cc",
     "scene/dem/dialog/trimesh_loader_dialog.h",
-    "scene/detail/contribute.h",
   ]
   include_dirs += [
     ".",
@@ -167,7 +164,6 @@ source_set("world3d_earth_commands") {
   sources = [
     "scene/earth/register.cc",
     "scene/earth/register.h",
-    "scene/detail/contribute.h",
   ]
   include_dirs += [
     ".",
@@ -185,7 +181,6 @@ source_set("world3d_model_commands") {
   sources = [
     "scene/model/register.cc",
     "scene/model/register.h",
-    "scene/detail/contribute.h",
   ]
   include_dirs += [
     ".",
@@ -203,7 +198,6 @@ source_set("world3d_pointcloud_commands") {
   sources = [
     "scene/pointcloud/register.cc",
     "scene/pointcloud/register.h",
-    "scene/detail/contribute.h",
   ]
   include_dirs += [
     ".",
@@ -223,15 +217,16 @@ source_set("world3d_views") {
   sources = [
     "commands.cc",
     "commands.h",
-    "scene/detail/contribute.h",
     "scene/dem/present/surface.cc",
     "scene/dem/present/surface.h",
     "scene/atmosphere/panel.cc",
     "scene/atmosphere/panel.h",
     "scene/detail/host.cc",
     "scene/detail/host.h",
-    "scene/detail/json.cc",
-    "scene/detail/json.h",
+    "scene/earth/tiles.cc",
+    "scene/earth/tiles.h",
+    "scene/pointcloud/overlay.cc",
+    "scene/pointcloud/overlay.h",
     "scene/pointcloud/present.cc",
     "scene/pointcloud/present.h",
     "scene/present/contour.cc",
@@ -299,14 +294,13 @@ source_set("world3d_harness_atmosphere") {
     "scenario/atmosphere/seed/legacy_seed.h",
     "scenario/atmosphere/common/linger.cc",
     "scenario/atmosphere/common/linger.h",
+    "scenario/atmosphere/mode.h",
     "scenario/atmosphere/seed/mode_seed.cc",
     "scenario/atmosphere/seed/mode_seed.h",
     "scenario/atmosphere/present/present_linger.cc",
     "scenario/atmosphere/present/present_linger.h",
     "scenario/atmosphere/present/present_run.cc",
     "scenario/atmosphere/present/present_run.h",
-    "scenario/atmosphere/common/progress.cc",
-    "scenario/atmosphere/common/progress.h",
     "scenario/atmosphere/session/session_finish.cc",
     "scenario/atmosphere/session/session_finish.h",
   ]
@@ -338,8 +332,6 @@ source_set("world3d_harness") {
     "scenario/capture/capture.h",
     "scenario/capture/map2d_export.cc",
     "scenario/capture/map2d_export.h",
-    "scenario/common/plugin_io.cc",
-    "scenario/common/plugin_io.h",
     "scenario/common/host_rhi.h",
     "scenario/interact.cc",
     "scenario/interact.h",

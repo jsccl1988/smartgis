@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cwchar>
 #include <vector>
 
 #include "plugin/runtime/host/capability/shell.h"
@@ -17,7 +18,7 @@
 #include "plugin/product/world3d/scenario/capture/map2d_export.h"
 #include "plugin/product/world3d/scenario/session/device_session.h"
 #include "plugin/product/world3d/scenario/seed/orbit_seed.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scenario/present/present_warmup.h"
 #include "plugin/product/stormsurge/scenario/seed.h"
 #include "app/views/util/exe_sidecar_path.h"
@@ -54,7 +55,8 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
   opts.require_scene_hwnd = true;
   opts.detach_flycube = false;
   opts.allow_null_without_hwnd = false;
-  // Keep shell borrow (select_map_tab). Skipping it AVd in attach (0xC0000414).
+  // Keep shell borrow + select_map_tab (skipping select → device-missing).
+  opts.borrow_shell_scene3d = true;
 
   PluginDeviceSession session;
   if (const int rc = prepare_plugin_device_session(browser, opts, &session)) {
@@ -136,26 +138,60 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
     return rc;
   }
 
-  // Mid-series frame: last processing commit is max tide (full-pad cyan).
-  // Frame 2 of 8 keeps a wet TIN without drowning every DEM hill.
-  if (browser.apply_plugin_frame(2)) {
+  // Precipitation-driven inundation scrub: frame i ≈ rising rain / water level.
+  // Capture a short sequence so the wet mask growth is reviewable; hero BMP is
+  // the last successful frame (max precip in the seed surge_levels ramp).
+  constexpr int kAnimFrames = 8;
+  int anim_ok = 0;
+  int last_ok = -1;
+  for (int i = 0; i < kAnimFrames; ++i) {
+    if (!browser.apply_plugin_frame(i)) {
+      continue;
+    }
     browser.pump(50);
+    wchar_t leaf[96] = {};
+    swprintf_s(leaf, L"plugin-showcase-stormsurge-f%02d.bmp", i);
+    PluginCaptureOpts frame_cap;
+    frame_cap.bmp_leaf = leaf;
+    frame_cap.pre_capture_pump_ms = 40;
+    frame_cap.retry_dark_frame = false;
+    if (capture_plugin_hwnd_bmp(cam, &session, frame_cap)) {
+      ++anim_ok;
+      last_ok = i;
+    }
+  }
+  if (anim_ok >= 3) {
+    plugin_mark("precip-anim-ok");
     plugin_mark("playback-water-tin");
-  } else if (browser.apply_plugin_frame(0)) {
-    browser.pump(50);
-    plugin_mark("playback-frame2-fail");
+  } else if (last_ok >= 0 || browser.apply_plugin_frame(kAnimFrames - 1) ||
+             browser.apply_plugin_frame(5) || browser.apply_plugin_frame(2) ||
+             browser.apply_plugin_frame(0)) {
+    browser.pump(60);
     plugin_mark("playback-water-tin");
+    if (anim_ok > 0) {
+      plugin_mark("precip-anim-partial");
+    } else {
+      plugin_mark("precip-anim-skip");
+    }
   } else {
     plugin_mark("playback-frame0-fail");
     if (cam->gpu().overlay_tin_has_albedo()) {
       plugin_mark("playback-water-tin");
     }
+    plugin_mark("precip-anim-skip");
   }
+  if (last_ok >= 0) {
+    (void)browser.apply_plugin_frame(last_ok);
+    browser.pump(80);
+  }
+  cam->gpu().set_wireframe_enabled(false);
+  plugin_mark("surface-grid-hairline");
   disable_plugin_atmosphere(cam);
 
   PluginCaptureOpts capture;
   capture.bmp_leaf = L"plugin-showcase-stormsurge.bmp";
   capture.retry_dark_frame = true;
+  capture.pre_capture_pump_ms = 80;
   const bool bmp_ok = capture_plugin_hwnd_bmp(cam, &session, capture);
 
   plugin_mark("tab3d-horizon");

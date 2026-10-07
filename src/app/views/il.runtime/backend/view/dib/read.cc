@@ -76,19 +76,32 @@ bool capture_hwnd_bmp(HWND hwnd,
     }
 
     const int attempts = opts.max_attempts < 1 ? 1 : opts.max_attempts;
+    // Raise flip present HWND above shell chrome so CAPTUREBLT sees DXGI,
+    // not a partially occluded clear. Restore z-order after attempts.
+    const bool raised =
+        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE) !=
+        FALSE;
     for (int attempt = 0; attempt < attempts; ++attempt) {
       pump_redraw(hwnd, opts, attempt);
+      // DXGI flip-model swapchains often make PrintWindow return only the
+      // render-pass clear (solid sky). Prefer a desktop BitBlt of the
+      // DWM-composited HWND, then fall back to PrintWindow.
+      if (client.blit_screen()) {
+        got = client.read(&pixels, &header);
+        if (frame_passes(pixels, got, width, height, opts)) {
+          break;
+        }
+      }
       client.print_window();
       got = client.read(&pixels, &header);
       if (frame_passes(pixels, got, width, height, opts)) {
         break;
       }
-      if (client.blit_screen()) {
-        got = client.read(&pixels, &header);
-      }
-      if (frame_passes(pixels, got, width, height, opts)) {
-        break;
-      }
+    }
+    if (raised) {
+      SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
 
     if (opts.dst_w >= 8 && opts.dst_h >= 8 &&

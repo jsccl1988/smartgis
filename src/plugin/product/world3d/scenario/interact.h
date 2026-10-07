@@ -6,9 +6,12 @@
 
 namespace plugin {
 
-// Registers Interact verbs `atmosphere_run` (default full), `world3d_run`
-// (Scene3D globe suite), `orthogrid3d_run`, and `orthogrid_run` (Map2d baogrid).
-void register_world3d_interact_verbs();
+// DLL-init hook for world3d Interact scenario_op registration.
+// Currently a no-op: harness IL calls run_plugin_command with command ids
+// (world3d.scenario.atmosphere.* / world3d.scenario.showcase /
+// orthogrid{,3d}.scenario.showcase) instead of atmosphere_run / world3d_run /
+// orthogrid*_run aliases.
+void register_world3d_interact_ops();
 
 }  // namespace plugin
 

@@ -6,7 +6,7 @@
 #include "content/public/plugin_host.h"
 #include "plugin/product/map2d/print/register.h"
 #include "plugin/product/map2d/seed/seed.h"
-#include "plugin/product/map2d/verbs.h"
+#include "plugin/product/map2d/ops.h"
 #include "tool/command/command.h"
 
 namespace plugin {
@@ -46,7 +46,7 @@ bool register_map2d(content::PluginHost* host) {
           !detail::contribute_print(host)) {
         return false;
       }
-      return register_map2d_sink_verbs(host);
+      return register_map2d_sink_ops(host);
     }
   }
   if (!register_map2d_seed(host)) {
@@ -62,7 +62,7 @@ bool register_map2d(content::PluginHost* host) {
              kPluginId, {"map2d_china", 80.0, 20.0, 128.0, 53.5}) &&
          host->contribute_export_frame(
              kPluginId, {"map2d_orthogrid", 0.0, 0.0, 1.0, 1.0}) &&
-         register_map2d_sink_verbs(host);
+         register_map2d_sink_ops(host);
 }
 
 }  // namespace plugin

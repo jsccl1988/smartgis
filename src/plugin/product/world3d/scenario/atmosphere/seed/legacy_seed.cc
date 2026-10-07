@@ -3,17 +3,15 @@
 
 #include "plugin/product/world3d/scenario/atmosphere/seed/legacy_seed.h"
 
-#include "plugin/runtime/host/capability/shell.h"
-#include "plugin/product/world3d/scenario/atmosphere/common/progress.h"
-#include "content/browser/camera/orbit_frame.h"
+#include <cstdio>
+#include <windows.h>
+
+#include "base/process/switches.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scene/look/look.h"
-
-#include <cstdio>
-#include <cstdlib>
-#include <windows.h>
-#include "base/process/switches.h"
+#include "plugin/runtime/host/capability/shell.h"
 
 namespace plugin {
 namespace detail {
@@ -80,19 +78,18 @@ int seed_atmosphere_legacy_mode(HarnessShell& browser,
     return 50;
   }
   atmosphere_mark("look-legacy");
-  if (cam->look_preset() != content::Scene3dLookPreset::kLegacyStereo) {
-    std::fprintf(stderr, "atmosphere-showcase: look preset not legacy\n");
+  // GPU showcase: ensure_legacy_overlays under a live FlyCube HWND has AVd
+  // (present SEH / ExitProcess -1). Labels composite onto the BMP after
+  // present — same skip as apply_china_scene3d_legacy_look.
+  if (skip_china_open) {
+    atmosphere_mark("labels-skip-gpu");
+  } else if (!plugin::ensure_world3d_legacy_overlays(cam)) {
     return 53;
+  } else {
+    atmosphere_mark("labels-ok");
   }
-  // CPU label list only (no GPU attach). Must run before the count gate —
-  // apply_china may skip overlays under ATMOSPHERE_SHOWCASE_GPU=1.
-  (void)cam->ensure_legacy_overlays();
-  if (cam->gpu().legacy_label_count() < 8) {
-    std::fprintf(stderr, "atmosphere-showcase: legacy labels missing\n");
-    return 53;
-  }
-  atmosphere_mark("labels-ok");
-  if (cam->gpu().has_legacy_coast_vectors()) {
+  // Out-of-line Presenter accessor (avoid inline cam->gpu() sizeof skew).
+  if (cam->has_legacy_coast_vectors()) {
     atmosphere_mark("coast-doc-ok");
   } else {
     atmosphere_mark("coast-doc-skip");

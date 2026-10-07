@@ -5,9 +5,11 @@ All rights reserved.
 
 # `src/vista/component/world`
 
-CPU world graph: `World` / `Node` and the frame IR `Instance`. No RHI.
-Compiled into `vista.dll` (`//src/vista/component/world:world_sources`).
-`assert_no_deps` `//src/render:render`. Device upload is `vista/pass/world`.
+CPU world graph: `World` / `Node` and the frame IR `Instance`, plus nested
+atmosphere session IR. No RHI. Compiled into `vista.dll`
+(`//src/vista/component/world:world_sources` + `:session_sources` +
+`:atmosphere_cpu_sources`). `assert_no_deps` `//src/render:render`. Device
+upload is `vista/pass/world` (including `pass/world/atmosphere`).
 
 Living lock: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md)
 **§Vista world component layers**. Diagram:
@@ -24,6 +26,7 @@ Living lock: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](..
 | `instance/` | Fill `Instance`: node copy (`sync`), lit-PSO policy (`pipelines`), paint (`paint`), vector tess (`tessellate`), per-`NodeKind` dispatch (`kind`). |
 | `pointcloud/` | Chunk buckets and point LOD on a node. |
 | `terrain/` | `TerrainPayload`, LOD policy, nested grid, seed by source. |
+| `atmosphere/` | CPU `Environment` / `FieldStore` / ocean·cloud·contour (see `atmosphere/README.md`). |
 
 `space/` does not include `instance/`. `instance/` does not include `space/`.
 Inside `instance/`, `kind` → `tessellate` → `paint`.
@@ -34,7 +37,8 @@ Public namespaces stay `vista` / `vista::detail`. No forwarding headers at the
 old flat `space/*.h` cull/index paths, or at retired `coord/` / `cull/` /
 `index/` / `mirror/` world roots.
 
-Tests: `world_test`, `seed_tin_test`, `pointcloud_test`.
+Tests: `world_test`, `seed_tin_test`, `pointcloud_test`, plus atmosphere
+`field_*` / `*_system_test` / `environment_test` / `contour_sheet_test`.
 
 ---
 

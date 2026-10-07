@@ -10,12 +10,10 @@
 namespace content {
 
 // Plugin lane. Mirrors PluginHost: commands, processing, playback, reports,
-// and path resolution the shell fills for harness scripts.
+// and path resolution the shell fills for harness scripts. Product scenario
+// mode ops (map2d_run / atmosphere_run / …) live in
+// plugin::register_scenario_op — not as Host slots.
 struct PluginCapability {
-  // |mode|: "china" | "align" | "orthogrid"
-  std::function<bool(const std::string& mode)> map2d_run;
-  // |mode|: "land" | "ocean" | "full" | "coast"
-  std::function<bool(const std::string& mode)> atmosphere_run;
   // Product scenario command id (e.g. mine.scenario.run).
   std::function<bool(const std::string& command_id)> run_plugin_command;
   // Plugin ProcessingPool: id + JSON args (empty object ok).

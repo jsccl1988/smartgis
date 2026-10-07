@@ -4,7 +4,7 @@
 #ifndef PLUGIN_PRODUCT_WORLD3D_SCENARIO_ATMOSPHERE_MODE_SEED_H_
 #define PLUGIN_PRODUCT_WORLD3D_SCENARIO_ATMOSPHERE_MODE_SEED_H_
 
-#include "app/views/app/cmdline/views_launch_options.h"
+#include "plugin/product/world3d/scenario/atmosphere/mode.h"
 
 namespace content {
 class OrbitFrame;
@@ -16,8 +16,6 @@ namespace plugin {
 class HarnessShell;
 
 namespace detail {
-
-using AtmosphereShowcaseMode = ::app::AtmosphereShowcaseMode;
 
 // Outputs from seeding orbit / atmosphere session for a showcase mode.
 struct AtmosphereModeSeed {

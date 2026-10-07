@@ -147,16 +147,25 @@ void Scene3dOverlays::attach_pointcloud(vista::World* world,
                                         const OrbitGeoFrame& geo,
                                         const std::vector<float>& local_xyz,
                                         size_t dem_xyz_count, bool force) {
-  if (!world || xyz_geo_.empty() || !geo.valid) {
+  if (!world || !geo.valid) {
     return;
   }
   const size_t n = xyz_geo_.size() / 3;
   if (n == 0) {
+    // clear_pointcloud leaves dirty=true; drop the World node once and clear
+    // dirty so warm presents stop passing force via the dirty OR.
+    if (force || pointcloud_dirty_) {
+      remove_named_nodes(world, vista::NodeKind::kPointCloud,
+                         "overlay_pointcloud");
+      pointcloud_dirty_ = false;
+    }
     return;
   }
+  // Warm: skip remove/reattach when payload is clean and the node is live.
+  // force (DEM rebuild) always reprojects into the new orbit frame.
   if (!force && !pointcloud_dirty_ &&
       has_named_node(world, vista::NodeKind::kPointCloud,
-                    "overlay_pointcloud")) {
+                     "overlay_pointcloud")) {
     return;
   }
   remove_named_nodes(world, vista::NodeKind::kPointCloud, "overlay_pointcloud");
@@ -219,18 +228,39 @@ void Scene3dOverlays::attach_tin(vista::World* world, const OrbitGeoFrame& geo,
                                  std::vector<unsigned>* local_idx,
                                  size_t dem_xyz_count, size_t dem_idx_count,
                                  bool force) {
-  if (!world || !local_xyz || !local_idx || tin_xyz_geo_.empty() ||
-      tin_idx_.empty() || !geo.valid) {
+  if (!world || !local_xyz || !local_idx || !geo.valid) {
     return;
   }
   const size_t n = tin_xyz_geo_.size() / 3;
-  if (n < 3) {
+  if (n < 3 || tin_idx_.empty()) {
+    // clear_tin leaves dirty=true; remove the World node once so warm frames
+    // do not keep force=true via tin_dirty_ with an empty payload.
+    if (force || tin_dirty_) {
+      remove_named_nodes(world, vista::NodeKind::kTerrain, "overlay_tin");
+      remove_named_nodes(world, vista::NodeKind::kPointCloud,
+                         "overlay_tin_markers");
+      if (local_xyz->size() > dem_xyz_count) {
+        local_xyz->resize(dem_xyz_count);
+      }
+      if (local_idx->size() > dem_idx_count) {
+        local_idx->resize(dem_idx_count);
+      }
+      tin_dirty_ = false;
+    }
     return;
   }
-  if (dem_xyz_count < 9) {
+  // Studio overlays (mine lithology / hex FE / stormsurge water) are authored
+  // after abandon_mesh(); allow attach without a DEM apron. Contour sheets and
+  // bare TINs still wait for china_dem verts.
+  const bool studio_payload =
+      tin_has_albedo_ ||
+      (tin_tex_w_ >= 8 && tin_tex_h_ >= 8 && !tin_tex_.empty() &&
+       tin_uv_.size() == n * 2u);
+  if (dem_xyz_count < 9 && !studio_payload) {
     tin_dirty_ = true;
     return;
   }
+  // Warm: keep the live overlay_tin node when payload is clean.
   if (!force && !tin_dirty_ &&
       has_named_node(world, vista::NodeKind::kTerrain, "overlay_tin")) {
     return;
@@ -340,8 +370,13 @@ void Scene3dOverlays::attach_tin(vista::World* world, const OrbitGeoFrame& geo,
   const bool water_albedo =
       tin_has_albedo_ && tin_albedo_[2] >= 140 && tin_albedo_[1] >= 100 &&
       tin_albedo_[0] < 90 && tin_albedo_[2] > tin_albedo_[0] + 40;
-  // Fit the authored FE hex volume (outer faces + grid ribbons + zone UVs)
-  // into a studio AABB. Preserves topology — do not replace with a 6-face toy.
+  // Clay / lithology volumes (mine cutaway) — not contour periwinkle sheets.
+  const bool mine_like =
+      tin_has_albedo_ && tin_albedo_[0] >= 80 && tin_albedo_[1] >= 40 &&
+      tin_albedo_[2] >= 40 && tin_albedo_[2] < 140 &&
+      !(tin_albedo_[0] >= 180 && tin_albedo_[1] >= 190 && tin_albedo_[2] >= 230);
+  // Fit the authored FE hex / lithology volume (faces + atlas UVs) into a
+  // studio AABB. Preserves topology — do not replace with a 6-face toy.
   auto fit_hex_fe_volume_to_studio = [&]() {
     constexpr float kSpan = 2.55f;
     constexpr float kSlab = 1.90f;
@@ -469,25 +504,41 @@ void Scene3dOverlays::attach_tin(vista::World* world, const OrbitGeoFrame& geo,
     mx_y = y1;
   };
 
-  if (hex_albedo && volume_drape) {
-    // Keep quarry FE mesh + zone atlas + edge ribbons (finite-element look).
+  if (volume_drape && (hex_albedo || mine_like)) {
+    // Keep quarry FE / lithology mesh + atlas (not DEM-roof thin sheet).
     fit_hex_fe_volume_to_studio();
+    const char* fe_kind = hex_albedo ? "hex_fe" : "lithology_fe";
     LOGGING(LOG_INFO,
-            "scene3d.present hex_fe verts=%zu idx=%zu "
+            "scene3d.present %s verts=%zu idx=%zu "
             "out_xz=[%.3f,%.3f]x[%.3f,%.3f] out_y=[%.3f,%.3f]",
-            orbit_xyz.size() / 3u, orbit_idx.size(), mn_x, mx_x, mn_z, mx_z,
-            mn_y, mx_y);
-  } else if (hex_albedo && dem_aabb) {
+            fe_kind, static_cast<size_t>(orbit_xyz.size() / 3u),
+            static_cast<size_t>(orbit_idx.size()), static_cast<double>(mn_x),
+            static_cast<double>(mx_x), static_cast<double>(mn_z),
+            static_cast<double>(mx_z), static_cast<double>(mn_y),
+            static_cast<double>(mx_y));
+  } else if ((hex_albedo || mine_like) && dem_aabb) {
+    // No zone atlas (tin-sheet fallback): closed studio box so mine/hex still
+    // read as a volume under China-scale geo_frame (not a DEM-roof speck).
     rebuild_hex_studio_box();
     LOGGING(LOG_INFO,
-            "scene3d.present hex_studio dem_xz=[%.3f,%.3f]x[%.3f,%.3f] "
+            "scene3d.present %s_studio dem_xz=[%.3f,%.3f]x[%.3f,%.3f] "
             "out_xz=[%.3f,%.3f]x[%.3f,%.3f] out_y=[%.3f,%.3f] verts=%zu",
-            dem_min_x, dem_max_x, dem_min_z, dem_max_z, mn_x, mx_x, mn_z,
-            mx_z, mn_y, mx_y, orbit_xyz.size() / 3u);
-  } else if (volume_drape && dem_aabb) {
+            mine_like ? "lithology" : "hex", dem_min_x, dem_max_x, dem_min_z,
+            dem_max_z, mn_x, mx_x, mn_z, mx_z, mn_y, mx_y,
+            orbit_xyz.size() / 3u);
+  } else if (hex_albedo || mine_like) {
+    rebuild_hex_studio_box();
+    LOGGING(LOG_INFO,
+            "scene3d.present %s_studio_no_dem "
+            "out_xz=[%.3f,%.3f]x[%.3f,%.3f] out_y=[%.3f,%.3f] verts=%zu",
+            mine_like ? "lithology" : "hex", mn_x, mx_x, mn_z, mx_z, mn_y, mx_y,
+            orbit_xyz.size() / 3u);
+  } else if (volume_drape && dem_aabb && !water_albedo) {
     // Contour jet sheet (world3d periwinkle albedo ≈ 210/220/255/a≤200):
     // DEM China orbit Y span ≈ 0.3 after fit_vertical_exaggeration. The old
     // 1.05–1.65 slab made field undulation read as cliffs; keep a soft lift.
+    // Stormsurge cyan water keeps the DEM-follow branch below even when a
+    // zone atlas makes volume_drape true (else water shrinks to a cyan tip).
     const bool contour_sheet =
         tin_has_albedo_ && tin_albedo_[2] >= 230 && tin_albedo_[1] >= 190 &&
         tin_albedo_[0] >= 180 && tin_albedo_[0] <= tin_albedo_[2] &&
@@ -507,7 +558,8 @@ void Scene3dOverlays::attach_tin(vista::World* world, const OrbitGeoFrame& geo,
   } else if ((hex_albedo || water_albedo) && dem_aabb) {
     constexpr int kBins = 48;
     constexpr float kSurfEps = 0.045f;
-    const float water_eps = water_albedo ? 0.07f : kSurfEps;
+    // Lift free-surface above DEM so cyan reads in HWND captures.
+    const float water_eps = water_albedo ? 0.14f : kSurfEps;
     const float dx = (std::max)(dem_max_x - dem_min_x, 1.0e-4f);
     const float dz = (std::max)(dem_max_z - dem_min_z, 1.0e-4f);
     const size_t nbin = static_cast<size_t>(kBins) * static_cast<size_t>(kBins);

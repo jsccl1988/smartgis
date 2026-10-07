@@ -69,6 +69,12 @@ void Map2dPresenter::bind(const MapScene* scene, const ViewFrame* frame) {
 }
 
 void Map2dPresenter::invalidate_frame_cache() {
+  // Invariant: visibility / style / feature edits change ContentFingerprint and
+  // must still drop the published MapIR here. Extent / pan / fly must not —
+  // prepare_for_present already keys camera separately (InteractiveReuse).
+  if (!cache_.content_differs_from_cache()) {
+    return;
+  }
   gpu_.invalidate_frame_cache();
   software_.invalidate_present_cache();
 }

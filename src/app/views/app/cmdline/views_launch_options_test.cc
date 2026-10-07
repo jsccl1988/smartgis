@@ -50,8 +50,13 @@ int main() {
   }
   {
     auto o = parse_vec({L"SmartGIS.exe", L"--plugin-showcase=flood"});
-    expect(o.ok && o.scenario_id.empty(),
-           "plugin-showcase extra ignored (plugin.json owns scenario)");
+    expect(o.ok && o.scenario_id == "plugin.flood",
+           "plugin-showcase=flood → plugin.flood");
+  }
+  {
+    auto o = parse_vec({L"SmartGIS.exe", L"--plugin-showcase=world3d"});
+    expect(o.ok && o.scenario_id == "plugin.world3d",
+           "plugin-showcase=world3d → plugin.world3d");
   }
   {
     auto o = parse_vec({L"SmartGIS.exe", L"--harness"});

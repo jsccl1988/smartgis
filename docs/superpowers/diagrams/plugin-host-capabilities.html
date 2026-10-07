@@ -82,13 +82,15 @@ All rights reserved.
         <h3>plugin_host.dll + chrome</h3>
         <p>表：<code>plugin/runtime/host/capability/capability.h</code>（<code>HostCapabilities::attach</code>）</p>
         <p>门面：<code>scene3d_sink.h</code> · <code>map2d_sink.h</code> · <code>report_bridge.h</code> · <code>shell_ui.h</code> · <code>shell.h</code>（HarnessShell）与 <code>capability.h</code> 同级</p>
+        <p>共享：<code>contribute.h</code> · <code>scenario_command.h</code> · <code>scenario_shell</code>（TLS binder / mark / path）· <code>pack_ensure</code> · <code>scenario</code>（command/mode op）· <code>args_json</code> · <code>reexport_file</code> · <code>contribute_index</code></p>
         <p>池：<code>processing/processing.h</code> → <code>plugin.processing_pool</code></p>
         <p>插件对话框 <code>wrap_with_present_surface</code> 附带 Debug / Inspect / Trace 条</p>
       </div>
       <div class="lane gpu">
         <h3>产品包</h3>
         <p><code>plugin::scene3d_sink(host)</code> / <code>map2d_sink(host)</code> / <code>report_bridge(host)</code> / <code>shell_ui(host)</code></p>
-        <p>world3d 贡献 dock <code>world3d.atmosphere</code>；map2d 用门面做框选 / 呈现 / 导出；mine / stormsurge 只依赖门面或 <code>contribute_command</code>，不出现在 content 公共头</p>
+        <p>产品只保留差异：mode 表、算法、present；注册样板走 host helper，不拷贝 <code>run_bound</code> / 文件导出</p>
+        <p>world3d 贡献 dock <code>world3d.atmosphere</code>；map2d 用门面做框选 / 呈现 / 导出；mine / stormsurge 只依赖门面，不出现在 content 公共头</p>
       </div>
     </div>
   </section>
@@ -100,7 +102,7 @@ All rights reserved.
       <span class="arrow">→</span>
       <div class="step"><strong>2</strong>chrome 安装 bridges（earth / look / map2d view·look·present / report / ui.shell）</div>
       <span class="arrow">→</span>
-      <div class="step"><strong>3</strong>产品 <code>contribute_command</code> + dock（Atmosphere）+ processing 按 id 查询门面</div>
+      <div class="step"><strong>3</strong>产品 <code>contribute_*</code> / <code>register_scenario_*_op</code> + dock + processing；按 id 查门面</div>
       <span class="arrow">→</span>
       <div class="step"><strong>4</strong>harness 发布 <code>app.views.self_test</code> 后 <code>execute</code></div>
       <span class="arrow">→</span>

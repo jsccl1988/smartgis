@@ -3,20 +3,20 @@
   "name": "flood_mask",
   "layers": [
     {"id":"bg","type":"background",
-     "paint":{"background-color":"#f5f3e9","background-opacity":1}},
+     "paint":{"background-color":"#dce8f0","background-opacity":1}},
     {"id":"terrain","type":"fill","source-layer":"flood_terrain",
      "paint":{
        "fill-color":["interpolate",["linear"],["get","heat"],
-         0,"#c8e6c9",35,"#a5d6a7",55,"#81c784",75,"#66bb6a",100,"#4caf50"],
-       "fill-opacity":0.72}},
+         0,"#e8e0c8",35,"#d4c9a8",55,"#c4b896",75,"#b0a47a",100,"#9a8f68"],
+       "fill-opacity":0.88}},
     {"id":"terrain_edge","type":"line","source-layer":"flood_terrain",
-     "paint":{"line-color":"#2e7d32","line-width":0.45,"line-opacity":0.35}},
+     "paint":{"line-color":"#6b6350","line-width":0.55,"line-opacity":0.45}},
     {"id":"flood_cells","type":"fill","source-layer":"flood_mask",
      "paint":{
        "fill-color":["interpolate",["linear"],["get","heat"],
-         0,"#90caf9",25,"#64b5f6",50,"#42a5f5",75,"#2196f3",100,"#1e88e5"],
-       "fill-opacity":0.78}},
+         0,"#7eb8e8",25,"#4a9fd8",50,"#2b87c9",75,"#1a6fb0",100,"#0d5694"],
+       "fill-opacity":0.82}},
     {"id":"flood_edge","type":"line","source-layer":"flood_mask",
-     "paint":{"line-color":"#1565c0","line-width":1.2}}
+     "paint":{"line-color":"#0a4a7a","line-width":1.35}}
   ]
 }

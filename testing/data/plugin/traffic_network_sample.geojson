@@ -1,7 +1,7 @@
 {
   "type": "FeatureCollection",
   "name": "traffic_network_sample",
-  "description": "Mid-complexity Beijing schematic arterial/collector lattice for traffic.cost_path.",
+  "description": "Mid-complexity Beijing schematic arterial/collector lattice for traffic.cost_path. Showcase OD prefers China RHT rightmost (south then east arterials) among near-least-cost L routes.",
   "crs": {
     "type": "name",
     "properties": {
@@ -73,7 +73,7 @@
           ],
           [
             116.452,
-            39.870799999999996
+            39.87
           ]
         ]
       }

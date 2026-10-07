@@ -40,9 +40,9 @@ All rights reserved.
 | 今天 | 终局 | 命名空间 | 链接 |
 | --- | --- | --- | --- |
 | `src/render/map2d`（`Pass`、`MapEffect`、glyph、`detail`） | `src/vista/component/map` | `effect::map`（内部 `effect::map::detail`） | `//src/vista/component/map:map_sources` |
-| `src/render/atmosphere`（ocean / cloud / sky / fog、`AtmosphereFrame`、大气 Effect） | `src/vista/component/atmosphere` | `effect::atmosphere`（内部 `effect::atmosphere::detail`） | `//src/vista/component/atmosphere:atmosphere_sources` |
+| `src/render/atmosphere`（ocean / cloud / sky / fog、`AtmosphereFrame`、大气 Effect） | `src/vista/component/world/atmosphere` | `effect::atmosphere`（内部 `effect::atmosphere::detail`） | `//src/vista/component/world:atmosphere_sources` |
 
-Include：`vista/component/map/pass.h`、`vista/component/atmosphere/frame/atmosphere_effects.h`。`src/render/` 下不留转发头。
+Include：`vista/component/map/pass.h`、`vista/component/world/atmosphere/frame/atmosphere_effects.h`。`src/render/` 下不留转发头。
 
 它们是 `source_set`，不是新 DLL。`//src/render:render` 不编译这些源文件，也不 `deps` 它们。调用方自己依赖：`src/app/views` 的 `MapScene`、`Scene3dController` 及其测试。`frame_graph_test` 仍依赖 `//src/render:render`；只有构造 `MapEffect` 的测试再依赖 `//src/vista/component/map`。
 

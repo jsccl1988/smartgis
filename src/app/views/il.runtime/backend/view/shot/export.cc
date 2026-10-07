@@ -26,6 +26,8 @@
 #define NOMINMAX
 #endif
 #include <algorithm>
+#include <cstdlib>
+#include <cstring>
 #include <windows.h>
 
 namespace app {
@@ -39,12 +41,22 @@ bool resolve_export_frame(Browser& browser, const std::string& frame) {
   if (!vf) {
     return false;
   }
+  auto dim = [](const char* key, int fallback, int lo, int hi) {
+    const char* raw = std::getenv(key);
+    if (!raw || !raw[0]) {
+      return fallback;
+    }
+    const int v = std::atoi(raw);
+    return (v >= lo && v <= hi) ? v : fallback;
+  };
+  const int cw = dim("MAP2D_SHOWCASE_W", kCaptureW, 320, 3840);
+  const int ch = dim("MAP2D_SHOWCASE_H", kCaptureH, 240, 2160);
   if (frame == "china_product") {
     ensure_china_maplibre_carto(browser);
-    frame_china_map2d(browser, kCaptureW, kCaptureH);
+    frame_china_map2d(browser, cw, ch);
   } else if (frame == "unit_square") {
     constexpr content::Extent2 kUnit{0.0, 0.0, 1.0, 1.0};
-    vf->apply_world_extent(kUnit, kCaptureW, kCaptureH);
+    vf->apply_world_extent(kUnit, cw, ch);
   } else if (frame == "document_extent") {
     double minx = 0.0;
     double miny = 0.0;
@@ -61,10 +73,10 @@ bool resolve_export_frame(Browser& browser, const std::string& frame) {
       const double pad_y = std::max(0.05, (lat_max - lat_min) * 0.15);
       const content::Extent2 live{minx - pad_x, lat_min - pad_y, maxx + pad_x,
                                   lat_max + pad_y};
-      vf->apply_world_extent(live, kCaptureW, kCaptureH);
+      vf->apply_world_extent(live, cw, ch);
     } else {
       constexpr content::Extent2 kUnit{0.0, 0.0, 1.0, 1.0};
-      vf->apply_world_extent(kUnit, kCaptureW, kCaptureH);
+      vf->apply_world_extent(kUnit, cw, ch);
     }
   } else {
     double min_lon = 0.0;
@@ -78,7 +90,7 @@ bool resolve_export_frame(Browser& browser, const std::string& frame) {
       return false;
     }
     const content::Extent2 extent{min_lon, min_lat, max_lon, max_lat};
-    vf->apply_world_extent(extent, kCaptureW, kCaptureH);
+    vf->apply_world_extent(extent, cw, ch);
   }
   if (content::Map2dPresenter* map2d = browser.map2d()) {
     map2d->invalidate_frame_cache();
@@ -184,8 +196,14 @@ bool export_scene3d_bmp(Browser* b, const wchar_t* bmp_w) {
   }
   const bool wrote = write_software_scene3d_bmp(cam, bmp_w);
   if (wrote) {
-    (void)write_engine_sidecar(bmp_w, flycube_live ? "FlyCube/DX12" : "GDI");
-    if (flycube_live) {
+    // Sidecar must match the painted HUD label (soft paint may keep FlyCube
+    // when GpuPresent was proven, else GDI). Never claim FlyCube while HUD
+    // still says GDI (visual_review #1/#2).
+    const char* painted = cam->render_engine_name();
+    const char* sidecar =
+        (painted && painted[0]) ? painted : (flycube_live ? "FlyCube/DX12" : "GDI");
+    (void)write_engine_sidecar(bmp_w, sidecar);
+    if (flycube_live && painted && std::strstr(painted, "FlyCube") != nullptr) {
       write_mark(kUiMarkLeaf, "interact-3d-gpu-ok", false);
     }
   }

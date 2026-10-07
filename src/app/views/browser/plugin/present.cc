@@ -42,6 +42,7 @@ void present_plugin_map2d(BrowserUiDelegate* ui, content::Map2dPresenter* map2d,
   if (fit_extent) {
     fit_extent();
   }
+  // Content edits inside fit_extent invalidate; camera-only fit is a no-op.
   if (map2d) {
     map2d->invalidate_frame_cache();
   }

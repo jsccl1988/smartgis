@@ -3,35 +3,18 @@
 
 #include "plugin/product/map2d/scenario/interact.h"
 
-#include <string>
-#include <string_view>
-
-#include "content/browser/capability/host.h"
 #include "plugin/runtime/host/capability/scenario.h"
 
 namespace plugin {
-namespace {
 
-bool exec_map2d_run(content::CapabilityHost& host, std::string_view mode) {
-  return host.plugin.map2d_run && host.plugin.map2d_run(std::string(mode));
-}
-
-bool exec_map2d_orthogrid_run(content::CapabilityHost& host, std::string_view) {
-  return host.plugin.run_plugin_command &&
-         host.plugin.run_plugin_command("map2d.scenario.orthogrid");
-}
-
-bool exec_map2d_print_run(content::CapabilityHost& host, std::string_view) {
-  return host.plugin.run_plugin_command &&
-         host.plugin.run_plugin_command("map2d.scenario.print");
-}
-
-}  // namespace
-
-void register_map2d_interact_verbs() {
-  register_scenario_verb("map2d_run", exec_map2d_run, "china");
-  register_scenario_verb("map2d_orthogrid_run", exec_map2d_orthogrid_run, "");
-  register_scenario_verb("map2d_print_run", exec_map2d_print_run, "");
+void register_map2d_interact_ops() {
+  register_scenario_mode_op("map2d_run", "china",
+                            {
+                                {"china", "map2d.scenario.china"},
+                                {"align", "map2d.scenario.align"},
+                                {"orthogrid", "map2d.scenario.orthogrid"},
+                                {"print", "map2d.scenario.print"},
+                            });
 }
 
 }  // namespace plugin

@@ -4,8 +4,6 @@
 #ifndef PLUGIN_PRODUCT_WORLD3D_SCENARIO_SESSION_DEVICE_SESSION_H_
 #define PLUGIN_PRODUCT_WORLD3D_SCENARIO_SESSION_DEVICE_SESSION_H_
 
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
-
 #include <windows.h>
 
 namespace content {

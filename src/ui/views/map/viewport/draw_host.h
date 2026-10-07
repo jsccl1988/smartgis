@@ -302,7 +302,7 @@ class UI_EXPORT DrawHost : public View {
   mutable std::mutex hud_fps_mu_;
   base::FrameTimer hud_fps_timer_;
   std::atomic<float> hud_fps_{0.f};
-  // Throttle identity HUD SetWindowText / badge invalidate (WM_TIMER ~16 ms).
+  // Throttle identity HUD text / geometry sync (WM_TIMER ~16 ms).
   DWORD last_hud_sync_tick_ = 0;
   // Owned top-level GPU present present surface (Scene3d / Map2d DXGI).
   HWND gpu_present_hwnd_ = nullptr;

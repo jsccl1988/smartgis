@@ -6,8 +6,8 @@
 
 namespace plugin {
 
-// Registers Interact verb `mine_run` → mine.scenario.showcase.
-void register_mine_interact_verbs();
+// Registers Interact op `mine_run` → mine.scenario.showcase.
+void register_mine_interact_ops();
 
 }  // namespace plugin
 

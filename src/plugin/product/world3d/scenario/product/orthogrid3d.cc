@@ -16,7 +16,7 @@
 #include "plugin/product/world3d/scenario/capture/capture.h"
 #include "plugin/product/world3d/scenario/session/device_session.h"
 #include "plugin/product/world3d/scenario/seed/orbit_seed.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scenario/present/present_warmup.h"
 #include "plugin/product/world3d/scenario/common/host_rhi.h"
 #include "app/views/util/exe_sidecar_path.h"
@@ -69,9 +69,9 @@ int run_orthogrid3d(HarnessShell& browser) {
   opts.gpu_env = "plugin-orthogrid3d-gpu";
   opts.require_scene_hwnd = true;
   opts.detach_flycube = false;
-  // Skip select_map_tab(1) in borrow_shell_scene3d — it can hang the UI thread
-  // after a prior GPU showcase (empty marks / timeout 124).
-  opts.borrow_shell_scene3d = false;
+  // IL already selected the scene tab; borrow the shell Scene3D (same as
+  // mine/stormsurge). Owned-HWND path left present empty / rc!=0.
+  opts.borrow_shell_scene3d = true;
 
   PluginDeviceSession session;
   if (const int rc = prepare_plugin_device_session(browser, opts, &session)) {

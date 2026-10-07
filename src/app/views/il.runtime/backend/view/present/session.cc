@@ -112,9 +112,31 @@ int borrow_shell_scene3d(plugin::HarnessShell& browser,
   scene->set_gpu_present_visible(true);
   scene->resume_present_timer();
   (void)scene->wait_ready(2500);
-  const DWORD wait0 = GetTickCount();
-  while (!scene->rhi_device() && (GetTickCount() - wait0) < 4000u) {
-    browser.pump(50);
+  const bool want_gpu = resolve_rhi_want_gpu(opts);
+  // Lazy FlyCube attach can miss a short wait (visual_review #5 device-init-null
+  // then atmosphere present returns 50 on null device).
+  auto wait_rhi = [&](DWORD budget_ms) {
+    const DWORD t0 = GetTickCount();
+    while (!scene->rhi_device() && (GetTickCount() - t0) < budget_ms) {
+      if (scene->attach_mode() == ui::views::DrawHost::AttachMode::kNone) {
+        scene->attach();
+        scene->sync_native_bounds();
+      }
+      scene->invalidate_native();
+      browser.pump(50);
+    }
+  };
+  wait_rhi(4000u);
+  if (want_gpu && !scene->rhi_device()) {
+    // Do not re-attach when already GpuPresent — attach() releases the pending
+    // FlyCube Init and restarts async init (visual_review #5 device-missing).
+    if (scene->attach_mode() == ui::views::DrawHost::AttachMode::kNone) {
+      scene->attach();
+      scene->sync_native_bounds();
+    }
+    scene->set_gpu_present_visible(true);
+    scene->resume_present_timer();
+    wait_rhi(8000u);
   }
 
   if (content::Scene3dPresenter* cam = browser.scene3d()) {
@@ -122,6 +144,7 @@ int borrow_shell_scene3d(plugin::HarnessShell& browser,
   }
 
   out->borrowed_shell = true;
+  out->want_gpu = want_gpu;
   out->owned_present_hwnd = nullptr;
   out->present_hwnd = shell_scene3d_capture_hwnd(scene);
   out->device = static_cast<render::rhi::Device*>(scene->rhi_device());
@@ -136,6 +159,10 @@ int borrow_shell_scene3d(plugin::HarnessShell& browser,
   mark_step(opts.mark, opts.marks.present_hwnd_ok);
   mark_step(opts.mark, out->device ? opts.marks.device_init_gpu
                               : opts.marks.device_init_null);
+  if (want_gpu && !out->device) {
+    mark_step(opts.mark, opts.marks.device_missing);
+    return 50;
+  }
   return 0;
 }
 

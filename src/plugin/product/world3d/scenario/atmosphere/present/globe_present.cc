@@ -12,7 +12,7 @@
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "vista/pass/atmosphere/globe/globe_pass.h"
+#include "vista/pass/world/atmosphere/globe/globe_pass.h"
 #include "ui/views/map/viewport/draw_host.h"
 
 #include <algorithm>

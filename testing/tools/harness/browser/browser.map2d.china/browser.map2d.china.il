@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// China carto showcase. Same IR lanes as browser.map2d.browse (integration).
-// Payload: map2d.scenario.china (smartgis.map2d).
+// China carto showcase. Atomic IL: map2d.seed(mode=china) + export_bmp.
+// Frame: china_product. C++ fallback: map2d.scenario.china when IL off.
 
 script "browser.map2d.china" {
   seq @inproc {
@@ -16,14 +16,24 @@ script "browser.map2d.china" {
     wait_viewport(face="map", ms=30000, frame=0);
     mark("map-ready");
 
-    // --- plugin ---
+    // --- plugin: seed ---
     require_plugins();
-    run_plugin_command("map2d.scenario.china");
-    // Full document extent after payload lands.
-    fit_extent();
-    pump(ms=300);
-    invalidate_map2d();
-    pump(ms=200);
+    select_map_tab(0);
+    pump(ms=400);
+    stop_map_timers();
+    run_processing(
+      id="map2d.seed",
+      args="{\"mode\":\"china\"}"
+    );
+    mark("china-ok");
+    mark("map2d-seed-plugin");
+
+    // --- view: frame export ---
+    export_bmp(leaf="map2d-showcase-china.bmp", frame="china_product");
+    mark("fit-ok");
     mark("extent-ok");
+    mark("pass");
+    stop_map_timers();
+    detach_maps();
   }
 }

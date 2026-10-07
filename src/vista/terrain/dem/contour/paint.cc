@@ -29,13 +29,20 @@ void put_px(std::vector<uint8_t>* rgba, int cols, int rows, int x, int y,
 
 void stamp_px(std::vector<uint8_t>* rgba, int cols, int rows, int x, int y,
               bool thick) {
-  // White isolines (Origin stacked-surface look) on the jet sheet.
-  put_px(rgba, cols, rows, x, y, 248, 252, 255, 255);
-  if (!thick) {
+  // Dark charcoal isolines on the jet sheet. Origin white (248,252,255)
+  // bilinearily washed low-res ContourSheet / DEM drapes near-solid white
+  // (ui.scene). Dark strokes stay thin and readable after GPU upscale.
+  constexpr uint8_t kR = 28;
+  constexpr uint8_t kG = 34;
+  constexpr uint8_t kB = 52;
+  put_px(rgba, cols, rows, x, y, kR, kG, kB, 255);
+  // Widen index contours on ContourSheet-sized+ grids. Skip 2x2 on tiny
+  // atlases (≤64x48) where coverage washed the drape.
+  if (!thick || cols * rows < 96 * 64) {
     return;
   }
-  put_px(rgba, cols, rows, x + 1, y, 248, 252, 255, 255);
-  put_px(rgba, cols, rows, x, y + 1, 248, 252, 255, 255);
+  put_px(rgba, cols, rows, x + 1, y, kR, kG, kB, 255);
+  put_px(rgba, cols, rows, x, y + 1, kR, kG, kB, 255);
 }
 
 void stroke_seg(std::vector<uint8_t>* rgba, int cols, int rows, float x0,

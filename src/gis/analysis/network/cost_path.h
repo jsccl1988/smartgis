@@ -24,7 +24,8 @@ struct CostPathResult {
 
 // Build an undirected graph from OGR LineString/MultiLineString features,
 // run Dijkstra from the nearest node to (start_x,start_y) toward (end_x,end_y).
-// weight_field empty → Euclidean segment length.
+// Among equal / near-equal cost paths, prefer the rightmost route
+// (China drive-on-right). weight_field empty → Euclidean segment length.
 GIS_EXPORT CostPathResult run_cost_path(std::string_view network_path,
                                         double start_x,
                                         double start_y,

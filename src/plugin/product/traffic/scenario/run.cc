@@ -8,16 +8,13 @@
 #include <cstdio>
 #include <string>
 
-#include "plugin/runtime/host/capability/shell.h"
-#include "content/public/plugin_host.h"
-#include "plugin/runtime/host/capability/shell.h"
-#include "plugin/runtime/host/capability/marks.h"
-#include "plugin/runtime/host/capability/shell.h"
-#include "plugin/product/world3d/scenario/capture/map2d_export.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
-#include "app/views/util/exe_sidecar_path.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/public/map_layer_types.h"
+#include "content/public/plugin_host.h"
+#include "plugin/product/world3d/scenario/capture/map2d_export.h"
+#include "plugin/runtime/host/capability/marks.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
+#include "plugin/runtime/host/capability/shell.h"
 
 namespace plugin {
 namespace detail {
@@ -25,6 +22,7 @@ namespace detail {
 int run_traffic(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: traffic Map2d path\n");
   browser.mark_named(plugin::kMarkPlugin, "traffic", /*truncate=*/true);
+  plugin_mark("hwnd-ok");
 
   browser.select_map_tab(0);
   browser.pump(200);
@@ -40,7 +38,8 @@ int run_traffic(HarnessShell& browser) {
   plugin_mark("sample-ok");
 
   wchar_t out_w[MAX_PATH] = {};
-  if (!browser.capture_path(out_w, MAX_PATH, L"plugin-showcase-traffic-path.geojson")) {
+  if (!browser.capture_path(out_w, MAX_PATH,
+                            L"plugin-showcase-traffic-path.geojson")) {
     plugin_mark("traffic-out-fail");
     browser.detach_maps();
     return 1;
@@ -62,11 +61,15 @@ int run_traffic(HarnessShell& browser) {
 
   const std::string net_esc = json_escape_path(net_path);
   const std::string out_esc = json_escape_path(out_path);
+  // SW→NE on the Beijing lattice; cost_path picks the China RHT rightmost
+  // equal-cost route (south arterial then east arterial).
   const std::string args =
       std::string("{\"network\":\"") + net_esc + "\",\"output\":\"" + out_esc +
       "\",\"start_x\":116.335,\"start_y\":39.870,\"end_x\":116.452,"
       "\"end_y\":39.9285,\"weight_field\":\"cost\",\"frames\":12}";
-  if (!browser.plugin_host()->run_processing("traffic.cost_path", args)) {
+  // Drain present so GisDocument layers exist before Map2d BMP export.
+  if (!run_processing_flushed(browser.plugin_host(), "traffic.cost_path",
+                              args)) {
     plugin_mark("traffic-run-fail");
     browser.detach_maps();
     return 1;
@@ -79,10 +82,12 @@ int run_traffic(HarnessShell& browser) {
     map2d->invalidate_frame_cache();
   }
   browser.pump(200);
+  plugin_mark("extent-ok");
 
-  constexpr content::Extent2 kBeijing{116.2, 39.75, 116.55, 40.05};
-  const bool bmp_ok =
-      try_export_map2d_bmp(browser, "plugin-showcase-traffic.bmp", &kBeijing);
+  // Tight framing around the Beijing lattice (not the wide city bbox).
+  constexpr content::Extent2 kTrafficLattice{116.32, 39.86, 116.465, 39.94};
+  const bool bmp_ok = try_export_map2d_bmp(
+      browser, "plugin-showcase-traffic.bmp", &kTrafficLattice);
   if (bmp_ok) {
     plugin_mark("bmp-ok");
   } else {

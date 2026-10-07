@@ -393,6 +393,7 @@ void DrawHost::set_overlay_paint(OverlayPaint fn) {
 
 void DrawHost::set_gpu_present(GpuPresentFn fn) {
   // Callback runs on the Display mailbox thread (P4), not on WM_PAINT.
+  const bool had_cb = has_gpu_cb_.load(std::memory_order_acquire);
   std::shared_ptr<GpuPresentFn> next;
   if (fn) {
     next = std::make_shared<GpuPresentFn>(std::move(fn));
@@ -400,7 +401,12 @@ void DrawHost::set_gpu_present(GpuPresentFn fn) {
   std::atomic_store_explicit(&gpu_present_, std::move(next),
                              std::memory_order_release);
   refresh_has_gpu_cb();
-  request_frame();
+  const bool has_cb = has_gpu_cb_.load(std::memory_order_acquire);
+  // Rewiring an existing callback must not punch BeginFrame (wire_map_scene
+  // / tab paths). Only first bind or clear↔set wakes the Display mailbox.
+  if (has_cb != had_cb) {
+    request_frame();
+  }
 }
 
 void DrawHost::set_gpu_submit(GpuSubmitFn fn) {

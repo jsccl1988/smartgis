@@ -121,6 +121,7 @@ void frame_china_map2d(Browser& browser, int view_w, int view_h) {
       orbit->apply_world_extent(doc->world_extent());
     }
   }
+  // Framing is extent-only when scene content is unchanged.
   if (content::Map2dPresenter* map2d = browser.map2d()) {
     map2d->invalidate_frame_cache();
   }
@@ -158,14 +159,10 @@ ChinaScene3dAtmoFlags apply_china_scene3d_atmosphere(Browser& browser) {
   // Interactive 3D tab is East-China DEM, not the UV globe splash (that path
   // painted a solid red sphere when albedo SRV recycled).
   cam->atmosphere_session().set_globe_enabled(false);
-  // ContourSheet rebuild has ExitProcess(-1)'d under ui.interact Phase B.
-  // Keep elevation overlay flags only; full ContourSheet stays for world3d.
-  const char* showcase = base::switch_cstr("ui-showcase");
-  const bool interact_harness =
-      showcase && std::strcmp(showcase, "interact") == 0;
-  if (!interact_harness) {
-    (void)cam->atmosphere_session().apply_contour_suite_defaults();
-  } else {
+  // ContourSheet stacked jet TIN gives the ring-like contour surface. Soft
+  // slab needs albedo alpha <=200 (see apply_contour_suite_defaults). Dark
+  // isolines bake into the atlas. Fallback: DEM jet + dark curves.
+  if (!cam->atmosphere_session().apply_contour_suite_defaults()) {
     cam->atmosphere_session().set_elevation_overlay(true, true);
   }
   // Do not fill GpuPresent::legacy_labels_ here. Tab-switch inlines used to

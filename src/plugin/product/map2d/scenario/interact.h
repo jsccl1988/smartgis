@@ -6,9 +6,8 @@
 
 namespace plugin {
 
-// Registers Interact verbs `map2d_run` (default china), `map2d_orthogrid_run`,
-// and `map2d_print_run` (2D analogues of world3d / orthogrid3d showcase verbs).
-void register_map2d_interact_verbs();
+// Registers Interact op `map2d_run` (mode=china|align|orthogrid|print).
+void register_map2d_interact_ops();
 
 }  // namespace plugin
 

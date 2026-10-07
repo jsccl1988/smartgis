@@ -55,7 +55,9 @@ struct DrawItem {
 
 // One CPU frame. Background is a clear, not a mesh.
 struct MapIR {
-  uint32_t background_rgba = 0xfff5f0e6;
+  // Product carto ocean (#aad3df). Keep this as the no-style clear so jet
+  // hillshade transparent ocean cells composite over water, not black.
+  uint32_t background_rgba = 0xffaad3df;
   float background_opacity = 1.f;
   std::vector<DrawItem> items;
 };

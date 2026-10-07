@@ -35,6 +35,11 @@ render::graph::EffectSlot MapEffect::slot() const {
   return slot_;
 }
 
+bool MapEffect::clears_color() const {
+  // record_all and kOpaque world passes clear; kOverlay-only loads.
+  return record_all_ || slot_ == render::graph::EffectSlot::kOpaque;
+}
+
 bool MapEffect::record(const render::graph::RecordContext& ctx) {
   if (!pass_ || !frame_ || !view_ || !ctx.device || !ctx.list) {
     return false;

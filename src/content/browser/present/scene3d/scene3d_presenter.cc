@@ -43,11 +43,20 @@ void Scene3dPresenter::set_look_preset(Scene3dLookPreset preset) {
   gpu_.set_look_preset(preset);
 }
 
-// Accessors for atmosphere_/gpu_/software_ live inline on the class so app TUs
-// and content.dll share one definition.
+Scene3dLookPreset Scene3dPresenter::look_preset() const {
+  return gpu_.look_preset();
+}
 
 bool Scene3dPresenter::ensure_legacy_overlays() {
   return gpu_.ensure_legacy_overlays();
+}
+
+int Scene3dPresenter::legacy_label_count() const {
+  return gpu_.legacy_label_count();
+}
+
+bool Scene3dPresenter::has_legacy_coast_vectors() const {
+  return gpu_.has_legacy_coast_vectors();
 }
 
 Scene3dPresenter::~Scene3dPresenter() {

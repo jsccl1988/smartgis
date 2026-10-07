@@ -111,6 +111,9 @@ void DrawHost::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
       }
     };
     const ui::views::Theme& theme = ui::views::Theme::current();
+    // Also punch pure black and map embed fills (fill_map_embed_opaque):
+    // RGB(170,211,223) 2D ocean and RGB(18,32,48) 3D navy. Unpunched opaque
+    // black in the map crop src-overs FlyCube and hides hillshade/carto.
     const uint32_t hole_colors[] = {
         hole_clear_argb,
         hole_clear_argb_alt,
@@ -120,6 +123,9 @@ void DrawHost::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
         theme.control_bg,
         theme.caption_bg,
         theme.map_placeholder,
+        ui::gfx::color_rgb(0, 0, 0),
+        ui::gfx::color_rgb(170, 211, 223),
+        ui::gfx::color_rgb(18, 32, 48),
     };
     for (uint32_t i = 0; i < width_px * height_px; ++i) {
       uint8_t* px = shell_bgra_.data() + static_cast<size_t>(i) * 4u;
@@ -351,6 +357,7 @@ void DrawHost::sync_identity_frame() {
     identity_badge_ = nullptr;
     identity_badge_parent_ = nullptr;
   }
+  bool just_created = false;
   if (!identity_badge_) {
     if (overlay_hud) {
       RECT wr = {};
@@ -371,19 +378,47 @@ void DrawHost::sync_identity_frame() {
           nullptr);
     }
     identity_badge_parent_ = surface;
+    just_created = identity_badge_ != nullptr;
   }
   if (identity_badge_) {
     wcscpy_s(identity_hud_text_, hud);
     SetWindowLongPtrW(identity_badge_, GWLP_USERDATA,
                       reinterpret_cast<LONG_PTR>(identity_hud_text_));
-    if (overlay_hud) {
-      RECT wr = {};
-      GetWindowRect(surface, &wr);
-      SetWindowPos(identity_badge_, HWND_TOP, wr.left, wr.top, bar_w,
-                   kIdentityHudHeight, SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    } else {
-      SetWindowPos(identity_badge_, HWND_TOP, 0, 0, bar_w, kIdentityHudHeight,
-                   SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    // Sync SetWindowPos on a DXGI-owned overlay can block the UI thread in
+    // NtUserSetWindowPos (Responding=False after first present). Match
+    // gpu_present: SWP_ASYNCWINDOWPOS, and skip moves when geometry is stable.
+    constexpr UINT kAsyncHudPos = SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS |
+                                  SWP_SHOWWINDOW | SWP_NOZORDER;
+    if (!just_created) {
+      bool need_move = true;
+      if (overlay_hud) {
+        RECT wr = {};
+        GetWindowRect(surface, &wr);
+        RECT cur = {};
+        GetWindowRect(identity_badge_, &cur);
+        if (cur.left == wr.left && cur.top == wr.top &&
+            (cur.right - cur.left) == bar_w &&
+            (cur.bottom - cur.top) == kIdentityHudHeight) {
+          need_move = false;
+        }
+        if (need_move) {
+          SetWindowPos(identity_badge_, nullptr, wr.left, wr.top, bar_w,
+                       kIdentityHudHeight, kAsyncHudPos);
+        }
+      } else {
+        RECT cur = {};
+        GetWindowRect(identity_badge_, &cur);
+        POINT tl{cur.left, cur.top};
+        ScreenToClient(surface, &tl);
+        if (tl.x == 0 && tl.y == 0 && (cur.right - cur.left) == bar_w &&
+            (cur.bottom - cur.top) == kIdentityHudHeight) {
+          need_move = false;
+        }
+        if (need_move) {
+          SetWindowPos(identity_badge_, nullptr, 0, 0, bar_w,
+                       kIdentityHudHeight, kAsyncHudPos);
+        }
+      }
     }
     InvalidateRect(identity_badge_, nullptr, FALSE);
   }

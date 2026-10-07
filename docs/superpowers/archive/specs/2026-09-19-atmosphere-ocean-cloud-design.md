@@ -12,14 +12,14 @@ All rights reserved.
 **Date:** 2026-09-19  
 **Updated:** 2026-09-28 — `SkyPass`/`FogPass` dedicated HLSL (pixel sky gradient + view-ray fog); DEM vert_exag aligned leftover `0.09`; paths → `vista/domain/atmosphere` + `vista/component/atmosphere`; host `Scene3dPresenter`.  
 **Scope:** Views 新栈大气旁路（`FieldStore`、GPU 海/云/天空/雾）+ **天气域与 GPU pass 解耦**；**不接** leftover `scene3d` / `SmtScene`；**不做** Map2d 大气叠层。  
-**Related:** RHI / frame graph [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)；SP4 World/GpuScene in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP4；岸线掩膜 as-built `gis` terrain；layout as-built [`../../../src/vista/component/atmosphere/`](../../../src/vista/component/atmosphere/) · archived layout [`../archive/specs/2026-09-27-atmosphere-subdirectory-layout-design.md`](2026-09-27-atmosphere-subdirectory-layout-design.md)。  
+**Related:** RHI / frame graph [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)；SP4 World/GpuScene in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP4；岸线掩膜 as-built `gis` terrain；layout as-built [`../../../src/vista/component/world/atmosphere/`](../../../src/vista/component/world/atmosphere/) · archived layout [`../archive/specs/2026-09-27-atmosphere-subdirectory-layout-design.md`](2026-09-27-atmosphere-subdirectory-layout-design.md)。  
 **Plan:** [`../plans/2026-09-19-atmosphere-ocean-cloud.md`](../plans/2026-09-19-atmosphere-ocean-cloud.md) · upgrade [`../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md`](../../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md) · sky/fog/LOD [`../plans/2026-09-27-sky-fog-terrain-lod.md`](../../plans/2026-09-27-sky-fog-terrain-lod.md)
 
 ## Goal
 
 1. 提供会话级 **`gis::atmosphere::Environment`**（时间轴、太阳、开关），旁挂在 `MapScene` / `Scene3dPresenter`，**不进** `gis::NodeKind`。  
 2. **`FieldStore`** 作为唯一共享场平面：External（GDAL NetCDF/GRIB/GeoTIFF）与 Procedural 按 priority + `valid_mask` 混合；无文件时 Procedural 底图可跑。  
-3. **`effect::atmosphere`**（`src/vista/component/atmosphere`）提供海面 FFT/位移、云 raymarch、天空/雾；只依赖 `render::rhi` / frame graph，不新建 Device。  
+3. **`effect::atmosphere`**（`src/vista/component/world/atmosphere`）提供海面 FFT/位移、云 raymarch、天空/雾；只依赖 `render::rhi` / frame graph，不新建 Device。  
 4. 绘制顺序：天空 → 海面 → 陆地/模型（现有）→ 体积云 → 雾；岸线海=非陆（复用 `land_mask` / `kSeaMask`）。  
 5. **中国 3D 地理对齐**：DEM 与 atmosphere 共用同一 `OrbitGeoFrame`（lon/lat → orbit，X=-lon）。
 
@@ -40,7 +40,7 @@ All rights reserved.
 | 层 | 命名空间 / 路径 | 职责 |
 | --- | --- | --- |
 | 逻辑场 | `gis::atmosphere` → `src/vista/domain/atmosphere/` | `Environment`、`FieldStore`、ingest、procedural、`OceanSystem`、`CloudSystem` |
-| GPU pass | `effect::atmosphere` → `src/vista/component/atmosphere/` | `AtmosphereFrame` / `AtmosphereEffects`、`OceanPass`、`CloudPass`、`SkyPass`、`FogPass` |
+| GPU pass | `effect::atmosphere` → `src/vista/component/world/atmosphere/` | `AtmosphereFrame` / `AtmosphereEffects`、`OceanPass`、`CloudPass`、`SkyPass`、`FogPass` |
 | 宿主 | `src/app/views/present/scene3d/` | `Scene3dPresenter` + `OrbitGeoFrame`；默认关，demo/showcase/面板开 |
 
 ### 数据流
@@ -215,7 +215,7 @@ effect::atmosphere (GPU only) → AtmosphereFrame → render::graph / rhi
 | 依赖 | `effect` Pass **不** deps `gis`；Pass 单测可无 `gis::` include |
 | Pass 顺序 | sky → ocean → opaque → cloud → fog（不变） |
 | 天气职责 | 投影参数；不改 GPU 管线语义 |
-| 布局 | colocated `vista/component/atmosphere/<module>/`（landed）；能力续作改本文 / upgrade plan |
+| 布局 | colocated `vista/component/world/atmosphere/<module>/`（landed）；能力续作改本文 / upgrade plan |
 
 **Non-goals:** 本轮不建完整 GCM；不把天气逻辑写进 `*Pass`/HLSL；不新建 weather DLL。历史全文见 [`../archive/specs/2026-09-27-weather-domain-boundary-design.md`](2026-09-27-weather-domain-boundary-design.md)。
 

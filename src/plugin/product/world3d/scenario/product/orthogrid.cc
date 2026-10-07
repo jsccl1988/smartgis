@@ -15,7 +15,7 @@
 #include "plugin/runtime/host/capability/marks.h"
 #include "plugin/runtime/host/capability/shell.h"
 #include "plugin/product/world3d/scenario/capture/map2d_export.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "content/public/map_layer_types.h"
 
 namespace plugin {

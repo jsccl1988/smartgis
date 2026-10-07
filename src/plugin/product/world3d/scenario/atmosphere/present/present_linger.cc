@@ -7,7 +7,7 @@
 #include "plugin/product/world3d/scenario/atmosphere/capture/capture.h"
 #include "plugin/product/world3d/scenario/atmosphere/session/device_session.h"
 #include "plugin/product/world3d/scene/fly/globe_fly.h"
-#include "plugin/product/world3d/scenario/atmosphere/common/progress.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"

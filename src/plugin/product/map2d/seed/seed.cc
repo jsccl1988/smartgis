@@ -18,30 +18,15 @@
 #include "content/public/gis_document.h"
 #include "content/public/plugin_host.h"
 #include "plugin/product/world3d/commands.h"
+#include "plugin/product/world3d/scene/orthogrid/session/session.h"
 #include "plugin/product/world3d/scene/orthogrid/solve/boundary_solve.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 
 #include <rapidjson/document.h>
 
 namespace plugin {
 namespace {
-
-bool json_get_string(std::string_view json, const char* key, std::string* out) {
-  if (!out || !key || json.empty()) {
-    return false;
-  }
-  rapidjson::Document doc;
-  doc.Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  if (doc.HasParseError() || !doc.IsObject()) {
-    return false;
-  }
-  const auto it = doc.FindMember(key);
-  if (it == doc.MemberEnd() || !it->value.IsString()) {
-    return false;
-  }
-  *out = std::string(it->value.GetString(), it->value.GetStringLength());
-  return !out->empty();
-}
 
 bool exe_dir_slash(wchar_t* out, size_t cap) {
   if (!out || cap < 4) {
@@ -109,6 +94,37 @@ bool china_loaded(content::PluginHost* host) {
   return gis && gis->feature_count() >= 3;
 }
 
+// UI-thread only (ProcessingPool present phase / direct seed). Opens
+// out/data/china_city.gpkg when the document is still empty so IL can stay
+// atomic (run_processing map2d.seed without a prior open_map).
+bool ensure_china_sample(content::PluginHost* host) {
+  if (china_loaded(host)) {
+    return true;
+  }
+  if (!host) {
+    set_operation_result("{\"error\":\"china_host_missing\"}");
+    return false;
+  }
+  char path[MAX_PATH * 3] = {};
+  const wchar_t* rels[] = {L"..\\data\\china_city.gpkg",
+                           L"..\\data\\china_city.geojson",
+                           L"..\\data\\china_plp.geojson",
+                           L"data\\china_city.gpkg",
+                           L"data\\china_city.geojson",
+                           L"data\\china_plp.geojson"};
+  if (!first_existing_rel(rels, std::size(rels), path, sizeof(path))) {
+    set_operation_result("{\"error\":\"china_sample_missing\"}");
+    return false;
+  }
+  // Public PluginHost seam (GisDocument has no open_path).
+  if (!host->present_dataset("smartgis.map2d", path, 0) ||
+      !china_loaded(host)) {
+    set_operation_result("{\"error\":\"china_open_failed\"}");
+    return false;
+  }
+  return true;
+}
+
 bool apply_align_style(content::PluginHost* host) {
   if (!host || !host->gis_document()) {
     return false;
@@ -136,47 +152,84 @@ bool apply_align_style(content::PluginHost* host) {
   return true;
 }
 
-bool seed_orthogrid(content::PluginHost* host) {
-  (void)host;
+// ProcessingPool compute (host=nullptr) / present (real host) split — same
+// shape as flood.inundate. Solve on the utility thread; publish on UI drain.
+detail::BoundarySolve g_orthogrid_solved;
+
+bool seed_orthogrid_compute() {
   char path[MAX_PATH * 3] = {};
   const wchar_t* rels[] = {L"..\\data\\plugin\\orthogrid_sample.gridbnd",
                            L"data\\plugin\\orthogrid_sample.gridbnd"};
   if (!first_existing_rel(rels, std::size(rels), path, sizeof(path))) {
     set_operation_result("{\"error\":\"orthogrid_sample_missing\"}");
+    g_orthogrid_solved = {};
     return false;
   }
-  const detail::BoundarySolve solved =
+  g_orthogrid_solved =
       detail::solve_grid_boundary_file(path, /*elliptic_iters=*/4);
-  if (!solved.ok || solved.nx < 3 || solved.ny < 3 ||
-      solved.xs.size() != static_cast<size_t>(solved.nx * solved.ny)) {
-    set_operation_result(solved.message.empty()
+  if (!g_orthogrid_solved.ok || g_orthogrid_solved.nx < 3 ||
+      g_orthogrid_solved.ny < 3 ||
+      g_orthogrid_solved.xs.size() !=
+          static_cast<size_t>(g_orthogrid_solved.nx * g_orthogrid_solved.ny)) {
+    set_operation_result(g_orthogrid_solved.message.empty()
                              ? "{\"error\":\"orthogrid_solve_failed\"}"
-                             : solved.message);
+                             : g_orthogrid_solved.message);
+    g_orthogrid_solved = {};
     return false;
   }
-  OrthogridMeshCommit commit;
-  commit.nx = solved.nx;
-  commit.ny = solved.ny;
-  commit.xs = solved.xs.data();
-  commit.ys = solved.ys.data();
-  if (!solved.cell_orth.empty()) {
-    commit.cell_orth = solved.cell_orth.data();
+  set_operation_result(
+      "{\"ok\":true,\"op\":\"map2d.seed\",\"mode\":\"orthogrid\",\"phase\":"
+      "\"compute\"}");
+  return true;
+}
+
+bool seed_orthogrid_present(content::PluginHost* host) {
+  if (!host) {
+    set_operation_result("{\"error\":\"orthogrid_host_missing\"}");
+    return false;
   }
-  if (!solved.raster_orth.empty() && solved.raster_w > 0 &&
-      solved.raster_h > 0) {
-    commit.raster_w = solved.raster_w;
-    commit.raster_h = solved.raster_h;
-    commit.raster_min_x = solved.raster_min_x;
-    commit.raster_min_y = solved.raster_min_y;
-    commit.raster_max_x = solved.raster_max_x;
-    commit.raster_max_y = solved.raster_max_y;
-    commit.raster_orth = solved.raster_orth.data();
+  if (!g_orthogrid_solved.ok || g_orthogrid_solved.nx < 3 ||
+      g_orthogrid_solved.ny < 3) {
+    set_operation_result("{\"error\":\"orthogrid_compute_missing\"}");
+    return false;
+  }
+  // map2d.seed may run before world3d orthogrid register; publish needs a
+  // bound present host (visual_review #6 orthogrid-ok miss).
+  bind_orthogrid_present_host(host);
+  OrthogridMeshCommit commit;
+  commit.nx = g_orthogrid_solved.nx;
+  commit.ny = g_orthogrid_solved.ny;
+  commit.xs = g_orthogrid_solved.xs.data();
+  commit.ys = g_orthogrid_solved.ys.data();
+  if (!g_orthogrid_solved.cell_orth.empty()) {
+    commit.cell_orth = g_orthogrid_solved.cell_orth.data();
+  }
+  if (!g_orthogrid_solved.raster_orth.empty() &&
+      g_orthogrid_solved.raster_w > 0 && g_orthogrid_solved.raster_h > 0) {
+    commit.raster_w = g_orthogrid_solved.raster_w;
+    commit.raster_h = g_orthogrid_solved.raster_h;
+    commit.raster_min_x = g_orthogrid_solved.raster_min_x;
+    commit.raster_min_y = g_orthogrid_solved.raster_min_y;
+    commit.raster_max_x = g_orthogrid_solved.raster_max_x;
+    commit.raster_max_y = g_orthogrid_solved.raster_max_y;
+    commit.raster_orth = g_orthogrid_solved.raster_orth.data();
   }
   if (!publish_orthogrid_mesh(commit)) {
     set_operation_result("{\"error\":\"orthogrid_publish_failed\"}");
     return false;
   }
   return true;
+}
+
+bool seed_orthogrid(content::PluginHost* host) {
+  if (!host) {
+    return seed_orthogrid_compute();
+  }
+  // Direct (non-pool) callers: compute+present in one shot on the UI thread.
+  if (!seed_orthogrid_compute()) {
+    return false;
+  }
+  return seed_orthogrid_present(host);
 }
 
 }  // namespace
@@ -213,26 +266,38 @@ const char* map2d_seed_mode_name(Map2dSeedMode mode) {
 }
 
 bool seed_map2d(content::PluginHost* host, Map2dSeedMode mode) {
+  // ProcessingPool: compute with host=nullptr, then present with the real
+  // host on the UI drain thread (see attach_host_processing / flood.inundate).
   if (!host) {
+    switch (mode) {
+      case Map2dSeedMode::kChina:
+      case Map2dSeedMode::kAlign:
+        // Document open / style apply stay on the present (UI) phase.
+        set_operation_result(
+            "{\"ok\":true,\"op\":\"map2d.seed\",\"phase\":\"compute\"}");
+        return true;
+      case Map2dSeedMode::kOrthogrid:
+        return seed_orthogrid_compute();
+    }
     return false;
   }
   switch (mode) {
     case Map2dSeedMode::kChina:
       // present_dataset / MapScene::open_path stay on the UI thread (harness).
-      // Processing runs on the utility pool and must not touch Browser HWND.
-      if (!china_loaded(host)) {
-        set_operation_result("{\"error\":\"china_not_loaded\"}");
+      if (!ensure_china_sample(host)) {
         return false;
       }
       set_operation_result("{\"ok\":true,\"op\":\"map2d.seed\",\"mode\":\"china\"}");
       return true;
     case Map2dSeedMode::kAlign:
-      if (!china_loaded(host) || !apply_align_style(host)) {
+      if (!ensure_china_sample(host) || !apply_align_style(host)) {
         return false;
       }
       set_operation_result("{\"ok\":true,\"op\":\"map2d.seed\",\"mode\":\"align\"}");
       return true;
     case Map2dSeedMode::kOrthogrid:
+      // Pool present reuses g_orthogrid_solved when compute already ran;
+      // direct C++ callers recompute inside seed_orthogrid(host).
       if (!seed_orthogrid(host)) {
         return false;
       }
@@ -245,7 +310,11 @@ bool seed_map2d(content::PluginHost* host, Map2dSeedMode mode) {
 
 bool seed_map2d_from_json(content::PluginHost* host, std::string_view args_json) {
   std::string mode;
-  if (!json_get_string(args_json, "mode", &mode) && !args_json.empty()) {
+  rapidjson::Document args;
+  if (parse_args_json(args_json, &args)) {
+    (void)args_json_string(args, "mode", &mode);
+  }
+  if (mode.empty() && !args_json.empty() && args_json.front() != '{') {
     mode.assign(args_json);
   }
   Map2dSeedMode parsed = Map2dSeedMode::kChina;

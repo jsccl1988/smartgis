@@ -73,12 +73,17 @@ bool WorldPass::rebuild_meshes(render::rhi::Device* device, uint32_t width,
     if (reuse_slot < prev_meshes.size()) {
       mesh.vertex = prev_meshes[reuse_slot].vertex;
       mesh.index = prev_meshes[reuse_slot].index;
-      prev_meshes[reuse_slot].vertex = nullptr;
-      prev_meshes[reuse_slot].index = nullptr;
-      if (prev_meshes[reuse_slot].texture) {
+      // Terrain keeps albedo for in-place re-upload (cold remesh after ocean).
+      // Other kinds destroy — layer/symbol paths always create a fresh texture.
+      if (inst.kind == vista::NodeKind::kTerrain) {
+        mesh.texture = prev_meshes[reuse_slot].texture;
+        prev_meshes[reuse_slot].texture = nullptr;
+      } else if (prev_meshes[reuse_slot].texture) {
         device->destroy_texture(prev_meshes[reuse_slot].texture);
         prev_meshes[reuse_slot].texture = nullptr;
       }
+      prev_meshes[reuse_slot].vertex = nullptr;
+      prev_meshes[reuse_slot].index = nullptr;
     }
     ++reuse_slot;
     mesh.solid_r = solid_r_;

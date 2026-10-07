@@ -39,10 +39,9 @@ uint32_t darken_argb(uint32_t argb, float factor) {
 }
 
 // Jet hillshade is a full land surface (kOver). Cream land under it shows
-// through transparent ocean cells and, when Y-mirrored relative to the DEM
-// sheet, reads as an upside-down white China north of the jet mass.
-// have_dem_clip alone also suppresses cream: hosts may publish the DEM AABB
-// a frame before the raster DrawItem is attached (map2d_test dem_clip case).
+// through transparent ocean cells inside the DEM quad (not only past the
+// AABB). Skip land when a jet sheet is attached; ocean clear must stay
+// carto blue so those texels read as water, not black.
 bool jet_hillshade_active(const LayoutInput& in) {
   if (!in.style) {
     return false;
@@ -264,8 +263,8 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
       return;
     }
     const gis::style::StyleLayer& layer = *fill_layers[li];
-    // Jet sheet replaces cream land; keeping land only feeds the upside-down
-    // white ghost through transparent ocean texels.
+    // Jet sheet replaces cream land; keeping land feeds cream through
+    // transparent ocean texels inside the DEM quad.
     if (layer.source_layer == "land" && jet_hillshade_active(in)) {
       continue;
     }

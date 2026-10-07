@@ -166,11 +166,13 @@ render::rhi::CameraMatrices OrbitFrame::camera_matrices(float aspect) const {
     const float elen2 = skim_eye_x_ * skim_eye_x_ + skim_eye_y_ * skim_eye_y_ +
                         skim_eye_z_ * skim_eye_z_;
     if (sep2 > 1.0e-4f && elen2 > 0.5f) {
-      // Same near/far as make_orbit_camera — divergent clip planes hung FlyCube
-      // when switching from orbit dive into look-at skim.
+      // ~0.30 R clearance, mild look-down, radial-up. near << clearance.
+      constexpr float kSkimFovY = 1.05f;
+      constexpr float kSkimNear = 0.05f;
+      constexpr float kSkimFar = 200.f;
       return render::rhi::make_look_at_camera(
           skim_eye_x_, skim_eye_y_, skim_eye_z_, skim_tgt_x_, skim_tgt_y_,
-          skim_tgt_z_, kScene3dFovY, asp, 0.1f, 100.f);
+          skim_tgt_z_, kSkimFovY, asp, kSkimNear, kSkimFar);
     }
   }
   return render::rhi::make_orbit_camera(yaw_, pitch_, distance_, kScene3dFovY,

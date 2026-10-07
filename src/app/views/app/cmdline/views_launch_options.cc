@@ -23,78 +23,49 @@ content::ProcessType process_type_from_string(const std::string& value) {
   return content::ProcessType::kBrowser;
 }
 
+// Map harness --plugin-showcase=<mode> onto ScenarioRegistry ids.
+std::string scenario_from_plugin_showcase(const std::string& mode) {
+  if (mode.empty()) {
+    return {};
+  }
+  if (mode == "world3d" || mode == "dem") {
+    return "plugin.world3d";
+  }
+  if (mode == "world_preview" || mode == "preview") {
+    return "plugin.world3d.preview";
+  }
+  if (mode == "print") {
+    return "plugin.print";
+  }
+  if (mode == "orthogrid") {
+    return "plugin.orthogrid";
+  }
+  if (mode == "orthogrid3d") {
+    return "plugin.orthogrid3d";
+  }
+  if (mode == "traffic") {
+    return "plugin.traffic";
+  }
+  if (mode == "flood") {
+    return "plugin.flood";
+  }
+  if (mode == "stormsurge") {
+    return "plugin.stormsurge";
+  }
+  if (mode == "mine") {
+    return "plugin.mine";
+  }
+  if (mode == "geochem") {
+    return "plugin.geochem";
+  }
+  if (mode == "report") {
+    return "plugin.report";
+  }
+  // Allow raw registry ids (plugin.world3d, ui.scene, …).
+  return mode;
+}
+
 }  // namespace
-
-const char* atmosphere_showcase_name(AtmosphereShowcaseMode mode) {
-  switch (mode) {
-    case AtmosphereShowcaseMode::kLand:
-      return "land";
-    case AtmosphereShowcaseMode::kOcean:
-      return "ocean";
-    case AtmosphereShowcaseMode::kFull:
-      return "full";
-    case AtmosphereShowcaseMode::kCoast:
-      return "coast";
-    case AtmosphereShowcaseMode::kLegacy:
-      return "legacy";
-    case AtmosphereShowcaseMode::kGlobe:
-      return "globe";
-    case AtmosphereShowcaseMode::kNone:
-    default:
-      return "none";
-  }
-}
-
-const char* map2d_showcase_name(Map2dShowcaseMode mode) {
-  switch (mode) {
-    case Map2dShowcaseMode::kChina:
-      return "china";
-    case Map2dShowcaseMode::kAlign:
-      return "align";
-    case Map2dShowcaseMode::kOrthogrid:
-      return "orthogrid";
-    case Map2dShowcaseMode::kNone:
-    default:
-      return "none";
-  }
-}
-
-const char* ui_showcase_name(UiShowcaseMode mode) {
-  switch (mode) {
-    case UiShowcaseMode::kShell:
-      return "shell";
-    case UiShowcaseMode::kData:
-      return "data";
-    case UiShowcaseMode::kScene:
-      return "scene";
-    case UiShowcaseMode::kCatalog:
-      return "catalog";
-    case UiShowcaseMode::kInteract:
-      return "interact";
-    case UiShowcaseMode::kNone:
-    default:
-      return "none";
-  }
-}
-
-UiShowcaseMode ui_showcase_mode_from_name(const std::string& mode) {
-  if (mode == "shell") {
-    return UiShowcaseMode::kShell;
-  }
-  if (mode == "data") {
-    return UiShowcaseMode::kData;
-  }
-  if (mode == "scene") {
-    return UiShowcaseMode::kScene;
-  }
-  if (mode == "catalog") {
-    return UiShowcaseMode::kCatalog;
-  }
-  if (mode == "interact") {
-    return UiShowcaseMode::kInteract;
-  }
-  return UiShowcaseMode::kNone;
-}
 
 ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   ViewsLaunchOptions out;
@@ -102,6 +73,7 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   app.allow_extras();
 
   std::string type = "browser";
+  std::string plugin_showcase;
   app.add_option("--type", type, "Process role: browser|renderer|gpu|utility")
       ->capture_default_str();
   app.add_flag("--debug-console", out.debug_console,
@@ -113,6 +85,9 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   app.add_flag("--enable-oop-render", out.enable_oop_render,
                "Start OOP GPU MapContents at Session.init_hosts "
                "(default: defer until first ContentMapView attach)");
+  // Harness suites still pass --plugin-showcase=…; maps to ScenarioRegistry.
+  app.add_option("--plugin-showcase", plugin_showcase,
+                 "Harness plugin scenario (e.g. world3d → plugin.world3d)");
 
   try {
     if (argv && argc > 0) {
@@ -125,6 +100,7 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   }
 
   out.process_type = process_type_from_string(type);
+  out.scenario_id = scenario_from_plugin_showcase(plugin_showcase);
   return out;
 }
 

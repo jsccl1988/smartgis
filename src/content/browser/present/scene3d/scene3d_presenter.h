@@ -57,10 +57,14 @@ class Scene3dPresenter {
   bool hosts_scenic_present() const;
 
   void set_look_preset(Scene3dLookPreset preset);
-  Scene3dLookPreset look_preset() const { return gpu_.look_preset(); }
+  // Out-of-line: app/plugin TUs must not compute gpu_ from a possibly stale
+  // AtmosphereSession sizeof (wrong look_preset / empty legacy_label_count).
+  Scene3dLookPreset look_preset() const;
   // Out-of-line so app TUs do not compute gpu_ from a stale AtmosphereSession
   // size (3D tab AV in MapScene::feature_count).
   bool ensure_legacy_overlays();
+  int legacy_label_count() const;
+  bool has_legacy_coast_vectors() const;
 
   void bind_orbit(const OrbitFrame* orbit);
   void bind_map(const MapScene* scene);

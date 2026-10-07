@@ -557,19 +557,42 @@ def score_ui_interact(path: Path) -> dict:
             except OSError:
                 engine = ""
         # Product SoT is FlyCube; soft GDI export is a harness fail.
+        # Also reject FlyCube sidecar when the soft-export BMP still paints a
+        # GDI badge (visual_review #2): require interact-3d-gpu-ok mark when
+        # claiming FlyCube, or fall back to non-GDI ocean clear for legacy.
         eu = engine.upper()
-        engine_ok = bool(engine) and "FLYCUBE" in eu and "GDI" not in eu
-        if not engine:
+        sidecar_ok = bool(engine) and "FLYCUBE" in eu and "GDI" not in eu
+        mark_leaf = path.with_name("ui-showcase-mark.txt")
+        gpu_mark = False
+        if mark_leaf.is_file():
+            try:
+                marks = mark_leaf.read_text(encoding="utf-8", errors="ignore")
+                gpu_mark = "interact-3d-gpu-ok" in marks
+            except OSError:
+                gpu_mark = False
+        if sidecar_ok and gpu_mark:
+            engine_ok = True
+        elif sidecar_ok and not mark_leaf.is_file():
+            # Older captures without mark file: keep sidecar-only gate.
+            engine_ok = True
+        elif not engine:
             # Legacy sibling without sidecar: reject soft-sky GDI clear dominance.
             ocean_clear = float(s3.get("ocean_clear_frac") or 0.0)
             engine_ok = ocean_clear < 0.55
+        else:
+            # Sidecar claims FlyCube but no gpu mark → soft GDI lie.
+            engine_ok = False
         gates["interact_3d_engine_not_gdi"] = engine_ok
+        gates["interact_3d_gpu_mark_or_legacy"] = bool(
+            gpu_mark or not mark_leaf.is_file() or not sidecar_ok
+        )
         base["interact_3d"] = {
             "bmp": str(sibling),
             "green_land_frac": s3.get("green_land_frac"),
             "ocean_clear_frac": s3.get("ocean_clear_frac"),
             "navy_clear_frac": s3.get("navy_clear_frac"),
             "engine": engine or None,
+            "gpu_mark": gpu_mark,
         }
     else:
         gates["interact_3d_engine_not_gdi"] = False
@@ -591,6 +614,7 @@ def score_ui_interact(path: Path) -> dict:
         "interact_3d_green_land>0.025",
         "interact_3d_neon_green<0.35",
         "interact_3d_engine_not_gdi",
+        "interact_3d_gpu_mark_or_legacy",
     )
     base["ok"] = bool(base.get("ok")) and all(gates.get(k) for k in extra)
     return base

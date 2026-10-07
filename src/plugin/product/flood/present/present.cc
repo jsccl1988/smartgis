@@ -52,8 +52,8 @@ bool present_flood_mask(content::GisDocument* doc,
     if (!doc->create_layer("flood_terrain", "Polygon")) {
       return false;
     }
-    // Full DEM pad as green land so inundation contrast is never cream-only
-    // (wet-majority tiles used to skip every terrain polygon).
+    // Full DEM pad as dry land (cream heat) so inundation contrast is never
+    // blank wash (wet-majority tiles used to skip every terrain polygon).
     {
       const double px0 = gt0;
       const double py0 = gt3;
@@ -67,11 +67,11 @@ bool present_flood_mask(content::GisDocument* doc,
           {min_x, min_y}, {max_x, min_y}, {max_x, max_y},
           {min_x, max_y}, {min_x, min_y},
       };
-      if (!append_map_polygon(doc, pad, "35.0")) {
+      if (!append_map_polygon(doc, pad, "40.0")) {
         return false;
       }
     }
-    constexpr int kTerrainTiles = 8;
+    constexpr int kTerrainTiles = 12;
     const int tw = (std::max)(1, width / kTerrainTiles);
     const int th = (std::max)(1, height / kTerrainTiles);
     for (int tr = 0; tr < height; tr += th) {
@@ -127,7 +127,8 @@ bool present_flood_mask(content::GisDocument* doc,
     return false;
   }
 
-  constexpr int kMaxDim = 48;
+  // Finer wet mosaic so inundation reads as a basin, not one toy blob.
+  constexpr int kMaxDim = 96;
   const int step_x = std::max(1, (width + kMaxDim - 1) / kMaxDim);
   const int step_y = std::max(1, (height + kMaxDim - 1) / kMaxDim);
 
@@ -164,7 +165,10 @@ bool present_flood_mask(content::GisDocument* doc,
           }
         }
       }
-      if (wet_cells == 0) {
+      const double frac = static_cast<double>(wet_cells) /
+                          static_cast<double>((std::max)(1, cell_n));
+      // Keep wet-majority cells only so the shoreline is readable.
+      if (wet_cells == 0 || frac < 0.35) {
         continue;
       }
       const double px0 = gt0 + gt1 * c + gt2 * r;
@@ -179,11 +183,9 @@ bool present_flood_mask(content::GisDocument* doc,
           {min_x, min_y}, {max_x, min_y}, {max_x, max_y},
           {min_x, max_y}, {min_x, min_y},
       };
-      const double frac = static_cast<double>(wet_cells) /
-                          static_cast<double>((std::max)(1, cell_n));
       const double level_t = std::clamp((water_level - 10.0) / 80.0, 0.0, 1.0);
       char heat_buf[32] = {};
-      format_heat01(0.25 * level_t + 0.75 * frac, heat_buf, sizeof(heat_buf));
+      format_heat01(0.20 * level_t + 0.80 * frac, heat_buf, sizeof(heat_buf));
       if (!append_map_polygon(doc, cell, heat_buf)) {
         return false;
       }

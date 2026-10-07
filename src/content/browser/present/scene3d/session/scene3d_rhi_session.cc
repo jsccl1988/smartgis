@@ -75,6 +75,8 @@ Scene3dEngine scene3d_engine() {
 }
 
 bool apply_scene3d_engine_from_env() {
+  // Do not enable GPUSCENE_PREP_PARALLEL here. Product default remains off
+  // until frustum cull honesty (vista prep_cull / equal-profile M3).
   // Switch wins when both are set. Harness suite.json often only exports
   // SCENE3D_ENGINE; loop_runner peel_product_switches does not run for
   // SmartGIS.exe, so getenv is required.

@@ -5,6 +5,7 @@
 #define RENDER_RHI_FLYCUBE_RESOURCE_GPU_H_
 
 #ifdef HAS_FLYCUBE
+#include "CommandList/CommandList.h"
 #include "Resource/Resource.h"
 #include "View/View.h"
 
@@ -35,6 +36,8 @@ class GpuBuffer {
 };
 
 // GPU texture plus shader views. No RHI facade type.
+// Tracks D3D12 resource state so upload / compute barriers do not assume
+// COMMON after the texture has already been left in SRV/UAV.
 class GpuTexture {
  public:
   GpuTexture(std::shared_ptr<Resource> resource, std::shared_ptr<View> srv,
@@ -55,6 +58,18 @@ class GpuTexture {
   std::shared_ptr<View> srv() const { return srv_; }
   std::shared_ptr<View> uav() const { return uav_; }
 
+  ResourceState state() const { return state_; }
+  void set_state(ResourceState state) { state_ = state; }
+
+  // Transition when before != after; no-op when already in |after|.
+  void barrier_to(::CommandList* list, ResourceState after) {
+    if (!list || !resource_ || state_ == after) {
+      return;
+    }
+    list->ResourceBarrier({{resource_, state_, after}});
+    state_ = after;
+  }
+
  private:
   std::shared_ptr<Resource> resource_;
   std::shared_ptr<View> srv_;
@@ -62,6 +77,7 @@ class GpuTexture {
   uint32_t w_ = 0;
   uint32_t h_ = 0;
   uint32_t bytes_ = 0;
+  ResourceState state_ = ResourceState::kCommon;
 };
 
 #endif  // HAS_FLYCUBE

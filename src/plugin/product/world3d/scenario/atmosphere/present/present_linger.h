@@ -4,8 +4,8 @@
 #ifndef PLUGIN_PRODUCT_WORLD3D_SCENARIO_ATMOSPHERE_PRESENT_LINGER_H_
 #define PLUGIN_PRODUCT_WORLD3D_SCENARIO_ATMOSPHERE_PRESENT_LINGER_H_
 
-#include "app/views/app/cmdline/views_launch_options.h"
 #include "plugin/product/world3d/scenario/atmosphere/common/linger.h"
+#include "plugin/product/world3d/scenario/atmosphere/mode.h"
 
 #include <windows.h>
 
@@ -20,8 +20,6 @@ class Device;
 
 namespace plugin {
 namespace detail {
-
-using AtmosphereShowcaseMode = ::app::AtmosphereShowcaseMode;
 
 // Result of the timed / until-close linger present loop.
 struct AtmospherePresentLingerResult {

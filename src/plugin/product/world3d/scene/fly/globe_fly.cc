@@ -5,7 +5,7 @@
 
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
-#include "vista/pass/atmosphere/globe/globe_pass.h"
+#include "vista/pass/world/atmosphere/globe/globe_pass.h"
 
 #include <algorithm>
 #include <cmath>
@@ -50,7 +50,9 @@ void ll_to_xyz(float lon_deg, float lat_deg, float radius, float* x, float* y,
 
 float surface_r(const vista::GlobePass* globe, float lon, float lat,
                 float clearance) {
-  float r = 1.f + clearance;
+  const float base =
+      (globe && globe->params().radius > 0.5f) ? globe->params().radius : 1.f;
+  float r = base + clearance;
   if (globe && globe->has_surface()) {
     r = globe->surface_radius(lon, lat) + clearance;
   }
@@ -101,10 +103,13 @@ void apply_forward_terrain_hug(content::OrbitFrame* orbit,
                                const vista::GlobePass* globe, float path_u,
                                float* out_lon, float* out_lat,
                                float* out_dist) {
-  // Floor above prior FlyCube AV band (~1.08 R). Clearance covers detail
-  // peaks between samples. Look-ahead chord must exceed skim near (~0.05).
-  constexpr float kClear = 0.07f;
-  constexpr float kHugFloor = 1.14f;
+  const float R =
+      (globe && globe->params().radius > 0.5f) ? globe->params().radius : 1.f;
+  // Absolute world units (same space as GlobePass::surface_radius).
+  // Radial-up. Pure level aim (same r) grazes into starfield; hard look-down
+  // near-clips cyan slabs. Mild down-pitch + tall clearance is the balance.
+  const float kClear = 0.30f * R;
+  const float kHugFloor = 1.30f * R;
   constexpr float kLookAheadPath = 0.20f;
 
   float lon = 105.f;
@@ -121,15 +126,19 @@ void apply_forward_terrain_hug(content::OrbitFrame* orbit,
     path_u = (std::max)(0.f, path_u - kLookAheadPath);
   }
 
-  // Roof of DEM under the look segment — peaks mid-chord pierce near plane.
+  // Roof of DEM under the look corridor (path + small lateral samples).
   float cruise = kHugFloor;
-  for (int i = 0; i <= 8; ++i) {
+  constexpr int kRoofSamples = 24;
+  for (int i = 0; i <= kRoofSamples; ++i) {
     const float u =
-        path_u + (ahead_u - path_u) * (static_cast<float>(i) / 8.f);
+        path_u + (ahead_u - path_u) * (static_cast<float>(i) /
+                                       static_cast<float>(kRoofSamples));
     float slon = lon;
     float slat = lat;
     sample_skim_path(u, &slon, &slat);
     cruise = (std::max)(cruise, surface_r(globe, slon, slat, kClear));
+    cruise = (std::max)(cruise, surface_r(globe, slon + 0.6f, slat, kClear));
+    cruise = (std::max)(cruise, surface_r(globe, slon - 0.6f, slat, kClear));
   }
 
   float ex = 0.f;
@@ -139,19 +148,22 @@ void apply_forward_terrain_hug(content::OrbitFrame* orbit,
   float ay = 0.f;
   float az = 0.f;
   ll_to_xyz(lon, lat, cruise, &ex, &ey, &ez);
-  // Ahead unit direction (surface). Full tangent look-at (target at cruise)
-  // wedges FlyCube present; aim partway toward the ahead surface so the
-  // view is forward-oblique (horizon + DEM relief) without a dead GPU.
-  ll_to_xyz(lon_a, lat_a, 1.f, &ax, &ay, &az);
-  constexpr float kLookTargetR = 0.42f;
-  float tx = ax * kLookTargetR;
-  float ty = ay * kLookTargetR;
-  float tz = az * kLookTargetR;
+  // Mild look-down: aim between the ahead roof and the surface so DEM fills
+  // the lower FOV without underfoot near-clip slabs.
+  float ahead_cruise =
+      (std::max)(kHugFloor, surface_r(globe, lon_a, lat_a, kClear));
+  ahead_cruise = (std::max)(ahead_cruise, cruise);
+  const float ahead_surf = surface_r(globe, lon_a, lat_a, 0.06f * R);
+  const float aim_r = ahead_surf * 0.35f + ahead_cruise * 0.65f;
+  ll_to_xyz(lon_a, lat_a, aim_r, &ax, &ay, &az);
+  float tx = ax;
+  float ty = ay;
+  float tz = az;
 
   float yaw = 0.f;
   float pitch = 0.f;
   look_yaw_pitch(lon, lat, &yaw, &pitch);
-  orbit->set_dolly_limits(1.05f, 12.f);
+  orbit->set_dolly_limits(1.2f * R, 8.f * R);
   orbit->set_yaw(yaw);
   orbit->set_pitch(pitch);
   orbit->set_distance(cruise);
@@ -189,9 +201,18 @@ void apply_world3d_globe_flythrough(content::OrbitFrame* orbit,
   }
   apply_globe_fly_layers(session, t01);
 
-  constexpr float kSpaceDist = 12.f;
-  constexpr float kHighDist = 2.85f;
-  constexpr float kSurfaceClear = 0.055f;
+  // Absolute world units matching GlobePass::surface_radius.
+  // Space sits just above china_detail load (~3.2 R) so the space BMP keeps a
+  // full-sphere ocean-blue global_terrain read without remesh, while still
+  // filling the FOV (12 R left only a sky-blue limb sliver).
+  const float R =
+      (globe && globe->params().radius > 0.5f) ? globe->params().radius : 1.f;
+  // ~2.6 R fills most of FOV_Y=1.35 while staying above china_detail (~2.4 R).
+  const float kSpaceDist = 2.6f * R;
+  const float kHighDist = 2.2f * R;
+  const float kSurfaceClear = 0.018f * R;
+  const float kDollyMin = 1.05f * R;
+  const float kDollyMax = 8.f * R;
   constexpr float kHugStart = 0.60f;
 
   float look_lon = 105.f;
@@ -205,12 +226,12 @@ void apply_world3d_globe_flythrough(content::OrbitFrame* orbit,
   }
 
   if (t01 <= 0.12f) {
-    orbit->set_dolly_limits(1.12f, 12.f);
+    orbit->set_dolly_limits(kDollyMin, kDollyMax);
     dist = kSpaceDist;
     look_lon = 105.f;
     look_lat = 35.f;
   } else if (t01 < 0.40f) {
-    orbit->set_dolly_limits(1.12f, 12.f);
+    orbit->set_dolly_limits(kDollyMin, kDollyMax);
     const float u = globe_fly_ease((t01 - 0.12f) / 0.28f);
     dist = kSpaceDist + (kHighDist - kSpaceDist) * u;
     yaw = china_yaw + 0.06f * u;
@@ -218,7 +239,7 @@ void apply_world3d_globe_flythrough(content::OrbitFrame* orbit,
     look_lat = 35.f;
   } else if (t01 < 0.50f) {
     // High China hold (suite park / landish score BMP).
-    orbit->set_dolly_limits(1.12f, 12.f);
+    orbit->set_dolly_limits(kDollyMin, kDollyMax);
     dist = kHighDist;
     const float u = (t01 - 0.40f) / 0.10f;
     yaw = china_yaw + 0.06f + 0.10f * u;
@@ -227,7 +248,7 @@ void apply_world3d_globe_flythrough(content::OrbitFrame* orbit,
   } else if (t01 < kHugStart) {
     // Dive onto west DEM entry; pre-load China detail at the skim entry
     // lon/lat so the first forward-skim frame does not remesh+recamera.
-    orbit->set_dolly_limits(1.12f, 12.f);
+    orbit->set_dolly_limits(kDollyMin, kDollyMax);
     const float u = globe_fly_ease((t01 - 0.50f) / (kHugStart - 0.50f));
     sample_skim_path(0.f, &look_lon, &look_lat);
     float aim_yaw = china_yaw;
@@ -235,7 +256,7 @@ void apply_world3d_globe_flythrough(content::OrbitFrame* orbit,
     look_yaw_pitch(look_lon, look_lat, &aim_yaw, &aim_pitch);
     yaw = china_yaw + (aim_yaw - china_yaw) * u;
     pitch = china_pitch + (aim_pitch - china_pitch) * u;
-    constexpr float kDiveFloor = 1.18f;
+    const float kDiveFloor = 1.12f * R;
     const float surface = surface_r(globe, look_lon, look_lat, kSurfaceClear);
     dist = kHighDist + ((std::max)(kDiveFloor, surface) - kHighDist) * u;
   } else {
@@ -245,7 +266,9 @@ void apply_world3d_globe_flythrough(content::OrbitFrame* orbit,
       // Horizontal forward (正前方) look-at — DEM relief under a curved horizon.
       apply_forward_terrain_hug(orbit, globe, path_u, &look_lon, &look_lat,
                                 &dist);
-      (void)session;
+      if (session) {
+        session->update_globe_detail_lod(dist, look_lon, look_lat);
+      }
       return;
     }
     // Orbit path-hug (look-at-origin): free look-at skim deadlocks FlyCube
@@ -253,14 +276,15 @@ void apply_world3d_globe_flythrough(content::OrbitFrame* orbit,
     // open water climb so Gerstner + coast form a readable horizon band.
     sample_skim_path(path_u, &look_lon, &look_lat);
     look_yaw_pitch(look_lon, look_lat, &yaw, &pitch);
-    constexpr float kOrbitHugFloor = 1.14f;
+    const float kOrbitHugFloor = 1.08f * R;
     dist = (std::max)(kOrbitHugFloor,
                       surface_r(globe, look_lon, look_lat, kSurfaceClear));
-    // Keep near-surface over the coast/sea — climbing to ≥1.3 R reads as a
+    // Keep near-surface over the coast/sea — climbing far above R reads as a
     // space globe still and loses the skim horizon.
     if (t01 >= 0.82f) {
-      dist = (std::max)(1.16f, (std::min)(dist, 1.20f));
+      dist = (std::max)(1.12f * R, (std::min)(dist, 1.22f * R));
     }
+    orbit->set_dolly_limits(kDollyMin, kDollyMax);
   }
 
   orbit->set_yaw(yaw);

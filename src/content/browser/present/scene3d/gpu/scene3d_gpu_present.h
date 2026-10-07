@@ -131,7 +131,9 @@ class Scene3dGpuPresent {
   OrbitGeoFrame& geo_frame() { return geo_frame_; }
   const OrbitGeoFrame& geo_frame() const { return geo_frame_; }
 
-  std::mutex& mutex() const { return present_mu_; }
+  // recursive: software paint() holds the lock then may call
+  // paint_legacy_place_labels which snapshots labels under the same mutex.
+  std::recursive_mutex& mutex() const { return present_mu_; }
 
   const std::vector<float>& local_xyz() const { return local_xyz_; }
   const std::vector<unsigned>& local_idx() const { return local_idx_; }
@@ -208,7 +210,7 @@ class Scene3dGpuPresent {
   size_t dem_local_xyz_count_ = 0;
   size_t dem_local_idx_count_ = 0;
   int terrain_lod_edge_ = 0;
-  mutable std::mutex present_mu_;
+  mutable std::recursive_mutex present_mu_;
   mutable base::FrameTimer hud_fps_timer_;
   render::rhi::Device* mesh_device_ = nullptr;
   bool wireframe_enabled_ = false;

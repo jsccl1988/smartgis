@@ -41,44 +41,10 @@ void TerrainPass::update_solid_terrain(const std::vector<Instance>& instances,
   if (solid_terrain_cached_ && solid_terrain_cache_gen_ == generation) {
     return;
   }
-
-  float ar = 0.28f;
-  float ag = 0.52f;
-  float ab = 0.22f;
-  size_t count = 0;
-  size_t best_texels = 0;
-  for (const Instance& inst : instances) {
-    if (inst.kind != NodeKind::kTerrain || inst.terrain.rgba.size() < 4) {
-      continue;
-    }
-    const size_t texels = inst.terrain.rgba.size() / 4;
-    if (texels < best_texels) {
-      continue;
-    }
-    uint64_t sr = 0;
-    uint64_t sg = 0;
-    uint64_t sb = 0;
-    size_t local_count = 0;
-    for (size_t p = 0; p + 3 < inst.terrain.rgba.size(); p += 4) {
-      sr += inst.terrain.rgba[p + 0];
-      sg += inst.terrain.rgba[p + 1];
-      sb += inst.terrain.rgba[p + 2];
-      ++local_count;
-    }
-    if (local_count == 0) {
-      continue;
-    }
-    best_texels = texels;
-    count = local_count;
-    ar = static_cast<float>(sr / count) / 255.f;
-    ag = static_cast<float>(sg / count) / 255.f;
-    ab = static_cast<float>(sb / count) / 255.f;
-  }
-  (void)count;
-  (void)ar;
-  (void)ag;
-  (void)ab;
-  // Product / score face: china lowland olive under solid force.
+  // Product / score face: china lowland olive under solid force. Skip the
+  // full-albedo mean scan — cold first present was paying O(texels) for a
+  // constant that never used the average (FlyCube near-black SRV gate).
+  (void)instances;
   solid_terrain_forced_ = true;
   solid_terrain_rgb_[0] = 0.34f;
   solid_terrain_rgb_[1] = 0.58f;
@@ -96,9 +62,14 @@ bool TerrainPass::prepare_mesh(render::rhi::Device* device, const Instance& inst
   const bool terrain_tex = inst.terrain.has_texture();
   render::rhi::Texture* terrain_gpu_tex = nullptr;
   if (terrain_tex) {
+    // Reuse |mesh->texture| when size matches (ocean remesh cold path).
     terrain_gpu_tex = detail::upload_rgba_texture_wh(
         device, inst.terrain.rgba.data(), inst.terrain.tex_w,
-        inst.terrain.tex_h);
+        inst.terrain.tex_h, mesh->texture);
+    mesh->texture = nullptr;
+  } else if (mesh->texture) {
+    device->destroy_texture(mesh->texture);
+    mesh->texture = nullptr;
   }
   const bool terrain_tex_ok = terrain_gpu_tex != nullptr;
   if (terrain_tex_ok) {

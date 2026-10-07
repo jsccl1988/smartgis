@@ -182,8 +182,23 @@ int run_browser_main(const content::ContentMainParams&,
   // small (/STACK:16MiB in BUILD.gn). A value snapshot keeps plugin paths and
   // scenario_id stable for the rest of startup.
   ViewsLaunchOptions options = options_in;
-  peek_plugin_startup(options.plugins_dir, &options.scenario_id,
-                      &options.plugin_present, &options.atmosphere_fields);
+  // Preserve CLI --plugin-showcase; plugin.json fills only when argv empty.
+  {
+    std::string peeked_scenario;
+    std::string peeked_present;
+    std::string peeked_fields;
+    peek_plugin_startup(options.plugins_dir, &peeked_scenario, &peeked_present,
+                        &peeked_fields);
+    if (options.scenario_id.empty()) {
+      options.scenario_id = std::move(peeked_scenario);
+    }
+    if (options.plugin_present.empty()) {
+      options.plugin_present = std::move(peeked_present);
+    }
+    if (options.atmosphere_fields.empty()) {
+      options.atmosphere_fields = std::move(peeked_fields);
+    }
+  }
   BASE_TRACE_EVENT("BrowserMain", "startup");
   LOGGING(LOG_INFO, "startup: BrowserMain begin");
   {

@@ -83,6 +83,42 @@ def _plugins_root(exe: Path) -> Path:
     return exe.resolve().parent / "plugins"
 
 
+def _load_plugin_json(manifest: Path) -> dict | None:
+    """Load plugin.json; tolerate mixed/legacy encodings after corrupt writes."""
+    try:
+        raw = manifest.read_bytes()
+    except OSError as exc:
+        print(f"warn: plugin.json read failed {manifest} ({exc})", flush=True)
+        return None
+    text: str | None = None
+    for enc in ("utf-8-sig", "utf-8", "gbk"):
+        try:
+            text = raw.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None:
+        print(f"warn: plugin.json undecodable {manifest}", flush=True)
+        return None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        print(f"warn: plugin.json parse failed {manifest} ({exc})", flush=True)
+        return None
+    if not isinstance(data, dict):
+        print(f"warn: plugin.json root not object {manifest}", flush=True)
+        return None
+    return data
+
+
+def _write_plugin_json(manifest: Path, data: dict) -> None:
+    manifest.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
 def apply_suite_plugin_startup(suite: Suite, exe: Path) -> Path | None:
     root = _plugins_root(exe)
     if not root.is_dir():
@@ -96,10 +132,8 @@ def apply_suite_plugin_startup(suite: Suite, exe: Path) -> Path | None:
         manifest = pkg_dir / "plugin.json"
         if not manifest.is_file():
             continue
-        try:
-            data = json.loads(manifest.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            print(f"warn: plugin.json read failed {manifest} ({exc})", flush=True)
+        data = _load_plugin_json(manifest)
+        if data is None:
             continue
         startup = data.get("startup")
         if not isinstance(startup, dict):
@@ -112,10 +146,7 @@ def apply_suite_plugin_startup(suite: Suite, exe: Path) -> Path | None:
             startup["activate"] = False
             startup.pop("scenario", None)
         data["startup"] = startup
-        manifest.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        _write_plugin_json(manifest, data)
     if target_path is None:
         print(
             f"warn: no plugin.json for package {target_pkg} under {root}",
@@ -136,9 +167,8 @@ def restore_product_plugin_startup(exe: Path) -> None:
         manifest = pkg_dir / "plugin.json"
         if not manifest.is_file():
             continue
-        try:
-            data = json.loads(manifest.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        data = _load_plugin_json(manifest)
+        if data is None:
             continue
         startup = data.get("startup")
         if not isinstance(startup, dict):
@@ -146,7 +176,4 @@ def restore_product_plugin_startup(exe: Path) -> None:
         startup["activate"] = True
         startup.pop("scenario", None)
         data["startup"] = startup
-        manifest.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        _write_plugin_json(manifest, data)

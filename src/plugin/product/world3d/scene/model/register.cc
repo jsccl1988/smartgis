@@ -5,8 +5,8 @@
 
 #include "content/public/gis_document.h"
 #include "content/public/plugin_host.h"
-#include "plugin/product/world3d/scene/detail/contribute.h"
 #include "plugin/product/world3d/scene/detail/host.h"
+#include "plugin/runtime/host/capability/contribute.h"
 #include "plugin/product/world3d/scene/present/standin.h"
 #include "plugin/product/world3d/scene/present/style.h"
 #include "plugin/runtime/host/processing/operation_result.h"
@@ -173,53 +173,66 @@ bool register_world3d_model(content::PluginHost* host) {
     return false;
   }
   g_host = host;
-  return contribute_command_aliases(host, {{"model3d.add_sphere", "Add sphere"}},
-                                    "tools", handle_add_sphere) &&
+  return contribute_command_aliases(
+             host, kWorld3dPluginId, {{"model3d.add_sphere", "Add sphere"}},
+             "tools", handle_add_sphere) &&
          contribute_command_aliases(
-             host, {{"model3d.add_water", "Add water surface"}}, "tools",
+             host, kWorld3dPluginId,
+             {{"model3d.add_water", "Add water surface"}}, "tools",
              handle_add_water) &&
          contribute_command_aliases(
-             host,
+             host, kWorld3dPluginId,
              {{"model3d.add_terrain_heightmap", "Add terrain heightmap"}},
              "tools", handle_add_terrain_heightmap) &&
          contribute_command_aliases(
-             host, {{"model3d.add_terrain_trimesh", "Add terrain trimesh"}},
-             "tools", handle_add_terrain_trimesh) &&
+             host, kWorld3dPluginId,
+             {{"model3d.add_terrain_trimesh", "Add terrain trimesh"}}, "tools",
+             handle_add_terrain_trimesh) &&
          contribute_command_aliases(
-             host, {{"model3d.create_trimesh", "Create trimesh"}}, "tools",
+             host, kWorld3dPluginId,
+             {{"model3d.create_trimesh", "Create trimesh"}}, "tools",
              handle_create_trimesh) &&
          contribute_command_aliases(
-             host, {{"model3d.layer_points_to_3d", "2D points to 3D"}}, "tools",
+             host, kWorld3dPluginId,
+             {{"model3d.layer_points_to_3d", "2D points to 3D"}}, "tools",
              handle_layer_points_to_3d) &&
          contribute_command_aliases(
-             host, {{"model3d.layer_lines_to_3d", "2D lines to 3D"}}, "tools",
+             host, kWorld3dPluginId,
+             {{"model3d.layer_lines_to_3d", "2D lines to 3D"}}, "tools",
              handle_layer_lines_to_3d) &&
          contribute_command_aliases(
-             host, {{"model3d.layer_polygons_to_3d", "2D polygons to 3D"}},
-             "tools", handle_layer_polygons_to_3d) &&
+             host, kWorld3dPluginId,
+             {{"model3d.layer_polygons_to_3d", "2D polygons to 3D"}}, "tools",
+             handle_layer_polygons_to_3d) &&
          contribute_processing_aliases(
-             host, {{"model3d.add_sphere", "Add sphere"}}, process_add_sphere) &&
+             host, kWorld3dPluginId, {{"model3d.add_sphere", "Add sphere"}},
+             process_add_sphere) &&
          contribute_processing_aliases(
-             host, {{"model3d.add_water", "Add water surface"}},
-             process_add_water) &&
+             host, kWorld3dPluginId,
+             {{"model3d.add_water", "Add water surface"}}, process_add_water) &&
          contribute_processing_aliases(
-             host,
+             host, kWorld3dPluginId,
              {{"model3d.add_terrain_heightmap", "Add terrain heightmap"}},
              process_add_terrain_heightmap) &&
          contribute_processing_aliases(
-             host, {{"model3d.add_terrain_trimesh", "Add terrain trimesh"}},
+             host, kWorld3dPluginId,
+             {{"model3d.add_terrain_trimesh", "Add terrain trimesh"}},
              process_add_terrain_trimesh) &&
          contribute_processing_aliases(
-             host, {{"model3d.create_trimesh", "Create trimesh"}},
+             host, kWorld3dPluginId,
+             {{"model3d.create_trimesh", "Create trimesh"}},
              process_create_trimesh) &&
          contribute_processing_aliases(
-             host, {{"model3d.layer_points_to_3d", "2D points to 3D"}},
+             host, kWorld3dPluginId,
+             {{"model3d.layer_points_to_3d", "2D points to 3D"}},
              process_layer_points_to_3d) &&
          contribute_processing_aliases(
-             host, {{"model3d.layer_lines_to_3d", "2D lines to 3D"}},
+             host, kWorld3dPluginId,
+             {{"model3d.layer_lines_to_3d", "2D lines to 3D"}},
              process_layer_lines_to_3d) &&
          contribute_processing_aliases(
-             host, {{"model3d.layer_polygons_to_3d", "2D polygons to 3D"}},
+             host, kWorld3dPluginId,
+             {{"model3d.layer_polygons_to_3d", "2D polygons to 3D"}},
              process_layer_polygons_to_3d);
 }
 

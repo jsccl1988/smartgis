@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// Product plugin flood.inundate integration → inundation mask viz + frame export.
-// IR: horizon HWND → view map → plugin processing → view export.
+// Product plugin flood.inundate integration: inundation mask viz + frame export.
+// IR: horizon HWND -> view map -> plugin processing -> view export.
 
 script "plugin.flood" {
   seq @inproc {

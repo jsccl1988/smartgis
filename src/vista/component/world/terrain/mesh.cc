@@ -36,7 +36,10 @@ void apply_elevation_overlay_texture(World* world, uint64_t node_id,
   std::vector<uint8_t> overlay;
   int ow = 0;
   int oh = 0;
-  if (!dem.bake_elevation_overlay_rgba(edge, /*surface=*/false, /*curves=*/true,
+  // Jet surface + dark charcoal isolines (paint.cc). White Origin stamps
+  // used to wash ui.scene; dark 1px strokes stay readable after bilinear
+  // upscale. ContourSheet overlay TIN uses the same bake for its atlas.
+  if (!dem.bake_elevation_overlay_rgba(edge, /*surface=*/true, /*curves=*/true,
                                        &overlay, &ow, &oh) ||
       ow != tw || oh != th || overlay.size() != rgba->size()) {
     return;

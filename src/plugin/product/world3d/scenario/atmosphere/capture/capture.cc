@@ -6,7 +6,7 @@
 #include "app/views/il.runtime/backend/view/pixel/gate.h"
 #include "plugin/product/world3d/scenario/atmosphere/session/device_session.h"
 #include "plugin/product/world3d/scenario/atmosphere/capture/label_composite.h"
-#include "plugin/product/world3d/scenario/atmosphere/common/progress.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scenario/common/host_rhi.h"
 #include "plugin/runtime/host/capability/shell.h"
 #include "app/views/util/exe_sidecar_path.h"

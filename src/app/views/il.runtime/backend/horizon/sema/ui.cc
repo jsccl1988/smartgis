@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <cwchar>
 #include <string>
 #include <vector>
 
@@ -126,6 +127,8 @@ ModeSpec spec_for(UiMode mode) {
       return {
           .bmp_leaf = L"ui-showcase-catalog.bmp",
           .perf_leaf = "ui-showcase-catalog-perf.json",
+          // Reassert Maps after layout (open_map / wire_catalog reset Layers).
+          .post_layout_pump_ms = 120,
       };
     case UiMode::kInteract:
       return {
@@ -205,7 +208,13 @@ void run_scene_ticks(ui::views::DrawHost& scene, const SceneTick& tick) {
   }
 }
 
-void hide_inactive_map_hwnds(Browser& browser, ui::views::DrawHost* active) {
+// Hide Scene3d DXGI popups that are not |active|. Do not pause_present()
+// (Display join deadlocks under layout). Skipping |active| avoids racing
+// sync_native_bounds against a live FlyCube Display thread (ExitProcess -1).
+// Capture path still hides-then-warms around force_ui_shell_repaint so Widget
+// layout never runs with a visible scene present (timeout 124).
+void hide_inactive_scene3d_presents(Browser& browser,
+                                    ui::views::DrawHost* active) {
   auto hide = [active](ui::views::DrawHost* pane) {
     if (!pane || pane == active) {
       return;
@@ -213,7 +222,6 @@ void hide_inactive_map_hwnds(Browser& browser, ui::views::DrawHost* active) {
     if (pane->role() != ui::views::DrawHost::Role::kScene3d) {
       return;
     }
-    // Do not pause_present here — joining Display while layout runs deadlocks.
     pane->set_gpu_present_visible(false);
     if (HWND present = pane->present_hwnd()) {
       if (IsWindow(present)) {
@@ -221,6 +229,25 @@ void hide_inactive_map_hwnds(Browser& browser, ui::views::DrawHost* active) {
       }
     }
     pane->sync_native_bounds();
+  };
+  hide(browser.draw_host());
+  hide(browser.data_draw_host());
+  hide(browser.scene_draw_host());
+}
+
+// Soft-hide only: no sync_native_bounds (avoids Display race). Used before
+// shell layout/repaint while the scene tab stays selected.
+void soft_hide_scene3d_presents(Browser& browser) {
+  auto hide = [](ui::views::DrawHost* pane) {
+    if (!pane || pane->role() != ui::views::DrawHost::Role::kScene3d) {
+      return;
+    }
+    pane->set_gpu_present_visible(false);
+    if (HWND present = pane->present_hwnd()) {
+      if (IsWindow(present)) {
+        ShowWindow(present, SW_HIDE);
+      }
+    }
   };
   hide(browser.draw_host());
   hide(browser.data_draw_host());
@@ -334,6 +361,19 @@ void reassert_after_layout(Browser& browser,
   if (spec.tab_after_layout >= 0) {
     browser.select_map_tab(spec.tab_after_layout);
   }
+  // Catalog showcase: layout_gate / wire can snap back to Layers — pin Maps
+  // (index 2) again so the capture matches apply_ui_scenario_panels
+  // (visual_review #3).
+  if (spec.bmp_leaf && std::wcsstr(spec.bmp_leaf, L"catalog")) {
+    if (ui::views::CatalogView* cat = browser.catalog_view()) {
+      if (ui::views::TabStrip* tabs = cat->source_tabs()) {
+        if (tabs->tab_count() > 2) {
+          tabs->set_active(2);
+        }
+      }
+      cat->schedule_paint();
+    }
+  }
   if (spec.warm_scene_present) {
     if (active) {
       active->set_gpu_present_visible(true);
@@ -437,16 +477,24 @@ void apply_ui_scenario_panels(Browser& browser, UiMode mode) {
                 ui::views::DrawHost::AttachMode::kGpuPresent &&
             scene->last_gpu_present_ok()) {
           ui_mark("scene-flycube-ok");
-          apply_china_scene3d_product_defaults(browser);
-          run_scene_ticks(*scene, SceneTick{
-                                      .count = 16,
-                                      .request_frame = true,
-                                  });
         } else {
           ui_mark("scene-flycube-wait");
         }
+        // Soft-hide before ContourSheet/TIN upload. Live FlyCube Display +
+        // apply_contour_suite_defaults has ExitProcess(-1)'d under ui.scene
+        // (marks stop at interact-pre). Do not pause_present (Display join
+        // deadlocks layout — suite timeout 124).
+        soft_hide_scene3d_presents(browser);
+        apply_china_scene3d_product_defaults(browser);
+        scene->set_gpu_present_visible(true);
+        run_scene_ticks(*scene, SceneTick{
+                                    .count = 16,
+                                    .invalidate = true,
+                                    .request_frame = true,
+                                });
+      } else {
+        apply_china_scene3d_product_defaults(browser);
       }
-      apply_china_scene3d_product_defaults(browser);
       if (ui::views::DrawHost* scene = browser.scene_draw_host()) {
         scene->invalidate_native();
       }
@@ -456,9 +504,13 @@ void apply_ui_scenario_panels(Browser& browser, UiMode mode) {
     case UiMode::kCatalog:
       browser.select_map_tab(0);
       if (ui::views::CatalogView* cat = browser.catalog_view()) {
+        // Maps page lists open docs (China); Layers is the default after seed.
         if (ui::views::TabStrip* tabs = cat->source_tabs()) {
-          tabs->set_active(2);  // Maps
+          if (tabs->tab_count() > 2) {
+            tabs->set_active(2);  // Maps
+          }
         }
+        cat->schedule_paint();
       }
       pump_views_messages(350);
       break;
@@ -509,20 +561,22 @@ int run_ui_layout_gate(Browser& browser, UiMode mode) {
   }
   ui_mark("root-ok");
 
-  // Hide Scene3d DXGI before Widget layout — remeasure with the present
-  // popup up deadlocks the UI thread (~90s, loop timeout 124). Do not
-  // pause_present() (Display join); ShowWindow(SW_HIDE) on the popup.
+  // Prefer hiding inactive Scene3d DXGI before Widget layout. Do not
+  // pause_present() (Display join) and do not HideWindow the *active* scene
+  // present here — that races the FlyCube Display thread (ExitProcess -1).
+  // Capture soft-hides around force_ui_shell_repaint instead (timeout 124).
   const ModeSpec spec = spec_for(mode);
-  hide_inactive_map_hwnds(browser, host_for(browser, spec.pane, false));
+  ui::views::DrawHost* active = host_for(browser, spec.pane, false);
+  hide_inactive_scene3d_presents(browser, active);
   layout_widget(root, /*layout_if_no_widget=*/true);
   root->sync_native_tree();
-  ui::views::DrawHost* active = host_for(browser, spec.pane, false);
-  hide_inactive_map_hwnds(browser, active);
+  active = host_for(browser, spec.pane, false);
+  hide_inactive_scene3d_presents(browser, active);
   if (HWND hwnd = browser.hwnd()) {
     InvalidateRect(hwnd, nullptr, FALSE);
   }
   pump_views_messages(80);
-  hide_inactive_map_hwnds(browser, active);
+  hide_inactive_scene3d_presents(browser, active);
 
   ui::views::TabStrip* map_tabs = map_tab_strip(browser.draw_host());
   ui::views::TabStrip* catalog_tabs =
@@ -581,16 +635,19 @@ int run_ui_present_capture(Browser& browser, UiMode mode) {
   if (spec.tab_before_capture >= 0) {
     browser.select_map_tab(spec.tab_before_capture);
   }
+  // Shell layout/repaint must run with Scene3d DXGI soft-hidden. Warming
+  // present first then layout_contents deadlocks (~90s → suite timeout 124).
+  if (spec.warm_scene_present) {
+    soft_hide_scene3d_presents(browser);
+  }
+  force_ui_shell_repaint(browser);
   if (spec.warm_scene_present) {
     // Stay on 3D. Capture the FlyCube present HWND (not Map / GDI hole).
     if (active) {
       warm_visible_scene(*active);
     }
     pump_views_messages(200);
-    layout_widget(browser.contents_view(), /*layout_if_no_widget=*/false);
   }
-
-  force_ui_shell_repaint(browser);
   reassert_after_layout(browser, active, spec);
 
   // Require a live cadence (held across idle gaps). Fps0.000 after gestures

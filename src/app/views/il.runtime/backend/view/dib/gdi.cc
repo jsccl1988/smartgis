@@ -127,7 +127,12 @@ bool blit_client_to_dib(HWND hwnd, HDC mem, int w, int h) {
   }
   POINT origin = {0, 0};
   ClientToScreen(hwnd, &origin);
-  const BOOL ok = BitBlt(mem, 0, 0, w, h, screen, origin.x, origin.y, SRCCOPY);
+  // Flip-model DXGI (WS_EX_NOREDIRECTIONBITMAP) has no GDI redirection
+  // bitmap. Plain SRCCOPY often returns the pass clear (solid sky) while the
+  // GPU limb sits only in a corner strip. CAPTUREBLT reads the DWM-composited
+  // client — same pattern as horizon atom capture.
+  const BOOL ok =
+      BitBlt(mem, 0, 0, w, h, screen, origin.x, origin.y, SRCCOPY | CAPTUREBLT);
   ReleaseDC(nullptr, screen);
   return ok != FALSE;
 }

@@ -11,6 +11,7 @@
 
 #include "plugin/product/world3d/commands.h"
 #include "plugin/product/world3d/scene/orthogrid/present/mesh.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "content/public/plugin_host.h"
 
@@ -54,26 +55,6 @@ int estimate_nodes() {
     }
   }
   return nx * ny;
-}
-
-bool parse_args(std::string_view json, rapidjson::Document* out) {
-  if (!out) {
-    return false;
-  }
-  out->Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  return !out->HasParseError() && out->IsObject();
-}
-
-bool json_get_int(const rapidjson::Value& obj, const char* key, int* out) {
-  if (!out || !key || !obj.IsObject()) {
-    return false;
-  }
-  const auto it = obj.FindMember(key);
-  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
-    return false;
-  }
-  *out = it->value.GetInt();
-  return true;
 }
 
 OrthogridMeshCommit commit_at_frame(const detail::BoundarySolve& solved,
@@ -274,8 +255,8 @@ bool orthogrid_present_frame(content::PluginHost* host,
   }
   int index = 0;
   rapidjson::Document args;
-  if (parse_args(args_json, &args)) {
-    json_get_int(args, "index", &index);
+  if (parse_args_json(args_json, &args)) {
+    args_json_int(args, "index", &index);
   }
   const OrthogridMeshCommit commit = commit_at_frame(g_last_solved, index);
   if (!present_orthogrid_mesh(gis, commit)) {

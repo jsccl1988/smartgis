@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "base/time/elapsed_timer.h"
 #include "vista/component/world/space/cull/frustum_aabb.h"
 #include "vista/component/world/space/cull/prep_cull.h"
 #include "vista/pass/world/cull/frustum_camera.h"
@@ -24,11 +25,15 @@ bool WorldPass::record_draws(render::rhi::Device* device,
   if (!ensure_pipelines(device)) {
     return false;
   }
+  last_rebuild_ms_ = 0;
   if (meshes_dirty_ || upload_device_ != device || upload_width_ != width ||
       upload_height_ != height) {
+    base::ElapsedTimer rebuild_timer;
     if (!rebuild_meshes(device, width, height)) {
       return false;
     }
+    last_rebuild_ms_ =
+        static_cast<int64_t>(rebuild_timer.elapsed_milliseconds() + 0.5);
   }
 
   render::rhi::RenderPassDesc pass;

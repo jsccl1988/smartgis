@@ -1,0 +1,45 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# Compile-time embed of .hlsl → generated .inc raw-string literals.
+# RHI still consumes const char* (ShaderSource → write_temp_hlsl → DXC).
+#
+# Usage:
+#   import("//src/vista/embed_hlsl.gni")
+#   embed_hlsl("ocean_hlsl") {
+#     sources = [ "ocean/vs_ocean.hlsl", "ocean/ps_ocean.hlsl" ]
+#     # outputs land under $root_gen_dir/<rebase of each source>.inc
+#   }
+
+template("embed_hlsl") {
+  assert(defined(invoker.sources), "embed_hlsl requires sources")
+
+  _pairs = []
+  _outputs = []
+  _inputs = []
+  foreach(_src, invoker.sources) {
+    _src_rebased = rebase_path(_src, "//")
+    _out = "$root_gen_dir/${_src_rebased}.inc"
+    _outputs += [ _out ]
+    _inputs += [ _src ]
+    _pairs += [ rebase_path(_src, root_build_dir) + "=" +
+                rebase_path(_out, root_build_dir) ]
+  }
+
+  action(target_name) {
+    script = "//src/vista/tools/embed_hlsl.py"
+    sources = _inputs
+    inputs = [ "//src/vista/tools/embed_hlsl.py" ]
+    outputs = _outputs
+    args = []
+    foreach(_pair, _pairs) {
+      args += [
+        "--pair",
+        _pair,
+      ]
+    }
+    if (defined(invoker.visibility)) {
+      visibility = invoker.visibility
+    }
+  }
+}

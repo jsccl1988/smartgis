@@ -96,9 +96,21 @@ render::rhi::Texture* upload_rgba_texture(render::rhi::Device* device,
 
 render::rhi::Texture* upload_rgba_texture_wh(render::rhi::Device* device,
                                              const void* pixels, uint32_t width,
-                                             uint32_t height) {
+                                             uint32_t height,
+                                             render::rhi::Texture* existing) {
   if (!device || !pixels || width == 0 || height == 0) {
     return nullptr;
+  }
+  const uint32_t byte_size = width * height * 4u;
+  if (existing && existing->width() == width && existing->height() == height) {
+    if (device->upload_texture(existing, pixels, byte_size)) {
+      return existing;
+    }
+    device->destroy_texture(existing);
+    existing = nullptr;
+  } else if (existing) {
+    device->destroy_texture(existing);
+    existing = nullptr;
   }
   render::rhi::TextureDesc desc;
   desc.width = width;
@@ -110,7 +122,6 @@ render::rhi::Texture* upload_rgba_texture_wh(render::rhi::Device* device,
   if (!texture) {
     return nullptr;
   }
-  const uint32_t byte_size = width * height * 4u;
   if (!device->upload_texture(texture, pixels, byte_size)) {
     device->destroy_texture(texture);
     return nullptr;

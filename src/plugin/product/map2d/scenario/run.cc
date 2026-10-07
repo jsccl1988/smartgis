@@ -44,8 +44,8 @@ int run_map2d_showcase(HarnessShell& browser, detail::ScenarioMode mode,
   browser.resume_present_timers();
   browser.pump(100);
   detail::map2d_mark("fit-ok");
-  // Same gate as browser.map2d.*.il mark("extent-ok") after fit_extent —
-  // map2d C++ fallback skips IL unless map2d-showcase-il=1.
+  // Same mark gate as browser.map2d.*.il after export_bmp framing.
+  // Path used when --map2d-showcase-il is not 1 (C++ fallback).
   detail::map2d_mark("extent-ok");
 
   if (const int rc =

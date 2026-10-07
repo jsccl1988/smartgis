@@ -202,14 +202,14 @@ std::optional<Action> lower_run_plugin_command(const CallStmt& c, VarMap*) {
 }  // namespace
 
 std::optional<Action> try_lower_plugin_call(const CallStmt& c, VarMap* vars) {
-  if (plugin::has_scenario_verb(c.name)) {
+  if (plugin::has_scenario_op(c.name)) {
     auto p = make_named_tuple("mode"_t = std::string());
     bind_into(c, p);
     const std::string name = c.name;
     const std::string mode = p["mode"_t];
     return Action([name, mode](content::CapabilityHost& host) {
       if (std::optional<bool> step =
-              plugin::try_exec_scenario_verb(host, name, mode)) {
+              plugin::try_exec_scenario_op(host, name, mode)) {
         return *step;
       }
       return true;

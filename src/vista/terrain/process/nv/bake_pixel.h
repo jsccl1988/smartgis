@@ -71,12 +71,13 @@ VISTA_BAKE_HD void terrain_material_rgb_impl(float meters, float slope01,
   *r = *r * (1.f - w) + 0.42f * w;
   *g = *g * (1.f - w) + 0.40f * w;
   *b = *b * (1.f - w) + 0.38f * w;
+  // Soft taupe peaks — near-white snow + Lambert saturates to chrome glare.
   if (meters > 4200.f && rock < 0.45f) {
     const float u =
         bake_clampf((meters - 4200.f) / 2200.f, 0.f, 1.f) * (1.f - rock);
-    *r = *r * (1.f - u) + 0.55f * u;
-    *g = *g * (1.f - u) + 0.58f * u;
-    *b = *b * (1.f - u) + 0.62f * u;
+    *r = *r * (1.f - u) + 0.58f * u;
+    *g = *g * (1.f - u) + 0.56f * u;
+    *b = *b * (1.f - u) + 0.50f * u;
   }
 }
 

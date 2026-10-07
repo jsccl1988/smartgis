@@ -12,9 +12,13 @@ void finish_atmosphere_device_session(HarnessShell& browser,
                                       AtmosphereDeviceSession* session,
                                       bool shutdown_device) {
   RhiPresentTeardownOpts opts;
-  opts.shutdown_device = shutdown_device && !(session && session->borrowed_shell);
-  opts.destroy_hwnd = !(session && session->borrowed_shell);
-  opts.detach_maps = true;
+  const bool borrowed = session && session->borrowed_shell;
+  opts.shutdown_device = shutdown_device && !borrowed;
+  opts.destroy_hwnd = !borrowed;
+  // Borrowed FlyCube: detach_maps after a live present AVs / ExitProcess(-1)
+  // before atmosphere "pass" (visual_review #5). Leave the shell viewports up;
+  // exit_after_scenario TerminateProcess tears the process down.
+  opts.detach_maps = !borrowed;
   RhiPresentSession core;
   if (session) {
     core.device = session->device;

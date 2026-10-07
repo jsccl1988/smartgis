@@ -4,10 +4,11 @@
 #include "plugin/product/traffic/scenario/register.h"
 
 #include "content/public/plugin_host.h"
+#include "plugin/product/traffic/commands.h"
 #include "plugin/product/traffic/scenario/run.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
-#include "plugin/runtime/host/capability/scenario.h"
-#include "plugin/runtime/host/capability/shell.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
+#include "plugin/runtime/host/capability/scenario_command.h"
+#include "plugin/runtime/host/capability/pack_ensure.h"
 #include "tool/command/command.h"
 
 namespace plugin {
@@ -15,16 +16,15 @@ namespace {
 
 constexpr const char* kPluginId = "smartgis.traffic";
 
-bool run_bound(content::PluginHost* host, int (*fn)(HarnessShell&)) {
-  HarnessShell* shell = harness_shell(host);
-  if (!shell || !fn) {
-    set_harness_scenario_exit(1);
-    return false;
-  }
-  detail::bind_plugin_scenario_shell(shell);
-  set_harness_scenario_exit(fn(*shell));
-  return harness_scenario_exit() == 0;
+bool ensure_traffic_pack(content::PluginHost* host) {
+  return register_traffic(host) && register_traffic_scenario(host);
 }
+
+struct TrafficHarnessOnce {
+  TrafficHarnessOnce() {
+    register_command_pack("traffic", ensure_traffic_pack);
+  }
+} k_traffic_harness_once;
 
 }  // namespace
 
@@ -33,19 +33,9 @@ int scenario_traffic(HarnessShell& browser) {
 }
 
 bool register_traffic_scenario(content::PluginHost* host) {
-  if (!host) {
-    return false;
-  }
-  if (tool::CommandCatalog* catalog = host->commands()) {
-    if (catalog->contains("traffic.scenario.showcase")) {
-      return true;
-    }
-  }
-  return host->contribute_command(
-      kPluginId, "traffic.scenario.showcase", "Traffic Map2d showcase", "tools",
-      [host](const tool::CommandArgs&) {
-        return run_bound(host, scenario_traffic);
-      });
+  return contribute_scenario_command(
+      host, kPluginId, "traffic.scenario.showcase", "Traffic Map2d showcase",
+      scenario_traffic, detail::bind_plugin_scenario_shell);
 }
 
 }  // namespace plugin

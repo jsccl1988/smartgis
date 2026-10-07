@@ -9,9 +9,11 @@
 #include <utility>
 
 #include "content/public/plugin_host.h"
-#include "plugin/product/world3d/scene/detail/contribute.h"
+#include "plugin/product/world3d/scene/detail/host.h"
 #include "plugin/product/world3d/scene/orthogrid/session/session.h"
+#include "plugin/runtime/host/capability/contribute.h"
 #include "plugin/product/world3d/scene/orthogrid/solve/boundary_solve.h"
+#include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "tool/command/command.h"
 #include "ui/views/dialogs/file_picker.h"
@@ -27,57 +29,6 @@ namespace {
 constexpr const char* kMenuId = "tools.baogrid";
 constexpr const char* kIdPrefixes[] = {"baogrid", "orthogrid"};
 constexpr const char* kEditAppendLinestring = "edit.append.linestring";
-
-bool json_get_string(std::string_view json,
-                     const char* key,
-                     std::string* out) {
-  if (!out || !key || json.empty()) {
-    return false;
-  }
-  rapidjson::Document doc;
-  doc.Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  if (doc.HasParseError() || !doc.IsObject()) {
-    return false;
-  }
-  const auto it = doc.FindMember(key);
-  if (it == doc.MemberEnd() || !it->value.IsString()) {
-    return false;
-  }
-  *out = std::string(it->value.GetString(), it->value.GetStringLength());
-  return !out->empty();
-}
-
-int json_get_int(std::string_view json, const char* key, int fallback) {
-  if (!key || json.empty()) {
-    return fallback;
-  }
-  rapidjson::Document doc;
-  doc.Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  if (doc.HasParseError() || !doc.IsObject()) {
-    return fallback;
-  }
-  const auto it = doc.FindMember(key);
-  if (it == doc.MemberEnd() || !it->value.IsInt()) {
-    return fallback;
-  }
-  return it->value.GetInt();
-}
-
-bool json_get_bool(std::string_view json, const char* key, bool fallback) {
-  if (!key || json.empty()) {
-    return fallback;
-  }
-  rapidjson::Document doc;
-  doc.Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
-  if (doc.HasParseError() || !doc.IsObject()) {
-    return fallback;
-  }
-  const auto it = doc.FindMember(key);
-  if (it == doc.MemberEnd() || !it->value.IsBool()) {
-    return fallback;
-  }
-  return it->value.GetBool();
-}
 
 bool workspace_has_linestring_tool(content::PluginHost* host) {
   if (!host) {
@@ -168,12 +119,19 @@ bool handle_generate(content::PluginHost*, const tool::CommandArgs&) {
 
 bool create_orth_grid_processing(content::PluginHost* host,
                                  std::string_view args_json) {
-  const int iters =
-      json_get_int(args_json, "elliptic_iters", detail::session_elliptic_iters());
+  rapidjson::Document args;
+  if (!parse_args_json(args_json, &args)) {
+    set_operation_result("{\"error\":\"bad_args\"}");
+    return false;
+  }
+  int iters = detail::session_elliptic_iters();
+  (void)args_json_int(args, "elliptic_iters", &iters);
   detail::set_session_elliptic_iters(iters);
 
   detail::BoundarySolve solved;
-  if (json_get_bool(args_json, "from_session", false)) {
+  bool from_session = false;
+  (void)args_json_bool(args, "from_session", &from_session);
+  if (from_session) {
     if (!detail::orthogrid_edges_complete()) {
       set_operation_result("{\"error\":\"boundary_incomplete\"}");
       return false;
@@ -181,7 +139,7 @@ bool create_orth_grid_processing(content::PluginHost* host,
     solved = detail::solve_orthogrid_session();
   } else {
     std::string path;
-    if (!json_get_string(args_json, "path", &path)) {
+    if (!args_json_string(args, "path", &path) || path.empty()) {
       set_operation_result("{\"error\":\"bad_args\"}");
       return false;
     }
@@ -218,7 +176,7 @@ bool register_world3d_orthogrid(content::PluginHost* host) {
     const std::string stem = "input_boundary_" + std::to_string(flag);
     const std::string title = "Input boundary " + std::to_string(flag);
     if (!contribute_prefixed_commands(
-            host, prefixes, stem, title, kMenuId,
+            host, kWorld3dPluginId, prefixes, stem, title, kMenuId,
             [host, flag](const tool::CommandArgs& args) {
               return input_boundary(host, args, flag);
             })) {
@@ -226,40 +184,44 @@ bool register_world3d_orthogrid(content::PluginHost* host) {
     }
   }
   if (!contribute_prefixed_commands(
-          host, prefixes, "save_boundary", "Save grid boundary", kMenuId,
+          host, kWorld3dPluginId, prefixes, "save_boundary",
+          "Save grid boundary", kMenuId,
           [host](const tool::CommandArgs& args) {
             return handle_save_boundary(host, args);
           })) {
     return false;
   }
   if (!contribute_prefixed_commands(
-          host, prefixes, "load_boundary", "Load grid boundary", kMenuId,
+          host, kWorld3dPluginId, prefixes, "load_boundary",
+          "Load grid boundary", kMenuId,
           [host](const tool::CommandArgs& args) {
             return handle_load_boundary(host, args);
           })) {
     return false;
   }
   if (!contribute_prefixed_commands(
-          host, prefixes, "generate", "Generate orth grid", kMenuId,
+          host, kWorld3dPluginId, prefixes, "generate", "Generate orth grid",
+          kMenuId,
           [host](const tool::CommandArgs& args) {
             return handle_generate(host, args);
           })) {
     return false;
   }
   if (!contribute_prefixed_commands(
-          host, prefixes, "create_orth_grid", "Create orth grid", kMenuId,
+          host, kWorld3dPluginId, prefixes, "create_orth_grid",
+          "Create orth grid", kMenuId,
           [host](const tool::CommandArgs& args) {
             return create_orth_grid_processing(host, args.payload);
           })) {
     return false;
   }
   if (!contribute_prefixed_processing(
-          host, prefixes, "create_orth_grid", "Create orth grid",
-          create_orth_grid_processing)) {
+          host, kWorld3dPluginId, prefixes, "create_orth_grid",
+          "Create orth grid", create_orth_grid_processing)) {
     return false;
   }
   return host->contribute_processing(
-      detail::kWorld3dPluginId,
+      kWorld3dPluginId,
       {"orthogrid.present_frame", "Re-present orthogrid frame"},
       orthogrid_present_frame);
 }

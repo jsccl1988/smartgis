@@ -32,6 +32,44 @@ std::string join_root_uri(const std::string& root, const char* uri) {
   return path;
 }
 
+// Ensure at most |max_ensure| cache misses this pump. Warm frames with a
+// stable selection skip decode entirely when every visible URI is resident.
+void ensure_tileset_content_budgeted(
+    const std::vector<const vista::Tile*>& visible,
+    vista::TilesetContentCache* cache, vista::TilesetContentResolveFn resolve,
+    void* user, size_t max_ensure) {
+  if (!cache) {
+    return;
+  }
+  size_t ensured = 0;
+  for (const vista::Tile* tile : visible) {
+    if (!tile || tile->content_uri.empty()) {
+      continue;
+    }
+    if (cache->try_get(tile->content_uri) != nullptr) {
+      continue;
+    }
+    if (max_ensure > 0 && ensured >= max_ensure) {
+      break;
+    }
+    if (!resolve) {
+      cache->put_failed(tile->content_uri);
+      ++ensured;
+      continue;
+    }
+    vista::ModelAsset asset;
+    size_t cost = 0;
+    if (resolve(tile->content_uri.c_str(), &asset, &cost, user) && cost > 0) {
+      if (!cache->put(tile->content_uri, std::move(asset), cost, true)) {
+        cache->put_failed(tile->content_uri);
+      }
+    } else {
+      cache->put_failed(tile->content_uri);
+    }
+    ++ensured;
+  }
+}
+
 }  // namespace
 
 TilesetStreamSession::TilesetStreamSession()
@@ -120,7 +158,8 @@ bool TilesetStreamSession::resolve_content(const char* uri, vista::ModelAsset* o
 
 bool TilesetStreamSession::pump_view(vista::World* world,
                                      const vista::ViewState& view,
-                                     double max_sse, size_t max_tiles) {
+                                     double max_sse, size_t max_tiles,
+                                     size_t max_ensure) {
   if (!world || node_id_ == 0) {
     return false;
   }
@@ -138,22 +177,33 @@ bool TilesetStreamSession::pump_view(vista::World* world,
 
   std::vector<const vista::Tile*> visible;
   vista::select_tiles_limited(tileset_, view, max_sse, max_tiles, visible);
-  const bool uris_changed = world->apply_tileset_selection(node_id_, visible);
-  vista::ensure_tileset_content(visible, &cache_, &resolve_content, this);
 
-  last_visible_uris_.clear();
-  last_visible_uris_.reserve(visible.size());
+  std::vector<std::string> uris;
+  uris.reserve(visible.size());
   for (const vista::Tile* tile : visible) {
     if (tile) {
-      last_visible_uris_.push_back(tile->content_uri);
+      uris.push_back(tile->content_uri);
     }
   }
-  return uris_changed;
+  const bool selection_stable = (uris == last_visible_uris_);
+
+  const bool uris_changed = world->apply_tileset_selection(node_id_, visible);
+
+  // Cap new decode resolves per pump. Warm frames with a fully resident
+  // selection only touch LRU (try_get inside ensure); prior budget leftovers
+  // still drain across subsequent frames until every miss is filled or failed.
+  ensure_tileset_content_budgeted(visible, &cache_, &resolve_content, this,
+                                  max_ensure);
+
+  last_visible_uris_ = std::move(uris);
+  return uris_changed || !selection_stable;
 }
 
 bool TilesetStreamSession::pump(vista::World* world, const OrbitFrame* orbit,
-                                double max_sse, size_t max_tiles) {
-  return pump_view(world, view_state_from_orbit(orbit), max_sse, max_tiles);
+                                double max_sse, size_t max_tiles,
+                                size_t max_ensure) {
+  return pump_view(world, view_state_from_orbit(orbit), max_sse, max_tiles,
+                   max_ensure);
 }
 
 }  // namespace content

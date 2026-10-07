@@ -121,7 +121,7 @@ int main() {
   {
     const vista::MapIR frame = layout.build({}, {});
     expect(frame.items.empty(), "empty frame keeps background");
-    expect(frame.background_rgba == 0xfff5f0e6u, "empty frame keeps background");
+    expect(frame.background_rgba == 0xffaad3dfu, "empty frame keeps ocean clear");
   }
 
   // Painter order: background is a clear; fill is emitted before line.

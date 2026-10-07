@@ -8,7 +8,8 @@
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "plugin/product/world3d/scene/fly/globe_fly.h"
-#include "vista/component/atmosphere/environment.h"
+#include "plugin/product/world3d/scene/present/contour.h"
+#include "vista/component/world/atmosphere/environment.h"
 
 #include <cstdio>
 
@@ -249,5 +250,61 @@ bool verify_world3d_look(World3dLook look, content::Scene3dPresenter* cam) {
   }
   return true;
 }
+
+bool apply_world3d_east_china_face(content::Scene3dPresenter* cam,
+                                   content::OrbitFrame* orbit,
+                                   bool perf_bare) {
+  if (!cam || !orbit) {
+    return false;
+  }
+  if (!apply_world3d_look(cam, orbit, World3dLook::kEastChina, nullptr)) {
+    return false;
+  }
+  if (perf_bare) {
+    cam->atmosphere_session().set_sky_enabled(false);
+    cam->atmosphere_session().set_cloud_enabled(false);
+    cam->atmosphere_session().set_fog_enabled(false);
+    cam->atmosphere_session().set_ocean_enabled(false);
+  } else {
+    (void)present_world3d_contour_suite(cam);
+  }
+  return true;
+}
+
+bool apply_world3d_true_earth_globe(content::Scene3dPresenter* cam,
+                                    content::OrbitFrame* orbit,
+                                    World3dLookSeed* out) {
+  if (!cam || !orbit) {
+    return false;
+  }
+  World3dLookSeed local;
+  World3dLookSeed* seed = out ? out : &local;
+  if (!apply_world3d_look(cam, orbit, World3dLook::kGlobe, seed)) {
+    return false;
+  }
+  (void)present_world3d_contour_suite(cam);
+  apply_world3d_globe_flythrough(
+      orbit, 0.42f, seed->globe_china_yaw, seed->globe_china_pitch,
+      &cam->atmosphere_session().globe_pass(), &cam->atmosphere_session());
+  return true;
+}
+
+bool ensure_world3d_legacy_overlays(content::Scene3dPresenter* cam) {
+  if (!cam) {
+    return false;
+  }
+  if (!cam->ensure_legacy_overlays()) {
+    std::fprintf(stderr, "world3d.look: legacy overlays failed\n");
+    return false;
+  }
+  // Use Presenter out-of-line count — cam->gpu() in this plugin TU can land on
+  // a skewed GpuPresent (stale AtmosphereSession sizeof) and report empty.
+  if (cam->legacy_label_count() <= 0) {
+    std::fprintf(stderr, "world3d.look: legacy labels empty\n");
+    return false;
+  }
+  return true;
+}
+
 
 }  // namespace plugin

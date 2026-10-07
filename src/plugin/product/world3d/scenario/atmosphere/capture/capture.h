@@ -4,7 +4,7 @@
 #ifndef PLUGIN_PRODUCT_WORLD3D_SCENARIO_ATMOSPHERE_CAPTURE_H_
 #define PLUGIN_PRODUCT_WORLD3D_SCENARIO_ATMOSPHERE_CAPTURE_H_
 
-#include "app/views/app/cmdline/views_launch_options.h"
+#include "plugin/product/world3d/scenario/atmosphere/mode.h"
 
 #include <windows.h>
 
@@ -22,8 +22,6 @@ class DrawHost;
 
 namespace plugin {
 namespace detail {
-
-using AtmosphereShowcaseMode = ::app::AtmosphereShowcaseMode;
 
 // Present the live swapchain at HWND client size, then write a 640×480 BMP
 // (scale-down so suite gates never score a full-shell HWND).

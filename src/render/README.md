@@ -5,7 +5,7 @@ All rights reserved.
 
 # `src/render`（终局）
 
-SmartGIS 渲染终局树：只保留 RHI / 帧图。`WorldPass` 落在 [`src/vista/pass/world`](../vista/pass/world/)（`vista::WorldPass`，**vista.dll**，不进 `render.dll`）。场景数学在 `src/base/math`（命名空间仍为 `render`）。壳画布在 `src/ui/gfx`。GPU 地图 pass 在 `src/vista/pass/map`，大气 pass 在 `src/vista/component/atmosphere`。2010 leftover 设备与三维引擎（代号 **Scenic**）在 [`src/legacy/render/`](../legacy/render/)（磁盘不改 `src/scenic`）。
+SmartGIS 渲染终局树：只保留 RHI / 帧图。`WorldPass` 落在 [`src/vista/pass/world`](../vista/pass/world/)（`vista::WorldPass`，**vista.dll**，不进 `render.dll`）。场景数学在 `src/base/math`（命名空间仍为 `render`）。壳画布在 `src/ui/gfx`。GPU 地图 pass 在 `src/vista/pass/map`，大气 pass 在 `src/vista/component/world/atmosphere`。2010 leftover 设备与三维引擎（代号 **Scenic**）在 [`src/legacy/render/`](../legacy/render/)（磁盘不改 `src/scenic`）。
 
 ## 目录
 

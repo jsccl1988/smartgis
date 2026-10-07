@@ -4,11 +4,12 @@
 #include "plugin/product/mine/scenario/register.h"
 
 #include "content/public/plugin_host.h"
+#include "plugin/product/mine/commands.h"
 #include "plugin/product/mine/scenario/interact.h"
 #include "plugin/product/mine/scenario/run.h"
-#include "plugin/product/world3d/scenario/common/plugin_io.h"
-#include "plugin/runtime/host/capability/scenario.h"
-#include "plugin/runtime/host/capability/shell.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
+#include "plugin/runtime/host/capability/scenario_command.h"
+#include "plugin/runtime/host/capability/pack_ensure.h"
 #include "tool/command/command.h"
 
 namespace plugin {
@@ -16,16 +17,19 @@ namespace {
 
 constexpr const char* kPluginId = "smartgis.mine";
 
-bool run_bound(content::PluginHost* host, int (*fn)(HarnessShell&)) {
-  HarnessShell* shell = harness_shell(host);
-  if (!shell || !fn) {
-    set_harness_scenario_exit(1);
-    return false;
-  }
-  detail::bind_plugin_scenario_shell(shell);
-  set_harness_scenario_exit(fn(*shell));
-  return harness_scenario_exit() == 0;
+bool ensure_mine_pack(content::PluginHost* host) {
+  // register_mine may already have run via the commands PackOnce; do not
+  // short-circuit scenario contribution on a duplicate-command false.
+  (void)register_mine(host);
+  return register_mine_scenario(host);
 }
+
+struct MineHarnessOnce {
+  MineHarnessOnce() {
+    register_mine_interact_ops();
+    register_command_pack("mine", ensure_mine_pack);
+  }
+} k_mine_harness_once;
 
 }  // namespace
 
@@ -34,26 +38,9 @@ int scenario_mine(HarnessShell& browser) {
 }
 
 bool register_mine_scenario(content::PluginHost* host) {
-  register_mine_interact_verbs();
-  if (!host) {
-    return false;
-  }
-  if (tool::CommandCatalog* catalog = host->commands()) {
-    if (catalog->contains("mine.scenario.showcase")) {
-      return true;
-    }
-  }
-  return host->contribute_command(
-      kPluginId, "mine.scenario.showcase", "Mine Scene3D showcase", "tools",
-      [host](const tool::CommandArgs&) {
-        return run_bound(host, scenario_mine);
-      });
+  return contribute_scenario_command(host, kPluginId, "mine.scenario.showcase",
+                                     "Mine Scene3D showcase", scenario_mine,
+                                     detail::bind_plugin_scenario_shell);
 }
-
-namespace {
-struct MineInteractOnce {
-  MineInteractOnce() { register_mine_interact_verbs(); }
-} k_mine_interact_once;
-}  // namespace
 
 }  // namespace plugin

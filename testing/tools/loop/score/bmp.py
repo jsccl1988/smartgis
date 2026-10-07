@@ -21,6 +21,7 @@ from .legacy import (
 )
 from .map2d import score_map2d_china, score_map2d_orthogrid
 from .plugin import (
+    score_plugin_flood,
     score_plugin_hex,
     score_plugin_map2d,
     score_plugin_mesh,
@@ -40,6 +41,7 @@ _SCORE_FNS = {
     "plugin_product": score_plugin_product,
     "plugin_print": score_plugin_print,
     "plugin_map2d": score_plugin_map2d,
+    "plugin_flood": score_plugin_flood,
     "plugin_scene3d": score_plugin_scene3d,
     "plugin_stormsurge": score_plugin_stormsurge,
     "plugin_mesh": score_plugin_mesh,
