@@ -12,7 +12,7 @@ class HarnessShell;
 
 namespace detail {
 
-// Destroys owned present HWND, optionally shuts down Device, then detach_maps.
+// Destroys owned present HWND, optionally shuts down Device, then detach_views.
 // |session| may be null (still detaches maps). Live GPU present paths should
 // pass shutdown_device=false (FlyCube DX12 teardown heap-corrupts ExitProcess).
 void finish_atmosphere_device_session(HarnessShell& browser,

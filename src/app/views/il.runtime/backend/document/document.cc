@@ -9,10 +9,10 @@
 
 #include "app/views/browser/browser.h"
 #include "app/views/il.runtime/backend/view/probe.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/view_host.h"
+#include "content/public/types.h"
+#include "content/public/tool_session.h"
 #include "gis/style/document/style_document.h"
 #include "plugin/runtime/host/capability/shell.h"
 
@@ -20,19 +20,19 @@ namespace app {
 namespace detail {
 namespace {
 
-bool open_path_on(content::MapScene* doc, const std::string& path_utf8) {
+bool open_path_on(content::GisScene* doc, const std::string& path_utf8) {
   return doc && !path_utf8.empty() && doc->open_path(path_utf8);
 }
 
 }  // namespace
 
 bool dispatch_edit_input(Browser& browser, const content::InputEvent& event) {
-  content::ViewHost* host = active_map_host(browser);
+  content::ToolSession* host = active_map_host(browser);
   return host && host->dispatch_input(event);
 }
 
 bool apply_style_file(Browser& browser, const std::string& path_utf8) {
-  content::MapScene* doc = browser.document();
+  content::GisScene* doc = browser.document();
   if (!doc || path_utf8.empty()) {
     return false;
   }
@@ -53,16 +53,16 @@ bool apply_style_file(Browser& browser, const std::string& path_utf8) {
   return doc->style_document() != nullptr;
 }
 
-bool open_map_document(Browser& browser, const std::string& path_utf8) {
+bool open_document(Browser& browser, const std::string& path_utf8) {
   return open_path_on(browser.document(), path_utf8);
 }
 
-bool open_map_document(plugin::HarnessShell& host, const std::string& path_utf8) {
+bool open_document(plugin::HarnessShell& host, const std::string& path_utf8) {
   return open_path_on(host.document(), path_utf8);
 }
 
 bool clear_map_document(Browser& browser) {
-  if (content::MapScene* doc = browser.document()) {
+  if (content::GisScene* doc = browser.document()) {
     doc->clear();
     doc->clear_style_document();
   }

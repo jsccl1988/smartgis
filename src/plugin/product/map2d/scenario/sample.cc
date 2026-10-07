@@ -5,7 +5,7 @@
 
 #include "plugin/product/map2d/scenario/progress.h"
 #include "plugin/runtime/host/capability/shell.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 
 #include <cstdio>
 #include <iterator>

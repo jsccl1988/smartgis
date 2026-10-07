@@ -4,6 +4,8 @@
 #ifndef CONTENT_PUBLIC_PLUGIN_HOST_H_
 #define CONTENT_PUBLIC_PLUGIN_HOST_H_
 
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -49,10 +51,10 @@ struct ExportFrameContribution {
   double max_lat = 0.0;
 };
 
-// Real MapContents lives in content/public/map_contents.h. Keep a forward
+// Real GisContents lives in content/public/gis_contents.h. Keep a forward
 // declaration here so PluginHost TUs that must not include that header (and
 // TUs that already include it) do not hit C2011 redefinition.
-class MapContents;
+class GisContents;
 
 class PluginHost;
 
@@ -69,14 +71,16 @@ using UiPainterInstaller = std::function<void()>;
 // → ui/views include edge.
 using UiWithdrawHook = std::function<void(std::string_view plugin_id)>;
 
-// QgsInterface analogue: contribution points plus opaque capabilities.
-// Product plugin names and package-specific facades must not appear here —
-// chrome / plugin_host.dll register interfaces by reverse-DNS id.
+// Plugin contribution + opaque capability seams. Owned by GisContents
+// (ensure_plugin_host); does not own GisContents. gis_document() forwards to
+// the bound GisContents. GisContentsClient is unrelated (process hooks).
 class CONTENT_EXPORT PluginHost {
  public:
   virtual ~PluginHost() = default;
 
-  virtual MapContents* map_contents() = 0;
+  virtual GisContents* gis_contents() = 0;
+  // Bind / replace the GisContents capability root (shell after lazy Create).
+  virtual void set_gis_contents(GisContents* contents) { (void)contents; }
   virtual EventBus* events() = 0;
   virtual tool::CommandCatalog* commands() = 0;
 
@@ -106,6 +110,24 @@ class CONTENT_EXPORT PluginHost {
   virtual bool open_dialog(std::string_view dialog_id) = 0;
   virtual bool run_processing(std::string_view processing_id,
                               std::string_view args_json) = 0;
+
+  // OOP plugin call + tool activate (formerly GisContents::DispatchPlugin /
+  // ActivateTool). In-process tools prefer ToolSession::activate / execute.
+  virtual void dispatch(uint32_t view_id,
+                        const char* plugin_id,
+                        const char* method,
+                        const void* bytes,
+                        size_t n) {
+    (void)view_id;
+    (void)plugin_id;
+    (void)method;
+    (void)bytes;
+    (void)n;
+  }
+  virtual void activate_tool(uint32_t view_id, const char* tool_id) {
+    (void)view_id;
+    (void)tool_id;
+  }
 
   virtual void withdraw(std::string_view plugin_id) = 0;
   virtual void set_ui_withdraw_hook(UiWithdrawHook hook) = 0;
@@ -166,8 +188,8 @@ class CONTENT_EXPORT PluginHost {
     return false;
   }
 
-  // GIS document wrapping MapScene (not MapContents). Shell installs a
-  // MapSceneGisDocument; default is no-op.
+  // Forwards to GisContents::gis_document when maps are bound; otherwise a
+  // test-only local pointer from set_gis_document. Does not own the document.
   virtual GisDocument* gis_document() { return nullptr; }
   virtual void set_gis_document(GisDocument* doc) { (void)doc; }
 
@@ -248,7 +270,7 @@ class CONTENT_EXPORT PluginHost {
 
 CONTENT_EXPORT PluginHost* create_plugin_host(tool::CommandCatalog* catalog,
                                               EventBus* events,
-                                              MapContents* maps);
+                                              GisContents* maps);
 
 }  // namespace content
 

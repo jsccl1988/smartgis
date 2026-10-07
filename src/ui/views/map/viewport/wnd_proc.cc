@@ -340,11 +340,11 @@ LRESULT CALLBACK DrawHost::child_wnd_proc(HWND hwnd, UINT msg,
   if (self->handle_mouse_capture(hwnd, msg, wparam, lparam)) {
     return 0;
   }
-  if (detail::route_view_host_pointer(self->view_host_, hwnd, msg, wparam,
+  if (detail::route_tool_session_pointer(self->tool_session_, hwnd, msg, wparam,
                                       &self->touch_tracker_)) {
     return 0;
   }
-  if (detail::route_view_host_input(self->view_host_, hwnd, msg, wparam, lparam,
+  if (detail::route_tool_session_input(self->tool_session_, hwnd, msg, wparam, lparam,
                                     self->touch_tracker_.suppress_mouse())) {
     return 0;
   }

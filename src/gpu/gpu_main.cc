@@ -251,7 +251,7 @@ bool send_shared_surface(cd::Pipe* pipe,
 }
 
 bool announce_and_paint(cd::Pipe* pipe, uint32_t view_id, SurfaceSlot* slot) {
-  // Shell overlays MapScene vectors. Scene3d is direct content inside
+  // Shell overlays GisScene vectors. Scene3d is direct content inside
   // draw_and_swap; this call does not branch on kind.
   DrawRequest req;
   req.kind = slot->kind;

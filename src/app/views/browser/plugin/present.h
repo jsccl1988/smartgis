@@ -10,7 +10,7 @@
 
 namespace content {
 class BrowserSession;
-class MapScene;
+class GisScene;
 class PluginHost;
 }
 
@@ -33,7 +33,7 @@ bool present_plugin_dataset(Browser* browser,
                             const std::function<void()>& fit_extent,
                             std::string_view path, int face, int surface);
 
-bool add_standin_mesh(content::MapScene* doc, const char* name, double lon,
+bool add_standin_mesh(content::GisScene* doc, const char* name, double lon,
                       double lat, double half_deg);
 
 // Processing id ending in ".present_frame" contributed by |plugin_id|.

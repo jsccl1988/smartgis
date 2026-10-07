@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "vista/terrain/dem/dem_frame.h"
 #include "render/rhi/rhi.h"
 #include "tool/draft/draft.h"

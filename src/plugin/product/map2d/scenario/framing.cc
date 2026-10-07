@@ -5,10 +5,10 @@
 
 #include "plugin/product/map2d/scenario/progress.h"
 #include "plugin/runtime/host/capability/shell.h"
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 
 #include <cstdio>
@@ -18,7 +18,7 @@ namespace detail {
 namespace {
 
 void frame_china_map2d(HarnessShell& browser, int view_w, int view_h) {
-  content::MapScene* doc = browser.document();
+  content::GisScene* doc = browser.document();
   content::ViewFrame* frame = browser.view_frame();
   if (!doc || !frame) {
     return;

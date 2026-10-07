@@ -57,7 +57,7 @@ int run_world3d_scene3d(HarnessShell& browser) {
     content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
   }
 
-  // Prefer owned present HWND (peer mine). select_map_tab(2) can AV under
+  // Prefer owned present HWND (peer mine). select_view_tab(2) can AV under
   // leftover GL destroy_ when FlyCube is default — mark and continue.
   // Skip post-tab pump: DispatchMessage after the shell FlyCube present SEH
   // has been observed to escalate to STATUS_FATAL_USER_CALLBACK_EXCEPTION
@@ -77,7 +77,7 @@ int run_world3d_scene3d(HarnessShell& browser) {
   PluginDeviceSession session;
   if (const int rc = prepare_plugin_device_session(browser, opts, &session)) {
     destroy_plugin_owned_hwnd(&session);
-    browser.detach_maps();
+    browser.detach_views();
     return rc;
   }
   plugin_mark("device-session-ok");
@@ -87,7 +87,7 @@ int run_world3d_scene3d(HarnessShell& browser) {
   if (!cam || !orbit) {
     teardown_plugin_device_session(cam, &session,
                                    PluginTeardownOpts{.shutdown_device = true});
-    browser.detach_maps();
+    browser.detach_views();
     return 50;
   }
   // Present camera_matrices() is identity when gpu_.orbit_ is unset. Startup

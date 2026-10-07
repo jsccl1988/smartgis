@@ -37,7 +37,7 @@ GIS panels + product dialogs → //src/ui/gis (same ui_views.dll / UI_EXPORT)
 | `views_markup` | kernel, control_factory, yoga, pugixml | primitives, dialogs |
 | `views_primitives` | kernel, control_factory | views_markup, dialogs, map |
 | `views_dialogs` | primitives | views_markup |
-| `views_map` | kernel, content/view_host/rhi/tool | — |
+| `views_map` | kernel, content/tool_session/rhi/tool | — |
 
 `ControlFactory` registry header stays under `markup/factory/` (`control_factory.h`) but is a **separate** GN target (`:views_control_factory`) so `views_primitives` can register tags without depending on MarkupDocument/Yoga. **Concrete** tag creators register from `primitives/register_markup_controls.*` and `markup/factory/register_markup_tags.*`; `make_default()` is an aggregation TU (`markup/factory/control_factory_default.cc`) linked via `:views_sources`.
 

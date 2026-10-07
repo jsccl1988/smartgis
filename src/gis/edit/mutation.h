@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "content/public/map_layer_types.h"
+#include "gis/feature/attrs.h"
 
 namespace gis {
 
@@ -24,7 +24,7 @@ enum class CommitStatus {
 struct ConflictError {
   uint64_t client_version = 0;
   uint64_t store_version = 0;
-  content::FeatureId id{};
+  FeatureId id{};
 };
 
 // Map-CRS vertex for FeatureGeom (no OGR on this header).
@@ -50,7 +50,7 @@ struct FeatureGeom {
 // can recover private state; 0 means the host stored nothing.
 struct FeatureMutation {
   EditOp op = EditOp::kAppend;
-  content::FeatureId id{};
+  FeatureId id{};
   // Optimistic base version. When the session is bound to an
   // OptimisticLayerStore, must equal the store version for this feature
   // (seeded features typically start at 1). Ignored when no store is bound.

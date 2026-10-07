@@ -76,7 +76,7 @@ bool draw_direct_bitmap(content::ViewKind kind, int w, int h, uint8_t cb,
 
   // Scene3d: filled elevation DEM + labels (shell paints orbitable SoT on
   // top; this underlay must not look like a wireframe / flat olive cube).
-  // 2D panes: light grid only (shell overlays MapScene vectors).
+  // 2D panes: light grid only (shell overlays GisScene vectors).
   if (kind != content::ViewKind::kScene3d) {
     HPEN grid_pen = CreatePen(PS_SOLID, 1, grid);
     HGDIOBJ old_pen = SelectObject(mem, grid_pen);

@@ -24,7 +24,7 @@ namespace atmosphere {
 
 // Session holder for atmosphere time, sun/quality params, shared FieldStore,
 // and the Ocean/Cloud systems that drive GPU passes. Mounted optionally on
-// MapScene / Scene3dController (not NodeKind). Ocean/cloud default off.
+// GisScene / Scene3dController (not NodeKind). Ocean/cloud default off.
 // Environment is the kAtmosphere DomainSession; it does not inherit
 // DomainSession, so World includes stay unchanged.
 class VISTA_EXPORT Environment {

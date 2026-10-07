@@ -48,11 +48,11 @@ class BrowserHarnessShell final : public plugin::HarnessShell {
   ui::views::DrawHost* scene_draw_host() const override {
     return browser_.scene_draw_host();
   }
-  content::ViewHost* edit_view_host() const override {
-    return browser_.edit_view_host();
+  content::ToolSession* edit_tool_session() const override {
+    return browser_.edit_tool_session();
   }
-  content::ViewHost* scene_host() override { return browser_.scene_host(); }
-  content::MapScene* document() override { return browser_.document(); }
+  content::ToolSession* scene_tool_session() override { return browser_.scene_tool_session(); }
+  content::GisScene* document() override { return browser_.document(); }
   content::Scene3dPresenter* scene3d() override { return browser_.scene3d(); }
   content::Scene3dStereoSession* scene3d_stereo() override {
     return browser_.scene3d_stereo();
@@ -60,7 +60,7 @@ class BrowserHarnessShell final : public plugin::HarnessShell {
   content::ViewFrame* view_frame() override { return browser_.view_frame(); }
   content::OrbitFrame* orbit_frame() override { return browser_.orbit_frame(); }
   content::Map2dPresenter* map2d() override { return browser_.map2d(); }
-  content::MapContents* map_contents() override {
+  content::GisContents* gis_contents() override {
     return browser_.map_session();
   }
   content::PluginHost* plugin_host() override {
@@ -76,7 +76,7 @@ class BrowserHarnessShell final : public plugin::HarnessShell {
   bool run_m2_harness_hooks(std::string* err) override {
     return browser_.run_m2_harness_hooks(err);
   }
-  void select_map_tab(int index) override { browser_.select_map_tab(index); }
+  void select_view_tab(int index) override { browser_.select_view_tab(index); }
   void on_view_command(std::string_view command_id, int bookmark_index,
                        bool from_context, int view_x, int view_y) override {
     browser_.on_view_command(command_id, bookmark_index, from_context, view_x,
@@ -94,15 +94,15 @@ class BrowserHarnessShell final : public plugin::HarnessShell {
                   bool truncate) override {
     write_mark(leaf, step, truncate);
   }
-  void detach_maps() override { ::app::detail::detach_maps(browser_); }
+  void detach_views() override { ::app::detail::detach_views(browser_); }
   void finish_scene3d(bool borrowed_shell) override {
     ::app::detail::finish_scene3d(browser_, borrowed_shell);
   }
   void stop_present_timers() override {
-    ::app::detail::stop_map_present_timers(browser_);
+    ::app::detail::stop_present_timers(browser_);
   }
   void resume_present_timers() override {
-    ::app::detail::resume_map_present_timers(browser_);
+    ::app::detail::resume_present_timers(browser_);
   }
   void push_shared_extent() override { browser_.push_shared_extent(); }
   bool capture_path(wchar_t* out, size_t cap, const wchar_t* leaf) override {

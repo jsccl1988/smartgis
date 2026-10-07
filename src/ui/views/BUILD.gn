@@ -7,7 +7,7 @@
 # Single export: UI_EXPORT / UI_EXPORTS (ui/ui_export.h) for all of //src/ui.
 #
 # Sibling DLLs (import-link only — never absorb their TUs into this PE):
-#   //src/content:content  (dll_stem=content; :view_host group → :content)
+#   //src/content:content  (dll_stem=content; :tool_session group → :content)
 #   //src/tool:tool        (dll_stem=tool; content already public_deps :tool)
 #   //src/render:rhi       (group → render.dll)
 #
@@ -250,7 +250,7 @@ source_set("views_map") {
   public_deps = [
     ":views_kernel",
     "//src/content:content",
-    "//src/content:view_host",
+    "//src/content:tool_session",
     "//src/render:rhi",
     "//src/tool:tool",
   ]
@@ -276,7 +276,7 @@ source_set("views_sources") {
     ":views_markup",
     ":views_primitives",
     "//src/content:content",
-    "//src/content:view_host",
+    "//src/content:tool_session",
     "//src/render:rhi",
     "//src/tool:tool",
   ]
@@ -295,7 +295,7 @@ product_shared_library("ui_views") {
   # content.dll + tool.dll + render.dll (not static source_sets).
   public_deps = [
     "//src/content:content",
-    "//src/content:view_host",
+    "//src/content:tool_session",
     "//src/render:rhi",
     "//src/tool:tool",
   ]

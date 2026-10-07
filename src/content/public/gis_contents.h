@@ -1,64 +1,63 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef CONTENT_PUBLIC_MAP_CONTENTS_H
-#define CONTENT_PUBLIC_MAP_CONTENTS_H
+#ifndef CONTENT_PUBLIC_GIS_CONTENTS_H
+#define CONTENT_PUBLIC_GIS_CONTENTS_H
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "content/content_export.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
+#include "content/public/widget_host_view.h"
 
-// Browser-process session: relaunch this PE with --type=gpu, N
-// MapWidgetHostView surfaces. Hosts include only content/public.
+namespace tool {
+class CommandCatalog;
+}  // namespace tool
+
+// Core embedder capability host for one GIS document + viewport session
+// (views, present pipe, owned PluginHost + GisDocument). Distinct from
+// GisDocument (narrow layer/feature/catalog/selection API) and from
+// GisContentsClient (content->app process hooks). Document lifecycle
+// notifications also mirror EventBus domain facts for shells that prefer
+// virtual callbacks over subscribe().
 namespace content {
 
-// Shell implements this. MapContents does not include mojo.
-class MapContentsObserver {
+class EventBus;
+class GisDocument;
+class PluginHost;
+
+// Shell implements this. GisContents does not include mojo.
+// Frame / extent / death come from the present pipe; selection / layers /
+// style / edit / backend mirror EventBus (and document/pipe mutators).
+class GisContentsObserver {
  public:
-  virtual ~MapContentsObserver() = default;
+  virtual ~GisContentsObserver() = default;
+
   virtual void OnFrameReady(uint32_t view_id, uint32_t generation) {}
   virtual void OnExtentChanged(uint32_t view_id, const Extent2& e) {}
+  virtual void OnSelectionChanged(uint32_t view_id,
+                                  const FeatureId* ids,
+                                  size_t n) {}
+  virtual void OnLayersChanged(uint32_t view_id, uint32_t layer_count) {}
+  // Fired after a successful style apply (JSON or path load via document).
+  virtual void OnStyleChanged(uint32_t view_id) {}
+  // |op| matches EditCommitted::Op (0=append, 1=delete, 2=modify).
+  virtual void OnEditCommitted(uint32_t view_id,
+                               const FeatureId& id,
+                               int op) {}
+  virtual void OnRenderBackendChanged(uint32_t view_id, uint32_t kind) {}
   virtual void OnRenderDied() {}
 };
 
-// Hosted map viewport. Shell presents Latest() into its HWND.
-// GPU owns RenderDevice2d. Do not include sdb or render device headers.
-class CONTENT_EXPORT MapWidgetHostView {
+// Capability root: viewport pipe + owned PluginHost + GisDocument.
+// PluginHost does not own this GisContents (non-owning back-pointer only).
+// Selection / catalog / legend / plugin dispatch / tool activate live on
+// GisDocument, PluginHost, or ToolSession — not on this surface.
+class CONTENT_EXPORT GisContents {
  public:
-  struct CreateParams {
-    void* parent_hwnd;
-    CreateParams() : parent_hwnd(nullptr) {}
-  };
-
-  struct Preferences {};
-
-  virtual ~MapWidgetHostView() = default;
-
-  virtual void Create(const CreateParams& params,
-                      const Preferences& preferences) = 0;
-  virtual void Destroy() = 0;
-
-  virtual uint32_t ViewId() const = 0;
-  virtual void* NativeHwnd() const = 0;
-
-  virtual void Resize(int width_px, int height_px, float dpi) = 0;
-  virtual void Resize(int x,
-                       int y,
-                       int width_px,
-                       int height_px,
-                       float dpi) = 0;
-  virtual void SetPresentMode(PresentMode mode) = 0;
-  virtual void SetVisible(bool visible) = 0;
-  virtual SharedSurface Latest() const = 0;
-};
-
-class CONTENT_EXPORT MapContents {
- public:
-  virtual ~MapContents() = default;
-
-  static MapContents* Create();
+  virtual ~GisContents() = default;
 
   virtual bool StartRenderProcess() = 0;
   virtual void Shutdown() = 0;
@@ -67,26 +66,13 @@ class CONTENT_EXPORT MapContents {
 
   virtual uint32_t OpenView(ViewKind kind) = 0;
   virtual void CloseView(uint32_t view_id) = 0;
-  virtual MapWidgetHostView* AttachSurface(uint32_t view_id,
-                                           PresentMode mode) = 0;
-  virtual MapWidgetHostView* HostView(uint32_t view_id) = 0;
+  virtual WidgetHostView* AttachSurface(uint32_t view_id,
+                                        PresentMode mode) = 0;
+  virtual WidgetHostView* HostView(uint32_t view_id) = 0;
 
   virtual void SetExtent(uint32_t view_id, const Extent2& e) = 0;
   virtual Extent2 Extent(uint32_t view_id) const = 0;
 
-  virtual void SetSelection(uint32_t view_id,
-                           const FeatureId* ids,
-                           size_t n) = 0;
-  virtual void LegendSnapshot(uint32_t view_id) = 0;
-  virtual void CatalogCall(const char* json_op) = 0;
-
-  virtual void DispatchPlugin(uint32_t view_id,
-                              const char* plugin_id,
-                              const char* method,
-                              const void* bytes,
-                              size_t n) = 0;
-
-  virtual void ActivateTool(uint32_t view_id, const char* tool_id) = 0;
   virtual void Dispatch(uint32_t view_id, const InputEvent& e) = 0;
 
   // Tell --type=gpu which 2D paint path to use. 0 = Track B RHI, 1 = Track A
@@ -94,10 +80,25 @@ class CONTENT_EXPORT MapContents {
   virtual void SetRenderBackend(uint32_t kind) = 0;
   virtual uint32_t RenderBackend() const = 0;
 
-  virtual void SetObserver(MapContentsObserver* observer) = 0;
+  virtual void SetObserver(GisContentsObserver* observer) = 0;
   virtual bool WaitFrameReady(uint32_t view_id, uint32_t timeout_ms) = 0;
+
+  // GIS document capability (layers / features / style / catalog / selection).
+  // Non-owning set for tests; take_ transfers ownership to this GisContents.
+  virtual GisDocument* gis_document() = 0;
+  virtual void set_gis_document(GisDocument* doc) = 0;
+  virtual void take_gis_document(std::unique_ptr<GisDocument> doc) = 0;
+
+  // Plugin contribution host. Owned by this GisContents; created on first
+  // ensure_plugin_host. Idempotent — same pointer thereafter.
+  virtual PluginHost* plugin_host() = 0;
+  virtual PluginHost* ensure_plugin_host(tool::CommandCatalog* catalog,
+                                         EventBus* events) = 0;
 };
+
+// Factory (snake_case). Caller owns the returned pointer.
+CONTENT_EXPORT GisContents* create_gis_contents();
 
 }  // namespace content
 
-#endif  // CONTENT_PUBLIC_MAP_CONTENTS_H
+#endif  // CONTENT_PUBLIC_GIS_CONTENTS_H

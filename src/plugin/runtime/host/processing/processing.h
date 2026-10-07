@@ -24,7 +24,7 @@ enum class ProcessingMode { kThread, kUtilityStub };
 //
 // Thread split (locked):
 // - Compute: |factory| / |compute| runs on a pool worker. Do not touch
-//   MapScene, Views, HWND, Browser*, or PluginHost present APIs
+//   GisScene, Views, HWND, Browser*, or PluginHost present APIs
 //   (gis_document / scene3d capability / playback / present_dataset).
 // - Present: only from |present| (optional 5-arg submit) or the |done|
 //   callback. Those run on the thread that calls flush_for_test (UI drain).

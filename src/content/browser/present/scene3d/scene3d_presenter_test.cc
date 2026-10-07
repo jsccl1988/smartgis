@@ -2,8 +2,8 @@
 // All rights reserved.
 
 #include "content/browser/camera/orbit_frame.h"
-#include "content/browser/camera/map_host_extent.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/camera/gis_host_extent.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/software/scene3d_software_painter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
@@ -123,7 +123,7 @@ int main() {
   auto orbit = std::make_unique<content::OrbitFrame>();
   auto cam = std::make_unique<content::Scene3dPresenter>();
   cam->bind_orbit(orbit.get());
-  expect(!cam->hosts_shared_scene(), "fresh presenter has no MapContents");
+  expect(!cam->hosts_shared_scene(), "fresh presenter has no GisContents");
   expect(std::fabs(content::kScene3dDefaultYaw - vista::kDemDefaultOrbitYaw) < 1e-6f,
          "host yaw aliases gis shared constant");
   expect(std::fabs(orbit->yaw() - vista::kDemDefaultOrbitYaw) < 1e-4f,
@@ -194,20 +194,20 @@ int main() {
   orbit->apply_world_extent(china);
   expect(content::extent_looks_like_china(orbit->world_extent()), "apply China");
 
-  content::MapScene scene;
-  cam->bind_map(&scene);
+  content::GisScene scene;
+  cam->bind_scene(&scene);
   expect(content::extent_nonempty(orbit->world_extent()), "bound map has extent");
 
-  // Seeded MapScene (China PLP) must still present DEM via World and WorldPass.
+  // Seeded GisScene (China PLP) must still present DEM via World and WorldPass.
   // Heap-allocate Scene3dPresenter — stack frame + WorldPass exceeds Debug RTC
   // comfort and has hung te on _RTC_StackFailure MessageBox.
   {
-    content::MapScene seeded;
+    content::GisScene seeded;
     seeded.seed_default();
     auto dem_orbit = std::make_unique<content::OrbitFrame>();
     auto dem_cam = std::make_unique<content::Scene3dPresenter>();
     dem_cam->bind_orbit(dem_orbit.get());
-    dem_cam->bind_map(&seeded);
+    dem_cam->bind_scene(&seeded);
     dem_orbit->apply_world_extent(seeded.world_extent());
     expect(content::extent_looks_like_china(dem_cam->world_extent()) ||
                content::extent_nonempty(dem_cam->world_extent()),
@@ -277,7 +277,7 @@ int main() {
   }
 
   orbit->apply_draft(tool::Draft{});
-  expect(!cam->hosts_shared_scene(), "no MapContents until bind_contents");
+  expect(!cam->hosts_shared_scene(), "no GisContents until bind_contents");
 
   // Atmosphere defaults off until enable_atmosphere_demo / setters.
   vista::atmosphere::Environment& env = cam->atmosphere_session().ensure();
@@ -292,7 +292,7 @@ int main() {
     auto wind_orbit = std::make_unique<content::OrbitFrame>();
     auto wind_cam = std::make_unique<content::Scene3dPresenter>();
     wind_cam->bind_orbit(wind_orbit.get());
-    wind_cam->bind_map(&scene);
+    wind_cam->bind_scene(&scene);
     wind_cam->atmosphere_session().seed_procedural();
     wind_cam->atmosphere_session().set_wind_overlay_enabled(true);
     expect(wind_cam->atmosphere_session().wind_overlay_enabled(), "wind overlay on");
@@ -325,7 +325,7 @@ int main() {
   // Ocean-only: seed without cloud pass.
   {
     auto ocean_only = std::make_unique<content::Scene3dPresenter>();
-    ocean_only->bind_map(&scene);
+    ocean_only->bind_scene(&scene);
     ocean_only->atmosphere_session().seed_procedural();
     ocean_only->atmosphere_session().set_ocean_enabled(true);
     ocean_only->atmosphere_session().set_cloud_enabled(false);

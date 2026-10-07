@@ -4,7 +4,7 @@
 #include "content/browser/present/map2d/frame/map2d_frame_cache.h"
 
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/frame/map2d_layout_build.h"
 #include "content/browser/present/map2d/frame/map2d_tile_math.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
@@ -51,7 +51,7 @@ void Map2dFrameCache::clear_hillshade_bake() {
   hillshade_rgba_.clear();
 }
 
-void Map2dFrameCache::bind(const MapScene* scene, const ViewFrame* frame) {
+void Map2dFrameCache::bind(const GisScene* scene, const ViewFrame* frame) {
   std::lock_guard<std::recursive_mutex> lock(mu_);
   live_layout_gen_.fetch_add(1, std::memory_order_acq_rel);
   scene_ = scene;
@@ -59,6 +59,7 @@ void Map2dFrameCache::bind(const MapScene* scene, const ViewFrame* frame) {
   has_frame_cache_ = false;
   last_present_was_interactive_ = false;
   last_present_reused_layout_ = false;
+  pending_hillshade_attach_ = false;
   cached_frame_ = vista::MapIR{};
   layer_slices_.clear();
   cached_fp_ = ContentFingerprint{};
@@ -72,6 +73,7 @@ void Map2dFrameCache::invalidate() {
   has_frame_cache_ = false;
   last_present_was_interactive_ = false;
   last_present_reused_layout_ = false;
+  pending_hillshade_attach_ = false;
   cached_frame_ = vista::MapIR{};
   layer_slices_.clear();
   cached_fp_ = ContentFingerprint{};
@@ -143,14 +145,14 @@ Map2dFrameCache::ContentFingerprint Map2dFrameCache::make_fingerprint() const {
       mix(b[i]);
     }
   };
-  for (const MapScene::Layer& layer : scene_->layers()) {
+  for (const GisScene::Layer& layer : scene_->layers()) {
     mix_bytes(layer.id.data(), layer.id.size());
     mix(layer.visible ? 1ull : 0ull);
     mix(static_cast<uint64_t>(layer.features.size()));
     mix(static_cast<uint64_t>(layer.kind));
     if (!layer.features.empty()) {
-      const MapScene::Feature& first = layer.features.front();
-      const MapScene::Feature& last = layer.features.back();
+      const GisScene::Feature& first = layer.features.front();
+      const GisScene::Feature& last = layer.features.back();
       mix(static_cast<uint64_t>(first.kind));
       mix(static_cast<uint64_t>(first.points.size()));
       mix_bytes(first.id.bytes, first.id.len);
@@ -210,7 +212,7 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   // Caller may hold mu_ (ensure_full) or not (prepare_for_present). Capture
   // inputs under lock, tess unlocked so the UI thread is not blocked on china
   // layout (~1–8s Debug), then publish only if live_layout_gen still matches.
-  const MapScene* scene = nullptr;
+  const GisScene* scene = nullptr;
   const ViewFrame* view_frame = nullptr;
   bool hillshade_ready = false;
   vista::TileSlot hillshade_slot{};
@@ -282,10 +284,14 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
     hillshade_h_ = built.baked_h;
     hillshade_slot_ = built.hillshade_slot;
     hillshade_ready_ = true;
+    pending_hillshade_attach_ = false;
   } else if (built.hillshade_slot.texture_key != 0) {
     // Bake hit an already-published RGBA; still refresh the lon/lat slot so
     // land clip + emit see the DEM footprint on the next rebuild.
     hillshade_slot_ = built.hillshade_slot;
+    pending_hillshade_attach_ = false;
+  } else if (built.deferred_hillshade) {
+    pending_hillshade_attach_ = true;
   }
   cached_fp_ = fp;
   cached_cam_ = cam;
@@ -305,6 +311,9 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
   bool content_dirty = false;
   bool camera_changed = false;
   bool settle_rebuild = false;
+  // Fingerprint / zoom miss → drop retained slices. Pixel-only resize and
+  // deferred hillshade attach keep layer_slices_ hits (incremental tess).
+  bool reuse_slices_on_rebuild = false;
   {
     std::lock_guard<std::recursive_mutex> lock(mu_);
     last_present_reused_layout_ = false;
@@ -315,13 +324,22 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
     fp = make_fingerprint();
     cam = make_camera_key(width_px, height_px);
 
-    content_dirty = !has_frame_cache_ || !(fp == cached_fp_) ||
-                    !cam.same_pixels(cached_cam_) ||
-                    cam.zoom_bucket != cached_cam_.zoom_bucket;
+    const bool fp_or_zoom_dirty =
+        !has_frame_cache_ || !(fp == cached_fp_) ||
+        cam.zoom_bucket != cached_cam_.zoom_bucket;
+    const bool pixels_dirty =
+        has_frame_cache_ && !cam.same_pixels(cached_cam_);
+    content_dirty = fp_or_zoom_dirty || pixels_dirty;
     camera_changed = has_frame_cache_ && !cam.same_camera(cached_cam_);
+    reuse_slices_on_rebuild = has_frame_cache_ && !fp_or_zoom_dirty;
 
     if (!content_dirty && !camera_changed) {
-      if (last_present_was_interactive_) {
+      // First-layout DEM defer: force one attach rebuild before StaticReuse
+      // can latch a shade-less swapchain forever.
+      if (pending_hillshade_attach_ && !hillshade_ready_) {
+        settle_rebuild = true;
+        reuse_slices_on_rebuild = true;
+      } else if (last_present_was_interactive_) {
         // Debounce settle (~200ms quiet) so continuous pan→brief pause does not
         // thrash full layout rebuilds; matches leftover GDI settle policy.
         constexpr auto kSettleQuiet = std::chrono::milliseconds(200);
@@ -334,6 +352,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
           return true;
         }
         settle_rebuild = true;
+        reuse_slices_on_rebuild = true;
       } else {
         *action = PresentAction::kStaticReuse;
         last_present_reused_layout_ = true;
@@ -352,7 +371,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
   // Tess unlocked — do not hold mu_ across china layout (UI hang).
   if (content_dirty) {
     *action = PresentAction::kRebuildFull;
-    if (!rebuild_layout(cam, fp, /*reuse_slices=*/false)) {
+    if (!rebuild_layout(cam, fp, reuse_slices_on_rebuild)) {
       return false;
     }
     std::lock_guard<std::recursive_mutex> lock(mu_);

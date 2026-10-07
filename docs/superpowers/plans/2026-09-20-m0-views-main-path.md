@@ -20,11 +20,11 @@ All rights reserved.
 
 
 
-**Architecture:** 不重开双栈大迁移。M0 在已有 `BrowserView` + `MapScene` + `content::ViewHost` + `tool::Workspace` 上补齐 **验收缺口**：`MapScene::write_path`（OGR 写出）、菜单/自测走 `edit.append.linestring`、选择后 FeatureInfo 可断言、自测 mark 覆盖差距矩阵 §6 M0 口令。SP5 闸门与 SP1b 指针搬迁视为 **前置已满足**（见下方），本 plan 不重做。
+**Architecture:** 不重开双栈大迁移。M0 在已有 `BrowserView` + `GisScene` + `content::ToolSession` + `tool::Workspace` 上补齐 **验收缺口**：`GisScene::write_path`（OGR 写出）、菜单/自测走 `edit.append.linestring`、选择后 FeatureInfo 可断言、自测 mark 覆盖差距矩阵 §6 M0 口令。SP5 闸门与 SP1b 指针搬迁视为 **前置已满足**（见下方），本 plan 不重做。
 
 
 
-**Tech Stack:** C++23、GDAL/OGR（现有 `//third_party:gdal`）、`ui::views`、`content::ViewHost`、GN/`build.bat views` / `e2e`、gtest-free `*_test` main。
+**Tech Stack:** C++23、GDAL/OGR（现有 `//third_party:gdal`）、`ui::views`、`content::ToolSession`、GN/`build.bat views` / `e2e`、gtest-free `*_test` main。
 
 
 
@@ -42,7 +42,7 @@ All rights reserved.
 
 - 控件只持 string / opaque id，**禁止** `SmtFeature*`。
 
-- 「保存」= `MapScene::write_path` 写出 **GeoJSON**（单文件多 FeatureCollection 不硬撑；**默认一图层一文件**，多图层时写目录旁 `{stem}_{layer}.geojson` 或单层 active）。M0 **不**做完整 GPKG 多图层原地更新。
+- 「保存」= `GisScene::write_path` 写出 **GeoJSON**（单文件多 FeatureCollection 不硬撑；**默认一图层一文件**，多图层时写目录旁 `{stem}_{layer}.geojson` 或单层 active）。M0 **不**做完整 GPKG 多图层原地更新。
 
 - 不吞并 M1（Style/瓦片深度）、M2 Processing、M3 流式 3D。
 
@@ -82,9 +82,9 @@ All rights reserved.
 
 | --- | --- |
 
-| `src/app/views/map_scene.h` `.cc` | `write_path`；可选 `last_write_path_` |
+| `src/app/views/gis_scene.h` `.cc` | `write_path`；可选 `last_write_path_` |
 
-| `src/app/views/map_scene_test.cc` | open → append → write → reopen 往返 |
+| `src/app/views/gis_scene_test.cc` | open → append → write → reopen 往返 |
 
 | `src/app/views/browser_view.h` `.cc` | `feature_info()` 访问器；Save / Draw Line 菜单；`catalog.map.save` → `write_path` |
 
@@ -102,15 +102,15 @@ All rights reserved.
 
 
 
-### Task 1: `MapScene::write_path` + 单测往返
+### Task 1: `GisScene::write_path` + 单测往返
 
 
 
 **Files:**
 
-- Modify: `src/app/views/map_scene.h`、`src/app/views/map_scene.cc`
+- Modify: `src/app/views/gis_scene.h`、`src/app/views/gis_scene.cc`
 
-- Modify: `src/app/views/map_scene_test.cc`
+- Modify: `src/app/views/gis_scene_test.cc`
 
 - Consumes: existing `ingest_ogr_path` / `Layer` / `Feature` / `GeomKind`
 
@@ -118,13 +118,13 @@ All rights reserved.
 
 
 
-- [ ] **Step 1: 写失败测试** — 在 `map_scene_test.cc` 追加用例：构造内存场景（或 `open_path` 小 geojson），`append_from_draft` 一条线（可手填 `Feature`），`write_path(tmp)`，再 `MapScene b; b.open_path(tmp)`，断言 `feature_count() >= 1` 且存在 `kLine`。
+- [ ] **Step 1: 写失败测试** — 在 `gis_scene_test.cc` 追加用例：构造内存场景（或 `open_path` 小 geojson），`append_from_draft` 一条线（可手填 `Feature`），`write_path(tmp)`，再 `GisScene b; b.open_path(tmp)`，断言 `feature_count() >= 1` 且存在 `kLine`。
 
 
 
 ```cpp
 
-// map_scene_test.cc — add near end of main(), before return g_fails
+// gis_scene_test.cc — add near end of main(), before return g_fails
 
 {
 
@@ -142,7 +142,7 @@ All rights reserved.
 
 
 
-  content::MapScene a;
+  content::GisScene a;
 
   expect(a.create_layer("edit_line", "LineString"), "create line layer");
 
@@ -150,7 +150,7 @@ All rights reserved.
 
   // Draft must carry at least two map-space points; match append_from_draft
 
-  // expectations used elsewhere (see map_scene.cc draw.line branch).
+  // expectations used elsewhere (see gis_scene.cc draw.line branch).
 
   // If Draft construction is awkward in-test, push a Feature manually via
 
@@ -168,13 +168,13 @@ All rights reserved.
 
   expect(a.write_path(out), "write_path");
 
-  expect(GetFileAttributesA(out.c_str()) != INVALID_FILE_ATTRIBUTES,
+  expect(GetFileAttributesA(out.c_str()) != INVALID_FILE_ATTRIBUTES
 
          "file exists");
 
 
 
-  content::MapScene b;
+  content::GisScene b;
 
   expect(b.open_path(out), "reopen written");
 
@@ -200,9 +200,9 @@ All rights reserved.
 
 ```bat
 
-build.bat map_scene_test
+build.bat gis_scene_test
 
-out\map_scene_test.exe
+out\gis_scene_test.exe
 
 ```
 
@@ -216,7 +216,7 @@ Expected: FAIL — `write_path` 未声明 / 链接失败，或断言 `write_path
 
 
 
-在 `map_scene.h` 公共区（`open_path` 旁）声明：
+在 `gis_scene.h` 公共区（`open_path` 旁）声明：
 
 
 
@@ -232,7 +232,7 @@ Expected: FAIL — `write_path` 未声明 / 链接失败，或断言 `write_path
 
 
 
-在 `map_scene.cc`（`open_path` 后）实现要点：
+在 `gis_scene.cc`（`open_path` 后）实现要点：
 
 
 
@@ -246,13 +246,13 @@ Expected: FAIL — `write_path` 未声明 / 链接失败，或断言 `write_path
 
 5. 可选字段：把 `Feature::fields` 建成 `OGRFieldDefn`（OFTString），`SetField`。
 
-6. 几何：map 空间顶点 → `OGRPoint` / `OGRLineString` / `OGRPolygon`（注意 `MapScene` 内部 Y 翻转约定与 `ingest` 对称；**写出前用与 ingest 相反的 unflip**，保证 reopen 后 `has_china_extent` / 坐标可读）。
+6. 几何：map 空间顶点 → `OGRPoint` / `OGRLineString` / `OGRPolygon`（注意 `GisScene` 内部 Y 翻转约定与 `ingest` 对称；**写出前用与 ingest 相反的 unflip**，保证 reopen 后 `has_china_extent` / 坐标可读）。
 
 7. `GDALClose`；成功 true。
 
 
 
-- [ ] **Step 4: 再跑** `out\map_scene_test.exe` — Expected: PASS（含往返用例）。
+- [ ] **Step 4: 再跑** `out\gis_scene_test.exe` — Expected: PASS（含往返用例）。
 
 
 
@@ -274,7 +274,7 @@ Expected: FAIL — `write_path` 未声明 / 链接失败，或断言 `write_path
 
 - Modify: `src/app/views/README.md`（操作一句）
 
-- Consumes: `MapScene::write_path`
+- Consumes: `GisScene::write_path`
 
 - Produces: 用户可菜单 Draw line / Save；自测可读 FeatureInfo
 
@@ -420,7 +420,7 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
     if (!browser.run_tool_command("edit.append.linestring")) {
 
-      harness_detach_maps(browser);
+      harness_detach_views(browser);
 
       return 60;
 
@@ -428,13 +428,13 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
     {
 
-      content::ViewHost* host = browser.edit_view_host();
+      content::ToolSession* host = browser.edit_tool_session();
 
       tool::Interaction* cur = host->workspace()->stack().current();
 
       if (!cur || std::strcmp(cur->id(), "draw.linestring") != 0) {
 
-        harness_detach_maps(browser);
+        harness_detach_views(browser);
 
         return 60;
 
@@ -472,7 +472,7 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
           !host->dispatch_input(d1)) {
 
-        harness_detach_maps(browser);
+        harness_detach_views(browser);
 
         return 60;
 
@@ -494,7 +494,7 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
     if (browser.document()->feature_count() <= before) {
 
-      harness_detach_maps(browser);
+      harness_detach_views(browser);
 
       return 60;
 
@@ -518,7 +518,7 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
     {
 
-      content::MapScene* doc = browser.document();
+      content::GisScene* doc = browser.document();
 
       auto* pane = browser.map_viewport();
 
@@ -530,7 +530,7 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
       const int vh = rc.bottom - rc.top;
 
-      const content::MapScene::Feature* hit =
+      const content::GisScene::Feature* hit =
 
           doc->hit_test(vw / 2, vh / 2, vw, vh);
 
@@ -558,9 +558,9 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
         // After select, BrowserView subscription should fill id; if only
 
-        // MapScene selected, explicitly mirror fields like the EventBus handler.
+        // GisScene selected, explicitly mirror fields like the EventBus handler.
 
-        harness_detach_maps(browser);
+        harness_detach_views(browser);
 
         return 61;
 
@@ -596,19 +596,19 @@ Expected: `out\SmartGIS.exe` 链接成功。
 
       if (!browser.document()->write_path(out)) {
 
-        harness_detach_maps(browser);
+        harness_detach_views(browser);
 
         return 62;
 
       }
 
-      content::MapScene probe;
+      content::GisScene probe;
 
       if (!probe.open_path(out) || probe.feature_count() < 1) {
 
         DeleteFileA(out.c_str());
 
-        harness_detach_maps(browser);
+        harness_detach_views(browser);
 
         return 63;
 
@@ -676,7 +676,7 @@ Expected: exit 0；stderr/旁路 mark 含 `m0-line-ok`、`m0-featureinfo-ok`、`
 
 build.bat views
 
-out\map_scene_test.exe
+out\gis_scene_test.exe
 
 out\SmartGIS.exe --self-test
 
@@ -744,7 +744,7 @@ Expected: 全部绿；`loop_runner --gate` 中 `gpu` + `harness` PASS。
 
 
 
-1. [x] `map_scene_test` 含 write 往返且 PASS。  
+1. [x] `gis_scene_test` 含 write 往返且 PASS。  
 
 2. [x] `SmartGIS.exe --self-test` exit 0，含 `m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok`。  
 

@@ -65,7 +65,7 @@ src/ui/views/                    toolkit (opt-in //:ui_views → ui_views.dll)
   Widget, View, Splitter, layout, events, Theme (kernel/)
   primitives (Button, Label, Textfield, …)
   dialogs (Dialog, FilePicker, MessageBox, InputText, SelectOne only)
-  map/DrawHost                — View that hosts the map HWND + ViewHost
+  map/DrawHost                — View that hosts the map HWND + ToolSession
   include: "ui/views/<area>/...." — //src on the include path
 
 src/ui/resources/                product .ui.xml / .ui.css by area (GN → shared out/ui/<area>/)
@@ -111,7 +111,7 @@ src/app/views  (SmartGIS.exe — only product entry)
       └── TabStrip  Map edit 2D / Datasource / 3D
             DrawHost (View)      do not wrap CView
               child HWND
-                content::ViewHost   command / input dispatch
+                content::ToolSession   command / input dispatch
                 1) content::MapView when src/content/public exists
                 2) CreateProcess SmartGisRender.exe (IMapSession ABI)
                 3) LoadLibrary + RenderDevice2d::Init

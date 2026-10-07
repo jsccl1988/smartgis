@@ -1,14 +1,14 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef CONTENT_BROWSER_DOCUMENT_STORE_MAP_LAYER_H_
-#define CONTENT_BROWSER_DOCUMENT_STORE_MAP_LAYER_H_
+#ifndef CONTENT_BROWSER_DOCUMENT_STORE_GIS_LAYER_H_
+#define CONTENT_BROWSER_DOCUMENT_STORE_GIS_LAYER_H_
 
 #include <cstring>
 #include <string>
 #include <vector>
 
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 
 namespace content {
 namespace detail {
@@ -22,8 +22,8 @@ struct Vertex {
   double y = 0;
 };
 
-// One drawable feature in map space (owned by a MapLayer).
-struct MapFeature {
+// One drawable feature in map space (owned by a GisLayer).
+struct GisFeature {
   content::FeatureId id{};
   GeomKind kind = GeomKind::kPoint;
   std::vector<Vertex> points;
@@ -34,15 +34,15 @@ struct MapFeature {
 // Catalog-facing layer: id/name/visibility + features.
 // |kind| is set at create/ingest when known; layer_descs may still infer
 // kVector from non-empty |features| when kind stays kUnknown.
-struct MapLayer {
+struct GisLayer {
   std::string id;
   std::string name;
   bool visible = true;
   content::LayerKind kind = content::LayerKind::kUnknown;
-  std::vector<MapFeature> features;
+  std::vector<GisFeature> features;
 };
 
-inline const char* named_field_value(const MapFeature& f, const char* key) {
+inline const char* named_field_value(const GisFeature& f, const char* key) {
   if (!key) {
     return nullptr;
   }
@@ -63,4 +63,4 @@ inline bool feature_id_eq(const content::FeatureId& a,
 }  // namespace detail
 }  // namespace content
 
-#endif  // CONTENT_BROWSER_DOCUMENT_STORE_MAP_LAYER_H_
+#endif  // CONTENT_BROWSER_DOCUMENT_STORE_GIS_LAYER_H_

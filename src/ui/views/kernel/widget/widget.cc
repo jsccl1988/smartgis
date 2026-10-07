@@ -132,6 +132,20 @@ void Widget::pump_until_shell_published(unsigned timeout_ms) {
   if (!hwnd_ || !IsWindow(hwnd_) || timeout_ms == 0) {
     return;
   }
+  // Nested pumps must not re-enter. A thread-wide PeekMessage(nullptr) used
+  // to Dispatch TabStrip WM_LBUTTONDOWN → switch_map_tab → another pump while
+  // the UI thread was already waiting for publish; Windows then marks the
+  // shell Not Responding (plain no-arg launch hang dumps).
+  static thread_local int pump_depth = 0;
+  if (pump_depth > 0) {
+    return;
+  }
+  struct DepthGuard {
+    int& depth;
+    explicit DepthGuard(int& d) : depth(d) { ++depth; }
+    ~DepthGuard() { --depth; }
+  } depth_guard(pump_depth);
+
   ensure_compositor_started();
   // Wait for a *new* publish when one already exists — otherwise tab chrome
   // (Map→3D) stays on a stale front buffer after schedule_paint (plain #6).
@@ -140,20 +154,33 @@ void Widget::pump_until_shell_published(unsigned timeout_ms) {
   const DWORD t0 = GetTickCount();
   MSG msg = {};
   while (GetTickCount() - t0 < timeout_ms) {
-    const std::uint64_t now = shell_generation();
-    if (now > before) {
+    if (shell_generation() > before) {
       return;
     }
-    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
-      if (msg.message == WM_QUIT) {
-        PostQuitMessage(static_cast<int>(msg.wParam));
-        return;
-      }
+    // Only this HWND's paint / publish wake / coalesce timer — never drain
+    // thread-wide input (TabStrip clicks) that re-enters switch_map_tab.
+    bool drained = false;
+    while (PeekMessageW(&msg, hwnd_, WM_PAINT, WM_PAINT, PM_REMOVE) ||
+           PeekMessageW(&msg, hwnd_, kShellPublishedMessage,
+                        kShellPublishedMessage, PM_REMOVE) ||
+           PeekMessageW(&msg, hwnd_, WM_TIMER, WM_TIMER, PM_REMOVE)) {
+      drained = true;
       TranslateMessage(&msg);
       DispatchMessageW(&msg);
+      if (shell_generation() > before) {
+        return;
+      }
     }
-    UpdateWindow(hwnd_);
-    Sleep(5);
+    // WM_QUIT is thread-queued with a null hwnd — check separately.
+    if (PeekMessageW(&msg, nullptr, WM_QUIT, WM_QUIT, PM_REMOVE)) {
+      PostQuitMessage(static_cast<int>(msg.wParam));
+      return;
+    }
+    // Do not UpdateWindow here: sync WM_PAINT nested under tab switch has
+    // hung the shell (UI↔Display) and trips Process.Responding=false.
+    if (!drained) {
+      Sleep(5);
+    }
   }
 }
 

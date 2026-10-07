@@ -10,10 +10,10 @@
 namespace content {
 
 // Document lane. Mirrors GisDocument (layers, features, style, extent) plus
-// MapScene store verbs that the public document type does not expose.
+// GisScene store verbs that the public document type does not expose.
 struct DocumentCapability {
-  // Sample maps are opened by IL via resolve_data + open_map.
-  std::function<bool(const std::string& path_utf8)> open_map;
+  // Sample maps are opened by IL via resolve_data + open_document.
+  std::function<bool(const std::string& path_utf8)> open_document;
   std::function<bool()> doc_clear;
   std::function<bool()> fit_extent;
   // |frame|: shell china_product | unit_square | document_extent, or a
@@ -34,9 +34,9 @@ struct DocumentCapability {
                      const std::string& value)>
       update_feature_field;
 
-  // MapScene internals (not on GisDocument).
+  // GisScene internals (not on GisDocument).
   std::function<bool(const std::string& id)> select_layer;
-  std::function<bool(const std::string& path_utf8)> write_map;
+  std::function<bool(const std::string& path_utf8)> write_document;
   std::function<bool()> clear_selection;
 };
 

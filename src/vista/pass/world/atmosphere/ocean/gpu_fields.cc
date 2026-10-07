@@ -127,6 +127,20 @@ void OceanGpuFields::destroy_pipelines() {
   pipeline_device_ = nullptr;
 }
 
+bool OceanGpuFields::has_fft_resources(int fft_n) const {
+  return height_ && spectrum_a_ && spectrum_b_ && spectrum_seed_ && spectrum_ &&
+         bit_reverse_ && butterfly_ && displace_ && encode_ && gaussian_h_ &&
+         gaussian_v_ && height_n_ == fft_n && spectrum_n_ == fft_n;
+}
+
+bool OceanGpuFields::ensure_cold(render::rhi::Device* owner_device,
+                                 render::rhi::Device* device, int fft_n) {
+  if (!device || fft_n < 16) {
+    return false;
+  }
+  return ensure_textures(owner_device, device, fft_n) && ensure_pipelines(device);
+}
+
 bool OceanGpuFields::ensure_pipelines(render::rhi::Device* device) {
   if (pipeline_device_ == device && spectrum_ && bit_reverse_ && butterfly_ &&
       displace_ && encode_ && gaussian_h_ && gaussian_v_) {

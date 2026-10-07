@@ -15,7 +15,7 @@ namespace content {
 namespace detail {
 
 void fill_feature_info_fields(
-    const LayerStore& store, const StyleBind& style, const MapFeature& f,
+    const LayerStore& store, const StyleBind& style, const GisFeature& f,
     std::vector<std::pair<std::string, std::string>>* out,
     const std::string& source_layer, double map_scale);
 

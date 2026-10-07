@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Present style selection on a StyleDocument. No MapScene and no bake.
+// Present style selection on a StyleDocument. No GisScene and no bake.
 
 #ifndef VISTA_COMPONENT_MAP_CARTO_RESOLVE_H_
 #define VISTA_COMPONENT_MAP_CARTO_RESOLVE_H_

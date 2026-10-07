@@ -17,7 +17,7 @@
 
 namespace vista {
 
-// Host flags for one layout. MapScene extent, land visibility, and process
+// Host flags for one layout. GisScene extent, land visibility, and process
 // switches stay with the caller. texture_key is the host id on the slot.
 struct HillshadeAttachPolicy {
   bool skip = false;

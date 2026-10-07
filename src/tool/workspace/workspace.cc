@@ -8,7 +8,7 @@
 #include <memory>
 
 #include "content/public/event_bus.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "gis/edit/session.h"
 #include "tool/draft/draft.h"
 #include "tool/nav/camera_nav.h"
@@ -226,7 +226,7 @@ bool Workspace::flashing() const {
   if (!p) {
     return false;
   }
-  // Unique_ptr can look non-null after a dangling ViewHost (paint overlay on
+  // Unique_ptr can look non-null after a dangling ToolSession (paint overlay on
   // first Widget::show). Non-canonical / low pointers are not a live Impl.
   const auto addr = reinterpret_cast<uintptr_t>(p);
   if (addr < 0x10000ull || (addr >> 48) != 0) {

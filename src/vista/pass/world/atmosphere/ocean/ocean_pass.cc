@@ -310,13 +310,22 @@ bool OceanPass::mesh_topology_matches_params() const {
          cached_sphere_lat_ == params_.sphere_lat_deg;
 }
 
-void OceanPass::rebuild_displacement() {
-  const int mesh_n = params_.mesh_resolution;
+void OceanPass::remesh_topology_if_needed() {
   if (!mesh_topology_matches_params()) {
     rebuild_mesh_grid();
     topology_dirty_ = true;
   }
+  if (topology_dirty_ || indices_.empty() ||
+      cached_mask_cols_ != mask_cols_ || cached_mask_rows_ != mask_rows_) {
+    rebuild_indices_with_mask();
+    cached_mask_cols_ = mask_cols_;
+    cached_mask_rows_ = mask_rows_;
+    topology_dirty_ = true;
+  }
+}
 
+void OceanPass::advance_wave_fields() {
+  const int mesh_n = params_.mesh_resolution;
   const float hx = params_.patch_half_x > 0.f ? params_.patch_half_x
                                               : params_.patch_half_extent;
   const float hz = params_.patch_half_z > 0.f ? params_.patch_half_z
@@ -330,18 +339,19 @@ void OceanPass::rebuild_displacement() {
     // on every present. Scales fold into the Gerstner write so warm record
     // skips a second O(n^2) max scan.
     detail::build_gerstner_heights(mesh_n, params_.significant_wave_height,
-                           params_.mean_direction_rad, params_.wind_speed,
-                           time_sec_, half, &heights_, &disp_x_, &disp_z_,
-                           &height_scale_, &disp_scale_);
+                                   params_.mean_direction_rad, params_.wind_speed,
+                                   time_sec_, half, &heights_, &disp_x_, &disp_z_,
+                                   &height_scale_, &disp_scale_);
   } else {
     const int n = params_.fft_size;
     std::vector<float> fft_h;
     std::vector<float> fft_dx;
     std::vector<float> fft_dz;
     detail::build_fft_fields(n, params_.significant_wave_height, params_.wind_speed,
-                     params_.wind_direction_rad, time_sec_, params_.use_jonswap,
-                     params_.jonswap_gamma, params_.chop, &fft_h, &fft_dx,
-                     &fft_dz, &height_scale_, &disp_scale_);
+                             params_.wind_direction_rad, time_sec_,
+                             params_.use_jonswap, params_.jonswap_gamma,
+                             params_.chop, &fft_h, &fft_dx, &fft_dz,
+                             &height_scale_, &disp_scale_);
     const std::size_t verts = static_cast<std::size_t>(mesh_n * mesh_n);
     heights_.assign(verts, 0.0f);
     disp_x_.assign(verts, 0.0f);
@@ -354,8 +364,8 @@ void OceanPass::rebuild_displacement() {
         const float fy = v * static_cast<float>(n - 1);
         const int x0 = static_cast<int>(fx);
         const int y0 = static_cast<int>(fy);
-        const int x1 = std::min(x0 + 1, n - 1);
-        const int y1 = std::min(y0 + 1, n - 1);
+        const int x1 = (std::min)(x0 + 1, n - 1);
+        const int y1 = (std::min)(y0 + 1, n - 1);
         const float tx = fx - static_cast<float>(x0);
         const float ty = fy - static_cast<float>(y0);
         auto sample4 = [&](const std::vector<float>& g) {
@@ -366,16 +376,48 @@ void OceanPass::rebuild_displacement() {
           return (h00 * (1.0f - tx) + h10 * tx) * (1.0f - ty) +
                  (h01 * (1.0f - tx) + h11 * tx) * ty;
         };
-        const std::size_t vi =
-            static_cast<std::size_t>(jz * mesh_n + ix);
+        const std::size_t vi = static_cast<std::size_t>(jz * mesh_n + ix);
         heights_[vi] = sample4(fft_h);
         disp_x_[vi] = sample4(fft_dx);
         disp_z_[vi] = sample4(fft_dz);
       }
     }
   }
-
   // Keep base grid planar; VS applies height + Dx/Dz from the height map.
+}
+
+void OceanPass::rebuild_displacement() {
+  remesh_topology_if_needed();
+  advance_wave_fields();
+}
+
+bool OceanPass::want_gpu_fft(render::rhi::Device* device) const {
+  return device && params_.prefer_gpu_fft && !params_.use_gerstner_fallback &&
+         params_.fft_size >= 16 && device->supports_compute();
+}
+
+bool OceanPass::run_gpu_fft_once(render::rhi::Device* device) {
+  if (!device || !gpu_) {
+    return false;
+  }
+  render::rhi::CommandList* list = device->create_command_list();
+  if (!list) {
+    return false;
+  }
+  const bool recorded =
+      gpu_->record(device_, device, list, params_.fft_size, params_, time_sec_,
+                   &height_scale_, &disp_scale_);
+  if (!recorded) {
+    device->destroy_command_list(list);
+    return false;
+  }
+  list->close();
+  const bool ok = device->execute(list);
+  device->destroy_command_list(list);
+  if (ok) {
+    used_gpu_fft_ = true;
+  }
+  return ok;
 }
 
 void OceanPass::rebuild_indices_with_mask() {
@@ -460,16 +502,8 @@ bool OceanPass::prepare_gpu(render::rhi::Device* device) {
     return false;
   }
   used_gpu_fft_ = false;
-  // Prefer CPU Gerstner/FFT fields for the height map upload; GPU FFT still
-  // runs later inside record() when prefer_gpu_fft is set.
-  rebuild_displacement();
-  if (topology_dirty_ || indices_.empty() ||
-      cached_mask_cols_ != mask_cols_ || cached_mask_rows_ != mask_rows_) {
-    rebuild_indices_with_mask();
-    cached_mask_cols_ = mask_cols_;
-    cached_mask_rows_ = mask_rows_;
-    topology_dirty_ = true;
-  }
+  // Remesh only — wave sim / GPU FFT dispatches are not folded into topology.
+  remesh_topology_if_needed();
   if (index_count_ == 0) {
     height_prepared_ = false;
     return true;
@@ -477,13 +511,38 @@ bool OceanPass::prepare_gpu(render::rhi::Device* device) {
   if (!ensure_resources(device)) {
     return false;
   }
-  if (!gpu_->upload_height(device_, device, params_.mesh_resolution, heights_,
-                           disp_x_, disp_z_, height_scale_, disp_scale_)) {
+
+  if (want_gpu_fft(device)) {
+    // Cold-once: allocate FFT textures + PSOs before DEM, then one-shot
+    // spectrum so the height SRV exists without a CPU FFT bake.
+    if (!gpu_->ensure_cold(device_, device, params_.fft_size)) {
+      return false;
+    }
+    if (!run_gpu_fft_once(device)) {
+      return false;
+    }
+    // Keep topology_dirty_ so record() still uploads VB/IB.
+    height_prepared_ = true;
+    return true;
+  }
+
+  // Gerstner / CPU FFT: reserve the height map with zeros so DEM sync cannot
+  // recycle hypsometric albedo. Wave advance stays in record() (sim ≠ remesh).
+  const int mesh_n = params_.mesh_resolution;
+  const std::size_t verts = static_cast<std::size_t>(mesh_n * mesh_n);
+  heights_.assign(verts, 0.0f);
+  disp_x_.assign(verts, 0.0f);
+  disp_z_.assign(verts, 0.0f);
+  const float hs = (std::max)(0.05f, params_.significant_wave_height);
+  height_scale_ = (std::max)(0.05f, hs * 0.55f);
+  disp_scale_ =
+      (std::max)(0.05f, hs * 0.45f * (std::max)(params_.chop, 0.0f));
+  if (!gpu_->upload_height(device_, device, mesh_n, heights_, disp_x_, disp_z_,
+                           height_scale_, disp_scale_)) {
     return false;
   }
-  // Keep topology_dirty_ so record() still uploads VB/IB; only the height
-  // map is ready for the DEM remesh window.
-  height_prepared_ = true;
+  // Force record() to advance waves this frame into the already-allocated map.
+  height_prepared_ = false;
   return true;
 }
 
@@ -495,35 +554,30 @@ bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* li
   }
   used_gpu_fft_ = false;
 
-  const bool want_gpu =
-      params_.prefer_gpu_fft && !params_.use_gerstner_fallback &&
-      params_.fft_size >= 16 && device->supports_compute();
+  const bool want_gpu = want_gpu_fft(device);
+  // Cold GPU FFT (prepare_gpu) stages a height SRV once. Warm frames reuse it
+  // without realloc or a CPU FFT bake — do not dispatch FFT after DEM remesh.
+  const bool gpu_fft_staged =
+      want_gpu && gpu_ && gpu_->has_fft_resources(params_.fft_size) &&
+      gpu_->height() != nullptr;
 
-  // prepare_gpu() already ran Gerstner/FFT + height upload for this frame.
-  // Do not rebuild_displacement again — that doubled ocean CPU on every present
-  // (~5–9 ms Debug) while the staged height map was already current.
-  if (!height_prepared_) {
-    if (want_gpu) {
-      if (!mesh_topology_matches_params() || topology_dirty_) {
-        rebuild_mesh_grid();
-        topology_dirty_ = true;
-      }
-      const float hs = std::max(0.05f, params_.significant_wave_height);
-      height_scale_ = std::max(0.05f, hs * 0.55f);
-      disp_scale_ =
-          std::max(0.05f, hs * 0.45f * std::max(params_.chop, 0.0f));
-    } else {
-      rebuild_displacement();
-    }
+  if (!height_prepared_ && gpu_fft_staged) {
+    height_prepared_ = true;
+    used_gpu_fft_ = true;
   }
 
-  if (topology_dirty_ || indices_.empty() ||
-      cached_mask_cols_ != mask_cols_ || cached_mask_rows_ != mask_rows_) {
-    rebuild_indices_with_mask();
-    cached_mask_cols_ = mask_cols_;
-    cached_mask_rows_ = mask_rows_;
-    topology_dirty_ = true;
+  // Gerstner / CPU FFT: remesh (cheap when topology matches) then advance sim.
+  // Do not fold a second full bake when prepare_gpu already reserved the map.
+  if (!height_prepared_ && !want_gpu) {
+    remesh_topology_if_needed();
+    advance_wave_fields();
+  } else if (!height_prepared_ && want_gpu && !gpu_fft_staged) {
+    // Direct record() without prepare_gpu (unit tests / Null): CPU FFT bake.
+    remesh_topology_if_needed();
+    advance_wave_fields();
   }
+
+  remesh_topology_if_needed();
   if (index_count_ == 0) {
     height_prepared_ = false;
     return true;
@@ -534,11 +588,6 @@ bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* li
     if (!ensure_resources(device)) {
       return false;
     }
-    // Never run GPU FFT after DEM remesh (ensure_textures can steal DEM SRVs).
-    // CPU height upload only when prepare_gpu did not already stage the map.
-    if (want_gpu) {
-      rebuild_displacement();
-    }
     if (!gpu_->upload_height(device_, device, params_.mesh_resolution, heights_,
                              disp_x_, disp_z_, height_scale_, disp_scale_)) {
       return false;
@@ -547,7 +596,11 @@ bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* li
     height_prepared_ = false;
     return false;
   }
-  height_prepared_ = false;
+  // Keep height_prepared_ across warm GPU-FFT frames; Gerstner clears so the
+  // next present advances waves into the already-allocated map.
+  if (!gpu_fft_staged) {
+    height_prepared_ = false;
+  }
 
   if (topology_dirty_) {
     const uint32_t vb_bytes =

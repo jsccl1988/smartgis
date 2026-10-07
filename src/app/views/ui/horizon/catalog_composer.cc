@@ -11,7 +11,7 @@
 
 #include "app/views/browser/browser.h"
 #include "content/browser/session/browser_session.h"
-#include "content/public/map_contents.h"
+#include "content/public/gis_contents.h"
 #include "ui/gis/catalog/catalog_view.h"
 #include "ui/gis/catalog/layer_tree.h"
 #include "ui/gis/shell/status_bar.h"
@@ -20,7 +20,7 @@
 namespace app {
 namespace detail {
 std::string json_escape(const std::string& text);
-void catalog_call(content::MapContents* session, const std::string& json);
+void catalog_call(content::GisContents* session, const std::string& json);
 }  // namespace detail
 
 CatalogComposer::CatalogComposer(BrowserView* host) : host_(host) {}
@@ -45,8 +45,8 @@ void CatalogComposer::wire_catalog() {
   host_->catalog_->layer_tree()->set_visible_changed(
       [this](const std::string& id, bool visible) {
         host_->browser_->session().set_layer_visible(id, visible);
-        content::MapContents* session = host_->active_map()
-                                            ? host_->active_map()->map_contents()
+        content::GisContents* session = host_->active_map()
+                                            ? host_->active_map()->gis_contents()
                                             : host_->browser_->map_session();
         detail::catalog_call(
             session, std::string("{\"op\":\"set_visible\",\"id\":\"") +
@@ -64,7 +64,7 @@ void CatalogComposer::wire_catalog() {
       });
   host_->catalog_->layer_tree()->set_selection_changed([this](const std::string& id) {
     host_->browser_->session().select_layer(id);
-    content::MapContents* session = host_->active_map() ? host_->active_map()->map_contents()
+    content::GisContents* session = host_->active_map() ? host_->active_map()->gis_contents()
                                                  : host_->browser_->map_session();
     detail::catalog_call(session,
                          std::string("{\"op\":\"select_layer\",\"id\":\"") +

@@ -8,7 +8,7 @@
 
 namespace content {
 
-int content_main(const ContentMainParams& params, ContentClient& client) {
+int content_main(const ContentMainParams& params, GisContentsClient& client) {
   const ProcessType type = params.process_type_set
                                ? params.process_type
                                : ProcessTypeFromCommandLine(params.argc,

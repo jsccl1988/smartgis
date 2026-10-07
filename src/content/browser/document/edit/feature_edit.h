@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "content/browser/document/store/layer_store.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "tool/draft/draft.h"
 
 namespace content {
@@ -40,12 +40,12 @@ bool add_point_cloud_layer(LayerStore* store, const std::string& name,
                            const uint8_t* rgba = nullptr);
 
 // Nearest feature within |tol_map|; selects it. nullptr when nothing hits.
-const MapFeature* hit_test(LayerStore* store, double map_x, double map_y,
+const GisFeature* hit_test(LayerStore* store, double map_x, double map_y,
                            double tol_map);
 
 // All features within |tol_map|, nearest-first. Selects the nearest (same as
 // hit_test). Empty when nothing is inside the pick tolerance.
-std::vector<const MapFeature*> hit_test_all(LayerStore* store, double map_x,
+std::vector<const GisFeature*> hit_test_all(LayerStore* store, double map_x,
                                            double map_y, double tol_map);
 
 // Snap result in map CRS. kind distinguishes vertex vs edge projection.

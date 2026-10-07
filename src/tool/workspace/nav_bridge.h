@@ -7,7 +7,7 @@
 #include <functional>
 #include <string_view>
 
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "tool/command/command.h"
 
 namespace content {

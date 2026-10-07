@@ -12,11 +12,11 @@
 #include "app/views/il.runtime/backend/horizon/atom/pump.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "content/public/map_contents.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/view_host.h"
+#include "content/public/gis_contents.h"
+#include "content/public/types.h"
+#include "content/public/tool_session.h"
 #include "gis/edit/memory_session.h"
 #include "render/rhi/rhi.h"
 #include "tool/interaction/interaction.h"
@@ -45,37 +45,37 @@ const char* geom_kind_token(gis::FeatureGeom::Kind kind) {
   }
 }
 
-content::ViewHost* tool_stack_host(Browser& browser) {
-  content::ViewHost* host = nullptr;
+content::ToolSession* tool_stack_host(Browser& browser) {
+  content::ToolSession* host = nullptr;
   if (ui::views::DrawHost* scene = browser.scene_draw_host()) {
     if (scene->is_visible()) {
-      host = browser.scene_host();
+      host = browser.scene_tool_session();
     }
   }
   if (!host) {
     if (ui::views::DrawHost* data = browser.data_draw_host()) {
       if (data->is_visible()) {
-        host = browser.data_host();
+        host = browser.data_tool_session();
       }
     }
   }
   if (!host) {
-    host = browser.edit_view_host();
+    host = browser.edit_tool_session();
   }
   return host;
 }
 
 }  // namespace
 
-content::ViewHost* active_map_host(Browser& browser) {
+content::ToolSession* active_map_host(Browser& browser) {
   if (browser.ui()) {
-    return browser.ui()->active_view_host();
+    return browser.ui()->active_tool_session();
   }
-  return browser.edit_view_host();
+  return browser.edit_tool_session();
 }
 
 int activate_view_tool(Browser& browser, const std::string& id) {
-  content::ViewHost* host = active_map_host(browser);
+  content::ToolSession* host = active_map_host(browser);
   if (!host || !host->workspace()) {
     return 21;
   }
@@ -85,16 +85,16 @@ int activate_view_tool(Browser& browser, const std::string& id) {
   return 0;
 }
 
-bool fill_edit_host_status(Browser& browser, content::EditHostStatus* out) {
+bool fill_edit_tool_session_status(Browser& browser, content::EditToolSessionStatus* out) {
   if (!out) {
     return false;
   }
   *out = {};
-  content::ViewHost* host = browser.edit_view_host();
+  content::ToolSession* host = browser.edit_tool_session();
   if (!host) {
     return true;
   }
-  out->host_present = 1;
+  out->session_present = 1;
   if (host->workspace()) {
     out->workspace = 1;
   }
@@ -154,7 +154,7 @@ bool fill_tool_status(Browser& browser, content::ToolStatus* out) {
     return false;
   }
   *out = {};
-  content::ViewHost* host = tool_stack_host(browser);
+  content::ToolSession* host = tool_stack_host(browser);
   if (!host || !host->workspace()) {
     return true;
   }
@@ -171,7 +171,7 @@ bool fill_last_geom(Browser& browser, content::GeomStatus* out) {
     return false;
   }
   *out = {};
-  content::ViewHost* host = browser.edit_view_host();
+  content::ToolSession* host = browser.edit_tool_session();
   if (!host || !host->edits()) {
     return true;
   }
@@ -199,7 +199,7 @@ bool fill_view_scale(Browser& browser, content::ViewScaleStatus* out) {
     return false;
   }
   *out = {};
-  if (!browser.edit_view_host() || !browser.view_frame() ||
+  if (!browser.edit_tool_session() || !browser.view_frame() ||
       !browser.orbit_frame()) {
     return true;
   }
@@ -216,18 +216,18 @@ bool viewport_has_presented_frame(ui::views::DrawHost* pane) {
       pane->attach_mode() != ui::views::DrawHost::AttachMode::kContentMapView) {
     return false;
   }
-  content::MapContents* session = pane->map_contents();
+  content::GisContents* session = pane->gis_contents();
   if (!session || pane->view_id() == 0) {
     return false;
   }
-  content::MapWidgetHostView* view = session->HostView(pane->view_id());
+  content::WidgetHostView* view = session->HostView(pane->view_id());
   if (!view) {
     return false;
   }
   const content::SharedSurface surface = view->Latest();
   // Software / DIB present may publish generation + size without a
   // DuplicateHandle NT section. FrameReady wire can also land before
-  // SharedHandle — WaitFrameReady(0) covers that case.
+  // SharedHandle 鈥?WaitFrameReady(0) covers that case.
   if (surface.generation > 0 && surface.width_px >= 8 &&
       surface.height_px >= 8) {
     return true;

@@ -25,9 +25,9 @@ GN：`//src/tool:tool`（`product_shared_library`）；稳定组 `:dispatch` / `
 
 ## 依赖方向
 
-- 新代码 / shell → `content::ViewHost` / `ToolRouter` → `tool::Workspace`
+- 新代码 / shell → `content::ToolSession` / `ToolRouter` → `tool::Workspace`
 - 文档写入 → `gis::EditSession`；域事件 → `content::EventBus`（不在本目录）
-- `tool` 终局 → `legacy_tool` **禁止**；leftover / ViewHost 可依赖 `//src/legacy/tool/msg:adapter`
+- `tool` 终局 → `legacy_tool` **禁止**；leftover / ToolSession 可依赖 `//src/legacy/tool/msg:adapter`
 - 叶子：`nav`、`command`；`draft` → `interaction`；`workspace` → command/draft/interaction/nav；adapter（legacy）→ workspace
 
 **SP1b（行为搬迁）**：bound 时指针只走 `Workspace::dispatch_input` → Interaction → `Draft`（含 `Draft.flags` 细类型）；leftover ViewCtrl / Select / Append / **3DViewCtrl** 仅 bind + notify 同步 + `apply_draft` 副作用。见 umbrella §SP1b。

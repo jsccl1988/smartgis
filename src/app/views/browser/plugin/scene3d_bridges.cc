@@ -170,8 +170,8 @@ void install_scene3d_host_bridges(const Scene3dHostContext& ctx) {
         }
 
         vista::set_sample_dem_path_override(path.c_str());
-        if (ctx.select_map_tab) {
-          ctx.select_map_tab(1);
+        if (ctx.select_view_tab) {
+          ctx.select_view_tab(1);
         }
         if (ctx.apply_china_atmo) {
           ctx.apply_china_atmo();

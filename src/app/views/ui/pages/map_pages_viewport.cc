@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 #include "app/views/ui/pages/map_pages_composer.h"
@@ -25,7 +25,7 @@ void MapPagesComposer::attach_viewports() {
 
   struct Bind {
     ui::views::DrawHost* pane;
-    content::ViewHost* host;
+    content::ToolSession* host;
     const char* tool;
     bool attach_now;
   };
@@ -35,16 +35,16 @@ void MapPagesComposer::attach_viewports() {
   // Realize + second layout BEFORE attach so FlyCube Init samples the tab-body
   // client size (not a stale multi-k px rect that leaves a navy-clear present).
   const Bind binds[] = {
-      {host_->map_edit_, host_->browser_->edit_host(), "view.pan", true},
-      {host_->map_scene_, host_->browser_->scene_host(), "view3d.trackball", false},
+      {host_->map_edit_, host_->browser_->edit_tool_session(), "view.pan", true},
+      {host_->map_scene_, host_->browser_->scene_tool_session(), "view3d.trackball", false},
   };
   for (const Bind& b : binds) {
     if (!b.pane) {
       continue;
     }
-    b.pane->set_view_host(b.host);
+    b.pane->set_tool_session(b.host);
     if (host_->browser_->map_session()) {
-      b.pane->set_map_contents(host_->browser_->map_session());
+      b.pane->set_gis_contents(host_->browser_->map_session());
     }
     if (!b.pane->native_view()) {
       b.pane->realize_native();

@@ -7,14 +7,13 @@
 #include <windows.h>
 #include <shellapi.h>
 
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/app/content_main.h"
-#include "content/embed/embed_sample.h"
 #include "content/public/event_bus.h"
-#include "content/public/map_contents.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/view_host.h"
+#include "content/public/gis_contents.h"
+#include "content/public/types.h"
+#include "content/public/tool_session.h"
 #include "content/renderer/renderer_main.h"
 #include "gis/edit/memory_session.h"
 #include "gis/style/document/style_document.h"
@@ -52,7 +51,7 @@
 namespace plugin {
 
 int scenario_edit_m0(HarnessShell& browser) {
-content::ViewHost* host = browser.edit_view_host();
+content::ToolSession* host = browser.edit_tool_session();
 if (!host || !host->workspace() || !host->edits()) {
   return 11;
 }
@@ -75,7 +74,7 @@ if (!host->edits()->can_undo()) {
   return 15;
 }
 {
-  // å°?FeatureGeom: DraftPipeline must commit map-CRS geometry on draw.*.
+  // ï¿½?FeatureGeom: DraftPipeline must commit map-CRS geometry on draw.*.
   auto* mem = dynamic_cast<gis::MemoryEditSession*>(host->edits());
   if (!mem || mem->committed_count() < 1) {
     return 15;
@@ -113,13 +112,13 @@ browser.mark("selection-ok");
 {
   const size_t before = browser.document()->feature_count();
   if (!browser.run_tool_command("edit.append.linestring")) {
-    browser.detach_maps();
+    browser.detach_views();
     return 60;
   }
   tool::Interaction* line_tool = host->workspace()->stack().current();
   if (!line_tool ||
       std::strcmp(line_tool->id(), "draw.linestring") != 0) {
-    browser.detach_maps();
+    browser.detach_views();
     return 60;
   }
   content::InputEvent v0{};
@@ -136,17 +135,17 @@ browser.mark("selection-ok");
   fin.y_px = 60;
   if (!host->dispatch_input(v0) || !host->dispatch_input(v1) ||
       !host->dispatch_input(fin)) {
-    browser.detach_maps();
+    browser.detach_views();
     return 60;
   }
   if (browser.document()->feature_count() <= before) {
-    browser.detach_maps();
+    browser.detach_views();
     return 60;
   }
   {
     auto* mem = dynamic_cast<gis::MemoryEditSession*>(host->edits());
     if (!mem || mem->committed_count() < 1) {
-      browser.detach_maps();
+      browser.detach_views();
       return 60;
     }
     const gis::FeatureMutation got =
@@ -154,7 +153,7 @@ browser.mark("selection-ok");
     if (got.geom.empty() ||
         got.geom.kind != gis::FeatureGeom::Kind::kLineString ||
         got.geom.points.size() < 2) {
-      browser.detach_maps();
+      browser.detach_views();
       return 60;
     }
     browser.mark("input-line-ok");
@@ -165,34 +164,34 @@ browser.mark("selection-ok");
   // seed/point row after fill_attribute_rows, which makes copy_feature_xy
   // return a single vertex and fail the round-trip (exit 62).
   content::FeatureId pick{};
-  for (const content::MapScene::Layer& layer :
+  for (const content::GisScene::Layer& layer :
        browser.document()->layers()) {
-    for (const content::MapScene::Feature& feature : layer.features) {
-      if (feature.kind == content::MapScene::GeomKind::kLine &&
+    for (const content::GisScene::Feature& feature : layer.features) {
+      if (feature.kind == content::GisScene::GeomKind::kLine &&
           feature.points.size() >= 2) {
         pick = feature.id;
       }
     }
   }
   if (pick.len == 0) {
-    browser.detach_maps();
+    browser.detach_views();
     return 61;
   }
   if (!browser.document()->select_feature(pick)) {
-    browser.detach_maps();
+    browser.detach_views();
     return 61;
   }
   browser.refresh_inspectors();
   ui::views::FeatureInfo* info = browser.feature_info();
   if (!info || info->feature_id().empty()) {
-    browser.detach_maps();
+    browser.detach_views();
     return 61;
   }
   browser.mark("m0-featureinfo-ok");
 
   char tmp[MAX_PATH] = {};
   if (GetTempPathA(MAX_PATH, tmp) == 0) {
-    browser.detach_maps();
+    browser.detach_views();
     return 62;
   }
   // Unique name: parallel te / leftover hosts must not share one path.
@@ -200,7 +199,7 @@ browser.mark("selection-ok");
   if (sprintf_s(out, "%ssmartgis_m0_%lu_%lu.geojson", tmp,
                 static_cast<unsigned long>(GetCurrentProcessId()),
                 static_cast<unsigned long>(GetTickCount())) <= 0) {
-    browser.detach_maps();
+    browser.detach_views();
     return 62;
   }
   DeleteFileA(out);
@@ -210,12 +209,12 @@ browser.mark("selection-ok");
   {
     std::vector<std::pair<double, double>> xy;
     if (!browser.document()->copy_feature_xy(pick, &xy) || xy.size() < 2) {
-      browser.detach_maps();
+      browser.detach_views();
       return 62;
     }
     browser.document()->clear();
     if (!browser.document()->create_layer("m0_roundtrip", "LineString")) {
-      browser.detach_maps();
+      browser.detach_views();
       return 62;
     }
     tool::Draft draft;
@@ -236,34 +235,34 @@ browser.mark("selection-ok");
           *map_y = xy[i].second;
         });
     if (rebuilt.len == 0) {
-      browser.detach_maps();
+      browser.detach_views();
       return 62;
     }
   }
   if (!browser.document()->write_path(out)) {
-    browser.detach_maps();
+    browser.detach_views();
     return 62;
   }
-  content::MapScene probe;
+  content::GisScene probe;
   if (!probe.open_path(out) || probe.feature_count() < 1) {
     DeleteFileA(out);
-    browser.detach_maps();
+    browser.detach_views();
     return 63;
   }
   DeleteFileA(out);
   browser.mark("m0-save-ok");
 }
 
-// Input interaction: draw.polygon ?FeatureGeom ring (å°?append path).
+// Input interaction: draw.polygon ?FeatureGeom ring (ï¿½?append path).
 {
   const size_t before = browser.document()->feature_count();
   if (!browser.run_tool_command("edit.append.polygon")) {
-    browser.detach_maps();
+    browser.detach_views();
     return 64;
   }
   tool::Interaction* poly_tool = host->workspace()->stack().current();
   if (!poly_tool || std::strcmp(poly_tool->id(), "draw.polygon") != 0) {
-    browser.detach_maps();
+    browser.detach_views();
     return 64;
   }
   content::InputEvent p0{};
@@ -284,16 +283,16 @@ browser.mark("selection-ok");
   fin.y_px = 80;
   if (!host->dispatch_input(p0) || !host->dispatch_input(p1) ||
       !host->dispatch_input(p2) || !host->dispatch_input(fin)) {
-    browser.detach_maps();
+    browser.detach_views();
     return 64;
   }
   if (browser.document()->feature_count() <= before) {
-    browser.detach_maps();
+    browser.detach_views();
     return 64;
   }
   auto* mem = dynamic_cast<gis::MemoryEditSession*>(host->edits());
   if (!mem || mem->committed_count() < 1) {
-    browser.detach_maps();
+    browser.detach_views();
     return 64;
   }
   const gis::FeatureMutation got =
@@ -301,7 +300,7 @@ browser.mark("selection-ok");
   if (got.geom.empty() ||
       got.geom.kind != gis::FeatureGeom::Kind::kPolygon ||
       got.geom.points.size() < 3) {
-    browser.detach_maps();
+    browser.detach_views();
     return 64;
   }
   browser.mark("input-poly-ok");

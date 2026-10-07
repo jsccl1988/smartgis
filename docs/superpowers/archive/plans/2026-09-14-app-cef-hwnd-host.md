@@ -14,9 +14,9 @@ Status: active
 
 **Goal:** 交付独立 PE `out/SmartGisCef.exe`：真 CEF Binary Distribution 画 HTML chrome，分区 HWND 挂原生地图（`content` / `ViewHost`），产品语义与 Views / WinUI 对齐；默认不编进 `all` / `src_all`。
 
-**Architecture:** 顶层 Win32 客户区切成 chrome 矩形 + map 矩形。CEF browser HWND 只填 chrome；三枚 `CefMapSlot`（Map|Data|3D）为顶层 sibling 子 HWND，经 `MapContents` / `MapView` / `ViewHost` 出帧与输入。`ChromeBridge` 用版本化 ProcessMessage JSON（`api_version=1`）传命令与快照；地图指针不经 JS。入口强制 `CefExecuteProcess` → `content::ContentMain`（同 PE 再拉起 `--type=gpu|renderer`）。
+**Architecture:** 顶层 Win32 客户区切成 chrome 矩形 + map 矩形。CEF browser HWND 只填 chrome；三枚 `CefMapSlot`（Map|Data|3D）为顶层 sibling 子 HWND，经 `GisContents` / `MapView` / `ViewHost` 出帧与输入。`ChromeBridge` 用版本化 ProcessMessage JSON（`api_version=1`）传命令与快照；地图指针不经 JS。入口强制 `CefExecuteProcess` → `content::ContentMain`（同 PE 再拉起 `--type=gpu|renderer`）。
 
-**Tech Stack:** C++23、GN/Ninja（`out/` only）、CEF Binary Distribution（`third_party/cef` pin）、Win32、`content::{MapContents,MapView,ViewHost,ContentMain}`、`tool::Workspace`、静态 `web/` HTML/CSS/JS。
+**Tech Stack:** C++23、GN/Ninja（`out/` only）、CEF Binary Distribution（`third_party/cef` pin）、Win32、`content::{GisContents,MapView,ViewHost,ContentMain}`、`tool::Workspace`、静态 `web/` HTML/CSS/JS。
 
 **Spec:** [`docs/superpowers/specs/2026-09-14-app-cef-hwnd-host-design.md`](../specs/2026-09-14-app-cef-hwnd-host-design.md)
 
@@ -27,7 +27,7 @@ Status: active
 - 产品壳路径；Views / WinUI / CEF **三壳并列产品对齐**（IDE：menu / catalog / ambox / map tabs / inspector）；WinUI IDE 补齐**不阻塞**本 plan。
 - 真 CEF Binary Distribution pin；**方案 1 分区 HWND**（禁止挖洞 / OSR 叠层地图）。
 - 目录 / 产物：`src/app/cef/` → `SmartGisCef.exe`；`smt_build_cef` 默认 `false`；**不进** `all` / `src_all`。
-- ChromeBridge JSON；地图 `CefMapSlot` 原生 HWND → `content` ViewHost / MapContents。
+- ChromeBridge JSON；地图 `CefMapSlot` 原生 HWND → `content` ViewHost / GisContents。
 - `--self-test` 对齐 [`docs/superpowers/ui-testing.md`](../../ui-testing.md)；退出码 0–35 与 Views **同号同义**；CEF 独有只用 **40+**。
 - **无 Qt**；chrome **禁止**直接 `#include` `gis_map.h` / `rd_renderdevice.h` / leftover `SmtRenderDevice`；**禁止**依赖 `//src/ui/views:views` 做壳。
 - v1 **不**强依赖 `plugin:host`（Ambox 先灌 Workspace builtins）。
@@ -47,7 +47,7 @@ Status: active
 | `src/app/cef/cef_app.h` / `.cc` | `CefApp` / 生命周期薄封装 |
 | `src/app/cef/cef_browser_host.h` / `.cc` | 创建 browser、绑 parent HWND、加载 `cef_web/` |
 | `src/app/cef/layout_host.h` / `.cc` | 顶层 Win32 布局：chrome rect / map rect / DPI |
-| `src/app/cef/cef_map_slot.h` / `.cc` | 三 slot 子 HWND + MapContents / ViewHost 挂接与输入 |
+| `src/app/cef/cef_map_slot.h` / `.cc` | 三 slot 子 HWND + GisContents / ViewHost 挂接与输入 |
 | `src/app/cef/chrome_bridge.h` / `.cc` | ProcessMessage JSON 解析 / 派发 / 回推 |
 | `src/app/cef/chrome_bridge_test.cc` | L0：无 HWND 的 JSON 解析单测（可选但推荐） |
 | `src/app/cef/self_test.cc` | `--self-test` 语义路径（可与 `main.cc` 同 TU） |
@@ -88,7 +88,7 @@ Status: active
 
 **Interfaces:**
 - Produces: `smt_build_cef` / `smt_has_cef`；`//src/app/cef:cef` → `SmartGisCef.exe`；`app::cef::CefApp`；`app::cef::CefBrowserHost::create(parent, rect, url)`；`app::cef::LayoutHost` 顶层 HWND
-- Consumes: CEF Binary Dist 头/库；不依赖 `content` 地图挂接（本任务可先不链 `MapContents`，或链上但不 OpenView）
+- Consumes: CEF Binary Dist 头/库；不依赖 `content` 地图挂接（本任务可先不链 `GisContents`，或链上但不 OpenView）
 
 - [x] **Step 1: 写 `third_party/cef/README.md`（版号写死）**
 
@@ -321,7 +321,7 @@ Expected: 人话错误或空 `group("cef")`，**不**静默假装成功产出 ex
 
 ---
 
-### Task 2: `LayoutHost` 分区 + 三 `CefMapSlot` + `MapContents` 出帧
+### Task 2: `LayoutHost` 分区 + 三 `CefMapSlot` + `GisContents` 出帧
 
 **Files:**
 - Modify: `src/app/cef/layout_host.h`, `layout_host.cc`
@@ -331,7 +331,7 @@ Expected: 人话错误或空 `group("cef")`，**不**静默假装成功产出 ex
 - Modify: `src/app/cef/web/*`（固定分区百分比布局；`#map-slot-edit|data|scene` 或单 `#map-slot` + tab 切换）
 
 **Interfaces:**
-- Consumes: Task 1 `LayoutHost` / `CefBrowserHost`；`content::MapContents::Create` / `StartRenderProcess` / `OpenView` / `AttachSurface`；`content::MapView`；`content::ViewHost`；`content::ViewKind`；`content::InputEvent`；`content::PresentMode`
+- Consumes: Task 1 `LayoutHost` / `CefBrowserHost`；`content::create_gis_contents` / `StartRenderProcess` / `OpenView` / `AttachSurface`；`content::MapView`；`content::ViewHost`；`content::ViewKind`；`content::InputEvent`；`content::PresentMode`
 - Produces:
   - `app::cef::CefMapSlot::{create,destroy,sync_layout,set_visible,wait_ready,view_host,native_hwnd,view_id}`
   - `LayoutHost::{chrome_rect,map_rect_for_tab,set_active_tab,hwnd}`
@@ -341,7 +341,7 @@ Expected: 人话错误或空 `group("cef")`，**不**静默假装成功产出 ex
 
 - `src/app/winui/map_host.*` — 子 HWND + `sync_layout` + present
 - `src/app/views/main.cc` — 三 viewport 显隐与 `wait_ready`
-- `src/content/public/map_contents.h`、`map_view.h`、`view_host.h`、`map_types.h`
+- `src/content/public/gis_contents.h`、`map_view.h`、`view_host.h`、`map_types.h`
 
 - [x] **Step 1: 扩展 `LayoutHost` 分区几何**
 
@@ -389,7 +389,7 @@ namespace cef {
 class CefMapSlot {
  public:
   bool create(HWND parent,
-              content::MapContents* session,
+              content::GisContents* session,
               content::ViewKind kind);
   void destroy();
   void sync_layout(const RectPx& rect_px, float dpi);
@@ -424,7 +424,7 @@ class CefMapSlot {
 - [x] **Step 3: `BrowserMain` 接线三 slot**
 
 ```cpp
-content::MapContents* session = content::MapContents::Create();
+content::GisContents* session = content::create_gis_contents();
 session->StartRenderProcess();
 
 app::cef::CefMapSlot slots[3];
@@ -479,7 +479,7 @@ Expected: 无匹配。
 - Modify: `src/app/cef/BUILD.gn`
 
 **Interfaces:**
-- Consumes: Task 2 slots / `ViewHost::execute` / `activate` / `MapContents::CatalogCall`；`tool::Workspace` builtins
+- Consumes: Task 2 slots / `ViewHost::execute` / `activate` / `GisContents::CatalogCall`；`tool::Workspace` builtins
 - Produces: `app::cef::ChromeBridge` 消息表（`api_version=1`）；JS `SmartGisBridge.post(msg)` / `onHost(msg)`
 
 **写死：** 双向 **ProcessMessage JSON**（少 V8 绑定面）。字段：`api_version`、`type`、`request_id`（请求必填）、`view_id`。
@@ -556,7 +556,7 @@ struct BridgeMessage {
 class ChromeBridge {
  public:
   void bind_browser(CefRefPtr<CefBrowser> browser);
-  void set_handlers(/* LayoutHost*, CefMapSlot slots[3], MapContents* */);
+  void set_handlers(/* LayoutHost*, CefMapSlot slots[3], GisContents* */);
 
   // Called from CefClient::OnProcessMessageReceived
   bool on_process_message(CefRefPtr<CefBrowser> browser,
@@ -840,10 +840,10 @@ const Case kCases[] = {
 若实现期发现 `CefExecuteProcess` **误吞**本仓 `SmartGisCef.exe --type=renderer`（地图子进程）：
 
 1. 地图 OOP 改为旁路 `SmartGisRender.exe`（`smt_build_render`）。
-2. CEF PE **不再**承载 ContentMain 的 `--type=`；bridge / `MapContents` 仍在 browser 进程。
+2. CEF PE **不再**承载 ContentMain 的 `--type=`；bridge / `GisContents` 仍在 browser 进程。
 3. 在 `src/app/cef/README.md` 写明启用条件与标志。
 
-**已启用（有 `SmartGisRender.exe` 时）：** `MapContents` 在宿主为 `SmartGisCef*` 且旁路 PE 存在时优先启动 `SmartGisRender.exe`；`wWinMain` 在 `--pipe=` 子进程跳过 `CefExecuteProcess`。无旁路 PE 时仍回退同 PE ContentMain。
+**已启用（有 `SmartGisRender.exe` 时）：** `GisContents` 在宿主为 `SmartGisCef*` 且旁路 PE 存在时优先启动 `SmartGisRender.exe`；`wWinMain` 在 `--pipe=` 子进程跳过 `CefExecuteProcess`。无旁路 PE 时仍回退同 PE ContentMain。
 
 - [x] **Step 6: 验收清单（对照 spec §9.3）**
 

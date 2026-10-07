@@ -3,10 +3,10 @@
 
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
 
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "vista/component/world/atmosphere/atmosphere_params.h"
 #include "vista/component/world/atmosphere/cloud/cloud_system.h"
 #include "vista/component/world/atmosphere/contour/contour_sheet.h"
@@ -22,6 +22,7 @@
 #include "vista/pass/world/atmosphere/cloud/cloud_pass.h"
 #include "vista/pass/world/atmosphere/fog/fog_pass.h"
 #include "vista/pass/world/atmosphere/ocean/ocean_pass.h"
+#include "vista/pass/world/atmosphere/project_pass.h"
 #include "vista/pass/world/atmosphere/sky/sky_pass.h"
 #include "base/trace/event/process_trace.h"
 
@@ -40,6 +41,14 @@
 
 namespace content {
 
+void AtmosphereSession::Deleter::operator()(AtmosphereSession* p) const {
+  delete p;
+}
+
+AtmosphereSession::Ptr AtmosphereSession::create() {
+  return Ptr(new AtmosphereSession);
+}
+
 AtmosphereSession::AtmosphereSession() {
   atmosphere_frame_.set_ocean_pass(&ocean_pass_);
   atmosphere_frame_.set_cloud_pass(&cloud_pass_);
@@ -53,7 +62,7 @@ AtmosphereSession::~AtmosphereSession() {
   release_passes();
 }
 
-void AtmosphereSession::bind_scene(const MapScene* scene) {
+void AtmosphereSession::bind_scene(const GisScene* scene) {
   if (scene_ != scene) {
     procedural_seeded_ = false;
     procedural_seed_scene_ = nullptr;
@@ -652,7 +661,7 @@ void AtmosphereSession::seed_procedural() {
 
 namespace {
 
-// When MapScene has no land rings, derive kSeaMask from china_dem so ocean
+// When GisScene has no land rings, derive kSeaMask from china_dem so ocean
 // stays around the mainland instead of painting a full-screen black patch.
 bool seed_sea_mask_from_dem(vista::atmosphere::Environment& env,
                             const vista::atmosphere::FieldGrid& grid) {
@@ -944,79 +953,21 @@ bool AtmosphereSession::prepare_ocean() {
       atmosphere_->ocean_system().sample_tile(
           atmosphere_->field_store(), extent, atmosphere_->time_sec());
 
-  float min_x = 0.f;
-  float max_x = 0.f;
-  float min_z = 0.f;
-  float max_z = 0.f;
-  gpu_->geo_frame().extent_orbit_xz(&min_x, &max_x, &min_z, &max_z);
-  const float pad = OrbitGeoFrame::kOceanPad;
-  min_x -= pad;
-  max_x += pad;
-  min_z -= pad;
-  max_z += pad;
+  vista::atmosphere::OrbitPatchRect patch;
+  gpu_->geo_frame().extent_orbit_xz(&patch.min_x, &patch.max_x, &patch.min_z,
+                                    &patch.max_z);
+  patch.sea_level_y = gpu_->geo_frame().sea_level_y();
+  patch.pad = OrbitGeoFrame::kOceanPad;
 
-  vista::OceanDrawParams draw;
-  // Wave height: GIS meters �?orbit Y (same scale as DEM elev).
-  draw.significant_wave_height = (std::max)(
-      0.01f, gpu_->geo_frame().meters_to_orbit_y(tile.spectrum.significant_wave_height));
-  draw.mean_direction_rad = tile.spectrum.mean_direction_rad;
-  draw.wind_speed = tile.spectrum.wind_speed;
-  draw.wind_direction_rad = tile.spectrum.wind_direction_rad;
-  draw.fft_size = tile.spectrum.fft_size;
-  draw.use_gerstner_fallback = tile.spectrum.use_gerstner_fallback;
-  draw.use_jonswap = tile.spectrum.use_jonswap;
-  draw.chop = tile.spectrum.chop;
-  draw.jonswap_gamma = tile.spectrum.jonswap_gamma;
-  draw.patch_center_x = 0.5f * (min_x + max_x);
-  draw.patch_center_z = 0.5f * (min_z + max_z);
-  draw.patch_y = gpu_->geo_frame().sea_level_y();
-  draw.patch_half_x = 0.5f * (max_x - min_x);
-  draw.patch_half_z = 0.5f * (max_z - min_z);
-  draw.patch_half_extent =
-      (std::max)(draw.patch_half_x, draw.patch_half_z);
-  // China orbit span �?3.2: keep a readable lip without swallowing DEM peaks.
-  // Prefer Gerstner for interactive full-China (GPU FFT can look flat when the
-  // height-map energy is tiny after 1/N² at this scale).
-  const bool legacy_stereo =
-      gpu_->look_preset() == Scene3dLookPreset::kLegacyStereo;
-  if (legacy_stereo) {
-    // Leftover stereo: calm light-blue shelf on black clear. Hs�?.10 used to
-    // submerge coastal/mid DEM (only a mountain strip survived ocean depth).
-    draw.significant_wave_height =
-        (std::min)((std::max)(draw.significant_wave_height, 0.01f), 0.035f);
-    draw.use_gerstner_fallback = true;
-    draw.prefer_gpu_fft = false;
-    draw.chop = (std::min)((std::max)(draw.chop, 0.35f), 0.55f);
-    draw.shininess = (std::max)(draw.shininess, 120.0f);
-    draw.mesh_resolution = 33;
-    draw.deep_r = 0.01f;
-    draw.deep_g = 0.02f;
-    draw.deep_b = 0.04f;
-    draw.shallow_r = 0.22f;
-    draw.shallow_g = 0.48f;
-    draw.shallow_b = 0.62f;
-    draw.fresnel_bias = 0.04f;
-    draw.fresnel_power = 5.0f;
-  } else {
-    draw.significant_wave_height =
-        (std::max)((std::min)(draw.significant_wave_height * 4.5f, 0.22f), 0.10f);
-    draw.use_gerstner_fallback = true;
-    draw.prefer_gpu_fft = false;
-    draw.chop = (std::max)(draw.chop, 1.15f);
-    draw.shininess = (std::max)(draw.shininess, 180.0f);
-    // 33 matches OceanDrawParams default; 65² Gerstner+upload dominated present.
-    draw.mesh_resolution = 33;
-    // Mid-tier GIS water: deep navy, muted shelf �?never near-cyan albedo.
-    draw.deep_r = 0.02f;
-    draw.deep_g = 0.07f;
-    draw.deep_b = 0.18f;
-    draw.shallow_r = 0.06f;
-    draw.shallow_g = 0.22f;
-    draw.shallow_b = 0.32f;
-    draw.fresnel_bias = 0.03f;
-    draw.fresnel_power = 6.0f;
-  }
-  ocean_pass_.set_params(draw);
+  const float hs_orbit = gpu_->geo_frame().meters_to_orbit_y(
+      tile.spectrum.significant_wave_height);
+  const auto look =
+      (gpu_->look_preset() == Scene3dLookPreset::kLegacyStereo)
+          ? vista::atmosphere::OceanLookPreset::kLegacyStereo
+          : vista::atmosphere::OceanLookPreset::kInteractive;
+  // Field -> OceanDrawParams POD (session-free); geo_frame metrics stay here.
+  ocean_pass_.set_params(vista::atmosphere::project_ocean_draw_params(
+      tile.spectrum, hs_orbit, patch, look));
   const vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
   ocean_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad,
                                              p.sun_elevation_rad);
@@ -1031,7 +982,7 @@ bool AtmosphereSession::prepare_ocean() {
       cached_sea_mask_extent_.xmax != frame_extent.xmax ||
       cached_sea_mask_extent_.ymax != frame_extent.ymax;
   if (extent_changed) {
-    // Start at 0 (land). Never pre-fill 1 �?a failed/partial fill used to
+    // Start at 0 (land). Never pre-fill 1 -- a failed/partial fill used to
     // leave a full-screen sea mask and black out China DEM.
     cached_sea_mask_.assign(
         static_cast<std::size_t>(kMask) * static_cast<std::size_t>(kMask), 0.f);
@@ -1077,30 +1028,22 @@ bool AtmosphereSession::prepare_clouds() {
   const vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
   cloud_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad,
                                              p.sun_elevation_rad);
-  cloud_pass_.set_cloud_slab(sample.base_m, sample.top_m);
-  // Broken deck: visible but soft enough that landish greens survive.
-  cloud_pass_.set_cover_modulation(
-      (std::max)(0.38f, (std::min)(sample.cover, 0.62f)));
 
-  float min_x = 0.f;
-  float max_x = 0.f;
-  float min_z = 0.f;
-  float max_z = 0.f;
-  gpu_->geo_frame().extent_orbit_xz(&min_x, &max_x, &min_z, &max_z);
-  const float half_x = 0.5f * (max_x - min_x) + OrbitGeoFrame::kOceanPad;
-  const float half_z = 0.5f * (max_z - min_z) + OrbitGeoFrame::kOceanPad;
-  // Keep a thin deck just above the terrain (full GIS cloud base would sit
-  // several orbit-units up as a gray card).
-  const float sea = gpu_->geo_frame().sea_level_y();
-  float lift = gpu_->geo_frame().meters_to_orbit_y(sample.base_m);
-  lift = (std::max)(0.22f, (std::min)(lift, 0.62f));
-  float thick = gpu_->geo_frame().meters_to_orbit_y(sample.top_m - sample.base_m);
-  thick = (std::max)(0.16f, (std::min)(thick, 0.36f));
-  const float base_y = sea + lift;
-  const float top_y = base_y + thick;
-  const float deck_y = 0.5f * (base_y + top_y);
-  cloud_pass_.set_deck_orbit(half_x, half_z, deck_y);
-  cloud_pass_.set_slab_orbit(base_y, top_y);
+  vista::atmosphere::OrbitPatchRect patch;
+  gpu_->geo_frame().extent_orbit_xz(&patch.min_x, &patch.max_x, &patch.min_z,
+                                    &patch.max_z);
+  patch.sea_level_y = gpu_->geo_frame().sea_level_y();
+  patch.pad = OrbitGeoFrame::kOceanPad;
+  const float lift_raw = gpu_->geo_frame().meters_to_orbit_y(sample.base_m);
+  const float thick_raw =
+      gpu_->geo_frame().meters_to_orbit_y(sample.top_m - sample.base_m);
+  const vista::atmosphere::CloudOrbitDeck deck =
+      vista::atmosphere::project_cloud_orbit_deck(sample, patch, lift_raw,
+                                                  thick_raw);
+  cloud_pass_.set_cloud_slab(deck.base_m, deck.top_m);
+  cloud_pass_.set_cover_modulation(deck.cover);
+  cloud_pass_.set_deck_orbit(deck.half_x, deck.half_z, deck.deck_y);
+  cloud_pass_.set_slab_orbit(deck.base_y, deck.top_y);
   return true;
 }
 
@@ -1109,44 +1052,11 @@ bool AtmosphereSession::prepare_sky() {
     return true;
   }
   const vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
-  // Floor sun elevation so daytime China orbit never samples a magenta
-  // sunset mid-band (dynamic bob can dip to ~0.10 rad).
-  const float sun_el = (std::max)(p.sun_elevation_rad, 0.72f);
+  const float sun_el =
+      vista::atmosphere::project_sky_sun_elevation(p.sun_elevation_rad);
   sky_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad, sun_el);
-  vista::SkyDrawParams sky = sky_pass_.params();
-  // Past max orbit distance (12) so zoom-out stays inside the sky.
-  sky.dome_radius = 40.0f;
-  if (globe_enabled_) {
-    // Product splash / Google-Earth path: deep-space starfield, not Rayleigh.
-    // Negative dome_radius selects space_blend in SkyPass (no POD growth).
-    sky.dome_radius = -40.0f;
-    sky.zenith_r = 0.008f;
-    sky.zenith_g = 0.010f;
-    sky.zenith_b = 0.028f;
-    sky.horizon_r = 0.012f;
-    sky.horizon_g = 0.014f;
-    sky.horizon_b = 0.040f;
-    sky.sunset_r = sky.horizon_r;
-    sky.sunset_g = sky.horizon_g;
-    sky.sunset_b = sky.horizon_b;
-    sky.sun_glow_strength = 0.55f;
-  } else {
-    // Industry mid-tier analytical dome: deep Rayleigh zenith, cool haze
-    // horizon. Collapse sunset into horizon so screen-space ground never
-    // samples a magenta sunset leg (interactive no-arg 3D lower half).
-    sky.dome_radius = 40.0f;
-    sky.zenith_r = 0.04f;
-    sky.zenith_g = 0.16f;
-    sky.zenith_b = 0.86f;
-    sky.horizon_r = 0.42f;
-    sky.horizon_g = 0.64f;
-    sky.horizon_b = 0.90f;
-    sky.sunset_r = sky.horizon_r;
-    sky.sunset_g = sky.horizon_g;
-    sky.sunset_b = sky.horizon_b;
-    sky.sun_glow_strength = 0.18f;
-  }
-  sky_pass_.set_params(sky);
+  sky_pass_.set_params(
+      vista::atmosphere::project_sky_draw_params(globe_enabled_));
   return true;
 }
 
@@ -1158,32 +1068,11 @@ bool AtmosphereSession::prepare_fog() {
     return true;
   }
   const vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
-  vista::FogDrawParams fog;
-  // Soft aerial haze on terrain only (sky depth is skipped in FogPass HLSL).
-  // Cap opacity so hypsometric greens still pass showcase landish gates.
-  fog.density = (std::max)((std::min)(p.fog_density, 0.08f), 0.03f);
-  // China orbit frame span ~3.2: keep haze visible without washing terrain.
-  fog.visibility = (std::max)(2.8f, (std::min)(p.fog_visibility, 5.0f));
-  fog.height_falloff = p.fog_height_falloff;
-  fog.max_opacity = (std::min)((std::max)(p.fog_max_opacity, 0.06f), 0.12f);
-  fog.base_height = gpu_->geo_frame().sea_level_y();
-  // Tint haze toward the analytical sky horizon (matches sky pass).
-  // Zero sun_glow for the tint sample �?a fixed horizon ray can align with
-  // the sun and pick up disk/corona, blowing fog to near-white and washing
-  // the showcase BMP (blue_sky / landish gates fail).
-  float hr = fog.color_r;
-  float hg = fog.color_g;
-  float hb = fog.color_b;
-  vista::SkyDrawParams tint = sky_pass_.params();
-  tint.sun_glow_strength = 0.f;
-  vista::SkyPass::sample_sky_rgb(tint, 0.f, 0.05f, 1.f, &hr, &hg,
-                                              &hb);
-  fog.color_r = hr;
-  fog.color_g = hg;
-  fog.color_b = hb;
-  fog_pass_.set_params(fog);
+  fog_pass_.set_params(vista::atmosphere::project_fog_draw_params(
+      p, gpu_->geo_frame().sea_level_y(), sky_pass_.params()));
   return true;
 }
+
 
 namespace {
 

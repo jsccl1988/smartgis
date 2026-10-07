@@ -25,7 +25,7 @@ All rights reserved.
 
 ### Task 0 — Host seams (unlock)
 
-- [x] `content::GisDocument` on `content/public` wrapping `MapScene` (layer / feature / style JSON / triangle mesh / extent). `PluginHost::gis_document()` append-only.
+- [x] `content::GisDocument` on `content/public` wrapping `GisScene` (layer / feature / style JSON / triangle mesh / extent). `PluginHost::gis_document()` append-only.
 - [x] `PluginHost::scene3d_sink()` shell-installed facade (mesh / tileset / invalidate). No `Browser*` in product TUs.
 - [x] `PluginHost::playback()` generic frame list; ResultPlayback UI ticks index only.
 - [x] EventBus `document.layers_changed` replaces `refresh_ui_after_layer`.

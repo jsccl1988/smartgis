@@ -18,8 +18,8 @@ void expect(bool ok, const char* msg) {
   }
 }
 
-content::FeatureId make_id(uint8_t v) {
-  content::FeatureId id{};
+gis::FeatureId make_id(uint8_t v) {
+  gis::FeatureId id{};
   id.len = 1;
   id.bytes[0] = v;
   return id;
@@ -28,7 +28,7 @@ content::FeatureId make_id(uint8_t v) {
 }  // namespace
 
 int main() {
-  const content::FeatureId id = make_id(42);
+  const gis::FeatureId id = make_id(42);
 
   {
     auto store = std::make_shared<gis::OptimisticLayerStore>();

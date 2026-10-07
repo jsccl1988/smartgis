@@ -7,14 +7,13 @@
 #include <windows.h>
 #include <shellapi.h>
 
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/app/content_main.h"
-#include "content/embed/embed_sample.h"
 #include "content/public/event_bus.h"
-#include "content/public/map_contents.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/view_host.h"
+#include "content/public/gis_contents.h"
+#include "content/public/types.h"
+#include "content/public/tool_session.h"
 #include "content/renderer/renderer_main.h"
 #include "gis/edit/memory_session.h"
 #include "gis/style/document/style_document.h"
@@ -57,7 +56,7 @@ namespace plugin {
 int scenario_layers_m1(HarnessShell& browser) {
 // Document layers + features (Catalog / overlay paint). m0-save clears the
 // seeded china pack and keeps a single round-trip linestring; polygon
-// append adds a second feature â€?require >= 2, not the pre-clear count.
+// append adds a second feature ï¿½?require >= 2, not the pre-clear count.
 // Pause 2D present only. Hiding Scene3d GPU present after edit_m0 races
 // Display and AVs (exit -1) before layers-ok.
 browser.pump(50);
@@ -75,7 +74,7 @@ if (browser.document()->feature_count() < 2) {
 }
 if (ui::views::CatalogView* cat = browser.catalog_view()) {
   if (!cat->layer_tree() || cat->layer_tree()->layer_count() == 0) {
-    browser.detach_maps();
+    browser.detach_views();
     return 38;
   }
 }
@@ -87,35 +86,35 @@ browser.mark("layers-ok");
     if (!opened || browser.document()->feature_count() < 3 ||
         browser.document()->layer_count() == 0) {
       std::fprintf(stderr, "OGR China map self-test open failed\n");
-      browser.detach_maps();
+      browser.detach_views();
       return 26;
     }
     if (city_pack) {
-      // china_city.gpkg is area/line/point â€?city names live on point only
+      // china_city.gpkg is area/line/point ï¿½?city names live on point only
       // (no parallel text layer; see testing/data/build_china_city.py).
       if (browser.document()->layer_count() < 3) {
         std::fprintf(stderr,
                      "china_city pack expected >=3 layers (area/line/"
                      "point), got %zu\n",
                      browser.document()->layer_count());
-        browser.detach_maps();
+        browser.detach_views();
         return 26;
       }
       if (browser.document()->feature_count() < 200) {
         std::fprintf(stderr,
                      "china_city pack expected >=200 features, got %zu\n",
                      browser.document()->feature_count());
-        browser.detach_maps();
+        browser.detach_views();
         return 26;
       }
     }
     if (!browser.document()->has_china_extent()) {
       std::fprintf(stderr, "OGR China extent not in China lon/lat\n");
-      browser.detach_maps();
+      browser.detach_views();
       return 39;
     }
     if (!browser.catalog_view()) {
-      browser.detach_maps();
+      browser.detach_views();
       return 38;
     }
     browser.catalog_view()->populate_layers([&] {
@@ -178,7 +177,7 @@ browser.mark("layers-ok");
         }
         if (!found_point_layer) {
           std::fprintf(stderr, "M1: china_city missing point layer\n");
-          browser.detach_maps();
+          browser.detach_views();
           return 70;
         }
       }
@@ -214,7 +213,7 @@ browser.mark("layers-ok");
             "\"paint\":{\"fill-color\":\"#c8e6c9\"}}]}";
         auto doc = std::make_shared<gis::style::StyleDocument>();
         if (!gis::style::parse_style_document(kInline, doc.get())) {
-          browser.detach_maps();
+          browser.detach_views();
           return 71;
         }
         browser.document()->set_style_document(std::move(doc));
@@ -232,14 +231,14 @@ browser.mark("layers-ok");
                      "from_file=%d\n",
                      rp.fill_color, expected_fill,
                      style_loaded ? 1 : 0);
-        browser.detach_maps();
+        browser.detach_views();
         return 71;
       }
       browser.mark("m1-style-ok");
 
       auto provider = std::make_shared<gis::tile::TileProvider>();
       if (!provider->open_xyz("http://tiles.local/{z}/{x}/{y}.png")) {
-        browser.detach_maps();
+        browser.detach_views();
         return 72;
       }
       provider->set_fetch_fn([](const std::string&) {
@@ -267,7 +266,7 @@ browser.mark("layers-ok");
       if (!dib) {
         DeleteDC(mem);
         ReleaseDC(nullptr, screen);
-        browser.detach_maps();
+        browser.detach_views();
         return 72;
       }
       HGDIOBJ old = SelectObject(mem, dib);
@@ -279,25 +278,25 @@ browser.mark("layers-ok");
       ReleaseDC(nullptr, screen);
       if (tiles == 0) {
         std::fprintf(stderr, "M1: basemap drew zero tiles\n");
-        browser.detach_maps();
+        browser.detach_views();
         return 72;
       }
       browser.mark("m1-basemap-ok");
 
       char tmp[MAX_PATH] = {};
       if (GetTempPathA(MAX_PATH, tmp) == 0) {
-        browser.detach_maps();
+        browser.detach_views();
         return 73;
       }
       std::string bmp = std::string(tmp) + "smartgis_m1_selftest.bmp";
       DeleteFileA(bmp.c_str());
       if (!browser.map2d()->export_bmp(bmp, 320, 240)) {
-        browser.detach_maps();
+        browser.detach_views();
         return 73;
       }
       FILE* bf = nullptr;
       if (fopen_s(&bf, bmp.c_str(), "rb") != 0 || !bf) {
-        browser.detach_maps();
+        browser.detach_views();
         return 73;
       }
       char magic[2] = {};
@@ -305,7 +304,7 @@ browser.mark("layers-ok");
       std::fclose(bf);
       DeleteFileA(bmp.c_str());
       if (n != 2 || magic[0] != 'B' || magic[1] != 'M') {
-        browser.detach_maps();
+        browser.detach_views();
         return 73;
       }
       browser.mark("m1-export-ok");

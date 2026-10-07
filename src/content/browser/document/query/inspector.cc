@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/eval/style_rules.h"
 #include "base/process/switches.h"
@@ -23,8 +23,8 @@ bool source_layer_for_feature(const LayerStore& store,
   if (!out) {
     return false;
   }
-  for (const MapLayer& layer : store.layers()) {
-    for (const MapFeature& feature : layer.features) {
+  for (const GisLayer& layer : store.layers()) {
+    for (const GisFeature& feature : layer.features) {
       if (feature_id_eq(feature.id, id)) {
         *out = layer.name;
         return true;
@@ -77,7 +77,7 @@ void append_resolved_paint_rows(
 }
 
 void append_style_debug_rows(const LayerStore& store, const StyleBind& style,
-                             const MapFeature& f, const std::string& layer_name,
+                             const GisFeature& f, const std::string& layer_name,
                              double map_scale,
                              std::vector<std::pair<std::string, std::string>>* out) {
   const gis::style::StyleDocument* doc = style.style_document();
@@ -92,11 +92,11 @@ void append_style_debug_rows(const LayerStore& store, const StyleBind& style,
     const std::string label =
         doc && !doc->name.empty() ? doc->name : "(loaded Style JSON)";
     out->push_back({"style source", label});
-    out->push_back({"paint resolver", "MapScene StyleDocument"});
+    out->push_back({"paint resolver", "GisScene StyleDocument"});
   } else if (using_embedded_carto) {
     out->push_back(
         {"style source",
-         "(no Style JSON on MapScene  - showing embedded default_carto)"});
+         "(no Style JSON on GisScene  - showing embedded default_carto)"});
     out->push_back(
         {"paint resolver",
          "default_carto_style_json (Map2dPresenter parity; load .style.json "
@@ -132,9 +132,9 @@ void append_style_debug_rows(const LayerStore& store, const StyleBind& style,
   COLORREF fill = 0;
   COLORREF stroke = 0;
   int stroke_w = 0;
-  const MapLayer* owner = nullptr;
-  for (const MapLayer& layer : store.layers()) {
-    for (const MapFeature& candidate : layer.features) {
+  const GisLayer* owner = nullptr;
+  for (const GisLayer& layer : store.layers()) {
+    for (const GisFeature& candidate : layer.features) {
       if (feature_id_eq(candidate.id, f.id)) {
         owner = &layer;
         break;
@@ -160,7 +160,7 @@ void append_style_debug_rows(const LayerStore& store, const StyleBind& style,
 }  // namespace
 
 void fill_feature_info_fields(
-    const LayerStore& store, const StyleBind& style, const MapFeature& f,
+    const LayerStore& store, const StyleBind& style, const GisFeature& f,
     std::vector<std::pair<std::string, std::string>>* out,
     const std::string& source_layer, double map_scale) {
   if (!out) {
@@ -201,8 +201,8 @@ void fill_attribute_rows(const LayerStore& store,
   columns->assign({"FID", "Name", "Type", "Layer"});
   rows->clear();
   tokens->clear();
-  for (const MapLayer& layer : store.layers()) {
-    for (const MapFeature& f : layer.features) {
+  for (const GisLayer& layer : store.layers()) {
+    for (const GisFeature& f : layer.features) {
       std::string name = f.fields.empty()
                              ? content::encode_feature_token(f.id)
                              : f.fields[0].value;

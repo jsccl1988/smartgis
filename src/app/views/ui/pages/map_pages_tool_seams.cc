@@ -18,7 +18,7 @@
 #include "app/views/ui/pages/detail/seh_workspace.h"
 #include "base/core/log.h"
 #include "content/browser/session/browser_session.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
 #include "tool/workspace/workspace.h"
@@ -29,11 +29,11 @@ void MapPagesComposer::wire_tool_seams() {
   // Snapshot owned host pointers once. Do not iterate a temporary list that
   // re-reads session getters after map2d/scene3d bind �?a skewed BrowserSession
   // layout can poison trailing unique_ptrs mid-init_shell.
-  content::ViewHost* const hosts[3] = {
-      host_->browser_->edit_host(), host_->browser_->data_host(), host_->browser_->scene_host()};
+  content::ToolSession* const hosts[3] = {
+      host_->browser_->edit_tool_session(), host_->browser_->data_tool_session(), host_->browser_->scene_tool_session()};
 
   auto resolve = [this](const tool::Draft& draft) -> content::FeatureId {
-    content::ViewHost* host = host_->active_view_host();
+    content::ToolSession* host = host_->active_tool_session();
     if (!host) {
       return {};
     }
@@ -82,7 +82,7 @@ void MapPagesComposer::wire_tool_seams() {
     host_->browser_->session().view_to_map(x_px, y_px, map_x, map_y);
   };
   // Guard against skewed BrowserSession layouts from parallel out/Debug rebuilds:
-  // edit_host_ can be 0xCDCDCDCD / 0xCDCDCD00 and ViewHost::workspace AVs.
+  // edit_tool_session_ can be 0xCDCDCDCD / 0xCDCDCD00 and ToolSession::workspace AVs.
   tool::DraftCallback draft_cb = on_draft;
   tool::Workspace::FeatureHit hit_cb = resolve;
   tool::Workspace::NavCommand nav_cb = nav;
@@ -91,13 +91,13 @@ void MapPagesComposer::wire_tool_seams() {
       &detail::trampoline_set_draft, &detail::trampoline_set_hit, &detail::trampoline_set_nav,
       &detail::trampoline_set_project, &draft_cb,         &hit_cb,
       &nav_cb,               &project_cb};
-  for (content::ViewHost* host : hosts) {
+  for (content::ToolSession* host : hosts) {
     if (!host || detail::ptr_addr_poison(reinterpret_cast<uintptr_t>(host)) ||
         !detail::ptr_mem_readable(host, sizeof(void*))) {
-      LOGGING(LOG_WARNING, "wire_tool_seams: skip invalid ViewHost %p", host);
+      LOGGING(LOG_WARNING, "wire_tool_seams: skip invalid ToolSession %p", host);
       continue;
     }
-    tool::Workspace* ws = detail::seh_view_host_workspace(host);
+    tool::Workspace* ws = detail::seh_tool_session_workspace(host);
     if (!ws || detail::ptr_addr_poison(reinterpret_cast<uintptr_t>(ws)) ||
         !detail::ptr_mem_readable(ws, sizeof(void*))) {
       LOGGING(LOG_WARNING, "wire_tool_seams: skip invalid Workspace %p (host=%p)",

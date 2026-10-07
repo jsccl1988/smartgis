@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// POD layers → style source-layer batches. Does not read MapScene.
+// POD layers → style source-layer batches. Does not read GisScene.
 // LayerBatchSet destructor is out of line so OGRGeometry stays incomplete.
 
 #ifndef VISTA_COMPONENT_MAP_BATCH_H_

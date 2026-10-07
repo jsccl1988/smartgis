@@ -36,7 +36,7 @@ int run_report(HarnessShell& browser) {
 
   if (!browser.plugin_host()) {
     plugin_mark("plugins-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
@@ -54,7 +54,7 @@ int run_report(HarnessShell& browser) {
       L"..\\testing\\data\\plugin\\report\\sample"};
   if (!resolve_rel_under_exe(rels, 4, rep_path, sizeof(rep_path))) {
     plugin_mark("report-sample-missing");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
@@ -67,7 +67,7 @@ int run_report(HarnessShell& browser) {
     plugin::ReportBridge* report = plugin::report_bridge(host);
     if (!host || !report) {
       plugin_mark("report-open-fail");
-      browser.detach_maps();
+      browser.detach_views();
       return 1;
     }
     plugin::FakeReportBrowser& fake = report_showcase_fake();
@@ -83,7 +83,7 @@ int run_report(HarnessShell& browser) {
     if (dispatch_plugin_command(browser, "report.scenario.showcase", payload) !=
         0) {
       plugin_mark("report-open-fail");
-      browser.detach_maps();
+      browser.detach_views();
       return 1;
     }
     plugin_mark("report-fake-bridge");
@@ -92,7 +92,7 @@ int run_report(HarnessShell& browser) {
   browser.pump(400);
 
   plugin_mark("pass");
-  browser.detach_maps();
+  browser.detach_views();
   std::fprintf(stderr, "plugin-showcase: PASS mode=report\n");
   return 0;
 }

@@ -5,7 +5,7 @@
 #define APP_VIEWS_UI_PAGES_DETAIL_SEH_WORKSPACE_H_
 
 namespace content {
-class ViewHost;
+class ToolSession;
 }  // namespace content
 
 namespace tool {
@@ -16,11 +16,11 @@ namespace app {
 namespace detail {
 
 // SEH wrappers live in a TU with no C++ object unwinding in the __try body
-// (MSVC C2712). Used when BrowserSession / ViewHost ABI drifts across partial
+// (MSVC C2712). Used when BrowserSession / ToolSession ABI drifts across partial
 // multi-agent out/Debug rebuilds.
 
-tool::Workspace* seh_view_host_workspace(content::ViewHost* host);
-bool seh_view_host_flashing(content::ViewHost* host);
+tool::Workspace* seh_tool_session_workspace(content::ToolSession* host);
+bool seh_tool_session_flashing(content::ToolSession* host);
 
 struct WorkspaceBindFns {
   void (*set_draft)(tool::Workspace*, void*);

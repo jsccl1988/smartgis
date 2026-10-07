@@ -17,7 +17,7 @@
 
 namespace content {
 
-class MapScene;
+class GisScene;
 class ViewFrame;
 
 // Shared MapIR cache for GPU present and GDI paint (dual-speed §Perf).
@@ -32,7 +32,7 @@ class Map2dFrameCache {
   Map2dFrameCache(const Map2dFrameCache&) = delete;
   Map2dFrameCache& operator=(const Map2dFrameCache&) = delete;
 
-  void bind(const MapScene* scene, const ViewFrame* frame);
+  void bind(const GisScene* scene, const ViewFrame* frame);
   // Unconditional drop of published MapIR (bind / GPU latch reset).
   void invalidate();
   // True when a published frame exists and scene/layer fingerprint moved.
@@ -129,7 +129,7 @@ class Map2dFrameCache {
   // between incremental objs (resource_deadlock_would_occur on bind).
   mutable std::recursive_mutex mu_;
 
-  const MapScene* scene_ = nullptr;
+  const GisScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
 
   vista::MapIR cached_frame_;
@@ -147,6 +147,9 @@ class Map2dFrameCache {
   // Last interactive present time (steady_clock). Settle waits ~200ms quiet.
   std::chrono::steady_clock::time_point last_interactive_tp_{};
   bool pending_interactive_clock_refresh_ = false;
+  // Set when first china layout deferred DEM bake; next prepare rebuilds
+  // with reuse_slices so hillshade_ms is not lumped into cold tess.
+  bool pending_hillshade_attach_ = false;
 
   // Hillshade RGBA is a heap vector installed only after Layout::build
   // when live gen still matches. Stale gen keeps the published bake.

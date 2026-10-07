@@ -22,7 +22,7 @@
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
 #include "content/browser/session/browser_session.h"
-#include "content/public/map_contents.h"
+#include "content/public/gis_contents.h"
 #include "ui/gis/catalog/catalog_view.h"
 #include "ui/gis/debug/diagnostic_tools_panel.h"
 #include "ui/views/kernel/layout/splitter.h"
@@ -67,13 +67,13 @@ LRESULT CALLBACK ShellLifecycleComposer::shell_wheel_subclass_proc(HWND hwnd, UI
                                                        DWORD_PTR data) {
   auto* self = reinterpret_cast<BrowserView*>(data);
   // Posted by deferred China seed when VIEWS_START_MAP_TAB is set — must
-  // not nest select_map_tab inside the seed timer / switch_map_tab wait.
+  // not nest select_view_tab inside the seed timer / switch_map_tab wait.
   constexpr UINT kReselectTab = WM_APP + 0x5354;  // 'ST'
   constexpr UINT kExtentChangedUi = WM_APP + 0x5253;  // 'RS'
   if (self && id == kShellWheelSubclassId && msg == kReselectTab) {
     const int idx = static_cast<int>(wparam);
     if (idx >= 0 && idx <= 2) {
-      self->select_map_tab(idx);
+      self->select_view_tab(idx);
       LOGGING(LOG_INFO, "startup: posted reselect map tab=%d after China seed",
               idx);
     }
@@ -203,7 +203,7 @@ bool ShellLifecycleComposer::init_shell() {
   }
   {
     BASE_TRACE_EVENT("BindPresenters", "startup");
-    host_->browser_->session().bind_map_presenters();
+    host_->browser_->session().bind_presenters();
     host_->browser_->pull_orbit_extent();
     // Fit world extent BEFORE FlyCube attach so the first display-thread
     // present_gpu uses a real camera (not a degenerate default extent).

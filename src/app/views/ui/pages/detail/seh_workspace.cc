@@ -4,7 +4,7 @@
 #include "app/views/ui/pages/detail/seh_workspace.h"
 
 #include "app/views/ui/pages/detail/ptr_guard.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "tool/draft/draft.h"
 #include "tool/workspace/workspace.h"
 
@@ -16,7 +16,7 @@
 namespace app {
 namespace detail {
 
-tool::Workspace* seh_view_host_workspace(content::ViewHost* host) {
+tool::Workspace* seh_tool_session_workspace(content::ToolSession* host) {
   __try {
     return host->workspace();
   } __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -24,7 +24,7 @@ tool::Workspace* seh_view_host_workspace(content::ViewHost* host) {
   }
 }
 
-bool seh_view_host_flashing(content::ViewHost* host) {
+bool seh_tool_session_flashing(content::ToolSession* host) {
   if (!host || ptr_addr_poison(reinterpret_cast<uintptr_t>(host))) {
     return false;
   }

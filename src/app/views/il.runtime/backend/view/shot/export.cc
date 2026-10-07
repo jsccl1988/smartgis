@@ -15,7 +15,7 @@
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/camera/view_frame.h"
 #include "content/public/plugin_host.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
@@ -120,14 +120,14 @@ bool export_scene3d_bmp(Browser* b, const wchar_t* bmp_w) {
       pump_messages(80);
     }
   }
-  b->select_map_tab(1);
+  b->select_view_tab(1);
   pump_messages(120);
   ui::views::DrawHost* scene = b->scene_draw_host();
   bool flycube_live = false;
   if (scene && content::prefer_scene3d_flycube()) {
     scene->set_gpu_present_visible(true);
     if (scene->attach_mode() != ui::views::DrawHost::AttachMode::kGpuPresent) {
-      b->select_map_tab(1);
+      b->select_view_tab(1);
       pump_messages(200);
     }
     int present_w = 0;
@@ -233,7 +233,7 @@ bool export_map2d_bmp(Browser* b,
       !resolve_export_frame(*b, frame.empty() ? "document_extent" : frame)) {
     return false;
   }
-  content::MapScene* doc = b->document();
+  content::GisScene* doc = b->document();
   if (opts.require_features && (!doc || doc->feature_count() == 0)) {
     return false;
   }

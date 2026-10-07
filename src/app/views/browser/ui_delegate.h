@@ -16,7 +16,7 @@
 #include <windows.h>
 
 namespace content {
-class ViewHost;
+class ToolSession;
 }  // namespace content
 
 namespace tool {
@@ -73,7 +73,7 @@ class BrowserUiDelegate {
   virtual ui::views::DrawHost* scene_draw_host() const = 0;
 
   virtual ui::views::DrawHost* active_map() const = 0;
-  virtual content::ViewHost* active_view_host() const = 0;
+  virtual content::ToolSession* active_tool_session() const = 0;
   virtual void active_view_size(int* w, int* h) const = 0;
   virtual bool scene3d_tab_active() const = 0;
 
@@ -87,7 +87,7 @@ class BrowserUiDelegate {
   virtual void sync_flash_timer() = 0;
   virtual void schedule_menu_rebuild() = 0;
   virtual void schedule_overlay_full_redraw() = 0;
-  virtual void select_map_tab(int index) = 0;
+  virtual void select_view_tab(int index) = 0;
   // Lazy-create the inspector page (Report / Processing / …) then activate.
   virtual void activate_inspector_tab(int index) = 0;
   virtual void show_feature_info_tab() = 0;

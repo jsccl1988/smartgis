@@ -56,10 +56,10 @@ All rights reserved.
 
 ---
 
-### Task 3 — MapScene + Browser + world3d UI
+### Task 3 — GisScene + Browser + world3d UI
 
 **Files:**
-- Modify: `feature_edit`, `map_scene` (`add_point_cloud_layer`)
+- Modify: `feature_edit`, `gis_scene` (`add_point_cloud_layer`)
 - Modify: `browser.cc` (use `gis::load_point_cloud`)
 - Modify: `scene_commands.cc` (file filter `*.las;*.laz;*.txt`)
 - Modify: `manifest/plugin.json` titles as needed

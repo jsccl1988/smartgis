@@ -13,7 +13,7 @@
 
 #include "base/process/switches.h"
 #include "content/browser/session/browser_session.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "ui/views/map/viewport/draw_host.h"
 
 namespace app {
@@ -40,7 +40,7 @@ void MapPagesComposer::attach_hwnd_gestures() {
   // are HWND-only until first tab focus (see attach_viewports / switch_map_tab).
   // Prefer input_hwnd() (FlyCube DXGI popup when visible) �?subclassing the
   // embed alone leaves pan/pinch/right-click dead under the present surface.
-  auto try_attach = [&](ui::views::DrawHost* pane, content::MapHwndGestures* g) {
+  auto try_attach = [&](ui::views::DrawHost* pane, content::GisHwndGestures* g) {
     if (!pane || !g || !host_->browser_) {
       return;
     }
@@ -59,7 +59,7 @@ void MapPagesComposer::attach_hwnd_gestures() {
 }
 
 
-void MapPagesComposer::configure_gestures(content::MapHwndGestures* gestures) {
+void MapPagesComposer::configure_gestures(content::GisHwndGestures* gestures) {
   if (!gestures || !host_->browser_) {
     return;
   }

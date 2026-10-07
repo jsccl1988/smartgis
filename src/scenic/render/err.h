@@ -21,28 +21,28 @@ enum Err {
   kErrNone = 0,
   kErrFailure,
   kErrUnknown,
-  kErrNotEnoughMem,
+  kErrNotEnoughMem
 
   kErrOpenInner,
   kErrArchiveInner,
   kErrCreateInner,
   kErrSaveInner,
-  kErrMathInner,
+  kErrMathInner
 
-  kErrFuncInner,
+  kErrFuncInner
 
   kErrInvalidHandle,
   kErrInvalidParam,
-  kErrInvalidFile,
+  kErrInvalidFile
 
   kErrUnsupported,
   kErrUnsupportedDevice,
   kErrUnsupportedFmts,
-  kErrUnsupportedGeotype,
+  kErrUnsupportedGeotype
 
   kErrDsInner,
   kErrDbOper,
-  kErrSmfOper,
+  kErrSmfOper
 
   kWrnAlreadyExist,
 };

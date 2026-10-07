@@ -36,7 +36,7 @@ int run_mine_scene3d(HarnessShell& browser) {
   char csv_path[MAX_PATH * 3] = {};
   if (!resolve_mine_boreholes_csv(csv_path, sizeof(csv_path))) {
     plugin_mark("mine-sample-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   plugin_mark("sample-ok");
@@ -54,14 +54,14 @@ int run_mine_scene3d(HarnessShell& browser) {
   opts.gpu_env = "plugin-mine-gpu";
   opts.require_scene_hwnd = true;
   opts.detach_flycube = false;
-  // Borrow shell Scene3D with select_map_tab(1) (peer orthogrid3d). Skipping
+  // Borrow shell Scene3D with select_view_tab(1) (peer orthogrid3d). Skipping
   // select left device-missing / navy-only captures.
   opts.borrow_shell_scene3d = true;
 
   PluginDeviceSession session;
   if (const int rc = prepare_plugin_device_session(browser, opts, &session)) {
     destroy_plugin_owned_hwnd(&session);
-    browser.detach_maps();
+    browser.detach_views();
     return rc;
   }
 
@@ -70,7 +70,7 @@ int run_mine_scene3d(HarnessShell& browser) {
   if (!cam || !orbit) {
     teardown_plugin_device_session(cam, &session,
                                    PluginTeardownOpts{.shutdown_device = true});
-    browser.detach_maps();
+    browser.detach_views();
     return 50;
   }
 
@@ -80,7 +80,7 @@ int run_mine_scene3d(HarnessShell& browser) {
   if (!seed_mine_processing(browser, csv_path)) {
     teardown_plugin_device_session(cam, &session,
                                    PluginTeardownOpts{.shutdown_device = true});
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 

@@ -15,7 +15,7 @@
 
 #include "app/views/ui/pages/detail/seh_workspace.h"
 #include "base/process/switches.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 
@@ -34,10 +34,10 @@ void MapPagesComposer::sync_flash_timer() {
   }
   constexpr UINT_PTR kFlash = 0x464C5348u;
   SetPropW(h, L"FlashBrowser", reinterpret_cast<HANDLE>(host_));
-  content::ViewHost* host = host_->active_view_host();
+  content::ToolSession* host = host_->active_tool_session();
   const bool on = base::switch_cstr("map2d-showcase")
                       ? false
-                      : detail::seh_view_host_flashing(host);
+                      : detail::seh_tool_session_flashing(host);
   KillTimer(h, kFlash);
   if (!on) {
     host_->browser_->set_flash_lit(true);
@@ -101,12 +101,12 @@ ui::views::DrawHost* MapPagesComposer::active_map() const {
 }
 
 
-content::ViewHost* MapPagesComposer::active_view_host() const {
+content::ToolSession* MapPagesComposer::active_tool_session() const {
   const int i = host_->map_tabs_ ? host_->map_tabs_->active() : 0;
   if (i == 1) {
-    return host_->browser_->scene_host();
+    return host_->browser_->scene_tool_session();
   }
-  return host_->browser_->edit_host();
+  return host_->browser_->edit_tool_session();
 }
 
 

@@ -7,7 +7,7 @@
 // Direct raster: GDI demo bitmap and the Scene3d DEM underlay.
 // Records quads. Does not present.
 
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "gpu/compositor/frame/frame.h"
 
 namespace gpu {

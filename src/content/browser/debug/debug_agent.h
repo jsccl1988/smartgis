@@ -19,7 +19,7 @@ namespace content {
 
 // Narrow host hooks so DebugAgent does not depend on Browser widgets.
 struct DebugAgentHost {
-  std::function<void()> refresh_map;
+  std::function<void()> refresh_gis;
   std::function<std::string()> extent_string;
   std::function<std::vector<std::string>()> layer_names;
   std::function<std::string(const std::string& name)> ui_find;

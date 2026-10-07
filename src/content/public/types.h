@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef CONTENT_PUBLIC_MAP_LAYER_TYPES_H_
-#define CONTENT_PUBLIC_MAP_LAYER_TYPES_H_
+#ifndef CONTENT_PUBLIC_TYPES_H_
+#define CONTENT_PUBLIC_TYPES_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -10,20 +10,30 @@
 #include <string_view>
 #include <vector>
 
+#include "gis/feature/attrs.h"
+
 // Host ABI value types for shell (Views). Shell must not include gis_map.h or
-// rd_renderdevice.h. Catalog LayerDesc, feature NamedField, and map view /
-// input / extent types share this header so embedders include one public set.
+// rd_renderdevice.h. Catalog LayerDesc and map view / input / extent types
+// share this header so embedders include one public set. FeatureId /
+// NamedField / token helpers live in gis/feature/attrs.h and are re-exported
+// here as content::* for existing callers.
 //
 // Do not include content_export.h here: tool/gpu TUs use the POD subset without
-// linking content.dll. Export the helper functions only when compiling the
-// content DLL (CONTENT_EXPORTS).
+// linking content.dll. Export catalog helpers only when compiling the content
+// DLL (CONTENT_EXPORTS).
 #if defined(CONTENT_EXPORTS)
-#define CONTENT_MAP_LAYER_TYPES_EXPORT __declspec(dllexport)
+#define CONTENT_TYPES_EXPORT __declspec(dllexport)
 #else
-#define CONTENT_MAP_LAYER_TYPES_EXPORT
+#define CONTENT_TYPES_EXPORT
 #endif
 
 namespace content {
+
+using FeatureId = gis::FeatureId;
+using NamedField = gis::NamedField;
+using gis::encode_feature_token;
+using gis::decode_feature_token;
+using gis::apply_named_field;
 
 enum class ViewKind { kMapEdit, kMapData, kScene3d };
 
@@ -77,11 +87,6 @@ inline bool is_horizontal_wheel(const InputEvent& e) {
          (e.flags & input_flags::kHorizontalWheel) != 0;
 }
 
-struct FeatureId {
-  uint8_t bytes[32];
-  uint8_t len;
-};
-
 // Latest shared pixels. nt_handle is valid in the shell process
 // (DuplicateHandle from gpu). After Resize, ignore until FrameReady.
 // Try ID3D11Device::OpenSharedResource1 first; if that fails, MapViewOfFile
@@ -93,28 +98,6 @@ struct SharedSurface {
   uint32_t height_px;
   uint32_t format;
 };
-
-// Name/value pair used by AttributeTable / FeatureInfo string surfaces.
-// Shell must not hold leftover GIS feature pointers.
-struct NamedField {
-  std::string name;
-  std::string value;
-};
-
-// Opaque token for FeatureId: "fid:" + lowercase hex of id.bytes[0..len).
-CONTENT_MAP_LAYER_TYPES_EXPORT std::string encode_feature_token(
-    const FeatureId& id);
-
-// Inverse of encode_feature_token. Also accepts a raw hex string without the
-// "fid:" prefix. Returns a zero-length FeatureId when parsing yields no bytes.
-CONTENT_MAP_LAYER_TYPES_EXPORT FeatureId decode_feature_token(
-    std::string_view token);
-
-// Update |fields| in place: overwrite the first matching |field_name|, or
-// append. Returns false when |field_name| is empty.
-CONTENT_MAP_LAYER_TYPES_EXPORT bool apply_named_field(
-    std::vector<NamedField>* fields, std::string_view field_name,
-    std::string_view value);
 
 // Catalog / LayerTree node kind. Hosts may leave kUnknown for flat mirrors.
 enum class LayerKind {
@@ -137,16 +120,15 @@ struct LayerDesc {
 };
 
 // Escape a string for embedding inside a JSON double-quoted value.
-CONTENT_MAP_LAYER_TYPES_EXPORT std::string json_escape_string(
-    std::string_view text);
+CONTENT_TYPES_EXPORT std::string json_escape_string(std::string_view text);
 
 // Serialize |layers| to a JSON array consumed by CEF CatalogDelta / LegendSnapshot:
 // [{"id":"...","name":"...","visible":true}, ...]
 // |active|, |kind|, |expanded|, and |children| are intentionally omitted to
 // match the existing CEF wire format (flat id/name/visible only).
-CONTENT_MAP_LAYER_TYPES_EXPORT std::string layers_to_catalog_json(
+CONTENT_TYPES_EXPORT std::string layers_to_catalog_json(
     const std::vector<LayerDesc>& layers);
 
 }  // namespace content
 
-#endif  // CONTENT_PUBLIC_MAP_LAYER_TYPES_H_
+#endif  // CONTENT_PUBLIC_TYPES_H_

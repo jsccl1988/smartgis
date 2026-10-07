@@ -16,8 +16,8 @@ std::vector<std::string> style_seed_relative_paths();
 }  // namespace detail
 
 // Ordered relative paths for default China seed (exe-dir / testing/data).
-// Declared in content (not detail) — public helper used by MapScene callers.
-// Same candidate policy as content::sample_map_relative_paths(); the .cc
+// Declared in content (not detail) — public helper used by GisScene callers.
+// Same candidate policy as content::sample_gis_relative_paths(); the .cc
 // forwards to that function and does not keep a second path table.
 std::vector<std::string> china_seed_relative_paths();
 

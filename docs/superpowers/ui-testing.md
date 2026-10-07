@@ -31,7 +31,7 @@ GN / 跑法总入口：[`testing/README.md`](../../testing/README.md)。
 
 1. **Views 为主、MFC 为辅** — 新用例只加在 `ui::views` / `app/views`；leftover MFC 不进默认 `te` / `--gate`。
 2. **白盒优先于 UIA** — 合成 `MouseEvent` / `KeyEvent`、直接查 View 树与命令状态；不靠屏幕坐标点图。
-3. **地图断言走语义** — `DrawHost::wait_ready`、`ViewHost`、`EditSession`、图层/状态栏文案；不断言地图像素。
+3. **地图断言走语义** — `DrawHost::wait_ready`、`ToolSession`、`EditSession`、图层/状态栏文案；不断言地图像素。
 4. **像素（若做）只测壳** — MenuBar / Tab / StatusBar / 对话框；固定 DIP、关动画；不测 GPU 地图帧。
 5. **禁止** — Qt / Squish-for-Qt；不以 WinAppDriver 为主轨；不对 leftover MFC 写大规模 FlaUI。
 
@@ -155,7 +155,7 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 | 4–6 | 内容树 / Catalog 结构异常 |
 | 7 | (retired) Data tab removed — Map(0)+3D(1) only |
 | 9 | Scene native HWND 无效 |
-| 11–20 | ViewHost / 工具 / 状态栏语义失败 |
+| 11–20 | ToolSession / 工具 / 状态栏语义失败 |
 | 21–25 | 3D trackball / 输入分发 / 相机未动 |
 | 26–29 | OGR 进层失败 / 轨道相机矩阵 / Vista present |
 | 30–35 | 布局不变量或地图 HWND 几何失败 |
@@ -179,9 +179,8 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 | 91 | M3：3D Tiles 流式 / 缓存失败（`m3-tiles-ok`） |
 | 92 | M3：大气开关失败（`m3-atmosphere-ok`） |
 | 100 | M4：乐观编辑冲突未检出 |
-| 101 | M4：`content::open_map_host_path` 嵌入失败 |
 
-`--self-test` marks（节选）：`m0-*`；`m1-*`；`m2-panel-ok` / `m2-buffer-ok` / `m2-clip-ok`；`m3-dem-ok` / `m3-tiles-ok` / `m3-atmosphere-ok`；`m4-conflict-ok` / `m4-embed-ok`。
+`--self-test` marks（节选）：`m0-*`；`m1-*`；`m2-panel-ok` / `m2-buffer-ok` / `m2-clip-ok`；`m3-dem-ok` / `m3-tiles-ok` / `m3-atmosphere-ok`；`m4-conflict-ok`。
 
 ### L1′ — Atmosphere 3D showcase（`SmartGIS.exe --atmosphere-showcase=`）
 

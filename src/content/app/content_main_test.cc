@@ -16,7 +16,7 @@ void expect(bool ok, const char* msg) {
   }
 }
 
-struct Host : content::ContentClient {
+struct Host : content::GisContentsClient {
   int browser_calls = 0;
 
   int browser_main(const content::ContentMainParams&) override {

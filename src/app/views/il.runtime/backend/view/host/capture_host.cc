@@ -22,12 +22,12 @@ void for_each_draw_host(Browser& browser, Fn&& fn) {
 
 }  // namespace
 
-void detach_maps(Browser& browser) {
+void detach_views(Browser& browser) {
   // Timers first: detach alone leaves queued WM_TIMER presents racing
   // ContentMapView / session teardown under Debug CRT ExitProcess.
   // Do NOT abandon_mesh here — under FlyCube Scene3D that remaps heap and
   // yields harness_rc 0xFFFFFFFF (browse.3d) after in-proc IL marks land.
-  stop_map_present_timers(browser);
+  stop_present_timers(browser);
   for_each_draw_host(browser, [](ui::views::DrawHost* pane) {
     if (pane) {
       pane->detach();
@@ -35,7 +35,7 @@ void detach_maps(Browser& browser) {
   });
 }
 
-void stop_map_present_timers(Browser& browser) {
+void stop_present_timers(Browser& browser) {
   // pause_present KillTimer + ignore queued ticks (no PeekMessage: that
   // processes sent Display messages and deadlocks UI↔Display).
   for_each_draw_host(browser, [](ui::views::DrawHost* pane) {
@@ -45,7 +45,7 @@ void stop_map_present_timers(Browser& browser) {
   });
 }
 
-void resume_map_present_timers(Browser& browser) {
+void resume_present_timers(Browser& browser) {
   for_each_draw_host(browser, [](ui::views::DrawHost* pane) {
     if (!pane) {
       return;
@@ -122,10 +122,10 @@ HWND shell_scene3d_capture_hwnd(ui::views::DrawHost* scene) {
 
 void finish_scene3d(Browser& browser, bool borrowed_shell) {
   if (!borrowed_shell) {
-    detach_maps(browser);
+    detach_views(browser);
     return;
   }
-  stop_map_present_timers(browser);
+  stop_present_timers(browser);
   if (ui::views::DrawHost* scene = browser.scene_draw_host()) {
     scene->pause_present();
   }

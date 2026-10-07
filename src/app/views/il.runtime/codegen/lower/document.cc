@@ -27,19 +27,19 @@ std::string bound_path(const Pack& pack, VarMap* vars) {
   return path;
 }
 
-std::optional<Action> lower_open_map(const CallStmt& c, VarMap* vars) {
+std::optional<Action> lower_open_document(const CallStmt& c, VarMap* vars) {
   return bind_action(
       c,
       make_named_tuple("path"_t = std::string(), named_only<"var"> = std::string(),
                        named_only<"fail_rc"> = 0),
       [vars](content::CapabilityHost& host, const auto& p) {
-        return ir::note_fail(host, ir::open_map(host, bound_path(p, vars)),
+        return ir::note_fail(host, ir::open_document(host, bound_path(p, vars)),
                              p["fail_rc"_t]);
       });
 }
 
 std::optional<Action> lower_session(const CallStmt& c, VarMap* vars) {
-  return lower_ops(c, vars, op(lower_open_map, "open_map"),
+  return lower_ops(c, vars, op(lower_open_document, "open_document"),
                    op(lower_host<ir::doc_clear>, "doc_clear"));
 }
 

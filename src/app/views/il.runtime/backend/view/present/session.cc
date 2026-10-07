@@ -76,7 +76,7 @@ int borrow_shell_scene3d(plugin::HarnessShell& browser,
     return 50;
   }
   if (opts.select_scene_tab) {
-    browser.select_map_tab(1);
+    browser.select_view_tab(1);
     const DWORD pump_ms =
         opts.detach_pump_ms > 0 ? opts.detach_pump_ms : 200;
     browser.pump(pump_ms);
@@ -85,7 +85,7 @@ int borrow_shell_scene3d(plugin::HarnessShell& browser,
   ui::views::DrawHost* scene = browser.scene_draw_host();
   if (content::Scene3dPresenter* cam = browser.scene3d()) {
     const int view_id = scene ? scene->view_id() : 0;
-    cam->bind_contents(browser.map_contents(), view_id);
+    cam->bind_contents(browser.gis_contents(), view_id);
   }
   if (!scene) {
     mark_step(opts.mark, opts.marks.scene_hwnd_missing);
@@ -140,7 +140,7 @@ int borrow_shell_scene3d(plugin::HarnessShell& browser,
   }
 
   if (content::Scene3dPresenter* cam = browser.scene3d()) {
-    cam->bind_contents(browser.map_contents(), scene->view_id());
+    cam->bind_contents(browser.gis_contents(), scene->view_id());
   }
 
   out->borrowed_shell = true;
@@ -317,8 +317,8 @@ void teardown_rhi_present_session(plugin::HarnessShell* browser,
       }
     }
   }
-  if (opts.detach_maps && browser) {
-    browser->detach_maps();
+  if (opts.detach_views && browser) {
+    browser->detach_views();
   }
 }
 

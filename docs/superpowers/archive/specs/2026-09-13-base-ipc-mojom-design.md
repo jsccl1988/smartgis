@@ -97,7 +97,7 @@ out/SmartGis.exe                          # same PE
 
 Browser (no --type)
 
-  MapContents / MapWidgetHostView          present only
+  GisContents / GisWidgetHostView          present only
 
   RendererProcessHost + GpuProcessHost     two children, always
 
@@ -212,11 +212,11 @@ Invitation is the same-PE child bootstrap. `--pipe=` remains a fallback for left
 
 | `base::ipc` (`base/ipc`) | Named pipe server/client, frame envelope, BinarySink encode/decode | `base/archive`（`base::` BinarySink helpers；**not** `net`） |
 
-| `content::MapContents` | Public session API (today `MapSession`) | `RendererProcessHost` |
+| `content::GisContents` | Public session API (today `MapSession`) | `RendererProcessHost` |
 
-| `MapContentsObserver` | Frame / extent / death callbacks | none (chrome implements) |
+| `GisContentsObserver` | Frame / extent / death callbacks | none (chrome implements) |
 
-| `MapWidgetHostView` | Public viewport; `latest()` shared surface | `MapWidgetHost` |
+| `GisWidgetHostView` | Public viewport; `latest()` shared surface | `MapWidgetHost` |
 
 | `content::ContentMain` | `wWinMain` dispatch on `--type=` | app + content |
 
@@ -234,7 +234,7 @@ Invitation is the same-PE child bootstrap. `--pipe=` remains a fallback for left
 
 
 
-Public headers stay under `src/content/public/` (no `public/browser/` third nest). Includes: `"content/public/map_contents.h"`.
+Public headers stay under `src/content/public/` (no `public/browser/` third nest). Includes: `"content/public/gis_contents.h"`.
 
 
 
@@ -250,13 +250,13 @@ Public headers stay under `src/content/public/` (no `public/browser/` third nest
 
 | --- | --- |
 
-| `content::MapSession` | `content::MapContents` |
+| `content::MapSession` | `content::GisContents` |
 
-| `MapSessionClient` | `content::MapContentsObserver` |
+| `MapSessionClient` | `content::GisContentsObserver` |
 
-| `create_map_session()` | `MapContents::Create()` |
+| `create_map_session()` | `create_gis_contents()` |
 
-| `MapView` | `content::MapWidgetHostView` |
+| `MapView` | `content::GisWidgetHostView` |
 
 | hidden pipe owner | `content::RendererProcessHost` (`GpuProcessHost` for `--type=gpu`) |
 
@@ -362,7 +362,7 @@ Standalone `--type=gpu` is **required**. It is the only process allowed to creat
 
 
 
-One GPU device, **N surfaces**, mixed 2D and 3D views in the same process. Browser `MapWidgetHostView` only **opens** the shared handle; it does not draw the map.
+One GPU device, **N surfaces**, mixed 2D and 3D views in the same process. Browser `GisWidgetHostView` only **opens** the shared handle; it does not draw the map.
 
 
 
@@ -420,7 +420,7 @@ Map pointers are taken on the **UI-process native viewport**, then forwarded by 
 
 User → chrome (ribbon/tree/dialog hit-test) → stop
 
-     → MapWidgetHostView::OnNativeEvent
+     → GisWidgetHostView::OnNativeEvent
 
           DIP → physical pixels; origin = map HWND client origin
 
@@ -450,7 +450,7 @@ User → chrome (ribbon/tree/dialog hit-test) → stop
 
 
 
-Hosts must not include wire codecs; they call PascalCase methods on `MapWidgetHostView` / `MapContents`.
+Hosts must not include wire codecs; they call PascalCase methods on `GisWidgetHostView` / `GisContents`.
 
 
 
@@ -534,7 +534,7 @@ enum class ProcessRole { kBrowser, kRenderer, kGpu };
 
 - `docs/README.md` — link this spec.
 
-- Hosts under `src/app/{winui,views}` — `MapContents` / PascalCase; browser-only `--ui=`.
+- Hosts under `src/app/{winui,views}` — `GisContents` / PascalCase; browser-only `--ui=`.
 
 
 
@@ -562,7 +562,7 @@ enum class ProcessRole { kBrowser, kRenderer, kGpu };
 
 - Repo compiles as C++23 (`build.bat`).
 
-- Chrome `MapContents::Create()` starts `SmartGis.exe --type=renderer` **and** `--type=gpu` with `--pipe=`.
+- Chrome `create_gis_contents()` starts `SmartGis.exe --type=renderer` **and** `--type=gpu` with `--pipe=`.
 
 - No `SmartGisRender.exe` on the product path.
 

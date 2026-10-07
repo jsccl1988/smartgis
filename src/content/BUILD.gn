@@ -1,19 +1,19 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Embedder API is the public/ headers (incl. map_bootstrap). No MFC.
-# Pipe frames live in common/host_protocol.h (not an embedder header).
+# Embedder API is the public/ headers (no gis_bootstrap �?that lives under
+# browser/contents/). Pipe frames live in common/host_protocol.h.
 #   app/       ContentMain + process-type switch
-#   browser/   bootstrap, contents, catalog, attrs, plugin, session,
-#              document, camera, present, input, capability, debug
+#   browser/   contents, session, document, camera, present, capability,
+#              debug, child  (C11: thin bootstrap/catalog/attrs/plugin/input gone)
 #   renderer/  --type=renderer child
-#   view/      in-process ViewHost + LocalToolRouter
+#   view/      in-process ToolSession + LocalToolRouter
 #   embed/     HWND-free embed sample
 #   common/    host pipe + frame ABI
 #
 # One DLL (dll_stem = content). In-DLL source_sets use CONTENT_EXPORTS;
 # stable group labels forward to :content for existing deps.
-# tool::Workspace / Command* live in //src/tool:tool (dll_stem = tool) 鈥?
+# tool::Workspace / Command* live in //src/tool:tool (dll_stem = tool) �?
 # import-link that DLL; do not compile dispatch source_sets into content.
 
 import("//build/smartgis.gni")
@@ -32,11 +32,11 @@ config("content_config") {
 }
 
 # HWND-free sample / china map path policy (SP3).
-source_set("map_bootstrap_sources") {
+source_set("gis_bootstrap_sources") {
   assert_no_deps = _content_no_shell_deps
   sources = [
-    "browser/bootstrap/map_bootstrap.cc",
-    "public/map_bootstrap.h",
+    "browser/contents/gis_bootstrap.cc",
+    "browser/contents/gis_bootstrap.h",
   ]
   public_configs = [ ":content_config" ]
   defines = [ "CONTENT_EXPORTS" ]
@@ -48,25 +48,25 @@ source_set("content_sources") {
     "app/content_main.h",
     "app/process_type.cc",
     "app/process_type.h",
-    "browser/attrs/feature_attrs.cc",
-    "browser/catalog/catalog_layers.cc",
+    "browser/contents/catalog_layers.cc",
     "browser/child/child_process_host.cc",
     "browser/child/child_process_host.h",
-    "browser/contents/map_contents.cc",
-    "browser/plugin/plugin_host.cc",
+    "browser/contents/gis_contents.cc",
+    "browser/contents/plugin_host.cc",
     # Engine SoT is CONTENT_EXPORT (ui_views / shell import-link content.dll).
-    # Not :scene3d_present 鈥?that would pull GPU/GDI into every content consumer.
+    # Not :scene3d_present �?that would pull GPU/GDI into every content consumer.
     "browser/present/scene3d/session/scene3d_rhi_session.cc",
     "browser/present/scene3d/session/scene3d_rhi_session.h",
     "common/host_protocol.h",
     "common/ipc.cc",
     "common/ipc.h",
     "content_export.h",
-    "public/content_client.h",
+    "public/gis_contents_client.h",
     "public/gis_document.h",
-    "public/map_contents.h",
-    "public/map_layer_types.h",
+    "public/gis_contents.h",
+    "public/types.h",
     "public/plugin_host.h",
+    "public/widget_host_view.h",
     "renderer/renderer_main.cc",
     "renderer/renderer_main.h",
   ]
@@ -74,20 +74,21 @@ source_set("content_sources") {
   defines = [ "CONTENT_EXPORTS" ]
   public_deps = [
     "//src/base/ipc:ipc",
+    "//src/gis:gis",
     "//src/tool:tool",
     "//third_party:rapidjson",
   ]
 }
 
 # Per-view Workspace + EventBus + EditSession.
-source_set("view_host_sources") {
+source_set("tool_session_sources") {
   assert_no_deps = _content_no_shell_deps
   sources = [
     "public/event_bus.h",
-    "public/view_host.h",
+    "public/tool_session.h",
     "view/local_tool_router.cc",
     "view/local_tool_router.h",
-    "view/view_host.cc",
+    "view/tool_session.cc",
   ]
   public_configs = [ ":content_config" ]
   defines = [ "CONTENT_EXPORTS" ]
@@ -100,19 +101,6 @@ source_set("view_host_sources") {
   ]
 }
 
-# M4: minimal embed open path (MapContents + ViewHost); no PluginHost change.
-source_set("embed_sample_sources") {
-  assert_no_deps = _content_no_shell_deps
-  sources = [
-    "embed/embed_sample.cc",
-    "embed/embed_sample.h",
-  ]
-  public_configs = [ ":content_config" ]
-  defines = [ "CONTENT_EXPORTS" ]
-  public_deps = [ ":view_host_sources" ]
-  include_dirs += [ "//src" ]
-}
-
 # Product content DLL. Disk stem: content.dll / content_d.dll.
 product_shared_library("content") {
   assert_no_deps = _content_no_shell_deps
@@ -120,11 +108,10 @@ product_shared_library("content") {
   defines = [ "CONTENT_EXPORTS" ]
   deps = [
     ":content_sources",
-    ":embed_sample_sources",
-    ":map_bootstrap_sources",
-    ":view_host_sources",
+    ":gis_bootstrap_sources",
+    ":tool_session_sources",
   ]
-  # Headers under public/ pull tool::Command* and (via ViewHost call sites)
+  # Headers under public/ pull tool::Command* and (via ToolSession call sites)
   # gis::EditSession; forward those edges so consumers import-link tool.dll /
   # gis.dll (not statically absorb dispatch TUs into content.dll).
   public_deps = [
@@ -132,35 +119,24 @@ product_shared_library("content") {
     "//src/tool:tool",
   ]
   public_configs = [ ":content_config" ]
-  # map_contents.cc uses CreateDXGIFactory1; pragma comment is unreliable under /GL.
+  # gis_contents.cc uses CreateDXGIFactory1; pragma comment is unreliable under /GL.
   libs = [ "dxgi.lib" ]
 }
 
-# Stable labels 鈥?same DLL as :content.
-group("map_bootstrap") {
+# Stable labels �?same DLL as :content.
+group("gis_bootstrap") {
   public_deps = [ ":content" ]
 }
 
-group("view_host") {
+group("tool_session") {
   public_deps = [ ":content" ]
 }
 
-group("embed_sample") {
-  public_deps = [ ":content" ]
-}
-
-test("content_view_host_test") {
-  output_name = "content_view_host_test"
-  sources = [ "view/view_host_test.cc" ]
+test("content_tool_session_test") {
+  output_name = "content_tool_session_test"
+  sources = [ "view/tool_session_test.cc" ]
   include_dirs += [ "//src" ]
-  deps = [ ":view_host" ]
-}
-
-test("content_embed_sample_test") {
-  output_name = "content_embed_sample_test"
-  sources = [ "embed/embed_sample_test.cc" ]
-  include_dirs += [ "//src" ]
-  deps = [ ":embed_sample" ]
+  deps = [ ":tool_session" ]
 }
 
 # Shell-linked process entry. Not part of :content: //src/gpu:gpu_lib
@@ -181,62 +157,24 @@ test("content_main_test") {
   deps = [ ":content_main" ]
 }
 
-# Public-header embed compile proof. Links :content and :content_main.
-# Renderer TUs compile into :content_sources inside the DLL, so they are
-# not a separate label. Session internals and the view / embed forwarding
-# groups stay banned.
-test("content_embed_test") {
-  assert_no_deps = [
-    ":browser_session",
-    ":capability",
-    ":debug_agent",
-    ":embed_sample",
-    ":map_bootstrap",
-    ":map_camera",
-    ":map_hwnd_gestures",
-    ":map_present",
-    ":map_scene",
-    ":scene3d_present",
-    ":view_host",
-    "//src/app:*",
-    "//src/app/*",
-    "//src/ui/views:ui_views",
-  ]
-  output_name = "content_embed_test"
-  sources = [ "public/content_embed_test.cc" ]
-  include_dirs += [ "//src" ]
-  deps = [
-    ":content",
-    ":content_main",
-  ]
-}
-
-# HWND-free attribute token / named-field helpers (SP3 host extract).
-test("content_feature_attrs_test") {
-  output_name = "content_feature_attrs_test"
-  sources = [ "browser/attrs/feature_attrs_test.cc" ]
-  include_dirs += [ "//src" ]
-  deps = [ ":content" ]
-}
-
 # HWND-free Catalog LayerDesc JSON (SP3 catalog snapshot).
 test("content_catalog_layers_test") {
   output_name = "content_catalog_layers_test"
-  sources = [ "browser/catalog/catalog_layers_test.cc" ]
+  sources = [ "browser/contents/catalog_layers_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
     ":content",
-    ":map_scene",
+    ":gis_scene",
     "//src/vista:vista",
   ]
 }
 
 # HWND-free sample / china map path policy (SP3 map bootstrap).
-test("content_map_bootstrap_test") {
-  output_name = "content_map_bootstrap_test"
-  sources = [ "browser/bootstrap/map_bootstrap_test.cc" ]
+test("content_gis_bootstrap_test") {
+  output_name = "content_gis_bootstrap_test"
+  sources = [ "browser/contents/gis_bootstrap_test.cc" ]
   include_dirs += [ "//src" ]
-  deps = [ ":map_bootstrap" ]
+  deps = [ ":gis_bootstrap" ]
 }
 
 # --- Capability source_sets (Views/exe link; NOT absorbed into content.dll) ---
@@ -266,8 +204,8 @@ source_set("debug_agent") {
     "browser/debug/cmd/agent_harness.h",
     "browser/debug/cmd/agent_log.cc",
     "browser/debug/cmd/agent_log.h",
-    "browser/debug/cmd/agent_map_cmd.cc",
-    "browser/debug/cmd/agent_map_cmd.h",
+    "browser/debug/cmd/agent_gis_cmd.cc",
+    "browser/debug/cmd/agent_gis_cmd.h",
     "browser/debug/cmd/agent_py.cc",
     "browser/debug/cmd/agent_py.h",
     "browser/debug/cmd/agent_record.cc",
@@ -306,14 +244,14 @@ test("debug_agent_test") {
   libs = [ "ws2_32.lib" ]
 }
 
-# Console command table + MapScene host hooks (no sdbd / python).
+# Console command table + GisScene host hooks (no sdbd / python).
 test("content_console_coverage_test") {
   output_name = "content_console_coverage_test"
   sources = [ "browser/debug/content_console_coverage_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
     ":debug_agent",
-    ":map_camera",
+    ":gis_camera",
     "//src/base/log:log",
   ]
   libs = [ "ws2_32.lib" ]
@@ -328,7 +266,7 @@ benchmark("content_console_bench") {
   use_benchmark_main = false
   deps = [
     ":debug_agent",
-    ":map_camera",
+    ":gis_camera",
   ]
   libs = [ "ws2_32.lib" ]
 }
@@ -342,38 +280,39 @@ source_set("browser_session") {
   ]
   deps = [
     ":debug_agent",
-    ":map_camera",
-    ":map_hwnd_gestures",
-    ":map_present",
-    ":map_scene",
+    ":gis_camera",
+    ":gis_hwnd_gestures",
+    ":gis_present",
+    ":gis_scene",
     ":scene3d_present",
     ":content",
-    ":view_host",
+    ":tool_session",
   ]
   include_dirs += [ "//src" ]
 }
 
-source_set("map_scene") {
+source_set("gis_scene") {
   assert_no_deps = _content_no_shell_deps
   sources = [
+    "browser/document/query/extent_query.cc",
+    "browser/document/query/extent_query.h",
     "browser/document/edit/feature_edit.cc",
     "browser/document/edit/feature_edit.h",
     "browser/document/ingest/geojson_write.cc",
     "browser/document/ingest/geojson_write.h",
-    "browser/document/ingest/ogr_ingest.cc",
-    "browser/document/ingest/ogr_ingest.h",
-    "browser/document/ingest/seed_paths.cc",
-    "browser/document/ingest/seed_paths.h",
-    "browser/document/map_scene.cc",
-    "browser/document/map_scene.h",
-    "browser/plugin/gis_document.cc",
-    "browser/document/query/extent_query.cc",
-    "browser/document/query/extent_query.h",
+    "browser/document/gis_document.cc",
+    "browser/document/gis_document.h",
     "browser/document/query/inspector.cc",
     "browser/document/query/inspector.h",
     "browser/document/store/layer_store.cc",
     "browser/document/store/layer_store.h",
-    "browser/document/store/map_layer.h",
+    "browser/document/store/gis_layer.h",
+    "browser/document/gis_scene.cc",
+    "browser/document/gis_scene.h",
+    "browser/document/ingest/ogr_ingest.cc",
+    "browser/document/ingest/ogr_ingest.h",
+    "browser/document/ingest/seed_paths.cc",
+    "browser/document/ingest/seed_paths.h",
     "browser/document/style/style_bind.cc",
     "browser/document/style/style_bind.h",
   ]
@@ -389,10 +328,10 @@ source_set("map_scene") {
   include_dirs += [ "//src" ]
 }
 
-source_set("map_camera") {
+source_set("gis_camera") {
   assert_no_deps = _content_no_shell_deps
   sources = [
-    "browser/camera/map_host_extent.h",
+    "browser/camera/gis_host_extent.h",
     "browser/camera/orbit_frame.cc",
     "browser/camera/orbit_frame.h",
     "browser/camera/view_frame.cc",
@@ -401,7 +340,7 @@ source_set("map_camera") {
     "browser/camera/view_navigation.h",
   ]
   deps = [
-    ":map_scene",
+    ":gis_scene",
     ":content",
     "//src/gis:gis",
     "//src/render:rhi",
@@ -410,11 +349,11 @@ source_set("map_camera") {
   include_dirs += [ "//src" ]
 }
 
-source_set("map_hwnd_gestures") {
+source_set("gis_hwnd_gestures") {
   assert_no_deps = _content_no_shell_deps
   sources = [
-    "browser/input/map_hwnd_gestures.cc",
-    "browser/input/map_hwnd_gestures.h",
+    "browser/session/gis_hwnd_gestures.cc",
+    "browser/session/gis_hwnd_gestures.h",
   ]
   deps = [ "//src/tool:dispatch" ]
   include_dirs += [ "//src" ]
@@ -424,14 +363,13 @@ source_set("map_hwnd_gestures") {
   ]
 }
 
-source_set("map_present") {
+source_set("gis_present") {
   assert_no_deps = _content_no_shell_deps
   sources = [
     "browser/present/host/blit_frame_cache.cc",
     "browser/present/host/blit_frame_cache.h",
     "browser/present/host/scenic_scene_bind.cc",
     "browser/present/host/scenic_scene_bind.h",
-    "browser/present/host/shell_overlay_effect.cc",
     "browser/present/host/shell_overlay_effect.h",
     "browser/present/map2d/frame/map2d_batches.cc",
     "browser/present/map2d/frame/map2d_batches.h",
@@ -462,18 +400,22 @@ source_set("map_present") {
     "browser/present/map2d/software/map2d_gdi_text.h",
   ]
   deps = [
-    ":map_camera",
-    ":map_scene",
+    ":gis_camera",
+    ":gis_scene",
     "//src/vista:vista",
     "//src/vista/component/raster:raster",
     "//src/gis:gis",
     "//src/base:base",
     "//src/base:foundation",
-    "//src/render:rhi",
-    "//src/render/graph:graph",
     "//src/scenic:scenic",
     "//src/ui/gfx:gfx_headers",
     "//third_party:gdal",
+  ]
+  # ShellOverlayEffect + RHI live in render.dll; plugin DLLs that link this
+  # source_set must import those symbols (GN /NODEFAULTLIB ignores pragma).
+  public_deps = [
+    "//src/render:render",
+    "//src/render/graph:graph",
   ]
   include_dirs += [ "//src" ]
   libs = [
@@ -508,19 +450,22 @@ source_set("scene3d_present") {
   ]
   include_dirs += [ "//src" ]
   deps = [
-    ":map_camera",
-    ":map_present",
-    ":map_scene",
+    ":gis_camera",
+    ":gis_present",
+    ":gis_scene",
     ":content",
     "//src/gis:gis",
     "//src/vista:vista",
     "//src/base:base",
     "//src/base:foundation",
-    "//src/render:rhi",
-    "//src/render/graph:graph",
     "//src/scenic:scenic",
     "//src/tool:dispatch",
     "//src/ui/gfx:gfx_headers",
+  ]
+  # Same render.dll import as gis_present (ShellOverlayEffect member).
+  public_deps = [
+    "//src/render:render",
+    "//src/render/graph:graph",
   ]
   libs = [
     "gdi32.lib",
@@ -530,27 +475,27 @@ source_set("scene3d_present") {
 
 test("gis_document_test") {
   output_name = "gis_document_test"
-  sources = [ "browser/plugin/gis_document_test.cc" ]
+  sources = [ "browser/document/gis_document_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
-    ":map_scene",
+    ":gis_scene",
     ":content",
     "//src/plugin/runtime/host:host",
     "//src/tool:dispatch",
   ]
 }
 
-test("map_scene_test") {
-  output_name = "map_scene_test"
+test("gis_scene_test") {
+  output_name = "gis_scene_test"
   sources = [
-    "browser/document/map_scene_test.cc",
+    "browser/document/gis_scene_test.cc",
     "browser/present/map2d/map2d_presenter_test.cc",
   ]
   include_dirs += [ "//src" ]
   deps = [
-    ":map_camera",
-    ":map_present",
-    ":map_scene",
+    ":gis_camera",
+    ":gis_present",
+    ":gis_scene",
     ":content",
     "//src/gis:gis",
     "//src/vista:vista",
@@ -566,15 +511,15 @@ test("map_scene_test") {
   ]
 }
 
-# Narrow P2 software GDI batch / faithful china paint_ms (no full map_scene suite).
+# Narrow P2 software GDI batch / faithful china paint_ms (no full gis_scene suite).
 test("map2d_frame_gdi_test") {
   output_name = "map2d_frame_gdi_test"
   sources = [ "browser/present/map2d/software/map2d_frame_gdi_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
-    ":map_camera",
-    ":map_present",
-    ":map_scene",
+    ":gis_camera",
+    ":gis_present",
+    ":gis_scene",
     ":content",
     "//src/gis:gis",
     "//src/vista:vista",
@@ -592,7 +537,7 @@ test("feature_edit_test") {
   sources = [ "browser/document/edit/feature_edit_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
-    ":map_scene",
+    ":gis_scene",
     ":content",
     "//src/tool:dispatch",
   ]
@@ -606,8 +551,8 @@ test("view_navigation_test") {
   ]
   include_dirs += [ "//src" ]
   deps = [
-    ":map_camera",
-    ":map_scene",
+    ":gis_camera",
+    ":gis_scene",
   ]
 }
 
@@ -616,8 +561,8 @@ test("scene3d_presenter_test") {
   sources = [ "browser/present/scene3d/scene3d_presenter_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
-    ":map_camera",
-    ":map_scene",
+    ":gis_camera",
+    ":gis_scene",
     ":scene3d_present",
     ":content",
     "//src/gis:gis",

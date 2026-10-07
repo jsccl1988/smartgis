@@ -27,17 +27,17 @@ namespace detail {
 
 // Viewport teardown: stop present timers then detach all DrawHost panes.
 // Does not abandon_mesh (unsafe under FlyCube Scene3D teardown).
-void detach_maps(Browser& browser);
+void detach_views(Browser& browser);
 
 // Borrowed shell FlyCube: KillTimer + pause_present only. Full detach of a
 // live Display-thread Device races the next process (0xC000041D).
 void finish_scene3d(Browser& browser, bool borrowed_shell);
 
 // Stops DrawHost present timers (timer id 1) without full detach.
-void stop_map_present_timers(Browser& browser);
+void stop_present_timers(Browser& browser);
 
 // Restarts present timers + one frame request (browse BMP after stress).
-void resume_map_present_timers(Browser& browser);
+void resume_present_timers(Browser& browser);
 
 // Invalidate + UpdateWindow + sync_identity_frame. One paint kick.
 void kick_draw_host_paint(ui::views::DrawHost* pane);

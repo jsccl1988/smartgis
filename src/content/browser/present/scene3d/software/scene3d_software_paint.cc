@@ -2,13 +2,13 @@
 // All rights reserved.
 
 #include "content/browser/present/scene3d/software/scene3d_software_painter.h"
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
 
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "vista/component/world/atmosphere/atmosphere_params.h"
 #include "vista/component/world/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
@@ -36,7 +36,7 @@ Scene3dSoftwarePainter::~Scene3dSoftwarePainter() {
 void Scene3dSoftwarePainter::bind(Scene3dGpuPresent* gpu,
                                   AtmosphereSession* atmosphere,
                                   const OrbitFrame* orbit,
-                                  const MapScene* scene,
+                                  const GisScene* scene,
                                   const ViewFrame* label_frame) {
   gpu_ = gpu;
   atmosphere_ = atmosphere;

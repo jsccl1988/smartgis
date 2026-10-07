@@ -270,10 +270,10 @@ Expected: existing asserts still pass (or same pre-existing skips).
 
 ```bat
 .\build.bat feature_load_pipeline_test
-.\build.bat map_scene_test
+.\build.bat gis_scene_test
 ```
 
-Run both exes; both exit 0 (map_scene_test may be heavy — if missing target, run `sde_gdal_test` instead).
+Run both exes; both exit 0 (gis_scene_test may be heavy — if missing target, run `sde_gdal_test` instead).
 
 ---
 

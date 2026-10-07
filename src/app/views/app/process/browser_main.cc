@@ -150,7 +150,7 @@ void maybe_select_start_map_tab(Browser& browser) {
   if (idx < 0) {
     return;
   }
-  browser.select_map_tab(idx);
+  browser.select_view_tab(idx);
   pump_views_messages(800);
   LOGGING(LOG_INFO, "startup: VIEWS_START_MAP_TAB=%s -> tab %d", tab, idx);
   std::fflush(stderr);
@@ -163,7 +163,7 @@ void apply_plugin_product_startup(Browser& browser) {
   }
   BASE_TRACE_EVENT("PluginStartup", "startup");
   // Env tab wins over plugin.json viewport — still run apply_startup for
-  // enable/seed, but do not select_map_tab from startup_viewport afterward.
+  // enable/seed, but do not select_view_tab from startup_viewport afterward.
   const bool env_tab = base::switch_cstr("views-start-map-tab") != nullptr;
   if (!shell->apply_startup()) {
     LOGGING(LOG_WARNING, "startup: plugin.json startup apply failed");
@@ -174,11 +174,11 @@ void apply_plugin_product_startup(Browser& browser) {
   }
   const std::string& vp = shell->startup_viewport();
   if (vp == "scene3d") {
-    browser.select_map_tab(1);
+    browser.select_view_tab(1);
     pump_views_messages(800);
     LOGGING(LOG_INFO, "startup: plugin.json viewport=scene3d");
   } else if (vp == "map2d") {
-    browser.select_map_tab(0);
+    browser.select_view_tab(0);
     pump_views_messages(800);
     LOGGING(LOG_INFO, "startup: plugin.json viewport=map2d");
   }
@@ -301,7 +301,7 @@ int run_browser_main(const content::ContentMainParams&,
   if (browser) {
     browser->finish_deferred_shell_wiring();
   }
-  // Plugin apply_startup may present_dataset → select_map_tab(0). Run that
+  // Plugin apply_startup may present_dataset → select_view_tab(0). Run that
   // first, then honor VIEWS_START_MAP_TAB so Map/3D chrome matches the live
   // present (plain-launch visual_review #6).
   apply_plugin_product_startup(*browser);

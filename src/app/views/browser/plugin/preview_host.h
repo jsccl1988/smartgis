@@ -25,7 +25,7 @@ class Browser;
 
 // Modeless shared MapPreviewView / WorldPreviewView for PluginHost
 // present_dataset(surface=1). Owned by Browser; horizon wires DrawHost to the
-// same ViewHost / MapContents as the main panes.
+// same ToolSession / GisContents as the main panes.
 class PluginPreviewHost {
  public:
   PluginPreviewHost();

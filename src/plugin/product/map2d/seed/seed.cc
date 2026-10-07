@@ -283,7 +283,7 @@ bool seed_map2d(content::PluginHost* host, Map2dSeedMode mode) {
   }
   switch (mode) {
     case Map2dSeedMode::kChina:
-      // present_dataset / MapScene::open_path stay on the UI thread (harness).
+      // present_dataset / GisScene::open_path stay on the UI thread (harness).
       if (!ensure_china_sample(host)) {
         return false;
       }

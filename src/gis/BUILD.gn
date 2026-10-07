@@ -100,6 +100,7 @@ group("gis_test_all") {
     "//src/gis/datasource/sdbd:sdbd_client_test",
     "//src/gis/datasource/sdbd:sdbd_live_test",
     "//src/gis/feature:feature_test",
+    "//src/gis/feature:feature_attrs_test",
     "//src/gis/map:select_query_test",
     "//src/gis/map:map_layer_test",
     "//src/gis/edit:edit_conflict_test",

@@ -71,7 +71,6 @@ source_set("host_sources") {
     "processing/processing.h",
     "processing/reexport_file.cc",
     "processing/reexport_file.h",
-
     "ui/manager_view.cc",
     "ui/manager_view.h",
   ]

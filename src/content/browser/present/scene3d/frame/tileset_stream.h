@@ -18,8 +18,17 @@ namespace content {
 // Present/orbit seam for 3D Tiles: attach a tileset into World, each pump
 // runs select_tiles_limited → apply → ensure_tileset_content (LRU cap).
 // WorldPass reads decoded assets via the shared TilesetContentCache.
+// Product SoT stays Vista WorldPass; this session only feeds the cache.
 class TilesetStreamSession {
  public:
+  // Content present defaults (wired by Scene3dGpuPresent product pump).
+  // max_ensure=2 keeps decode spikes off the warm frame; leftover misses
+  // drain across subsequent pumps. Cache matches vista default (8 MiB LRU).
+  static constexpr double kDefaultMaxSse = 0;
+  static constexpr size_t kDefaultMaxTiles = 16;
+  static constexpr size_t kDefaultMaxEnsure = 2;
+  static constexpr size_t kDefaultCacheBytes = 8u * 1024u * 1024u;
+
   TilesetStreamSession();
 
   // Parse |json| and attach as kTileset. Replaces any prior attachment.
@@ -30,17 +39,29 @@ class TilesetStreamSession {
   // decode by URI as absolute/path-relative; missing files put_failed.
   void set_content_root(const std::string& root);
 
+  // Optional LRU budget override (bytes). Eviction is vista TilesetContentCache.
+  void set_cache_max_bytes(size_t max_bytes);
+
   // Per-frame / per-orbit: stream selection + ensure content under budget.
   // Returns true when visible_uris changed.
   // |max_tiles| caps select; |max_ensure| caps new decode resolves per pump
   // (0 = ensure every selected miss, up to |max_tiles|).
-  bool pump(vista::World* world, const OrbitFrame* orbit, double max_sse = 0,
-            size_t max_tiles = 16, size_t max_ensure = 2);
+  bool pump(vista::World* world, const OrbitFrame* orbit,
+            double max_sse = kDefaultMaxSse,
+            size_t max_tiles = kDefaultMaxTiles,
+            size_t max_ensure = kDefaultMaxEnsure);
 
   // Direct view pump (self-test / harness without OrbitFrame).
   bool pump_view(vista::World* world, const vista::ViewState& view,
-                 double max_sse = 0, size_t max_tiles = 16,
-                 size_t max_ensure = 2);
+                 double max_sse = kDefaultMaxSse,
+                 size_t max_tiles = kDefaultMaxTiles,
+                 size_t max_ensure = kDefaultMaxEnsure);
+
+  // Product present shorthand: default SSE / tile / ensure budgets.
+  bool pump_product(vista::World* world, const OrbitFrame* orbit) {
+    return pump(world, orbit, kDefaultMaxSse, kDefaultMaxTiles,
+                kDefaultMaxEnsure);
+  }
 
   bool active() const { return node_id_ != 0; }
   uint64_t node_id() const { return node_id_; }

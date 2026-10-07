@@ -121,7 +121,8 @@ int main() {
   expect(stub->set_pipeline_calls >= 1, "ocean pipeline");
   expect(stub->last_pipeline == ocean.pipeline() && ocean.pipeline() != nullptr,
          "ocean pipeline");
-  expect(stub->last_depth == render::rhi::DepthMode::kWrite, "ocean depth write");
+  expect(stub->last_depth == render::rhi::DepthMode::kTestOnly,
+         "ocean depth test-only (DEM already wrote depth)");
   const auto* ocean_cb = stub->constant_at(1);
   expect(ocean_cb != nullptr &&
              ocean_cb->byte_size == sizeof(vista::OceanConstants),
@@ -142,7 +143,25 @@ int main() {
   expect(!ocean.used_gpu_fft(), "null falls back to CPU FFT");
   expect(!device->supports_compute(), "null has no compute");
 
-  // All-land mask �?no crash, zero draws for that call (still ok).
+  // Cold prepare_gpu: remesh + reserve height; wave advance stays in record.
+  OceanPass cold;
+  OceanDrawParams cold_p = params;
+  cold_p.use_gerstner_fallback = true;
+  cold_p.prefer_gpu_fft = false;
+  cold_p.mesh_resolution = 9;
+  cold.set_params(cold_p);
+  cold.set_time_sec(0.5);
+  cold.set_sea_mask_cpu(mc, mr, mask.data(), mask.size());
+  expect(cold.prepare_gpu(device.get()), "prepare_gpu remesh-only");
+  render::rhi::CommandList* list_cold = device->create_command_list();
+  list_cold->begin_render_pass(pass);
+  expect(cold.record(device.get(), list_cold, 64, 64, &cam),
+         "record advances after prepare_gpu");
+  list_cold->end_render_pass();
+  list_cold->close();
+  cold.release();
+
+  // All-land mask -- no crash, zero draws for that call (still ok).
   OceanPass land_only;
   OceanDrawParams calm = params;
   calm.mesh_resolution = 5;

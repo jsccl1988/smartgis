@@ -31,7 +31,7 @@ class Device;
 
 namespace content {
 
-class MapScene;
+class GisScene;
 class ViewFrame;
 
 CONTENT_EXPORT bool prefer_map2d_scenic();
@@ -53,7 +53,7 @@ class Map2dPresenter {
   Map2dPresenter(const Map2dPresenter&) = delete;
   Map2dPresenter& operator=(const Map2dPresenter&) = delete;
 
-  void bind(const MapScene* scene, const ViewFrame* frame);
+  void bind(const GisScene* scene, const ViewFrame* frame);
 
   Map2dFrameCache& frame_cache() { return cache_; }
   const Map2dFrameCache& frame_cache() const { return cache_; }
@@ -94,7 +94,7 @@ class Map2dPresenter {
   Map2dGpuPresent gpu_;
   Map2dSoftwarePainter software_;
 
-  const MapScene* scene_ = nullptr;
+  const GisScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
   // Nested WM_PAINT under show/UpdateWindow re-enters paint/sync when
   // MAP2D_ENGINE=scenic. Product paint skips this lock. Same sizeof as

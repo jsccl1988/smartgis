@@ -85,7 +85,7 @@ struct RhiPresentSessionOpts {
   // reusing the pane's FlyCube Device / DXGI popup. Do not CreateWindow a
   // sticky product present HWND (avoid when borrowing shell Scene3D).
   bool borrow_shell_scene3d = false;
-  // select_map_tab(1) AVs on GDI/lazy ContentMapView; atmosphere and some
+  // select_view_tab(1) AVs on GDI/lazy ContentMapView; atmosphere and some
   // plugin paths borrow without switching tabs.
   bool select_scene_tab = true;
 
@@ -128,7 +128,7 @@ struct RhiPresentSession {
 struct RhiPresentTeardownOpts {
   bool shutdown_device = false;
   bool destroy_hwnd = true;
-  bool detach_maps = false;
+  bool detach_views = false;
   bool clear_pointcloud = false;
   bool clear_tin = false;
   bool abandon_mesh = false;
@@ -145,7 +145,7 @@ int prepare_rhi_present_session(plugin::HarnessShell& browser,
 void destroy_rhi_owned_present_hwnd(RhiPresentSession* session);
 
 // Scene-agnostic teardown. Overlay flags no-op when |cam| is null.
-// |browser| is required only when opts.detach_maps is true.
+// |browser| is required only when opts.detach_views is true.
 void teardown_rhi_present_session(plugin::HarnessShell* browser,
                                   content::Scene3dPresenter* cam,
                                   RhiPresentSession* session,

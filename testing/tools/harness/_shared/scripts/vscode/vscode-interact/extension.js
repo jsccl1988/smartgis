@@ -58,7 +58,7 @@ const OPS = [
   "wait_ready",
   "wait_map_ready",
   "wait_viewport",
-  "require_edit_host",
+  "require_edit_tool_session",
   "expect_host",
   "browse_stress",
   "capture_browse_still",

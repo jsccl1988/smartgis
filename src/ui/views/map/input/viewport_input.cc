@@ -18,7 +18,7 @@ namespace detail {
 // Same Win32 → InputEvent mapping as leftover dispatch_shell_message for
 // mouse / wheel / key. Two-finger pan: WM_POINTER* → TouchMultitouchTracker
 // (midpoint, pointer_count >= 2), matching CEF shell.js.
-bool route_view_host_input(content::ViewHost* host,
+bool route_tool_session_input(content::ToolSession* host,
                            HWND hwnd,
                            UINT message,
                            WPARAM wparam,
@@ -127,7 +127,7 @@ bool route_view_host_input(content::ViewHost* host,
 }
 
 // Maps WM_POINTER* touch contacts into multitouch InputEvents.
-bool route_view_host_pointer(content::ViewHost* host,
+bool route_tool_session_pointer(content::ToolSession* host,
                              HWND hwnd,
                              UINT message,
                              WPARAM wparam,

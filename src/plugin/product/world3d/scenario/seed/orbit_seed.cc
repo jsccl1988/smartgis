@@ -8,7 +8,7 @@
 #include "plugin/product/stormsurge/scenario/seed.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 
 namespace plugin {
 namespace detail {
@@ -112,7 +112,7 @@ void frame_orthogrid3d_orbit(content::OrbitFrame* orbit) {
       kHexLabOriginLon + kHexLabLocalSpan * kHexLabDegPerUnit + pad,
       kHexLabOriginLat + kHexLabLocalSpan * kHexLabDegPerUnit + pad};
   orbit->apply_world_extent(kHexLab);
-  // Do NOT push_shared_extent: showcase skips select_map_tab(2), so the
+  // Do NOT push_shared_extent: showcase skips select_view_tab(2), so the
   // Map-Edit 2D China crop would overwrite this hex lab orbit extent.
   // Classic 3/4 FE block view: top cap + two walls + grid ribbons readable.
   orbit->set_dolly_limits(0.55f, 8.0f);

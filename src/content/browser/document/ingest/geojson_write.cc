@@ -21,10 +21,10 @@ bool write_geojson_path(const LayerStore& store, const std::string& path) {
   if (path.empty()) {
     return false;
   }
-  const MapLayer* layer = store.find_layer(store.active_layer_id());
+  const GisLayer* layer = store.find_layer(store.active_layer_id());
   if (!layer || !layer->visible || layer->features.empty()) {
     layer = nullptr;
-    for (const MapLayer& candidate : store.layers()) {
+    for (const GisLayer& candidate : store.layers()) {
       if (candidate.visible && !candidate.features.empty()) {
         layer = &candidate;
         break;
@@ -81,7 +81,7 @@ bool write_geojson_path(const LayerStore& store, const std::string& path) {
   }
 
   std::vector<std::string> field_names;
-  for (const MapFeature& f : layer->features) {
+  for (const GisFeature& f : layer->features) {
     if (f.kind != dominant) {
       continue;
     }
@@ -110,7 +110,7 @@ bool write_geojson_path(const LayerStore& store, const std::string& path) {
   }
 
   size_t written = 0;
-  for (const MapFeature& f : layer->features) {
+  for (const GisFeature& f : layer->features) {
     if (f.kind != dominant || f.points.empty()) {
       continue;
     }

@@ -47,8 +47,8 @@ void bind_chrome(Browser& browser,
                    [leaf](const std::string& token) {
                      write_mark(leaf, token.c_str(), false);
                    },
-               base::tag_resolver<slot_select_map_tab> =
-                   [b](int index) { b->select_map_tab(index); },
+               base::tag_resolver<slot_select_view_tab> =
+                   [b](int index) { b->select_view_tab(index); },
                base::tag_resolver<slot_catalog_tab> =
                    [b](int index) {
                      if (ui::views::CatalogView* cat = b->catalog_view()) {

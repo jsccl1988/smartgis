@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <vector>
 
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 
 namespace content {
 namespace detail {
@@ -50,11 +50,11 @@ bool compute_extent(const LayerStore& store, double* min_x, double* min_y,
   double miny = 0;
   double maxx = 0;
   double maxy = 0;
-  for (const MapLayer& layer : store.layers()) {
+  for (const GisLayer& layer : store.layers()) {
     if (!layer.visible) {
       continue;
     }
-    for (const MapFeature& f : layer.features) {
+    for (const GisFeature& f : layer.features) {
       for (const Vertex& p : f.points) {
         if (!have) {
           minx = maxx = p.x;
@@ -96,8 +96,8 @@ bool has_china_extent(const LayerStore& store) {
   size_t lines = 0;
   size_t points = 0;
   size_t texts = 0;
-  for (const MapLayer& layer : store.layers()) {
-    for (const MapFeature& f : layer.features) {
+  for (const GisLayer& layer : store.layers()) {
+    for (const GisFeature& f : layer.features) {
       switch (f.kind) {
         case GeomKind::kPolygon:
           ++regions;
@@ -122,19 +122,19 @@ bool has_china_extent(const LayerStore& store) {
 
 bool active_layer_world_extent(const LayerStore& store,
                                content::Extent2* out) {
-  const MapLayer* layer = store.find_layer(store.active_layer_id());
+  const GisLayer* layer = store.find_layer(store.active_layer_id());
   if (!layer) {
     return false;
   }
   std::vector<Vertex> points;
-  for (const MapFeature& feature : layer->features) {
+  for (const GisFeature& feature : layer->features) {
     points.insert(points.end(), feature.points.begin(), feature.points.end());
   }
   return envelope_world(points, out);
 }
 
 bool selection_world_extent(const LayerStore& store, content::Extent2* out) {
-  const MapFeature* feature = store.selected_feature();
+  const GisFeature* feature = store.selected_feature();
   if (!feature) {
     return false;
   }
@@ -158,8 +158,8 @@ void export_land_rings(const LayerStore& store,
     return;
   }
   out->clear();
-  auto append_layer = [&](const MapLayer& layer) {
-    for (const MapFeature& f : layer.features) {
+  auto append_layer = [&](const GisLayer& layer) {
+    for (const GisFeature& f : layer.features) {
       if (f.kind != GeomKind::kPolygon || f.points.size() < 3) {
         continue;
       }
@@ -174,7 +174,7 @@ void export_land_rings(const LayerStore& store,
     }
   };
   bool used_area = false;
-  for (const MapLayer& layer : store.layers()) {
+  for (const GisLayer& layer : store.layers()) {
     if (!layer.visible) {
       continue;
     }
@@ -186,7 +186,7 @@ void export_land_rings(const LayerStore& store,
   if (used_area && !out->empty()) {
     return;
   }
-  for (const MapLayer& layer : store.layers()) {
+  for (const GisLayer& layer : store.layers()) {
     if (!layer.visible) {
       continue;
     }
@@ -210,8 +210,8 @@ bool polygon_fit_box(const LayerStore& store, double* min_x, double* min_y,
   double maxy = 0;
   auto accumulate = [&](GeomKind only_kind, bool filter_kind) {
     have = false;
-    for (const MapLayer& layer : store.layers()) {
-      for (const MapFeature& f : layer.features) {
+    for (const GisLayer& layer : store.layers()) {
+      for (const GisFeature& f : layer.features) {
         if (filter_kind && f.kind != only_kind) {
           continue;
         }

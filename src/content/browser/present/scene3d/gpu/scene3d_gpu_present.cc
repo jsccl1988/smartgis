@@ -13,7 +13,7 @@
 
 #include "base/core/log.h"
 #include "base/time/elapsed_timer.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/frame/terrain_mesh.h"
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
@@ -22,6 +22,8 @@
 #include "vista/pass/world/opaque_effect.h"
 #include "vista/pass/world/pass.h"
 #include "vista/component/world/atmosphere/environment.h"
+#include "vista/terrain/dem/dem_bake_cache.h"
+#include "vista/terrain/dem/raster/dem_raster.h"
 #include "render/graph/frame_graph.h"
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
@@ -67,11 +69,13 @@ void Scene3dGpuPresent::bind_orbit(const OrbitFrame* orbit) {
   orbit_ = orbit;
 }
 
-void Scene3dGpuPresent::bind_map(const MapScene* scene) {
+void Scene3dGpuPresent::bind_scene(const GisScene* scene) {
   scene_ = scene;
   local_xyz_.clear();
   local_idx_.clear();
   terrain_lod_edge_ = 0;
+  // Hide dem_bake mkdir / root resolve before the first cold present.
+  vista::dem_bake_cache_warmup();
 }
 
 void Scene3dGpuPresent::set_wireframe_enabled(bool on) {
@@ -83,7 +87,7 @@ void Scene3dGpuPresent::set_look_preset(Scene3dLookPreset preset) {
   std::lock_guard<std::recursive_mutex> lock(present_mu_);
   // Drop leftover labels only when leaving kLegacyStereo. Unconditional
   // swap-drop on every atmosphere set raced with software paint iterating
-  // legacy_labels_ without the mutex (select_map_tab 鈫?string dtor AV at
+  // legacy_labels_ without the mutex (select_view_tab 鈫?string dtor AV at
   // 0xC0000005). Paint already gates on look_preset_ == kLegacyStereo.
   const bool leaving_legacy =
       look_preset_ == Scene3dLookPreset::kLegacyStereo &&
@@ -362,9 +366,29 @@ void Scene3dGpuPresent::abandon(AtmosphereSession* atmosphere) {
 bool Scene3dGpuPresent::rebuild_local_mesh() {
   // Caller must hold present_mu_ (present / paint).
   BASE_TRACE_EVENT("mesh", "scene3d.mesh");
-  // Build into fresh locals then swap ? same pattern as WorldPass::sync_from.
+  const Extent2 extent = world_extent();
+  const float orbit_distance = distance();
+  // Warm / same-LOD: skip vector copies + vista rebuild entirely.
+  if (dem_local_xyz_count_ > 0 && dem_local_idx_count_ > 0 &&
+      dem_local_xyz_count_ <= local_xyz_.size() &&
+      dem_local_idx_count_ <= local_idx_.size()) {
+    double box_minx = extent.xmin;
+    double box_miny = extent.ymin;
+    double box_maxx = extent.xmax;
+    double box_maxy = extent.ymax;
+    vista::dem_seed_lonlat_box(extent.xmin, extent.ymin, extent.xmax,
+                               extent.ymax, &box_minx, &box_miny, &box_maxx,
+                               &box_maxy);
+    const int want_key = vista::dem_seed_cache_key(orbit_distance);
+    if (terrain_lod_edge_ == want_key &&
+        geo_frame_.as_vista().matches_lonlat(box_minx, box_miny, box_maxx,
+                                             box_maxy)) {
+      return false;
+    }
+  }
+  // Build into fresh locals then swap — same pattern as WorldPass::sync_from.
   // In-place push_back on member local_idx_ AVd in Debug STL _Orphan_all under
-  // world3d showcase (cdb: rebuild_terrain_mesh ? vector::_Change_array).
+  // world3d showcase (cdb: rebuild_terrain_mesh → vector::_Change_array).
   std::vector<float> xyz;
   std::vector<unsigned> idx;
   if (dem_local_xyz_count_ > 0 && dem_local_xyz_count_ <= local_xyz_.size()) {
@@ -383,8 +407,8 @@ bool Scene3dGpuPresent::rebuild_local_mesh() {
   const int lod_before = terrain_lod_edge_;
   OrbitGeoFrame geo = geo_frame_;
   int lod = terrain_lod_edge_;
-  rebuild_terrain_mesh(&terrain_world_, scene_, world_extent(), distance(),
-                       &xyz, &idx, &geo, &lod);
+  rebuild_terrain_mesh(&terrain_world_, scene_, extent, orbit_distance, &xyz,
+                       &idx, &geo, &lod);
   geo_frame_ = geo;
   terrain_lod_edge_ = lod;
   dem_local_xyz_count_ = xyz.size();
@@ -421,10 +445,11 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     attach_overlay_tin_locked(dem_rebuilt || overlays_.tin_dirty());
     attach_overlay_pointcloud_locked(dem_rebuilt ||
                                      overlays_.pointcloud_dirty());
-    // 3D Tiles product stream (P0-B): select -> LRU ensure when a tileset is attached.
+    // 3D Tiles product stream: select → LRU ensure under session defaults
+    // (kDefaultMaxTiles / kDefaultMaxEnsure / 8 MiB cache).
     if (TilesetStreamSession* stream = live_tileset_stream_locked()) {
       if (stream->active()) {
-        stream->pump(&terrain_world_, orbit_, 0, 16);
+        stream->pump_product(&terrain_world_, orbit_);
         gpu_scene_.set_tileset_content_cache(&stream->cache());
       }
     }
@@ -446,6 +471,22 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     dem_gpu_synced_after_sky_ = false;
     gpu_scene_.clear_solid_terrain_cache();
   }
+  // Cold ocean: defer WorldPass::sync_from until after ocean height alloc so
+  // the first (and only) instance copy + meshes_dirty lands after FlyCube
+  // heap settles — avoids a throwaway sync before prepare_gpu.
+  const bool skip_ocean_early = []() {
+    if (const char* e = base::switch_cstr("atmosphere-skip-ocean")) {
+      return e[0] == '1' && e[1] == '\0';
+    }
+    return false;
+  }();
+  const vista::atmosphere::Environment* env_early = atmosphere.environment();
+  // Keep early sync when overlay TIN / studio_block need live instances before
+  // ocean prepare (mine/stormsurge). Plain DEM cold can defer.
+  const bool cold_ocean_defer_sync =
+      !globe_on && env_early && env_early->ocean_enabled() &&
+      !skip_ocean_early && !dem_gpu_synced_after_ocean_ &&
+      !overlays_.tin_has_albedo() && !studio_block_;
   base::ElapsedTimer sync_timer;
   if (globe_on) {
     // Drop any leftover flat DEM from a prior non-globe present.
@@ -453,10 +494,10 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       gpu_scene_.abandon();
     }
     note_scene3d_phase_sync(0);
-  } else {
+  } else if (!cold_ocean_defer_sync) {
     gpu_scene_.sync_from(terrain_world_);
     // Belt-and-suspenders: warm present must never draw with empty GPU instances
-    // while terrain_world_ still holds DEM nodes (rebuild_meshes instances=0 ?
+    // while terrain_world_ still holds DEM nodes (rebuild_meshes instances=0 →
     // execute fail after present-warm).
     if (gpu_scene_.instance_count() == 0 && terrain_world_.node_count() > 0) {
       LOGGING(LOG_WARNING,
@@ -714,21 +755,16 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     return false;
   }
   // Optional isolate: ATMOSPHERE_SKIP_OCEAN=1 keeps sky/DEM without ocean
-  // (debug atmosphere.full near-black China). Skip prepare_gpu too 聺 height
+  // (debug atmosphere.full near-black China). Skip prepare_gpu too — height
   // texture alloc still recycles FlyCube SRVs and blacks DEM albedo.
-  const bool skip_ocean = []() {
-    if (const char* e = base::switch_cstr("atmosphere-skip-ocean")) {
-      return e[0] == '1' && e[1] == '\0';
-    }
-    return false;
-  }();
+  const bool skip_ocean = skip_ocean_early;
   // Allocate ocean height BEFORE DEM albedo upload. Creating height after the
   // DEM draw is recorded left mesh.texture pointing at recycled height bytes
   // (atmosphere.full near-black China).
   base::ElapsedTimer ocean_prep_timer;
   // Cold path only: allocate ocean height before DEM remesh so FlyCube does
   // not recycle hypsometric albedo as the height map. Warm frames (already
-  // synced after ocean) skip prepare_gpu 聺 OceanPass::record does one
+  // synced after ocean) skip prepare_gpu — OceanPass::record does one
   // Gerstner/upload instead of prepare_gpu + record double work.
   const bool need_ocean_height_before_dem =
       ocean_on && !skip_ocean && !dem_gpu_synced_after_ocean_;
@@ -739,16 +775,23 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   }
   note_scene3d_phase_ocean_prep(static_cast<int64_t>(
       ocean_prep_timer.elapsed_milliseconds() + 0.5));
-  // Re-sync DEM after ocean height allocation so albedo textures are created
-  // after height (avoids FlyCube recycling hypsometric SRVs as height maps).
+  // Sync after ocean height so albedo uploads see the settled FlyCube heap.
+  // When cold_ocean_defer_sync, this is the first sync (saves a throwaway copy).
   if (need_ocean_height_before_dem) {
+    base::ElapsedTimer post_ocean_sync;
     gpu_scene_.sync_from(terrain_world_);
+    if (cold_ocean_defer_sync) {
+      note_scene3d_phase_sync(static_cast<int64_t>(
+          post_ocean_sync.elapsed_milliseconds() + 0.5));
+    }
   }
   // Cold remesh is deferred until WorldPass::record_draws, which runs after
   // pre-opaque depth allocation inside graph::present. Warm frames (already
   // synced after ocean/sky) do not mark dirty, so rebuild_count stays 0.
   // Globe draws DEM on the sphere and must not dirty the flat mesh.
-  if (!globe_on && need_ocean_height_before_dem) {
+  // sync_from already sets meshes_dirty_; mark only when an earlier warm sync
+  // left meshes uploaded before ocean height existed.
+  if (!globe_on && need_ocean_height_before_dem && !cold_ocean_defer_sync) {
     gpu_scene_.mark_meshes_dirty();
   }
   if (!globe_on && sky_on && !dem_gpu_synced_after_sky_) {

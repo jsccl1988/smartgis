@@ -17,7 +17,7 @@ namespace datasource {
 GIS_EXPORT std::wstring ogr_bytes_to_wide(const char* bytes);
 GIS_EXPORT std::wstring ogr_bytes_to_wide(const std::string& bytes);
 
-// Normalize field bytes to UTF-8 for in-memory MapScene / attribute tables.
+// Normalize field bytes to UTF-8 for in-memory GisScene / attribute tables.
 GIS_EXPORT std::string ogr_bytes_to_utf8(const char* bytes);
 GIS_EXPORT std::string ogr_bytes_to_utf8(const std::string& bytes);
 

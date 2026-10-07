@@ -12,11 +12,11 @@
 #include <utility>
 #include <vector>
 
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 
 // Domain facts that already happened, and the session bus that publishes them.
-// Not RPC and not pointer routing. The bus is not a process singleton.
-// Main thread only.
+// Supports GisContents / ToolSession observers; not a capability root and not
+// GisContentsClient. Not RPC. Not a process singleton. Main thread only.
 namespace content {
 
 struct SelectionChanged {
@@ -41,6 +41,11 @@ struct RenderBackendChanged {
 struct LayersChanged {
   uint32_t view_id = 0;
   uint32_t layer_count = 0;
+};
+
+// Style document replaced or cleared on the bound GisDocument.
+struct StyleChanged {
+  uint32_t view_id = 0;
 };
 
 // Fired after EditSession::commit succeeds (e.g. draw.* draft → append).
@@ -78,6 +83,10 @@ inline const char* event_type_name<EditCommitted>() {
 template <>
 inline const char* event_type_name<LayersChanged>() {
   return "document.layers_changed";
+}
+template <>
+inline const char* event_type_name<StyleChanged>() {
+  return "document.style_changed";
 }
 
 class EventBus {

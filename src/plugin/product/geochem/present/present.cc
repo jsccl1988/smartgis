@@ -3,7 +3,7 @@
 
 #include "plugin/product/geochem/present/present.h"
 
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/public/gis_document.h"
 #include "plugin/runtime/host/present/gis_present.h"
 #include "tool/draft/draft.h"
@@ -181,7 +181,7 @@ bool present_geochem(content::GisDocument* doc,
   return true;
 }
 
-bool read_geochem_active_layer(content::MapScene* doc,
+bool read_geochem_active_layer(content::GisScene* doc,
                                const std::string& element,
                                gis::detail::GeochemSampleSet* out,
                                std::string* err) {
@@ -196,11 +196,11 @@ bool read_geochem_active_layer(content::MapScene* doc,
   out->element_names.clear();
   out->element_names.push_back(element.empty() ? "value" : element);
   const std::string& active = doc->active_layer_id();
-  for (const content::detail::MapLayer& layer : doc->layers()) {
+  for (const content::detail::GisLayer& layer : doc->layers()) {
     if (!active.empty() && layer.id != active && layer.name != active) {
       continue;
     }
-    for (const content::detail::MapFeature& f : layer.features) {
+    for (const content::detail::GisFeature& f : layer.features) {
       if (f.kind != content::detail::GeomKind::kPoint || f.points.empty()) {
         continue;
       }

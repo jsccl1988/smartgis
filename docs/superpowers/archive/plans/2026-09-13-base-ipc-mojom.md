@@ -10,9 +10,9 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** One `SmartGis.exe` (or current chrome PE) relaunches itself with `--type=renderer` / `--type=gpu`; GPU process paints 2D and 3D; public API is Chromium-named `MapContents`; language is C++23.
+**Goal:** One `SmartGis.exe` (or current chrome PE) relaunches itself with `--type=renderer` / `--type=gpu`; GPU process paints 2D and 3D; public API is Chromium-named `GisContents`; language is C++23.
 
-**Architecture:** `content::ContentMain` dispatches `ProcessType`. Browser hosts `MapContents`. Renderer owns `SmtMap`/`SmtIATool`. GPU (`GpuMain`) owns GL/D3D11 + `scene3d` and returns DXGI handles. Product IPC is Win32 named pipe + mogu BinarySink/pickle (`archive()` structs). No Chromium, no protobuf, no mojom.
+**Architecture:** `content::ContentMain` dispatches `ProcessType`. Browser hosts `GisContents`. Renderer owns `SmtMap`/`SmtIATool`. GPU (`GpuMain`) owns GL/D3D11 + `scene3d` and returns DXGI handles. Product IPC is Win32 named pipe + mogu BinarySink/pickle (`archive()` structs). No Chromium, no protobuf, no mojom.
 
 **Tech Stack:** MSVC v145, GN/`build.bat`, existing `src/content` + `src/gpu`, C++23.
 
@@ -41,7 +41,7 @@ All rights reserved.
 | `src/app/winui/BUILD.gn` | drop `/std:c++17` |
 | `src/content/public/process_type.h` | `ProcessType` enum + switch names |
 | `src/content/app/content_main.h/.cc` | `ContentMain` / `ContentMainParams` |
-| `src/content/public/map_contents.h` | replaces `map_session.h` (observer types live here) |
+| `src/content/public/gis_contents.h` | replaces `map_session.h` (observer types live here) |
 | `src/content/public/map_widget_host_view.h` | replaces `map_view.h` |
 | `src/gpu/gpu_main.cc` | `GpuMain` from `--type=gpu` |
 | `src/app/views/main.cc` | BrowserMain via `ContentMain` |
@@ -161,16 +161,16 @@ Use `GetModuleFileNameW(nullptr)` for `exe`. `CREATE_NO_WINDOW` on children. Job
 ### Task 5: Chromium public names
 
 **Files:**
-- Create: `map_contents.h` (includes observer), `map_widget_host_view.h`
+- Create: `gis_contents.h` (includes observer), `map_widget_host_view.h`
 - Modify: hosts under `src/app/{views,winui}` includes
 - Delete: `map_session.h`, `map_view.h`, `tool_router.h` after hosts compile
 
-`MapContents::Create()` replaces `create_map_session()`. Methods PascalCase on new types; implementation can wrap existing `snake_case` until Mojo.
+`create_gis_contents()` replaces `create_map_session()`. Methods PascalCase on new types; implementation can wrap existing `snake_case` until Mojo.
 
-- [x] **Step 1:** New headers + `map_contents.cc` (move from `map_session.cc`).
+- [x] **Step 1:** New headers + `gis_contents.cc` (move from `map_session.cc`).
 - [x] **Step 2:** Update three hosts.
 - [x] **Step 3:** `build.bat views` / `web` / `winui` as flags allow.
-- [x] **Step 4:** Commit `Rename MapSession to MapContents.`
+- [x] **Step 4:** Commit `Rename MapSession to GisContents.`
 
 ---
 
@@ -205,7 +205,7 @@ Chromium Mojo is **rejected**. Product transport is named pipe + pickle. Do not 
 | ContentMain `--type=` | 2 |
 | Same PE children | 3 |
 | Standalone GPU 2D+3D | 4 (3D backend still existing `scene3d` in GpuMain) |
-| MapContents names | 5 |
+| GisContents names | 5 |
 | Docs | 6 |
 | Pickle wire v1 | 7 (landing; not BLOCKED) |
 | UI event Forward* | 5 wrap + existing `dispatch` |

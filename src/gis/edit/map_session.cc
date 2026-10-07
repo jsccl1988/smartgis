@@ -12,8 +12,8 @@
 namespace gis {
 namespace {
 
-content::FeatureId pack_feature_id(GIntBig id) {
-  content::FeatureId out{};
+FeatureId pack_feature_id(GIntBig id) {
+  FeatureId out{};
   out.len = 4;
   const uint32_t n = static_cast<uint32_t>(id);
   out.bytes[0] = static_cast<uint8_t>(n);

@@ -8,7 +8,7 @@
 #include "app/views/browser/browser.h"
 #include "content/browser/present/host/blit_frame_cache.h"
 #include "app/views/il.runtime/backend/horizon/atom/mark.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "ui/views/map/viewport/draw_host.h"
 
 #ifndef NOMINMAX
@@ -50,7 +50,7 @@ void update_map_hwnd_seh(HWND hwnd) {
   }
 }
 
-bool play_drag(content::ViewHost& host, DragStroke stroke) {
+bool play_drag(content::ToolSession& host, DragStroke stroke) {
   content::InputEvent down{};
   down.kind = content::InputEvent::Kind::kLDown;
   down.x_px = stroke.x;
@@ -65,7 +65,7 @@ bool play_drag(content::ViewHost& host, DragStroke stroke) {
          host.dispatch_input(up);
 }
 
-bool play_wheel(content::ViewHost& host, int x, int y, int wheel) {
+bool play_wheel(content::ToolSession& host, int x, int y, int wheel) {
   content::InputEvent event{};
   event.kind = content::InputEvent::Kind::kWheel;
   event.x_px = x;
@@ -75,7 +75,7 @@ bool play_wheel(content::ViewHost& host, int x, int y, int wheel) {
 }
 
 // True when the host consumed RMB. view.pan must leave it for the shell menu.
-bool rmb_consumed(content::ViewHost& host, int x, int y) {
+bool rmb_consumed(content::ToolSession& host, int x, int y) {
   content::InputEvent down{};
   down.kind = content::InputEvent::Kind::kRDown;
   down.x_px = x;
@@ -101,7 +101,7 @@ void paint_map_client(Browser& browser) {
 namespace detail {
 
 bool browse_stress(Browser& browser, const wchar_t* leaf, int count) {
-  content::ViewHost* host = browser.edit_view_host();
+  content::ToolSession* host = browser.edit_tool_session();
   if (!host) {
     write_mark(leaf, "browse-stress-no-host", false);
     return false;

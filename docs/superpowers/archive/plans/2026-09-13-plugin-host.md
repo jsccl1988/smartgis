@@ -36,7 +36,7 @@ All rights reserved.
 | `src/plugin/manifest.h` `.cc` | `plugin.json` parse |
 | `src/plugin/registry.h` `.cc` | enable / disable / trust / start-stop |
 | `src/plugin/legacy_am.h` `.cc` | leftover `*.am` name map + `SmtPluginManager` |
-| `src/content/public/plugin_host.h` | `PluginHost` / `MapContents` / contribution structs |
+| `src/content/public/plugin_host.h` | `PluginHost` / `GisContents` / contribution structs |
 | `src/content/plugin_host.cc` | default host |
 | `src/ui/views/{label,button,textfield,checkbox,radio_button,combobox,tab_strip,table_view,file_picker,message_box}.*` | toolkit controls (flat files) |
 | `src/plugin/widgets/map_preview.h` `.cc` | shared map preview |
@@ -303,18 +303,18 @@ Do not commit unless the user asks.
 - Modify: `src/plugin/host_test.cc` — add host / withdraw / dialog / processing (sync) cases
 
 **Interfaces:**
-- Consumes: spec `PluginHost` / `MapContents`; `tool::CommandCatalog` / `CommandArgs` / `CommandHandler`; `content::EventBus`
+- Consumes: spec `PluginHost` / `GisContents`; `tool::CommandCatalog` / `CommandArgs` / `CommandHandler`; `content::EventBus`
 - Produces: `content::create_plugin_host`, `Registry::set_enabled` starts plugins
 
-- [x] **Step 1: Add `plugin_host.h` exactly as the spec API block** (`MenuContribution`, `DockContribution`, `DialogContribution`, `ProcessingContribution`, `MapContents`, `PluginHost`). Add:
+- [x] **Step 1: Add `plugin_host.h` exactly as the spec API block** (`MenuContribution`, `DockContribution`, `DialogContribution`, `ProcessingContribution`, `GisContents`, `PluginHost`). Add:
 
 ```cpp
 PluginHost* create_plugin_host(tool::CommandCatalog* catalog,
                                EventBus* events,
-                               MapContents* maps);
+                               GisContents* maps);
 ```
 
-Caller owns the returned host (`delete` after `Registry` is destroyed). `MapContents` may be nullptr in tests; `map_contents()` then returns nullptr.
+Caller owns the returned host (`delete` after `Registry` is destroyed). `GisContents` may be nullptr in tests; `gis_contents()` then returns nullptr.
 
 - [x] **Step 2: Implement `plugin_host.cc`**
 

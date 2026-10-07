@@ -125,7 +125,7 @@ Fill from the table (`offset_ms` / `dur_ms`; `wall_ms` is the gate):
 | `ParseLaunchOptions` | | |
 | `ContentMain` | | |
 | `Browser.ctor` / `Browser.init` | | |
-| `Session.init_hosts` | | |
+| `Session.init_tool_sessions` | | |
 | `PluginShell.*` | | |
 | `InitShell` / `Widget.init` / `BuildContents` | | |
 | `SeedDocument` / `try_open_china` / `ChinaBootstrap` | | |
@@ -147,7 +147,7 @@ Fill from the table (`offset_ms` / `dur_ms`; `wall_ms` is the gate):
 | `FlyCube.Init` / attach | `ui/views/map/viewport/flycube*`, MapEdit attach |
 | `AttachViewports` / `BindPresenters` | `app/views/ui/browser_view.*`, presenters |
 | `LoadMarkup` | markup loader cache; lazy Diagnostic Tools tabs |
-| `Session.init_hosts` / OOP | `content/browser/session/**` — keep OOP off for this bench |
+| `Session.init_tool_sessions` / OOP | `content/browser/session/**` — keep OOP off for this bench |
 | `WaitFirstMapPresent` (real work, not timeout) | first china layout + GPU present: `content/.../map2d/**`, `Map2dFrameCache` |
 | `PluginShell.*` | defer LoadLibrary; do not scan plugins “for the profile” |
 | `Browser.ctor` / `init` / `Widget.init` | shell assembly; lazy inspectors |

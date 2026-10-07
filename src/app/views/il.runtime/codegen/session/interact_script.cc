@@ -45,10 +45,10 @@ bool apply_interact_on_host(content::CapabilityHost& host) {
   if (env_is_os_driver()) {
     host_mark(host, "os-driver");
     // Settle Map tab horizon before outer injector runs — OS script skips
-    // select_map_tab / catalog / inspector (inproc-only), but BMP gates still
+    // select_view_tab / catalog / inspector (inproc-only), but BMP gates still
     // need a painted tab accent.
-    if (host.horizon.select_map_tab) {
-      host.horizon.select_map_tab(0);
+    if (host.horizon.select_view_tab) {
+      host.horizon.select_view_tab(0);
     }
     if (host.horizon.pump) {
       host.horizon.pump(400);
@@ -91,8 +91,8 @@ void install_interact_frontend(Browser& browser, content::CapabilityHost* host) 
   host->horizon.apply_scenario_panels =
       [linked, inner](const std::string& mode) {
         if (mode == "interact" && apply_interact_on_host(*linked)) {
-          if (linked->horizon.select_map_tab) {
-            linked->horizon.select_map_tab(0);
+          if (linked->horizon.select_view_tab) {
+            linked->horizon.select_view_tab(0);
           }
           return true;
         }

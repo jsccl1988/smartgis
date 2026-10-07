@@ -8,8 +8,8 @@
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/browser/plugin/playback.h"
 #include "app/views/util/exe_sidecar_path.h"
+#include "content/browser/document/gis_document.h"
 #include "content/browser/session/browser_session.h"
-#include "content/public/gis_document.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/present/gis_present.h"
 
@@ -26,9 +26,9 @@
 namespace app {
 namespace detail {
 
-bool add_standin_mesh(content::MapScene* doc, const char* name, double lon,
+bool add_standin_mesh(content::GisScene* doc, const char* name, double lon,
                       double lat, double half_deg) {
-  content::MapSceneGisDocument gis(doc);
+  content::GisSceneDocument gis(doc);
   return plugin::add_standin_mesh(&gis, name, lon, lat, half_deg);
 }
 
@@ -37,7 +37,7 @@ void present_plugin_map2d(BrowserUiDelegate* ui, content::BrowserSession* sessio
   if (!ui) {
     return;
   }
-  ui->select_map_tab(0);
+  ui->select_view_tab(0);
   if (fit_extent) {
     fit_extent();
   }
@@ -52,7 +52,7 @@ void present_plugin_scene3d(BrowserUiDelegate* ui) {
   if (!ui) {
     return;
   }
-  ui->select_map_tab(1);
+  ui->select_view_tab(1);
   ui->invalidate_native_scene();
 }
 

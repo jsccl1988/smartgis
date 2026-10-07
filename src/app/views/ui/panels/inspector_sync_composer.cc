@@ -28,10 +28,10 @@
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/browser/commands/view_commands.h"
 #include "plugin/runtime/host/catalog/registry.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/map_contents.h"
+#include "content/public/types.h"
+#include "content/public/gis_contents.h"
 #include "content/public/plugin_host.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "vista/component/world/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "gis/edit/session.h"
@@ -98,11 +98,11 @@ void InspectorSyncComposer::sync_inspectors_from_scene() {
     host_->attribute_table_->set_row_tokens(std::move(tokens));
   }
   if (host_->feature_info_) {
-    if (const content::MapScene::Feature* f = host_->browser_->document()->selected_feature()) {
+    if (const content::GisScene::Feature* f = host_->browser_->document()->selected_feature()) {
       ui::views::FeatureInfo::Hit hit;
-      hit.feature_id = content::MapScene::feature_token(f->id);
-      for (const content::MapScene::Layer& layer : host_->browser_->document()->layers()) {
-        for (const content::MapScene::Feature& candidate : layer.features) {
+      hit.feature_id = content::GisScene::feature_token(f->id);
+      for (const content::GisScene::Layer& layer : host_->browser_->document()->layers()) {
+        for (const content::GisScene::Feature& candidate : layer.features) {
           if (std::memcmp(candidate.id.bytes, f->id.bytes,
                           sizeof(f->id.bytes)) == 0 &&
               candidate.id.len == f->id.len) {
@@ -115,16 +115,16 @@ void InspectorSyncComposer::sync_inspectors_from_scene() {
         }
       }
       switch (f->kind) {
-        case content::MapScene::GeomKind::kLine:
+        case content::GisScene::GeomKind::kLine:
           hit.geometry_type = "Line";
           break;
-        case content::MapScene::GeomKind::kPolygon:
+        case content::GisScene::GeomKind::kPolygon:
           hit.geometry_type = "Polygon";
           break;
-        case content::MapScene::GeomKind::kText:
+        case content::GisScene::GeomKind::kText:
           hit.geometry_type = "Text";
           break;
-        case content::MapScene::GeomKind::kPoint:
+        case content::GisScene::GeomKind::kPoint:
         default:
           hit.geometry_type = "Point";
           break;
@@ -182,7 +182,7 @@ void InspectorSyncComposer::wire_edit_feedback() {
       if (token.empty()) {
         return;
       }
-      const content::FeatureId id = content::MapScene::feature_id_from_token(token);
+      const content::FeatureId id = content::GisScene::feature_id_from_token(token);
       if (!host_->browser_->session().select_feature(id)) {
         return;
       }
@@ -193,13 +193,13 @@ void InspectorSyncComposer::wire_edit_feedback() {
   }
   // Showcase / self-test set SKIP_AMBOX_CATALOG. Edit subscriptions are not
   // required for BMP export. A skewed Browser/BrowserSession layout (stale
-  // shell_browser .obj under parallel ninja) makes edit_host() return
-  // 0xCD-filled garbage �?STATUS_HEAP_CORRUPTION in ViewHost::events().
+  // shell_browser .obj under parallel ninja) makes edit_tool_session() return
+  // 0xCD-filled garbage �?STATUS_HEAP_CORRUPTION in ToolSession::events().
   if (const char* skip = base::switch_cstr("skip-ambox-catalog");
       skip && skip[0] != '\0' && skip[0] != '0') {
     return;
   }
-  content::ViewHost* host = host_->browser_->edit_host();
+  content::ToolSession* host = host_->browser_->edit_tool_session();
   if (!host) {
     return;
   }
@@ -214,7 +214,7 @@ void InspectorSyncComposer::wire_edit_feedback() {
   *host_->browser_->selection_sub() = events->subscribe<content::SelectionChanged>(
       [this](const content::SelectionChanged& ev) {
         if (ev.ids.empty()) {
-          // Prefer MapScene hit-test result from draft_observer; only clear
+          // Prefer GisScene hit-test result from draft_observer; only clear
           // when the workspace explicitly cleared selection.
           if (!host_->browser_->document()->selected_feature()) {
             host_->set_status_message("Selection cleared");
@@ -257,11 +257,11 @@ void InspectorSyncComposer::wire_edit_feedback() {
             host_->set_status_message("Attribute edit failed: " + field);
             return false;
           }
-          content::ViewHost* host = host_->active_view_host();
+          content::ToolSession* host = host_->active_tool_session();
           if (host && host->edits()) {
             gis::FeatureMutation mutation;
             mutation.op = gis::EditOp::kModify;
-            mutation.id = content::MapScene::feature_id_from_token(feature_token);
+            mutation.id = content::GisScene::feature_id_from_token(feature_token);
             host->edits()->commit(mutation);
           }
           host_->set_status_message("Updated " + field + "=" + value);
@@ -277,7 +277,7 @@ void InspectorSyncComposer::wire_edit_feedback() {
       if (token.empty()) {
         return;
       }
-      const content::FeatureId id = content::MapScene::feature_id_from_token(token);
+      const content::FeatureId id = content::GisScene::feature_id_from_token(token);
       if (!host_->browser_->session().select_feature(id)) {
         return;
       }

@@ -107,7 +107,7 @@ ops/geometry_traits.h  →  OGR / gis::Envelope / base 类型
 
 **一句话：** 结构化格网光滑与正交性度量是 **mesh-generation 家族的 sibling**（相对 `tin/` 非结构化 Delaunay），公开面是 `geo::solve_laplace`、`geo::solve_elliptic`、`geo::compute_orthogonality`、`geo::sample_orthogonality_raster`。目录 `geo/grid` 不创造 `namespace grid`。Eigen Sparse 留在 `laplace.cc`；公开头不 include Eigen。`geo::Matrix2D` 是 leftover orthogrid 数值缓冲（`legacy/plugin/product/orthogrid/kernel/matrix2d.h`），不是产品 geo 类型、不是第三套几何。
 
-orthogrid / orthogrid3d 插件只保留边界数字化、VTK / MapScene 写出，并 **调用** `geo::solve_*` / `geo::compute_orthogonality`（结点视图为 `NodeField2d`/`NodeField3d`，无插件 `GridField`/`VolumeField`）。StyleDocument 的 heat 字符串格式化留在 shell writer。**本切片不实现** TFI、聚类控制函数 P/Q、Thomas–Middlecoff、3D Thompson。
+orthogrid / orthogrid3d 插件只保留边界数字化、VTK / GisScene 写出，并 **调用** `geo::solve_*` / `geo::compute_orthogonality`（结点视图为 `NodeField2d`/`NodeField3d`，无插件 `GridField`/`VolumeField`）。StyleDocument 的 heat 字符串格式化留在 shell writer。**本切片不实现** TFI、聚类控制函数 P/Q、Thomas–Middlecoff、3D Thompson。
 
 测试：`geo_grid_laplace_test`（单位正方形双线性恢复、过小格网拒绝、矩形上 elliptic≈Laplace、单位盒子 3D Laplace、矩形正交性≈0、轴对齐 raster、单位盒子 3D cell skew）。插件 `orthogrid_laplace_test` / `orthogrid3d_laplace_test` 只覆盖 gridbnd / hex 产品流。
 

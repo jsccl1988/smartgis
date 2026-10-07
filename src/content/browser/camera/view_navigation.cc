@@ -7,7 +7,7 @@
 #include <cmath>
 #include <numbers>
 
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 
 namespace content {
 namespace {
@@ -19,7 +19,7 @@ bool near_coord(double a, double b) {
   return std::abs(a - b) <= kExtentEpsilonScale * scale;
 }
 
-// Same predicate as map_scene_extent_is_lonlat. Kept local so camera does not
+// Same predicate as gis_scene_extent_is_lonlat. Kept local so camera does not
 // link the presenter that owns the shared symbol.
 bool extent_is_lonlat(double minx, double miny, double maxx, double maxy) {
   if (!(maxx > minx) || !(maxy > miny)) {

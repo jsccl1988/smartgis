@@ -54,7 +54,7 @@ All rights reserved.
 | `gis` | `//src/gis:gis` | model + geo/proj/tin/stat；`public_deps` → `net` |
 | `render` | `//src/render:render` | endgame RHI/scene/skia；`:rhi` group 转发 |
 | `net` | `//src/net:net` | HTTP / RPC（从 base 抽出） |
-| `content` | `//src/content:content` | embedder / MapContents；`:view_host` → 同 PE |
+| `content` | `//src/content:content` | embedder / GisContents；`:view_host` → 同 PE |
 | `ui_views` | `//src/ui/views:ui_views` | Views + gfx；**单 PE** |
 | `tool` | `//src/tool:tool` | `SMT_TOOL_*`；`:dispatch` 转发 |
 | `plugin_host` | `//src/plugin:host` → `plugin_host.dll` | `PLUGIN_HOST_*`；非 legacy `PLUGIN_EXPORT` |

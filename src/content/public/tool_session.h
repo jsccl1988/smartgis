@@ -1,15 +1,15 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef CONTENT_PUBLIC_VIEW_HOST_H_
-#define CONTENT_PUBLIC_VIEW_HOST_H_
+#ifndef CONTENT_PUBLIC_TOOL_SESSION_H_
+#define CONTENT_PUBLIC_TOOL_SESSION_H_
 
 #include <cstdint>
 #include <memory>
 #include <string_view>
 
 #include "content/content_export.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 
 namespace gis {
 class EditSession;
@@ -23,16 +23,17 @@ namespace content {
 
 class EventBus;
 
-// Per-map-view shell composition: Workspace + EventBus + EditSession.
+// Per-view tool/edit composition (Workspace + EventBus + EditSession).
+// Not the document root (see GisContents) and not process hooks (GisContentsClient).
 // Public surface has no HWND, Map*, or LPRENDERDEVICE.
-class CONTENT_EXPORT ViewHost {
+class CONTENT_EXPORT ToolSession {
  public:
-  ViewHost();
-  explicit ViewHost(gis::EditSession* edits);
-  ~ViewHost();
+  ToolSession();
+  explicit ToolSession(gis::EditSession* edits);
+  ~ToolSession();
 
-  ViewHost(const ViewHost&) = delete;
-  ViewHost& operator=(const ViewHost&) = delete;
+  ToolSession(const ToolSession&) = delete;
+  ToolSession& operator=(const ToolSession&) = delete;
 
   EventBus* events();
   gis::EditSession* edits();
@@ -54,4 +55,4 @@ class CONTENT_EXPORT ViewHost {
 
 }  // namespace content
 
-#endif  // CONTENT_PUBLIC_VIEW_HOST_H_
+#endif  // CONTENT_PUBLIC_TOOL_SESSION_H_

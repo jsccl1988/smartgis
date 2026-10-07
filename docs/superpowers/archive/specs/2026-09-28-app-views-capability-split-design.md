@@ -36,7 +36,7 @@ All rights reserved.
 
 - Do not change menu layout, navigation command ids, or AM Box grouping from the desktop-shell spec.
 - Do not move or rename `shell/`.
-- Do not change `ui::views::MapViewport`, `content::MapContents`, or `content::ViewHost`.
+- Do not change `ui::views::MapViewport`, `content::GisContents`, or `content::ViewHost`.
 - Do not add a third public namespace. Types stay in `app`.
 - Do not add shim headers at the old paths.
 - Do not deepen past `src/app/views/<module>/`.
@@ -122,7 +122,7 @@ Owns `yaw`, `pitch`, `distance`, and the framed `content::Extent2`. Methods: `ap
 
 `camera_matrices_ortho` is the ortho of that shared lon/lat extent (self-test and the 3D host). Map and Data pages do not use it; they use `ViewFrame` plus `Map2dPresenter`.
 
-`push_extent_to_contents` / `pull_extent_from_contents` move to the shell. The frame does not hold a `MapContents*`.
+`push_extent_to_contents` / `pull_extent_from_contents` move to the shell. The frame does not hold a `GisContents*`.
 
 ### 4.4 `camera/ViewNavigation`
 

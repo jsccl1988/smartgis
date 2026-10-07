@@ -7,7 +7,7 @@
 #include <sstream>
 
 #include "content/browser/debug/cmd/agent_diag.h"
-#include "content/browser/debug/cmd/agent_map_cmd.h"
+#include "content/browser/debug/cmd/agent_gis_cmd.h"
 #include "content/browser/debug/schema/agent_schema.h"
 
 namespace content {
@@ -54,14 +54,14 @@ bool exec_ask_command(const std::string& line,
   }
   if (contains(lq, "layer")) {
     std::string map_out;
-    if (exec_map_command(":layers", host, &map_out)) {
+    if (exec_gis_command(":layers", host, &map_out)) {
       *output = map_out;
       return true;
     }
   }
   if (contains(lq, "extent") || contains(lq, "bbox")) {
     std::string map_out;
-    if (exec_map_command(":extent", host, &map_out)) {
+    if (exec_gis_command(":extent", host, &map_out)) {
       *output = map_out;
       return true;
     }

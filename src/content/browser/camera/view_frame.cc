@@ -7,7 +7,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "tool/nav/camera_nav.h"
 
 namespace content {
@@ -73,7 +73,7 @@ void ViewFrame::apply_world_extent(const content::Extent2& e, int view_w,
   tool::frame_world_extent(&pan_x_, &pan_y_, &scale_, box, view_w, view_h, 0.0);
 }
 
-void ViewFrame::fit_extent(const MapScene& scene, int view_w, int view_h) {
+void ViewFrame::fit_extent(const GisScene& scene, int view_w, int view_h) {
   if (view_w <= 0) {
     view_w = 800;
   }

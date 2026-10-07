@@ -5,6 +5,7 @@
 
 #include "content/browser/present/scene3d/scenic_engine_host.h"
 
+#include "content/browser/camera/orbit_frame.h"
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/present/host/scenic_scene_bind.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
@@ -24,12 +25,14 @@ bool ScenicScene3dHost::is_live() const {
 }
 
 bool ScenicScene3dHost::ensure_locked() {
+  // Product SoT is Vista WorldPass — never construct scenic on that path.
   if (!prefer_scene3d_scenic()) {
     if (engine_) {
       engine_->shutdown();
       engine_.reset();
       xy_.clear();
       items_.clear();
+      sync_valid_ = false;
     }
     return false;
   }
@@ -40,6 +43,7 @@ bool ScenicScene3dHost::ensure_locked() {
       return false;
     }
     engine_.reset(scenic::create_scene3d_engine());
+    sync_valid_ = false;
   }
   return engine_ != nullptr;
 }
@@ -49,11 +53,52 @@ bool ScenicScene3dHost::ensure() {
   return ensure_locked();
 }
 
+bool ScenicScene3dHost::sync_inputs_unchanged(uint32_t width_px,
+                                              uint32_t height_px,
+                                              const OrbitFrame* orbit,
+                                              const GisScene* scene,
+                                              const ViewFrame* labels) const {
+  if (!sync_valid_ || !engine_ || items_.empty()) {
+    return false;
+  }
+  if (sync_w_ != width_px || sync_h_ != height_px || sync_orbit_ != orbit ||
+      sync_scene_ != scene || sync_labels_ != labels) {
+    return false;
+  }
+  const float yaw = orbit ? orbit->yaw() : 0.f;
+  const float pitch = orbit ? orbit->pitch() : 0.f;
+  const float distance = orbit ? orbit->distance() : 0.f;
+  const double scale = labels ? labels->scale() : 1.0;
+  return sync_yaw_ == yaw && sync_pitch_ == pitch &&
+         sync_distance_ == distance && sync_label_scale_ == scale;
+}
+
+void ScenicScene3dHost::remember_sync_inputs(uint32_t width_px,
+                                             uint32_t height_px,
+                                             const OrbitFrame* orbit,
+                                             const GisScene* scene,
+                                             const ViewFrame* labels) {
+  sync_w_ = width_px;
+  sync_h_ = height_px;
+  sync_orbit_ = orbit;
+  sync_yaw_ = orbit ? orbit->yaw() : 0.f;
+  sync_pitch_ = orbit ? orbit->pitch() : 0.f;
+  sync_distance_ = orbit ? orbit->distance() : 0.f;
+  sync_scene_ = scene;
+  sync_labels_ = labels;
+  sync_label_scale_ = labels ? labels->scale() : 1.0;
+  sync_valid_ = true;
+}
+
 void ScenicScene3dHost::sync_locked(uint32_t width_px, uint32_t height_px,
                                     const OrbitFrame* orbit,
-                                    const MapScene* scene,
+                                    const GisScene* scene,
                                     const ViewFrame* labels) {
   if (!engine_) {
+    return;
+  }
+  // Warm scenic frames: skip fill_scenic_draw_items + rebind when inputs match.
+  if (sync_inputs_unchanged(width_px, height_px, orbit, scene, labels)) {
     return;
   }
   scenic::SessionDesc desc;
@@ -65,10 +110,11 @@ void ScenicScene3dHost::sync_locked(uint32_t width_px, uint32_t height_px,
   fill_scenic_draw_items(scene, scale, &xy_, &items_);
   engine_->bind_draw_items(items_.data(),
                            static_cast<uint32_t>(items_.size()));
+  remember_sync_inputs(width_px, height_px, orbit, scene, labels);
 }
 
 bool ScenicScene3dHost::present(uint32_t width_px, uint32_t height_px,
-                                const OrbitFrame* orbit, const MapScene* scene,
+                                const OrbitFrame* orbit, const GisScene* scene,
                                 const ViewFrame* labels) {
   std::lock_guard<std::mutex> lock(mu_);
   if (!ensure_locked()) {
@@ -80,7 +126,7 @@ bool ScenicScene3dHost::present(uint32_t width_px, uint32_t height_px,
 
 bool ScenicScene3dHost::paint_hdc(HDC hdc, int width_px, int height_px,
                                   const OrbitFrame* orbit,
-                                  const MapScene* scene,
+                                  const GisScene* scene,
                                   const ViewFrame* labels) {
   if (!hdc || width_px <= 0 || height_px <= 0) {
     return false;
@@ -98,7 +144,7 @@ bool ScenicScene3dHost::paint_hdc(HDC hdc, int width_px, int height_px,
 
 bool ScenicScene3dHost::export_bmp(const std::string& path, int width_px,
                                    int height_px, const OrbitFrame* orbit,
-                                   const MapScene* scene,
+                                   const GisScene* scene,
                                    const ViewFrame* labels) {
   if (path.empty() || width_px <= 0 || height_px <= 0) {
     return false;
@@ -121,6 +167,7 @@ void ScenicScene3dHost::shutdown() {
   }
   xy_.clear();
   items_.clear();
+  sync_valid_ = false;
 }
 
 }  // namespace detail

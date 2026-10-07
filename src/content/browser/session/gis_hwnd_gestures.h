@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef CONTENT_BROWSER_MAP_HWND_GESTURES_H_
-#define CONTENT_BROWSER_MAP_HWND_GESTURES_H_
+#ifndef CONTENT_BROWSER_GIS_HWND_GESTURES_H_
+#define CONTENT_BROWSER_GIS_HWND_GESTURES_H_
 
 #include <functional>
 
@@ -15,7 +15,7 @@
 
 namespace content {
 
-// Touch / trackpad gestures on a map HWND:
+// Touch / trackpad gestures on a GIS viewport HWND:
 // - GID_ZOOM / WM_POINTER pinch → zoom
 // - GID_PAN (two-finger drag, including left/right) → pan
 // Trackpad horizontal wheel stays on MapViewport (WM_MOUSEHWHEEL).
@@ -23,7 +23,7 @@ namespace content {
 // Prefer attach() when the HWND already has a foreign wndproc (Views).
 // Prefer bind() + try_handle() when this host owns the wndproc (Cs popup),
 // so ComCtl32 v6 SetWindowSubclass is not required.
-class MapHwndGestures {
+class GisHwndGestures {
  public:
   using PinchFn = std::function<void(int cursor_x, int cursor_y, double scale)>;
   // Pixel delta in client space (positive dx = content moves right).
@@ -37,11 +37,11 @@ class MapHwndGestures {
   using ExtentWatchFn = std::function<void(bool begin)>;
   using ResizeFn = std::function<void()>;
 
-  MapHwndGestures() = default;
-  ~MapHwndGestures();
+  GisHwndGestures() = default;
+  ~GisHwndGestures();
 
-  MapHwndGestures(const MapHwndGestures&) = delete;
-  MapHwndGestures& operator=(const MapHwndGestures&) = delete;
+  GisHwndGestures(const GisHwndGestures&) = delete;
+  GisHwndGestures& operator=(const GisHwndGestures&) = delete;
 
   void attach(HWND hwnd, PinchFn on_pinch, PanFn on_pan = {});
   // Same gesture config + callbacks as attach(), without subclassing.
@@ -96,4 +96,4 @@ class MapHwndGestures {
 
 }  // namespace content
 
-#endif  // CONTENT_BROWSER_MAP_HWND_GESTURES_H_
+#endif  // CONTENT_BROWSER_GIS_HWND_GESTURES_H_

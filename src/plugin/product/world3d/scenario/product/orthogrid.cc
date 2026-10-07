@@ -16,7 +16,7 @@
 #include "plugin/runtime/host/capability/shell.h"
 #include "plugin/product/world3d/scenario/capture/map2d_export.h"
 #include "plugin/runtime/host/capability/scenario_shell.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 
 namespace plugin {
 namespace detail {
@@ -26,7 +26,7 @@ int run_orthogrid(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: orthogrid Map2d path\n");
   browser.mark_named(plugin::kMarkPlugin, "orthogrid", /*truncate=*/true);
 
-  browser.select_map_tab(0);
+  browser.select_view_tab(0);
   browser.pump(300);
 
   char bnd_path[MAX_PATH * 3] = {};
@@ -34,14 +34,14 @@ int run_orthogrid(HarnessShell& browser) {
                            L"data\\plugin\\orthogrid_sample.gridbnd"};
   if (!resolve_rel_under_exe(rels, 2, bnd_path, sizeof(bnd_path))) {
     plugin_mark("bnd-missing");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   plugin_mark("sample-ok");
 
   if (!browser.plugin_host()) {
     plugin_mark("plugins-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
@@ -54,7 +54,7 @@ int run_orthogrid(HarnessShell& browser) {
       browser.plugin_host()->execute("baogrid.create_orth_grid", cmd);
   if (!seeded) {
     plugin_mark("orthogrid-run-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   plugin_mark("map2d-seed-plugin");
@@ -77,11 +77,11 @@ int run_orthogrid(HarnessShell& browser) {
   plugin_mark("playback-ok");
 
   if (!bmp_ok) {
-    browser.detach_maps();
+    browser.detach_views();
     return 54;
   }
   plugin_mark("pass");
-  browser.detach_maps();
+  browser.detach_views();
   std::fprintf(stderr, "plugin-showcase: PASS mode=orthogrid (Map2d)\n");
   return 0;
 }

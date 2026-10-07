@@ -128,14 +128,14 @@ bool ShellLayoutComposer::build_from_markup() {
 
   auto map_tabs = std::make_unique<ui::views::TabStrip>();
   auto map_edit = std::make_unique<ui::views::DrawHost>();
-  auto map_scene = std::make_unique<ui::views::DrawHost>();
+  auto gis_scene = std::make_unique<ui::views::DrawHost>();
   host_->map_edit_ = map_edit.get();
   host_->map_data_ = nullptr;
-  host_->map_scene_ = map_scene.get();
+  host_->map_scene_ = gis_scene.get();
   host_->map_edit_->set_role(ui::views::DrawHost::Role::kMapEdit);
   host_->map_scene_->set_role(ui::views::DrawHost::Role::kScene3d);
   map_tabs->add_tab("Map", std::move(map_edit));
-  map_tabs->add_tab("3D", std::move(map_scene));
+  map_tabs->add_tab("3D", std::move(gis_scene));
   map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   map_tabs->set_preferred_size({0, 0});
   map_tabs->set_change([this](int i) { host_->switch_map_tab(i); });
@@ -299,14 +299,14 @@ void ShellLayoutComposer::build_imperative() {
 
   auto map_tabs = std::make_unique<ui::views::TabStrip>();
   auto map_edit = std::make_unique<ui::views::DrawHost>();
-  auto map_scene = std::make_unique<ui::views::DrawHost>();
+  auto gis_scene = std::make_unique<ui::views::DrawHost>();
   host_->map_edit_ = map_edit.get();
   host_->map_data_ = nullptr;
-  host_->map_scene_ = map_scene.get();
+  host_->map_scene_ = gis_scene.get();
   host_->map_edit_->set_role(ui::views::DrawHost::Role::kMapEdit);
   host_->map_scene_->set_role(ui::views::DrawHost::Role::kScene3d);
   map_tabs->add_tab("Map", std::move(map_edit));
-  map_tabs->add_tab("3D", std::move(map_scene));
+  map_tabs->add_tab("3D", std::move(gis_scene));
   map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   map_tabs->set_preferred_size({0, 0});
   map_tabs->set_change([this](int i) { host_->switch_map_tab(i); });

@@ -18,7 +18,7 @@ class PluginHost;
 
 namespace plugin {
 
-// Solved mesh + dual orthogonality heat fields for MapScene commit.
+// Solved mesh + dual orthogonality heat fields for GisScene commit.
 struct OrthogridMeshCommit {
   int nx = 0;
   int ny = 0;

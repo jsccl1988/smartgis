@@ -77,7 +77,7 @@ void reset_map2d_gpu_present_profile() {
 Map2dGpuPresent::Map2dGpuPresent() = default;
 Map2dGpuPresent::~Map2dGpuPresent() = default;
 
-void Map2dGpuPresent::bind(const MapScene* scene, const ViewFrame* frame,
+void Map2dGpuPresent::bind(const GisScene* scene, const ViewFrame* frame,
                            Map2dFrameCache* cache) {
   scene_ = scene;
   frame_ = frame;
@@ -227,17 +227,16 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       return true;
     }
 
-    // Full rebuild drops GPU buffers (every cache_key misses). Settle keeps
-    // hit slices and uploads only misses on the device thread. Interactive
-    // reuses the encoded draws. First present after a failed record still
-    // replaces, even when the action is StaticReuse.
+    // Full content rebuild drops GPU buffers (every cache_key misses). Settle
+    // keeps hit slices. Interactive / StaticReuse (incl. post-surface-reset
+    // hollow fill) must NOT invalidate_uploaded — DrawCache encode fills the
+    // clear swapchain without a china cold re-upload.
     const bool record_all =
         action == Map2dFrameCache::PresentAction::kRebuildFull ||
         action == Map2dFrameCache::PresentAction::kSettleRebuild ||
         !last_present_ok_;
     const bool full_replace =
-        action == Map2dFrameCache::PresentAction::kRebuildFull ||
-        !last_present_ok_;
+        action == Map2dFrameCache::PresentAction::kRebuildFull;
     if (!map2d_pass_) {
       map2d_pass_ = std::make_unique<vista::MapPass>();
     }

@@ -33,7 +33,7 @@ struct PluginDeviceSessionOpts {
   bool warm_swapchain = false;
   // Stormsurge Null path: skip borrowed HWND (writers + orbit only).
   bool allow_null_without_hwnd = false;
-  // When false, attach DrawHost Role::kScene3d without select_map_tab(1)
+  // When false, attach DrawHost Role::kScene3d without select_view_tab(1)
   // (that switch AVs on the GDI/lazy ContentMapView path; peer atmosphere).
   // Mapped to RhiPresentSessionOpts.select_scene_tab; borrow is always on.
   bool borrow_shell_scene3d = true;
@@ -50,7 +50,7 @@ struct PluginDeviceSession {
 
 // Creates present HWND (GPU) or borrows tab child (Null), then initializes
 // Device. On failure returns non-zero and leaves |out| partially filled so the
-// caller can DestroyWindow / detach_maps.
+// caller can DestroyWindow / detach_views.
 int prepare_plugin_device_session(HarnessShell& browser,
                                   const PluginDeviceSessionOpts& opts,
                                   PluginDeviceSession* out);
@@ -58,7 +58,7 @@ int prepare_plugin_device_session(HarnessShell& browser,
 // Resolve want_gpu: primary env off only when "0"; else WORLD3D fallback; else on.
 bool resolve_plugin_want_gpu(const char* primary_gpu_env);
 
-// Teardown after capture (or early exit). Does not detach_maps.
+// Teardown after capture (or early exit). Does not detach_views.
 struct PluginTeardownOpts {
   bool clear_pointcloud = false;
   bool clear_tin = false;

@@ -523,7 +523,7 @@ Plan complete when saved. Implementation continues on `master` under the multi-G
 
 
 - [x] Extend `AttachSurfaceBody` / `ResizeSurfaceBody` with `monitor_luid_low` / `monitor_luid_high` and optional `adapter_hint` (`0xffffffff` = unset) — `src/content/common/host_protocol.h`.
-- [x] Shell / browser fill LUID from local `HMONITOR` (do **not** put `HMONITOR` on IPC) — e.g. `src/content/browser/contents/map_contents.cc`, Views map host as needed.
+- [x] Shell / browser fill LUID from local `HMONITOR` (do **not** put `HMONITOR` on IPC) — e.g. `src/content/browser/contents/gis_contents.cc`, Views map host as needed.
 - [x] `gpu_main` on Attach/Resize: resolve adapter via `GpuDeviceHub` and `bind_surface` / `rebind_surface_to_monitor` (LUID), not forever-primary — `src/gpu/gpu_main.cc`, `src/gpu/device/gpu_device_hub.*`.
 - [ ] Tests: Attach/Resize with LUID pins expected `AdapterId`; primary-only path remains fallback when LUID unset.
 

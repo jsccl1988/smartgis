@@ -2,7 +2,7 @@
 // All rights reserved.
 
 // Batch policy for MapIR layout: line role, stem length, place-name
-// rank, and scale visibility. Callers pass POD features, not MapScene.
+// rank, and scale visibility. Callers pass POD features, not GisScene.
 
 #ifndef VISTA_COMPONENT_MAP_CARTO_FILTER_H_
 #define VISTA_COMPONENT_MAP_CARTO_FILTER_H_

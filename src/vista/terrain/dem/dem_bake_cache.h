@@ -67,6 +67,8 @@ VISTA_EXPORT void dem_mesh_cache_put(const char* path, int max_edge, double minx
 
 // Orbit-normalized view seed (path + LOD + lon/lat frame + orbit bucket).
 // Skips DEM load / tess / hypso / normalize on cold hit for Scene3d present.
+// put() updates the process mem cache synchronously and persists to disk on a
+// detached writer so the cold first frame is not blocked on multi-MB I/O.
 struct DemViewSeed {
   float elev_cy = 0.f;
   float min_x = 0.f;

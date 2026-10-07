@@ -86,7 +86,7 @@ source_set("gis_sources") {
   defines = _gis_defines
   public_deps = [
     "//src/content:content",
-    "//src/content:view_host",
+    "//src/content:tool_session",
     "//src/tool:tool",
     "//src/ui/views:views_sources",
   ]

@@ -1,9 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/public/gis_document.h"
+#include "content/browser/document/gis_document.h"
 
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/public/event_bus.h"
 #include "gis/style/document/style_document.h"
 
@@ -12,10 +12,10 @@
 
 namespace content {
 
-MapSceneGisDocument::MapSceneGisDocument(MapScene* scene, EventBus* events)
+GisSceneDocument::GisSceneDocument(GisScene* scene, EventBus* events)
     : scene_(scene), events_(events) {}
 
-bool MapSceneGisDocument::create_layer(std::string_view name,
+bool GisSceneDocument::create_layer(std::string_view name,
                                        std::string_view geometry_type) {
   if (!scene_ || name.empty()) {
     return false;
@@ -27,7 +27,7 @@ bool MapSceneGisDocument::create_layer(std::string_view name,
   return true;
 }
 
-bool MapSceneGisDocument::remove_layer(std::string_view id) {
+bool GisSceneDocument::remove_layer(std::string_view id) {
   if (!scene_ || id.empty()) {
     return false;
   }
@@ -38,7 +38,7 @@ bool MapSceneGisDocument::remove_layer(std::string_view id) {
   return true;
 }
 
-bool MapSceneGisDocument::set_layer_visible(std::string_view id, bool visible) {
+bool GisSceneDocument::set_layer_visible(std::string_view id, bool visible) {
   if (!scene_ || id.empty()) {
     return false;
   }
@@ -49,15 +49,15 @@ bool MapSceneGisDocument::set_layer_visible(std::string_view id, bool visible) {
   return true;
 }
 
-size_t MapSceneGisDocument::layer_count() const {
+size_t GisSceneDocument::layer_count() const {
   return scene_ ? scene_->layer_count() : 0;
 }
 
-size_t MapSceneGisDocument::feature_count() const {
+size_t GisSceneDocument::feature_count() const {
   return scene_ ? scene_->feature_count() : 0;
 }
 
-FeatureId MapSceneGisDocument::append_from_draft(
+FeatureId GisSceneDocument::append_from_draft(
     const tool::Draft& draft, const char* tool_id,
     const std::function<void(int view_x, int view_y, double* map_x,
                              double* map_y)>& to_map) {
@@ -67,7 +67,7 @@ FeatureId MapSceneGisDocument::append_from_draft(
   return scene_->append_from_draft(draft, tool_id, to_map);
 }
 
-bool MapSceneGisDocument::update_feature_field(std::string_view token,
+bool GisSceneDocument::update_feature_field(std::string_view token,
                                                std::string_view field,
                                                std::string_view value) {
   if (!scene_ || token.empty() || field.empty()) {
@@ -77,7 +77,7 @@ bool MapSceneGisDocument::update_feature_field(std::string_view token,
                                       std::string(value));
 }
 
-bool MapSceneGisDocument::apply_style_json(std::string_view json) {
+bool GisSceneDocument::apply_style_json(std::string_view json) {
   if (!scene_ || json.empty()) {
     return false;
   }
@@ -90,7 +90,7 @@ bool MapSceneGisDocument::apply_style_json(std::string_view json) {
   return true;
 }
 
-bool MapSceneGisDocument::add_triangle_mesh(std::string_view name,
+bool GisSceneDocument::add_triangle_mesh(std::string_view name,
                                             const double* xyz, int point_count,
                                             const int* triangles,
                                             int triangle_count) {
@@ -106,7 +106,7 @@ bool MapSceneGisDocument::add_triangle_mesh(std::string_view name,
   return true;
 }
 
-bool MapSceneGisDocument::add_point_cloud(std::string_view name,
+bool GisSceneDocument::add_point_cloud(std::string_view name,
                                           const float* xyz, int point_count,
                                           const uint8_t* rgba) {
   if (!scene_ || name.empty() || !xyz || point_count <= 0) {
@@ -120,7 +120,7 @@ bool MapSceneGisDocument::add_point_cloud(std::string_view name,
   return true;
 }
 
-bool MapSceneGisDocument::compute_extent(Extent2* out) const {
+bool GisSceneDocument::compute_extent(Extent2* out) const {
   if (!scene_ || !out) {
     return false;
   }
@@ -138,7 +138,7 @@ bool MapSceneGisDocument::compute_extent(Extent2* out) const {
   return true;
 }
 
-void MapSceneGisDocument::notify_layers_changed() {
+void GisSceneDocument::notify_layers_changed() {
   if (!events_) {
     return;
   }

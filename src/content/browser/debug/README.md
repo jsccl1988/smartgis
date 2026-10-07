@@ -20,7 +20,7 @@ debug/
   policy/                    # Dangerous-op gate (confirm / SG_DEBUG_ALLOW)
   schema/                    # rpc.methods catalog + :help text + Tab prefixes
   cmd/                       # Domain handlers (console :cmds + matching RPC)
-    agent_ask / agent_diag / agent_harness / agent_log / agent_map_cmd
+    agent_ask / agent_diag / agent_harness / agent_log / agent_gis_cmd
     agent_py / agent_record / agent_sdbd / agent_ui
 ```
 

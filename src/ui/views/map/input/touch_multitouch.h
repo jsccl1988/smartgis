@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 
 namespace ui {
 namespace views {

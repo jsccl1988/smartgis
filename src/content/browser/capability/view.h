@@ -7,7 +7,7 @@
 #include <functional>
 #include <string>
 
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 
 namespace content {
 
@@ -56,9 +56,9 @@ struct MapReadyStatus {
   int layout_build_count = 0;
 };
 
-// Edit ViewHost + MemoryEditSession presence. Facts only.
-struct EditHostStatus {
-  int host_present = 0;
+// Edit ToolSession + MemoryEditSession presence. Facts only.
+struct EditToolSessionStatus {
+  int session_present = 0;
   int workspace = 0;
   int edits = 0;
   int memory_session = 0;
@@ -69,19 +69,19 @@ struct ToolStatus {
   std::string id;
 };
 
-// View lane. Mirrors MapContents (present) and ViewHost (tool stack, edit
+// View lane. Mirrors GisContents (present) and ToolSession (tool stack, edit
 // input). A view is any ViewKind, including a future world viewport.
 // vista::World stays the 3D scene the view presents. Load, geometry, scale,
 // map-ready, edit-host, and tool checks are not gates: IL registers callbacks
 // and reads the snapshots.
 struct ViewCapability {
-  std::function<void()> detach_maps;
-  std::function<void()> stop_map_present_timers;
-  std::function<void()> resume_map_present_timers;
+  std::function<void()> detach_views;
+  std::function<void()> stop_present_timers;
+  std::function<void()> resume_present_timers;
   std::function<bool()> invalidate_map2d;
 
   std::function<bool(const InputEvent&)> dispatch_edit_input;
-  // ViewHost::release_exclusive. Drops the active exclusive interaction.
+  // ToolSession::release_exclusive. Drops the active exclusive interaction.
   std::function<bool()> release_exclusive;
   std::function<bool(const std::string& command_id)> run_tool;
   std::function<int(const std::string& id)> activate_tool;
@@ -94,7 +94,7 @@ struct ViewCapability {
   // then fills |out|. Does not decide pass or fail.
   std::function<bool(int timeout_ms, MapReadyStatus* out)> map_ready_status;
   // Fills edit-host presence flags. Does not decide pass or fail.
-  std::function<bool(EditHostStatus* out)> edit_host_status;
+  std::function<bool(EditToolSessionStatus* out)> edit_tool_session_status;
   // Fills the current tool id. Empty id when none. Does not decide pass/fail.
   std::function<bool(ToolStatus* out)> tool_status;
 
@@ -108,8 +108,8 @@ struct ViewCapability {
       on_scale_event;
   std::function<void(const std::string& name, const MapReadyStatus& status)>
       on_map_ready_event;
-  std::function<void(const std::string& name, const EditHostStatus& status)>
-      on_edit_host_event;
+  std::function<void(const std::string& name, const EditToolSessionStatus& status)>
+      on_edit_tool_session_event;
   std::function<void(const std::string& name, const ToolStatus& status)>
       on_tool_event;
   // |timeout_ms| 0 is a snapshot. A positive value waits for a presented

@@ -4,7 +4,7 @@
 #ifndef PLUGIN_PRODUCT_WORLD3D_SCENARIO_CAPTURE_MAP2D_EXPORT_H_
 #define PLUGIN_PRODUCT_WORLD3D_SCENARIO_CAPTURE_MAP2D_EXPORT_H_
 
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 
 namespace plugin {
 

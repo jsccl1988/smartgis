@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef CONTENT_BROWSER_DOCUMENT_MAP_SCENE_H_
-#define CONTENT_BROWSER_DOCUMENT_MAP_SCENE_H_
+#ifndef CONTENT_BROWSER_DOCUMENT_GIS_SCENE_H_
+#define CONTENT_BROWSER_DOCUMENT_GIS_SCENE_H_
 
 #include <cstdint>
 #include <functional>
@@ -18,7 +18,7 @@
 
 #include "content/browser/document/store/layer_store.h"
 #include "content/browser/document/style/style_bind.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "gis/style/style_types.h"
 #include "gis/tile/provider/tile_provider.h"
 #include "vista/terrain/dem/mask/land_mask.h"
@@ -26,23 +26,23 @@
 
 namespace content {
 
-// In-process map document fa莽ade: layers and features in map space. Pan,
+// In-process GIS document facade: layers and features in map space. Pan,
 // scale, and paint live on ViewFrame and Map2dPresenter. Implementation is
 // composed under document/{store,ingest,style,query,edit}/.
-class MapScene {
+class GisScene {
  public:
   using GeomKind = detail::GeomKind;
   using Vertex = detail::Vertex;
-  using Feature = detail::MapFeature;
-  using Layer = detail::MapLayer;
+  using Feature = detail::GisFeature;
+  using Layer = detail::GisLayer;
   using Field = content::NamedField;
   using LayerDesc = content::LayerDesc;
 
-  MapScene();
-  ~MapScene();
+  GisScene();
+  ~GisScene();
 
-  MapScene(const MapScene&) = delete;
-  MapScene& operator=(const MapScene&) = delete;
+  GisScene(const GisScene&) = delete;
+  GisScene& operator=(const GisScene&) = delete;
 
   // Prefer china_city (gpkg/geojson) beside the exe (or testing/data), then
   // schematic china_plp. Multi-layer packs expose area / line / point / text.
@@ -107,14 +107,14 @@ class MapScene {
   bool polygon_fit_box(double* min_x, double* min_y, double* max_x,
                        double* max_y) const;
 
-  const std::vector<detail::MapLayer>& layers() const { return store_.layers(); }
+  const std::vector<detail::GisLayer>& layers() const { return store_.layers(); }
   gis::tile::TileProvider* basemap_provider() const {
     return style_.basemap_provider();
   }
 
   // Resolved style colors for one feature. False keeps the cartography defaults.
-  bool style_colors_for_feature(const detail::MapLayer& layer,
-                                const detail::MapFeature& f, double scale,
+  bool style_colors_for_feature(const detail::GisLayer& layer,
+                                const detail::GisFeature& f, double scale,
                                 COLORREF* fill, COLORREF* stroke,
                                 int* stroke_width) const;
 
@@ -157,8 +157,8 @@ class MapScene {
                              int point_count, const uint8_t* rgba = nullptr);
 
   // Hit-test in map space. |tol_map| is the caller's tolerance. Selects the
-  // nearest feature. Use nested Feature (not detail::MapFeature) so MSVC
-  // mangling matches call sites that name MapScene::Feature.
+  // nearest feature. Use nested Feature (not detail::GisFeature) so MSVC
+  // mangling matches call sites that name GisScene::Feature.
   const Feature* hit_test(double map_x, double map_y, double tol_map);
   // All features within |tol_map|, nearest-first. Selects the nearest.
   std::vector<const Feature*> hit_test_all(double map_x, double map_y,
@@ -213,4 +213,4 @@ std::vector<std::string> china_seed_relative_paths();
 
 }  // namespace content
 
-#endif  // CONTENT_BROWSER_DOCUMENT_MAP_SCENE_H_
+#endif  // CONTENT_BROWSER_DOCUMENT_GIS_SCENE_H_

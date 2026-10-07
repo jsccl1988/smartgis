@@ -5,8 +5,8 @@
 
 #include "plugin/runtime/host/capability/shell.h"
 
-#include "content/public/map_contents.h"
-#include "content/public/view_host.h"
+#include "content/public/gis_contents.h"
+#include "content/public/tool_session.h"
 #include "ui/views/map/viewport/draw_host.h"
 
 #ifndef NOMINMAX
@@ -24,11 +24,11 @@ bool viewport_has_presented_frame(ui::views::DrawHost* pane) {
           ui::views::DrawHost::AttachMode::kContentMapView) {
     return false;
   }
-  content::MapContents* session = pane->map_contents();
+  content::GisContents* session = pane->gis_contents();
   if (!session || pane->view_id() == 0) {
     return false;
   }
-  content::MapWidgetHostView* view = session->HostView(pane->view_id());
+  content::WidgetHostView* view = session->HostView(pane->view_id());
   if (!view) {
     return false;
   }
@@ -41,12 +41,12 @@ bool try_open_china_sample(HarnessShell& browser, bool* city_pack) {
   if (city_pack) {
     *city_pack = false;
   }
-  content::MapScene* doc = browser.document();
+  content::GisScene* doc = browser.document();
   if (!doc) {
     return false;
   }
   // Only reuse an already-loaded China pack. edit_m0 clears seed data and
-  // leaves a small round-trip layer — that must not short-circuit reload.
+  // leaves a small round-trip layer 鈥?that must not short-circuit reload.
   if (doc->layer_count() > 0 && doc->feature_count() >= 3 &&
       doc->has_china_extent()) {
     if (city_pack && doc->layer_count() >= 3 && doc->feature_count() >= 200) {

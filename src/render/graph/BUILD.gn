@@ -11,10 +11,16 @@ source_set("graph_sources") {
   sources = [
     "frame_graph.cc",
     "frame_graph.h",
+    "shell_overlay_effect.cc",
+    "shell_overlay_effect.h",
   ]
   include_dirs += [ "//src" ]
   defines = [ "RENDER_EXPORTS" ]
-  deps = [ "//src/render:rhi_sources" ]
+  deps = [
+    "//src/render:programs_sources",
+    "//src/render:rhi_sources",
+    "//src/ui/gfx:gfx_headers",
+  ]
 }
 
 group("graph") {

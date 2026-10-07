@@ -7,7 +7,7 @@ import("//build/smartgis.gni")
 # style color, RGBA blit). Not Scenic rhi2d. Content painters stay the
 # schedulers and call these through thin wrappers.
 #
-# Linked by //src/content:map_present (GN-DEP on the content wrappers).
+# Linked by //src/content:gis_present (GN-DEP on the content wrappers).
 # Not a dep of //src/vista:vista in this slice — omit VISTA_EXPORTS so
 # vista::apply_multiply_coverage stays dllimport from vista.dll.
 # Do not also add this source_set to the vista DLL while map_present

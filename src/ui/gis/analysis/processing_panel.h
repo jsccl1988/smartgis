@@ -20,7 +20,7 @@ class ScrollView;
 class TableView;
 
 // Lists PluginHost processing operators and fires a run callback for the
-// selected id. Hosts wire MapScene write-back; this panel stays map-agnostic.
+// selected id. Hosts wire GisScene write-back; this panel stays map-agnostic.
 class UI_EXPORT ProcessingPanel : public View {
  public:
   struct Operator {

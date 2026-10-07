@@ -14,8 +14,8 @@
 
 #include "app/views/browser/commands/app_commands.h"
 #include "content/browser/session/browser_session.h"
-#include "content/public/map_contents.h"
-#include "content/public/view_host.h"
+#include "content/public/gis_contents.h"
+#include "content/public/tool_session.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/gis/catalog/catalog_view.h"
 #include "ui/gis/inspect/feature_info.h"
@@ -26,7 +26,7 @@
 namespace app {
 namespace detail {
 std::string json_escape(const std::string& text);
-void catalog_call(content::MapContents* session, const std::string& json);
+void catalog_call(content::GisContents* session, const std::string& json);
 std::string path_stem(const std::string& path);
 }  // namespace detail
 
@@ -37,7 +37,7 @@ bool Browser::run_tool_command(std::string_view command_id) {
   if (!ui_ || command_id.empty()) {
     return false;
   }
-  content::ViewHost* host = ui_->active_view_host();
+  content::ToolSession* host = ui_->active_tool_session();
   if (!host) {
     return false;
   }
@@ -67,8 +67,8 @@ bool Browser::run_tool_command(std::string_view command_id) {
   }
   if (id == "view.backend.rhi" || id == "view.backend.maplibre") {
     const uint32_t kind = (id == "view.backend.maplibre") ? 1u : 0u;
-    if (session_->map_contents()) {
-      session_->map_contents()->SetRenderBackend(kind);
+    if (session_->gis_contents()) {
+      session_->gis_contents()->SetRenderBackend(kind);
     }
     ui_->set_status_message(kind ? "Render: MapLibre (Track A)"
                             : "Render: RHI (Track B)");
@@ -168,8 +168,8 @@ void Browser::on_open() {
     return;
   }
   ui::views::DrawHost* pane = ui_->active_map();
-  content::MapContents* session =
-      pane && pane->map_contents() ? pane->map_contents() : session_->map_contents();
+  content::GisContents* session =
+      pane && pane->gis_contents() ? pane->gis_contents() : session_->gis_contents();
   if (session) {
     detail::catalog_call(session, std::string("{\"op\":\"open\",\"path\":\"") +
                                       detail::json_escape(cmd.path) + "\"}");
@@ -202,7 +202,7 @@ void Browser::on_open() {
         {{cmd.path, "", detail::path_stem(cmd.path), false}});
     ui_->catalog_view()->set_source_names({detail::path_stem(cmd.path)});
   }
-  if (content::ViewHost* host = ui_->active_view_host()) {
+  if (content::ToolSession* host = ui_->active_tool_session()) {
     const uint32_t view_id = pane ? pane->view_id() : 0;
     host->execute("view.refresh", view_id);
   }

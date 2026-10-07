@@ -22,7 +22,7 @@ class Engine;
 
 namespace content {
 
-class MapScene;
+class GisScene;
 class ViewFrame;
 
 namespace detail {
@@ -30,9 +30,9 @@ namespace detail {
 // True when a saved BMP is the Scenic ocean-clear key (no carto landed).
 bool map2d_bmp_is_ocean_clear(const char* path);
 
-// Hosts Scenic rhi2d (Renderer2d + scenic_rhi2d_{gdi,gdiplus,skia}) on a
-// map HWND. Product SoT when --map2d-engine=scenic; gis::Map is the paint
-// document. src/legacy is frozen and is not used here.
+// Opt-in Scenic rhi2d HWND host (--map2d-engine=scenic only).
+// Product map2d SoT is Vista MapPass + Map2dFrameCache; this host must not
+// construct devices or Map2dEngine on the default product path.
 class ScenicRhi2dHost {
  public:
   ScenicRhi2dHost();
@@ -50,18 +50,16 @@ class ScenicRhi2dHost {
                   const ViewFrame* frame);
 
   // Map2dEngine DrawItem path (--map2d-engine=scenic). Lives in this TU so
-  // Map2dPresenter does not include scenic/engine.h.
+  // Map2dPresenter does not include scenic/engine.h. No-op when scenic is off.
   void ensure_draw_engine();
   void shutdown_draw_engine();
   bool hosts_draw_engine() const;
   bool draw_engine_last_ok() const;
-  bool export_draw_engine_bmp(const MapScene* scene, const ViewFrame* frame,
+  bool export_draw_engine_bmp(const GisScene* scene, const ViewFrame* frame,
                               const std::string& path, int width_px,
                               int height_px);
 
   void shutdown();
-
- private:
 
  private:
   bool ensure_map();

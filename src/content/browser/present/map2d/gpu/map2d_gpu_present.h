@@ -25,7 +25,7 @@ class Device;
 
 namespace content {
 
-class MapScene;
+class GisScene;
 class ViewFrame;
 
 // Lightweight present-path counters for FPS self-evolve (reset per bench).
@@ -51,7 +51,7 @@ class Map2dGpuPresent {
   Map2dGpuPresent(const Map2dGpuPresent&) = delete;
   Map2dGpuPresent& operator=(const Map2dGpuPresent&) = delete;
 
-  void bind(const MapScene* scene, const ViewFrame* frame,
+  void bind(const GisScene* scene, const ViewFrame* frame,
             Map2dFrameCache* cache);
 
   // Drop Pass / overlay GPU state and invalidate shared frame cache.
@@ -69,8 +69,9 @@ class Map2dGpuPresent {
   bool last_present_drew() const { return last_present_drew_; }
   // After DXGI Resize/initialize the swapchain is clear — clear the skip latch
   // so the next present re-submits Pass (StaticReuse must not keep hollow).
-  // Keep last shell generation: overlay pixels are still staged on DrawHost;
-  // wiping them forced an extra full present after the mandatory redraw.
+  // Does not invalidate DrawCache / MapIR: hollow fill reuses uploaded buffers
+  // (kReuseIfCached). Keep last shell generation: overlay pixels stay staged
+  // on DrawHost; wiping them forced an extra full present after redraw.
   void note_surface_reset() {
     last_present_ok_ = false;
     last_present_drew_ = false;
@@ -85,7 +86,7 @@ class Map2dGpuPresent {
                      const ui::gfx::ShellRaster* shell,
                      uint64_t shell_generation);
 
-  const MapScene* scene_ = nullptr;
+  const GisScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
   Map2dFrameCache* cache_ = nullptr;
   std::unique_ptr<vista::MapPass> map2d_pass_;

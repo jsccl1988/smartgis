@@ -7,14 +7,13 @@
 #include <windows.h>
 #include <shellapi.h>
 
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/app/content_main.h"
-#include "content/embed/embed_sample.h"
 #include "content/public/event_bus.h"
-#include "content/public/map_contents.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/view_host.h"
+#include "content/public/gis_contents.h"
+#include "content/public/types.h"
+#include "content/public/tool_session.h"
 #include "content/renderer/renderer_main.h"
 #include "gis/edit/memory_session.h"
 #include "gis/style/document/style_document.h"
@@ -58,7 +57,7 @@ int scenario_milestones(HarnessShell& browser) {
   std::string err;
   if (!browser.run_m2_harness_hooks(&err)) {
     std::fprintf(stderr, "M2 self-test failed: %s\n", err.c_str());
-    browser.detach_maps();
+    browser.detach_views();
     if (err.find("clip") != std::string::npos) {
       return 82;
     }
@@ -79,7 +78,7 @@ int scenario_milestones(HarnessShell& browser) {
   std::string err;
   if (!browser.scene3d()->atmosphere_session().run_m3_self_test_hooks(&err)) {
     std::fprintf(stderr, "M3 self-test failed: %s\n", err.c_str());
-    browser.detach_maps();
+    browser.detach_views();
     if (err == "m3-dem-ok") {
       return 90;
     }
@@ -93,8 +92,9 @@ int scenario_milestones(HarnessShell& browser) {
   browser.mark("m3-atmosphere-ok");
 }
 
-// M4: optimistic edit conflict + content:: embed open path.
+// M4: optimistic edit conflict (exit 100 on failure).
 {
+  constexpr int k_exit_edit_conflict = 100;
   content::FeatureId fid{};
   fid.len = 1;
   fid.bytes[0] = 42;
@@ -111,27 +111,18 @@ int scenario_milestones(HarnessShell& browser) {
       client_b.commit(write) ||
       client_b.last_status() != gis::CommitStatus::kConflict) {
     std::fprintf(stderr, "M4 conflict self-test failed\n");
-    browser.detach_maps();
-    return content::kExitEditConflict;
+    browser.detach_views();
+    return k_exit_edit_conflict;
   }
   browser.mark("m4-conflict-ok");
-
-  content::EmbedMapHost embed;
-  if (!content::open_map_host_path(&embed, "map://self-test") ||
-      embed.path != "map://self-test") {
-    std::fprintf(stderr, "M4 embed self-test failed\n");
-    browser.detach_maps();
-    return content::kExitEmbedOpenFailed;
-  }
-  browser.mark("m4-embed-ok");
 }
 
 browser.mark("pass");
-// Do not stop timers or detach here. stop_map_present_timers drains WM_TIMER
+// Do not stop timers or detach here. stop_present_timers drains WM_TIMER
 // via PeekMessage and can re-enter ContentMapView present under Debug CRT;
 // that races exit_after_scenario's TerminateProcess and surfaces as
 // exit 0xFFFFFFFF after green marks (same class as browse.3d / ui_showcase).
-// TerminateProcess skips orderly HWND teardown â€?leave timers alone.
+// TerminateProcess skips orderly HWND teardown ï¿½?leave timers alone.
 browser.mark("detached");
 return 0;
 }

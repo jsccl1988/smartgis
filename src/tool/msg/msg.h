@@ -8,7 +8,7 @@ namespace tool {
 
 class Workspace;
 
-// GT_MSG_CMD_* values from the leftover IATool bus. Product ViewHost and
+// GT_MSG_CMD_* values from the leftover IATool bus. Product ToolSession and
 // leftover AuxModule menus still post these longs.
 enum : long {
   kGtMsgViewZoomIn = 0x3002,

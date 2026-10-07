@@ -38,14 +38,14 @@ int run_orthogrid3d(HarnessShell& browser) {
 
   if (!browser.plugin_host()) {
     plugin_mark("plugins-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
   wchar_t vts_w[MAX_PATH] = {};
   if (!browser.capture_path(vts_w, MAX_PATH, L"plugin-showcase-orthogrid3d.vts")) {
     plugin_mark("vts-path-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   char vts_utf8[MAX_PATH * 3] = {};
@@ -53,7 +53,7 @@ int run_orthogrid3d(HarnessShell& browser) {
                           static_cast<int>(sizeof(vts_utf8)), nullptr,
                           nullptr) <= 0) {
     plugin_mark("vts-path-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   plugin_mark("sample-ok");
@@ -76,7 +76,7 @@ int run_orthogrid3d(HarnessShell& browser) {
   PluginDeviceSession session;
   if (const int rc = prepare_plugin_device_session(browser, opts, &session)) {
     destroy_plugin_owned_hwnd(&session);
-    browser.detach_maps();
+    browser.detach_views();
     return rc;
   }
 
@@ -85,7 +85,7 @@ int run_orthogrid3d(HarnessShell& browser) {
   if (!cam || !orbit) {
     teardown_plugin_device_session(cam, &session,
                                    PluginTeardownOpts{.shutdown_device = true});
-    browser.detach_maps();
+    browser.detach_views();
     return 50;
   }
 
@@ -103,7 +103,7 @@ int run_orthogrid3d(HarnessShell& browser) {
     plugin_mark("orthogrid3d-run-fail");
     teardown_plugin_device_session(cam, &session,
                                    PluginTeardownOpts{.shutdown_device = true});
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   plugin_mark("orthogrid3d-ok");

@@ -9,7 +9,7 @@
 #include <string>
 
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "content/public/plugin_host.h"
 #include "plugin/product/world3d/scenario/capture/map2d_export.h"
 #include "plugin/runtime/host/capability/marks.h"
@@ -24,7 +24,7 @@ int run_traffic(HarnessShell& browser) {
   browser.mark_named(plugin::kMarkPlugin, "traffic", /*truncate=*/true);
   plugin_mark("hwnd-ok");
 
-  browser.select_map_tab(0);
+  browser.select_view_tab(0);
   browser.pump(200);
 
   char net_path[MAX_PATH * 3] = {};
@@ -32,7 +32,7 @@ int run_traffic(HarnessShell& browser) {
                            L"data\\plugin\\traffic_network_sample.geojson"};
   if (!resolve_rel_under_exe(rels, 2, net_path, sizeof(net_path))) {
     plugin_mark("traffic-sample-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   plugin_mark("sample-ok");
@@ -41,7 +41,7 @@ int run_traffic(HarnessShell& browser) {
   if (!browser.capture_path(out_w, MAX_PATH,
                             L"plugin-showcase-traffic-path.geojson")) {
     plugin_mark("traffic-out-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   char out_path[MAX_PATH * 3] = {};
@@ -49,13 +49,13 @@ int run_traffic(HarnessShell& browser) {
                           static_cast<int>(sizeof(out_path)), nullptr,
                           nullptr) <= 0) {
     plugin_mark("traffic-out-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
   if (!browser.plugin_host()) {
     plugin_mark("plugins-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
@@ -71,7 +71,7 @@ int run_traffic(HarnessShell& browser) {
   if (!run_processing_flushed(browser.plugin_host(), "traffic.cost_path",
                               args)) {
     plugin_mark("traffic-run-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   plugin_mark("traffic-ok");
@@ -96,11 +96,11 @@ int run_traffic(HarnessShell& browser) {
   plugin_mark("playback-ok");
 
   if (!bmp_ok) {
-    browser.detach_maps();
+    browser.detach_views();
     return 54;
   }
   plugin_mark("pass");
-  browser.detach_maps();
+  browser.detach_views();
   std::fprintf(stderr, "plugin-showcase: PASS mode=traffic (Map2d)\n");
   return 0;
 }

@@ -136,7 +136,7 @@ src/ui/
 ```
 SmartGisViews.exe (src/app/views)
   → ui::views (src/ui/views)
-  → content::ViewHost / MapContents
+  → content::ViewHost / GisContents
   → tool::Workspace / CommandCatalog
   → sdb / render (endgame)
   ✗ 不 deps legacy_ui / legacy_app

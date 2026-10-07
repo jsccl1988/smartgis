@@ -11,7 +11,7 @@ All rights reserved.
 
 **Architecture:** Approach C from plugin-host §product sample + visualization — Browser writers + `testing/data/plugin/` fixtures + interact suites. `model3d` folds into `world3d`; orthogrid/print keep their trees.
 
-**Tech Stack:** GN/Ninja (`build.bat debug`), Views shell `SmartGIS.exe`, interact DSL, `MapScene::add_triangle_layer`, plugin ProcessingPool.
+**Tech Stack:** GN/Ninja (`build.bat debug`), Views shell `SmartGIS.exe`, interact DSL, `GisScene::add_triangle_layer`, plugin ProcessingPool.
 
 **Spec:** [`../specs/2026-09-13-plugin-host-design.md`](../specs/2026-09-13-plugin-host-design.md) §product sample + visualization
 
@@ -80,7 +80,7 @@ All rights reserved.
 
 **Files:**
 - Create: `testing/tools/harness/plugin/plugin.print/plugin.print.il`, `plugin.orthogrid.il` (+ suites)
-- Modify: orthogrid processing to commit mesh to `MapScene` (writer or document seam) if not already
+- Modify: orthogrid processing to commit mesh to `GisScene` (writer or document seam) if not already
 - Modify: print preview to bind current map content (verify MapPreviewView feed)
 
 - [x] Step 1: print suite — seed china map → `print.preview` → mark/BMP

@@ -13,7 +13,7 @@ namespace content {
 
 // Callback bag for shared harness / DebugAgent scenario verbs.
 // Four orthogonal objects. Each lane only fills its own member.
-//   document — GisDocument + opened MapScene store verbs
+//   document — GisDocument + opened GisScene store verbs
 //   view     — any ViewKind: present, edit input, tools, load facts
 //   plugin   — PluginHost commands, processing, playback, reports
 //   horizon  — shell tabs, HWND inject, marks, UI gates

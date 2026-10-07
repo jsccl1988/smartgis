@@ -32,8 +32,8 @@ All rights reserved.
 
 ## 3. 二维改走 present
 
-- [x] `MapScene::present_gpu` 仍先 `Layout::build`，然后 `ViewInput` 只填宽高、视图范围的正交 `camera`，以及一个 `record_all` 的 `MapEffect`。没有 `scene` 指针。
-- [ ] 人跑：`build.bat map_scene_test` 与 `build.bat map2d_pass_test`
+- [x] `GisScene::present_gpu` 仍先 `Layout::build`，然后 `ViewInput` 只填宽高、视图范围的正交 `camera`，以及一个 `record_all` 的 `MapEffect`。没有 `scene` 指针。
+- [ ] 人跑：`build.bat gis_scene_test` 与 `build.bat map2d_pass_test`
 
 ## 4. 地图世界网格与屏幕注记分开录
 
@@ -65,7 +65,7 @@ All rights reserved.
 - [x] `src/render/atmosphere/frame/atmosphere_effects.h/.cc`：`PreOpaqueEffect`、`PostOpaqueEffect`、`AtmosphereEffects`。`clears_color` / `uses_shared_depth` 转给 `AtmosphereFrame`。编进 `atmosphere_sources`，该目标依赖 `graph_sources`。
 - [x] `frame_graph_test` 覆盖空效果、null device、零宽，以及四槽各录一次。见第 8 节。
 - [x] `Pass` 注释：`kPerspective` 不在 gis / `Pass` 里发明透视矩阵；用宿主传入的相机。
-- [ ] 人跑：`build.bat frame_graph_test`、`build.bat map2d_pass_test`、`build.bat scene3d_controller_test`、`build.bat map_scene_test`
+- [ ] 人跑：`build.bat frame_graph_test`、`build.bat map2d_pass_test`、`build.bat scene3d_controller_test`、`build.bat gis_scene_test`
 
 ## 8. present 只走一条 Effect 列表
 
@@ -76,10 +76,10 @@ All rights reserved.
 - [x] `color_op` 从 `kClear` 开始；任一 `clears_color()` 为 true 的效果之后改为 `kLoad`。任一 `uses_shared_depth()` 之后 `shared_depth` 为 true。效果不 `execute` / `present`。`present` 关闭一次命令列表。
 - [x] `effects` 为空时仍 Clear 一次。null device 或零宽返回 false。
 - [x] `OpaqueEffect` 在 `src/render/scene/opaque_effect.h`（`render::scene`，槽 `kOpaque`）。`MapEffect` 在 `src/render/map2d/map_effect.h`（`render::map2d`）。两者编进 `scene_sources` / `map2d_sources`，并依赖 `graph_sources`。`graph_sources` 不再编译 `GpuScene` 或 map2d 的 cpp。
-- [x] `MapScene::present_gpu` 只放相机、尺寸和一个 `record_all` 的 `MapEffect`。`Scene3dController::present_gpu` 推前段效果、`OpaqueEffect`、后段效果。`kNull` 相机仍为空。
+- [x] `GisScene::present_gpu` 只放相机、尺寸和一个 `record_all` 的 `MapEffect`。`Scene3dController::present_gpu` 推前段效果、`OpaqueEffect`、后段效果。`kNull` 相机仍为空。
 - [x] `ViewInput` 只剩 `width_px`、`height_px`、`camera`、`effects`。
 - [x] `frame_graph_test`：空效果为 true；null device 为 false；零宽为 false；四槽各调用一次，且前段 `clears_color()` 为 true 时后面的效果观察到 `ColorLoadOp::kLoad`；`MapEffect` `record_all` 加正交相机为 true；空 `GpuScene` 的 `OpaqueEffect` 为 true。
-- [ ] 人跑：`build.bat frame_graph_test`、`build.bat map2d_pass_test`、`build.bat scene3d_controller_test`、`build.bat map_scene_test`
+- [ ] 人跑：`build.bat frame_graph_test`、`build.bat map2d_pass_test`、`build.bat scene3d_controller_test`、`build.bat gis_scene_test`
 
 ## 9. Move map and atmosphere GPU passes to src/effect
 
@@ -128,7 +128,7 @@ build.bat ocean_pass_test
 build.bat sky_pass_test
 build.bat fog_pass_test
 build.bat scene3d_controller_test
-build.bat map_scene_test
+build.bat gis_scene_test
 ```
 
 ### Include（必须改）
@@ -137,8 +137,8 @@ build.bat map_scene_test
 
 | 旧 include | 文件 |
 | --- | --- |
-| `render/map2d/map_effect.h` | `src/render/map2d/map_effect.cc`，`src/content/browser/document/map_scene.cc`，`src/render/graph/frame_graph_test.cc` |
-| `render/map2d/pass.h` | `map_effect.cc`，`pass.cc`，`glyph_windows.cc`，`detail/atlas.cc`，`pass_test.cc`，`map_scene.cc`，`frame_graph_test.cc` |
+| `render/map2d/map_effect.h` | `src/render/map2d/map_effect.cc`，`src/content/browser/document/gis_scene.cc`，`src/render/graph/frame_graph_test.cc` |
+| `render/map2d/pass.h` | `map_effect.cc`，`pass.cc`，`glyph_windows.cc`，`detail/atlas.cc`，`pass_test.cc`，`gis_scene.cc`，`frame_graph_test.cc` |
 | `render/map2d/detail/atlas.h` | `pass.cc`，`detail/atlas.cc`，`detail/upload.h` |
 | `render/map2d/detail/encode.h` | `pass.cc`，`detail/encode.cc` |
 | `render/map2d/detail/place.h` | `pass.cc`，`detail/place.cc`，`detail/atlas.h`，`pass_test.cc` |
@@ -168,14 +168,14 @@ build.bat map_scene_test
 
 `src/render/graph/frame_graph.h`、`frame_graph.cc` 没有 map / atmosphere include。不要加。
 
-`map_scene.h` 没有 include，只有前向声明 `render::map2d::Pass`，改成 `vista::Pass`。
+`gis_scene.h` 没有 include，只有前向声明 `render::map2d::Pass`，改成 `vista::Pass`。
 
 下面这些不是 include，但字符串要改，否则还指向旧命名空间：
 
 | 位置 | 今天 |
 | --- | --- |
-| `map_scene.cc` | `render::map2d::WindowsGlyphRasterizer`、`Pass`、`MapEffect` |
-| `map_scene.h` | `namespace render { namespace map2d { class Pass;` |
+| `gis_scene.cc` | `render::map2d::WindowsGlyphRasterizer`、`Pass`、`MapEffect` |
+| `gis_scene.h` | `namespace render { namespace map2d { class Pass;` |
 | `frame_graph_test.cc` | `render::map2d::Pass`、`MapEffect` |
 | `pass_test.cc` | `render::map2d::GlyphRasterizer`、`detail::PlacedMesh`、`detail::place_frame`、`Pass` |
 | `scene3d_controller.h` | `render::atmosphere::OceanPass`、`CloudPass`、`SkyPass`、`FogPass`、`AtmosphereFrame` |
@@ -213,8 +213,8 @@ build.bat map_scene_test
 
 | 文件 | 今天 | 改成 |
 | --- | --- | --- |
-| `src/app/views/BUILD.gn` `map_scene` | `//src/render/map2d:map2d` | `//src/vista/component/map:map_sources` |
-| `src/app/views/BUILD.gn` `map_scene_test` | `//src/render/map2d:map2d` | `//src/vista/component/map:map_sources` |
+| `src/app/views/BUILD.gn` `gis_scene` | `//src/render/map2d:map2d` | `//src/vista/component/map:map_sources` |
+| `src/app/views/BUILD.gn` `gis_scene_test` | `//src/render/map2d:map2d` | `//src/vista/component/map:map_sources` |
 | `src/app/views/BUILD.gn` `scene3d_controller` | 无直接 atmosphere 标签（符号来自 DLL） | 增加 `//src/vista/component/world:atmosphere_sources` |
 | `src/app/views/BUILD.gn` `scene3d_controller_test` | 无 | 增加 `//src/vista/component/world:atmosphere_sources` |
 | `src/render/graph/BUILD.gn` `frame_graph_test` | `:graph`、`//src/gis:gis`、`//third_party:gdal` | 保持，并增加 `//src/vista/component/map:map_sources`。不要加 atmosphere |
@@ -274,7 +274,7 @@ build.bat scene_gpu_test
 - [x] Include：`"vista/component/world/atmosphere/"` → `"vista/domain/atmosphere/"`。GN：`//src/vista/component/world:` → `//src/vista/domain/atmosphere:`（独立 `domain/atmosphere/BUILD.gn`）。`domain.h` 仍在 `vista/domain/domain.h`。
 - [x] 命名空间：不要引入第三层 `gis::vista::atmosphere`。现有 `gis::atmosphere`（`Environment` 等）可保持；本步不改类名。
 - [x] `src/gis/BUILD.gn` 文件头改成 `vista/{frame,world,assets,domain}`，并写明 `domain/atmosphere` 是唯一已实现的 `DomainKind` 会话包；`frame` = CPU `MapFrame`；`world` = `gis::World` 节点图。
-- [ ] 人跑：`build.bat frame_test`、`build.bat world_test`、`build.bat environment_test`，以及 `scene3d_controller_test` / `map_scene_test` / `scene_gpu_test`（由人执行；代理不编译）。
+- [ ] 人跑：`build.bat frame_test`、`build.bat world_test`、`build.bat environment_test`，以及 `scene3d_controller_test` / `gis_scene_test` / `scene_gpu_test`（由人执行；代理不编译）。
 
 ### 11a 考古：当时 include / GN 表
 

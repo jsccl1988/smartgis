@@ -6,7 +6,7 @@
 
 #include "app/views/il.runtime/frontend/ast.h"
 #include "content/browser/capability/host.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 
 namespace app {
 namespace detail {

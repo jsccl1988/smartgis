@@ -90,7 +90,7 @@ All rights reserved.
   <header class="hero">
     <h1>Content public embedder — 产品只含公开面</h1>
     <p>
-      产品（今天 <code>app/views</code>，以及未来 exe）只实现 <code>ContentClient</code> 并包含
+      产品（今天 <code>app/views</code>，以及未来 exe）只实现 <code>GisContentsClient</code> 并包含
       <code>content/public</code> 的七个既有头。<code>content</code> 不依赖 <code>src/app</code> 或
       <code>ui/views</code>。插件只经 <code>PluginHost</code> 进入，不走第二条嵌入轴。
     </p>
@@ -112,17 +112,17 @@ All rights reserved.
         <ul>
           <li>今天：<code>app/views</code>（SmartGIS.exe）</li>
           <li>未来：另一套壳的 exe，不包含 <code>app/views</code></li>
-          <li>实现 <code>ContentClient</code>（仅浏览器进程钩子）</li>
+          <li>实现 <code>GisContentsClient</code>（仅浏览器进程钩子）</li>
           <li>运行时调用七个头，不包含实现目录</li>
         </ul>
       </div>
       <div class="lane public">
         <h3>content/public · 唯一嵌入 API</h3>
         <ul>
-          <li><code>ContentClient</code> + <code>content_main(params, ContentClient&amp;)</code></li>
-          <li><code>MapContents</code> · <code>GisDocument</code> · <code>ViewHost</code></li>
-          <li><code>PluginHost</code> · <code>EventBus</code> · <code>map_layer_types</code> · <code>map_bootstrap</code></li>
-          <li>七个既有头签名不动；新增只这一份 client 头</li>
+          <li><code>GisContentsClient</code> + <code>content_main(params, GisContentsClient&amp;)</code></li>
+          <li><code>GisContents</code> · <code>GisDocument</code> · <code>ToolSession</code></li>
+          <li><code>PluginHost</code> · <code>EventBus</code> · <code>types</code>（无 map_bootstrap）</li>
+          <li>公开头：抽象 <code>GisDocument</code>；具体适配器在 browser/</li>
         </ul>
       </div>
       <div class="lane impl">
@@ -170,7 +170,7 @@ All rights reserved.
       </g>
       <g id="n-client-impl" class="node">
         <rect x="32" y="180" width="218" height="64" rx="6" fill="#fff" stroke="#1d4f86"/>
-        <text x="44" y="202" class="box-title">实现 ContentClient</text>
+        <text x="44" y="202" class="box-title">实现 GisContentsClient</text>
         <text x="44" y="220" class="box-sub">只提供 browser_main</text>
         <text x="44" y="236" class="box-sub">产品在此等待</text>
       </g>
@@ -178,26 +178,26 @@ All rights reserved.
         <rect x="32" y="390" width="218" height="64" rx="6" fill="#fff" stroke="#8a6232"/>
         <text x="44" y="414" class="box-title">plugin/product</text>
         <text x="44" y="432" class="box-sub">进程内插件，不是新产品</text>
-        <text x="44" y="448" class="box-sub">不实现 ContentClient</text>
+        <text x="44" y="448" class="box-sub">不实现 GisContentsClient</text>
       </g>
 
       <g id="n-main" class="node">
         <rect x="406" y="58" width="218" height="52" rx="6" fill="#fff" stroke="#2563a8"/>
         <text x="418" y="78" class="box-title">content_main</text>
-        <text x="418" y="96" class="box-sub">params, ContentClient&amp;</text>
+        <text x="418" y="96" class="box-sub">params, GisContentsClient&amp;</text>
       </g>
       <g id="n-client" class="node">
         <rect x="406" y="124" width="218" height="52" rx="6" fill="#fff" stroke="#1d4f86"/>
-        <text x="418" y="144" class="box-title">ContentClient</text>
+        <text x="418" y="144" class="box-title">GisContentsClient</text>
         <text x="418" y="162" class="box-sub">浏览器进程钩子</text>
       </g>
       <g id="n-seven" class="node">
         <rect x="406" y="190" width="218" height="118" rx="6" fill="#fff" stroke="#2563a8"/>
         <text x="418" y="210" class="box-title">七个既有头</text>
-        <text x="418" y="228" class="box-sub">MapContents · GisDocument</text>
-        <text x="418" y="244" class="box-sub">ViewHost · PluginHost</text>
-        <text x="418" y="260" class="box-sub">EventBus · map_layer_types</text>
-        <text x="418" y="276" class="box-sub">map_bootstrap</text>
+        <text x="418" y="228" class="box-sub">GisContents · GisDocument</text>
+        <text x="418" y="244" class="box-sub">ToolSession · PluginHost</text>
+        <text x="418" y="260" class="box-sub">EventBus · types</text>
+        <text x="418" y="276" class="box-sub">content_client</text>
         <text x="418" y="294" class="box-sub">签名不变</text>
       </g>
       <g id="n-pluginhost" class="node">
@@ -209,7 +209,7 @@ All rights reserved.
       <g id="n-browser" class="node">
         <rect x="790" y="58" width="218" height="52" rx="6" fill="#fff" stroke="#2f7d62"/>
         <text x="802" y="78" class="box-title">browser 回调</text>
-        <text x="802" y="96" class="box-sub">调用 ContentClient</text>
+        <text x="802" y="96" class="box-sub">调用 GisContentsClient</text>
       </g>
       <g id="n-dispatch" class="node">
         <rect x="790" y="124" width="218" height="72" rx="6" fill="#fff" stroke="#8b3a3a"/>
@@ -244,7 +244,7 @@ All rights reserved.
     </svg>
     <p class="stage-note" id="stage-note">
       <span class="pill pill-wait">等待</span>
-      产品调用 <code>content_main</code>，然后停在 <code>ContentClient::browser_main</code>。
+      产品调用 <code>content_main</code>，然后停在 <code>GisContentsClient::browser_main</code>。
     </p>
     <div class="controls">
       <button type="button" id="b-wait" class="on">1 产品等待</button>
@@ -263,7 +263,7 @@ All rights reserved.
       <tbody>
         <tr>
           <td>1</td>
-          <td>产品 → <code>content_main(params, ContentClient&amp;)</code></td>
+          <td>产品 → <code>content_main(params, GisContentsClient&amp;)</code></td>
           <td>产品停在浏览器进程钩子，直到浏览器循环返回</td>
           <td>产品不进入 <code>content/renderer</code> 或 gpu 入口</td>
         </tr>
@@ -271,13 +271,13 @@ All rights reserved.
           <td>2</td>
           <td>content 读 <code>--type</code>，在实现内部调用 <code>RendererMain</code> / <code>GpuMain</code></td>
           <td>浏览器进程以外，产品客户端不被调用</td>
-          <td>renderer / gpu <strong>永不 join</strong> 产品。<code>ContentClient</code> 不声明这两个入口</td>
+          <td>renderer / gpu <strong>永不 join</strong> 产品。<code>GisContentsClient</code> 不声明这两个入口</td>
         </tr>
         <tr>
           <td>3</td>
           <td><code>plugin/product</code> → <code>PluginHost</code></td>
           <td>插件命令走宿主回调，不阻塞 <code>content_main</code> 的进程分发</td>
-          <td>插件 <strong>不 join</strong> <code>ContentClient</code> 轴，也不变成第二个 exe 壳</td>
+          <td>插件 <strong>不 join</strong> <code>GisContentsClient</code> 轴，也不变成第二个 exe 壳</td>
         </tr>
       </tbody>
     </table>
@@ -292,9 +292,9 @@ All rights reserved.
 (function () {
   var stages = ["wait", "dispatch", "plugin"];
   var notes = {
-    wait: "<span class=\"pill pill-wait\">等待</span> 产品调用 <code>content_main</code>，然后停在 <code>ContentClient::browser_main</code>。renderer / gpu 这一拍不参与。",
-    dispatch: "<span class=\"pill pill-stop\">永不 join</span> <code>--type=renderer|gpu</code> 在 content 内部分发。<code>ContentClient</code> 不被调用，产品头不包含 <code>content/renderer</code>。",
-    plugin: "<span class=\"pill pill-plugin\">另一条轴</span> 插件只进入 <code>PluginHost</code>。它们不实现 <code>ContentClient</code>，也不等待 <code>content_main</code>。"
+    wait: "<span class=\"pill pill-wait\">等待</span> 产品调用 <code>content_main</code>，然后停在 <code>GisContentsClient::browser_main</code>。renderer / gpu 这一拍不参与。",
+    dispatch: "<span class=\"pill pill-stop\">永不 join</span> <code>--type=renderer|gpu</code> 在 content 内部分发。<code>GisContentsClient</code> 不被调用，产品头不包含 <code>content/renderer</code>。",
+    plugin: "<span class=\"pill pill-plugin\">另一条轴</span> 插件只进入 <code>PluginHost</code>。它们不实现 <code>GisContentsClient</code>，也不等待 <code>content_main</code>。"
   };
   var highlight = {
     wait: ["n-views", "n-future", "n-client-impl", "n-main", "n-client", "n-browser", "e-call", "e-hook"],

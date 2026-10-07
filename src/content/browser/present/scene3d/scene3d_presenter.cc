@@ -4,9 +4,9 @@
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
-#include "content/public/map_contents.h"
+#include "content/public/gis_contents.h"
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
 
@@ -23,12 +23,13 @@ Scene3dPresenter::Ptr Scene3dPresenter::create() {
 }
 
 Scene3dPresenter::Scene3dPresenter() {
+  atmosphere_ = AtmosphereSession::create();
   if (const char* env = base::switch_cstr("scene3d-wireframe")) {
     if (env[0] == '1' && env[1] == '\0') {
       gpu_.set_wireframe_enabled(true);
     }
   }
-  atmosphere_.bind_gpu(&gpu_);
+  atmosphere_->bind_gpu(&gpu_);
   rebind_software();
   if (scenic_host_.ensure()) {
     gpu_.render_engine_name = "scenic";
@@ -61,13 +62,15 @@ bool Scene3dPresenter::has_legacy_coast_vectors() const {
 
 Scene3dPresenter::~Scene3dPresenter() {
   software_.release_engine_logo_overlay();
-  atmosphere_.release_passes();
-  gpu_.abandon(&atmosphere_);
+  if (atmosphere_) {
+    atmosphere_->release_passes();
+    gpu_.abandon(atmosphere_.get());
+  }
 }
 
 void Scene3dPresenter::rebind_software() {
-  software_.bind(&gpu_, &atmosphere_, gpu_.orbit(), atmosphere_.scene(),
-                 label_frame_);
+  software_.bind(&gpu_, atmosphere_.get(), gpu_.orbit(),
+                 atmosphere_ ? atmosphere_->scene() : nullptr, label_frame_);
   software_.set_hosts_shared_scene(hosts_shared_scene());
 }
 
@@ -81,14 +84,16 @@ void Scene3dPresenter::bind_label_frame(const ViewFrame* frame) {
   rebind_software();
 }
 
-void Scene3dPresenter::bind_map(const MapScene* scene) {
-  map_scene_ = scene;
-  atmosphere_.bind_scene(scene);
-  gpu_.bind_map(scene);
+void Scene3dPresenter::bind_scene(const GisScene* scene) {
+  gis_scene_ = scene;
+  if (atmosphere_) {
+    atmosphere_->bind_scene(scene);
+  }
+  gpu_.bind_scene(scene);
   rebind_software();
 }
 
-void Scene3dPresenter::bind_contents(MapContents* session, uint32_t view_id) {
+void Scene3dPresenter::bind_contents(GisContents* session, uint32_t view_id) {
   contents_ = session;
   view_id_ = view_id;
   software_.set_hosts_shared_scene(hosts_shared_scene());
@@ -103,7 +108,7 @@ Extent2 Scene3dPresenter::world_extent() const {
 }
 
 void Scene3dPresenter::abandon_mesh() {
-  gpu_.abandon(&atmosphere_);
+  gpu_.abandon(atmosphere_.get());
 }
 
 void Scene3dPresenter::set_overlay_pointcloud(const float* xyz_lon_lat_elev,
@@ -201,11 +206,11 @@ bool Scene3dPresenter::present_gpu(render::rhi::Device* device,
     (void)device;
     (void)shell;
     (void)shell_generation;
-    return scenic_host_.present(width_px, height_px, gpu_.orbit(), map_scene_,
+    return scenic_host_.present(width_px, height_px, gpu_.orbit(), gis_scene_,
                                 label_frame_);
   }
   return gpu_.present(device, width_px, height_px, shell, shell_generation,
-                      atmosphere_);
+                      *atmosphere_);
 }
 
 void Scene3dPresenter::paint(HDC hdc, int width_px, int height_px,
@@ -215,7 +220,7 @@ void Scene3dPresenter::paint(HDC hdc, int width_px, int height_px,
   // HWND path is the one that must present the hosted engine. Software DEM
   // remains the fallback when scenic.dll did not load.
   if (scenic_host_.paint_hdc(hdc, width_px, height_px, gpu_.orbit(),
-                             map_scene_, label_frame_)) {
+                             gis_scene_, label_frame_)) {
     gpu_.render_engine_name = "scenic";
     return;
   }
@@ -228,7 +233,7 @@ void Scene3dPresenter::paint(HDC hdc, int width_px, int height_px,
 bool Scene3dPresenter::export_bmp(const std::string& path, int width_px,
                                   int height_px) const {
   return scenic_host_.export_bmp(path, width_px, height_px, gpu_.orbit(),
-                                 map_scene_, label_frame_);
+                                 gis_scene_, label_frame_);
 }
 
 void Scene3dPresenter::paint_hud(HDC hdc, int width_px, int height_px) const {

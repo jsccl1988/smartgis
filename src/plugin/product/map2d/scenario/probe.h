@@ -17,7 +17,7 @@ namespace plugin {
 bool viewport_has_presented_frame(ui::views::DrawHost* pane);
 
 // Resolve + canonicalize out/data china sample under the exe dir, then
-// MapScene::open_path. |city_pack| is set when the chosen file is china_city.
+// GisScene::open_path. |city_pack| is set when the chosen file is china_city.
 bool try_open_china_sample(HarnessShell& browser, bool* city_pack = nullptr);
 
 }  // namespace plugin

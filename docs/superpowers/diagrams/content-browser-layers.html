@@ -81,7 +81,7 @@ All rights reserved.
   <header class="hero">
     <h1>content/browser — 责任层与子目录</h1>
     <p>Chromium-style content 层：嵌入方只含 <code>public/</code>。C10 已按职责拆目录；
-      <strong>C11 收紧</strong>薄同级（并入 <code>contents/</code> + <code>session/</code>，拍平 <code>document/</code>）。
+      <strong>C11 收紧</strong>薄同级（并入 <code>contents/</code> + <code>session/</code>；<code>document/</code> 根=场景核，子目录=store/edit/…）。
       <code>content.dll</code> 不含重 present/GDI；Views 另链 <code>:browser_session</code>。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Content sink</a>
@@ -104,7 +104,7 @@ All rights reserved.
       <div class="lane pub">
         <h3>public/（锁定嵌入面）</h3>
         <ul>
-          <li>9 个头：MapContents / observer / types / EventBus / ViewHost / PluginHost / catalog / attrs / bootstrap</li>
+          <li>9 个头：GisContents / observer / types / EventBus / ToolSession / PluginHost / catalog / attrs / bootstrap</li>
           <li>不拥有：present、GDI、BrowserSession</li>
           <li>物理路径不随 browser 子目录移动</li>
         </ul>
@@ -112,16 +112,16 @@ All rights reserved.
       <div class="lane dll">
         <h3>content.dll TUs</h3>
         <ul>
-          <li>C11：全部进 <code>contents/</code>（MapContents + bootstrap/catalog/attrs/plugin 实现）</li>
-          <li>C10 过渡目录 <code>bootstrap/</code> <code>catalog/</code> <code>attrs/</code> <code>plugin/</code> 删除</li>
+          <li>C11：<code>contents/</code>（GisContents + bootstrap/catalog/plugin_host；attrs→gis）</li>
+          <li>C10 薄目录 <code>bootstrap/</code> <code>catalog/</code> <code>attrs/</code> <code>plugin/</code> <code>input/</code> 已删</li>
           <li>例外：<code>present/scene3d/session/scene3d_rhi_session</code>（CONTENT_EXPORT）</li>
         </ul>
       </div>
       <div class="lane sess">
         <h3>:browser_session（Views/exe）</h3>
         <ul>
-          <li><code>session/</code> 拥有 document/camera/present + 手势 + MapContents*</li>
-          <li><code>document/</code> MapScene（C11：helpers 平铺，无 store/ingest/… 子目录）</li>
+          <li><code>session/</code> 拥有 document/camera/present + 手势 + GisContents*</li>
+          <li><code>document/</code> 根 map_scene+gis_document；store/edit/ingest/query/style</li>
           <li><code>camera/</code> 2D 视口 + 3D 轨道</li>
           <li>C11：<code>input/</code> 并入 <code>session/</code></li>
         </ul>
@@ -159,7 +159,7 @@ All rights reserved.
 
       <rect x="268" y="128" width="120" height="70" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
       <text class="box-title" x="278" y="150">document/</text>
-      <text class="box-sub" x="278" y="170">MapScene</text>
+      <text class="box-sub" x="278" y="170">GisScene</text>
 
       <rect x="398" y="128" width="120" height="70" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
       <text class="box-title" x="408" y="150">camera/</text>
@@ -192,9 +192,9 @@ All rights reserved.
       <line x1="913" y1="110" x2="913" y2="128" stroke="#8a96a8" stroke-width="1.4" marker-end="url(#ah)"/>
 
       <text class="box-sub" x="16" y="250">硬墙：present ↛ shell；render ↛ content；产品 ↛ leftover。C11：public 实现只在 contents/，手势在 session/。</text>
-      <text class="box-sub" x="16" y="272">动画：chrome 等 BrowserSession 组合；GPU 子进程永不并入 :map_present。</text>
-      <text class="box-sub" x="16" y="294">C5：BrowserSession 不折进 MapContentsImpl。C6：重 GDI/GPU 留在 present。C3：present 嵌套不拍平。</text>
-      <text class="box-sub" x="16" y="328">include：content/browser/session/browser_session.h · content/public/map_contents.h</text>
+      <text class="box-sub" x="16" y="272">动画：chrome 等 BrowserSession 组合；GPU 子进程永不并入 :gis_present。</text>
+      <text class="box-sub" x="16" y="294">C5：BrowserSession 不折进 GisContentsImpl。C6：重 GDI/GPU 留在 present。C3：present 嵌套不拍平。</text>
+      <text class="box-sub" x="16" y="328">include：content/browser/session/browser_session.h · content/public/gis_contents.h</text>
     </svg>
     <p class="note">无转发头。会话头只在 <code>session/browser_session.h</code>。</p>
   </section>
@@ -207,9 +207,9 @@ All rights reserved.
       </thead>
       <tbody>
         <tr><td><code>contents/</code>（C11 含 bootstrap/catalog/attrs/plugin 文件）</td><td><code>:content</code></td><td>是</td></tr>
-        <tr><td><code>session/</code>（含 map_hwnd_gestures）</td><td><code>:browser_session</code> ± <code>:map_hwnd_gestures</code></td><td>否</td></tr>
-        <tr><td><code>document/</code>（平铺）· <code>camera/</code></td><td><code>:map_scene</code> / <code>:map_camera</code></td><td>否</td></tr>
-        <tr><td><code>present/**</code>（除 rhi_session SoT）</td><td><code>:map_present</code> / <code>:scene3d_present</code></td><td>否</td></tr>
+        <tr><td><code>session/</code>（含 map_hwnd_gestures）</td><td><code>:browser_session</code> ± <code>:gis_hwnd_gestures</code></td><td>否</td></tr>
+        <tr><td><code>document/</code>（根+职责子目录）· <code>camera/</code></td><td><code>:gis_scene</code> / <code>:gis_camera</code></td><td>否</td></tr>
+        <tr><td><code>present/**</code>（除 rhi_session SoT）</td><td><code>:gis_present</code> / <code>:scene3d_present</code></td><td>否</td></tr>
         <tr><td><code>capability/ debug/</code></td><td><code>:capability</code> / <code>:debug_agent</code></td><td>否</td></tr>
       </tbody>
     </table>
@@ -220,7 +220,7 @@ All rights reserved.
     <p class="note">产品默认停在进程内 browser，不等待子进程。公开面见
       <a href="./content-embedder.html">content-embedder.html</a>。
       不打开 <code>ENABLE_OOP_RENDER</code>。无 Mojo。
-      <code>MapContents</code> 不与 <code>BrowserSession</code> 合并。不做 C11 目录拍平。
+      <code>GisContents</code> 不与 <code>BrowserSession</code> 合并。不做 C11 目录拍平。
       C6 不变：重 present/GDI 不进 <code>content.dll</code>。
       <code>utility</code>（GDAL/IO）不实现。</p>
     <div class="lanes proc">

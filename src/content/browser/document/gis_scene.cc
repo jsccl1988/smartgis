@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 
 #include <functional>
 #include <memory>
@@ -20,51 +20,51 @@
 #include "content/browser/document/ingest/seed_paths.h"
 #include "content/browser/document/query/extent_query.h"
 #include "content/browser/document/query/inspector.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "base/trace/event/process_trace.h"
 #include "gis/style/document/style_document.h"
 
 namespace content {
 
-MapScene::MapScene() = default;
+GisScene::GisScene() = default;
 
-MapScene::~MapScene() = default;
+GisScene::~GisScene() = default;
 
-void MapScene::clear() {
+void GisScene::clear() {
   store_.clear();
 }
 
-void MapScene::set_style_document(
+void GisScene::set_style_document(
     std::shared_ptr<gis::style::StyleDocument> doc) {
   style_.set_style_document(std::move(doc));
 }
 
-void MapScene::clear_style_document() {
+void GisScene::clear_style_document() {
   style_.clear_style_document();
 }
 
-bool MapScene::load_style_path(const std::string& path) {
+bool GisScene::load_style_path(const std::string& path) {
   return style_.load_style_path(path);
 }
 
-void MapScene::set_basemap_provider(
+void GisScene::set_basemap_provider(
     std::shared_ptr<gis::tile::TileProvider> provider) {
   style_.set_basemap_provider(std::move(provider));
 }
 
-void MapScene::clear_basemap_provider() {
+void GisScene::clear_basemap_provider() {
   style_.clear_basemap_provider();
 }
 
-bool MapScene::resolve_style_for_test(const std::string& source_layer,
+bool GisScene::resolve_style_for_test(const std::string& source_layer,
                                      const gis::style::AttrMap& attrs,
                                      double zoom,
                                      gis::style::ResolvedPaint* out) const {
   return style_.resolve_style_for_test(source_layer, attrs, zoom, out);
 }
 
-bool MapScene::style_colors_for_feature(const detail::MapLayer& layer,
-                                       const detail::MapFeature& f,
+bool GisScene::style_colors_for_feature(const detail::GisLayer& layer,
+                                       const detail::GisFeature& f,
                                        double scale, COLORREF* fill,
                                        COLORREF* stroke,
                                        int* stroke_width) const {
@@ -91,7 +91,7 @@ std::string module_exe_dir() {
 
 }  // namespace
 
-bool MapScene::try_bootstrap_china_plp() {
+bool GisScene::try_bootstrap_china_plp() {
   const std::string exe_dir = module_exe_dir();
   if (exe_dir.empty()) {
     return false;
@@ -105,7 +105,7 @@ bool MapScene::try_bootstrap_china_plp() {
   return open_path(path, /*load_accompanying_style=*/false);
 }
 
-void MapScene::seed_default(bool allow_china_bootstrap) {
+void GisScene::seed_default(bool allow_china_bootstrap) {
   if (allow_china_bootstrap) {
     BASE_TRACE_EVENT("SeedDocument.ChinaBootstrap", "startup");
     if (try_bootstrap_china_plp()) {
@@ -122,20 +122,20 @@ void MapScene::seed_default(bool allow_china_bootstrap) {
   clear();
 }
 
-bool MapScene::compute_extent(double* min_x, double* min_y, double* max_x,
+bool GisScene::compute_extent(double* min_x, double* min_y, double* max_x,
                              double* max_y) const {
   return detail::compute_extent(store_, min_x, min_y, max_x, max_y);
 }
 
-bool MapScene::has_china_extent() const {
+bool GisScene::has_china_extent() const {
   return detail::has_china_extent(store_);
 }
 
-bool MapScene::open_path(const std::string& path) {
+bool GisScene::open_path(const std::string& path) {
   return open_path(path, true);
 }
 
-bool MapScene::open_path(const std::string& path,
+bool GisScene::open_path(const std::string& path,
                          bool load_accompanying_style) {
   const std::string stem = detail::path_stem(path);
   if (stem.empty()) {
@@ -158,13 +158,13 @@ bool MapScene::open_path(const std::string& path,
   return false;
 }
 
-bool MapScene::write_path(const std::string& path) const {
+bool GisScene::write_path(const std::string& path) const {
   return detail::write_geojson_path(store_, path);
 }
 
-std::vector<MapScene::LayerDesc> MapScene::layer_descs() const {
+std::vector<GisScene::LayerDesc> GisScene::layer_descs() const {
   std::vector<LayerDesc> out = store_.layer_descs();
-  // Tile basemap lives on StyleBind, not MapLayer. When the catalog command
+  // Tile basemap lives on StyleBind, not GisLayer. When the catalog command
   // path created a kRaster layer, skip; otherwise expose a synthetic leaf so
   // TOC can show kind without inventing extra business overlays.
   if (!has_basemap_provider()) {
@@ -203,11 +203,11 @@ std::vector<MapScene::LayerDesc> MapScene::layer_descs() const {
   return out;
 }
 
-size_t MapScene::feature_count() const {
+size_t GisScene::feature_count() const {
   return store_.feature_count();
 }
 
-bool MapScene::create_layer(const std::string& name,
+bool GisScene::create_layer(const std::string& name,
                             const std::string& geometry_type) {
   content::LayerKind kind = content::LayerKind::kVector;
   if (geometry_type == "xyz" || geometry_type == "wmts" ||
@@ -217,23 +217,23 @@ bool MapScene::create_layer(const std::string& name,
   return store_.create_layer(name, kind);
 }
 
-bool MapScene::remove_layer(const std::string& id) {
+bool GisScene::remove_layer(const std::string& id) {
   return store_.remove_layer(id);
 }
 
-bool MapScene::set_layer_visible(const std::string& id, bool visible) {
+bool GisScene::set_layer_visible(const std::string& id, bool visible) {
   return store_.set_layer_visible(id, visible);
 }
 
-bool MapScene::select_layer(const std::string& id) {
+bool GisScene::select_layer(const std::string& id) {
   return store_.select_layer(id);
 }
 
-bool MapScene::move_layer(const std::string& id, int delta) {
+bool GisScene::move_layer(const std::string& id, int delta) {
   return store_.move_layer(id, delta);
 }
 
-content::FeatureId MapScene::append_from_draft(
+content::FeatureId GisScene::append_from_draft(
     const tool::Draft& draft, const char* tool_id,
     const std::function<void(int view_x, int view_y, double* map_x,
                              double* map_y)>& to_map) {
@@ -241,95 +241,95 @@ content::FeatureId MapScene::append_from_draft(
   return detail::append_from_draft(&store_, draft, tool_id, to_map);
 }
 
-content::FeatureId MapScene::move_selected_vertex(double map_x, double map_y,
+content::FeatureId GisScene::move_selected_vertex(double map_x, double map_y,
                                                  double tol_map) {
   return detail::move_selected_vertex(&store_, map_x, map_y, tol_map);
 }
 
-bool MapScene::copy_feature_xy(
+bool GisScene::copy_feature_xy(
     const content::FeatureId& id,
     std::vector<std::pair<double, double>>* out) const {
   return detail::copy_feature_xy(store_, id, out);
 }
 
-bool MapScene::add_triangle_layer(const std::string& name, const double* xyz,
+bool GisScene::add_triangle_layer(const std::string& name, const double* xyz,
                                  int point_count, const int* triangles,
                                  int triangle_count) {
   return detail::add_triangle_layer(&store_, name, xyz, point_count, triangles,
                                     triangle_count);
 }
 
-bool MapScene::add_point_cloud_layer(const std::string& name, const float* xyz,
+bool GisScene::add_point_cloud_layer(const std::string& name, const float* xyz,
                                      int point_count, const uint8_t* rgba) {
   return detail::add_point_cloud_layer(&store_, name, xyz, point_count, rgba);
 }
 
-const MapScene::Feature* MapScene::hit_test(double map_x, double map_y,
+const GisScene::Feature* GisScene::hit_test(double map_x, double map_y,
                                            double tol_map) {
   return detail::hit_test(&store_, map_x, map_y, tol_map);
 }
 
-std::vector<const MapScene::Feature*> MapScene::hit_test_all(double map_x,
+std::vector<const GisScene::Feature*> GisScene::hit_test_all(double map_x,
                                                             double map_y,
                                                             double tol_map) {
   return detail::hit_test_all(&store_, map_x, map_y, tol_map);
 }
 
-bool MapScene::select_feature(const content::FeatureId& id) {
+bool GisScene::select_feature(const content::FeatureId& id) {
   return store_.select_feature(id);
 }
 
-void MapScene::clear_selection() {
+void GisScene::clear_selection() {
   store_.clear_selection();
 }
 
-const MapScene::Feature* MapScene::selected_feature() const {
+const GisScene::Feature* GisScene::selected_feature() const {
   return store_.selected_feature();
 }
 
-bool MapScene::active_layer_world_extent(content::Extent2* out) const {
+bool GisScene::active_layer_world_extent(content::Extent2* out) const {
   return detail::active_layer_world_extent(store_, out);
 }
 
-bool MapScene::selection_world_extent(content::Extent2* out) const {
+bool GisScene::selection_world_extent(content::Extent2* out) const {
   return detail::selection_world_extent(store_, out);
 }
 
-content::Extent2 MapScene::world_extent() const {
+content::Extent2 GisScene::world_extent() const {
   return detail::world_extent(store_);
 }
 
-void MapScene::export_land_rings(std::vector<vista::LonLatRing>* out) const {
+void GisScene::export_land_rings(std::vector<vista::LonLatRing>* out) const {
   detail::export_land_rings(store_, out);
 }
 
-bool MapScene::polygon_fit_box(double* min_x, double* min_y, double* max_x,
+bool GisScene::polygon_fit_box(double* min_x, double* min_y, double* max_x,
                                double* max_y) const {
   return detail::polygon_fit_box(store_, min_x, min_y, max_x, max_y);
 }
 
-void MapScene::fill_feature_info_fields(
+void GisScene::fill_feature_info_fields(
     const Feature& f, std::vector<std::pair<std::string, std::string>>* out,
     const std::string& source_layer, double map_scale) const {
   detail::fill_feature_info_fields(store_, style_, f, out, source_layer,
                                    map_scale);
 }
 
-void MapScene::fill_attribute_rows(std::vector<std::string>* columns,
+void GisScene::fill_attribute_rows(std::vector<std::string>* columns,
                                    std::vector<std::vector<std::string>>* rows,
                                    std::vector<std::string>* tokens) const {
   detail::fill_attribute_rows(store_, columns, rows, tokens);
 }
 
-std::string MapScene::feature_token(const content::FeatureId& id) {
+std::string GisScene::feature_token(const content::FeatureId& id) {
   return content::encode_feature_token(id);
 }
 
-content::FeatureId MapScene::feature_id_from_token(const std::string& token) {
+content::FeatureId GisScene::feature_id_from_token(const std::string& token) {
   return content::decode_feature_token(token);
 }
 
-bool MapScene::update_feature_field(const std::string& token,
+bool GisScene::update_feature_field(const std::string& token,
                                     const std::string& field,
                                     const std::string& value) {
   Feature* f = store_.find_feature(feature_id_from_token(token));
@@ -339,7 +339,7 @@ bool MapScene::update_feature_field(const std::string& token,
   return content::apply_named_field(&f->fields, field, value);
 }
 
-void MapScene::ensure_active_layer() {
+void GisScene::ensure_active_layer() {
   if (store_.find_layer(store_.active_layer_id())) {
     return;
   }

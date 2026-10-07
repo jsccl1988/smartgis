@@ -1,14 +1,14 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Scheduler: MapScene / ViewFrame and process switches in, vista layout out.
+// Scheduler: GisScene / ViewFrame and process switches in, vista layout out.
 // Tile math, carto resolve, batch build, hillshade attach, and Layout::build
 // live under vista/component/map.
 
 #include "content/browser/present/map2d/frame/map2d_layout_build.h"
 
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/frame/map2d_batches.h"
 #include "content/browser/present/map2d/frame/map2d_carto.h"
 #include "content/browser/present/map2d/frame/map2d_tile_math.h"
@@ -34,12 +34,12 @@ bool env_flag_one(const char* key) {
 // china_city "area" is the Layers panel "Land" row. Jet hillshade is the land
 // surface, so it must follow that checkbox — otherwise Lines-only still paints
 // the full DEM sheet.
-bool china_land_layer_visible(const MapScene* scene) {
+bool china_land_layer_visible(const GisScene* scene) {
   if (!scene) {
     return true;
   }
   bool saw_area = false;
-  for (const MapScene::Layer& layer : scene->layers()) {
+  for (const GisScene::Layer& layer : scene->layers()) {
     if (layer.name != "area") {
       continue;
     }
@@ -111,6 +111,8 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
   // Product cold start (defer_china_seed) still finds china_dem.tif on disk
   // via find_sample_dem_path even with a demo-only document — skip until the
   // scene has China extent. Force with MAP2D_FORCE_HILLSHADE=1.
+  // First china layout (layout_build_count==0) defers DEM bake so cold
+  // layout_ms is tess-only; the cache forces one follow-up attach rebuild.
   const bool force_hillshade =
       base::switch_is_one("map2d-force-hillshade") ||
       env_flag_one("MAP2D_FORCE_HILLSHADE");
@@ -121,9 +123,18 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
   const bool no_china_extent =
       !force_hillshade && in.scene && !in.scene->has_china_extent();
   const bool land_hidden = !force_hillshade && !land_visible;
-  const bool skip_hillshade =
-      no_hillshade_switch || no_china_extent || land_hidden;
-  if (skip_hillshade) {
+  const bool defer_first_bake = !force_hillshade && !in.hillshade_ready &&
+                                in.layout_build_count == 0 &&
+                                !no_hillshade_switch && !no_china_extent &&
+                                !land_hidden;
+  const bool skip_hillshade = no_hillshade_switch || no_china_extent ||
+                              land_hidden || defer_first_bake;
+  if (defer_first_bake) {
+    out->deferred_hillshade = true;
+    std::fprintf(stderr,
+                 "map2d: hillshade defer - first layout tess-only "
+                 "(follow-up attach)\n");
+  } else if (skip_hillshade) {
     std::fprintf(stderr,
                  "map2d: hillshade skip - switch=%d china_extent=%d "
                  "land_visible=%d force=%d\n",

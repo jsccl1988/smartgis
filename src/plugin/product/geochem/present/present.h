@@ -10,7 +10,7 @@
 
 namespace content {
 class GisDocument;
-class MapScene;
+class GisScene;
 }
 
 namespace gis {
@@ -26,8 +26,8 @@ bool present_geochem(content::GisDocument* doc,
                      const GeochemCommit& commit,
                      std::string* err);
 
-// Horizon layer reader still sees MapScene (no GisDocument feature walk).
-bool read_geochem_active_layer(content::MapScene* doc,
+// Horizon layer reader still sees GisScene (no GisDocument feature walk).
+bool read_geochem_active_layer(content::GisScene* doc,
                                const std::string& element,
                                gis::detail::GeochemSampleSet* out,
                                std::string* err);

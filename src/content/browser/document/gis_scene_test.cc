@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 
 #include <cstdint>
@@ -166,9 +166,9 @@ int main() {
     char tmp[MAX_PATH] = {};
     const DWORD n = GetTempPathA(MAX_PATH, tmp);
     expect(n > 0 && n < MAX_PATH, "temp path");
-    std::string path = std::string(tmp) + "map_scene_multipart_area.geojson";
+    std::string path = std::string(tmp) + "gis_scene_multipart_area.geojson";
     expect(write_multipart_geojson(path.c_str()), "write multipart geojson");
-    content::MapScene scene;
+    content::GisScene scene;
     expect(scene.open_path(path), "open multipart geojson");
     expect(scene.last_open_was_ogr(), "multipart open via OGR");
     expect(scene.feature_count() >= 2,
@@ -195,7 +195,7 @@ int main() {
         "china_city.geojson",
     };
     for (const char* cand : city_candidates) {
-      content::MapScene scene;
+      content::GisScene scene;
       if (!scene.open_path(cand) || !scene.last_open_was_ogr()) {
         continue;
       }
@@ -216,11 +216,11 @@ int main() {
   {
     char tmp[MAX_PATH] = {};
     expect(GetTempPathA(MAX_PATH, tmp) > 0, "temp path for line clip");
-    std::string dir = std::string(tmp) + "map_scene_line_clip_dir";
+    std::string dir = std::string(tmp) + "gis_scene_line_clip_dir";
     CreateDirectoryA(dir.c_str(), nullptr);
     std::string path = dir + "\\line.geojson";
     expect(write_line_with_siberia_stub(path.c_str()), "write line.geojson");
-    content::MapScene scene;
+    content::GisScene scene;
     expect(scene.open_path(path), "open line.geojson");
     expect(scene.last_open_was_ogr(), "line clip via OGR");
     const content::Extent2 world = scene.world_extent();
@@ -236,10 +236,10 @@ int main() {
     char tmp[MAX_PATH] = {};
     const DWORD n = GetTempPathA(MAX_PATH, tmp);
     expect(n > 0 && n < MAX_PATH, "temp path for write_path");
-    std::string out = std::string(tmp) + "map_scene_m0_write.geojson";
+    std::string out = std::string(tmp) + "gis_scene_m0_write.geojson";
     DeleteFileA(out.c_str());
 
-    content::MapScene a;
+    content::GisScene a;
     expect(a.create_layer("edit_line", "LineString"), "create line layer");
     tool::Draft draft{};
     draft.kind = tool::DraftKind::kLineString;
@@ -251,7 +251,7 @@ int main() {
     expect(GetFileAttributesA(out.c_str()) != INVALID_FILE_ATTRIBUTES,
            "file exists");
 
-    content::MapScene b;
+    content::GisScene b;
     expect(b.open_path(out), "reopen written");
     expect(b.last_open_was_ogr(), "reopen via OGR");
     expect(b.feature_count() >= 1, "reopen feature");
@@ -284,7 +284,7 @@ int main() {
     auto doc = std::make_shared<gis::style::StyleDocument>();
     expect(gis::style::parse_style_document(kStyle, doc.get()),
            "parse m1 style");
-    content::MapScene scene;
+    content::GisScene scene;
     scene.set_style_document(doc);
     expect(scene.has_style_document(), "has style");
     gis::style::AttrMap attrs;
@@ -302,7 +302,7 @@ int main() {
         "testing\\data\\china\\china_city.style.json",
     };
     for (const char* cand : style_cands) {
-      content::MapScene styled;
+      content::GisScene styled;
       if (styled.load_style_path(cand)) {
         expect(styled.has_style_document(), "load china_city.style.json");
         // File style keys line-water / line-road with filters; match river.
@@ -319,7 +319,7 @@ int main() {
     // Phase 2b: inspector lists ResolvedPaint before legacy GDI hints.
     // Style dumps are opt-in (FEATURE_INFO_STYLE_DEBUG) for Identify UX.
     base::set_switch("feature-info-style-debug", "1");
-    content::MapScene inspector_scene;
+    content::GisScene inspector_scene;
     inspector_scene.set_style_document(doc);
     char tmp_path[MAX_PATH] = {};
     expect(GetTempPathA(MAX_PATH, tmp_path) > 0, "temp path");
@@ -329,8 +329,8 @@ int main() {
     expect(write_line_with_siberia_stub(line_json.c_str()), "write line json");
     inspector_scene.open_path(line_json);
     expect(inspector_scene.feature_count() >= 1, "line feature for inspector");
-    const content::MapScene::Feature* line_feat = nullptr;
-    for (const content::MapScene::Layer& layer : inspector_scene.layers()) {
+    const content::GisScene::Feature* line_feat = nullptr;
+    for (const content::GisScene::Layer& layer : inspector_scene.layers()) {
       if (layer.name == "line" && !layer.features.empty()) {
         line_feat = &layer.features.front();
         break;
@@ -381,7 +381,7 @@ int main() {
       }
     }
     expect(write_style_sidecar(sidecar_style.c_str()), "sidecar style json");
-    content::MapScene opened;
+    content::GisScene opened;
     expect(opened.open_path(sidecar_data), "open sidecar data");
     expect(opened.has_style_document(), "open_path loads .style.json");
     gis::style::ResolvedPaint sidecar_paint;
@@ -528,9 +528,9 @@ int main() {
 
   g_fails += run_map2d_presenter_tests();
   if (g_fails) {
-    std::fprintf(stderr, "%d map_scene_test fail(s)\n", g_fails);
+    std::fprintf(stderr, "%d gis_scene_test fail(s)\n", g_fails);
     return 1;
   }
-  std::printf("map_scene_test ok\n");
+  std::printf("gis_scene_test ok\n");
   return 0;
 }

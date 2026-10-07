@@ -99,8 +99,8 @@ void AmboxComposer::populate_ambox() {
     return;
   }
   std::vector<tool::CommandCatalog*> catalogs;
-  if (host_->browser_->edit_host() && host_->browser_->edit_host()->workspace()) {
-    catalogs.push_back(&host_->browser_->edit_host()->workspace()->catalog());
+  if (host_->browser_->edit_tool_session() && host_->browser_->edit_tool_session()->workspace()) {
+    catalogs.push_back(&host_->browser_->edit_tool_session()->workspace()->catalog());
   }
   // Right dock Tools lists plugin AMBox groups. Plain argv=[] launch must
   // populate them without opening Plugin Manager (visual_review #7). Still

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/public/map_bootstrap.h"
+#include "content/browser/contents/gis_bootstrap.h"
 
 #include <filesystem>
 #include <string>
@@ -10,7 +10,7 @@
 namespace content {
 namespace {
 
-// Product China pack policy (locked): bare SmartGIS.exe, MapScene::seed_default,
+// Product China pack policy (locked): bare SmartGIS.exe, GisScene::seed_default,
 // and harness openers must resolve the same file. GN china_map_samples writes
 // to out/data (exe is out/Debug|Release → ../data). Real packs only — no
 // views_ogr_sample / synthetic stub. Every china_city candidate precedes any
@@ -55,14 +55,14 @@ std::string join_root_rel(const std::string& root, const char* rel) {
 
 }  // namespace
 
-std::vector<std::string> sample_map_relative_paths() {
+std::vector<std::string> sample_gis_relative_paths() {
   return std::vector<std::string>(
       k_relative_candidates,
       k_relative_candidates +
           (sizeof(k_relative_candidates) / sizeof(k_relative_candidates[0])));
 }
 
-std::vector<std::string> resolve_sample_map_candidates(
+std::vector<std::string> resolve_sample_gis_candidates(
     const std::vector<std::string>& search_roots) {
   std::vector<std::string> out;
   out.reserve(search_roots.size() *
@@ -78,13 +78,13 @@ std::vector<std::string> resolve_sample_map_candidates(
   return out;
 }
 
-bool try_resolve_existing_sample_map(
+bool try_resolve_existing_sample_gis(
     const std::vector<std::string>& search_roots,
     std::string* out_path) {
   if (!out_path) {
     return false;
   }
-  for (const std::string& cand : resolve_sample_map_candidates(search_roots)) {
+  for (const std::string& cand : resolve_sample_gis_candidates(search_roots)) {
     if (path_is_regular_file(cand)) {
       *out_path = cand;
       return true;

@@ -18,7 +18,7 @@ Map / Data / 3D tab horizon for `BrowserView`. Public type is **`app::MapPagesCo
 | `map_pages_gestures.cc` | HWND pinch/pan + right-click |
 | `map_pages_tab_switch.cc` | tab switch, lazy 3D attach, China atmo/orbit |
 | `detail/ptr_guard.h` | poison / readable pointer checks |
-| `detail/seh_workspace.*` | SEH wrappers around ViewHost / Workspace |
+| `detail/seh_workspace.*` | SEH wrappers around ToolSession / Workspace |
 
 Living shell: **§shell/ui composers** in
 [`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../../../../docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md).

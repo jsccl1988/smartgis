@@ -12,7 +12,7 @@ namespace content {
 namespace detail {
 
 // Handles :refresh / :extent / :layers against a host snapshot.
-bool exec_map_command(const std::string& line,
+bool exec_gis_command(const std::string& line,
                       const DebugAgentHost& host,
                       std::string* output);
 

@@ -24,19 +24,19 @@ int main() {
   content::detail::LayerStore store;
   expect(store.create_layer("snap_line", content::LayerKind::kVector),
          "create layer");
-  content::detail::MapLayer* layer = store.find_layer(store.active_layer_id());
+  content::detail::GisLayer* layer = store.find_layer(store.active_layer_id());
   expect(layer != nullptr, "active layer");
   if (!layer) {
     return 1;
   }
 
-  content::detail::MapFeature line;
+  content::detail::GisFeature line;
   line.id = store.next_feature_id();
   line.kind = content::detail::GeomKind::kLine;
   line.points = {{0.0, 0.0}, {10.0, 0.0}};
   layer->features.push_back(line);
 
-  content::detail::MapFeature pt;
+  content::detail::GisFeature pt;
   pt.id = store.next_feature_id();
   pt.kind = content::detail::GeomKind::kPoint;
   pt.points = {{10.0, 10.0}};

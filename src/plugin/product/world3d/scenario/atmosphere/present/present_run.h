@@ -21,7 +21,7 @@ namespace detail {
 
 // Warmup presents, optional globe fly, BMP capture, timed/until-close linger.
 // Returns showcase exit code (0 / 52 / 54). Does not shut down the Device
-// (FlyCube teardown policy); destroys owned HWND and calls detach_maps.
+// (FlyCube teardown policy); destroys owned HWND and calls detach_views.
 int run_atmosphere_present(HarnessShell& browser,
                            AtmosphereShowcaseMode mode,
                            const char* mode_name,

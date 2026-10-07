@@ -17,18 +17,17 @@
 #include "app/views/browser/plugin/playback.h"
 #include "app/views/browser/plugin/preview_host.h"
 #include "content/public/event_bus.h"
-#include "content/public/map_contents.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/view_host.h"
+#include "content/public/gis_contents.h"
+#include "content/public/types.h"
+#include "content/public/tool_session.h"
 #include "tool/draft/draft.h"
 
 namespace content {
 class BlitFrameCache;
 class BrowserSession;
 class Map2dPresenter;
-class MapHwndGestures;
-class MapScene;
-class MapSceneGisDocument;
+class GisHwndGestures;
+class GisScene;
 class OrbitFrame;
 class Scene3dPresenter;
 class Scene3dStereoSession;
@@ -55,7 +54,7 @@ class PluginShell;
 
 // Shell controller: owns PluginShell + BrowserUiDelegate. Map document /
 // camera / present / gestures live on content::BrowserSession (WebContents-ish).
-class Browser : public content::MapContentsObserver {
+class Browser : public content::GisContentsObserver {
  public:
   Browser();
   ~Browser() override;
@@ -72,7 +71,7 @@ class Browser : public content::MapContentsObserver {
   // Out-of-line: parallel ninja + Browser layout churn must not skew callers.
   void set_defer_china_seed(bool defer);
   bool defer_china_seed() const;
-  // Opt-in OOP GPU at Session.init_hosts (also ENABLE_OOP_RENDER=1).
+  // Opt-in OOP GPU at Session.init_tool_sessions (also ENABLE_OOP_RENDER=1).
   void set_enable_oop_render(bool enable);
   bool enable_oop_render() const;
   void show();
@@ -102,12 +101,12 @@ class Browser : public content::MapContentsObserver {
   ui::views::DrawHost* draw_host() const;
   ui::views::DrawHost* data_draw_host() const;
   ui::views::DrawHost* scene_draw_host() const;
-  content::ViewHost* edit_view_host() const;
+  content::ToolSession* edit_tool_session() const;
 
   // Out-of-line: return impl types without including content/browser here.
   // Parallel ninja + stale shell .obj still import scene3d().
-  content::MapScene* document();
-  const content::MapScene* document() const;
+  content::GisScene* document();
+  const content::GisScene* document() const;
   content::Scene3dPresenter* scene3d();
   const content::Scene3dPresenter* scene3d() const;
   content::ViewFrame* view_frame();
@@ -120,7 +119,7 @@ class Browser : public content::MapContentsObserver {
   content::BlitFrameCache* blit();
   content::ViewNavigation* navigation();
   const content::ViewNavigation* navigation() const;
-  content::MapContents* map_session();
+  content::GisContents* map_session();
   // Out-of-line: parallel ninja + stale shell_ui .obj must not inline
   // plugins_ offsetof (0xCD / freefill → AV in unique_ptr::get during
   // bind_gis_python_bridge / wire_debug_console).
@@ -136,12 +135,12 @@ class Browser : public content::MapContentsObserver {
   // Writes captures/<dir>/frame_XXXX.bmp + playback.json. Returns frame count.
   int export_plugin_frames(const std::string& dir_leaf);
 
-  content::ViewHost* edit_host();
-  content::ViewHost* data_host();
-  content::ViewHost* scene_host();
-  content::MapHwndGestures* edit_gestures();
-  content::MapHwndGestures* data_gestures();
-  content::MapHwndGestures* scene_gestures();
+  content::ToolSession* edit_tool_session();
+  content::ToolSession* data_tool_session();
+  content::ToolSession* scene_tool_session();
+  content::GisHwndGestures* edit_gestures();
+  content::GisHwndGestures* data_gestures();
+  content::GisHwndGestures* scene_gestures();
 
   bool syncing_extent() const { return syncing_extent_; }
   void set_syncing_extent(bool v) { syncing_extent_ = v; }
@@ -167,7 +166,7 @@ class Browser : public content::MapContentsObserver {
   void sync_catalog_from_scene();
   bool apply_atmosphere_fields(std::string_view spec);
   bool run_m2_harness_hooks(std::string* err);
-  void select_map_tab(int index);
+  void select_view_tab(int index);
 
   void on_catalog_command(const std::string& command_id);
   void on_open();
@@ -197,7 +196,7 @@ class Browser : public content::MapContentsObserver {
   void handle_gesture_pan(int dx_px, int dy_px);
   void pull_orbit_extent();
 
-  // MapContentsObserver ? extent sync into ViewFrame / OrbitFrame.
+  // GisContentsObserver ? extent sync into ViewFrame / OrbitFrame.
   void OnExtentChanged(uint32_t view_id, const content::Extent2& e) override;
 
  private:
@@ -206,8 +205,7 @@ class Browser : public content::MapContentsObserver {
   void schedule_deferred_china_seed();
 
   std::unique_ptr<content::BrowserSession> session_;
-  // Wraps session_->document(); must outlive PluginHost (plugins_) uses.
-  std::unique_ptr<content::MapSceneGisDocument> gis_document_;
+  // GisDocument adapter is owned by GisContents (see install_plugin_host_bridges).
   PluginPlayback plugin_playback_;
   PluginPreviewHost plugin_preview_;
   std::unique_ptr<PluginShell> plugins_;

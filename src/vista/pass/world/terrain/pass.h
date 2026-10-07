@@ -41,8 +41,10 @@ class VISTA_EXPORT TerrainPass {
   void forced_solid_rgb(float* r, float* g, float* b) const;
 
   // Upload albedo texture + configure mesh tint for one kTerrain instance.
-  // |cpu| may gain has_image when a texture uploads. Returns false only on
-  // Device upload failure after a texture was required.
+  // |cpu| may be null when |inst.terrain| already holds the mesh (cold first
+  // upload skips the TessMesh deep copy). When non-null, |cpu| may gain
+  // has_image after a texture upload. Returns false only on Device upload
+  // failure after a texture was required.
   bool prepare_mesh(render::rhi::Device* device, const Instance& inst,
                     TessMesh* cpu, GpuMesh* mesh, float solid_r, float solid_g,
                     float solid_b, float solid_a);

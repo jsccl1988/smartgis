@@ -14,6 +14,8 @@ source_set("tile_sources") {
     "layer/provider_tile_layer.h",
     "layer/tile_map_layer.cc",
     "layer/tile_map_layer.h",
+    "protocol/mercator_math.cc",
+    "protocol/mercator_math.h",
     "protocol/tile_image.h",
     "protocol/wmts.cc",
     "protocol/wmts.h",

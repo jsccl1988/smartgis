@@ -7,7 +7,7 @@
 #include "app/views/il.runtime/backend/horizon/atom/pump.h"
 #include "app/views/il.runtime/backend/view/probe.h"
 #include "content/browser/camera/orbit_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "ui/gis/catalog/catalog_view.h"
 #include "ui/views/kernel/layout/layout_check.h"
 #include "ui/views/kernel/shell/dpi.h"
@@ -143,7 +143,7 @@ bool fill_map_load_status(Browser& browser,
   const bool scene = face == "scene" || face == "scene3d";
   ui::views::DrawHost* pane =
       scene ? browser.scene_draw_host() : browser.draw_host();
-  if (content::MapScene* doc = browser.document()) {
+  if (content::GisScene* doc = browser.document()) {
     out->layer_count = static_cast<int>(doc->layer_count());
   }
   if (content::OrbitFrame* orbit = browser.orbit_frame()) {

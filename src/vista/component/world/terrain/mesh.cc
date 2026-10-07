@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/time/elapsed_timer.h"
@@ -364,7 +365,7 @@ void clear_terrain_nodes(World* world) {
   }
 }
 
-bool attach_view_seed(World* world, const DemViewSeed& seed, const char* name,
+bool attach_view_seed(World* world, DemViewSeed&& seed, const char* name,
                       std::vector<float>* xyz, std::vector<unsigned>* idx) {
   Node* node = world->attach_terrain(
       name, static_cast<double>(seed.min_x), static_cast<double>(seed.min_y),
@@ -390,8 +391,16 @@ bool attach_view_seed(World* world, const DemViewSeed& seed, const char* name,
   node->max_x = seed.max_x;
   node->max_y = seed.max_y;
   node->max_z = seed.max_z;
-  xyz->assign(seed.xyz.begin(), seed.xyz.end());
+  // World already copied mesh/uv/rgba. Move xyz into paint buffers; indices
+  // still assign (unsigned vs uint32_t) but drop seed payloads afterward.
+  *xyz = std::move(seed.xyz);
   idx->assign(seed.indices.begin(), seed.indices.end());
+  seed.indices.clear();
+  seed.indices.shrink_to_fit();
+  seed.uvs.clear();
+  seed.uvs.shrink_to_fit();
+  seed.rgba.clear();
+  seed.rgba.shrink_to_fit();
   return !xyz->empty() && !idx->empty();
 }
 
@@ -439,26 +448,51 @@ DemViewMeshResult rebuild_dem_view_mesh(World* world, double xmin, double ymin,
                                         float orbit_distance,
                                         std::vector<float>* xyz,
                                         std::vector<unsigned>* idx,
-                                        const DemViewMeshHooks* hooks) {
+                                        OrbitGeoFrame* geo, int* lod_edge) {
   DemViewMeshResult result;
   if (!world || !xyz || !idx) {
     return result;
   }
-  result.cache_key = dem_seed_cache_key(orbit_distance);
-  const int next_lod = DemRaster::lod_max_edge(orbit_distance);
 
+  // China-box fallback. A set sample_dem_path_override must not force China.
+  double box_minx = xmin;
+  double box_miny = ymin;
+  double box_maxx = xmax;
+  double box_maxy = ymax;
+  dem_seed_lonlat_box(xmin, ymin, xmax, ymax, &box_minx, &box_miny, &box_maxx,
+                      &box_maxy);
+
+  result.cache_key = dem_seed_cache_key(orbit_distance);
+  if (geo && lod_edge && !xyz->empty() && !idx->empty() &&
+      *lod_edge == result.cache_key &&
+      geo->matches_lonlat(box_minx, box_miny, box_maxx, box_maxy)) {
+    result.skipped_lod = true;
+    return result;
+  }
+  if (geo) {
+    *geo = OrbitGeoFrame::from_lonlat(box_minx, box_miny, box_maxx, box_maxy);
+  }
+
+  const int next_lod = DemRaster::lod_max_edge(orbit_distance);
   const std::string dem_path = find_sample_dem_path();
   if (!dem_path.empty()) {
     DemViewSeed seed;
-    if (dem_view_seed_cache_try_get(dem_path.c_str(), result.cache_key, xmin,
-                                    ymin, xmax, ymax, &seed)) {
+    if (dem_view_seed_cache_try_get(dem_path.c_str(), result.cache_key,
+                                    box_minx, box_miny, box_maxx, box_maxy,
+                                    &seed)) {
       clear_terrain_nodes(world);
       xyz->clear();
       idx->clear();
-      if (attach_view_seed(world, seed, "views_dem", xyz, idx)) {
+      if (attach_view_seed(world, std::move(seed), "views_dem", xyz, idx)) {
         result.painted = true;
         result.seed_cache_hit = true;
         result.elev_cy = seed.elev_cy;
+        if (geo) {
+          geo->cy = seed.elev_cy;
+        }
+        if (lod_edge) {
+          *lod_edge = result.cache_key;
+        }
         // Attribute cold DEM phases as hits (seed blob covers load/tess/hypso).
         note_dem_phase_load(0, /*cache_hit=*/true);
         note_dem_phase_tess(0);
@@ -471,8 +505,8 @@ DemViewMeshResult rebuild_dem_view_mesh(World* world, double xmin, double ymin,
   clear_terrain_nodes(world);
   xyz->clear();
   idx->clear();
-  Node* node =
-      seed_view_or_china(world, xmin, ymin, xmax, ymax, orbit_distance, next_lod);
+  Node* node = seed_view_or_china(world, box_minx, box_miny, box_maxx,
+                                  box_maxy, orbit_distance, next_lod);
   if (!node || !node->has_terrain_mesh()) {
     return result;
   }
@@ -494,8 +528,9 @@ DemViewMeshResult rebuild_dem_view_mesh(World* world, double xmin, double ymin,
   float elev_cy = 0.f;
   {
     Node* first = world->find(ids[0]);
-    if (first && hooks && hooks->capture_elev_center) {
-      elev_cy = hooks->capture_elev_center(first->terrain.positions, hooks->ctx);
+    if (first && geo) {
+      geo->capture_elev_center(first->terrain.positions);
+      elev_cy = geo->cy;
     }
   }
   size_t total_verts = 0;
@@ -515,8 +550,8 @@ DemViewMeshResult rebuild_dem_view_mesh(World* world, double xmin, double ymin,
     if (!n || !n->has_terrain_mesh()) {
       continue;
     }
-    if (hooks && hooks->normalize_xyz) {
-      hooks->normalize_xyz(&n->terrain.positions, hooks->ctx);
+    if (geo) {
+      geo->normalize_xyz(&n->terrain.positions);
     }
     detail::aabb_from_xyz(n->terrain.positions, &n->min_x, &n->min_y, &n->min_z,
                           &n->max_x, &n->max_y, &n->max_z);
@@ -530,6 +565,9 @@ DemViewMeshResult rebuild_dem_view_mesh(World* world, double xmin, double ymin,
   if (!xyz->empty() && !idx->empty()) {
     result.painted = true;
     result.elev_cy = elev_cy;
+    if (lod_edge) {
+      *lod_edge = result.cache_key;
+    }
     if (!dem_path.empty() && ids.size() == 1) {
       Node* n = world->find(ids[0]);
       if (n && n->has_terrain_mesh()) {
@@ -547,8 +585,8 @@ DemViewMeshResult rebuild_dem_view_mesh(World* world, double xmin, double ymin,
         seed.indices = n->terrain.indices;
         seed.uvs = n->terrain.uvs;
         seed.rgba = n->terrain.rgba;
-        dem_view_seed_cache_put(dem_path.c_str(), result.cache_key, xmin, ymin,
-                                xmax, ymax, seed);
+        dem_view_seed_cache_put(dem_path.c_str(), result.cache_key, box_minx,
+                                box_miny, box_maxx, box_maxy, seed);
       }
     }
   }

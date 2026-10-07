@@ -8,7 +8,7 @@
 #include <string>
 
 #include "content/content_export.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 
 // Named-pipe Host ABI 0.8: length-prefixed frames, pickle (BinarySink) bodies.
 // Invitation: --ipc-channel-handle=<inherited HANDLE>. --pipe= remains fallback.

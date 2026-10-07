@@ -45,8 +45,8 @@ using detail::fill_map_embed_opaque;
 using detail::init_device_seh;
 using detail::load_first;
 using detail::register_identity_hud_class;
-using detail::route_view_host_input;
-using detail::route_view_host_pointer;
+using detail::route_tool_session_input;
+using detail::route_tool_session_pointer;
 
 namespace {
 
@@ -258,7 +258,7 @@ HWND DrawHost::ensure_gpu_present_hwnd(uint32_t width_px,
   // Owned top-level present (showcase pattern). Owner = shell root so the
   // popup stays above the embed, follows minimize/close, and keeps mouse
   // activation with the product frame. Unowned popups lost z-order / focus
-  // under plain (no-arg) launch so pan/wheel/click never reached ViewHost.
+  // under plain (no-arg) launch so pan/wheel/click never reached ToolSession.
   // WS_EX_NOREDIRECTIONBITMAP is required for flip DXGI; TOOLWINDOW keeps
   // Alt-Tab clean.
   const int w = width_px > 0 ? static_cast<int>(width_px) : 1;

@@ -8,10 +8,10 @@
 #include "app/views/il.runtime/backend/horizon/atom/mark.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "content/browser/debug/debug_agent.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/view_host.h"
+#include "content/public/types.h"
+#include "content/public/tool_session.h"
 #include "tool/interaction/interaction.h"
 #include "tool/workspace/workspace.h"
 #include "ui/views/kernel/view/view.h"
@@ -98,11 +98,11 @@ double median_ms(std::vector<double>* samples) {
   return 0.5 * ((*samples)[n / 2 - 1] + (*samples)[n / 2]);
 }
 
-content::ViewHost* pan_host(Browser& browser) {
+content::ToolSession* pan_host(Browser& browser) {
   if (browser.ui()) {
-    return browser.ui()->active_view_host();
+    return browser.ui()->active_tool_session();
   }
-  return browser.edit_view_host();
+  return browser.edit_tool_session();
 }
 
 bool write_console_bench_json(double layers_list_ms,
@@ -139,7 +139,7 @@ bool write_console_bench_json(double layers_list_ms,
 int wire_debug_agent(Browser& browser) {
   Browser* b = &browser;
   content::DebugAgentHost host;
-  host.refresh_map = [b] { b->on_view_command("view.refresh", -1, false, 0, 0); };
+  host.refresh_gis = [b] { b->on_view_command("view.refresh", -1, false, 0, 0); };
   host.extent_string = [b] {
     double min_x = 0, min_y = 0, max_x = 0, max_y = 0;
     if (!b->document() ||
@@ -198,7 +198,7 @@ int wire_debug_agent(Browser& browser) {
   if (!content::debug_agent().is_running()) {
     if (!content::debug_agent().start()) {
       std::fprintf(stderr, "console harness: debug_agent start failed\n");
-      detach_maps(browser);
+      detach_views(browser);
       return 50;
     }
   }
@@ -212,7 +212,7 @@ int debug_exec(Browser& browser,
                const std::string& reject,
                int fail_rc) {
   if (line.empty()) {
-    detach_maps(browser);
+    detach_views(browser);
     return fail_rc != 0 ? fail_rc : 51;
   }
   LARGE_INTEGER freq{};
@@ -234,41 +234,41 @@ int debug_exec(Browser& browser,
   if (out.find("no host") != std::string::npos) {
     std::fprintf(stderr, "console harness: %s failed (%s)\n", line.c_str(),
                  out.c_str());
-    detach_maps(browser);
+    detach_views(browser);
     return rc;
   }
   if (!equals.empty() && out != equals) {
     std::fprintf(stderr, "console harness: %s failed (%s)\n", line.c_str(),
                  out.c_str());
-    detach_maps(browser);
+    detach_views(browser);
     return rc;
   }
   if (!contains.empty() && out.find(contains) == std::string::npos) {
     std::fprintf(stderr, "console harness: %s failed\n", line.c_str());
-    detach_maps(browser);
+    detach_views(browser);
     return rc;
   }
   if (!reject.empty() && out.find(reject) != std::string::npos) {
     std::fprintf(stderr, "console harness: %s failed\n", line.c_str());
-    detach_maps(browser);
+    detach_views(browser);
     return rc;
   }
   if (equals.empty() && contains.empty() && reject.empty() && out.empty()) {
     std::fprintf(stderr, "console harness: %s failed\n", line.c_str());
-    detach_maps(browser);
+    detach_views(browser);
     return rc;
   }
   return 0;
 }
 
 int console_pan_bench(Browser& browser, const wchar_t* mark_leaf) {
-  content::ViewHost* host = pan_host(browser);
+  content::ToolSession* host = pan_host(browser);
   tool::Interaction* cur =
       host && host->workspace() ? host->workspace()->stack().current()
                                 : nullptr;
   if (!cur || std::strcmp(cur->id(), "view.pan") != 0) {
     std::fprintf(stderr, "console harness: view.pan not active\n");
-    detach_maps(browser);
+    detach_views(browser);
     return 41;
   }
   LARGE_INTEGER freq{};
@@ -297,7 +297,7 @@ int console_pan_bench(Browser& browser, const wchar_t* mark_leaf) {
     if (!host->dispatch_input(pan_down) || !host->dispatch_input(pan_move) ||
         !host->dispatch_input(pan_up)) {
       std::fprintf(stderr, "console harness: pan dispatch failed\n");
-      detach_maps(browser);
+      detach_views(browser);
       return 42;
     }
     QueryPerformanceCounter(&t1);
@@ -324,7 +324,7 @@ int console_pan_bench(Browser& browser, const wchar_t* mark_leaf) {
                                 times.refresh_ms, pan_frame_p50_ms, false,
                                 tiles_ok)) {
     std::fprintf(stderr, "console harness: console_bench.json write failed\n");
-    detach_maps(browser);
+    detach_views(browser);
     return 55;
   }
   return 0;

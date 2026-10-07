@@ -22,7 +22,7 @@
 #include <windows.h>
 
 #include "content/browser/session/browser_session.h"
-#include "content/public/map_contents.h"
+#include "content/public/gis_contents.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/style_types.h"
 #include "tool/draft/draft.h"
@@ -285,7 +285,7 @@ void InspectComposer::sync_selection_panel_from_scene() {
   if (!host_->selection_panel_ || !host_->browser_) {
     return;
   }
-  const content::MapScene::Feature* sel = host_->browser_->document()->selected_feature();
+  const content::GisScene::Feature* sel = host_->browser_->document()->selected_feature();
   host_->selection_panel_->set_count(sel ? 1 : 0);
   std::vector<ui::views::SelectionPanel::LayerSummary> layers;
   for (const auto& layer : host_->browser_->document()->layers()) {
@@ -348,16 +348,16 @@ void InspectComposer::sync_layer_properties_from_scene() {
       layer_token = layer.id.empty() ? layer.name : layer.id;
       if (!layer.features.empty()) {
         switch (layer.features.front().kind) {
-          case content::MapScene::GeomKind::kPoint:
+          case content::GisScene::GeomKind::kPoint:
             geom = "point";
             break;
-          case content::MapScene::GeomKind::kLine:
+          case content::GisScene::GeomKind::kLine:
             geom = "line";
             break;
-          case content::MapScene::GeomKind::kPolygon:
+          case content::GisScene::GeomKind::kPolygon:
             geom = "fill";
             break;
-          case content::MapScene::GeomKind::kText:
+          case content::GisScene::GeomKind::kText:
             geom = "symbol";
             break;
         }
@@ -378,9 +378,9 @@ bool InspectComposer::invert_selection() {
   if (!host_->browser_) {
     return false;
   }
-  const content::MapScene::Feature* sel = host_->browser_->document()->selected_feature();
+  const content::GisScene::Feature* sel = host_->browser_->document()->selected_feature();
   bool take_next = (sel == nullptr);
-  const content::MapScene::Feature* first = nullptr;
+  const content::GisScene::Feature* first = nullptr;
   for (const auto& layer : host_->browser_->document()->layers()) {
     for (const auto& f : layer.features) {
       if (!first) {
@@ -406,7 +406,7 @@ bool InspectComposer::export_selection_geojson(std::string* out_path) {
   if (!out_path || !host_->browser_) {
     return false;
   }
-  const content::MapScene::Feature* sel = host_->browser_->document()->selected_feature();
+  const content::GisScene::Feature* sel = host_->browser_->document()->selected_feature();
   if (!sel || sel->points.empty()) {
     return false;
   }
@@ -418,14 +418,14 @@ bool InspectComposer::export_selection_geojson(std::string* out_path) {
     return false;
   }
   const char* gtype = "LineString";
-  if (sel->kind == content::MapScene::GeomKind::kPoint || sel->points.size() == 1) {
+  if (sel->kind == content::GisScene::GeomKind::kPoint || sel->points.size() == 1) {
     gtype = "Point";
-  } else if (sel->kind == content::MapScene::GeomKind::kPolygon) {
+  } else if (sel->kind == content::GisScene::GeomKind::kPolygon) {
     gtype = "Polygon";
   }
   out << "{\"type\":\"FeatureCollection\",\"features\":[{"
          "\"type\":\"Feature\",\"properties\":{\"id\":\""
-      << content::MapScene::feature_token(sel->id)
+      << content::GisScene::feature_token(sel->id)
       << "\"},\"geometry\":{\"type\":\"" << gtype << "\",\"coordinates\":";
   if (std::strcmp(gtype, "Point") == 0) {
     out << "[" << sel->points.front().x << "," << -sel->points.front().y

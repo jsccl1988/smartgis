@@ -1,9 +1,10 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "app/views/browser/browser.h"
 
+#include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -13,6 +14,8 @@
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/browser/plugin/present.h"
 #include "app/views/browser/plugin/scene3d_bridges.h"
+#include "base/core/log.h"
+#include "content/browser/document/gis_document.h"
 #include "content/browser/session/browser_session.h"
 #include "content/public/event_bus.h"
 #include "content/public/plugin_host.h"
@@ -25,17 +28,25 @@
 namespace app {
 
 void Browser::install_plugin_host_bridges() {
-  if (!plugins_ || !plugins_->host()) {
+  if (!plugins_ || !plugins_->host() || !session_->gis_contents()) {
     return;
   }
-  content::PluginHost* host = plugins_->host();
-  content::EventBus* events = nullptr;
-  if (session_->edit_host()) {
-    events = session_->edit_host()->events();
+  // PluginHost is owned by GisContents (attach_gis_contents already ran).
+  content::PluginHost* host = session_->gis_contents()->plugin_host();
+  if (!host) {
+    host = plugins_->host();
   }
-  gis_document_ = std::make_unique<content::MapSceneGisDocument>(
-      &session_->document(), events);
-  host->set_gis_document(gis_document_.get());
+  if (!host) {
+    return;
+  }
+  content::EventBus* events = nullptr;
+  if (session_->edit_tool_session()) {
+    events = session_->edit_tool_session()->events();
+  }
+  // After PluginShell catalog init — Create earlier heap-corrupted CRT allocs.
+  session_->gis_contents()->take_gis_document(
+      std::make_unique<content::GisSceneDocument>(&session_->document(),
+                                                     events));
 
   detail::Scene3dHostContext ctx;
   ctx.session = session_.get();
@@ -49,7 +60,7 @@ void Browser::install_plugin_host_bridges() {
   };
   ctx.apply_china_atmo = [this]() { apply_china_scene3d_atmosphere(*this); };
   ctx.push_shared_extent = [this]() { push_shared_extent(); };
-  ctx.select_map_tab = [this](int index) { select_map_tab(index); };
+  ctx.select_view_tab = [this](int index) { select_view_tab(index); };
   detail::install_scene3d_host_bridges(ctx);
 
   detail::Map2dHostContext map2d_ctx;
@@ -66,7 +77,7 @@ void Browser::install_plugin_host_bridges() {
     apply_china_map2d_product_defaults(*this, w, h);
   };
   map2d_ctx.push_shared_extent = [this]() { push_shared_extent(); };
-  map2d_ctx.select_map_tab = [this](int index) { select_map_tab(index); };
+  map2d_ctx.select_view_tab = [this](int index) { select_view_tab(index); };
   map2d_ctx.view_size = [this](int* w, int* h) {
     if (w) {
       *w = 1280;
@@ -120,7 +131,7 @@ void Browser::wire_plugin_present_dataset() {
   plugins_->host()->set_present_dataset_bridge(
       [this](std::string_view plugin_id, std::string_view path, int face,
              int surface) {
-        // Nested present_dataset (orthogrid commit → tab/fit/invalidate, or
+        // Nested present_dataset (orthogrid commit �?tab/fit/invalidate, or
         // for_each_processing walking the same vtable) must not re-enter.
         static thread_local int depth = 0;
         if (depth > 0) {

@@ -130,8 +130,8 @@ bool StyleBind::resolve_style_for_test(const std::string& source_layer,
                              out);
 }
 
-bool StyleBind::style_colors_for_feature(const MapLayer& layer,
-                                         const MapFeature& f, double scale,
+bool StyleBind::style_colors_for_feature(const GisLayer& layer,
+                                         const GisFeature& f, double scale,
                                          COLORREF* fill, COLORREF* stroke,
                                          int* stroke_width) const {
   if (!style_doc_ || !fill || !stroke || !stroke_width) {

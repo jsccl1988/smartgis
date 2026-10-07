@@ -42,7 +42,7 @@ double dist2(double ax, double ay, double bx, double by) {
   return dx * dx + dy * dy;
 }
 
-double feature_pick_dist2(const MapFeature& feature, double map_x,
+double feature_pick_dist2(const GisFeature& feature, double map_x,
                           double map_y) {
   if (feature.points.empty()) {
     return 1e300;
@@ -74,11 +74,11 @@ content::FeatureId append_from_draft(
     return {};
   }
   store->ensure_active_layer_or_front();
-  MapLayer* layer = store->find_layer(store->active_layer_id());
+  GisLayer* layer = store->find_layer(store->active_layer_id());
   if (!layer) {
     return {};
   }
-  MapFeature f;
+  GisFeature f;
   f.id = store->next_feature_id();
   f.kind = geom_from_tool(tool_id, draft.kind);
   f.points.reserve(draft.points.size());
@@ -113,7 +113,7 @@ content::FeatureId move_selected_vertex(LayerStore* store, double map_x,
   if (!store) {
     return {};
   }
-  MapFeature* feature = store->find_feature(store->selected_id());
+  GisFeature* feature = store->find_feature(store->selected_id());
   if (!feature || feature->points.empty()) {
     return {};
   }
@@ -150,8 +150,8 @@ bool copy_feature_xy(const LayerStore& store, const content::FeatureId& id,
     return false;
   }
   out->clear();
-  for (const MapLayer& layer : store.layers()) {
-    for (const MapFeature& feature : layer.features) {
+  for (const GisLayer& layer : store.layers()) {
+    for (const GisFeature& feature : layer.features) {
       if (!feature_id_eq(feature.id, id)) {
         continue;
       }
@@ -175,7 +175,7 @@ bool add_triangle_layer(LayerStore* store, const std::string& name,
   if (!store->create_layer(name)) {
     return false;
   }
-  MapLayer* layer = store->find_layer(store->active_layer_id());
+  GisLayer* layer = store->find_layer(store->active_layer_id());
   if (!layer) {
     return false;
   }
@@ -188,7 +188,7 @@ bool add_triangle_layer(LayerStore* store, const std::string& name,
         c >= point_count) {
       continue;
     }
-    MapFeature feature;
+    GisFeature feature;
     feature.id = store->next_feature_id();
     feature.kind = GeomKind::kPolygon;
     const int idx[3] = {a, b, c};
@@ -221,7 +221,7 @@ bool add_point_cloud_layer(LayerStore* store, const std::string& name,
   if (!store->create_layer(name)) {
     return false;
   }
-  MapLayer* layer = store->find_layer(store->active_layer_id());
+  GisLayer* layer = store->find_layer(store->active_layer_id());
   if (!layer) {
     return false;
   }
@@ -229,7 +229,7 @@ bool add_point_cloud_layer(LayerStore* store, const std::string& name,
   constexpr int kMaxMapPoints = 20000;
   const int step = point_count > kMaxMapPoints ? (point_count / kMaxMapPoints) : 1;
   for (int i = 0; i < point_count; i += step) {
-    MapFeature feature;
+    GisFeature feature;
     feature.id = store->next_feature_id();
     feature.kind = GeomKind::kPoint;
     feature.points.push_back({xyz[i * 3], xyz[i * 3 + 1]});
@@ -257,9 +257,9 @@ bool add_point_cloud_layer(LayerStore* store, const std::string& name,
   return true;
 }
 
-std::vector<const MapFeature*> hit_test_all(LayerStore* store, double map_x,
+std::vector<const GisFeature*> hit_test_all(LayerStore* store, double map_x,
                                            double map_y, double tol_map) {
-  std::vector<const MapFeature*> out;
+  std::vector<const GisFeature*> out;
   if (!store) {
     return out;
   }
@@ -269,7 +269,7 @@ std::vector<const MapFeature*> hit_test_all(LayerStore* store, double map_x,
   }
   const double tol2 = tol_map * tol_map;
   struct Candidate {
-    MapFeature* feature = nullptr;
+    GisFeature* feature = nullptr;
     double dist2 = 0;
   };
   std::vector<Candidate> candidates;
@@ -298,16 +298,16 @@ std::vector<const MapFeature*> hit_test_all(LayerStore* store, double map_x,
     out.push_back(cand.feature);
   }
   if (!candidates.empty()) {
-    MapFeature* best = candidates.front().feature;
+    GisFeature* best = candidates.front().feature;
     best->selected = true;
     store->set_selected_id(best->id);
   }
   return out;
 }
 
-const MapFeature* hit_test(LayerStore* store, double map_x, double map_y,
+const GisFeature* hit_test(LayerStore* store, double map_x, double map_y,
                            double tol_map) {
-  const std::vector<const MapFeature*> hits =
+  const std::vector<const GisFeature*> hits =
       hit_test_all(store, map_x, map_y, tol_map);
   return hits.empty() ? nullptr : hits.front();
 }
@@ -321,7 +321,7 @@ SnapHit snap_to_features(const LayerStore& store, double map_x, double map_y,
   const double tol2 = tol_map * tol_map;
   double best_d = tol2;
 
-  auto consider_vertex = [&](const MapFeature& f, int index, double x,
+  auto consider_vertex = [&](const GisFeature& f, int index, double x,
                              double y) {
     const double d = dist2(map_x, map_y, x, y);
     if (d <= best_d) {
@@ -334,7 +334,7 @@ SnapHit snap_to_features(const LayerStore& store, double map_x, double map_y,
     }
   };
 
-  auto consider_edge = [&](const MapFeature& f, int start_index, double ax,
+  auto consider_edge = [&](const GisFeature& f, int start_index, double ax,
                            double ay, double bx, double by) {
     const double abx = bx - ax;
     const double aby = by - ay;
@@ -367,11 +367,11 @@ SnapHit snap_to_features(const LayerStore& store, double map_x, double map_y,
   };
 
   // Pass 1: vertices (preferred).
-  for (const MapLayer& layer : store.layers()) {
+  for (const GisLayer& layer : store.layers()) {
     if (!layer.visible) {
       continue;
     }
-    for (const MapFeature& feature : layer.features) {
+    for (const GisFeature& feature : layer.features) {
       for (size_t i = 0; i < feature.points.size(); ++i) {
         consider_vertex(feature, static_cast<int>(i), feature.points[i].x,
                         feature.points[i].y);
@@ -381,11 +381,11 @@ SnapHit snap_to_features(const LayerStore& store, double map_x, double map_y,
 
   // Pass 2: edges for line/polygon (skip if a vertex already won with d==0).
   if (hit.kind != SnapHit::Kind::kVertex || best_d > 1e-24) {
-    for (const MapLayer& layer : store.layers()) {
+    for (const GisLayer& layer : store.layers()) {
       if (!layer.visible) {
         continue;
       }
-      for (const MapFeature& feature : layer.features) {
+      for (const GisFeature& feature : layer.features) {
         if (feature.kind != GeomKind::kLine &&
             feature.kind != GeomKind::kPolygon) {
           continue;

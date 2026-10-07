@@ -17,11 +17,14 @@
 namespace content {
 
 class Map2dFrameCache;
-class MapScene;
+class GisScene;
 class ViewFrame;
 
 // GDI software paint path for 2D maps. The map body is MapIR + View
 // through paint_map_frame_gdi. Labels are MapIR kText glyphs.
+// Shares Map2dFrameCache (MapIR layout/camera keys) with Vista MapPass GPU;
+// the present DIB below is GDI-only pixel reuse — do not merge with GPU
+// StaticReuse in a big-bang rewrite.
 class Map2dSoftwarePainter {
  public:
   Map2dSoftwarePainter() = default;
@@ -30,7 +33,7 @@ class Map2dSoftwarePainter {
   Map2dSoftwarePainter(const Map2dSoftwarePainter&) = delete;
   Map2dSoftwarePainter& operator=(const Map2dSoftwarePainter&) = delete;
 
-  void bind(const MapScene* scene, const ViewFrame* frame,
+  void bind(const GisScene* scene, const ViewFrame* frame,
             Map2dFrameCache* cache);
 
   void paint(HDC hdc, int width_px, int height_px) const;
@@ -64,7 +67,7 @@ class Map2dSoftwarePainter {
   bool ensure_present_cache_dib(int width_px, int height_px) const;
   void clear_present_cache() const;
 
-  const MapScene* scene_ = nullptr;
+  const GisScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
   Map2dFrameCache* cache_ = nullptr;
   mutable size_t basemap_tiles_drawn_ = 0;

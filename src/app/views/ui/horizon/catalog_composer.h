@@ -8,7 +8,7 @@ namespace app {
 
 class BrowserView;
 
-// Catalog layer tree wire + sync from MapScene.
+// Catalog layer tree wire + sync from GisScene.
 class CatalogComposer {
  public:
   explicit CatalogComposer(BrowserView* host);

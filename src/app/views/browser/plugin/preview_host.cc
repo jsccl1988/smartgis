@@ -7,7 +7,7 @@
 
 #include "app/views/browser/browser.h"
 #include "app/views/browser/ui_delegate.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "plugin/runtime/widgets/map_preview.h"
 #include "plugin/runtime/widgets/world_preview.h"
 #include "ui/views/kernel/widget/widget.h"
@@ -103,19 +103,19 @@ void PluginPreviewHost::wire_draw_host(Browser* browser) {
     return;
   }
   ui::views::DrawHost* dh = nullptr;
-  content::ViewHost* vh = nullptr;
+  content::ToolSession* vh = nullptr;
   if (face_ == 1 && world_preview_) {
     dh = world_preview_->draw_host();
-    vh = browser->scene_host();
+    vh = browser->scene_tool_session();
   } else if (face_ == 0 && map_preview_) {
     dh = map_preview_->draw_host();
-    vh = browser->edit_host();
+    vh = browser->edit_tool_session();
   }
   if (!dh) {
     return;
   }
-  dh->set_view_host(vh);
-  dh->set_map_contents(browser->map_session());
+  dh->set_tool_session(vh);
+  dh->set_gis_contents(browser->map_session());
   if (face_ == 1) {
     dh->set_role(ui::views::DrawHost::Role::kScene3d);
   } else {

@@ -12,7 +12,7 @@
 #include "plugin/runtime/host/capability/shell.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "ui/views/map/viewport/draw_host.h"
 
@@ -43,7 +43,7 @@ bool try_export_map2d_bmp(HarnessShell& browser, const char* leaf_utf8,
     if (browser.document() &&
         browser.document()->compute_extent(&minx, &miny, &maxx, &maxy) &&
         maxx > minx && maxy > miny) {
-      // MapScene stores map_y = -geo_y. apply_world_extent expects geo-space
+      // GisScene stores map_y = -geo_y. apply_world_extent expects geo-space
       // Extent2 and flips Y once; un-negate so framing matches stored verts.
       const double geo_miny = -maxy;
       const double geo_maxy = -miny;

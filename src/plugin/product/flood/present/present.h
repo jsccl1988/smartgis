@@ -13,7 +13,7 @@ namespace plugin {
 bool present_flood_style(content::GisDocument* doc);
 
 // Wet-cell mosaic + optional dry-land terrain. Horizon playback still wraps
-// MapScene in MapSceneGisDocument before calling here.
+// GisScene in GisSceneDocument before calling here.
 bool present_flood_mask(content::GisDocument* doc,
                         const unsigned char* mask,
                         int width,

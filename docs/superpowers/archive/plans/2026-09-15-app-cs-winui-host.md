@@ -12,7 +12,7 @@ All rights reserved.
 
 **Goal:** 落地 `smartgis_host` C ABI + `SmartGis.WinUI.MapView` + 与现有 app 同契约的 `SmartGisCs.exe`。
 
-**Architecture:** C# 进程是 chrome；native DLL 包 `MapContents` 与 HWND+DIB island；GPU 必须是旁路 `SmartGisRender.exe`。
+**Architecture:** C# 进程是 chrome；native DLL 包 `GisContents` 与 HWND+DIB island；GPU 必须是旁路 `SmartGisRender.exe`。
 
 **Tech Stack:** C++23 GN DLL、.NET 8 WinUI 3 unpackaged、WinAppSDK 1.7 NuGet、P/Invoke。
 
@@ -35,13 +35,13 @@ All rights reserved.
 - Create: `src/app/cs/native/sg_host_test.cc`
 - Create: `src/app/cs/cs.gni`
 - Create: `src/app/cs/BUILD.gn`
-- Modify: `src/content/map_contents.cc`（`SmartGisCs*` + `SetGpuExeOverride`）
-- Modify: `src/content/public/map_contents.h`
+- Modify: `src/content/gis_contents.cc`（`SmartGisCs*` + `SetGpuExeOverride`）
+- Modify: `src/content/public/gis_contents.h`
 
 **Produces:** `sg_host_*`；`out/smartgis_host_d.dll`；`out/sg_host_test.exe`
 
 - [x] L0 测试与 native 实现同轮落地（create/destroy、假 HWND、catalog）
-- [x] `MapContents::SetGpuExeOverride` + resolve_render_exe 识别 Cs/Cef
+- [x] `GisContents::SetGpuExeOverride` + resolve_render_exe 识别 Cs/Cef
 
 ### Task 2: C# MapSession + MapView + 产品壳
 

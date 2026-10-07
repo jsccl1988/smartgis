@@ -22,8 +22,8 @@ namespace detail {
 
 bool dispatch_edit_input(Browser& browser, const content::InputEvent& event);
 bool apply_style_file(Browser& browser, const std::string& path_utf8);
-bool open_map_document(Browser& browser, const std::string& path_utf8);
-bool open_map_document(plugin::HarnessShell& host, const std::string& path_utf8);
+bool open_document(Browser& browser, const std::string& path_utf8);
+bool open_document(plugin::HarnessShell& host, const std::string& path_utf8);
 bool clear_map_document(Browser& browser);
 bool fit_map_document(Browser& browser);
 bool invalidate_map2d_frame(Browser& browser);

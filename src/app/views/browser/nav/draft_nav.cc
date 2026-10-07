@@ -28,10 +28,10 @@
 #include "app/views/browser/commands/view_commands.h"
 #include "plugin/product/world3d/commands.h"
 #include "plugin/runtime/host/catalog/registry.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/map_contents.h"
+#include "content/public/types.h"
+#include "content/public/gis_contents.h"
 #include "content/public/plugin_host.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "vista/component/world/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "gis/edit/session.h"
@@ -173,10 +173,10 @@ void Browser::fit_map_extent() {
 
 namespace {
 
-// BrowserSession / ViewHost / Workspace can be poisoned across partial multi-agent
+// BrowserSession / ToolSession / Workspace can be poisoned across partial multi-agent
 // out/Debug rebuilds; stack().current() must not AV the self-test path.
 // SEH helpers stay free of C++ object unwinding (MSVC C2712).
-tool::Workspace* seh_view_host_workspace(content::ViewHost* host) {
+tool::Workspace* seh_tool_session_workspace(content::ToolSession* host) {
   if (!host) {
     return nullptr;
   }
@@ -204,9 +204,9 @@ void Browser::handle_draft(const tool::Draft& draft) {
   if (!ui_) {
     return;
   }
-  content::ViewHost* host = ui_->active_view_host();
+  content::ToolSession* host = ui_->active_tool_session();
   tool::Interaction* cur =
-      seh_workspace_current(seh_view_host_workspace(host));
+      seh_workspace_current(seh_tool_session_workspace(host));
   const char* tool_id = cur ? cur->id() : "";
   const bool scene3d_tab = ui_->scene3d_tab_active();
 
@@ -219,7 +219,7 @@ void Browser::handle_draft(const tool::Draft& draft) {
     return;
   }
 
-  // Scene3d tab: always-on navigate drafts go to orbit camera (not 2D MapScene).
+  // Scene3d tab: always-on navigate drafts go to orbit camera (not 2D GisScene).
   if (scene3d_tab && tool::is_navigate_tool(tool_id)) {
     if (draft.kind == tool::DraftKind::kWheel ||
         draft.kind == tool::DraftKind::kRect ||
@@ -241,15 +241,15 @@ void Browser::handle_draft(const tool::Draft& draft) {
   }
 
   if (tool_id && std::strncmp(tool_id, "select.", 7) == 0) {
-    const content::MapScene::Feature* hit = session_->document().selected_feature();
+    const content::GisScene::Feature* hit = session_->document().selected_feature();
     if (hit) {
-      ui_->set_status_message("Selected " + content::MapScene::feature_token(hit->id));
+      ui_->set_status_message("Selected " + content::GisScene::feature_token(hit->id));
       if (ui_->feature_info()) {
-        ui_->feature_info()->set_feature_id(content::MapScene::feature_token(hit->id));
+        ui_->feature_info()->set_feature_id(content::GisScene::feature_token(hit->id));
         std::vector<std::pair<std::string, std::string>> pairs;
         std::string source_layer;
-        for (const content::MapScene::Layer& layer : session_->document().layers()) {
-          for (const content::MapScene::Feature& candidate : layer.features) {
+        for (const content::GisScene::Layer& layer : session_->document().layers()) {
+          for (const content::GisScene::Feature& candidate : layer.features) {
             if (std::memcmp(candidate.id.bytes, hit->id.bytes,
                             sizeof(hit->id.bytes)) == 0 &&
                 candidate.id.len == hit->id.len) {
@@ -264,16 +264,16 @@ void Browser::handle_draft(const tool::Draft& draft) {
         ui_->feature_info()->set_layer_name(source_layer);
         const char* geom = "Point";
         switch (hit->kind) {
-          case content::MapScene::GeomKind::kLine:
+          case content::GisScene::GeomKind::kLine:
             geom = "Line";
             break;
-          case content::MapScene::GeomKind::kPolygon:
+          case content::GisScene::GeomKind::kPolygon:
             geom = "Polygon";
             break;
-          case content::MapScene::GeomKind::kText:
+          case content::GisScene::GeomKind::kText:
             geom = "Text";
             break;
-          case content::MapScene::GeomKind::kPoint:
+          case content::GisScene::GeomKind::kPoint:
           default:
             geom = "Point";
             break;
@@ -287,14 +287,14 @@ void Browser::handle_draft(const tool::Draft& draft) {
         }
         ui_->feature_info()->set_fields(fields);
       }
-      if (content::ViewHost* host = ui_->active_view_host()) {
+      if (content::ToolSession* host = ui_->active_tool_session()) {
         const uint32_t view_id = ui_->active_map() ? ui_->active_map()->view_id() : 0;
         host->execute("flash.start", view_id);
       }
       flash_lit_ = true;
       ui_->sync_flash_timer();
     } else {
-      if (content::ViewHost* host = ui_->active_view_host()) {
+      if (content::ToolSession* host = ui_->active_tool_session()) {
         const uint32_t view_id = ui_->active_map() ? ui_->active_map()->view_id() : 0;
         host->execute("flash.stop", view_id);
       }
@@ -321,7 +321,7 @@ void Browser::handle_draft(const tool::Draft& draft) {
       return;
     }
     // EditSession append (with FeatureGeom) already ran in DraftPipeline.
-    // MapScene remains the Views display store.
+    // GisScene remains the Views display store.
     const content::FeatureId id = session_->append_from_draft(draft, tool_id);
     if (plugin::grid_boundary_armed() && id.len > 0) {
       std::vector<std::pair<double, double>> xy;
@@ -476,7 +476,7 @@ void Browser::refresh_scale() {
 namespace {
 
 // ViewNavigation::reset/commit can AV when BrowserSession layout was built
-// against a skewed map_scene/presenter sizeof (parallel ninja). Keep showcase
+// against a skewed gis_scene/presenter sizeof (parallel ninja). Keep showcase
 // init alive — same SEH pattern as seh_fit_and_push_extent.
 bool seh_nav_reset_or_commit(content::BrowserSession* session,
                              const content::Extent2& now,
@@ -564,7 +564,7 @@ void Browser::frame_navigation_extent() {
 void Browser::identify_at(int view_x, int view_y) {
   content::FeatureId saved{};
   bool had = false;
-  if (const content::MapScene::Feature* current = session_->document().selected_feature()) {
+  if (const content::GisScene::Feature* current = session_->document().selected_feature()) {
     saved = current->id;
     had = true;
   }
@@ -573,7 +573,7 @@ void Browser::identify_at(int view_x, int view_y) {
   session_->view_to_map(view_x, view_y, &map_x, &map_y);
   const double scale = session_->view_scale() > 1e-9 ? session_->view_scale() : 1.0;
   const double tol_map = 12.0 / scale;
-  const std::vector<const content::MapScene::Feature*> candidates =
+  const std::vector<const content::GisScene::Feature*> candidates =
       session_->document().hit_test_all(map_x, map_y, tol_map);
   if (candidates.empty()) {
     if (had) {
@@ -590,14 +590,14 @@ void Browser::identify_at(int view_x, int view_y) {
     const double map_scale = session_->view_scale();
     std::vector<ui::views::FeatureInfo::Hit> hits;
     hits.reserve(candidates.size());
-    for (const content::MapScene::Feature* feature : candidates) {
+    for (const content::GisScene::Feature* feature : candidates) {
       if (!feature) {
         continue;
       }
       ui::views::FeatureInfo::Hit hit;
-      hit.feature_id = content::MapScene::feature_token(feature->id);
-      for (const content::MapScene::Layer& layer : session_->document().layers()) {
-        for (const content::MapScene::Feature& candidate : layer.features) {
+      hit.feature_id = content::GisScene::feature_token(feature->id);
+      for (const content::GisScene::Layer& layer : session_->document().layers()) {
+        for (const content::GisScene::Feature& candidate : layer.features) {
           if (std::memcmp(candidate.id.bytes, feature->id.bytes,
                           sizeof(feature->id.bytes)) == 0 &&
               candidate.id.len == feature->id.len) {
@@ -610,16 +610,16 @@ void Browser::identify_at(int view_x, int view_y) {
         }
       }
       switch (feature->kind) {
-        case content::MapScene::GeomKind::kLine:
+        case content::GisScene::GeomKind::kLine:
           hit.geometry_type = "Line";
           break;
-        case content::MapScene::GeomKind::kPolygon:
+        case content::GisScene::GeomKind::kPolygon:
           hit.geometry_type = "Polygon";
           break;
-        case content::MapScene::GeomKind::kText:
+        case content::GisScene::GeomKind::kText:
           hit.geometry_type = "Text";
           break;
-        case content::MapScene::GeomKind::kPoint:
+        case content::GisScene::GeomKind::kPoint:
         default:
           hit.geometry_type = "Point";
           break;
@@ -640,9 +640,9 @@ void Browser::identify_at(int view_x, int view_y) {
   ui_->invalidate_map_overlays();
   if (candidates.size() > 1) {
     ui_->set_status_message("Identified " + std::to_string(candidates.size()) +
-                            " features (" + content::MapScene::feature_token(id) + ")");
+                            " features (" + content::GisScene::feature_token(id) + ")");
   } else {
-    ui_->set_status_message("Selected " + content::MapScene::feature_token(id));
+    ui_->set_status_message("Selected " + content::GisScene::feature_token(id));
   }
 }
 
@@ -770,7 +770,7 @@ bool Browser::dispatch_shell_navigation(std::string_view command_id,
 }
 
 void Browser::forward_draft_to_contents(const tool::Draft& draft) {
-  if (!session_->map_contents()) {
+  if (!session_->gis_contents()) {
     return;
   }
   ui::views::DrawHost* pane = ui_->active_map();
@@ -791,20 +791,20 @@ void Browser::forward_draft_to_contents(const tool::Draft& draft) {
       e.x_px = draft.points.front().x_px;
       e.y_px = draft.points.front().y_px;
     }
-    session_->map_contents()->Dispatch(view_id, e);
+    session_->gis_contents()->Dispatch(view_id, e);
     return;
   }
   if (draft.kind == tool::DraftKind::kRect && draft.points.size() >= 2) {
     e.kind = content::InputEvent::Kind::kLDown;
     e.x_px = draft.points.front().x_px;
     e.y_px = draft.points.front().y_px;
-    session_->map_contents()->Dispatch(view_id, e);
+    session_->gis_contents()->Dispatch(view_id, e);
     e.kind = content::InputEvent::Kind::kMouseMove;
     e.x_px = draft.points.back().x_px;
     e.y_px = draft.points.back().y_px;
-    session_->map_contents()->Dispatch(view_id, e);
+    session_->gis_contents()->Dispatch(view_id, e);
     e.kind = content::InputEvent::Kind::kLUp;
-    session_->map_contents()->Dispatch(view_id, e);
+    session_->gis_contents()->Dispatch(view_id, e);
   }
 }
 
@@ -831,18 +831,18 @@ void Browser::push_shared_extent() {
     e = session_->adopt_orbit_from_view(w, h);
   }
   refresh_scale();
-  if (!session_->map_contents()) {
+  if (!session_->gis_contents()) {
     return;
   }
   syncing_extent_ = true;
   ui_->for_each_draw_host([&](ui::views::DrawHost* pane) {
     if (pane->view_id() != 0) {
-      session_->map_contents()->SetExtent(pane->view_id(), e);
+      session_->gis_contents()->SetExtent(pane->view_id(), e);
     }
   });
   const uint32_t scene_id = ui_->scene_view_id();
   if (scene_id != 0) {
-    session_->map_contents()->SetExtent(scene_id, session_->orbit_world_extent());
+    session_->gis_contents()->SetExtent(scene_id, session_->orbit_world_extent());
   }
   syncing_extent_ = false;
   refresh_scale();
@@ -901,8 +901,8 @@ void Browser::pull_orbit_extent() {
   if (!ui_) {
     return;
   }
-  // Do not call MapContents::Extent here. Multi-agent out/ rebuilds have left
-  // MapContents ABI skew that AVs inside Extent (cdb: pull_orbit_extent /
+  // Do not call GisContents::Extent here. Multi-agent out/ rebuilds have left
+  // GisContents ABI skew that AVs inside Extent (cdb: pull_orbit_extent /
   // INVALID_POINTER_READ). Document world_extent + China fallback is enough
   // for orbit init; live view sync goes through push_shared_extent / fit.
   session_->pull_orbit_extent_from_document();

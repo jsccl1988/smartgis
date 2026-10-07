@@ -66,7 +66,7 @@ bool DrawHost::present_latest_frame(HDC hdc, const RECT& client_rc) {
   if (!hdc || !session_ || view_id_ == 0) {
     return false;
   }
-  content::MapWidgetHostView* view = session_->HostView(view_id_);
+  content::WidgetHostView* view = session_->HostView(view_id_);
   if (!view) {
     return false;
   }
@@ -147,7 +147,7 @@ void DrawHost::paint_host_content(HDC target, const RECT& client_rc) {
     last_content_present_ok_.store(false, std::memory_order_release);
   }
   const bool force_gdi = detail::force_gdi_map_overlay();
-  // Keep the last SharedSurface blit when 3D present briefly fails â€” but
+  // Keep the last SharedSurface blit when 3D present briefly fails â€?but
   // never skip GDI overlay under FORCE_GDI_MAP_OVERLAY.
   if (!presented && painted_generation_ > 0 && !force_gdi &&
       role_ == Role::kScene3d) {

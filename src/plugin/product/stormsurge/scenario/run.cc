@@ -25,7 +25,7 @@
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 
 namespace plugin {
 namespace detail {
@@ -39,7 +39,7 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
   char coast_path[MAX_PATH * 3] = {};
   if (!resolve_stormsurge_inputs(dem_path, sizeof(dem_path), coast_path,
                                  sizeof(coast_path))) {
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
@@ -55,13 +55,13 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
   opts.require_scene_hwnd = true;
   opts.detach_flycube = false;
   opts.allow_null_without_hwnd = false;
-  // Keep shell borrow + select_map_tab (skipping select → device-missing).
+  // Keep shell borrow + select_view_tab (skipping select → device-missing).
   opts.borrow_shell_scene3d = true;
 
   PluginDeviceSession session;
   if (const int rc = prepare_plugin_device_session(browser, opts, &session)) {
     destroy_plugin_owned_hwnd(&session);
-    browser.detach_maps();
+    browser.detach_views();
     return rc;
   }
 
@@ -70,7 +70,7 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
   if (!cam || !orbit) {
     teardown_plugin_device_session(
         cam, &session, PluginTeardownOpts{.shutdown_device = false});
-    browser.detach_maps();
+    browser.detach_views();
     return 50;
   }
 
@@ -78,7 +78,7 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
   if (!resolve_stormsurge_mask_output(out_path, sizeof(out_path))) {
     teardown_plugin_device_session(
         cam, &session, PluginTeardownOpts{.shutdown_device = false});
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
@@ -90,7 +90,7 @@ int run_stormsurge_scene3d(HarnessShell& browser) {
   if (!seed_stormsurge_processing(browser, dem_path, coast_path, out_path)) {
     teardown_plugin_device_session(
         cam, &session, PluginTeardownOpts{.shutdown_device = false});
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 

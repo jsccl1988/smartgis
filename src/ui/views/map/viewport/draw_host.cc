@@ -57,11 +57,11 @@ void DrawHost::set_role(Role role) {
   role_ = role;
 }
 
-void DrawHost::set_view_host(content::ViewHost* host) {
-  view_host_ = host;
+void DrawHost::set_tool_session(content::ToolSession* host) {
+  tool_session_ = host;
 }
 
-void DrawHost::set_map_contents(content::MapContents* session) {
+void DrawHost::set_gis_contents(content::GisContents* session) {
   if (owns_session_ && session_ && session_ != session) {
 #ifdef HAS_CONTENT_MAP_SESSION
     session_->Shutdown();
@@ -130,7 +130,7 @@ bool DrawHost::attach() {
   // preference (View menu / content::set_scene3d_engine); 2D still allows
   // FORCE_CONTENT / PREFER_FLYCUBE env for ContentMapView. ContentMapView /
   // OOP / GDI remain fallbacks. Scenic keeps the product HWND presenter
-  // (Scene3dPresenter::paint) — never ContentMapView leftover SharedSurface.
+  // (Scene3dPresenter::paint) 鈥?never ContentMapView leftover SharedSurface.
 #if defined(HAS_SCENE3D_ENGINE)
   const bool prefer_rhi_3d = content::prefer_scene3d_flycube();
   const bool scenic_3d = content::prefer_scene3d_scenic();
@@ -143,7 +143,7 @@ bool DrawHost::attach() {
   const bool force_content_3d = false;
 #endif
   const bool prefer_gpu_present_2d = []() {
-    // Scenic MemFrame present must never create a GPU present HWND — residual
+    // Scenic MemFrame present must never create a GPU present HWND 鈥?residual
     // display_run_present SEH 0xC0000005 was observed when scenic still
     // attached DX12 present on the shell draw panes.
     if (detail::prefer_map2d_scenic_engine()) {
@@ -226,13 +226,13 @@ bool DrawHost::attach() {
   }
 
   // Scene3d ContentMapView is stereo-only. GPU present failure falls through to
-  // Scene3dPresenter on the product HWND — not a second SharedSurface SoT.
+  // Scene3dPresenter on the product HWND 鈥?not a second SharedSurface SoT.
   const bool allow_content_3d = role_ != Role::kScene3d || force_content_3d;
   if (allow_content_3d && try_content_map_view()) {
     mode_ = AttachMode::kContentMapView;
     status_ = (role_ == Role::kScene3d)
-                  ? L"content::MapWidgetHostView (3D SoT)"
-                  : L"content::MapWidgetHostView";
+                  ? L"content::WidgetHostView (3D SoT)"
+                  : L"content::WidgetHostView";
     start_present_timer();
     paint_child_placeholder();
     LOGGING(LOG_WARNING, "rhi.attach role=%s mode=ContentMapView (fallback)",
@@ -403,7 +403,7 @@ void DrawHost::set_gpu_present(GpuPresentFn fn) {
   refresh_has_gpu_cb();
   const bool has_cb = has_gpu_cb_.load(std::memory_order_acquire);
   // Rewiring an existing callback must not punch BeginFrame (wire_map_scene
-  // / tab paths). Only first bind or clear↔set wakes the Display mailbox.
+  // / tab paths). Only first bind or clear鈫攕et wakes the Display mailbox.
   if (has_cb != had_cb) {
     request_frame();
   }
@@ -467,7 +467,7 @@ void DrawHost::resize_host_surface(int width_px, int height_px) {
   if (!session_ || view_id_ == 0 || width_px <= 0 || height_px <= 0) {
     return;
   }
-  if (content::MapWidgetHostView* view = session_->HostView(view_id_)) {
+  if (content::WidgetHostView* view = session_->HostView(view_id_)) {
     view->Resize(width_px, height_px, surface_dpi());
   }
 #else
@@ -496,13 +496,13 @@ void DrawHost::on_device_scale_factor_changed(float old_scale,
 bool DrawHost::try_content_map_view() {
 #ifdef HAS_CONTENT_MAP_SESSION
   if (!session_) {
-    session_ = content::MapContents::Create();
+    session_ = content::create_gis_contents();
     if (!session_) {
       return false;
     }
     owns_session_ = true;
   }
-  // Shared BrowserSession may own MapContents without StartRenderProcess
+  // Shared BrowserSession may own GisContents without StartRenderProcess
   // (deferred until ensure_oop_render_process / ENABLE_OOP_RENDER).
   // DISABLE_OOP_RENDER skips the GPU child (HelloWait ~15s on cold start).
   // force-content-mapview-2d only selects ContentMapView / software DIB attach;
@@ -534,11 +534,11 @@ bool DrawHost::try_content_map_view() {
   // Software DIB: GPU publishes shared pixels; this HWND presents Latest().
   // kChildHwnd is reserved for a future in-GPU child window; both fall back
   // to create_dib in PresentTarget::resize today.
-  if (content::MapWidgetHostView* view = session_->AttachSurface(
+  if (content::WidgetHostView* view = session_->AttachSurface(
           view_id_, content::PresentMode::kSoftwareDib)) {
-    content::MapWidgetHostView::CreateParams params;
+    content::WidgetHostView::CreateParams params;
     params.parent_hwnd = native_view();
-    view->Create(params, content::MapWidgetHostView::Preferences{});
+    view->Create(params, content::WidgetHostView::Preferences{});
     RECT rc = {};
     GetClientRect(native_view(), &rc);
     const int w = rc.right > 0 ? rc.right : 64;

@@ -8,11 +8,11 @@
 
 #include "base/process/switches.h"
 #include "base/trace/event/process_trace.h"
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/debug/debug_agent.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
-#include "content/public/map_contents.h"
-#include "content/public/view_host.h"
+#include "content/public/gis_contents.h"
+#include "content/public/tool_session.h"
 #include "vista/component/world/atmosphere/environment.h"
 
 namespace content {
@@ -23,7 +23,7 @@ bool env_flag_on(const char* name) {
   return env && env[0] == '1' && env[1] == '\0';
 }
 
-// Explicit opt-in to start OOP GPU at init_hosts (legacy / debug).
+// Explicit opt-in to start OOP GPU at init_tool_sessions (legacy / debug).
 // Default is delay until ensure_oop_render_process().
 bool want_oop_at_init() {
   if (env_flag_on("disable-oop-render")) {
@@ -42,35 +42,40 @@ BrowserSession::BrowserSession() = default;
 
 BrowserSession::~BrowserSession() {
   prepare_close();
-  clear_map_contents_observer();
+  clear_gis_contents_observer();
 }
 
-void BrowserSession::init_hosts() {
-  edit_host_ = std::make_unique<ViewHost>();
-  data_host_ = std::make_unique<ViewHost>();
-  scene_host_ = std::make_unique<ViewHost>();
-  // OOP MapContents is optional for in-process present (atmosphere / map2d
+void BrowserSession::init_tool_sessions() {
+  edit_tool_session_ = std::make_unique<ToolSession>();
+  data_tool_session_ = std::make_unique<ToolSession>();
+  scene_tool_session_ = std::make_unique<ToolSession>();
+  // OOP GisContents is optional for in-process present (atmosphere / map2d
   // showcase). Create the session object eagerly; StartRenderProcess is
   // deferred until ensure_oop_render_process() (or ENABLE_OOP_RENDER=1).
-  // Deferred: MapContents::Create during init_hosts was heap-corrupting the
+  // Deferred: create_gis_contents during init_tool_sessions was heap-corrupting the
   // next CRT alloc in PluginShell::CommandCatalog (0xC0000374). Create on
   // first ensure_oop_render_process / present attach instead.
   if (want_oop_at_init()) {
     if (!ensure_oop_render_process()) {
-      map_contents_.reset();
+      gis_contents_.reset();
     }
   }
 }
 
-bool BrowserSession::ensure_oop_render_process() {
-  if (!map_contents_) {
-    BASE_TRACE_EVENT("MapContents.Create", "startup");
-    map_contents_.reset(MapContents::Create());
-    if (!map_contents_) {
-      return false;
-    }
+bool BrowserSession::ensure_gis_contents() {
+  if (gis_contents_) {
+    return true;
   }
-  if (map_contents_->IsOopRender()) {
+  BASE_TRACE_EVENT("GisContents.Create", "startup");
+  gis_contents_.reset(create_gis_contents());
+  return gis_contents_ != nullptr;
+}
+
+bool BrowserSession::ensure_oop_render_process() {
+  if (!ensure_gis_contents()) {
+    return false;
+  }
+  if (gis_contents_->IsOopRender()) {
     return true;
   }
   if (env_flag_on("disable-oop-render")) {
@@ -79,12 +84,12 @@ bool BrowserSession::ensure_oop_render_process() {
   bool ok = false;
   {
     BASE_TRACE_EVENT("StartRenderProcess", "startup");
-    ok = map_contents_->StartRenderProcess();
+    ok = gis_contents_->StartRenderProcess();
   }
   if (!ok) {
-    // Keep the MapContents object for CatalogCall no-ops; callers that need
+    // Keep the GisContents object for CatalogCall no-ops; callers that need
     // a live pipe check IsOopRender(). Dropping here matches historical
-    // init_hosts failure (clear session) only when Create was for OOP-at-init.
+    // init_tool_sessions failure (clear session) only when Create was for OOP-at-init.
     return false;
   }
   return true;
@@ -106,15 +111,15 @@ void BrowserSession::prepare_close() {
   scene3d_stereo_.release();
 }
 
-void BrowserSession::set_map_contents_observer(MapContentsObserver* observer) {
-  if (map_contents_) {
-    map_contents_->SetObserver(observer);
+void BrowserSession::set_gis_contents_observer(GisContentsObserver* observer) {
+  if (gis_contents_) {
+    gis_contents_->SetObserver(observer);
   }
 }
 
-void BrowserSession::clear_map_contents_observer() {
-  if (map_contents_) {
-    map_contents_->SetObserver(nullptr);
+void BrowserSession::clear_gis_contents_observer() {
+  if (gis_contents_) {
+    gis_contents_->SetObserver(nullptr);
   }
 }
 
@@ -264,7 +269,7 @@ content::FeatureId BrowserSession::move_selected_vertex(double map_x,
 
 content::FeatureId BrowserSession::select_feature_at(double map_x, double map_y,
                                                      double tol_map) {
-  const MapScene::Feature* hit = document_.hit_test(map_x, map_y, tol_map);
+  const GisScene::Feature* hit = document_.hit_test(map_x, map_y, tol_map);
   return hit ? hit->id : content::FeatureId{};
 }
 
@@ -591,18 +596,18 @@ bool BrowserSession::map2d_last_present_reused_layout() const {
   return map2d().last_present_reused_layout();
 }
 
-void BrowserSession::bind_map_presenters() {
+void BrowserSession::bind_presenters() {
   map2d().bind(&document_, &view_frame_);
   scene3d().bind_orbit(&orbit_);
   scene3d().bind_label_frame(&view_frame_);
-  scene3d().bind_map(&document_);
+  scene3d().bind_scene(&document_);
 }
 
 void BrowserSession::bind_scene3d_document() {
-  scene3d().bind_map(&document_);
+  scene3d().bind_scene(&document_);
 }
 
-void BrowserSession::bind_scene3d_contents(MapContents* contents,
+void BrowserSession::bind_scene3d_contents(GisContents* contents,
                                            std::uint32_t view_id) {
   scene3d().bind_contents(contents, view_id);
 }
@@ -791,9 +796,9 @@ bool BrowserSession::try_present_scene3d_stereo(HWND hwnd, HDC hdc, int width_px
                                          orbit_.distance());
 }
 
-void BrowserSession::attach_gestures(MapHwndGestures* gestures, HWND hwnd,
-                                     MapHwndGestures::PinchFn on_pinch,
-                                     MapHwndGestures::PanFn on_pan) {
+void BrowserSession::attach_gestures(GisHwndGestures* gestures, HWND hwnd,
+                                     GisHwndGestures::PinchFn on_pinch,
+                                     GisHwndGestures::PanFn on_pan) {
   if (!gestures || !hwnd) {
     return;
   }
@@ -801,9 +806,9 @@ void BrowserSession::attach_gestures(MapHwndGestures* gestures, HWND hwnd,
 }
 
 void BrowserSession::configure_gestures(
-    MapHwndGestures* gestures, MapHwndGestures::RightClickFn on_right_click,
-    MapHwndGestures::ExtentWatchFn on_extent_watch,
-    MapHwndGestures::ResizeFn on_resized) {
+    GisHwndGestures* gestures, GisHwndGestures::RightClickFn on_right_click,
+    GisHwndGestures::ExtentWatchFn on_extent_watch,
+    GisHwndGestures::ResizeFn on_resized) {
   if (!gestures) {
     return;
   }

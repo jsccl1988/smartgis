@@ -63,7 +63,7 @@ struct AtmosphereDeviceSession {
 
 // Creates present HWND (GPU) or uses tab child (null), then initializes Device.
 // On failure returns non-zero exit code and leaves |out| partially filled so
-// the caller can DestroyWindow / detach_maps.
+// the caller can DestroyWindow / detach_views.
 int prepare_atmosphere_device_session(HarnessShell& browser,
                                       AtmosphereDeviceSession* out);
 

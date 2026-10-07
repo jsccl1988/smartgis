@@ -78,6 +78,8 @@ source_set("atmosphere_pass_sources") {
     "ocean/hlsl.h",
     "ocean/ocean_pass.cc",
     "ocean/ocean_pass.h",
+    "project_pass.cc",
+    "project_pass.h",
     "sky/constants.h",
     "sky/hlsl.h",
     "sky/sky_pass.cc",

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/public/map_bootstrap.h"
+#include "content/browser/contents/gis_bootstrap.h"
 
 #include <cstdio>
 #include <filesystem>
@@ -44,13 +44,13 @@ int main() {
   expect(fs::is_regular_file(gpkg), "touch ../data/china_city.gpkg");
 
   const std::string root = exe_root.string() + "/";
-  auto cands = content::resolve_sample_map_candidates({root});
+  auto cands = content::resolve_sample_gis_candidates({root});
   expect(!cands.empty(), "candidates non-empty");
   expect(cands.front().find("china_city") != std::string::npos,
          "first candidate names china_city");
 
   std::string chosen;
-  expect(content::try_resolve_existing_sample_map({root}, &chosen),
+  expect(content::try_resolve_existing_sample_gis({root}, &chosen),
          "resolve existing sample");
   expect(chosen.find("china_city.gpkg") != std::string::npos,
          "chose china_city.gpkg");
@@ -59,8 +59,8 @@ int main() {
 
   // china_city must precede china_plp so a schematic PLP cannot shadow the
   // prefecture pack (bare launch / harness / seed_default share this SoT).
-  const auto rels = content::sample_map_relative_paths();
-  expect(!rels.empty(), "sample_map_relative_paths non-empty");
+  const auto rels = content::sample_gis_relative_paths();
+  expect(!rels.empty(), "sample_gis_relative_paths non-empty");
   size_t first_city = static_cast<size_t>(-1);
   size_t first_plp = static_cast<size_t>(-1);
   for (size_t i = 0; i < rels.size(); ++i) {
@@ -84,7 +84,7 @@ int main() {
     f << "stub-plp";
   }
   chosen.clear();
-  expect(content::try_resolve_existing_sample_map({root}, &chosen),
+  expect(content::try_resolve_existing_sample_gis({root}, &chosen),
          "resolve with both packs present");
   expect(chosen.find("china_city.gpkg") != std::string::npos,
          "prefers china_city over china_plp sibling");

@@ -22,7 +22,7 @@ Missing `gis_document()` → structured `no_stormsurge_seam` JSON.
 
 **Playback:** `Browser::apply_plugin_frame` runs `stormsurge.present_frame`.
 
-**Scene3D tab:** Horizon `select_map_tab(2)` seeds atmosphere **before** lazy
+**Scene3D tab:** Horizon `select_view_tab(2)` seeds atmosphere **before** lazy
 Vista attach and `abandon()`s leftover stereo (no `destroy_` under Vista) so
 overlay TIN sessions do not AV / heap-corrupt on tab switch.
 

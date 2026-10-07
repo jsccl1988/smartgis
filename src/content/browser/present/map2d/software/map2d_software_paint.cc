@@ -4,7 +4,7 @@
 #include "content/browser/present/map2d/software/map2d_software_painter.h"
 
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/frame/map2d_frame_cache.h"
 #include "content/browser/present/map2d/frame/map2d_tile_math.h"
 #include "content/browser/present/map2d/software/map2d_frame_gdi.h"
@@ -29,10 +29,10 @@
 namespace content {
 namespace {
 
-using Feature = MapScene::Feature;
-using Layer = MapScene::Layer;
-using Vertex = MapScene::Vertex;
-using GeomKind = MapScene::GeomKind;
+using Feature = GisScene::Feature;
+using Layer = GisScene::Layer;
+using Vertex = GisScene::Vertex;
+using GeomKind = GisScene::GeomKind;
 
 // Writes a classic bottom-up BMP. |bits| is a top-down 32bpp buffer (row 0 =
 // screen top), matching CreateDIBSection(biHeight=-H) used by map2d paint.
@@ -224,7 +224,7 @@ void Map2dSoftwarePainter::store_present_cache(
   present_cache_cam_ = cam;
 }
 
-void Map2dSoftwarePainter::bind(const MapScene* scene, const ViewFrame* frame,
+void Map2dSoftwarePainter::bind(const GisScene* scene, const ViewFrame* frame,
                                  Map2dFrameCache* cache) {
   scene_ = scene;
   frame_ = frame;

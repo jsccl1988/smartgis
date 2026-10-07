@@ -17,9 +17,9 @@
 
 #include "base/core/log.h"
 #include "base/process/switches.h"
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/view_frame.h"
-#include "content/public/map_bootstrap.h"
+#include "content/browser/contents/gis_bootstrap.h"
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
 #include "scenic/render/err.h"
@@ -29,6 +29,12 @@
 namespace content {
 namespace detail {
 namespace {
+
+// Mirrors prefer_map2d_scenic() without pulling map2d_presenter.h (gpu/software).
+bool scenic_engine_switch_on() {
+  const char* raw = base::switch_cstr("map2d-engine");
+  return raw && raw[0] && _stricmp(raw, "scenic") == 0;
+}
 
 const char* api_for_port(const char* port) {
   if (!port || port[0] == '\0') {
@@ -137,7 +143,7 @@ bool ScenicRhi2dHost::ensure_map() {
   GDALAllRegister();
   std::string path;
   const std::string dir = exe_dir();
-  if (!try_resolve_existing_sample_map({dir, ".", dir + "/.."}, &path)) {
+  if (!try_resolve_existing_sample_gis({dir, ".", dir + "/.."}, &path)) {
     LOGGING(LOG_ERROR, "scenic rhi2d: no china sample map beside exe");
     return false;
   }
@@ -183,6 +189,11 @@ bool ScenicRhi2dHost::ensure_device() {
 }
 
 bool ScenicRhi2dHost::attach(HWND hwnd, int width_px, int height_px) {
+  // Product SoT is Vista MapPass — refuse device construction off scenic.
+  if (!scenic_engine_switch_on()) {
+    shutdown();
+    return false;
+  }
   if (!hwnd || width_px <= 0 || height_px <= 0) {
     return false;
   }
@@ -375,6 +386,10 @@ bool ScenicRhi2dHost::export_bmp(const std::string& path, int width_px,
 }
 
 void ScenicRhi2dHost::ensure_draw_engine() {
+  if (!scenic_engine_switch_on()) {
+    shutdown_draw_engine();
+    return;
+  }
   if (!draw_engine_) {
     draw_engine_.reset(scenic::create_map2d_engine());
   }
@@ -395,7 +410,7 @@ bool ScenicRhi2dHost::draw_engine_last_ok() const {
   return draw_engine_ ? draw_engine_->last_present_ok() : false;
 }
 
-bool ScenicRhi2dHost::export_draw_engine_bmp(const MapScene* scene,
+bool ScenicRhi2dHost::export_draw_engine_bmp(const GisScene* scene,
                                              const ViewFrame* frame,
                                              const std::string& path,
                                              int width_px, int height_px) {

@@ -33,7 +33,7 @@ int prepare_atmosphere_device_session(HarnessShell& browser,
   opts.realize_scene_hwnd = true;
   opts.detach_flycube = false;
   opts.borrow_shell_scene3d = true;
-  // select_map_tab(1) AVs on the GDI/lazy ContentMapView path.
+  // select_view_tab(1) AVs on the GDI/lazy ContentMapView path.
   opts.select_scene_tab = false;
   opts.warm_swapchain = false;
   opts.present_w = kAtmosphereShowcaseW;

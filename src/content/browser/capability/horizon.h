@@ -49,7 +49,7 @@ struct HorizonCapability {
   std::function<void(const std::string& token)> mark;
   std::function<void()> clear_marks;
 
-  std::function<void(int index)> select_map_tab;
+  std::function<void(int index)> select_view_tab;
   std::function<void(int index)> catalog_tab;
   std::function<void(int index)> inspector_tab;
 

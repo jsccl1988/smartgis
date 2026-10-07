@@ -63,7 +63,7 @@ All rights reserved.
       <rect x="0" y="132" width="1040" height="136" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
       <text class="lane-label" x="16" y="154" fill="#1d6b4f">gis vista + carto</text>
       <text class="box-sub" x="16" y="174">Layout::build(LayoutInput, vector&lt;LayerBatch&gt;) · default_carto_style_json 是唯一颜色源</text>
-      <text class="box-sub" x="16" y="192">carto_filter / build_layer_batches（POD）· vista 不 include map_scene.h</text>
+      <text class="box-sub" x="16" y="192">carto_filter / build_layer_batches（POD）· vista 不 include gis_scene.h</text>
       <text class="box-sub" x="16" y="210">emit_lines（road-casing 然后 road，LineTessOptions::pixel_width）· emit_symbols + carto/collision</text>
       <text class="box-sub" x="16" y="228">emit_hillshade → DrawBlend::kMultiply · emit_raster → kOver · bake_hillshade_slot / shade_dem_rgba</text>
       <text class="box-sub" x="16" y="246">MapFrame：background_rgba（0xAARRGGBB）+ items · DrawBlend 定义在 frame.h（不 include rhi.h）</text>
@@ -84,15 +84,15 @@ All rights reserved.
   </section>
 
   <section class="panel">
-    <h2>2. 原理流：MapScene → MapFrame → 两个出口</h2>
-    <svg class="diagram" viewBox="0 0 1040 280" role="img" aria-label="MapScene 到 MapFrame 再到 GPU 与 GDI">
+    <h2>2. 原理流：GisScene → MapFrame → 两个出口</h2>
+    <svg class="diagram" viewBox="0 0 1040 280" role="img" aria-label="GisScene 到 MapFrame 再到 GPU 与 GDI">
       <defs>
         <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
           <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
         </marker>
       </defs>
       <rect x="8" y="16" width="150" height="64" rx="8" fill="#e8f1fa" stroke="#2563a8"/>
-      <text class="box-title" x="83" y="40" text-anchor="middle">1 MapScene</text>
+      <text class="box-title" x="83" y="40" text-anchor="middle">1 GisScene</text>
       <text class="box-sub" x="83" y="60" text-anchor="middle">content</text>
 
       <rect x="188" y="16" width="150" height="64" rx="8" fill="#e8f1fa" stroke="#2563a8"/>

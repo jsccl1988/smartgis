@@ -12,11 +12,11 @@
 namespace app {
 namespace ir {
 
-// GisDocument plus MapScene store verbs. Only host.document.
+// GisDocument plus GisScene store verbs. Only host.document.
 
-inline bool open_map(content::CapabilityHost& host, std::string_view path) {
-  return !path.empty() && host.document.open_map &&
-         host.document.open_map(std::string(path));
+inline bool open_document(content::CapabilityHost& host, std::string_view path) {
+  return !path.empty() && host.document.open_document &&
+         host.document.open_document(std::string(path));
 }
 
 inline bool doc_clear(content::CapabilityHost& host) {
@@ -83,9 +83,9 @@ inline bool update_feature_field(content::CapabilityHost& host,
                                             std::string(value));
 }
 
-inline bool write_map(content::CapabilityHost& host, std::string_view path) {
-  return !path.empty() && host.document.write_map &&
-         host.document.write_map(std::string(path));
+inline bool write_document(content::CapabilityHost& host, std::string_view path) {
+  return !path.empty() && host.document.write_document &&
+         host.document.write_document(std::string(path));
 }
 
 inline bool clear_selection(content::CapabilityHost& host) {

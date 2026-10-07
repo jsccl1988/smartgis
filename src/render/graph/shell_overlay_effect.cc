@@ -1,15 +1,15 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/browser/present/host/shell_overlay_effect.h"
+#include "render/graph/shell_overlay_effect.h"
 
 #include "render/programs/programs.h"
 
 #include <cstring>
 #include <vector>
 
-namespace content {
-namespace detail {
+namespace render {
+namespace graph {
 namespace {
 
 void bgra_to_rgba(const uint8_t* bgra, uint32_t stride_bytes, uint32_t w,
@@ -64,8 +64,8 @@ void ShellOverlayEffect::abandon_gpu() {
   uploaded_h_ = 0;
 }
 
-render::graph::EffectSlot ShellOverlayEffect::slot() const {
-  return render::graph::EffectSlot::kOverlay;
+EffectSlot ShellOverlayEffect::slot() const {
+  return EffectSlot::kOverlay;
 }
 
 void ShellOverlayEffect::release_device_resources() {
@@ -94,7 +94,7 @@ void ShellOverlayEffect::release_device_resources() {
   uploaded_h_ = 0;
 }
 
-bool ShellOverlayEffect::ensure_pipeline(render::rhi::Device* device) {
+bool ShellOverlayEffect::ensure_pipeline(rhi::Device* device) {
   if (!device) {
     return false;
   }
@@ -105,15 +105,13 @@ bool ShellOverlayEffect::ensure_pipeline(render::rhi::Device* device) {
   if (!pipeline_) {
     // FlyCube bakes blend into the PSO; set_blend_mode at draw time is a
     // no-op. HUD must src-over so alpha-0 map holes keep the map visible.
-    render::rhi::GraphicsPipelineDesc desc =
-        render::programs::textured_pipeline_desc();
-    desc.blend = render::rhi::BlendMode::kSrcAlpha;
+    rhi::GraphicsPipelineDesc desc = programs::textured_pipeline_desc();
+    desc.blend = rhi::BlendMode::kSrcAlpha;
     pipeline_ = device->create_graphics_pipeline(desc);
   }
   if (!ib_) {
     const uint32_t indices[6] = {0, 1, 2, 0, 2, 3};
-    ib_ = device->create_buffer(sizeof(indices),
-                                render::rhi::BufferUsage::kIndex);
+    ib_ = device->create_buffer(sizeof(indices), rhi::BufferUsage::kIndex);
     if (!ib_ || !device->upload(ib_, indices, sizeof(indices))) {
       device->destroy_buffer(ib_);
       ib_ = nullptr;
@@ -123,8 +121,7 @@ bool ShellOverlayEffect::ensure_pipeline(render::rhi::Device* device) {
   return pipeline_ != nullptr && ib_ != nullptr;
 }
 
-bool ShellOverlayEffect::ensure_texture(render::rhi::Device* device,
-                                        uint32_t width_px,
+bool ShellOverlayEffect::ensure_texture(rhi::Device* device, uint32_t width_px,
                                         uint32_t height_px) {
   if (!device || !shell_.bgra || width_px == 0 || height_px == 0) {
     return false;
@@ -149,12 +146,12 @@ bool ShellOverlayEffect::ensure_texture(render::rhi::Device* device,
   }
   std::vector<uint8_t> rgba;
   bgra_to_rgba(shell_.bgra, stride, width_px, height_px, &rgba);
-  render::rhi::TextureDesc desc;
+  rhi::TextureDesc desc;
   desc.width = width_px;
   desc.height = height_px;
-  desc.format = render::rhi::TextureFormat::kRgba8;
-  desc.usage = render::rhi::TextureUsage::kSampled |
-               render::rhi::TextureUsage::kCopyDest;
+  desc.format = rhi::TextureFormat::kRgba8;
+  desc.usage =
+      rhi::TextureUsage::kSampled | rhi::TextureUsage::kCopyDest;
   texture_ = device->create_texture(desc);
   if (!texture_ ||
       !device->upload_texture(texture_, rgba.data(),
@@ -169,7 +166,7 @@ bool ShellOverlayEffect::ensure_texture(render::rhi::Device* device,
   return true;
 }
 
-bool ShellOverlayEffect::record(const render::graph::RecordContext& ctx) {
+bool ShellOverlayEffect::record(const RecordContext& ctx) {
   if (!shell_.bgra || shell_.width_px == 0 || shell_.height_px == 0) {
     return true;
   }
@@ -196,31 +193,29 @@ bool ShellOverlayEffect::record(const render::graph::RecordContext& ctx) {
     ctx.device->destroy_buffer(vb_);
     vb_ = nullptr;
   }
-  vb_ = ctx.device->create_buffer(sizeof(verts),
-                                  render::rhi::BufferUsage::kVertex);
+  vb_ = ctx.device->create_buffer(sizeof(verts), rhi::BufferUsage::kVertex);
   if (!vb_ || !ctx.device->upload(vb_, verts, sizeof(verts))) {
     ctx.device->destroy_buffer(vb_);
     vb_ = nullptr;
     return true;
   }
 
-  render::rhi::RenderPassDesc desc;
+  rhi::RenderPassDesc desc;
   desc.width = ctx.width;
   desc.height = ctx.height;
   // Always load: map / scene already recorded into this swapchain. Do not
   // trust ctx.color_op (MapEffect does not advertise clears_color).
-  desc.load_op = render::rhi::ColorLoadOp::kLoad;
+  desc.load_op = rhi::ColorLoadOp::kLoad;
   ctx.list->begin_render_pass(desc);
   ctx.list->set_viewport(0.f, 0.f, sw, sh, 0.f, 1.f);
-  ctx.list->set_depth_mode(render::rhi::DepthMode::kDisabled);
-  ctx.list->bind_camera(
-      render::rhi::make_ortho_camera(0.f, sw, 0.f, sh, -1.f, 1.f));
+  ctx.list->set_depth_mode(rhi::DepthMode::kDisabled);
+  ctx.list->bind_camera(rhi::make_ortho_camera(0.f, sw, 0.f, sh, -1.f, 1.f));
   ctx.list->bind_texture(texture_, 0);
   ctx.list->set_pipeline(pipeline_);
   // Stub records last_blend; FlyCube ignores this (PSO already kSrcAlpha).
-  ctx.list->set_blend_mode(render::rhi::BlendMode::kSrcAlpha);
-  const render::programs::Color tint{1.f, 1.f, 1.f, 1.f};
-  ctx.list->set_constants(render::programs::kColorSlot, &tint, sizeof(tint));
+  ctx.list->set_blend_mode(rhi::BlendMode::kSrcAlpha);
+  const programs::Color tint{1.f, 1.f, 1.f, 1.f};
+  ctx.list->set_constants(programs::kColorSlot, &tint, sizeof(tint));
   ctx.list->bind_vertex_buffer(vb_, 0, 5u * sizeof(float));
   ctx.list->bind_index_buffer(ib_, 0);
   ctx.list->draw_indexed(6, 1, 0, 0, 0);
@@ -228,5 +223,5 @@ bool ShellOverlayEffect::record(const render::graph::RecordContext& ctx) {
   return true;
 }
 
-}  // namespace detail
-}  // namespace content
+}  // namespace graph
+}  // namespace render

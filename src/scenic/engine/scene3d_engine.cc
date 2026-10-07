@@ -211,7 +211,7 @@ void paint_scene(HDC hdc, uint32_t width_px, uint32_t height_px,
     }
   }
 
-  // World3d/atmosphere scenic often has no MapScene bind (OGR seed skipped).
+  // World3d/atmosphere scenic often has no GisScene bind (OGR seed skipped).
   // Paint land for the *current orbit lon/lat window* (not a full-China ring
   // that explodes under a regional east-China extent and floods the frame).
   if (drawn == 0) {

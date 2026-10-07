@@ -302,7 +302,7 @@ All rights reserved.
   <text x="70" y="162" fill="#c8d6e5" font-size="12" font-family="Consolas,monospace">→ run_browser_main</text>
   <text x="70" y="182" fill="#c8d6e5" font-size="12" font-family="Consolas,monospace">→ Browser / Widget</text>
   <text x="70" y="210" fill="#93a4b8" font-size="11" font-family="Segoe UI,sans-serif">窗口 · 手势 · present</text>
-  <text x="70" y="230" fill="#93a4b8" font-size="11" font-family="Segoe UI,sans-serif">MapSession / MapContents</text>
+  <text x="70" y="230" fill="#93a4b8" font-size="11" font-family="Segoe UI,sans-serif">MapSession / GisContents</text>
   <text x="70" y="250" fill="#93a4b8" font-size="11" font-family="Segoe UI,sans-serif">Job Object 管孩子</text>
 
   <!-- Renderer -->
@@ -339,7 +339,7 @@ All rights reserved.
 
   <div class="note">
     <b>As-built 要点：</b>
-    <code>MapContentsImpl::StartRenderProcess</code> 当前用 named pipe 拉起
+    <code>GisContentsImpl::StartRenderProcess</code> 当前用 named pipe 拉起
     <code>--type=gpu</code>（注释标明 invitation 双启仍是 WIP）。
     Renderer 入口 <code>RendererMain</code> 已接 invitation；Browser 内多数地图逻辑仍经
     <code>MapSession</code> 进程内 present（Map2d / Scene3d）。
@@ -374,7 +374,7 @@ All rights reserved.
       <tr>
         <td>Content</td>
         <td><code>src/content/</code></td>
-        <td>进程分派、MapContents、MapSession、host 协议</td>
+        <td>进程分派、GisContents、MapSession、host 协议</td>
       </tr>
       <tr>
         <td>GPU</td>
@@ -444,7 +444,7 @@ content::content_main(params, ViewsContentHost)
 
   <h3>2.2 子进程启动（Browser → GPU）</h3>
   <p>
-    <code>content::MapContents</code> 实现（<code>MapContentsImpl</code>）在
+    <code>content::GisContents</code> 实现（<code>GisContentsImpl</code>）在
     <code>StartRenderProcess</code> 里：
   </p>
   <ol class="steps">
@@ -487,7 +487,7 @@ content::content_main(params, ViewsContentHost)
 
   <h3>2.4 关闭子进程</h3>
   <div class="diagram">
-<pre class="flow">MapContentsImpl::Shutdown()
+<pre class="flow">GisContentsImpl::Shutdown()
   running_ = false
   pipe_.send_empty(kShutdown)           // GPU
   renderer_pipe_.send_empty(kShutdown)  // Renderer（若已启）
@@ -509,7 +509,7 @@ content::content_main(params, ViewsContentHost)
   <h3>3.1 所有权链</h3>
   <div class="diagram">
 <pre class="flow"><span class="cls">Browser</span>
-  ├── <span class="cls">MapSession</span>          文档 / 相机 / Map2d / Scene3d / ViewHost×3 / gestures
+  ├── <span class="cls">MapSession</span>          文档 / 相机 / Map2d / Scene3d / ToolSession×3 / gestures
   ├── <span class="cls">PluginShell</span>         插件贡献（Ambox 命令等）
   └── <span class="cls">BrowserUiDelegate</span> → <span class="cls">BrowserView</span>
         └── <span class="cls">Widget</span>  (HWND "SmartGIS Views", FrameKind::kCustom)
@@ -549,14 +549,14 @@ content::content_main(params, ViewsContentHost)
       </tr>
       <tr>
         <td><code>MapViewport</code></td>
-        <td>托管地图 child HWND；绑定 ViewHost / MapContents；shell overlay</td>
+        <td>托管地图 child HWND；绑定 ToolSession / GisContents；shell overlay</td>
       </tr>
       <tr>
         <td><code>MapSession</code></td>
         <td>WebContents-ish：文档、三视图 host、present、导航、blit</td>
       </tr>
       <tr>
-        <td><code>MapContents</code></td>
+        <td><code>GisContents</code></td>
         <td>host ABI + OOP GPU 子进程管道（observer：Browser）</td>
       </tr>
     </tbody>
@@ -566,7 +566,7 @@ content::content_main(params, ViewsContentHost)
   <p>
     <code>BrowserView::init_shell</code> → <code>attach_viewports()</code>：
     三个 <code>MapViewport</code> 分别对 Edit / Data / Scene3d 角色挂 child HWND，
-    再绑 <code>ViewHost</code>、手势、<code>MapContents</code> observer。
+    再绑 <code>ToolSession</code>、手势、<code>GisContents</code> observer。
     Shell 栅格通过 <code>Widget::set_on_shell_published</code> 提交到地图 overlay
     （chrome 与地图合成，不在 Widget 里混画 GPU 帧）。
   </p>
@@ -582,7 +582,7 @@ content::content_main(params, ViewsContentHost)
     <li><code>content_main</code> → <code>ViewsContentHost::browser_main</code> → <code>run_browser_main</code>。</li>
     <li>DPI awareness；可选强制 ContentMapView（self-test / showcase）。</li>
     <li><code>Browser::init</code>：
-      <code>session_.init_hosts()</code> → <code>PluginShell</code> →
+      <code>session_.init_tool_sessions()</code> → <code>PluginShell</code> →
       <code>create_browser_ui</code> → <code>ui_->init_shell()</code>。</li>
     <li><code>BrowserView::init_shell</code>：
       <code>Widget::init</code>（CSD 1280×800 DIP）→
@@ -601,7 +601,7 @@ content::content_main(params, ViewsContentHost)
         ├── 鼠标键盘  →  View 树 hit-test / focus
         ├── MapViewport child HWND  →  手势 / Draft / present
         │     ├── 进程内 Map2dPresenter / Scene3dPresenter
-        │     └── 可选 MapContents OOP GPU（SharedHandle present）
+        │     └── 可选 GisContents OOP GPU（SharedHandle present）
         └── WM_CLOSE  →  fire_will_close → DestroyWindow → PostQuitMessage</pre>
   </div>
 
@@ -619,7 +619,7 @@ content::content_main(params, ViewsContentHost)
     <li><code>~Browser</code>：再次 <code>prepare_close</code> → 清 observer →
       <code>PluginShell::shutdown</code> → <code>ui_.reset()</code>
       （析构 <code>BrowserView</code> / <code>Widget</code>）。</li>
-    <li>若曾 OOP：<code>MapContents::Shutdown</code> 发 <code>kShutdown</code>、关 Job。</li>
+    <li>若曾 OOP：<code>GisContents::Shutdown</code> 发 <code>kShutdown</code>、关 Job。</li>
   </ol>
 
   <div class="diagram">
@@ -673,7 +673,7 @@ content::content_main(params, ViewsContentHost)
       <tr>
         <td><code>Browser</code></td>
         <td class="file">src/app/views/browser/browser.{h,cc}</td>
-        <td>壳控制器；MapContentsObserver</td>
+        <td>壳控制器；GisContentsObserver</td>
       </tr>
       <tr>
         <td><code>BrowserUiDelegate</code></td>
@@ -711,8 +711,8 @@ content::content_main(params, ViewsContentHost)
         <td>文档与 present 会话</td>
       </tr>
       <tr>
-        <td><code>MapContents</code></td>
-        <td class="file">src/content/public/map_contents.h<br>src/content/browser/contents/map_contents.cc</td>
+        <td><code>GisContents</code></td>
+        <td class="file">src/content/public/gis_contents.h<br>src/content/browser/contents/gis_contents.cc</td>
         <td>host ABI + 子进程</td>
       </tr>
       <tr>

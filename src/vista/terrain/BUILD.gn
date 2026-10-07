@@ -174,6 +174,7 @@ source_set("terrain_sources") {
     "dem/bake/bake_backend.h",
     "dem/bake/bake_parallel.h",
     "dem/dem_frame.h",
+    "dem/orbit_geo_frame.h",
     "dem/detail/dem_simd.cc",
     "dem/detail/dem_simd.h",
     "dem/height/dem_height_field.cc",

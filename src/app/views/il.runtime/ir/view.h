@@ -18,21 +18,21 @@ namespace ir {
 
 // Any view face: present, edit input, tools, and load facts. Only host.view.
 
-inline void detach_maps(content::CapabilityHost& host) {
-  if (host.view.detach_maps) {
-    host.view.detach_maps();
+inline void detach_views(content::CapabilityHost& host) {
+  if (host.view.detach_views) {
+    host.view.detach_views();
   }
 }
 
 inline void stop_map_timers(content::CapabilityHost& host) {
-  if (host.view.stop_map_present_timers) {
-    host.view.stop_map_present_timers();
+  if (host.view.stop_present_timers) {
+    host.view.stop_present_timers();
   }
 }
 
 inline void resume_map_timers(content::CapabilityHost& host) {
-  if (host.view.resume_map_present_timers) {
-    host.view.resume_map_present_timers();
+  if (host.view.resume_present_timers) {
+    host.view.resume_present_timers();
   }
 }
 
@@ -102,11 +102,11 @@ inline void watch_map_ready_event(
   host.view.on_map_ready_event = std::move(cb);
 }
 
-inline void watch_edit_host_event(
+inline void watch_edit_tool_session_event(
     content::CapabilityHost& host,
-    std::function<void(const std::string&, const content::EditHostStatus&)>
+    std::function<void(const std::string&, const content::EditToolSessionStatus&)>
         cb) {
-  host.view.on_edit_host_event = std::move(cb);
+  host.view.on_edit_tool_session_event = std::move(cb);
 }
 
 inline void watch_tool_event(
@@ -152,14 +152,14 @@ inline bool read_map_ready(content::CapabilityHost& host,
   return true;
 }
 
-inline bool read_edit_host(content::CapabilityHost& host,
-                           content::EditHostStatus* out) {
-  if (!out || !host.view.edit_host_status ||
-      !host.view.edit_host_status(out)) {
+inline bool read_edit_tool_session(content::CapabilityHost& host,
+                           content::EditToolSessionStatus* out) {
+  if (!out || !host.view.edit_tool_session_status ||
+      !host.view.edit_tool_session_status(out)) {
     return false;
   }
-  if (host.view.on_edit_host_event) {
-    host.view.on_edit_host_event("view.edit_host", *out);
+  if (host.view.on_edit_tool_session_event) {
+    host.view.on_edit_tool_session_event("view.edit_tool_session", *out);
   }
   return true;
 }
@@ -199,9 +199,9 @@ inline bool wait_map_ready(content::CapabilityHost& host, int timeout_ms) {
 }
 
 // Memory edit session present on the edit host.
-inline bool edit_host_ready(content::CapabilityHost& host) {
-  content::EditHostStatus status;
-  if (!read_edit_host(host, &status)) {
+inline bool edit_tool_session_ready(content::CapabilityHost& host) {
+  content::EditToolSessionStatus status;
+  if (!read_edit_tool_session(host, &status)) {
     return false;
   }
   return status.memory_session != 0;
@@ -358,7 +358,7 @@ inline bool expect_map_hwnd_sync(content::CapabilityHost& host) {
     return false;
   }
   const auto fail = [&](int rc) {
-    detach_maps(host);
+    detach_views(host);
     return apply_rc(host, rc);
   };
   if (status.view_w <= 0 || status.view_h <= 0) {

@@ -7,14 +7,13 @@
 #include <windows.h>
 #include <shellapi.h>
 
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/app/content_main.h"
-#include "content/embed/embed_sample.h"
 #include "content/public/event_bus.h"
-#include "content/public/map_contents.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/view_host.h"
+#include "content/public/gis_contents.h"
+#include "content/public/types.h"
+#include "content/public/tool_session.h"
 #include "content/renderer/renderer_main.h"
 #include "gis/edit/memory_session.h"
 #include "gis/style/document/style_document.h"
@@ -56,16 +55,16 @@ int scenario_navigate(HarnessShell& browser) {
 
 // Pan tool must activate without crash (Map tab).
 if (!browser.run_tool_command("view.pan")) {
-  browser.detach_maps();
+  browser.detach_views();
   return 40;
 }
 {
-  content::ViewHost* host = browser.edit_view_host();
+  content::ToolSession* host = browser.edit_tool_session();
   tool::Interaction* cur =
       host && host->workspace() ? host->workspace()->stack().current()
                                 : nullptr;
   if (!cur || std::strcmp(cur->id(), "view.pan") != 0) {
-    browser.detach_maps();
+    browser.detach_views();
     return 41;
   }
   content::InputEvent pan_down{};
@@ -82,7 +81,7 @@ if (!browser.run_tool_command("view.pan")) {
   pan_up.y_px = 55;
   if (!host->dispatch_input(pan_down) || !host->dispatch_input(pan_move) ||
       !host->dispatch_input(pan_up)) {
-    browser.detach_maps();
+    browser.detach_views();
     return 42;
   }
   browser.mark("pan-ok");
@@ -90,9 +89,9 @@ if (!browser.run_tool_command("view.pan")) {
 // Browse stress: MapLibre-like pan/wheel bursts must not AV; RMB must not
 // be swallowed by view.pan (shell owns the context menu).
 {
-  content::ViewHost* host = browser.edit_view_host();
+  content::ToolSession* host = browser.edit_tool_session();
   if (!host) {
-    browser.detach_maps();
+    browser.detach_views();
     return 49;
   }
   // Stop ALL map present timers while we burst-dispatch synthetic input.
@@ -114,7 +113,7 @@ if (!browser.run_tool_command("view.pan")) {
     if (!host->dispatch_input(pan_down) ||
         !host->dispatch_input(pan_move) || !host->dispatch_input(pan_up)) {
       SetEnvironmentVariableA("skip-map-context-menu", nullptr);
-      browser.detach_maps();
+      browser.detach_views();
       return 49;
     }
     content::InputEvent wheel{};
@@ -124,10 +123,10 @@ if (!browser.run_tool_command("view.pan")) {
     wheel.wheel = (i & 1) ? 120 : -120;
     if (!host->dispatch_input(wheel)) {
       SetEnvironmentVariableA("skip-map-context-menu", nullptr);
-      browser.detach_maps();
+      browser.detach_views();
       return 49;
     }
-    // Sleep only â€?pumping WM_PAINT/present during the burst races input.
+    // Sleep only ï¿½?pumping WM_PAINT/present during the burst races input.
     ::Sleep(20);
   }
   ::Sleep(50);
@@ -139,7 +138,7 @@ if (!browser.run_tool_command("view.pan")) {
   rup.kind = content::InputEvent::Kind::kRUp;
   if (host->dispatch_input(rdown) || host->dispatch_input(rup)) {
     SetEnvironmentVariableA("skip-map-context-menu", nullptr);
-    browser.detach_maps();
+    browser.detach_views();
     return 50;
   }
   SetEnvironmentVariableA("skip-map-context-menu", nullptr);
@@ -147,9 +146,9 @@ if (!browser.run_tool_command("view.pan")) {
 }
 // Wheel-to-cursor must change overlay scale (not view-center zoom).
 {
-  content::ViewHost* host = browser.edit_view_host();
+  content::ToolSession* host = browser.edit_tool_session();
   if (!host) {
-    browser.detach_maps();
+    browser.detach_views();
     return 47;
   }
   const double scale0 = browser.view_frame()->scale();
@@ -161,7 +160,7 @@ if (!browser.run_tool_command("view.pan")) {
   wheel.wheel = -120;
   if (!host->dispatch_input(wheel)) {
     std::fprintf(stderr, "wheel-cursor: dispatch_input failed\n");
-    browser.detach_maps();
+    browser.detach_views();
     return 47;
   }
   if (std::fabs(browser.view_frame()->scale() - scale0) < 1e-9) {
@@ -172,14 +171,14 @@ if (!browser.run_tool_command("view.pan")) {
       std::fprintf(stderr,
                    "wheel-cursor: scale unchanged (was %.9g now %.9g)\n",
                    scale0, browser.view_frame()->scale());
-      browser.detach_maps();
+      browser.detach_views();
       return 47;
     }
   }
   const render::rhi::CameraMatrices ortho =
       browser.orbit_frame()->camera_matrices_ortho(800.f, 600.f);
   if (ortho.kind != render::rhi::CameraKind::kOrtho) {
-    browser.detach_maps();
+    browser.detach_views();
     return 48;
   }
   browser.mark("wheel-cursor-ok");

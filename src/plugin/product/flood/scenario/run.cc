@@ -9,7 +9,7 @@
 #include <string>
 
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "content/public/plugin_host.h"
 #include "plugin/product/world3d/scenario/capture/map2d_export.h"
 #include "plugin/runtime/host/capability/capability.h"
@@ -24,7 +24,7 @@ int run_flood(HarnessShell& browser) {
   browser.mark_named(plugin::kMarkPlugin, "flood", /*truncate=*/true);
   plugin_mark("hwnd-ok");
 
-  browser.select_map_tab(0);
+  browser.select_view_tab(0);
   browser.pump(200);
 
   char dem_path[MAX_PATH * 3] = {};
@@ -32,7 +32,7 @@ int run_flood(HarnessShell& browser) {
                            L"data\\plugin\\flood_basin_sample.tif"};
   if (!resolve_rel_under_exe(rels, 2, dem_path, sizeof(dem_path))) {
     plugin_mark("flood-sample-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   plugin_mark("sample-ok");
@@ -41,7 +41,7 @@ int run_flood(HarnessShell& browser) {
   wchar_t out_w[MAX_PATH] = {};
   if (!browser.capture_path(out_w, MAX_PATH, L"flood_mask.tif")) {
     plugin_mark("flood-out-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   char out_path[MAX_PATH * 3] = {};
@@ -49,14 +49,14 @@ int run_flood(HarnessShell& browser) {
                           static_cast<int>(sizeof(out_path)), nullptr,
                           nullptr) <= 0) {
     plugin_mark("flood-out-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   plugin_mark("out-ok");
 
   if (!browser.plugin_host()) {
     plugin_mark("plugins-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
@@ -68,7 +68,7 @@ int run_flood(HarnessShell& browser) {
       "\"frames\":8}";
   if (!run_processing_flushed(browser.plugin_host(), "flood.inundate", args)) {
     plugin_mark("flood-run-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   plugin_mark("flood-ok");
@@ -92,11 +92,11 @@ int run_flood(HarnessShell& browser) {
   plugin_mark("playback-ok");
 
   if (!bmp_ok) {
-    browser.detach_maps();
+    browser.detach_views();
     return 54;
   }
   plugin_mark("pass");
-  browser.detach_maps();
+  browser.detach_views();
   std::fprintf(stderr, "plugin-showcase: PASS mode=flood (Map2d)\n");
   return 0;
 }

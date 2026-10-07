@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef CONTENT_PUBLIC_MAP_BOOTSTRAP_H_
-#define CONTENT_PUBLIC_MAP_BOOTSTRAP_H_
+#ifndef CONTENT_BROWSER_CONTENTS_GIS_BOOTSTRAP_H_
+#define CONTENT_BROWSER_CONTENTS_GIS_BOOTSTRAP_H_
 
 #include <string>
 #include <vector>
@@ -16,22 +16,22 @@ namespace content {
 // registering leftover mapmgr stays at the call site.
 
 // Ordered relative paths for the product China pack (SoT for bare launch,
-// MapScene::seed_default, and harness try_open_china_sample).
+// GisScene::seed_default, and harness try_open_china_sample).
 // All china_city.* candidates precede any china_plp.* fallback. Prefers
 // shared `out/data/` (exe under out/Debug|Release → `../data/`), then
 // `data/` next to the exe, flat next-to-exe, and testing/data fallbacks.
-CONTENT_EXPORT std::vector<std::string> sample_map_relative_paths();
+CONTENT_EXPORT std::vector<std::string> sample_gis_relative_paths();
 
 // Relative candidates under each search root, preferred order first.
 // Roots may include a trailing separator.
-CONTENT_EXPORT std::vector<std::string> resolve_sample_map_candidates(
+CONTENT_EXPORT std::vector<std::string> resolve_sample_gis_candidates(
     const std::vector<std::string>& search_roots);
 
 // Pick the first existing candidate file. Returns false if none exist.
-CONTENT_EXPORT bool try_resolve_existing_sample_map(
+CONTENT_EXPORT bool try_resolve_existing_sample_gis(
     const std::vector<std::string>& search_roots,
     std::string* out_path);
 
 }  // namespace content
 
-#endif  // CONTENT_PUBLIC_MAP_BOOTSTRAP_H_
+#endif  // CONTENT_BROWSER_CONTENTS_GIS_BOOTSTRAP_H_

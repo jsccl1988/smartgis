@@ -55,7 +55,7 @@ int run_report_suite(Browser& browser) {
 
   if (!browser.plugins() || !browser.plugins()->ensure_builtins()) {
     detail::write_mark(detail::kPluginMarkLeaf, "plugins-fail", false);
-    detail::detach_maps(browser);
+    detail::detach_views(browser);
     return 1;
   }
 
@@ -69,7 +69,7 @@ int run_report_suite(Browser& browser) {
                                                 sizeof(rep_path))) {
     detail::write_mark(detail::kPluginMarkLeaf, "report-sample-missing",
                        false);
-    detail::detach_maps(browser);
+    detail::detach_views(browser);
     return 1;
   }
 
@@ -80,7 +80,7 @@ int run_report_suite(Browser& browser) {
   plugin::ReportBridge* report = plugin::report_bridge(host);
   if (!host || !report) {
     detail::write_mark(detail::kPluginMarkLeaf, "report-open-fail", false);
-    detail::detach_maps(browser);
+    detail::detach_views(browser);
     return 1;
   }
   (void)browser.plugins()->ensure_command("report.open");
@@ -115,13 +115,13 @@ int run_report_suite(Browser& browser) {
       "{\"label\":\"Z\",\"value\":15}]}";
   if (!report->open(rep_path) || !report->post(kSeries)) {
     detail::write_mark(detail::kPluginMarkLeaf, "report-open-fail", false);
-    detail::detach_maps(browser);
+    detail::detach_views(browser);
     return 1;
   }
   detail::write_mark(detail::kPluginMarkLeaf, "report-ok", false);
   detail::pump_messages(400);
   detail::write_mark(detail::kPluginMarkLeaf, "pass", false);
-  detail::detach_maps(browser);
+  detail::detach_views(browser);
   std::fprintf(stderr, "plugin-showcase: PASS mode=report\n");
   return 0;
 }

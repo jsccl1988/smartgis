@@ -4,11 +4,11 @@
 #ifndef CONTENT_BROWSER_CAMERA_VIEW_FRAME_H_
 #define CONTENT_BROWSER_CAMERA_VIEW_FRAME_H_
 
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 
 namespace content {
 
-class MapScene;
+class GisScene;
 
 // 2D pan and scale for a map viewport, plus lon/lat framing of that view.
 class ViewFrame {
@@ -17,7 +17,7 @@ class ViewFrame {
   void apply_zoom_at(int view_x, int view_y, double factor);
   void apply_pinch(int view_x, int view_y, double scale);
   void apply_world_extent(const content::Extent2& e, int view_w, int view_h);
-  void fit_extent(const MapScene& scene, int view_w, int view_h);
+  void fit_extent(const GisScene& scene, int view_w, int view_h);
   content::Extent2 view_world_extent(int view_w, int view_h) const;
   void map_to_view(double mx, double my, int* vx, int* vy) const;
   void view_to_map(int vx, int vy, double* mx, double* my) const;

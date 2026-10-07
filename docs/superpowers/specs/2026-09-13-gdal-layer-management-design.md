@@ -710,7 +710,7 @@ Style JSON 文档仍在并列的 `gis/style`（`gis::style`；见 **§ gis/style
 | `testing/data/fixtures/` | OGR / MVT / city 3D Tiles unit fixtures. |
 | `testing/data/rs/terrain/` | Leftover AM heightmap. |
 
-GN `//testing/data:china_map_samples` still **flattens** filenames into `out/data/` so `sample_map_relative_paths()` / `find_sample_dem_path()` keep `../data/china_city.gpkg` and `../data/china_dem.tif`. Repo fallbacks use `testing/data/china/…`.
+GN `//testing/data:china_map_samples` still **flattens** filenames into `out/data/` so `sample_gis_relative_paths()` / `find_sample_dem_path()` keep `../data/china_city.gpkg` and `../data/china_dem.tif`. Repo fallbacks use `testing/data/china/…`.
 
 Do **not** mix plugin rasters into the china seed path.
 

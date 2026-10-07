@@ -12,7 +12,7 @@ gis/vista Layout + effect/map + optional FlyCube present_gpu, same 1280x720
 china frame. Engine id in CSV/JSON: ``vista``.
 
 Map2dEngine cell: MAP2D_ENGINE=scenic — content-hosted scenic::Engine
-GDI of the same china MapScene (not a GDI+/Skia port peer).
+GDI of the same china GisScene (not a GDI+/Skia port peer).
 
 Equal-latitude perf (default): MAP2D_NO_HILLSHADE=1 so Vista does not pay
 DEM shade — same carto axis as Scenic rhi2d IR (no hillshade). Compare Scenic
@@ -395,7 +395,7 @@ def run_vista() -> dict:
 SCENIC_ROW_NOTE = (
     f"{FALSE_GAP_NOTE}; {EQUAL_LATITUDE_NOTE}; "
     "Scenic Map2dEngine = content-hosted scenic::Engine GDI of the same "
-    "china MapScene (not a GDI+/Skia port peer, not Vista MapFrame)"
+    "china GisScene (not a GDI+/Skia port peer, not Vista MapFrame)"
 )
 
 

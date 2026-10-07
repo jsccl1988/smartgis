@@ -6,6 +6,6 @@
 
 // Public process entry. One declaration lives in content/public; this
 // header remains so existing includes keep compiling.
-#include "content/public/content_client.h"
+#include "content/public/gis_contents_client.h"
 
 #endif  // CONTENT_APP_CONTENT_MAIN_H

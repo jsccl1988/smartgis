@@ -1,26 +1,26 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/browser/debug/cmd/agent_map_cmd.h"
+#include "content/browser/debug/cmd/agent_gis_cmd.h"
 
 #include <sstream>
 
 namespace content {
 namespace detail {
 
-bool exec_map_command(const std::string& line,
+bool exec_gis_command(const std::string& line,
                       const DebugAgentHost& host,
                       std::string* output) {
   if (!output) {
     return false;
   }
   if (line == ":refresh") {
-    if (host.refresh_map) {
-      host.refresh_map();
+    if (host.refresh_gis) {
+      host.refresh_gis();
       *output = "refreshed";
       return true;
     }
-    *output = "no host.refresh_map";
+    *output = "no host.refresh_gis";
     return true;
   }
   if (line == ":extent") {

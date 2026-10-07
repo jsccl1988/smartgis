@@ -9,6 +9,7 @@
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -213,10 +214,13 @@ void dem_view_seed_cache_put(const char* path, int lod_key, double minx,
     c.seed = seed;
     c.ready = true;
   }
+  // Mem cache is enough for same-process warm presents. Disk persist is off
+  // the cold critical path so first-frame bake is not blocked on a multi-MB
+  // write (cross-process cold still pays one async write once).
   const std::string root = cache_root_dir();
   const std::string disk =
       view_seed_disk_path(path, lod_key, minx, miny, maxx, maxy);
-  if (root.empty() || disk.empty() || !ensure_dir(root)) {
+  if (root.empty() || disk.empty()) {
     return;
   }
   ViewSeedDiskHdr hdr = {};
@@ -262,7 +266,14 @@ void dem_view_seed_cache_put(const char* path, int lod_key, double minx,
   if (!seed.rgba.empty()) {
     detail::copy_bytes_chunked(p, seed.rgba.data(), seed.rgba.size());
   }
-  (void)write_all(disk, blob.data(), blob.size());
+  std::thread(
+      [root, disk, blob = std::move(blob)]() mutable {
+        if (!ensure_dir(root)) {
+          return;
+        }
+        (void)write_all(disk, blob.data(), blob.size());
+      })
+      .detach();
 }
 
 }  // namespace vista

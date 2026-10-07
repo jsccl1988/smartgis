@@ -12,7 +12,7 @@ All rights reserved.
 
 **Goal:** Wire SmartGisViews to Registry/PluginHost (builtins + ManagerView), retire MFC dialogs from the Views path, align `src/plugin` style/ABI on the new path, and replace domain processing stubs with real kernels.
 
-**Architecture:** `BrowserView` owns `app::PluginShell` (separate TU to avoid dual `content::MapContents` headers). Five builtin `register_*` hooks start on launch. DEM loaders become MFC-free for `dem_views`. Parallel lanes edit disjoint trees on `master`.
+**Architecture:** `BrowserView` owns `app::PluginShell` (separate TU to avoid dual `content::GisContents` headers). Five builtin `register_*` hooks start on launch. DEM loaders become MFC-free for `dem_views`. Parallel lanes edit disjoint trees on `master`.
 
 **Tech Stack:** C++23, GN/Ninja (`out/` only), existing `plugin_host_test`, no Qt, no new Manager singleton.
 
@@ -23,7 +23,7 @@ All rights reserved.
 - Public namespaces ≤2 (`plugin`, `content`, `app`). New functions `snake_case`. Comments English.
 - Spec: `docs/superpowers/specs/2026-09-14-plugin-full-upgrade-design.md`.
 - Do not change MFC `InitSmtAuxModules`. Do not auto-scan zip/`*.am` (S1).
-- Do not include both `content/public/map_contents.h` and `content/public/plugin_host.h` in the same TU.
+- Do not include both `content/public/gis_contents.h` and `content/public/plugin_host.h` in the same TU.
 
 ## File map
 

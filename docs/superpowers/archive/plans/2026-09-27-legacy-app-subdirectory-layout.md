@@ -41,7 +41,7 @@ All rights reserved.
 | `src/legacy/app/shell/*` | `CSmartGisApp`, `CMainFrame`, `CChildFrame` |
 | `src/legacy/app/doc/*` | `CSmartGisDoc` |
 | `src/legacy/app/view/*` | Thin MFC `CView` adapters |
-| `src/content/public/map_bootstrap.h` (+ `.cc` / `*_test.cc`) | HWND-free sample/china map open + NewMap append policy |
+| `src/content/browser/contents/map_bootstrap.h` (+ `.cc` / `*_test.cc`) | HWND-free sample/china map open + NewMap append policy |
 | `src/content/public/draft_commit.h` (+ `.cc` / `*_test.cc`) | HWND-free draft→feature commit helper |
 | `src/app/views/map_scene.*` | Viewport transform + call `content` draft helper |
 | `src/legacy/app/README.md`, `docs/superpowers/src-layout.md` | As-built module row |
@@ -127,7 +127,7 @@ Expected: `SmartGis.exe` + `app_core_d.dll` (or release stems) link.
 ### Task 3: Extract HWND-free map bootstrap into `content` (TDD)
 
 **Files:**
-- Create: `src/content/public/map_bootstrap.h`
+- Create: `src/content/browser/contents/map_bootstrap.h`
 - Create: `src/content/map_bootstrap.cc`
 - Create: `src/content/map_bootstrap_test.cc`
 - Modify: `src/content/BUILD.gn` (sources + `test("content_map_bootstrap_test")`)
@@ -138,7 +138,7 @@ Expected: `SmartGis.exe` + `app_core_d.dll` (or release stems) link.
 - Produces (names locked for later tasks):
 
 ```cpp
-// content/public/map_bootstrap.h
+// content/browser/contents/map_bootstrap.h
 namespace content {
 
 struct SampleMapOpenResult {

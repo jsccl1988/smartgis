@@ -44,7 +44,7 @@ Shell includes only `plugin/product/world3d/commands.h`.
 | `world3d.fly_to` | JSON `{lon,lat,distance?,span_deg?}` — local orbit reframe |
 | `world3d.attach_city_tileset` | JSON `{path?}` — 3D Tiles JSON (empty → `m3_city_tileset.json`) |
 | `world3d.add_pointcloud` / LAS | Existing pointcloud hook |
-| `world3d.trimesh_from_xyz` / `heightmap_from_raster` | DEM surface → MapScene triangles |
+| `world3d.trimesh_from_xyz` / `heightmap_from_raster` | DEM surface → GisScene triangles |
 | `baogrid.*` / `orthogrid.*` | Same 2D handlers; `detail::contribute_prefixed_commands` |
 | `orthogrid3d.*` | 3D hex lattice + `.vts` (`register_world3d_hexgrid`) |
 

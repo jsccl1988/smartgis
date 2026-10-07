@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "vista/pass/world/atmosphere/cloud/cloud_pass.h"
 #include "vista/pass/world/atmosphere/fog/fog_pass.h"
 #include "vista/pass/world/atmosphere/atmosphere_frame.h"
@@ -23,22 +23,32 @@
 
 namespace content {
 
-class MapScene;
+class GisScene;
 class Scene3dGpuPresent;
 
 // Atmosphere Environment + pass POD prep (ocean/cloud/sky/fog). Geo frame and
 // world extent come from the bound Scene3dGpuPresent during prepare.
+//
+// Heap-allocate via create() so exe / BrowserSession TUs never embed the
+// sizeof (OceanPass + GlobePass + Contour-backed EnvironmentPtr payload).
+// Environment itself stays on vista::atmosphere::create_environment().
 class AtmosphereSession {
  public:
+  struct Deleter {
+    void operator()(AtmosphereSession* p) const;
+  };
+  using Ptr = std::unique_ptr<AtmosphereSession, Deleter>;
+  static Ptr create();
+
   AtmosphereSession();
   ~AtmosphereSession();
 
   AtmosphereSession(const AtmosphereSession&) = delete;
   AtmosphereSession& operator=(const AtmosphereSession&) = delete;
 
-  void bind_scene(const MapScene* scene);
+  void bind_scene(const GisScene* scene);
   void bind_gpu(Scene3dGpuPresent* gpu);
-  const MapScene* scene() const { return scene_; }
+  const GisScene* scene() const { return scene_; }
 
   vista::atmosphere::Environment* environment() { return atmosphere_.get(); }
   const vista::atmosphere::Environment* environment() const {
@@ -80,7 +90,7 @@ class AtmosphereSession {
   double time_sec() const;
 
   bool load_fields(std::string_view spec);
-  // Seed FieldStore (with land rings from MapScene when available).
+  // Seed FieldStore (with land rings from GisScene when available).
   void seed_procedural();
   // Same seed; when with_land_rings is false, skip polygon export (showcase
   // capture must not stall on dense area layers).
@@ -135,7 +145,7 @@ class AtmosphereSession {
   bool load_china_globe_detail();
   void apply_globe_sea_ocean(double lon_deg, double lat_deg, bool on);
 
-  const MapScene* scene_ = nullptr;
+  const GisScene* scene_ = nullptr;
   Scene3dGpuPresent* gpu_ = nullptr;
 
   // Flags first �?pass POD sizes shift often; keep enable bits at stable
@@ -170,7 +180,7 @@ class AtmosphereSession {
   // Idempotent seed_procedural across Map↔Scene3D tab switches.
   bool procedural_seeded_ = false;
   bool procedural_seed_with_rings_ = false;
-  const MapScene* procedural_seed_scene_ = nullptr;
+  const GisScene* procedural_seed_scene_ = nullptr;
 };
 
 }  // namespace content

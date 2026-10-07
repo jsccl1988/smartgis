@@ -16,36 +16,30 @@
 #include "vista/component/world/terrain/policy.h"
 #include "vista/component/world/world.h"
 #include "vista/mesh/tessellate.h"
+#include "vista/terrain/dem/orbit_geo_frame.h"
 #include "vista/terrain/dem/raster/dem_raster.h"
 #include "vista/vista_export.h"
 
 namespace vista {
 
-// Caller-owned orbit hooks. Vista never includes the content geo frame.
-// Null function pointers skip that step (raw DEM xyz stays in the node).
-struct DemViewMeshHooks {
-  // Mid elevation of the first raw tile. The return is stored on the view seed.
-  float (*capture_elev_center)(const std::vector<float>& positions,
-                               void* ctx) = nullptr;
-  // In-place normalize of one tile's positions before AABB and concat.
-  void (*normalize_xyz)(std::vector<float>* positions, void* ctx) = nullptr;
-  void* ctx = nullptr;
-};
-
 // Outcome of one sample-DEM rebuild into World and the paint buffers.
 struct DemViewMeshResult {
   bool painted = false;
   bool seed_cache_hit = false;
+  // True when LOD + extent still match and buffers were left untouched.
+  bool skipped_lod = false;
   int cache_key = 0;
   float elev_cy = 0.f;
 };
 
 // Replace kTerrain nodes for the lon/lat window and concatenate them into
-// |xyz| / |idx|. Orbit normalize stays in |hooks|.
+// |xyz| / |idx|. Applies China-box seed, LOD skip, and orbit normalize when
+// |geo| / |lod_edge| are non-null. A set sample_dem_path_override must not
+// force the China box (see dem_seed_lonlat_box).
 VISTA_EXPORT DemViewMeshResult rebuild_dem_view_mesh(
     World* world, double xmin, double ymin, double xmax, double ymax,
     float orbit_distance, std::vector<float>* xyz, std::vector<unsigned>* idx,
-    const DemViewMeshHooks* hooks);
+    OrbitGeoFrame* geo, int* lod_edge);
 
 namespace detail {
 

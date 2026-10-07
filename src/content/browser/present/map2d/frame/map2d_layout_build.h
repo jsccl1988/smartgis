@@ -13,14 +13,14 @@
 
 namespace content {
 
-class MapScene;
+class GisScene;
 class ViewFrame;
 
 namespace detail {
 
 // Inputs for one L2 tess + optional DEM bake. All CPU work; no mu_.
 struct Map2dLayoutParams {
-  const MapScene* scene = nullptr;
+  const GisScene* scene = nullptr;
   const ViewFrame* frame = nullptr;
   Map2dFrameCache::CameraKey cam;
   bool hillshade_ready = false;
@@ -39,6 +39,9 @@ struct Map2dLayoutOutput {
   int baked_h = 0;
   vista::TileSlot hillshade_slot{};
   int64_t hillshade_ms = 0;
+  // True when this build skipped DEM bake on purpose (first china layout).
+  // Cache must force one follow-up rebuild so shade is not stuck off.
+  bool deferred_hillshade = false;
   bool ok = false;
 };
 

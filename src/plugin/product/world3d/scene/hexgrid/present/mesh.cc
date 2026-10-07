@@ -79,7 +79,7 @@ bool present_hex_grid_mesh(content::GisDocument* doc,
     return false;
   }
 
-  // Local engineering XYZ is not a GIS envelope. Writing 0..1.5 into MapScene
+  // Local engineering XYZ is not a GIS envelope. Writing 0..1.5 into GisScene
   // made document.world_extent() fail extent_looks_like_china, so
   // push_shared_extent / Scene3dGpuPresent::world_extent fell back to the
   // full China box. FlyCube then rebuilt china_dem as a country "globe" and

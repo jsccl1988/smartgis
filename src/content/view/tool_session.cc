@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 
 #include "content/public/event_bus.h"
 #include "gis/edit/memory_session.h"
@@ -10,16 +10,16 @@
 
 namespace content {
 
-struct ViewHost::Impl {
+struct ToolSession::Impl {
   EventBus events;
   std::unique_ptr<gis::MemoryEditSession> owned;
   gis::EditSession* edits = nullptr;
   std::unique_ptr<tool::Workspace> workspace;
 };
 
-ViewHost::ViewHost() : ViewHost(nullptr) {}
+ToolSession::ToolSession() : ToolSession(nullptr) {}
 
-ViewHost::ViewHost(gis::EditSession* edits) : impl_(std::make_unique<Impl>()) {
+ToolSession::ToolSession(gis::EditSession* edits) : impl_(std::make_unique<Impl>()) {
   if (edits) {
     impl_->edits = edits;
   } else {
@@ -30,21 +30,21 @@ ViewHost::ViewHost(gis::EditSession* edits) : impl_(std::make_unique<Impl>()) {
       std::make_unique<tool::Workspace>(&impl_->events, impl_->edits);
 }
 
-ViewHost::~ViewHost() = default;
+ToolSession::~ToolSession() = default;
 
-EventBus* ViewHost::events() {
+EventBus* ToolSession::events() {
   return impl_ ? &impl_->events : nullptr;
 }
 
-gis::EditSession* ViewHost::edits() {
+gis::EditSession* ToolSession::edits() {
   return impl_ ? impl_->edits : nullptr;
 }
 
-tool::Workspace* ViewHost::workspace() {
+tool::Workspace* ToolSession::workspace() {
   return impl_ ? impl_->workspace.get() : nullptr;
 }
 
-bool ViewHost::execute(std::string_view command_id, uint32_t view_id) {
+bool ToolSession::execute(std::string_view command_id, uint32_t view_id) {
   if (!impl_ || !impl_->workspace) {
     return false;
   }
@@ -53,25 +53,25 @@ bool ViewHost::execute(std::string_view command_id, uint32_t view_id) {
   return impl_->workspace->execute(command_id, args);
 }
 
-bool ViewHost::activate(std::string_view interaction_id) {
+bool ToolSession::activate(std::string_view interaction_id) {
   if (!impl_ || !impl_->workspace) {
     return false;
   }
   return impl_->workspace->activate(interaction_id);
 }
 
-bool ViewHost::dispatch_input(const InputEvent& e) {
+bool ToolSession::dispatch_input(const InputEvent& e) {
   if (!impl_ || !impl_->workspace) {
     return false;
   }
   return impl_->workspace->dispatch_input(e);
 }
 
-bool ViewHost::execute_legacy(long gt_msg) {
+bool ToolSession::execute_legacy(long gt_msg) {
   return tool::try_execute_gt_msg(workspace(), gt_msg);
 }
 
-void ViewHost::release_exclusive() {
+void ToolSession::release_exclusive() {
   if (!impl_ || !impl_->workspace) {
     return;
   }
@@ -79,7 +79,7 @@ void ViewHost::release_exclusive() {
   }
 }
 
-bool ViewHost::flashing() const {
+bool ToolSession::flashing() const {
   if (!impl_ || !impl_->workspace) {
     return false;
   }

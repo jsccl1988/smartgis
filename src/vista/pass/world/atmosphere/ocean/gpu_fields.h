@@ -44,10 +44,16 @@ class OceanGpuFields {
                      const std::vector<float>& disp_z, float height_scale,
                      float disp_scale);
 
+  // Cold-once: height + spectrum textures and compute PSOs. No dispatches.
+  // Call before DEM remesh so FlyCube cannot recycle hypsometric SRVs.
+  bool ensure_cold(render::rhi::Device* owner_device, render::rhi::Device* device,
+                   int fft_n);
+
   void destroy_height(render::rhi::Device* owner_device);
   void release();
 
   render::rhi::Texture* height() const { return height_; }
+  bool has_fft_resources(int fft_n) const;
 
  private:
   bool ensure_textures(render::rhi::Device* owner_device, render::rhi::Device* device, int n);

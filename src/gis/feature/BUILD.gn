@@ -15,6 +15,7 @@ source_set("feature_sources") {
     # same-module symbols (LNK2019 on __imp_*).
   ]
   sources = [
+    "attrs.h",
     "feature.cc",
     "feature.h",
   ]
@@ -36,4 +37,11 @@ test("feature_test") {
     "//src/gis:gis",
     "//third_party:gdal",
   ]
+}
+
+# Header-only FeatureId / NamedField helpers (no DLL link required).
+test("feature_attrs_test") {
+  output_name = "feature_attrs_test"
+  sources = [ "attrs_test.cc" ]
+  include_dirs += [ "//src" ]
 }

@@ -130,7 +130,7 @@ ChinaScene3dAtmoFlags apply_china_scene3d_atmosphere(Browser& browser) {
   session.set_scene3d_look_atmosphere();
   // Do not abandon_mesh on every China seed: concurrent Map-Edit FlyCube
   // present + gpu_scene_.abandon remapped heap (browse.3d 0xC0000005 on
-  // select_map_tab(2)). Seed/flags alone rebuild DEM on the next present.
+  // select_view_tab(2)). Seed/flags alone rebuild DEM on the next present.
   // Harness: seed_procedural can AV if DEM/gpu_scene is mid-rebuild; keep
   // the call — callers must pause shell FlyCube present first.
   session.seed_scene3d_procedural(/*with_land_rings=*/true);

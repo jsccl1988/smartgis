@@ -332,7 +332,7 @@ Target:
 ```
 legacy/ui/shell/
   xview.*              # SmtXView CView chrome base
-  input_dispatch.*     # Win32 → ViewHost (gesture / pointer / wheel)
+  input_dispatch.*     # Win32 → ToolSession (gesture / pointer / wheel)
   ambox/
     title.*            # CP936/UTF-8 caption helpers
     tree.*             # SmtXAMBox

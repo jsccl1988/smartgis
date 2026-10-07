@@ -11,7 +11,7 @@ All rights reserved.
 
 **Architecture:** Approach B � chrome-owned session; plugins keep `run_processing` + writers; Browser applies frames and exports captures.
 
-**Tech Stack:** C++23, Views shell, MapScene, CapabilityHost / interact DSL, `build.bat debug`.
+**Tech Stack:** C++23, Views shell, GisScene, CapabilityHost / interact DSL, `build.bat debug`.
 
 ## Global Constraints
 
@@ -50,7 +50,7 @@ All rights reserved.
 
 - [x] Views `ResultPlaybackPanel` (play/pause/loop + scrub + prev/next) on inspector Playback tab
 - [x] Wired to `Browser::apply_analysis_frame` + AnalysisPlayback fps/looping/playing
-- [x] Fixed `Browser::pull_orbit_extent` AV (skip MapContents::Extent; use document extent)
+- [x] Fixed `Browser::pull_orbit_extent` AV (skip GisContents::Extent; use document extent)
 
 ### Task 5 � Verify
 

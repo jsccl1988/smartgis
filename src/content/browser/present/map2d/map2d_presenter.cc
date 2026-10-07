@@ -60,7 +60,7 @@ bool Map2dPresenter::hosts_scenic_present() const {
   return scenic_ != nullptr;
 }
 
-void Map2dPresenter::bind(const MapScene* scene, const ViewFrame* frame) {
+void Map2dPresenter::bind(const GisScene* scene, const ViewFrame* frame) {
   scene_ = scene;
   frame_ = frame;
   cache_.bind(scene, frame);

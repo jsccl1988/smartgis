@@ -118,9 +118,11 @@ VISTA_EXPORT void select_tiles_limited(const Tileset& tileset,
 
 // For each selected tile with a non-empty URI: cache hit → touch; miss →
 // |resolve| then put / put_failed. Never throws; missing content is OK.
+// |max_ensure| caps new resolve attempts this call (0 = unlimited). Warm
+// frames with a fully resident selection only touch LRU via try_get.
 VISTA_EXPORT void ensure_tileset_content(
     const std::vector<const Tile*>& visible, TilesetContentCache* cache,
-    TilesetContentResolveFn resolve, void* user);
+    TilesetContentResolveFn resolve, void* user, size_t max_ensure = 0);
 
 }  // namespace vista
 

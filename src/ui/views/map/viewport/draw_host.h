@@ -28,8 +28,8 @@
 #include "ui/views/kernel/view/view.h"
 
 namespace content {
-class MapContents;
-class ViewHost;
+class GisContents;
+class ToolSession;
 }
 
 namespace ui {
@@ -55,7 +55,7 @@ class UI_EXPORT DrawHost : public View {
     kPlaceholder,
   };
 
-  // Which MapContents::OpenView kind this pane should request.
+  // Which GisContents::OpenView kind this pane should request.
   enum class Role {
     kMapEdit,
     kMapData,
@@ -68,33 +68,32 @@ class UI_EXPORT DrawHost : public View {
   void set_role(Role role);
   Role role() const { return role_; }
 
-  void set_view_host(content::ViewHost* host);
-  content::ViewHost* view_host() const { return view_host_; }
+  void set_tool_session(content::ToolSession* host);
+  content::ToolSession* tool_session() const { return tool_session_; }
 
   // Non-owning shared session. When unset, attach() may create one.
-  void set_map_contents(content::MapContents* session);
-  content::MapContents* map_contents() const { return session_; }
+  void set_gis_contents(content::GisContents* session);
+  content::GisContents* gis_contents() const { return session_; }
 
   uint32_t view_id() const { return view_id_; }
 
-  // Prefer content::MapWidgetHostView (OpenView kind from Role). Scene3d and
+  // Prefer content::WidgetHostView (OpenView kind from Role). Scene3d and
   // Map Edit/Data try GPU present / present_gpu first by default.
   // Scene3d engine: content::set_scene3d_engine (View menu); Scenic and GDI
   // keep the product HWND + Scene3dPresenter (no ContentMapView). Stereo may
-  // force ContentMapView. FORCE_CONTENT_MAPVIEW_2D=1 / PREFER_FLYCUBE_2D=0 →
-  // 2D ContentMapView. PREFER_GDI_DEVICE=1 skips GPU present.
+  // force ContentMapView. FORCE_CONTENT_MAPVIEW_2D=1 / PREFER_FLYCUBE_2D=0 鈫?  // 2D ContentMapView. PREFER_GDI_DEVICE=1 skips GPU present.
   // FORCE_GDI_MAP_OVERLAY=1 skips 2D gpu_present_ (caller uses full GDI
-  // MapScene::paint).
+  // GisScene::paint).
   bool attach();
   AttachMode attach_mode() const { return mode_; }
   // Last GPU present result (updated on the Display mailbox thread).
   bool last_gpu_present_ok() const {
     return last_gpu_present_ok_.load(std::memory_order_acquire);
   }
-  // BeginFrame mailbox tokens — wait for presented >= request after invalidate.
+  // BeginFrame mailbox tokens 鈥?wait for presented >= request after invalidate.
   uint32_t frame_request() const;
   uint32_t frame_presented() const;
-  // DXGI Resize/initialize cleared the swapchain — next present must redraw.
+  // DXGI Resize/initialize cleared the swapchain 鈥?next present must redraw.
   void mark_gpu_surface_dirty();
   bool consume_gpu_surface_dirty();
   // Last ContentMapView SharedSurface blit into the paint DC (UI thread).
@@ -111,7 +110,7 @@ class UI_EXPORT DrawHost : public View {
   using OverlayPaint = std::function<void(HDC hdc, const RECT& client)>;
   void set_overlay_paint(OverlayPaint fn);
   // GPU present callback. Runs on the Display mailbox thread (P4), never
-  // synchronously from WM_PAINT. Signature: (rhi::Device*, w, h) → ok.
+  // synchronously from WM_PAINT. Signature: (rhi::Device*, w, h) 鈫?ok.
   using GpuPresentFn =
       std::function<bool(void* rhi_device, uint32_t width_px, uint32_t height_px)>;
   void set_gpu_present(GpuPresentFn fn);
@@ -160,9 +159,9 @@ class UI_EXPORT DrawHost : public View {
   void request_frame();
   // HWND that receives user mouse (DXGI GPU present popup when visible, else embed).
   // Gesture subclass + shell wheel forward must target this, not native_view()
-  // alone — the present popup sits above the embed and steals hit-testing.
+  // alone 鈥?the present popup sits above the embed and steals hit-testing.
   HWND input_hwnd() const;
-  // Owned DXGI GPU present popup, or null. Visible or not — capture must
+  // Owned DXGI GPU present popup, or null. Visible or not 鈥?capture must
   // BitBlt this HWND (WS_EX_NOREDIRECTIONBITMAP), not the navy embed hole.
   HWND present_hwnd() const;
   // Layered identity HUD popup (GPU present HWND) or child HWND (GDI embed).
@@ -171,8 +170,8 @@ class UI_EXPORT DrawHost : public View {
   // Inactive Map-Edit present must not cover Scene3d.
   void set_gpu_present_visible(bool show);
   // Hide the DXGI popup and KillTimer(kPresentTimerId). Queued present ticks
-  // are ignored via present_paused_ (do not PeekMessage — that processes
-  // sent Display messages and deadlocks UI↔Display on tab switch).
+  // are ignored via present_paused_ (do not PeekMessage 鈥?that processes
+  // sent Display messages and deadlocks UI鈫擠isplay on tab switch).
   void pause_present();
   // Restart the 16ms present WM_TIMER after harness stop_map_present_timers
   // or pause_present() so the HWND is not stuck on a single ocean clear.
@@ -207,8 +206,8 @@ class UI_EXPORT DrawHost : public View {
   bool try_gpu_present_device();
   bool try_local_device();
   void paint_child_placeholder();
-  // Blit MapWidgetHostView::Latest() for Scene3d ContentMapView only.
-  // 2D leftover GPU DIBs are a demo tessellation — Map2dPresenter overlay
+  // Blit WidgetHostView::Latest() for Scene3d ContentMapView only.
+  // 2D leftover GPU DIBs are a demo tessellation 鈥?Map2dPresenter overlay
   // is the 2D SoT (Vista GDI / Scenic MemFrame).
   bool present_latest_frame(HDC hdc, const RECT& client_rc);
   void start_present_timer();
@@ -257,8 +256,8 @@ class UI_EXPORT DrawHost : public View {
   AttachMode mode_ = AttachMode::kNone;
   Role role_ = Role::kMapEdit;
   const wchar_t* status_ = L"";
-  content::MapContents* session_ = nullptr;
-  content::ViewHost* view_host_ = nullptr;
+  content::GisContents* session_ = nullptr;
+  content::ToolSession* tool_session_ = nullptr;
   bool owns_session_ = false;
   HANDLE render_process_ = nullptr;
   HANDLE render_job_ = nullptr;
@@ -273,7 +272,7 @@ class UI_EXPORT DrawHost : public View {
   std::atomic<uint32_t> frame_request_{1};
   std::atomic<uint32_t> frame_presented_{0};
   // Publish via std::atomic_store; readers std::atomic_load. Hot path only
-  // bumps a shared_ptr refcount — never copies std::function under a mutex.
+  // bumps a shared_ptr refcount 鈥?never copies std::function under a mutex.
   // (Unsynchronized std::function assign + call AVs in _Tidy.)
   void refresh_has_gpu_cb();
   std::shared_ptr<OverlayPaint> overlay_paint_;
@@ -290,7 +289,7 @@ class UI_EXPORT DrawHost : public View {
   HBITMAP back_old_ = nullptr;
   int back_w_ = 0;
   int back_h_ = 0;
-  // WM_POINTER touch contacts → midpoint InputEvent (pointer_count >= 2).
+  // WM_POINTER touch contacts 鈫?midpoint InputEvent (pointer_count >= 2).
   TouchMultitouchTracker touch_tracker_;
 
   // On-client identity HUD (black bar + yellow engine/FPS). Child of the

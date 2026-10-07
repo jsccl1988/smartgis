@@ -169,6 +169,22 @@ bool WorldPass::rebuild_meshes(render::rhi::Device* device, uint32_t width,
       continue;
     }
 
+    if (inst.kind == vista::NodeKind::kTerrain && inst.terrain.has_mesh()) {
+      // First upload batch: skip TessMesh copy; upload VB/IB/albedo from the
+      // Instance payload in one prepare_mesh pass.
+      if (!terrain_.prepare_mesh(device, inst, nullptr, &mesh, solid_r_,
+                                 solid_g_, solid_b_, solid_a_)) {
+        clear_meshes();
+        for (GpuMesh& leftover : prev_meshes) {
+          device->destroy_buffer(leftover.vertex);
+          device->destroy_buffer(leftover.index);
+          device->destroy_texture(leftover.texture);
+        }
+        return false;
+      }
+      meshes_.push_back(mesh);
+      continue;
+    }
     vista::TessMesh cpu;
     if (!detail::tessellate_instance(inst, world_units_per_pixel,
                                      tileset_content_cache_, &cpu)) {

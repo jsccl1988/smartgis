@@ -22,7 +22,7 @@ void expect(bool ok, const char* msg) {
   }
 }
 
-// Naive CP_UTF8 (the old MapScene / draw_anno_text path). Documents why
+// Naive CP_UTF8 (the old GisScene / draw_anno_text path). Documents why
 // GBK labels become scattered crumbs: conversion "succeeds" with garbage.
 std::wstring utf8_loose(const char* bytes) {
   if (!bytes || !bytes[0]) {

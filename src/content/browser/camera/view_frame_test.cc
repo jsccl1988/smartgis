@@ -5,7 +5,7 @@
 
 #include <cstdio>
 
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 
 namespace {
 
@@ -35,8 +35,8 @@ int run_view_frame_tests() {
   }
 
   {
-    // MapScene() does not seed vertices. fit_extent must leave the frame.
-    content::MapScene scene;
+    // GisScene() does not seed vertices. fit_extent must leave the frame.
+    content::GisScene scene;
     content::ViewFrame frame;
     frame.apply_pan(3, -8);
     const double pan_x = frame.pan_x();

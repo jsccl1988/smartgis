@@ -9,7 +9,7 @@
 #include <memory>
 #include <string_view>
 
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
 #include "tool/interaction/interaction.h"
@@ -66,7 +66,7 @@ class Workspace {
       std::function<void(int x_px, int y_px, double* map_x, double* map_y)>;
   TOOL_EXPORT void set_map_project(MapProject fn);
 
-  // When true, draw.* skips EditSession (shell / MapScene owns geometry).
+  // When true, draw.* skips EditSession (shell / GisScene owns geometry).
   // Prefer false once set_map_project is wired (β FeatureGeom path).
   TOOL_EXPORT void set_shell_owns_append(bool on);
 

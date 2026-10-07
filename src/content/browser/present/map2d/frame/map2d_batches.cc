@@ -37,19 +37,19 @@ bool is_carto_batch_field(const std::string& name) {
          name == "type" || name == "text";
 }
 
-// Stable fingerprint for MapScene layers; used to reuse POD + batch builds.
+// Stable fingerprint for GisScene layers; used to reuse POD + batch builds.
 uint64_t scene_layers_fingerprint(
-    const std::vector<MapScene::Layer>& layers) {
+    const std::vector<GisScene::Layer>& layers) {
   uint64_t hash = 14695981039346656037ull;
   hash = fnv1a_mix(hash, layers.size());
   size_t total_features = 0;
   size_t total_points = 0;
-  for (const MapScene::Layer& layer : layers) {
+  for (const GisScene::Layer& layer : layers) {
     hash = hash_string(hash, layer.id);
     hash = hash_string(hash, layer.name);
     hash = fnv1a_mix(hash, layer.visible ? 1u : 0u);
     hash = fnv1a_mix(hash, layer.features.size());
-    for (const MapScene::Feature& feature : layer.features) {
+    for (const GisScene::Feature& feature : layer.features) {
       ++total_features;
       total_points += feature.points.size();
       hash = fnv1a_mix(hash, static_cast<uint64_t>(feature.kind));
@@ -69,11 +69,11 @@ uint64_t scene_layers_fingerprint(
       // Line/polygon carto attrs (kind/class) are stable after China seed;
       // hashing every string on the first batches span dominated wall.
       // Point/text still fingerprint label fields (name/anno) for cache.
-      if (feature.kind != MapScene::GeomKind::kPoint &&
-          feature.kind != MapScene::GeomKind::kText) {
+      if (feature.kind != GisScene::GeomKind::kPoint &&
+          feature.kind != GisScene::GeomKind::kText) {
         continue;
       }
-      for (const MapScene::Field& field : feature.fields) {
+      for (const GisScene::Field& field : feature.fields) {
         if (!is_carto_batch_field(field.name)) {
           continue;
         }
@@ -140,40 +140,40 @@ LayerBatchBuildCache& batch_build_cache() {
   return cache;
 }
 
-vista::BatchGeomKind to_batch_kind(MapScene::GeomKind kind) {
+vista::BatchGeomKind to_batch_kind(GisScene::GeomKind kind) {
   switch (kind) {
-    case MapScene::GeomKind::kLine:
+    case GisScene::GeomKind::kLine:
       return vista::BatchGeomKind::kLine;
-    case MapScene::GeomKind::kPolygon:
+    case GisScene::GeomKind::kPolygon:
       return vista::BatchGeomKind::kPolygon;
-    case MapScene::GeomKind::kText:
+    case GisScene::GeomKind::kText:
       return vista::BatchGeomKind::kText;
-    case MapScene::GeomKind::kPoint:
+    case GisScene::GeomKind::kPoint:
       return vista::BatchGeomKind::kPoint;
   }
   return vista::BatchGeomKind::kPoint;
 }
 
 std::vector<vista::BatchLayer> layers_to_pod(
-    const std::vector<MapScene::Layer>& layers) {
+    const std::vector<GisScene::Layer>& layers) {
   std::vector<vista::BatchLayer> pod;
   pod.reserve(layers.size());
-  for (const MapScene::Layer& layer : layers) {
+  for (const GisScene::Layer& layer : layers) {
     vista::BatchLayer out;
     out.id = layer.id;
     out.name = layer.name;
     out.visible = layer.visible;
     out.features.reserve(layer.features.size());
-    for (const MapScene::Feature& feature : layer.features) {
+    for (const GisScene::Feature& feature : layer.features) {
       vista::BatchFeature feat;
       feat.kind = to_batch_kind(feature.kind);
       feat.points.reserve(feature.points.size());
-      for (const MapScene::Vertex& p : feature.points) {
+      for (const GisScene::Vertex& p : feature.points) {
         // Stored map Y is -lat. Layout batches are +lat.
         feat.points.push_back(vista::BatchPoint{p.x, -p.y});
       }
       feat.fields.reserve(8);
-      for (const MapScene::Field& field : feature.fields) {
+      for (const GisScene::Field& field : feature.fields) {
         if (!is_carto_batch_field(field.name)) {
           continue;
         }
@@ -197,7 +197,7 @@ std::vector<vista::BatchLayer> layers_to_pod(
 }  // namespace
 
 vista::LayerBatchSet visible_layer_batches(
-    const std::vector<MapScene::Layer>& layers, bool use_carto_slots,
+    const std::vector<GisScene::Layer>& layers, bool use_carto_slots,
     double scale) {
   LayerBatchBuildCache& cache = batch_build_cache();
   const uint64_t scene_fp = scene_layers_fingerprint(layers);

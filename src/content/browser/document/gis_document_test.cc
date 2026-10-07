@@ -1,9 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_document.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/public/event_bus.h"
-#include "content/public/gis_document.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/present/gis_present.h"
 #include "plugin/runtime/host/processing/processing.h"
@@ -36,8 +36,8 @@ int main() {
           (void)e;
           ++hits;
         });
-    content::MapScene scene;
-    content::MapSceneGisDocument gis(&scene, &bus);
+    content::GisScene scene;
+    content::GisSceneDocument gis(&scene, &bus);
     expect(gis.create_layer("heat", "Polygon"), "create_layer");
     expect(gis.layer_count() >= 1, "layer_count");
     expect(hits >= 1, "document.layers_changed");
@@ -59,8 +59,8 @@ int main() {
            "standin mesh");
   }
   {
-    content::MapScene scene;
-    content::MapSceneGisDocument gis(&scene, nullptr);
+    content::GisScene scene;
+    content::GisSceneDocument gis(&scene, nullptr);
     content::PluginHost* host =
         content::create_plugin_host(nullptr, nullptr, nullptr);
     host->set_gis_document(&gis);

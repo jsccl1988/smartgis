@@ -76,7 +76,7 @@ All rights reserved.
 flowchart LR
   subgraph Browser["SmartGIS.exe — browser"]
     Chrome["Scheme 1/2/3 chrome"]
-    HostClient["content::MapContents client"]
+    HostClient["content::GisContents client"]
     Presenter["surface presenter only"]
     Chrome --> HostClient
     Chrome --> Presenter
@@ -412,7 +412,7 @@ v1 适配器路径：
 ```text
 SmartGisCef.exe
   CEF HWND — menu / catalog / ambox / inspector / status
-  CefMapSlot HWND — MapContents present + ViewHost input
+  CefMapSlot HWND — GisContents present + ToolSession input
 ```
 
 前端：开发/发布静态资源在 exe 旁 `cef_web/`（`file://`）。ChromeBridge 用版本化 ProcessMessage JSON（`api_version=1`）。

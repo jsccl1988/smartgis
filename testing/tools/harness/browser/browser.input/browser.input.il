@@ -23,7 +23,7 @@ script "browser.input" {
     wait_ready(ms=5000, soft=1);
     mark("map-ready");
 
-    require_edit_host();
+    require_edit_tool_session();
     mark("host-ok");
 
     // Point

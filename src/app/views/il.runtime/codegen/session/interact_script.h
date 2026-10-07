@@ -14,7 +14,7 @@ class Browser;
 
 // After the runtime is linked, wrap the interact panel slot so mode
 // "interact" applies on that Host (no second bind_host). OS wait uses
-// Host pump/mark/select_map_tab.
+// Host pump/mark/select_view_tab.
 void install_interact_frontend(Browser& browser, content::CapabilityHost* host);
 
 // Applies Interact DSL gesture body (.il) via resolve_interact_gesture_script

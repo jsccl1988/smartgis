@@ -32,48 +32,14 @@ std::string join_root_uri(const std::string& root, const char* uri) {
   return path;
 }
 
-// Ensure at most |max_ensure| cache misses this pump. Warm frames with a
-// stable selection skip decode entirely when every visible URI is resident.
-void ensure_tileset_content_budgeted(
-    const std::vector<const vista::Tile*>& visible,
-    vista::TilesetContentCache* cache, vista::TilesetContentResolveFn resolve,
-    void* user, size_t max_ensure) {
-  if (!cache) {
-    return;
-  }
-  size_t ensured = 0;
-  for (const vista::Tile* tile : visible) {
-    if (!tile || tile->content_uri.empty()) {
-      continue;
-    }
-    if (cache->try_get(tile->content_uri) != nullptr) {
-      continue;
-    }
-    if (max_ensure > 0 && ensured >= max_ensure) {
-      break;
-    }
-    if (!resolve) {
-      cache->put_failed(tile->content_uri);
-      ++ensured;
-      continue;
-    }
-    vista::ModelAsset asset;
-    size_t cost = 0;
-    if (resolve(tile->content_uri.c_str(), &asset, &cost, user) && cost > 0) {
-      if (!cache->put(tile->content_uri, std::move(asset), cost, true)) {
-        cache->put_failed(tile->content_uri);
-      }
-    } else {
-      cache->put_failed(tile->content_uri);
-    }
-    ++ensured;
-  }
-}
-
 }  // namespace
 
 TilesetStreamSession::TilesetStreamSession()
-    : cache_(4u * 1024u * 1024u) {}
+    : cache_(kDefaultCacheBytes) {}
+
+void TilesetStreamSession::set_cache_max_bytes(size_t max_bytes) {
+  cache_.set_max_bytes(max_bytes);
+}
 
 vista::ViewState view_state_from_orbit(const OrbitFrame* orbit) {
   vista::ViewState view{};
@@ -189,11 +155,11 @@ bool TilesetStreamSession::pump_view(vista::World* world,
 
   const bool uris_changed = world->apply_tileset_selection(node_id_, visible);
 
-  // Cap new decode resolves per pump. Warm frames with a fully resident
-  // selection only touch LRU (try_get inside ensure); prior budget leftovers
-  // still drain across subsequent frames until every miss is filled or failed.
-  ensure_tileset_content_budgeted(visible, &cache_, &resolve_content, this,
-                                  max_ensure);
+  // Cap new decode resolves per pump (vista kernel). Warm frames with a fully
+  // resident selection only touch LRU; prior budget leftovers still drain
+  // across subsequent frames until every miss is filled or failed.
+  vista::ensure_tileset_content(visible, &cache_, &resolve_content, this,
+                                max_ensure);
 
   last_visible_uris_ = std::move(uris);
   return uris_changed || !selection_stable;

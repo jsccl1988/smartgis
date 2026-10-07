@@ -512,10 +512,12 @@ void TilesetContentCache::evict_overflow() {
 
 void ensure_tileset_content(const std::vector<const Tile*>& visible,
                             TilesetContentCache* cache,
-                            TilesetContentResolveFn resolve, void* user) {
+                            TilesetContentResolveFn resolve, void* user,
+                            size_t max_ensure) {
   if (!cache) {
     return;
   }
+  size_t ensured = 0;
   for (const Tile* tile : visible) {
     if (!tile || tile->content_uri.empty()) {
       continue;
@@ -523,8 +525,12 @@ void ensure_tileset_content(const std::vector<const Tile*>& visible,
     if (cache->try_get(tile->content_uri) != nullptr) {
       continue;
     }
+    if (max_ensure > 0 && ensured >= max_ensure) {
+      break;
+    }
     if (!resolve) {
       cache->put_failed(tile->content_uri);
+      ++ensured;
       continue;
     }
     ModelAsset asset;
@@ -536,6 +542,7 @@ void ensure_tileset_content(const std::vector<const Tile*>& visible,
     } else {
       cache->put_failed(tile->content_uri);
     }
+    ++ensured;
   }
 }
 

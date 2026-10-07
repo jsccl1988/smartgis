@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 #include "app/views/ui/pages/map_pages_composer.h"
@@ -19,7 +19,7 @@
 #include "base/core/log.h"
 #include "base/process/switches.h"
 #include "content/browser/session/browser_session.h"
-#include "content/public/map_contents.h"
+#include "content/public/gis_contents.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
 #include "ui/views/map/viewport/draw_host.h"
@@ -73,14 +73,14 @@ void MapPagesComposer::wire_map_scene() {
         session.map2d_paint(hdc, w, h, true);
         session.blit_capture(hdc, w, h);
       }
-      content::ViewHost* host = host_->active_view_host();
+      content::ToolSession* host = host_->active_tool_session();
       // Showcase first Widget::show paints before BrowserSession hosts are live;
       // flashing() then follows a dangling Workspace pimpl (cdb: tool_d
       // Workspace::flashing INVALID_POINTER_READ). Skip until after export.
       const bool showcase =
           base::switch_cstr("map2d-showcase") != nullptr;
       if (!showcase && host_->browser_->flash_lit() &&
-          detail::seh_view_host_flashing(host)) {
+          detail::seh_tool_session_flashing(host)) {
         host_->browser_->session().map2d_paint_flash(hdc, w, h);
       }
     };

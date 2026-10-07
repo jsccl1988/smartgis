@@ -104,6 +104,17 @@ int main() {
   expect(cache.resident_bytes() == bytes_before, "stable bytes");
   expect(cache.entry_count() == count_before, "stable count");
 
+  // Budgeted ensure: max_ensure=1 resolves at most one miss per call.
+  vista::TilesetContentCache budget_cache(8u * 1024u);
+  std::vector<const vista::Tile*> budget_visible;
+  vista::select_tiles(tileset, view, 0, budget_visible);
+  vista::ensure_tileset_content(budget_visible, &budget_cache, resolve_stub,
+                                nullptr, 1);
+  expect(budget_cache.entry_count() == 1, "budgeted one resolve");
+  vista::ensure_tileset_content(budget_visible, &budget_cache, resolve_stub,
+                                nullptr, 1);
+  expect(budget_cache.entry_count() == 2, "budgeted second resolve");
+
   if (g_fails) {
     std::fprintf(stderr, "tileset_test: %d failed\n", g_fails);
     return 1;

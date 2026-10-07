@@ -36,9 +36,9 @@ inline void clear_marks(content::CapabilityHost& host) {
   }
 }
 
-inline void select_map_tab(content::CapabilityHost& host, int index) {
-  if (host.horizon.select_map_tab) {
-    host.horizon.select_map_tab(index);
+inline void select_view_tab(content::CapabilityHost& host, int index) {
+  if (host.horizon.select_view_tab) {
+    host.horizon.select_view_tab(index);
   }
 }
 
@@ -113,8 +113,8 @@ inline bool require_hwnd(content::CapabilityHost& host) {
   if (status.alive) {
     return true;
   }
-  if (host.view.detach_maps) {
-    host.view.detach_maps();
+  if (host.view.detach_views) {
+    host.view.detach_views();
   }
   host.fail_rc = 2;
   return false;
@@ -201,8 +201,8 @@ inline bool expect_layout_bounds(content::CapabilityHost& host) {
   }
   if (status.violation_count > 0) {
     mark(host, "layout-fail");
-    if (host.view.detach_maps) {
-      host.view.detach_maps();
+    if (host.view.detach_views) {
+      host.view.detach_views();
     }
     return apply_rc(host, 30);
   }

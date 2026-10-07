@@ -192,7 +192,7 @@ git commit -m "feat(debug): add out-of-process Python tools/debug worker"
 - Modify: `src/content/BUILD.gn`, enablement hooks in `src/app/views/app/` cmdline (`views_launch_options`) and/or `browser_main`
 
 **Interfaces:**
-- Consumes: `base::log_sink()`, `gis::datasource::SdbdClient`, Browser callbacks injected via `DebugAgentHost` interface (narrow: `refresh_map`, `extent_string`, `layer_names`)
+- Consumes: `base::log_sink()`, `gis::datasource::SdbdClient`, Browser callbacks injected via `DebugAgentHost` interface (narrow: `refresh_gis`, `extent_string`, `layer_names`)
 - Produces: `class DebugAgent { bool start(); void stop(); int port() const; bool handle_line(...); };`
 
 - [ ] **Step 1: Implement NDJSON TCP accept loop on background thread (Winsock or ASIO already in `net`)** — loopback only.

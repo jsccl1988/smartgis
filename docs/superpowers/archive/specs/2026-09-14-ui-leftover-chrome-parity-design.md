@@ -75,7 +75,7 @@ leftover src/ui/{…}              不动功能
 
 ## 错误与降级
 
-- 无 `MapContents` / 无 host：状态栏提示；控件不崩  
+- 无 `GisContents` / 无 host：状态栏提示；控件不崩  
 - `PluginHost` 空或无 list：Ambox dummy 组  
 - `SelectionChanged` 无属性载荷：只显示 opaque id，不拉 `SmtFeature*`  
 - Chart Dialog 不可用（无 dialog.h）：菜单项 no-op 或状态栏说明  

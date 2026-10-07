@@ -445,7 +445,7 @@ When `base::trace::tracing_enabled()`: `scene3d` / `scene3d.present` / `scene3d.
 | Clear | Black (`GpuScene` background paint) |
 | Atmosphere | Ocean ON (light-blue sea); sky/cloud/fog OFF |
 | Terrain | China DEM hypsometric bake (existing `seed_china_dem_into_world`) + China orbit distance 2.55 |
-| Labels | Built-in major-city overlay (GDI outline paint); coast vectors when `MapScene` has china sample |
+| Labels | Built-in major-city overlay (GDI outline paint); coast vectors when `GisScene` has china sample |
 | Gate | Suite `atmosphere.legacy` + score_id `legacy_scene3d_china`; content marks `look-legacy` / `labels-ok` |
 | Non-goal | Bridging leftover `StereoTerrain` HWND into Views; dual thick DEM |
 
@@ -1831,7 +1831,7 @@ CPU contract remains `vista::MapFrame`. Cartography runs once in `Layout::build`
 
 ### Chain
 
-`MapScene` �?boundary POD �?`LayerBatch` �?`LayoutInput` �?`vista::Layout::build` �?`MapFrame` (`background_rgba` + `items`) �?
+`GisScene` �?boundary POD �?`LayerBatch` �?`LayoutInput` �?`vista::Layout::build` �?`MapFrame` (`background_rgba` + `items`) �?
 - GPU: `Map2dGpuPresent` �?`vista::FramePass` �?Vista `render::rhi::BlendMode`
 - Software: `paint_map_frame_gdi` �?HDC
 - Scenic rhi2d (`MAP2D_ENGINE=scenic`): `ScenicRhi2dHost` �?`Renderer2d` + `gis::Map` + `scenic_rhi2d_{gdi,gdiplus,skia}` �?HWND/`blit_to_dc` (`RHI2D_PORT`). Not a MapFrame exit. `src/legacy` is frozen.
@@ -1850,7 +1850,7 @@ CPU contract remains `vista::MapFrame`. Cartography runs once in `Layout::build`
 ### Locked
 
 1. **Colors.** The only color source is `default_carto_style_json` / `MapFrame::background_rgba` (`0xAARRGGBB`). Carto headers carry no `COLORREF` palette and no second road/river `COLORREF` table.
-2. **Batches.** Policy lives in `vista/component/map/detail/carto_filter` (`vista::detail`). `build_layer_batches` in `batch.cc` takes POD features. Vista does not include `map_scene.h`. `Layout::build(LayoutInput, vector<LayerBatch>)` stays. Content copies `MapScene` �?POD at the boundary.
+2. **Batches.** Policy lives in `vista/component/map/detail/carto_filter` (`vista::detail`). `build_layer_batches` in `batch.cc` takes POD features. Vista does not include `gis_scene.h`. `Layout::build(LayoutInput, vector<LayerBatch>)` stays. Content copies `GisScene` �?POD at the boundary.
 3. **Line casing.** Two style layers, `road-casing` then `road`. Width is the existing `LineTessOptions::pixel_width`. `emit_lines` tessellates both. `LineTessOptions` has no third casing width. GDI draws `kLine` only as triangles (`append_tris`). Items with fewer than 3 indices are skipped, same as an empty mesh. There is no `flush_stroke_run` cartography.
 4. **Labels.** The only labels are `DrawKind::kText` from `emit_symbols` plus `detail/collision` (scale floor, budget, and 8-direction nudge live there; along-line slots stay §Symbol collision). There is no second whole-string `paint_labels_projected` / `LabelOccupancy` path and no whole-string `DrawItem`.
 5. **Blend.** `DrawItem` carries `enum class DrawBlend : uint8_t { kOver, kMultiply }` defaulting to `kOver`, defined in `vista/component/map/draw.h`. That header does not include `rhi.h`. `emit_hillshade` sets `kMultiply`; `emit_raster` stays `kOver`. One vista pure function implements luma multiply `dst.rgb * ((1 - a) + a * luma)`. GDI calls it only for `kMultiply`; `kOver` is `AlphaBlend`. GPU adds `BlendMode::kMultiply` (`dst.rgb *= src.rgb`). Fixed-function blend cannot express `dst * ((1 - a) + a * luma)`, so opacity and luma are baked into the texture with that same function before upload (alpha hard cut), and multiply items use opacity 1. `Pass` and GDI read the same `DrawBlend`. Do not multiply every `kRaster`.
@@ -1993,7 +1993,7 @@ L1  if C0 StaticReuse �?skip L2/L3
     else post Pipeline (do not wait on UI)
 E   Pipeline stages (overlap previous present):
       hs:   C4 bake / prefetch on executor   // replace std::thread
-      pod:  MapScene �?LayerBatch POD        // serial or grain≥N
+      pod:  GisScene �?LayerBatch POD        // serial or grain≥N
       tess: Layout emitters parallel_for     // fill/line now; unify circle/heatmap
       pack: optional CPU VB pack parallel_for
 L3  Display: wait only if published gen stale AND no previous image
@@ -2377,7 +2377,7 @@ Sole pool: **`base::execution`** (`GlobalNThreadPoolExecutor` / `parallel_for` i
 | Type | Header / owner | Allocates | Consumed by | Notes |
 | --- | --- | --- | --- | --- |
 | `vista::LayoutInput` | `vista/component/map/layout.h` · content fills | View + style* + tiles + `GlyphMetrics*`（非拥有�?| `Layout::build` | �?RHI；晕渲烘焙是 `bake_hillshade_slot`（§Map2d present）；content �?RGBA �?`load_raster` |
-| `vista::LayerBatch` | same · `build_layer_batches`（`vista::detail` / `carto_filter`�?| POD features（content 在边界把 `MapScene` 拷成 POD�?| `Layout::build` | vista �?`#include` `map_scene.h`；签�?`Layout::build(LayoutInput, vector<LayerBatch>)` 不变 |
+| `vista::LayerBatch` | same · `build_layer_batches`（`vista::detail` / `carto_filter`�?| POD features（content 在边界把 `GisScene` 拷成 POD�?| `Layout::build` | vista �?`#include` `gis_scene.h`；签�?`Layout::build(LayoutInput, vector<LayerBatch>)` 不变 |
 | `vista::MapIR` | `vista/component/map/ir.h` · **cache 拥有** `cached_frame_` | `background_rgba` + `DrawItem[]`（`DrawBlend` �?`vista/component/map/draw.h`，不 include `rhi.h`�?| `vista::MapPass` / `paint_map_frame_gdi` | POD �?`gis �?rhi` �?|
 | `vista::Layout` | `layout.cc` · 无状�?| TLS arena clear �?build 开�?| �?| 纯函数式 CPU |
 | `content::Map2dFrameCache` | `map2d_frame_cache.h` | MapFrame、hillshade RGBA、fingerprint、`layout_scratch_` | `Map2dGpuPresent` / software | `mu_` 保护 prepare/rebuild |
@@ -2814,7 +2814,7 @@ Vista 是视口所持的那一幅景象：正交 MapFrame 与透视 World 是同
 | vista **CPU** | Layout、World、assets、DomainSession、CPU atmosphere �?| `render::rhi`、Views、Vista 类型 |
 | vista **GPU** | Pass、GpuScene、AtmosphereFrame + �?pass | 打开数据源、Style JSON 解析、chrome |
 | `render.dll` | rhi Facade、`graph::present` / Effect **vtable** | 编译 `vista/component/map|scene|atmosphere` �?|
-| `content` present | MapScene→POD 边界、GDI/GPU 双出口、HWND host | 制图决策（留�?`Layout::build`�?|
+| `content` present | GisScene→POD 边界、GDI/GPU 双出口、HWND host | 制图决策（留�?`Layout::build`�?|
 | leftover `legacy/gis/vista` | DemHeightField / dem→World / Y-up | 产品�?API；不得被 product TU include |
 
 **依赖方向（锁死）**

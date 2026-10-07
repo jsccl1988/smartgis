@@ -10,7 +10,7 @@
 #include <windows.h>
 
 namespace content {
-class ViewHost;
+class ToolSession;
 }
 
 namespace ui {
@@ -22,7 +22,7 @@ namespace detail {
 
 // Same Win32 → InputEvent mapping as leftover dispatch_shell_message for
 // mouse / wheel / key.
-bool route_view_host_input(content::ViewHost* host,
+bool route_tool_session_input(content::ToolSession* host,
                            HWND hwnd,
                            UINT message,
                            WPARAM wparam,
@@ -30,7 +30,7 @@ bool route_view_host_input(content::ViewHost* host,
                            bool suppress_mouse);
 
 // Maps WM_POINTER* touch contacts into multitouch InputEvents.
-bool route_view_host_pointer(content::ViewHost* host,
+bool route_tool_session_pointer(content::ToolSession* host,
                              HWND hwnd,
                              UINT message,
                              WPARAM wparam,

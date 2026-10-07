@@ -4,7 +4,7 @@
 #include "content/browser/present/map2d/map2d_presenter.h"
 
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 #include "content/browser/present/map2d/software/map2d_frame_gdi.h"
 #include "gis/tile/provider/tile_provider.h"
@@ -122,7 +122,7 @@ int run_map2d_presenter_tests() {
         "china_city.geojson",
     };
     for (const char* cand : city_candidates) {
-      content::MapScene scene;
+      content::GisScene scene;
       if (!scene.open_path(cand) || !scene.last_open_was_ogr()) {
         continue;
       }
@@ -152,9 +152,9 @@ int run_map2d_presenter_tests() {
     }
   }
 
-  // Views 2D RHI path: MapScene �?map2d Layout/Pass on Null device.
+  // Views 2D RHI path: GisScene �?map2d Layout/Pass on Null device.
   {
-    content::MapScene scene;
+    content::GisScene scene;
     scene.seed_default();
     expect(scene.feature_count() > 0, "seed has features for present_gpu");
     content::ViewFrame frame;
@@ -211,7 +211,7 @@ int run_map2d_presenter_tests() {
         "testing\\data\\china\\china_city.geojson",
     };
     for (const char* cand : city_candidates) {
-      content::MapScene scene;
+      content::GisScene scene;
       if (!scene.open_path(cand) || !scene.last_open_was_ogr()) {
         continue;
       }
@@ -229,7 +229,7 @@ int run_map2d_presenter_tests() {
 
   // Basemap underlay count and one-page BMP export.
   {
-    content::MapScene scene;
+    content::GisScene scene;
     scene.seed_default();
     content::ViewFrame frame;
     frame.apply_world_extent({73.0, 18.0, 135.0, 54.0}, 256, 256);
@@ -272,7 +272,7 @@ int run_map2d_presenter_tests() {
 
     char tmp[MAX_PATH] = {};
     expect(GetTempPathA(MAX_PATH, tmp) > 0, "export temp");
-    std::string bmp = std::string(tmp) + "map_scene_m1_export.bmp";
+    std::string bmp = std::string(tmp) + "gis_scene_m1_export.bmp";
     DeleteFileA(bmp.c_str());
     expect(presenter.export_bmp(bmp, 320, 240), "export_bmp");
     FILE* bf = nullptr;
@@ -290,7 +290,7 @@ int run_map2d_presenter_tests() {
   // Real china_city seed (no demo features). Cold layout cost is also gated
   // by the map2d matrix (1280x720); this unit keeps a 128px viewport.
   {
-    content::MapScene scene;
+    content::GisScene scene;
     scene.seed_default(/*allow_china_bootstrap=*/true);
     expect(scene.feature_count() > 0, "china seed for layout cache");
     content::ViewFrame frame;
@@ -309,44 +309,60 @@ int run_map2d_presenter_tests() {
       const content::Map2dPhaseSample phase =
           content::map2d_last_phase_sample();
       std::fprintf(stderr,
-                   "map2d_presenter_test: cold layout_ms=%lld (china seed)\n",
-                   static_cast<long long>(phase.layout_ms));
+                   "map2d_presenter_test: cold layout_ms=%lld hillshade_ms=%lld "
+                   "(china seed)\n",
+                   static_cast<long long>(phase.layout_ms),
+                   static_cast<long long>(phase.hillshade_ms));
       std::fflush(stderr);
       // Real china_city cold layout is matrix-gated (map2d equal-profile);
-      // this unit only proves cache reuse, not absolute layout_ms.
+      // this unit only proves cache reuse, not absolute layout_ms. First
+      // china layout defers DEM bake so hillshade_ms stays 0 on cold tess.
       expect(phase.layout_ms >= 0, "cold layout_ms recorded");
+      expect(phase.hillshade_ms == 0, "cold first layout defers hillshade");
     }
 
     expect(presenter.present_gpu(device.get(), 128, 128), "static second present");
-    expect(presenter.layout_build_count() == 1,
-           "static repeat does not rebuild layout");
-    expect(presenter.last_present_reused_layout(),
-           "static repeat reuses layout");
-    {
-      // StaticReuse must not re-note a rebuild; last sample stays from cold.
-      expect(presenter.layout_build_count() == 1, "StaticReuse keeps build count");
+    const uint64_t builds_after_second = presenter.layout_build_count();
+    // Either pure StaticReuse (no DEM / NO_HILLSHADE) or one deferred
+    // hillshade attach rebuild (reuse_slices) before StaticReuse latches.
+    expect(builds_after_second == 1 || builds_after_second == 2,
+           "static or deferred hillshade attach");
+    if (builds_after_second == 1) {
+      expect(presenter.last_present_reused_layout(),
+             "static repeat reuses layout");
     }
+
+    expect(presenter.present_gpu(device.get(), 128, 128), "warm static present");
+    const uint64_t builds_warm = presenter.layout_build_count();
+    // Attach rebuild lands on the second present; further static presents
+    // must not keep rebuilding.
+    expect(builds_warm == builds_after_second,
+           "warm static does not thrash layout");
+    expect(presenter.last_present_reused_layout(),
+           "warm static reuses layout");
 
     frame.apply_pan(16, -8);
     expect(presenter.present_gpu(device.get(), 128, 128), "interactive pan present");
-    expect(presenter.layout_build_count() == 1,
+    expect(presenter.layout_build_count() == builds_warm,
            "pan within zoom bucket skips layout");
     expect(presenter.last_present_reused_layout(),
            "pan reuses cached MapIR");
 
-    // Same camera again after quiet settle debounce (~200ms) �?settle rebuild
+    // Same camera again after quiet settle debounce (~200ms) — settle rebuild
     // for GPU labels.
     Sleep(250);
     expect(presenter.present_gpu(device.get(), 128, 128), "settle present");
-    expect(presenter.layout_build_count() == 2, "settle rebuilds layout once");
+    expect(presenter.layout_build_count() == builds_warm + 1,
+           "settle rebuilds layout once");
     expect(!presenter.last_present_reused_layout(),
            "settle is a full rebuild");
+    const uint64_t builds_after_settle = presenter.layout_build_count();
 
     // Fingerprint-stable: public invalidate must not bump layout_builds.
     presenter.invalidate_frame_cache();
     expect(presenter.present_gpu(device.get(), 128, 128),
            "noop invalidate present");
-    expect(presenter.layout_build_count() == 2,
+    expect(presenter.layout_build_count() == builds_after_settle,
            "fingerprint-stable invalidate skips layout rebuild");
 
     // Visibility moves content_hash — must drop published MapIR.
@@ -357,7 +373,7 @@ int run_map2d_presenter_tests() {
     presenter.invalidate_frame_cache();
     expect(presenter.present_gpu(device.get(), 128, 128),
            "after content invalidate");
-    expect(presenter.layout_build_count() == 3,
+    expect(presenter.layout_build_count() == builds_after_settle + 1,
            "content invalidate forces a new layout build");
   }
 

@@ -78,7 +78,7 @@ using Host = content::CapabilityHost;
 
 using slot_pump = host_member<&Host::horizon, &Hz::pump>;
 using slot_mark = host_member<&Host::horizon, &Hz::mark>;
-using slot_select_map_tab = host_member<&Host::horizon, &Hz::select_map_tab>;
+using slot_select_view_tab = host_member<&Host::horizon, &Hz::select_view_tab>;
 using slot_catalog_tab = host_member<&Host::horizon, &Hz::catalog_tab>;
 using slot_inspector_tab = host_member<&Host::horizon, &Hz::inspector_tab>;
 using slot_shell_hwnd = host_member<&Host::horizon, &Hz::shell_hwnd>;
@@ -107,13 +107,13 @@ using slot_ui_present_capture =
 
 using slot_dispatch_edit_input = host_member<&Host::view, &Vw::dispatch_edit_input>;
 using slot_map_ready_status = host_member<&Host::view, &Vw::map_ready_status>;
-using slot_detach_maps = host_member<&Host::view, &Vw::detach_maps>;
-using slot_stop_map_present_timers =
-    host_member<&Host::view, &Vw::stop_map_present_timers>;
-using slot_resume_map_present_timers =
-    host_member<&Host::view, &Vw::resume_map_present_timers>;
+using slot_detach_views = host_member<&Host::view, &Vw::detach_views>;
+using slot_stop_present_timers =
+    host_member<&Host::view, &Vw::stop_present_timers>;
+using slot_resume_present_timers =
+    host_member<&Host::view, &Vw::resume_present_timers>;
 using slot_invalidate_map2d = host_member<&Host::view, &Vw::invalidate_map2d>;
-using slot_edit_host_status = host_member<&Host::view, &Vw::edit_host_status>;
+using slot_edit_tool_session_status = host_member<&Host::view, &Vw::edit_tool_session_status>;
 using slot_run_tool = host_member<&Host::view, &Vw::run_tool>;
 using slot_tool_status = host_member<&Host::view, &Vw::tool_status>;
 using slot_activate_tool = host_member<&Host::view, &Vw::activate_tool>;
@@ -139,7 +139,7 @@ using slot_analysis_export_frames =
 using slot_open_report = host_member<&Host::plugin, &Pl::open_report>;
 using slot_post_to_report = host_member<&Host::plugin, &Pl::post_to_report>;
 
-using slot_open_map = host_member<&Host::document, &Doc::open_map>;
+using slot_open_document = host_member<&Host::document, &Doc::open_document>;
 using slot_doc_clear = host_member<&Host::document, &Doc::doc_clear>;
 using slot_fit_extent = host_member<&Host::document, &Doc::fit_extent>;
 using slot_export_bmp = host_member<&Host::document, &Doc::export_bmp>;

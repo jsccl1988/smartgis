@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 #include "app/views/ui/pages/map_pages_composer.h"
@@ -32,6 +32,18 @@ void MapPagesComposer::switch_map_tab(int i) {
   if (i < 0) {
     return;
   }
+  // Nested entry (shell publish pump Dispatching TabStrip input, or
+  // plugin select_view_tab during lazy attach) must not start another
+  // pump_until_shell_published — that hung plain no-arg launch.
+  static thread_local bool in_switch = false;
+  if (in_switch) {
+    return;
+  }
+  struct SwitchGuard {
+    bool& flag;
+    explicit SwitchGuard(bool& f) : flag(f) { flag = true; }
+    ~SwitchGuard() { flag = false; }
+  } switch_guard(in_switch);
   if (host_->map_tabs_) {
     if (i >= host_->map_tabs_->tab_count()) {
       return;
@@ -87,9 +99,9 @@ void MapPagesComposer::switch_map_tab(int i) {
     }
   }
   // Global ::content — draw_host.h also opens namespace content for
-  // MapContents forward decls; keep the free helper unambiguous.
+  // GisContents forward decls; keep the free helper unambiguous.
   ::  content::debug_agent().push_record_event(
-      "select_map_tab", std::string("{\"index\":") + std::to_string(i) + "}");
+      "select_view_tab", std::string("{\"index\":") + std::to_string(i) + "}");
   // Leaving 3D (interact Phase C): hide the Scene3d present popup BEFORE
   // layout_contents. Async-only hide races remasure and deadlocks UI↔Display
   // (rc 124, no interact-2d-b-ok). Match layout_gate: sync SW_HIDE on the
@@ -278,7 +290,7 @@ void MapPagesComposer::switch_map_tab(int i) {
         host_->widget_.layout_contents();
       }
       // Gestures: wait for attach_hwnd_gestures() at the end of this function.
-      // Wiring mid-lazy-attach AVd in MapHwndGestures::detach/_Tidy
+      // Wiring mid-lazy-attach AVd in GisHwndGestures::detach/_Tidy
       // (0xCDCDCDCD) under browse.3d before orbit/tool activate settled.
     }
   }
@@ -299,7 +311,7 @@ void MapPagesComposer::switch_map_tab(int i) {
     }
   }
 
-  if (content::ViewHost* host = host_->active_view_host()) {
+  if (content::ToolSession* host = host_->active_tool_session()) {
     if (i == 1) {
       host->activate("view3d.trackball");
     } else {
@@ -342,7 +354,7 @@ void MapPagesComposer::switch_map_tab(int i) {
     }
   }
   host_->widget_.pump_until_shell_published(500);
-  // Nested select_map_tab(0) during lazy attach / shell pump (plugin present,
+  // Nested select_view_tab(0) during lazy attach / shell pump (plugin present,
   // catalog reseed) can SW_SHOW Map again. Re-pin chrome + HWND faces to |i|
   // so expect_scene_visible (harness rc 36/9) sees the right live face.
   if (host_->map_tabs_) {

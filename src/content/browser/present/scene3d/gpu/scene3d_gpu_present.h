@@ -15,13 +15,13 @@
 #include <vector>
 
 #include "base/time/frame_timer.h"
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/host/shell_overlay_effect.h"
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
 #include "content/browser/present/scene3d/frame/scene3d_overlays.h"
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "vista/pass/world/pass.h"
 #include "vista/component/world/world.h"
 #include "render/rhi/rhi.h"
@@ -30,7 +30,7 @@
 namespace content {
 
 class AtmosphereSession;
-class MapScene;
+class GisScene;
 
 // Product look for Scene3D: default atmosphere vs leftover stereo parity.
 enum class Scene3dLookPreset {
@@ -57,7 +57,7 @@ class Scene3dGpuPresent {
   Scene3dGpuPresent& operator=(const Scene3dGpuPresent&) = delete;
 
   void bind_orbit(const OrbitFrame* orbit);
-  void bind_map(const MapScene* scene);
+  void bind_scene(const GisScene* scene);
 
   // Drop GPU mesh pointers without destroying Device-owned buffers.
   // Overlay geographic cloud is kept so the next present can re-attach.
@@ -125,7 +125,7 @@ class Scene3dGpuPresent {
   const TilesetStreamSession* live_tileset_stream_locked() const;
 
   const OrbitFrame* orbit() const { return orbit_; }
-  const MapScene* scene() const { return scene_; }
+  const GisScene* scene() const { return scene_; }
 
   Extent2 world_extent() const;
   OrbitGeoFrame& geo_frame() { return geo_frame_; }
@@ -197,7 +197,7 @@ class Scene3dGpuPresent {
   }
 
  private:
-  const MapScene* scene_ = nullptr;
+  const GisScene* scene_ = nullptr;
   const OrbitFrame* orbit_ = nullptr;
 
   // STL / sync first — WorldPass and World are large blobs; keep mutex and

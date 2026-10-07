@@ -9,7 +9,7 @@
 #include "content/browser/capability/view.h"
 
 namespace content {
-class ViewHost;
+class ToolSession;
 }  // namespace content
 
 namespace ui {
@@ -25,12 +25,12 @@ class Browser;
 namespace detail {
 
 // UI-active map host, or the edit host when the shell has no active view.
-content::ViewHost* active_map_host(Browser& browser);
+content::ToolSession* active_map_host(Browser& browser);
 
 int activate_view_tool(Browser& browser, const std::string& id);
 
 // Edit-host presence flags. No pass/fail.
-bool fill_edit_host_status(Browser& browser, content::EditHostStatus* out);
+bool fill_edit_tool_session_status(Browser& browser, content::EditToolSessionStatus* out);
 // Map2d layout readiness. |timeout_ms| > 0 waits for a layout build first.
 // No pass/fail.
 bool fill_map_ready_status(Browser& browser,

@@ -202,23 +202,23 @@ void expect(bool ok, const char* msg) {
 
 int main() {
 
-  expect(!sdb::datasource::is_db_provider_supported(PROVIDER_ACCESS),
+  expect(!sdb::datasource::is_db_provider_supported(PROVIDER_ACCESS)
 
          "ACCESS unsupported");
 
-  expect(!sdb::datasource::is_db_provider_supported(PROVIDER_SQLSERVER),
+  expect(!sdb::datasource::is_db_provider_supported(PROVIDER_SQLSERVER)
 
          "SQLSERVER unsupported");
 
-  expect(sdb::datasource::is_db_provider_supported(PROVIDER_GPKG),
+  expect(sdb::datasource::is_db_provider_supported(PROVIDER_GPKG)
 
          "GPKG supported");
 
-  expect(sdb::datasource::is_db_provider_supported(PROVIDER_POSTGRES),
+  expect(sdb::datasource::is_db_provider_supported(PROVIDER_POSTGRES)
 
          "POSTGRES supported");
 
-  expect(sdb::datasource::is_db_provider_supported(PROVIDER_SPATIALITE),
+  expect(sdb::datasource::is_db_provider_supported(PROVIDER_SPATIALITE)
 
          "SPATIALITE supported");
 
@@ -226,23 +226,23 @@ int main() {
 
   expect(std::strcmp(sdb::datasource::gdal_driver_name(PROVIDER_GPKG), "GPKG") ==
 
-             0,
+             0
 
          "GPKG driver name");
 
-  expect(std::strcmp(sdb::datasource::gdal_driver_name(PROVIDER_POSTGRES),
+  expect(std::strcmp(sdb::datasource::gdal_driver_name(PROVIDER_POSTGRES)
 
-                     "PostgreSQL") == 0,
+                     "PostgreSQL") == 0
 
          "PG driver name");
 
-  expect(std::strcmp(sdb::datasource::gdal_driver_name(PROVIDER_SPATIALITE),
+  expect(std::strcmp(sdb::datasource::gdal_driver_name(PROVIDER_SPATIALITE)
 
-                     "SQLite") == 0,
+                     "SQLite") == 0
 
          "SQLite driver name");
 
-  expect(sdb::datasource::gdal_driver_name(PROVIDER_ACCESS) == nullptr,
+  expect(sdb::datasource::gdal_driver_name(PROVIDER_ACCESS) == nullptr
 
          "ACCESS has no driver");
 
@@ -296,7 +296,7 @@ int main() {
 
   access.unProvider = PROVIDER_ACCESS;
 
-  expect(sdb::datasource::make_gdal_open_target(access).empty(),
+  expect(sdb::datasource::make_gdal_open_target(access).empty()
 
          "ACCESS target empty");
 
@@ -360,9 +360,9 @@ source_set("ogr_codec") {
 
   sources = [
 
-    "ogr_connect.cc",
+    "ogr_connect.cc"
 
-    "ogr_connect.h",
+    "ogr_connect.h"
 
   ]
 
@@ -370,9 +370,9 @@ source_set("ogr_codec") {
 
   deps = [
 
-    "//src/base:core",
+    "//src/base:core"
 
-    "//src/sdb/map:gis",
+    "//src/sdb/map:gis"
 
   ]
 
@@ -388,9 +388,9 @@ product_shared_library("sde_gdal") {
 
   sources = [
 
-    "gdal_driver.cc",
+    "gdal_driver.cc"
 
-    "gdal_driver.h",
+    "gdal_driver.h"
 
   ]
 
@@ -398,13 +398,13 @@ product_shared_library("sde_gdal") {
 
   deps = [
 
-    ":ogr_codec",
+    ":ogr_codec"
 
-    "//src/base:core",
+    "//src/base:core"
 
-    "//src/sdb/map:gis",
+    "//src/sdb/map:gis"
 
-    "//third_party:gdal",
+    "//third_party:gdal"
 
   ]
 
@@ -422,11 +422,11 @@ test("sde_gdal_test") {
 
   deps = [
 
-    ":ogr_codec",
+    ":ogr_codec"
 
-    "//src/base:core",
+    "//src/base:core"
 
-    "//src/sdb/map:gis",
+    "//src/sdb/map:gis"
 
   ]
 
@@ -448,7 +448,7 @@ group("test_all") {
 
   deps = [
 
-    "//src/sdb/datasource/gdal:sde_gdal_test",
+    "//src/sdb/datasource/gdal:sde_gdal_test"
 
   ]
 
@@ -642,9 +642,9 @@ std::string make_gdal_open_target(const Smt_GIS::SmtDataSourceInfo& info) {
 
     char buf[1024];
 
-    std::snprintf(buf, sizeof(buf),
+    std::snprintf(buf, sizeof(buf)
 
-                 "PG:host=%s port=%s dbname=%s user=%s password=%s", host.c_str(),
+                 "PG:host=%s port=%s dbname=%s user=%s password=%s", host.c_str()
 
                  port.c_str(), info.db.szDBName, info.szUID, info.szPWD);
 
@@ -812,13 +812,13 @@ Add to `sde_gdal_test.cc` (include `ogrsf_frmts.h`, `feature.h`, `geometry.h`, `
 
         OGRFeature ogr(lyr->GetLayerDefn());
 
-        expect(sdb::datasource::copy_smt_feature_to_ogr(&smt, &ogr),
+        expect(sdb::datasource::copy_smt_feature_to_ogr(&smt, &ogr)
 
                "smt->ogr anno");
 
         SmtFeature back;
 
-        expect(sdb::datasource::copy_ogr_feature_to_smt(&ogr, &back),
+        expect(sdb::datasource::copy_ogr_feature_to_smt(&ogr, &back)
 
                "ogr->smt anno");
 

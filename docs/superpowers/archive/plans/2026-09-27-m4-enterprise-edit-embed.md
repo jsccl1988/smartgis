@@ -11,7 +11,7 @@ All rights reserved.
 
 **Goal:** 两客户端先后编辑同一层有冲突提示或检出；`content::` 样例嵌入方能开图（最小 host 样例或测试）。
 
-**Architecture:** 在 `gis::edit` 增加乐观版本令牌（feature 或 layer 级 `version` / `etag` 字段）；模拟双会话 `MemoryEditSession`：后写检测 stale → `ConflictError`。嵌入：`content/` 下最小示例程序或 `content_*_test` 演示 MapContents/ViewHost 开图。PostGIS 真连可选；默认用内存双会话模拟验收口令。
+**Architecture:** 在 `gis::edit` 增加乐观版本令牌（feature 或 layer 级 `version` / `etag` 字段）；模拟双会话 `MemoryEditSession`：后写检测 stale → `ConflictError`。嵌入：`content/` 下最小示例程序或 `content_*_test` 演示 GisContents/ViewHost 开图。PostGIS 真连可选；默认用内存双会话模拟验收口令。
 
 **Tech Stack:** C++23、`gis/model/edit`、`content`、GN。
 
@@ -64,7 +64,7 @@ All rights reserved.
 ### Embed sample (`content/public/embed_sample.h`)
 
 - Entry: `content::open_map_host_path(EmbedMapHost*, const char* path)`
-- Binds `ViewHost` + records path; product hosts add `MapContents::OpenView` after a live GPU pipe (sample avoids pipe send hang).
+- Binds `ViewHost` + records path; product hosts add `GisContents::OpenView` after a live GPU pipe (sample avoids pipe send hang).
 - Test: `content_embed_sample_test` (`out/content_embed_sample_test.exe`)
 - Conflict test: `edit_conflict_test` (`out/edit_conflict_test.exe`)
 

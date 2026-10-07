@@ -6,13 +6,13 @@
 
 #include "app/views/app/process/browser_main.h"
 #include "app/views/app/cmdline/views_launch_options.h"
-#include "content/public/content_client.h"
+#include "content/public/gis_contents_client.h"
 
 namespace app {
 
 // Browser-process embedder for SmartGisViews. Child --type= values are
 // dispatched inside content::content_main.
-struct ViewsContentHost : content::ContentClient {
+struct ViewsContentHost : content::GisContentsClient {
   ViewsLaunchOptions options;
 
   int browser_main(const content::ContentMainParams& params) override {

@@ -8,6 +8,10 @@ import("//testing/test.gni")
 # Compiled into //src/gis:gis (dll_stem = sdb).
 source_set("style_sources") {
   sources = [
+    "carto/default_style.cc",
+    "carto/default_style.h",
+    "carto/resolve.cc",
+    "carto/resolve.h",
     "document/style_document.cc",
     "document/style_document.h",
     "eval/expression.cc",

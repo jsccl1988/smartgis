@@ -4,7 +4,7 @@
 #include "content/browser/present/map2d/software/map2d_frame_gdi.h"
 
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "vista/component/map/ir.h"
@@ -258,7 +258,7 @@ int main() {
     };
     bool opened = false;
     for (const char* cand : city_candidates) {
-      content::MapScene scene;
+      content::GisScene scene;
       if (!scene.open_path(cand) || !scene.last_open_was_ogr()) {
         continue;
       }

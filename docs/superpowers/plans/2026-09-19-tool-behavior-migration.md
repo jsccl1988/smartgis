@@ -14,7 +14,7 @@ All rights reserved.
 
 **Architecture:** 方案 2 竖切：共用 Draft / Workspace / 测试矩阵；三条能力并行加固。双路径仅绑定开关窗口期。终局禁止 `#include "legacy/**"`。
 
-**Tech Stack:** C++23、`//src/tool:dispatch`、`content::ViewHost`、GN/`build.bat`、gtest-free `*_test` main。
+**Tech Stack:** C++23、`//src/tool:dispatch`、`content::ToolSession`、GN/`build.bat`、gtest-free `*_test` main。
 
 ## Global Constraints
 
@@ -145,18 +145,18 @@ m_workspace->set_draft_flags(
 
 ---
 
-### Task 4: H 宿主 — `view_host_test` pan+select+append
+### Task 4: H 宿主 — `tool_session_test` pan+select+append
 
 **Files:**
-- Modify: `src/content/view_host_test.cc`
+- Modify: `src/content/tool_session_test.cc`
 
 **Interfaces:**
-- Consumes: `ViewHost::execute` / `dispatch_input` / `events()` / `edits()`
+- Consumes: `ToolSession::execute` / `dispatch_input` / `events()` / `edits()`
 
 - [x] **Step 1: Add combined scenario**
 
 ```cpp
-content::ViewHost host;
+content::ToolSession host;
 int extents = 0, sels = 0, commits = 0;
 // subscribe ExtentChanged / SelectionChanged / EditCommitted
 host.execute("view.pan");
@@ -170,10 +170,10 @@ host.execute("edit.append.point");
 - [x] **Step 2: Run**
 
 ```bat
-.\build.bat content_view_host_test
+.\build.bat content_tool_session_test
 ```
 
-Expected: `content_view_host_test: ok`
+Expected: `content_tool_session_test: ok`
 
 ---
 
@@ -188,7 +188,7 @@ Expected: `content_view_host_test: ok`
 .\build.bat tool_dispatch_test
 .\build.bat gestures_test
 .\build.bat camera_nav_test
-.\build.bat content_view_host_test
+.\build.bat content_tool_session_test
 ```
 
 - [x] **Step 2: 勾选本 plan Tasks 1–4；spec Done when 实现项**
@@ -207,11 +207,11 @@ Expected: `content_view_host_test: ok`
 - Modify: `src/legacy/tool/input{point,line,region}tool.h`（边界注释）
 - Modify: `src/tool/gestures_test.cc`、`src/tool/README.md`、本 plan、design §12
 
-- [x] **Step 1: P0 chrome bind** — browse `view_2d` 创建 `ViewHost` 并 bind ViewCtrl/Select/Flash；`view_3d` 创建 host + bind 3DViewCtrl
+- [x] **Step 1: P0 chrome bind** — browse `view_2d` 创建 `ToolSession` 并 bind ViewCtrl/Select/Flash；`view_3d` 创建 host + bind 3DViewCtrl
 - [x] **Step 2: P0 bound 空实现** — ViewCtrl/Select/Append/3DViewCtrl 的 LButton*/MouseMove(/MouseWeel) 在 `m_workspace` 时 no-op；3D notify 走 `try_execute_gt_msg` 且 bound 禁 `SetActive`
 - [x] **Step 3: P1 View3D** — leftover 变薄 + gestures 矩阵补 trackball/orbit/fps/wheel
 - [x] **Step 4: P2 Input*** — 头文件标明 unbound-only；测试矩阵对照 `draw.*` ↔ Input*
-- [x] **Step 5: 跑闸门测试** — `tool_dispatch_test` / `gestures_test` / `camera_nav_test` / `content_view_host_test`（及可行的 `tool_group`）
+- [x] **Step 5: 跑闸门测试** — `tool_dispatch_test` / `gestures_test` / `camera_nav_test` / `content_tool_session_test`（及可行的 `tool_group`）
 
 ---
 
@@ -239,7 +239,7 @@ Expected: `content_view_host_test: ok`
 | --- | --- |
 | Draft.flags 编码表 | Task 1 + spec §9.2 |
 | 指针序列 + live_preview 矩阵 | Task 2 |
-| ViewHost pan+select+append | Task 4 |
+| ToolSession pan+select+append | Task 4 |
 | leftover bound 禁平行指针 / SetActive | Task 3 + Task 6 |
 | Input* / view3d 延后 → **部分收口** | Task 6（文档）+ Task 7（死路径弱化；ABI 保留） |
 | 终局 ↛ legacy | Task 3 Step 4 + 代码审查 |

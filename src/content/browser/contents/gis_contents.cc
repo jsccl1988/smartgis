@@ -1,17 +1,26 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/public/map_contents.h"
+#include "content/public/gis_contents.h"
 
 #include <atomic>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
+#include <utility>
 #include <vector>
+
+#include "content/browser/contents/contents_host_pipe.h"
+#include "content/public/event_bus.h"
+#include "content/public/gis_document.h"
+#include "content/public/plugin_host.h"
+#include "tool/command/command.h"
 
 #include "base/ipc/handle/handle.h"
 #include "base/ipc/invitation/invitation.h"
@@ -109,11 +118,11 @@ void fill_monitor_luid(HWND hwnd, uint32_t* low, uint32_t* high) {
 
 }  // namespace
 
-class MapWidgetHostViewImpl final : public MapWidgetHostView {
+class WidgetHostViewImpl final : public WidgetHostView {
  public:
-  MapWidgetHostViewImpl(class MapContentsImpl* session, uint32_t view_id)
+  WidgetHostViewImpl(class GisContentsImpl* session, uint32_t view_id)
       : session_(session), view_id_(view_id) {}
-  ~MapWidgetHostViewImpl() override {
+  ~WidgetHostViewImpl() override {
     std::lock_guard<std::mutex> lock(latest_mu_);
     if (latest_.nt_handle) {
       CloseHandle(static_cast<HANDLE>(latest_.nt_handle));
@@ -143,7 +152,7 @@ class MapWidgetHostViewImpl final : public MapWidgetHostView {
   void set_present_mode(PresentMode mode) { present_mode_ = mode; }
 
  private:
-  class MapContentsImpl* session_;
+  class GisContentsImpl* session_;
   uint32_t view_id_;
   void* parent_hwnd_ = nullptr;
   mutable std::mutex latest_mu_;
@@ -151,10 +160,117 @@ class MapWidgetHostViewImpl final : public MapWidgetHostView {
   PresentMode present_mode_ = PresentMode::kSharedTexture;
 };
 
-class MapContentsImpl final : public MapContents {
+// Forwards GisDocument mutators and also drives the OOP host pipe + observer.
+class PipeDocument final : public GisDocument {
  public:
-  MapContentsImpl() = default;
-  ~MapContentsImpl() override { Shutdown(); }
+  PipeDocument(std::unique_ptr<GisDocument> owned,
+               GisDocument* borrowed,
+               ContentsHostPipe* pipe)
+      : owned_(std::move(owned)),
+        inner_(owned_ ? owned_.get() : borrowed),
+        pipe_(pipe) {}
+
+  bool create_layer(std::string_view name,
+                    std::string_view geometry_type) override {
+    return inner_ ? inner_->create_layer(name, geometry_type) : false;
+  }
+  bool remove_layer(std::string_view id) override {
+    return inner_ ? inner_->remove_layer(id) : false;
+  }
+  bool set_layer_visible(std::string_view id, bool visible) override {
+    return inner_ ? inner_->set_layer_visible(id, visible) : false;
+  }
+  size_t layer_count() const override {
+    return inner_ ? inner_->layer_count() : 0;
+  }
+  size_t feature_count() const override {
+    return inner_ ? inner_->feature_count() : 0;
+  }
+  FeatureId append_from_draft(
+      const tool::Draft& draft, const char* tool_id,
+      const std::function<void(int view_x, int view_y, double* map_x,
+                               double* map_y)>& to_map) override {
+    return inner_ ? inner_->append_from_draft(draft, tool_id, to_map)
+                  : FeatureId{};
+  }
+  bool update_feature_field(std::string_view token, std::string_view field,
+                            std::string_view value) override {
+    return inner_ ? inner_->update_feature_field(token, field, value) : false;
+  }
+  bool apply_style_json(std::string_view json) override {
+    if (!inner_ || !inner_->apply_style_json(json)) {
+      return false;
+    }
+    notify_style_changed(0);
+    return true;
+  }
+  bool add_triangle_mesh(std::string_view name, const double* xyz,
+                         int point_count, const int* triangles,
+                         int triangle_count) override {
+    return inner_ ? inner_->add_triangle_mesh(name, xyz, point_count, triangles,
+                                              triangle_count)
+                  : false;
+  }
+  bool add_point_cloud(std::string_view name, const float* xyz, int point_count,
+                       const uint8_t* rgba) override {
+    return inner_ ? inner_->add_point_cloud(name, xyz, point_count, rgba)
+                  : false;
+  }
+  bool compute_extent(Extent2* out) const override {
+    return inner_ ? inner_->compute_extent(out) : false;
+  }
+  void notify_layers_changed() override {
+    if (inner_) {
+      inner_->notify_layers_changed();
+    }
+  }
+  void set_selection(uint32_t view_id,
+                     const FeatureId* ids,
+                     size_t n) override {
+    if (inner_) {
+      inner_->set_selection(view_id, ids, n);
+    }
+    if (pipe_) {
+      pipe_->pipe_set_selection(view_id, ids, n);
+    }
+  }
+  void catalog_call(const char* json_op) override {
+    if (inner_) {
+      inner_->catalog_call(json_op);
+    }
+    if (pipe_) {
+      pipe_->pipe_catalog_call(json_op);
+    }
+  }
+  void legend_snapshot(uint32_t view_id) override {
+    if (inner_) {
+      inner_->legend_snapshot(view_id);
+    }
+    if (pipe_) {
+      pipe_->pipe_legend_snapshot(view_id);
+    }
+  }
+  void notify_style_changed(uint32_t view_id) override {
+    if (inner_) {
+      inner_->notify_style_changed(view_id);
+    }
+    if (pipe_) {
+      if (GisContentsObserver* obs = pipe_->contents_observer()) {
+        obs->OnStyleChanged(view_id);
+      }
+    }
+  }
+
+ private:
+  std::unique_ptr<GisDocument> owned_;
+  GisDocument* inner_ = nullptr;
+  ContentsHostPipe* pipe_ = nullptr;
+};
+
+class GisContentsImpl final : public GisContents, public ContentsHostPipe {
+ public:
+  GisContentsImpl() = default;
+  ~GisContentsImpl() override { Shutdown(); }
 
   bool StartRenderProcess() override;
   void Shutdown() override;
@@ -163,29 +279,64 @@ class MapContentsImpl final : public MapContents {
 
   uint32_t OpenView(ViewKind kind) override;
   void CloseView(uint32_t view_id) override;
-  MapWidgetHostView* AttachSurface(uint32_t view_id, PresentMode mode) override;
-  MapWidgetHostView* HostView(uint32_t view_id) override;
+  WidgetHostView* AttachSurface(uint32_t view_id, PresentMode mode) override;
+  WidgetHostView* HostView(uint32_t view_id) override;
 
   void SetExtent(uint32_t view_id, const Extent2& e) override;
   Extent2 Extent(uint32_t view_id) const override;
 
-  void SetSelection(uint32_t view_id, const FeatureId* ids, size_t n) override;
-  void LegendSnapshot(uint32_t view_id) override;
-  void CatalogCall(const char* json_op) override;
-  void DispatchPlugin(uint32_t view_id,
-                      const char* plugin_id,
-                      const char* method,
-                      const void* bytes,
-                      size_t n) override;
-
-  void SetObserver(MapContentsObserver* observer) override { observer_ = observer; }
+  void SetObserver(GisContentsObserver* observer) override {
+    observer_ = observer;
+  }
   bool WaitFrameReady(uint32_t view_id, uint32_t timeout_ms) override;
 
-  void ActivateTool(uint32_t view_id, const char* tool_id) override;
-  void Activate(uint32_t view_id, const char* tool_id);
   void Dispatch(uint32_t view_id, const InputEvent& e) override;
   void SetRenderBackend(uint32_t kind) override;
   uint32_t RenderBackend() const override { return backend_kind_; }
+
+  GisDocument* gis_document() override { return gis_doc_; }
+  void set_gis_document(GisDocument* doc) override {
+    if (!doc) {
+      pipe_doc_.reset();
+      gis_doc_ = nullptr;
+      return;
+    }
+    pipe_doc_ = std::make_unique<PipeDocument>(nullptr, doc, this);
+    gis_doc_ = pipe_doc_.get();
+  }
+  void take_gis_document(std::unique_ptr<GisDocument> doc) override {
+    if (!doc) {
+      pipe_doc_.reset();
+      gis_doc_ = nullptr;
+      return;
+    }
+    pipe_doc_ = std::make_unique<PipeDocument>(std::move(doc), nullptr, this);
+    gis_doc_ = pipe_doc_.get();
+  }
+
+  PluginHost* plugin_host() override { return plugin_host_.get(); }
+  PluginHost* ensure_plugin_host(tool::CommandCatalog* catalog,
+                                 EventBus* events) override {
+    if (plugin_host_) {
+      return plugin_host_.get();
+    }
+    plugin_host_.reset(create_plugin_host(catalog, events, this));
+    bind_event_bus(events);
+    return plugin_host_.get();
+  }
+
+  void pipe_set_selection(uint32_t view_id,
+                          const FeatureId* ids,
+                          size_t n) override;
+  void pipe_legend_snapshot(uint32_t view_id) override;
+  void pipe_catalog_call(const char* json_op) override;
+  void pipe_dispatch_plugin(uint32_t view_id,
+                            const char* plugin_id,
+                            const char* method,
+                            const void* bytes,
+                            size_t n) override;
+  void pipe_activate_tool(uint32_t view_id, const char* tool_id) override;
+  GisContentsObserver* contents_observer() const override { return observer_; }
 
   bool send_msg_empty(HostMsg type, uint32_t view_id);
   template <typename T>
@@ -208,6 +359,7 @@ class MapContentsImpl final : public MapContents {
   void store_surface(uint32_t view_id, const SharedSurface& s);
 
  private:
+  void bind_event_bus(EventBus* events);
   bool launch_invited_child(const std::wstring& exe,
                             const wchar_t* extra_args,
                             const char* attach_name,
@@ -220,7 +372,7 @@ class MapContentsImpl final : public MapContents {
                     std::vector<base::ipc::PlatformHandle> handles);
 
   struct PipeListener final : base::ipc::MessageListener {
-    MapContentsImpl* self = nullptr;
+    GisContentsImpl* self = nullptr;
     void on_message(const base::ipc::Frame& frame,
                     std::vector<uint8_t> payload,
                     std::vector<base::ipc::PlatformHandle> handles) override {
@@ -253,9 +405,9 @@ class MapContentsImpl final : public MapContents {
   std::thread renderer_thread_;
   std::atomic<bool> running_{false};
   std::atomic<uint32_t> next_view_id_{1};
-  MapContentsObserver* observer_ = nullptr;
+  GisContentsObserver* observer_ = nullptr;
   mutable std::mutex mu_;
-  std::map<uint32_t, MapWidgetHostViewImpl*> views_;
+  std::map<uint32_t, WidgetHostViewImpl*> views_;
   // Frames can arrive before AttachSurface inserts the HostView.
   std::map<uint32_t, SharedSurface> pending_surfaces_;
   std::map<uint32_t, Extent2> extents_;
@@ -265,14 +417,27 @@ class MapContentsImpl final : public MapContents {
   bool oop_ = false;
   std::wstring status_ = L"down";
   uint32_t backend_kind_ = 0;
+  std::unique_ptr<PipeDocument> pipe_doc_;
+  GisDocument* gis_doc_ = nullptr;
+  // Owned here; PluginShell holds a non-owning PluginHost*.
+  std::unique_ptr<PluginHost> plugin_host_;
+  EventBus::Connection selection_sub_;
+  EventBus::Connection layers_sub_;
+  EventBus::Connection style_sub_;
+  EventBus::Connection edit_sub_;
+  EventBus::Connection backend_sub_;
 };
 
-void MapWidgetHostViewImpl::Create(const CreateParams& params,
+ContentsHostPipe* as_contents_host_pipe(GisContents* contents) {
+  return dynamic_cast<ContentsHostPipe*>(contents);
+}
+
+void WidgetHostViewImpl::Create(const CreateParams& params,
                          const Preferences&) {
   parent_hwnd_ = params.parent_hwnd;
 }
 
-void MapWidgetHostViewImpl::Resize(int width_px, int height_px, float dpi) {
+void WidgetHostViewImpl::Resize(int width_px, int height_px, float dpi) {
   ResizeSurfaceBody body;
   body.w = static_cast<uint32_t>(width_px);
   body.h = static_cast<uint32_t>(height_px);
@@ -284,7 +449,7 @@ void MapWidgetHostViewImpl::Resize(int width_px, int height_px, float dpi) {
   session_->send_msg(HostMsg::kResizeSurface, view_id_, body);
 }
 
-void MapWidgetHostViewImpl::Resize(int x,
+void WidgetHostViewImpl::Resize(int x,
                          int y,
                          int width_px,
                          int height_px,
@@ -294,7 +459,7 @@ void MapWidgetHostViewImpl::Resize(int x,
   Resize(width_px, height_px, dpi);
 }
 
-void MapWidgetHostViewImpl::SetPresentMode(PresentMode mode) {
+void WidgetHostViewImpl::SetPresentMode(PresentMode mode) {
   present_mode_ = mode;
   AttachSurfaceBody body;
   body.present_mode = static_cast<uint32_t>(mode);
@@ -306,7 +471,7 @@ void MapWidgetHostViewImpl::SetPresentMode(PresentMode mode) {
   session_->send_msg(HostMsg::kAttachSurface, view_id_, body);
 }
 
-void MapWidgetHostViewImpl::SetVisible(bool visible) {
+void WidgetHostViewImpl::SetVisible(bool visible) {
   AttachSurfaceBody body;
   body.present_mode = static_cast<uint32_t>(present_mode_);
   body.visible = visible ? 1u : 0u;
@@ -317,16 +482,16 @@ void MapWidgetHostViewImpl::SetVisible(bool visible) {
   session_->send_msg(HostMsg::kAttachSurface, view_id_, body);
 }
 
-SharedSurface MapWidgetHostViewImpl::Latest() const {
+SharedSurface WidgetHostViewImpl::Latest() const {
   std::lock_guard<std::mutex> lock(latest_mu_);
   return latest_;
 }
 
-bool MapContentsImpl::send_msg_empty(HostMsg type, uint32_t view_id) {
+bool GisContentsImpl::send_msg_empty(HostMsg type, uint32_t view_id) {
   return pipe_.send_empty(type, view_id);
 }
 
-void MapContentsImpl::store_surface(uint32_t view_id, const SharedSurface& s) {
+void GisContentsImpl::store_surface(uint32_t view_id, const SharedSurface& s) {
   std::lock_guard<std::mutex> lock(mu_);
   auto it = views_.find(view_id);
   if (it != views_.end() && it->second) {
@@ -337,7 +502,7 @@ void MapContentsImpl::store_surface(uint32_t view_id, const SharedSurface& s) {
   pending_surfaces_[view_id] = s;
 }
 
-bool MapContentsImpl::launch_invited_child(const std::wstring& exe,
+bool GisContentsImpl::launch_invited_child(const std::wstring& exe,
                                            const wchar_t* extra_args,
                                            const char* attach_name,
                                            Pipe* pipe,
@@ -376,7 +541,7 @@ bool MapContentsImpl::launch_invited_child(const std::wstring& exe,
   return true;
 }
 
-bool MapContentsImpl::StartRenderProcess() {
+bool GisContentsImpl::StartRenderProcess() {
   if (running_) {
     return true;
   }
@@ -410,7 +575,7 @@ bool MapContentsImpl::StartRenderProcess() {
   process_ = child;
 
   running_ = true;
-  recv_thread_ = std::thread(&MapContentsImpl::recv_loop, this);
+  recv_thread_ = std::thread(&GisContentsImpl::recv_loop, this);
 
   {
     BASE_TRACE_EVENT("HelloWait", "startup");
@@ -430,7 +595,7 @@ bool MapContentsImpl::StartRenderProcess() {
   return pipe_.send_msg(HostMsg::kHelloAck, 0, ack);
 }
 
-void MapContentsImpl::Shutdown() {
+void GisContentsImpl::Shutdown() {
   oop_ = false;
   status_ = L"down";
   running_ = false;
@@ -470,7 +635,7 @@ void MapContentsImpl::Shutdown() {
   }
 }
 
-uint32_t MapContentsImpl::OpenView(ViewKind kind) {
+uint32_t GisContentsImpl::OpenView(ViewKind kind) {
   const uint32_t id = next_view_id_++;
   OpenViewBody body;
   body.kind = static_cast<uint32_t>(kind);
@@ -481,7 +646,7 @@ uint32_t MapContentsImpl::OpenView(ViewKind kind) {
   return id;
 }
 
-void MapContentsImpl::CloseView(uint32_t view_id) {
+void GisContentsImpl::CloseView(uint32_t view_id) {
   pipe_.send_empty(HostMsg::kCloseView, view_id);
   if (renderer_pipe_.is_open()) {
     renderer_pipe_.send_empty(HostMsg::kCloseView, view_id);
@@ -496,10 +661,10 @@ void MapContentsImpl::CloseView(uint32_t view_id) {
   frame_gen_.erase(view_id);
 }
 
-MapWidgetHostView* MapContentsImpl::AttachSurface(uint32_t view_id, PresentMode mode) {
+WidgetHostView* GisContentsImpl::AttachSurface(uint32_t view_id, PresentMode mode) {
   // Register HostView before the GPU round-trip so SharedHandle / FrameReady
   // cannot race past an empty views_ map and be dropped.
-  MapWidgetHostViewImpl* view = nullptr;
+  WidgetHostViewImpl* view = nullptr;
   {
     std::lock_guard<std::mutex> lock(mu_);
     auto it = views_.find(view_id);
@@ -507,7 +672,7 @@ MapWidgetHostView* MapContentsImpl::AttachSurface(uint32_t view_id, PresentMode 
       view = it->second;
       view->set_present_mode(mode);
     } else {
-      view = new MapWidgetHostViewImpl(this, view_id);
+      view = new WidgetHostViewImpl(this, view_id);
       view->set_present_mode(mode);
       views_[view_id] = view;
     }
@@ -527,13 +692,13 @@ MapWidgetHostView* MapContentsImpl::AttachSurface(uint32_t view_id, PresentMode 
   return view;
 }
 
-MapWidgetHostView* MapContentsImpl::HostView(uint32_t view_id) {
+WidgetHostView* GisContentsImpl::HostView(uint32_t view_id) {
   std::lock_guard<std::mutex> lock(mu_);
   auto it = views_.find(view_id);
   return it == views_.end() ? nullptr : it->second;
 }
 
-void MapContentsImpl::SetExtent(uint32_t view_id, const Extent2& e) {
+void GisContentsImpl::SetExtent(uint32_t view_id, const Extent2& e) {
   {
     std::lock_guard<std::mutex> lock(mu_);
     extents_[view_id] = e;
@@ -546,7 +711,7 @@ void MapContentsImpl::SetExtent(uint32_t view_id, const Extent2& e) {
   send_tool_msg(HostMsg::kSetExtent, view_id, body);
 }
 
-Extent2 MapContentsImpl::Extent(uint32_t view_id) const {
+Extent2 GisContentsImpl::Extent(uint32_t view_id) const {
   std::lock_guard<std::mutex> lock(mu_);
   auto it = extents_.find(view_id);
   if (it == extents_.end()) {
@@ -555,30 +720,74 @@ Extent2 MapContentsImpl::Extent(uint32_t view_id) const {
   return it->second;
 }
 
-void MapContentsImpl::SetSelection(uint32_t view_id,
-                                   const FeatureId* ids,
-                                   size_t n) {
+void GisContentsImpl::bind_event_bus(EventBus* events) {
+  selection_sub_.disconnect();
+  layers_sub_.disconnect();
+  style_sub_.disconnect();
+  edit_sub_.disconnect();
+  backend_sub_.disconnect();
+  if (!events) {
+    return;
+  }
+  selection_sub_ = events->subscribe<SelectionChanged>(
+      [this](const SelectionChanged& ev) {
+        if (!observer_) {
+          return;
+        }
+        const FeatureId* ids =
+            ev.ids.empty() ? nullptr : ev.ids.data();
+        observer_->OnSelectionChanged(ev.view_id, ids, ev.ids.size());
+      });
+  layers_sub_ = events->subscribe<LayersChanged>(
+      [this](const LayersChanged& ev) {
+        if (observer_) {
+          observer_->OnLayersChanged(ev.view_id, ev.layer_count);
+        }
+      });
+  style_sub_ = events->subscribe<StyleChanged>([this](const StyleChanged& ev) {
+    if (observer_) {
+      observer_->OnStyleChanged(ev.view_id);
+    }
+  });
+  edit_sub_ = events->subscribe<EditCommitted>(
+      [this](const EditCommitted& ev) {
+        if (observer_) {
+          observer_->OnEditCommitted(ev.view_id, ev.id,
+                                     static_cast<int>(ev.op));
+        }
+      });
+  backend_sub_ = events->subscribe<RenderBackendChanged>(
+      [this](const RenderBackendChanged& ev) {
+        if (observer_) {
+          observer_->OnRenderBackendChanged(ev.view_id, ev.kind);
+        }
+      });
+}
+
+void GisContentsImpl::pipe_set_selection(uint32_t view_id,
+                                         const FeatureId* ids,
+                                         size_t n) {
   (void)ids;
   SelectionBody body;
   body.count = static_cast<uint32_t>(n);
   send_tool_msg(HostMsg::kSetSelection, view_id, body);
 }
 
-void MapContentsImpl::LegendSnapshot(uint32_t view_id) {
+void GisContentsImpl::pipe_legend_snapshot(uint32_t view_id) {
   send_tool_empty(HostMsg::kLegendQuery, view_id);
 }
 
-void MapContentsImpl::CatalogCall(const char* json_op) {
+void GisContentsImpl::pipe_catalog_call(const char* json_op) {
   JsonBody body;
   body.json = json_op ? json_op : "{}";
   send_tool_msg(HostMsg::kCatalogOp, 0, body);
 }
 
-void MapContentsImpl::DispatchPlugin(uint32_t view_id,
-                                    const char* plugin_id,
-                                    const char* method,
-                                    const void* bytes,
-                                    size_t n) {
+void GisContentsImpl::pipe_dispatch_plugin(uint32_t view_id,
+                                           const char* plugin_id,
+                                           const char* method,
+                                           const void* bytes,
+                                           size_t n) {
   PluginCallBody body;
   body.plugin_id = plugin_id ? plugin_id : "";
   body.method = method ? method : "";
@@ -588,7 +797,14 @@ void MapContentsImpl::DispatchPlugin(uint32_t view_id,
   send_tool_msg(HostMsg::kPluginCall, view_id, body);
 }
 
-bool MapContentsImpl::WaitFrameReady(uint32_t view_id, uint32_t timeout_ms) {
+void GisContentsImpl::pipe_activate_tool(uint32_t view_id,
+                                         const char* tool_id) {
+  ToolBody body;
+  body.tool_id = tool_id ? tool_id : "";
+  send_tool_msg(HostMsg::kActivateTool, view_id, body);
+}
+
+bool GisContentsImpl::WaitFrameReady(uint32_t view_id, uint32_t timeout_ms) {
   const DWORD start = GetTickCount();
   for (;;) {
     {
@@ -609,11 +825,7 @@ bool MapContentsImpl::WaitFrameReady(uint32_t view_id, uint32_t timeout_ms) {
   }
 }
 
-void MapContentsImpl::ActivateTool(uint32_t view_id, const char* tool_id) {
-  Activate(view_id, tool_id);
-}
-
-void MapContentsImpl::SetRenderBackend(uint32_t kind) {
+void GisContentsImpl::SetRenderBackend(uint32_t kind) {
   backend_kind_ = kind == 1u ? 1u : 0u;
   RenderBackendWire body;
   body.kind = backend_kind_;
@@ -621,13 +833,7 @@ void MapContentsImpl::SetRenderBackend(uint32_t kind) {
   pipe_.send_msg(HostMsg::kSetRenderBackend, 0, body);
 }
 
-void MapContentsImpl::Activate(uint32_t view_id, const char* tool_id) {
-  ToolBody body;
-  body.tool_id = tool_id ? tool_id : "";
-  send_tool_msg(HostMsg::kActivateTool, view_id, body);
-}
-
-void MapContentsImpl::Dispatch(uint32_t view_id, const InputEvent& e) {
+void GisContentsImpl::Dispatch(uint32_t view_id, const InputEvent& e) {
   PointerEventWire w = {};
   w.t_qpc = e.t_qpc;
   w.kind = static_cast<uint32_t>(e.kind);
@@ -645,7 +851,7 @@ void MapContentsImpl::Dispatch(uint32_t view_id, const InputEvent& e) {
   send_tool_msg(HostMsg::kPointerEvent, view_id, w);
 }
 
-void MapContentsImpl::recv_loop() {
+void GisContentsImpl::recv_loop() {
   while (running_) {
     FrameHeader h = {};
     std::vector<uint8_t> payload;
@@ -663,7 +869,7 @@ void MapContentsImpl::recv_loop() {
   }
 }
 
-void MapContentsImpl::renderer_recv_loop() {
+void GisContentsImpl::renderer_recv_loop() {
   while (running_) {
     FrameHeader h = {};
     std::vector<uint8_t> payload;
@@ -706,7 +912,7 @@ void MapContentsImpl::renderer_recv_loop() {
   }
 }
 
-void MapContentsImpl::handle_frame(
+void GisContentsImpl::handle_frame(
     const FrameHeader& h,
     const std::vector<uint8_t>& payload,
     std::vector<base::ipc::PlatformHandle> handles) {
@@ -778,8 +984,8 @@ void MapContentsImpl::handle_frame(
 
 }  // namespace detail
 
-MapContents* MapContents::Create() {
-  return new detail::MapContentsImpl();
+GisContents* create_gis_contents() {
+  return new detail::GisContentsImpl();
 }
 
 }  // namespace content

@@ -16,9 +16,9 @@ void register_document(Browser& browser, content::CapabilityHost* out) {
   Browser* b = &browser;
   bind_tagged_slots(
       out, base::tagged_tuple{
-               base::tag_resolver<slot_open_map> =
+               base::tag_resolver<slot_open_document> =
                    [b](const std::string& path_utf8) {
-                     return open_map_document(*b, path_utf8);
+                     return open_document(*b, path_utf8);
                    },
                base::tag_resolver<slot_doc_clear> =
                    [b]() { return clear_map_document(*b); },

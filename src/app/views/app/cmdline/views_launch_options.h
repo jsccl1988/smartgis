@@ -16,7 +16,7 @@ namespace app {
 struct ViewsLaunchOptions {
   content::ProcessType process_type = content::ProcessType::kBrowser;
   bool debug_console = false;
-  // Opt-in OOP GPU child at Session.init_hosts (--enable-oop-render or
+  // Opt-in OOP GPU child at Session.init_tool_sessions (--enable-oop-render or
   // ENABLE_OOP_RENDER=1). Default is deferred until DrawHost needs it.
   bool enable_oop_render = false;
   bool ok = true;

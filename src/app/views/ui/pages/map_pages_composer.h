@@ -8,8 +8,8 @@
 #include <string>
 
 namespace content {
-class MapHwndGestures;
-class ViewHost;
+class GisHwndGestures;
+class ToolSession;
 }  // namespace content
 
 namespace ui {
@@ -46,11 +46,11 @@ class MapPagesComposer {
   void for_each_draw_host(const std::function<void(ui::views::DrawHost*)>& fn) const;
   void invalidate_map_overlays();
   void attach_hwnd_gestures();
-  void configure_gestures(content::MapHwndGestures* gestures);
+  void configure_gestures(content::GisHwndGestures* gestures);
   void active_view_size(int* w, int* h) const;
   void switch_map_tab(int i);
   ui::views::DrawHost* active_map() const;
-  content::ViewHost* active_view_host() const;
+  content::ToolSession* active_tool_session() const;
 
  private:
   BrowserView* host_ = nullptr;

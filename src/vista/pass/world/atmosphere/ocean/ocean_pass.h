@@ -113,9 +113,10 @@ class VISTA_EXPORT OceanPass {
   float height_scale() const { return height_scale_; }
   float disp_scale() const { return disp_scale_; }
 
-  // Upload height/disp without drawing. Call before DEM WorldPass upload so
-  // FlyCube texture allocation cannot recycle hypsometric albedo as height.
-  // When true, the next record() skips recreate/upload of the height map.
+  // Cold path before DEM remesh: remesh topology + allocate height (and GPU
+  // FFT resources when prefer_gpu_fft). Wave sim / FFT dispatches stay out of
+  // the remesh step — Gerstner advances in record(); GPU FFT runs once here
+  // on a throwaway CL, then warm record reuses textures without realloc.
   bool prepare_gpu(render::rhi::Device* device);
 
   // Record into an open CommandList (same Device as WorldPass). Does not close.
@@ -132,10 +133,16 @@ class VISTA_EXPORT OceanPass {
   bool ensure_pipeline(render::rhi::Device* device);
   void destroy_pipeline();
   void rebuild_mesh_grid();
+  // Topology only (XZ grid + sea-mask indices). No wave heights.
+  void remesh_topology_if_needed();
+  // Wave heights / Dx/Dz for current time_sec_ (assumes mesh matches params).
+  void advance_wave_fields();
   void rebuild_displacement();
   void rebuild_indices_with_mask();
   float sample_sea_mask(float u, float v) const;
   bool mesh_topology_matches_params() const;
+  bool want_gpu_fft(render::rhi::Device* device) const;
+  bool run_gpu_fft_once(render::rhi::Device* device);
 
   OceanDrawParams params_;
   double time_sec_ = 0.0;

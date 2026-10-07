@@ -25,7 +25,7 @@ map drape). This directory only writes `kTerrain` nodes. Terrain albedo prefers
 | `payload.h` | `TerrainPayload` nested on `Node` / `Instance` |
 | `policy.*` | LOD numbers: raster `max_edge`, TIN stride, surface edge, cache keys, morph weight |
 | `grid.*` | `NestedGridTile` selection and Y-up edge skirts |
-| `mesh.*` | Payload writers (stamp, thin, window node, patch continuity) and `rebuild_dem_view_mesh` |
+| `mesh.*` | Payload writers (stamp, thin, window node, patch continuity) and `rebuild_dem_view_mesh` (China-box, LOD skip, orbit normalize via `vista::OrbitGeoFrame`) |
 | `seed.h` | Public seed API |
 | `raster.cc` / `nested.cc` / `surface.cc` / `tin.cc` | One translation unit per source |
 
@@ -45,9 +45,10 @@ Public includes: `"vista/component/world/terrain/seed.h"`,
 `"vista/component/world/terrain/grid.h"`,
 `"vista/component/world/terrain/payload.h"`.
 `vista::detail` writers in `mesh.h` stay internal. Present includes `mesh.h`
-for `vista::rebuild_dem_view_mesh` (orbit normalize stays a caller hook).
-Namespace `vista` / `vista::detail`. No forwarding header at the old
-`terrain/lod.h` path.
+for `vista::rebuild_dem_view_mesh`. Orbit math lives in
+`vista/terrain/dem/orbit_geo_frame.h`; content frame/ keeps a thin
+`Extent2` adapter. Namespace `vista` / `vista::detail`. No forwarding header
+at the old `terrain/lod.h` path.
 
 GPU upload/record: `vista/pass/world/terrain/TerrainPass` (composed by `WorldPass`).
 

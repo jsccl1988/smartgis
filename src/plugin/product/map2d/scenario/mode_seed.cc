@@ -7,7 +7,7 @@
 #include "plugin/product/map2d/scenario/sample.h"
 #include "plugin/product/map2d/seed/seed.h"
 #include "plugin/runtime/host/capability/shell.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/style_types.h"
 
@@ -20,7 +20,7 @@ namespace detail {
 namespace {
 
 void ensure_china_maplibre_carto(HarnessShell& browser) {
-  content::MapScene* doc = browser.document();
+  content::GisScene* doc = browser.document();
   if (!doc || !doc->has_china_extent()) {
     return;
   }

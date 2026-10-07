@@ -19,7 +19,7 @@
 #include "app/views/browser/commands/app_commands.h"
 #include "app/views/browser/commands/view_commands.h"
 #include "base/process/switches.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "ui/views/dialogs/select_one_dialog.h"
 #include "ui/views/kernel/shell/theme_service.h"
 #include "ui/views/kernel/widget/widget.h"

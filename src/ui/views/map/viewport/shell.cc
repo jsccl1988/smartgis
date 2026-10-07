@@ -47,8 +47,8 @@ using detail::load_first;
 using detail::kIdentityHudClass;
 using detail::kIdentityHudHeight;
 using detail::register_identity_hud_class;
-using detail::route_view_host_input;
-using detail::route_view_host_pointer;
+using detail::route_tool_session_input;
+using detail::route_tool_session_pointer;
 
 void DrawHost::clear_shell_overlay() {
   std::lock_guard<std::mutex> lock(shell_mu_);

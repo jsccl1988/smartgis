@@ -3,6 +3,8 @@
 
 #include "content/public/plugin_host.h"
 
+#include "content/public/gis_contents.h"
+
 #include <algorithm>
 #include <map>
 #include <set>
@@ -55,10 +57,11 @@ class PluginHostImpl final : public PluginHost {
  public:
   PluginHostImpl(tool::CommandCatalog* catalog,
                  EventBus* events,
-                 MapContents* maps)
-      : catalog_(catalog), events_(events), maps_(maps) {}
+                 GisContents* contents)
+      : catalog_(catalog), events_(events), contents_(contents) {}
 
-  MapContents* map_contents() override { return maps_; }
+  GisContents* gis_contents() override { return contents_; }
+  void set_gis_contents(GisContents* contents) override { contents_ = contents; }
   EventBus* events() override { return events_; }
   tool::CommandCatalog* commands() override { return catalog_; }
 
@@ -81,14 +84,17 @@ class PluginHostImpl final : public PluginHost {
     }
     const std::string cid(command_id);
     if (handlers_.contains(cid) && !withdrawn_commands_.contains(cid)) {
-      return false;
+      // Idempotent: pack ensure / scenario register re-enter after Scene3d.
+      return true;
     }
-    // Catalog and handlers_ both own a callable — copy into the catalog first
-    // so |handler| is not left empty for PluginHost::execute.
+    // handlers_ is SoT for PluginHost::execute. Mirroring the real
+    // CommandHandler into tool_d CommandCatalog (cross-module std::function
+    // emplace) has corrupted the catalog map — next contains() AVs
+    // (_Find_lower_bound rax=0) inside register_map2d_scenario under
+    // browser.harness. Keep a capture-free stub in the catalog for id
+    // discovery only.
     if (catalog_ && !catalog_->contains(cid)) {
-      if (!catalog_->add(cid, tool::CommandHandler{handler})) {
-        return false;
-      }
+      (void)catalog_->add(cid, [](const tool::CommandArgs&) { return false; });
     }
     withdrawn_commands_.erase(cid);
     handlers_[cid] = std::move(handler);
@@ -273,9 +279,20 @@ class PluginHostImpl final : public PluginHost {
     return present_dataset_(plugin_id, path, face, surface != 0 ? 1 : 0);
   }
 
-  GisDocument* gis_document() override { return gis_doc_; }
+  GisDocument* gis_document() override {
+    if (contents_) {
+      return contents_->gis_document();
+    }
+    return gis_doc_;
+  }
 
-  void set_gis_document(GisDocument* doc) override { gis_doc_ = doc; }
+  void set_gis_document(GisDocument* doc) override {
+    if (contents_) {
+      contents_->set_gis_document(doc);
+      return;
+    }
+    gis_doc_ = doc;
+  }
 
   Playback* playback() override { return &playback_; }
 
@@ -397,7 +414,7 @@ class PluginHostImpl final : public PluginHost {
  private:
   tool::CommandCatalog* catalog_ = nullptr;
   EventBus* events_ = nullptr;
-  MapContents* maps_ = nullptr;
+  GisContents* contents_ = nullptr;
   ProcessingEnqueue enqueue_;
   UiWithdrawHook ui_withdraw_hook_;
   PresentDatasetFn present_dataset_;
@@ -422,8 +439,8 @@ class PluginHostImpl final : public PluginHost {
 
 PluginHost* create_plugin_host(tool::CommandCatalog* catalog,
                                EventBus* events,
-                               MapContents* maps) {
-  return new PluginHostImpl(catalog, events, maps);
+                               GisContents* contents) {
+  return new PluginHostImpl(catalog, events, contents);
 }
 
 }  // namespace content

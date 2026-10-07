@@ -3,7 +3,7 @@
 
 #include "content/browser/document/ingest/seed_paths.h"
 
-#include "content/public/map_bootstrap.h"
+#include "content/browser/contents/gis_bootstrap.h"
 
 namespace content {
 namespace detail {
@@ -31,14 +31,14 @@ std::vector<std::string> style_seed_relative_paths() {
 }  // namespace detail
 
 std::vector<std::string> china_seed_relative_paths() {
-  // Delegate to map_bootstrap SoT so bare launch / harness / seed_default
+  // Delegate to gis_bootstrap SoT so bare launch / harness / seed_default
   // never diverge on candidate order (china_city before china_plp).
-  return sample_map_relative_paths();
+  return sample_gis_relative_paths();
 }
 
 bool try_resolve_china_seed_path(const std::string& exe_dir,
                                  std::string* out_path) {
-  return try_resolve_existing_sample_map({exe_dir}, out_path);
+  return try_resolve_existing_sample_gis({exe_dir}, out_path);
 }
 
 }  // namespace content

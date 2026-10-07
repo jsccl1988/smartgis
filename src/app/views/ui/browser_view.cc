@@ -199,7 +199,7 @@ void BrowserView::sync_status() {
   }
 }
 
-void BrowserView::select_map_tab(int index) {
+void BrowserView::select_view_tab(int index) {
   switch_map_tab(index);
 }
 
@@ -328,7 +328,7 @@ void BrowserView::attach_hwnd_gestures() {
   map_pages_->attach_hwnd_gestures();
 }
 
-void BrowserView::configure_gestures(content::MapHwndGestures* gestures) {
+void BrowserView::configure_gestures(content::GisHwndGestures* gestures) {
   map_pages_->configure_gestures(gestures);
 }
 
@@ -344,8 +344,8 @@ ui::views::DrawHost* BrowserView::active_map() const {
   return map_pages_->active_map();
 }
 
-content::ViewHost* BrowserView::active_view_host() const {
-  return map_pages_->active_view_host();
+content::ToolSession* BrowserView::active_tool_session() const {
+  return map_pages_->active_tool_session();
 }
 
 void BrowserView::wire_processing_panel() {

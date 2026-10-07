@@ -8,7 +8,7 @@
 
 namespace app {
 
-// Result of the shell Open picker. Browser loads via MapContents
+// Result of the shell Open picker. Browser loads via GisContents
 // CatalogCall when a session exists; otherwise the path is status-only.
 struct OpenFileCommand {
   bool accepted = false;

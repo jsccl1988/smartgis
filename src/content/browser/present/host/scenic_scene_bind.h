@@ -10,21 +10,21 @@
 
 namespace content {
 
-class MapScene;
+class GisScene;
 class OrbitFrame;
 class ViewFrame;
 
 namespace detail {
 
-// Copies visible MapScene features into Scenic POD (non-owning DrawItem.xy
+// Copies visible GisScene features into Scenic POD (non-owning DrawItem.xy
 // aliases |xy|). |xy| / |items| are cleared then filled.
-void fill_scenic_draw_items(const MapScene* scene, double scale,
+void fill_scenic_draw_items(const GisScene* scene, double scale,
                             std::vector<scenic::Vertex2>* xy,
                             std::vector<scenic::DrawItem>* items);
 
 scenic::ViewXform scenic_view_from_frame(const ViewFrame* frame);
 scenic::OrbitXform scenic_orbit_from_host(const OrbitFrame* orbit,
-                                          const MapScene* scene);
+                                          const GisScene* scene);
 
 }  // namespace detail
 }  // namespace content

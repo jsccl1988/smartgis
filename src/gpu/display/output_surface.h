@@ -12,7 +12,7 @@
 #include <windows.h>
 
 #include "content/common/host_protocol.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "gpu/device/adapter_id.h"
 
 namespace gpu {

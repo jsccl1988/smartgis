@@ -61,7 +61,7 @@ int prepare_plugin_device_session(HarnessShell& browser,
   core_opts.realize_scene_hwnd = true;
   core_opts.detach_flycube = false;
   core_opts.borrow_shell_scene3d = true;
-  // PluginDeviceSessionOpts.borrow_shell_scene3d means select_map_tab(1).
+  // PluginDeviceSessionOpts.borrow_shell_scene3d means select_view_tab(1).
   core_opts.select_scene_tab = opts.borrow_shell_scene3d;
   core_opts.detach_pump_ms = 200;
   core_opts.warm_swapchain = false;
@@ -96,7 +96,7 @@ void teardown_plugin_device_session(content::Scene3dPresenter* cam,
       opts.shutdown_device && !(session && session->borrowed_shell);
   core_opts.destroy_hwnd =
       opts.destroy_owned_hwnd && !(session && session->borrowed_shell);
-  core_opts.detach_maps = false;
+  core_opts.detach_views = false;
   core_opts.clear_pointcloud = opts.clear_pointcloud;
   core_opts.clear_tin = opts.clear_tin;
   core_opts.abandon_mesh = opts.abandon_mesh;

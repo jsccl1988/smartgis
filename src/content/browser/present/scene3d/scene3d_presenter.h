@@ -17,15 +17,15 @@
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
 #include "content/browser/present/scene3d/scenic_engine_host.h"
 #include "content/browser/present/scene3d/software/scene3d_software_painter.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "render/rhi/rhi.h"
 #include "tool/draft/draft.h"
 #include "ui/gfx/raster/shell_raster.h"
 
 namespace content {
 
-class MapContents;
-class MapScene;
+class GisContents;
+class GisScene;
 class ViewFrame;
 
 // Thin 3D present facade: Atmosphere + GPU/software, or hosted scenic::Engine.
@@ -47,8 +47,8 @@ class Scene3dPresenter {
   Scene3dPresenter(const Scene3dPresenter&) = delete;
   Scene3dPresenter& operator=(const Scene3dPresenter&) = delete;
 
-  AtmosphereSession& atmosphere_session() { return atmosphere_; }
-  const AtmosphereSession& atmosphere_session() const { return atmosphere_; }
+  AtmosphereSession& atmosphere_session() { return *atmosphere_; }
+  const AtmosphereSession& atmosphere_session() const { return *atmosphere_; }
   Scene3dGpuPresent& gpu() { return gpu_; }
   const Scene3dGpuPresent& gpu() const { return gpu_; }
   Scene3dSoftwarePainter& software() { return software_; }
@@ -61,15 +61,15 @@ class Scene3dPresenter {
   // AtmosphereSession sizeof (wrong look_preset / empty legacy_label_count).
   Scene3dLookPreset look_preset() const;
   // Out-of-line so app TUs do not compute gpu_ from a stale AtmosphereSession
-  // size (3D tab AV in MapScene::feature_count).
+  // size (3D tab AV in GisScene::feature_count).
   bool ensure_legacy_overlays();
   int legacy_label_count() const;
   bool has_legacy_coast_vectors() const;
 
   void bind_orbit(const OrbitFrame* orbit);
-  void bind_map(const MapScene* scene);
+  void bind_scene(const GisScene* scene);
   void bind_label_frame(const ViewFrame* frame);
-  void bind_contents(MapContents* session, uint32_t view_id);
+  void bind_contents(GisContents* session, uint32_t view_id);
   void reset();
   void apply_draft(const tool::Draft& draft);
 
@@ -114,14 +114,15 @@ class Scene3dPresenter {
  private:
   void rebind_software();
 
-  AtmosphereSession atmosphere_;
+  // Heap Ptr — do not embed AtmosphereSession by value (sizeof skew / exe bloat).
+  AtmosphereSession::Ptr atmosphere_;
   Scene3dGpuPresent gpu_;
   Scene3dSoftwarePainter software_;
   mutable detail::ScenicScene3dHost scenic_host_;
 
   const ViewFrame* label_frame_ = nullptr;
-  MapContents* contents_ = nullptr;
-  const MapScene* map_scene_ = nullptr;
+  GisContents* contents_ = nullptr;
+  const GisScene* gis_scene_ = nullptr;
   uint32_t view_id_ = 0;
 };
 

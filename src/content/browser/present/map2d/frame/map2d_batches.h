@@ -6,18 +6,18 @@
 
 #include <vector>
 
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "vista/component/map/ir.h"
 
 namespace content {
 namespace detail {
 
-// Copies MapScene layers into POD features (Y flipped to +lat, name fields
+// Copies GisScene layers into POD features (Y flipped to +lat, name fields
 // normalized to UTF-8) and calls vista::build_layer_batches. Close zooms
 // also call vista::dedupe_admin_boundary_edges.
 // use_carto_slots: default style document. |scale| > 0 applies D2 filters.
 vista::LayerBatchSet visible_layer_batches(
-    const std::vector<MapScene::Layer>& layers, bool use_carto_slots,
+    const std::vector<GisScene::Layer>& layers, bool use_carto_slots,
     double scale = 0.0);
 
 }  // namespace detail

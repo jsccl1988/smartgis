@@ -26,7 +26,7 @@ The replacement is:
 - Do not rewrite leftover `SmtIATool` / `SmtGroupTool` classes or change `dll_stem` (`SmtToolCore`, `SmtGroupToolCore`).
 - Do not add a fourth `*Manager` singleton.
 - Do not put `EventBus` under `src/tool` (events follow the document / session).
-- Do not use the bus as RPC (`GT_MSG_GET_*`, `MSG_GET_SYS_2DVIEW`). Queries are methods on `BrowserSession` / `MapContents`.
+- Do not use the bus as RPC (`GT_MSG_GET_*`, `MSG_GET_SYS_2DVIEW`). Queries are methods on `BrowserSession` / `GisContents`.
 - Do not ship an OpenLayers-style arbitrary interaction stack in v1 (only exclusive current + two always-on handlers).
 - Do not put HWND, `Map*`, or `LPRENDERDEVICE` on new public headers.
 - Do not vendor Qt signals, Boost.Signals2, or eventpp.
@@ -71,7 +71,7 @@ Chrome (Views / leftover MFC)
 
 Chrome includes only `content/public`. It must not include `t_iatool.h`.
 
-`content::ViewHost` is the per-view composition (owns `tool::Workspace` + `EventBus` + `sdb::EditSession`). `content::LocalToolRouter` is the in-process `ToolRouter`: command/interaction ids hit Workspace first; leftover OOP/web still send `HostMsg::kActivateTool` / `kPointerEvent` JSON when the named pipe is open. Leftover MFC `src/ui/xview` owns a `ViewHost` on `SmtXView` (Memory, or `MapEditSession` on the edit view). Mapped `GT_MSG_*` do not broadcast `POST_IATOOL_MSG`.
+`content::ToolSession` is the per-view composition (owns `tool::Workspace` + `EventBus` + `sdb::EditSession`). `content::LocalToolRouter` is the in-process `ToolRouter`: command/interaction ids hit Workspace first; leftover OOP/web still send `HostMsg::kActivateTool` / `kPointerEvent` JSON when the named pipe is open. Leftover MFC `src/ui/xview` owns a `ToolSession` on `SmtXView` (Memory, or `MapEditSession` on the edit view). Mapped `GT_MSG_*` do not broadcast `POST_IATOOL_MSG`.
 
 ## Components
 
@@ -370,7 +370,7 @@ Same change set: `docs/README.md` index, `docs/superpowers/src-layout.md` tool r
 
 ## Leftover plugin menus
 
-Leftover `AppendFuncItems` / `Notify` longs resolve through `plugin::command_id_from_am_msg`: `GT_MSG_*` (including `MSG_KEY` LOWORD) via `command_id_from_gt_msg` to `view.*` / `selection.*` / `edit.append.*` / `flash.*` / `view3d.*`; plugin `AM_MSG_*` to `dem.*` / `proj.do_prj` / `print.preview` / `model3d.*` / `baogrid.*` (leftover BAOGrid AM numbers). No third int bus. Mapped menu commands `execute` on `ViewHost` **and** leftover `Notify` (camera / dialogs / `SetActive`). Unmapped menu ids do **not** `IATOOL_MSG_BROADCAST` / `AM_MSG_BROADCAST`. Pointer and wheel go only through `Workspace`; leftover tools implement `apply_draft` and do not own a second Interaction. Rubber-band geometry lives on `Interaction::aux_draw` / `aux_overlay`; leftover chrome paints that overlay. 3D camera objects are constructed in `src/render/render3d` (`make_view3d_camera`); leftover tools bind ETU / scene / FPS win center. The new Views command may execute `edit.append.linestring` when leftover is not loaded.
+Leftover `AppendFuncItems` / `Notify` longs resolve through `plugin::command_id_from_am_msg`: `GT_MSG_*` (including `MSG_KEY` LOWORD) via `command_id_from_gt_msg` to `view.*` / `selection.*` / `edit.append.*` / `flash.*` / `view3d.*`; plugin `AM_MSG_*` to `dem.*` / `proj.do_prj` / `print.preview` / `model3d.*` / `baogrid.*` (leftover BAOGrid AM numbers). No third int bus. Mapped menu commands `execute` on `ToolSession` **and** leftover `Notify` (camera / dialogs / `SetActive`). Unmapped menu ids do **not** `IATOOL_MSG_BROADCAST` / `AM_MSG_BROADCAST`. Pointer and wheel go only through `Workspace`; leftover tools implement `apply_draft` and do not own a second Interaction. Rubber-band geometry lives on `Interaction::aux_draw` / `aux_overlay`; leftover chrome paints that overlay. 3D camera objects are constructed in `src/render/render3d` (`make_view3d_camera`); leftover tools bind ETU / scene / FPS win center. The new Views command may execute `edit.append.linestring` when leftover is not loaded.
 
 ## Out of v1 (later tasks, not this plan)
 
@@ -437,7 +437,7 @@ Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-b
 | --- | --- |
 | Package | Keep `dll_stem=tool` |
 | Export surface | Methods on `Workspace` / `CommandCatalog` / stack/router exported (`TOOL_EXPORT` on members); class not dllexport (MSVC C4251). `Interaction` stays class-exported (vtable). Factories + nav math + POD remain. `CommandCatalog` stays usable by PluginHost |
-| `Workspace` shape | **pimpl** (match `content::ViewHost`); accessors `catalog()` / `stack()` / … remain for tests + `ViewHost::release_exclusive` |
+| `Workspace` shape | **pimpl** (match `content::ToolSession`); accessors `catalog()` / `stack()` / … remain for tests + `ToolSession::release_exclusive` |
 | Composition | `tool::detail::DraftPipeline` (observer / hit / append / selection events) + `tool::detail::NavBridge` (`view.full` / `view.refresh`) inside `Workspace::Impl` |
 | Linking | No `#pragma comment(lib)` in `tool_export.h`; consumers link via GN `deps` |
 | Leftover (C) | Only change call sites blocked by API (e.g. `release_exclusive` stays via `stack().pop` or Workspace helper) |
@@ -445,5 +445,5 @@ Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-b
 ### Success
 
 - `src/tool/**` builds with **no C4251** on tool types
-- `tool_dispatch_test` / `draft_test` / `view_host_test` green
+- `tool_dispatch_test` / `draft_test` / `tool_session_test` green
 - README + `docs/superpowers/src-layout.md` / abi-rename-map say `dll_stem=tool` + `TOOL_EXPORT` (not source_set / not `TOOL_*`)

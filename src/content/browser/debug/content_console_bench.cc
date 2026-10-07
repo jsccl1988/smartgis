@@ -5,7 +5,7 @@
 
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/debug/debug_agent.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -31,7 +31,7 @@ namespace {
 
 // Map document plus camera, exposed to the console through DebugAgentHost.
 struct ConsoleMap {
-  content::MapScene scene;
+  content::GisScene scene;
   content::ViewFrame frame;
   int refreshes = 0;
 
@@ -50,7 +50,7 @@ struct ConsoleMap {
 
   void bind(content::DebugAgent* agent) {
     content::DebugAgentHost host;
-    host.refresh_map = [this] {
+    host.refresh_gis = [this] {
       frame.fit_extent(scene, 800, 600);
       ++refreshes;
     };
@@ -183,7 +183,7 @@ void BM_fit_extent(benchmark::State& state) {
 BENCHMARK(BM_fit_extent);
 
 void BM_synthetic_feature_load(benchmark::State& state) {
-  content::MapScene synthetic;
+  content::GisScene synthetic;
   synthetic.create_layer("synth", "Point");
   tool::Draft point{};
   point.kind = tool::DraftKind::kPoint;

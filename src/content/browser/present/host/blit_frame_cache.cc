@@ -93,7 +93,7 @@ bool BlitFrameCache::present(HDC dst, int view_w, int view_h) const {
   if (!dst || !preview_ || !has_frame() || view_w <= 0 || view_h <= 0) {
     return false;
   }
-  // Match MapScene ocean canvas so zoom/pan preview edges do not flash white.
+  // Match GisScene ocean canvas so zoom/pan preview edges do not flash white.
   RECT full = {0, 0, view_w, view_h};
   HBRUSH bg = CreateSolidBrush(detail::rgba_to_colorref(0xFFAAD3DFu));
   FillRect(dst, &full, bg);

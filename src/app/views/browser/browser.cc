@@ -15,9 +15,9 @@
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
 #include "content/browser/session/browser_session.h"
-#include "content/public/map_contents.h"
+#include "content/public/gis_contents.h"
 #include "content/public/plugin_host.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -30,7 +30,7 @@ Browser::Browser() : session_(content::BrowserSession::create()) {}
 
 Browser::~Browser() {
   prepare_close();
-  session_->clear_map_contents_observer();
+  session_->clear_gis_contents_observer();
   if (plugins_) {
     plugins_->shutdown();
     plugins_.reset();
@@ -66,11 +66,11 @@ const content::Scene3dPresenter* Browser::scene3d() const {
   return &session_->scene3d();
 }
 
-content::MapScene* Browser::document() {
+content::GisScene* Browser::document() {
   return &session_->document();
 }
 
-const content::MapScene* Browser::document() const {
+const content::GisScene* Browser::document() const {
   return &session_->document();
 }
 
@@ -114,31 +114,31 @@ const content::ViewNavigation* Browser::navigation() const {
   return &session_->navigation();
 }
 
-content::MapContents* Browser::map_session() {
-  return session_->map_contents();
+content::GisContents* Browser::map_session() {
+  return session_->gis_contents();
 }
 
-content::ViewHost* Browser::edit_host() {
-  return session_->edit_host();
+content::ToolSession* Browser::edit_tool_session() {
+  return session_->edit_tool_session();
 }
 
-content::ViewHost* Browser::data_host() {
-  return session_->data_host();
+content::ToolSession* Browser::data_tool_session() {
+  return session_->data_tool_session();
 }
 
-content::ViewHost* Browser::scene_host() {
-  return session_->scene_host();
+content::ToolSession* Browser::scene_tool_session() {
+  return session_->scene_tool_session();
 }
 
-content::MapHwndGestures* Browser::edit_gestures() {
+content::GisHwndGestures* Browser::edit_gestures() {
   return &session_->edit_gestures();
 }
 
-content::MapHwndGestures* Browser::data_gestures() {
+content::GisHwndGestures* Browser::data_gestures() {
   return &session_->data_gestures();
 }
 
-content::MapHwndGestures* Browser::scene_gestures() {
+content::GisHwndGestures* Browser::scene_gestures() {
   return &session_->scene_gestures();
 }
 
@@ -169,14 +169,14 @@ content::EventBus::Connection* Browser::layers_sub() {
 bool Browser::init() {
   BASE_TRACE_EVENT("Browser.init.body", "startup");
   {
-    BASE_TRACE_EVENT("Session.init_hosts", "startup");
-    LOGGING(LOG_INFO, "startup: session.init_hosts");
-    session_->init_hosts();
+    BASE_TRACE_EVENT("Session.init_tool_sessions", "startup");
+    LOGGING(LOG_INFO, "startup: session.init_tool_sessions");
+    session_->init_tool_sessions();
     if (enable_oop_render_) {
       if (!session_->ensure_oop_render_process()) {
         LOGGING(LOG_WARNING,
                 "startup: enable_oop_render requested but StartRenderProcess "
-                "failed — continuing in-process");
+                "failed ï¿½?continuing in-process");
       }
     }
   }
@@ -186,8 +186,8 @@ bool Browser::init() {
     LOGGING(LOG_INFO, "startup: PluginShell.init");
     plugins_ = std::make_unique<PluginShell>();
     plugins_->set_plugins_dir(plugins_dir_);
-    if (!session_->edit_host() ||
-        !plugins_->init(session_->edit_host()->events())) {
+    if (!session_->edit_tool_session() ||
+        !plugins_->init(session_->edit_tool_session()->events())) {
       LOGGING(LOG_ERROR, "startup: PluginShell.init failed");
       if (plugins_) {
         plugins_->shutdown();
@@ -210,9 +210,16 @@ bool Browser::init() {
     }
   }
 
-  if (plugins_ && plugins_->host()) {
-    wire_plugin_present_dataset();
-    install_plugin_host_bridges();
+  if (plugins_) {
+    // Catalog first (PluginShell::init), then GisContents + owned PluginHost.
+    if (session_->ensure_gis_contents() &&
+        plugins_->attach_gis_contents(session_->gis_contents())) {
+      wire_plugin_present_dataset();
+      install_plugin_host_bridges();
+    } else {
+      LOGGING(LOG_WARNING,
+              "startup: GisContents/PluginHost attach failed; no bridges");
+    }
   }
 
   BASE_TRACE_EVENT("InitShell", "startup");
@@ -262,7 +269,7 @@ void Browser::show() {
     }
   }
   // Sync China seed (default product path): drop any pre-china FlyCube latch
-  // so the first interactive present records china carto — same face as
+  // so the first interactive present records china carto ï¿½?same face as
   // --ui-showcase=shell without forcing GDI overlay.
   if (session_->document_has_china_extent() && !first_carto_ready) {
     session_->note_map2d_surface_reset();
@@ -361,8 +368,8 @@ ui::views::DrawHost* Browser::scene_draw_host() const {
   return ui_ ? ui_->scene_draw_host() : nullptr;
 }
 
-content::ViewHost* Browser::edit_view_host() const {
-  return session_->edit_host();
+content::ToolSession* Browser::edit_tool_session() const {
+  return session_->edit_tool_session();
 }
 
 void Browser::refit_active_view() {
@@ -381,7 +388,7 @@ void Browser::sync_catalog_from_scene() {
   }
 }
 
-void Browser::select_map_tab(int index) {
+void Browser::select_view_tab(int index) {
   if (!ui_) {
     return;
   }
@@ -392,7 +399,7 @@ void Browser::select_map_tab(int index) {
   if (index < 0) {
     index = 0;
   }
-  ui_->select_map_tab(index);
+  ui_->select_view_tab(index);
 }
 
 void Browser::OnExtentChanged(uint32_t /*view_id*/, const content::Extent2& e) {
@@ -406,9 +413,9 @@ void Browser::OnExtentChanged(uint32_t /*view_id*/, const content::Extent2& e) {
   if (!content::BrowserSession::extent_looks_like_china(e)) {
     return;
   }
-  // MapContents recv / renderer_recv threads deliver this off the UI thread.
+  // GisContents recv / renderer_recv threads deliver this off the UI thread.
   // OrbitFrame + StatusBar/Label must not run there (heap corruption /
-  // 0xC0000374). Always PostMessage — never apply on the caller thread
+  // 0xC0000374). Always PostMessage ï¿½?never apply on the caller thread
   // (including the old "no HWND yet" fallback, which still raced Label).
   HWND shell = hwnd();
   if (!shell || !IsWindow(shell)) {

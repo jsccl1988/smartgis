@@ -62,7 +62,7 @@ class VISTA_EXPORT WindowsGlyphRasterizer : public GlyphRasterizer,
 };
 
 // Records map meshes onto an existing RHI command list. The projection is
-// the |camera| the host passed. MapScene passes make_ortho_camera of the
+// the |camera| the host passed. GisScene passes make_ortho_camera of the
 // view extent. A kPerspective View does not build a perspective matrix
 // here; the host supplies that camera. A null camera binds the ortho of
 // |view|'s extent. pixel_space icon and text are rotated about the anchor,

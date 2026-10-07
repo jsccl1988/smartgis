@@ -41,9 +41,9 @@ Make `SmartGisViews` the product plugin entry: builtins start via `plugin::Regis
 
 ```
 SmartGisViews (BrowserView)
-  MapContents session     ← content/public/map_contents.h (GPU session)
+  GisContents session     ← content/public/gis_contents.h (GPU session)
   ViewHost ×3             ← EventBus / tools
-  PluginShell            ← separate TU (avoids MapContents name clash)
+  PluginShell            ← separate TU (avoids GisContents name clash)
     tool::CommandCatalog
     content::PluginHost   ← create_plugin_host(catalog, events, plugin_map*)
     plugin::Registry
@@ -54,7 +54,7 @@ SmartGisViews (BrowserView)
   plugin/{dem,proj,print,model3d,orthogrid}  (*_views source_sets)
 ```
 
-**MapContents name clash:** `content/public/map_contents.h` and `content/public/plugin_host.h` both declare `content::MapContents`. Product chrome **must not** include both in one TU. `PluginShell` lives in `app/views/plugin_shell.*` and includes only `plugin_host.h`. Session map stays on `BrowserView` via `map_contents.h`. Plugin-face map may be `nullptr` in A (dialogs that need extent use host later) or a tiny adapter type local to `plugin_shell.cc` that does **not** share the session class name in headers included by `browser_view.cc`.
+**GisContents name clash:** `content/public/gis_contents.h` and `content/public/plugin_host.h` both declare `content::GisContents`. Product chrome **must not** include both in one TU. `PluginShell` lives in `app/views/plugin_shell.*` and includes only `plugin_host.h`. Session map stays on `BrowserView` via `gis_contents.h`. Plugin-face map may be `nullptr` in A (dialogs that need extent use host later) or a tiny adapter type local to `plugin_shell.cc` that does **not** share the session class name in headers included by `browser_view.cc`.
 
 ## Phase A — Cutover (Views wiring)
 
@@ -129,10 +129,10 @@ Dialog factories must not construct a `ui::views::View` on the stack. `plugin::s
 
 Processing and command failures publish a JSON string through `plugin::set_operation_result`. `ProcessingPool` copies that string into the existing `done(bool, std::string)` callback. There is no second plugin system and no new map type.
 
-- DEM `tin_from_xyz` / `grid_from_heightmap` still call the MFC-free loaders. `PluginHost` has no `EditSession`, and `MapContents::DispatchPlugin` has no surface schema, so a successful load returns `{"error":"no_map_seam",...}` and `false` instead of dropping the surface.
+- DEM `tin_from_xyz` / `grid_from_heightmap` still call the MFC-free loaders. `PluginHost` has no `EditSession`, and `GisContents::DispatchPlugin` has no surface schema, so a successful load returns `{"error":"no_map_seam",...}` and `false` instead of dropping the surface.
 - Proj `transform_grid` keeps `project_point` and stores nodes in `TransformGridOutput` (`consume_transform_grid_output`).
 - Orthogrid `create_orth_grid_processing` loads a real `gridbnd` body and runs product Laplace (`detail/boundary_solve`). A header-only file does not succeed. Save-boundary after a successful pick returns `{"error":"not_available_without_legacy_kernel"}` because the 2010 session is not on the Views graph.
-- model3d commands stay `false` with `{"error":"no_scene_device",...}` until a device pointer exists on `PluginHost` / `MapContents`.
+- model3d commands stay `false` with `{"error":"no_scene_device",...}` until a device pointer exists on `PluginHost` / `GisContents`.
 - Print preview Save reports `{"error":"export_not_implemented"}` after a path is chosen. Showing the preview dialog is the Views fix.
 
 ### Acceptance D
@@ -149,7 +149,7 @@ Processing and command failures publish a JSON string through `plugin::set_opera
 | DEM loaders | `src/plugin/dem/**` (except do not edit `app/views`) | B + D (dem) + C (dem types) |
 | Other domains | `src/plugin/{proj,print,model3d,orthogrid}/**` | D (+ light C) |
 | Host polish | `src/plugin/{registry,manifest,manager_view,processing,legacy_*}.*`, `src/plugin/widgets/**`, `src/plugin/python/**` | C (host tree) |
-| Content clash note | If renaming plugin-face `MapContents`, only `src/content/public/plugin_host.h` + `plugin_host.cc` + plugin call sites — **coordinate**; prefer adapter-in-chrome to avoid rename this program |
+| Content clash note | If renaming plugin-face `GisContents`, only `src/content/public/plugin_host.h` + `plugin_host.cc` + plugin call sites — **coordinate**; prefer adapter-in-chrome to avoid rename this program |
 
 ## Testing
 

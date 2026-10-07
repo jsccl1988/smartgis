@@ -54,7 +54,7 @@ src/ui/views                              公共工具箱 ui::views
   GIS widgets + AmboxView + ChartView + MapViewport
 
 src/ui/gfx                           fill / text 画布（不是控件库）
-src/content/public                        ViewHost / PluginHost / MapContents
+src/content/public                        ViewHost / PluginHost / GisContents
 src/legacy/ui/{gui,mfc_ex,xview,xcatalog, leftover（parity 前继续编 SmartGis.exe）
         xambox,chart} + src/legacy/app
 ```
@@ -67,7 +67,7 @@ Chrome 只 include `content/public`。插件贡献走 `content::PluginHost`；`A
 | --- | --- | --- |
 | `src/ui/views/` | 工具箱内核、原语、GIS 面板、`AmboxView`、`ChartView`、`MapViewport` | toolkit / 本规格 widget |
 | `src/app/views/` | 组合 `Widget` + `Splitter` + tabs；`SmartGisViews.exe` | 产品壳 agent |
-| `src/content/public/` | `ViewHost`、`PluginHost`、`MapContents` | content / plugin |
+| `src/content/public/` | `ViewHost`、`PluginHost`、`GisContents` | content / plugin |
 | `src/ui/gfx/` | chrome 画布 | render |
 | `src/legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | leftover MFC；本轮不删 | 冻结（只修编译） |
 | `src/legacy/app/`（`CMainFrame` / `CView`） | `SmartGis.exe` 直到 parity | 冻结 |

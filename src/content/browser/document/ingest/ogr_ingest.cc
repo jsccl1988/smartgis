@@ -186,7 +186,7 @@ bool path_looks_like_china_city(const std::string& path) {
 // admin land polygons (the bbox includes Bohai / ECS / SCS so bbox-only clip
 // still paints blue scribble over "ocean" background).
 bool vertex_bbox_overlaps_any_ring_bbox(
-    const MapFeature& f, const std::vector<vista::LonLatRing>& rings) {
+    const GisFeature& f, const std::vector<vista::LonLatRing>& rings) {
   if (f.points.empty() || rings.empty()) {
     return false;
   }
@@ -228,8 +228,8 @@ void clip_china_city_lines_to_land_polygons(LayerStore* store) {
     }
   }
   std::vector<vista::LonLatRing> rings;
-  for (const MapLayer& layer : store->layers()) {
-    for (const MapFeature& f : layer.features) {
+  for (const GisLayer& layer : store->layers()) {
+    for (const GisFeature& f : layer.features) {
       if (f.kind != GeomKind::kPolygon || f.points.size() < 3) {
         continue;
       }
@@ -251,12 +251,12 @@ void clip_china_city_lines_to_land_polygons(LayerStore* store) {
   auto point_on_land = [&](const Vertex& p) {
     return vista::any_ring_contains(p.x, p.y, rings);
   };
-  for (MapLayer& layer : store->layers()) {
+  for (GisLayer& layer : store->layers()) {
     auto& feats = layer.features;
     feats.erase(
         std::remove_if(
             feats.begin(), feats.end(),
-            [&](MapFeature& f) {
+            [&](GisFeature& f) {
               if (f.kind != GeomKind::kLine || f.points.size() < 2) {
                 return false;
               }
@@ -407,13 +407,13 @@ bool layer_name_is_text(const char* layer_name) {
                         std::strcmp(layer_name, "注记") == 0);
 }
 
-bool has_nonempty_field(const MapFeature& f, const char* key) {
+bool has_nonempty_field(const GisFeature& f, const char* key) {
   const char* v = named_field_value(f, key);
   return v && v[0];
 }
 
 // Prefer anno (FtAnno), then name, for Chinese annotation labels.
-std::string feature_display_name(const MapFeature& f) {
+std::string feature_display_name(const GisFeature& f) {
   if (const char* anno = named_field_value(f, "anno")) {
     if (anno[0]) {
       return anno;
@@ -457,7 +457,7 @@ bool ascii_icontains(const char* hay, const char* needle) {
   return false;
 }
 
-void ensure_anno_from_name(MapFeature* out) {
+void ensure_anno_from_name(GisFeature* out) {
   if (!out || out->kind != GeomKind::kText) {
     return;
   }
@@ -471,7 +471,7 @@ void ensure_anno_from_name(MapFeature* out) {
   }
 }
 
-void apply_kind_override(MapFeature* out, const char* ogr_layer_name) {
+void apply_kind_override(GisFeature* out, const char* ogr_layer_name) {
   if (!out) {
     return;
   }
@@ -511,8 +511,8 @@ GeomKind hosted_kind(gis::datasource::OgrPartKind kind) {
   return GeomKind::kPoint;
 }
 
-MapFeature hosted_feature_from_part(gis::datasource::OgrFeaturePart&& part) {
-  MapFeature feature;
+GisFeature hosted_feature_from_part(gis::datasource::OgrFeaturePart&& part) {
+  GisFeature feature;
   feature.kind = hosted_kind(part.kind);
   feature.selected = false;
   feature.points.reserve(part.points.size());
@@ -526,14 +526,14 @@ MapFeature hosted_feature_from_part(gis::datasource::OgrFeaturePart&& part) {
   return feature;
 }
 
-// One MapFeature per drawable part. Decode + ring decimation live in
+// One GisFeature per drawable part. Decode + ring decimation live in
 // gis::datasource; this adapter only fills hosted vertices/fields, clips
 // china_city lines, and applies kind/anno overrides.
 // MultiPolygon / MultiLineString must expand every part. Keeping only the
 // largest ring leaves Xinjiang/Qinghai (and island archipelagos) as white
 // holes while rivers still draw through.
 size_t features_from_ogr(OGRFeature* ogr_feat,
-                         std::vector<MapFeature>* out,
+                         std::vector<GisFeature>* out,
                          const char* ogr_layer_name) {
   if (!ogr_feat || !out) {
     return 0;
@@ -544,7 +544,7 @@ size_t features_from_ogr(OGRFeature* ogr_feat,
   out->reserve(loaded.size());
   for (gis::datasource::OgrFeaturePart& part : loaded) {
     const gis::datasource::OgrPartKind decoded = part.kind;
-    MapFeature feature = hosted_feature_from_part(std::move(part));
+    GisFeature feature = hosted_feature_from_part(std::move(part));
     if (decoded == gis::datasource::OgrPartKind::kLine) {
       clip_china_city_line_to_mainland(&feature.points, ogr_layer_name);
     }
@@ -648,7 +648,7 @@ bool ingest_ogr_path(LayerStore* store, const std::string& path) {
     return false;
   }
 
-  std::vector<MapLayer> loaded;
+  std::vector<GisLayer> loaded;
   loaded.reserve(static_cast<size_t>(layer_count));
   size_t total_features = 0;
   for (int li = 0; li < layer_count; ++li) {
@@ -662,25 +662,25 @@ bool ingest_ogr_path(LayerStore* store, const std::string& path) {
     if (path_looks_like_china_city(path) && layer_name_is_text(lname)) {
       continue;
     }
-    MapLayer layer;
+    GisLayer layer;
     layer.id = path + "#" + (lname && lname[0] ? lname : std::to_string(li));
     layer.name = (lname && lname[0]) ? lname : path_stem(path);
     layer.visible = true;
     layer.kind = content::LayerKind::kVector;
 
     // mogu-style: serial GetNextFeature → parallel decode → ordered sink.
-    // max_features caps OGR rows read; sink still caps MapFeature parts.
+    // max_features caps OGR rows read; sink still caps GisFeature parts.
     size_t taken = 0;
     gis::datasource::FeatureLoadOptions opts;
     opts.max_features = kMaxFeaturesPerLayer;
     opts.serial_threshold = 64;
-    gis::datasource::load_ogr_layer_pipeline<std::vector<MapFeature>>(
+    gis::datasource::load_ogr_layer_pipeline<std::vector<GisFeature>>(
         ogr_layer,
-        [lname](OGRFeature* feat, std::vector<MapFeature>* parts) {
+        [lname](OGRFeature* feat, std::vector<GisFeature>* parts) {
           return features_from_ogr(feat, parts, lname) > 0;
         },
-        [&](std::vector<MapFeature>&& parts) {
-          for (MapFeature& part : parts) {
+        [&](std::vector<GisFeature>&& parts) {
+          for (GisFeature& part : parts) {
             if (taken >= kMaxFeaturesPerLayer) {
               break;
             }
@@ -714,8 +714,8 @@ void split_layers_by_kind_field(LayerStore* store) {
     return;
   }
   bool has_kind = false;
-  for (const MapLayer& layer : store->layers()) {
-    for (const MapFeature& f : layer.features) {
+  for (const GisLayer& layer : store->layers()) {
+    for (const GisFeature& f : layer.features) {
       if (named_field_value(f, "kind")) {
         has_kind = true;
         break;
@@ -729,29 +729,29 @@ void split_layers_by_kind_field(LayerStore* store) {
     return;
   }
 
-  MapLayer regions;
+  GisLayer regions;
   regions.id = "china.area";
   regions.name = "area";
   regions.visible = true;
   regions.kind = content::LayerKind::kVector;
-  MapLayer lines;
+  GisLayer lines;
   lines.id = "china.line";
   lines.name = "line";
   lines.visible = true;
   lines.kind = content::LayerKind::kVector;
-  MapLayer points;
+  GisLayer points;
   points.id = "china.point";
   points.name = "point";
   points.visible = true;
   points.kind = content::LayerKind::kVector;
-  MapLayer texts;
+  GisLayer texts;
   texts.id = "china.text";
   texts.name = "text";
   texts.visible = true;
   texts.kind = content::LayerKind::kVector;
 
-  for (MapLayer& layer : store->layers()) {
-    for (MapFeature& f : layer.features) {
+  for (GisLayer& layer : store->layers()) {
+    for (GisFeature& f : layer.features) {
       apply_kind_override(&f, layer.name.c_str());
       if (f.kind == GeomKind::kText) {
         texts.features.push_back(std::move(f));
@@ -765,7 +765,7 @@ void split_layers_by_kind_field(LayerStore* store) {
     }
   }
 
-  std::vector<MapLayer> next;
+  std::vector<GisLayer> next;
   if (!regions.features.empty()) {
     next.push_back(std::move(regions));
   }

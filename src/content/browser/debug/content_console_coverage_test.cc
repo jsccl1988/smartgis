@@ -3,7 +3,7 @@
 
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/debug/debug_agent.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -46,7 +46,7 @@ struct LevelGuard {
 
 // Map document plus camera, exposed to the console through DebugAgentHost.
 struct ConsoleMap {
-  content::MapScene scene;
+  content::GisScene scene;
   content::ViewFrame frame;
   int refreshes = 0;
 
@@ -75,7 +75,7 @@ struct ConsoleMap {
 
   void bind(content::DebugAgent* agent) {
     content::DebugAgentHost host;
-    host.refresh_map = [this] {
+    host.refresh_gis = [this] {
       frame.fit_extent(scene, 800, 600);
       ++refreshes;
     };
@@ -228,7 +228,7 @@ void expect_local_commands(content::DebugAgent* agent, ConsoleMap* map) {
          "unknown command");
 
   agent->set_host({});
-  expect(agent->exec_line(":refresh") == "no host.refresh_map",
+  expect(agent->exec_line(":refresh") == "no host.refresh_gis",
          "refresh without host");
   expect(agent->exec_line(":extent") == "no host.extent_string",
          "extent without host");

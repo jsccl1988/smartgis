@@ -39,14 +39,14 @@ Debug Console / LogSink / Agent / Python worker：见 living shell
 **§Diagnostic Tools** / archived
 [`docs/superpowers/archive/specs/2026-09-28-debug-console-design.md`](../../docs/superpowers/archive/specs/2026-09-28-debug-console-design.md)。
 产品壳默认打开底栏 Console；菜单 View → Toggle Diagnostic Tools 可折叠。
-三个地图页各自一个 `DrawHost` + `content::ViewHost`（2D 编辑 / 2D 浏览 /
-3D）。`MapContents` 会话共享；`OpenView` 分别为 `kMapEdit` / `kMapData` /
+三个地图页各自一个 `DrawHost` + `content::ToolSession`（2D 编辑 / 2D 浏览 /
+3D）。`GisContents` 会话共享；`OpenView` 分别为 `kMapEdit` / `kMapData` /
 `kScene3d`。3D 若无法挂接则保持 native 占位，鼠标不崩。
 
 源码按职责分目录（无根目录转发头）。Chromium 分层见 living shell spec
 **§Content sink**：`app/views` 根下直接是壳子树（≈ horizon）。`Browser` 持有
-`content::MapSession`（≈ WebContents：拥有 `MapScene` / camera / present /
-gestures / ViewHosts / `MapContents*`）；能力实现在
+`content::MapSession`（≈ WebContents：拥有 `GisScene` / camera / present /
+gestures / ToolSessions / `GisContents*`）；能力实现在
 `src/content/browser/{document,camera,present,input}`；GDI paint 在
 `content/browser/present/*/software/`。`ui/` → `browser/` →
 `//src/content:map_session`；**禁止** `present` → `app/views`。对等目录：`app/`、
@@ -72,7 +72,7 @@ Present README：
 `wWinMain`（`app/main.cc`）→ CLI11 解析 → `content::content_main`（`process_type_set`），
 再进 `browser_main` / `gpu_main` / `renderer_main`。同一 PE 以 `--type=gpu`
 / `--type=renderer` 再拉起。地图挂接仍走 `DrawHost::attach()`；原生 HWND
-把鼠标 / 键 / 滚轮转给 `ViewHost::dispatch_input`。
+把鼠标 / 键 / 滚轮转给 `ToolSession::dispatch_input`。
 
 ```bat
 build.bat views
@@ -84,7 +84,7 @@ build.bat views
 输入（无 GPU 时占位 HWND 亦可）。分层与退出码：
 [`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md)。
 
-Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把真实
+Open：`GisScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把真实
 图层名与几何灌进 Catalog / 2D overlay；打不开时才回退样例要素。启动时
 `seed_default` / 自测优先加载 **`china_city.gpkg`**（NE 10m 四层：`area` /
 `line` / `point` / `text`，EPSG:4326）；3D 用同 CRS 的 **`china_dem.tif`**。
@@ -99,9 +99,9 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 
 菜单 **Open** 或 Catalog「加载 shp」选上述文件即可；状态栏显示 `Opened (OGR): …`。
 图层右键 **View** 缩放到全图。菜单 **DrawLine** = `edit.append.linestring`；
-**Save** = 将当前 active 可见层写出为 GeoJSON（`MapScene::write_path`）。
+**Save** = 将当前 active 可见层写出为 GeoJSON（`GisScene::write_path`）。
 
-地图页是 **共享场景宿主**：`MapContents::OpenView`（`kMapEdit` / `kMapData` /
+地图页是 **共享场景宿主**：`GisContents::OpenView`（`kMapEdit` / `kMapData` /
 `kScene3d`）+ `SetExtent`（有中国范围则全幅中国）。2D 为正交，3D 为透视。
 手势：滚轮对光标缩放、平移；HWND 允许时双指捏合（`WM_GESTURE` / 指针）。
 
@@ -223,7 +223,7 @@ Horizon PaintCounters matrix：`py -3 testing/tools/harness/ui/run_ui_profile_ma
 菜单 **Engine: Vista/DX12 / Stereo/GL / GDI** 发 `view.engine.*`，经
 `content::set_scene3d_engine` 切换 3D 呈现后端并 reattach Scene3d 视口。
 菜单 **RHI** / **MapLibre** 发 `view.backend.rhi` / `view.backend.maplibre`，经
-`MapContents::SetRenderBackend` 通知 `--type=gpu` 切换 direct / tile
+`GisContents::SetRenderBackend` 通知 `--type=gpu` 切换 direct / tile
 （`maplibre` 为 tile 的历史别名，非 MapLibre Native；热切换，不重启 GPU
 子进程）。CEF HTML 同命令 id（`ActivateTool` / `tool.command` topic）。
 

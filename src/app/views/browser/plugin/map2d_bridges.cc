@@ -39,11 +39,11 @@ void map2d_view_wh(const Map2dHostContext& ctx, int* w, int* h) {
   }
 }
 
-void select_map_tab_unless_env_locked(const Map2dHostContext& ctx, int tab) {
-  if (!ctx.select_map_tab || base::switch_cstr("views-start-map-tab")) {
+void select_view_tab_unless_env_locked(const Map2dHostContext& ctx, int tab) {
+  if (!ctx.select_view_tab || base::switch_cstr("views-start-map-tab")) {
     return;
   }
-  ctx.select_map_tab(tab);
+  ctx.select_view_tab(tab);
 }
 
 void install_map2d_host_bridges(const Map2dHostContext& ctx) {
@@ -99,7 +99,7 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
 
   sink->set_view_bridges(
       [ctx]() {
-        select_map_tab_unless_env_locked(ctx, 0);
+        select_view_tab_unless_env_locked(ctx, 0);
         if (ctx.present_map2d) {
           ctx.present_map2d();
         }
@@ -125,7 +125,7 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
         int h = 720;
         map2d_view_wh(ctx, &w, &h);
         ctx.session->apply_view_world_extent(box, w, h);
-        select_map_tab_unless_env_locked(ctx, 0);
+        select_view_tab_unless_env_locked(ctx, 0);
         if (ctx.push_shared_extent) {
           ctx.push_shared_extent();
         }
@@ -166,7 +166,7 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
               path + "\"}");
           return false;
         }
-        select_map_tab_unless_env_locked(ctx, 0);
+        select_view_tab_unless_env_locked(ctx, 0);
         content::Extent2 box = ctx.session->document_world_extent();
         if (!content::BrowserSession::is_extent_nonempty(box)) {
           box = content::BrowserSession::china_map2d_frame_extent();
@@ -198,7 +198,7 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
               "\"need\":\"mode\"}");
           return false;
         }
-        select_map_tab_unless_env_locked(ctx, 0);
+        select_view_tab_unless_env_locked(ctx, 0);
         if (mode == plugin::Map2dSeedMode::kChina) {
           if (ctx.present_map2d) {
             ctx.present_map2d();

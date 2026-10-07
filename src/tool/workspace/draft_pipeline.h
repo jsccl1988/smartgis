@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <functional>
 
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "gis/edit/session.h"
 #include "tool/draft/draft.h"
 
@@ -33,7 +33,7 @@ class DraftPipeline {
   void set_observer(DraftCallback observer);
   void set_feature_hit(FeatureHit fn);
   void set_map_project(MapProject fn);
-  // When true, draw.* skips EditSession (shell / MapScene owns geometry).
+  // When true, draw.* skips EditSession (shell / GisScene owns geometry).
   // Prefer false once MapProject + FeatureGeom path is wired.
   void set_shell_owns_append(bool on);
 

@@ -32,7 +32,7 @@ int run_world_preview(HarnessShell& browser) {
       browser.plugin_host();
   if (!host) {
     browser.mark_named(plugin::kMarkPlugin, "no-host", false);
-    browser.detach_maps();
+    browser.detach_views();
     return 40;
   }
 
@@ -48,14 +48,14 @@ int run_world_preview(HarnessShell& browser) {
 
   if (!host->present_dataset("smartgis.world3d", "", 1, 1)) {
     browser.mark_named(plugin::kMarkPlugin, "present-fail", false);
-    browser.detach_maps();
+    browser.detach_views();
     return 41;
   }
   plugin_mark("present-ok");
 
   if (!browser.preview_is_open()) {
     browser.mark_named(plugin::kMarkPlugin, "preview-closed", false);
-    browser.detach_maps();
+    browser.detach_views();
     return 42;
   }
   plugin_mark("preview-open");
@@ -66,7 +66,7 @@ int run_world_preview(HarnessShell& browser) {
   if (!browser.capture_path(bmp_w, MAX_PATH, L"plugin-showcase-world-preview.bmp")) {
     browser.mark_named(plugin::kMarkPlugin, "bmp-path-fail", false);
     browser.preview_close();
-    browser.detach_maps();
+    browser.detach_views();
     return 43;
   }
   char bmp_a[MAX_PATH] = {};
@@ -74,7 +74,7 @@ int run_world_preview(HarnessShell& browser) {
                           nullptr) <= 0) {
     browser.mark_named(plugin::kMarkPlugin, "bmp-utf8-fail", false);
     browser.preview_close();
-    browser.detach_maps();
+    browser.detach_views();
     return 44;
   }
 
@@ -82,7 +82,7 @@ int run_world_preview(HarnessShell& browser) {
   plugin_mark(exported ? "export-ok" : "export-soft");
 
   browser.preview_close();
-  browser.detach_maps();
+  browser.detach_views();
   browser.mark_named(plugin::kMarkPlugin, "pass", false);
   std::fprintf(stderr,
                "plugin-showcase: PASS mode=world_preview (WorldPreviewView)\n");

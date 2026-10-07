@@ -83,7 +83,7 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   app.add_option("--plugins-dir", out.plugins_dir,
                  "Product plugin resource root (default: <exe>/plugins)");
   app.add_flag("--enable-oop-render", out.enable_oop_render,
-               "Start OOP GPU MapContents at Session.init_hosts "
+               "Start OOP GPU GisContents at Session.init_tool_sessions "
                "(default: defer until first ContentMapView attach)");
   // Harness suites still pass --plugin-showcase=…; maps to ScenarioRegistry.
   app.add_option("--plugin-showcase", plugin_showcase,

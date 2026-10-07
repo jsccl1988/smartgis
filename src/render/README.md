@@ -31,11 +31,11 @@ GN：`//src/render:render_all` 进日常 `src_all`。leftover DLL 另编 `//src/
 ## As-built（Views 2D 主路径 = RHI，2026-09-27）
 
 - **Views 主像素路径**：地图是 `Layout` → 一个 `record_all` 的 `MapEffect` → `render::graph::present`。`Scene3dPresenter::present_gpu` 走同一个 `present`，效果顺序是大气前段、`OpaqueEffect`、大气后段。录制顺序只有四个槽：`kBeforeOpaque`、`kOpaque`（地形 / 模型 / 地图世界网格）、`kAfterOpaque`、`kOverlay`（屏幕图标和文字）。`ViewInput` 只有宽高、相机和 `Effect*` 列表。地图相机是视口经纬度的正交；三维在非 Null 后端传入透视相机。`View::mode == kPerspective` 时由宿主提供相机。壳栅格仍用 `ui/gfx`；**禁止** Skia 画 GIS 地图。
-- GDI `MapScene::paint` 为过渡/导出/强制 overlay；GPU 成功后只叠 `paint_annotation_overlay`（注记/选中）。`FORCE_GDI_MAP_OVERLAY=1` / `PREFER_FLYCUBE_2D=0` 可退回。
+- GDI `GisScene::paint` 为过渡/导出/强制 overlay；GPU 成功后只叠 `paint_annotation_overlay`（注记/选中）。`FORCE_GDI_MAP_OVERLAY=1` / `PREFER_FLYCUBE_2D=0` 可退回。
 - Views 主路径不经 leftover RHI session；`rhi3d/public/bridge`（`LeftoverRecorder` / `bind_rhi_present` / `leftover_session`）已删除。
 - Views `MapViewport`：Map Edit/Data/Scene3d 默认优先 Vista；`PREFER_GDI_DEVICE=1` 跳过。
 - 投影只在相机上：地图 `make_ortho_camera`；三维 `set_view_camera`。`set_view_ortho` 只在没设视图相机时给旧的二维种类用。
-- 测试：`map_scene_test` 覆盖 Null `present_gpu`；`rhi_test` / `scene_gpu_test` 默认 Null，`RUN_FLYCUBE_GPU=1` 真 DX12。
+- 测试：`gis_scene_test` 覆盖 Null `present_gpu`；`rhi_test` / `scene_gpu_test` 默认 Null，`RUN_FLYCUBE_GPU=1` 真 DX12。
 - 海洋 GPU FFT：Vista `supports_compute()` 时 compute；否则 CPU。设计：[`docs/superpowers/specs/2026-09-27-views-2d-map-rhi-design.md`](../../docs/superpowers/specs/2026-09-27-views-2d-map-rhi-design.md)。
 - **MapLibre 式 2D 帧**：`vista::MapPass::record` 清 `background_rgba`（`0xAARRGGBB` × opacity，与 `ResolvedPaint` 相同），按 `items` 顺序画到与 `WorldPass::set_view_ortho` 相同的经纬度 ortho。`pixel_space` 的 icon/text 先绕 `anchor_x/anchor_y` 转 `angle_rad`，再从视图像素（y 向下）换进该 ortho。文字经 `GlyphRasterizer` 打进一张图集再画四边形；`halo_width_px > 0` 时先画一圈更大的 `halo_rgba` 实色四边形。栅格/图标由调用方 `load_raster` / `load_icon` 提供 RGBA8，失败则跳过该项。Windows 字形是 `WindowsGlyphRasterizer`（GDI+，无窗口）。Null `create_device(kNull)` 可录空帧和填充三角形。测试 `//src/vista/pass/map:map_effect_test`。
 

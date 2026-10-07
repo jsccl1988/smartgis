@@ -43,7 +43,7 @@ PLUGIN_HOST_EXPORT bool resolve_rel_under_exe(const wchar_t* const* rels,
 // Escape backslash and quote for embedding a path in a JSON string value.
 PLUGIN_HOST_EXPORT std::string json_escape_path(const char* path);
 
-// PluginHost::run_processing only enqueues; MapScene / GisDocument present
+// PluginHost::run_processing only enqueues; GisScene / GisDocument present
 // runs on ProcessingPool::flush_for_test. Showcase seeds must drain first.
 PLUGIN_HOST_EXPORT bool run_processing_flushed(content::PluginHost* host,
                                                const char* id,

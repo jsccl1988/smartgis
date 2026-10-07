@@ -10,8 +10,8 @@
 #include <memory>
 
 #include "content/content_export.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/view_host.h"
+#include "content/public/types.h"
+#include "content/public/tool_session.h"
 
 namespace gis {
 class EditSession;
@@ -41,7 +41,7 @@ class CONTENT_EXPORT LocalToolRouter final : public ToolRouter {
   LocalToolRouter(const LocalToolRouter&) = delete;
   LocalToolRouter& operator=(const LocalToolRouter&) = delete;
 
-  ViewHost* host(uint32_t view_id);
+  ToolSession* tool_session(uint32_t view_id);
   void close(uint32_t view_id);
   void bind_edits(uint32_t view_id, gis::EditSession* edits);
 
@@ -52,7 +52,7 @@ class CONTENT_EXPORT LocalToolRouter final : public ToolRouter {
   void dispatch(uint32_t view_id, const InputEvent& e) override;
 
  private:
-  std::map<uint32_t, std::unique_ptr<ViewHost>> hosts_;
+  std::map<uint32_t, std::unique_ptr<ToolSession>> tool_sessions_;
   ActivateIpc activate_ipc_;
   DispatchIpc dispatch_ipc_;
 };

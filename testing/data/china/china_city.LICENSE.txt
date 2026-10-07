@@ -26,7 +26,7 @@ Layers (china_city.gpkg)
 area, line, point, text
 
 line.kind: river | lake | road  (style: line-water vs line-road)
-line.class (roads): motorway | trunk | primary  (OSM-like tags for MapScene)
+line.class (roads): motorway | trunk | primary  (OSM-like tags for GisScene)
 
 Admin overview: mainland provinces; Taiwan / Hong Kong / Macao dissolved to
 one silhouette each. Paracel (西沙) is omitted so the pack stays inside

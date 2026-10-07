@@ -189,7 +189,7 @@ void CatalogView::populate_demo_layers() {
     return;
   }
   // Two-level demo: group with vector/raster children + a root leaf. Proves
-  // expand chevron, type glyphs, and indent without a live MapScene tree.
+  // expand chevron, type glyphs, and indent without a live GisScene tree.
   LayerTree::LayerDesc streets;
   streets.id = "layer.demo.streets";
   streets.name = "Streets";

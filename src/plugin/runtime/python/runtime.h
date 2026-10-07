@@ -22,10 +22,10 @@ struct GisConsoleBridge {
   std::function<bool(const std::string& path)> write_active_geojson;
   std::function<bool(const std::string& path)> load_result_geojson;
   std::function<int()> feature_count;
-  std::function<void()> refresh_map;
+  std::function<void()> refresh_gis;
   std::function<void()> flush_processing;
 
-  // Scene (MapScene façade) — string / bool only.
+  // Scene (GisScene façade) — string / bool only.
   std::function<std::string()> layers_json;
   std::function<bool(const std::string& id)> select_layer;
   std::function<bool(const std::string& id, bool visible)> set_layer_visible;
@@ -35,13 +35,13 @@ struct GisConsoleBridge {
   std::function<std::string()> present_mode;
   std::function<bool(const std::string& mode)> set_present_mode;
 
-  // Cartographic StyleDocument on the active MapScene.
+  // Cartographic StyleDocument on the active GisScene.
   std::function<bool()> has_style_document;
   std::function<bool(const std::string& path)> load_style_path;
   std::function<void()> clear_style;
   std::function<std::string()> style_summary_json;
 
-  // Interactive tool activation (MapContents::ActivateTool). Unset → False.
+  // Interactive tool activation (GisContents::ActivateTool). Unset → False.
   std::function<bool(uint32_t view_id, const std::string& tool_id)> activate_tool;
 };
 

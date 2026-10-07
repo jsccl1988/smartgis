@@ -3,7 +3,7 @@
 
 #include "content/public/event_bus.h"
 #include "content/view/local_tool_router.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "gis/edit/memory_session.h"
 #include "tool/interaction/interaction.h"
 #include "tool/msg/msg.h"
@@ -35,7 +35,7 @@ content::InputEvent make_event(content::InputEvent::Kind kind, int wheel = 0) {
 
 int main() {
   {
-    content::ViewHost host;
+    content::ToolSession host;
     expect(host.events() != nullptr, "host events");
     expect(host.edits() != nullptr, "host memory edits");
     expect(host.workspace() != nullptr, "host workspace");
@@ -51,7 +51,7 @@ int main() {
   }
 
   {
-    content::ViewHost host;
+    content::ToolSession host;
     int n = 0;
     auto conn = host.events()->subscribe<content::SelectionChanged>(
         [&](const content::SelectionChanged& e) {
@@ -64,7 +64,7 @@ int main() {
   }
 
   {
-    content::ViewHost host;
+    content::ToolSession host;
     expect(host.dispatch_input(make_event(content::InputEvent::Kind::kWheel, 1)),
            "wheel consumed");
     expect(!host.dispatch_input(make_event(content::InputEvent::Kind::kMouseMove)),
@@ -72,7 +72,7 @@ int main() {
   }
 
   {
-    content::ViewHost host;
+    content::ToolSession host;
     expect(host.execute_legacy(tool::kGtMsgViewZoomIn), "legacy zoom_in");
     tool::Interaction* cur = host.workspace()->stack().current();
     expect(cur && std::strcmp(cur->id(), "view.zoom_in") == 0, "legacy mapped");
@@ -85,7 +85,7 @@ int main() {
   }
 
   {
-    content::ViewHost host;
+    content::ToolSession host;
     expect(!host.flashing(), "flash off at start");
     expect(host.execute("flash.start"), "flash.start");
     expect(host.flashing(), "host flashing follows workspace");
@@ -95,7 +95,7 @@ int main() {
 
   {
     gis::MemoryEditSession edits;
-    content::ViewHost host(&edits);
+    content::ToolSession host(&edits);
     expect(host.edits() == &edits, "supplied EditSession");
     gis::FeatureMutation m;
     m.id.len = 1;
@@ -105,7 +105,7 @@ int main() {
   }
 
   {
-    content::ViewHost host;
+    content::ToolSession host;
     int commits = 0;
     auto conn = host.events()->subscribe<content::EditCommitted>(
         [&](const content::EditCommitted& e) {
@@ -137,14 +137,14 @@ int main() {
       ipc_id = tool_id ? tool_id : "";
     });
     router.activate(3, "selection.rect");
-    tool::Interaction* cur = router.host(3)->workspace()->stack().current();
+    tool::Interaction* cur = router.tool_session(3)->workspace()->stack().current();
     expect(cur && std::strcmp(cur->id(), "select.rect") == 0,
            "router local execute");
     expect(ipc_n == 1, "ipc leftover still called");
     expect(ipc_id == "selection.rect", "ipc tool_id");
 
     router.activate(3, "select.polygon");
-    cur = router.host(3)->workspace()->stack().current();
+    cur = router.tool_session(3)->workspace()->stack().current();
     expect(cur && std::strcmp(cur->id(), "select.polygon") == 0,
            "router fallback activate");
     expect(ipc_n == 2, "ipc on interaction id");
@@ -154,13 +154,13 @@ int main() {
     int ptr_n = 0;
     content::LocalToolRouter router;
     router.set_dispatch_ipc([&](uint32_t, const content::InputEvent&) { ++ptr_n; });
-    expect(router.host(1) != nullptr, "lazy host");
+    expect(router.tool_session(1) != nullptr, "lazy host");
     router.dispatch(1, make_event(content::InputEvent::Kind::kWheel, 120));
     expect(ptr_n == 1, "pointer ipc leftover");
   }
 
   {
-    content::ViewHost host;
+    content::ToolSession host;
     int extents = 0;
     int sels = 0;
     int commits = 0;
@@ -205,9 +205,9 @@ int main() {
   }
 
   if (g_fails) {
-    std::fprintf(stderr, "content_view_host_test: %d fail(s)\n", g_fails);
+    std::fprintf(stderr, "content_tool_session_test: %d fail(s)\n", g_fails);
     return 1;
   }
-  std::printf("content_view_host_test: ok\n");
+  std::printf("content_tool_session_test: ok\n");
   return 0;
 }

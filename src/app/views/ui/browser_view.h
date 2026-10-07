@@ -19,7 +19,7 @@
 #include "ui/views/kernel/widget/widget.h"
 
 namespace content {
-class ViewHost;
+class ToolSession;
 }  // namespace content
 
 namespace ui {
@@ -47,7 +47,7 @@ class View;
 }  // namespace ui
 
 namespace content {
-class MapHwndGestures;
+class GisHwndGestures;
 }  // namespace content
 
 namespace app {
@@ -131,7 +131,7 @@ class BrowserView : public BrowserUiDelegate {
   }
 
   ui::views::DrawHost* active_map() const override;
-  content::ViewHost* active_view_host() const override;
+  content::ToolSession* active_tool_session() const override;
   void active_view_size(int* w, int* h) const override;
   bool scene3d_tab_active() const override;
 
@@ -142,7 +142,7 @@ class BrowserView : public BrowserUiDelegate {
   void sync_flash_timer() override;
   void schedule_menu_rebuild() override;
   void schedule_overlay_full_redraw() override;
-  void select_map_tab(int index) override;
+  void select_view_tab(int index) override;
   void activate_inspector_tab(int index) override;
   void show_feature_info_tab() override;
   void sync_status() override;
@@ -186,7 +186,7 @@ class BrowserView : public BrowserUiDelegate {
   void commit_widget_shell_to_maps();
   void commit_widget_shell_to_maps(const ui::views::Rect& dirty);
   void attach_hwnd_gestures();
-  void configure_gestures(content::MapHwndGestures* gestures);
+  void configure_gestures(content::GisHwndGestures* gestures);
   void install_shell_wheel_forward();
   void remove_shell_wheel_forward();
   void rebuild_menus();

@@ -20,7 +20,7 @@ All rights reserved.
 
 
 
-**Architecture:** 不重开制图引擎。`MapScene` 挂可选 `gis::style::StyleDocument` 与 `gis::tile::TileProvider`；`paint` 先画瓦片包络（或解码失败时的色块占位），再按 `resolve` 的 `ResolvedPaint` 画矢量，缺 style 时回退现有 Baidu 分色。导出走内存 DC → BMP 文件。打印插件 `PrintPreviewDialog` 仍为壳；本里程碑以 **Export BMP** 满足「一页位图」验收。
+**Architecture:** 不重开制图引擎。`GisScene` 挂可选 `gis::style::StyleDocument` 与 `gis::tile::TileProvider`；`paint` 先画瓦片包络（或解码失败时的色块占位），再按 `resolve` 的 `ResolvedPaint` 画矢量，缺 style 时回退现有 Baidu 分色。导出走内存 DC → BMP 文件。打印插件 `PrintPreviewDialog` 仍为壳；本里程碑以 **Export BMP** 满足「一页位图」验收。
 
 
 
@@ -64,13 +64,13 @@ All rights reserved.
 
 | --- | --- |
 
-| `src/app/views/map_scene.h` `.cc` | style / basemap 挂接；paint 消费；`export_bmp` |
+| `src/app/views/gis_scene.h` `.cc` | style / basemap 挂接；paint 消费；`export_bmp` |
 
-| `src/app/views/BUILD.gn` | `map_scene` deps → `//src/gis:gis` style+tile |
+| `src/app/views/BUILD.gn` | `gis_scene` deps → `//src/gis:gis` style+tile |
 
 | `testing/data/china/china_city.style.json` | 最小 Style JSON（area/line/point/text） |
 
-| `src/app/views/map_scene_test.cc` | style 着色 + basemap fetch + export 往返 |
+| `src/app/views/gis_scene_test.cc` | style 着色 + basemap fetch + export 往返 |
 
 | `src/app/views/browser_view.*` | 菜单 Export；Open 后可选 load style；basemap 挂 provider |
 
@@ -86,7 +86,7 @@ All rights reserved.
 
 
 
-### Task 1: StyleDocument → MapScene paint
+### Task 1: StyleDocument → GisScene paint
 
 
 
@@ -94,13 +94,13 @@ All rights reserved.
 
 
 
-- [x] **Step 1:** `map_scene_test`：parse 最小 JSON → `set_style_document` → 断言 paint 路径使用非默认色（可通过导出像素抽样，或暴露 `resolve_layer_paint_for_test`）。
+- [x] **Step 1:** `gis_scene_test`：parse 最小 JSON → `set_style_document` → 断言 paint 路径使用非默认色（可通过导出像素抽样，或暴露 `resolve_layer_paint_for_test`）。
 
 - [x] **Step 2:** 实现挂接 + `paint` 内对 `area`/`line`/`point` 调 `gis::style::resolve`。
 
 - [x] **Step 3:** 落地 `testing/data/china/china_city.style.json`；Views 启动/`seed_default` 旁若存在则 `load_style_path`。
 
-- [x] **Step 4:** `build.bat map_scene_test` PASS。不 commit。
+- [x] **Step 4:** `build.bat gis_scene_test` PASS。不 commit。
 
 
 

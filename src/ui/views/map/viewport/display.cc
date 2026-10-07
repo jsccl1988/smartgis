@@ -45,8 +45,8 @@ using detail::fill_map_embed_opaque;
 using detail::init_device_seh;
 using detail::load_first;
 using detail::register_identity_hud_class;
-using detail::route_view_host_input;
-using detail::route_view_host_pointer;
+using detail::route_tool_session_input;
+using detail::route_tool_session_pointer;
 
 namespace {
 
@@ -312,7 +312,7 @@ void DrawHost::display_thread_main() {
           continue;
         }
       }
-      // pause_present must stop this mailbox BeginFrame: MapScene/style
+      // pause_present must stop this mailbox BeginFrame: GisScene/style
       // mutations on UI otherwise race GPU present (china-ok 0xC0000005).
       if (present_paused_.load(std::memory_order_acquire)) {
         continue;

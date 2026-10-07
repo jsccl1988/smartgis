@@ -28,7 +28,7 @@
 #include "base/process/switches.h"
 #include "content/browser/debug/debug_agent.h"
 #include "content/browser/session/browser_session.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "ui/gis/debug/debug_console_panel.h"
 #include "ui/gis/debug/diagnostic_tools_panel.h"
 #include "ui/views/kernel/shell/event.h"
@@ -86,7 +86,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
   }
   host_->bind_gis_python_bridge();
   content::DebugAgentHost host;
-  host.refresh_map = [this] {
+  host.refresh_gis = [this] {
     if (host_->browser_) {
       host_->browser_->on_view_command("view.refresh", -1, false, 0, 0);
     }

@@ -21,7 +21,7 @@ All rights reserved.
 - Namespace stays `app`. New functions are `snake_case`. Types stay PascalCase.
 - No third public namespace. No Qt. No shim headers. Do not nest past `src/app/views/<module>/`.
 - Do not change paint results, gesture math, atmosphere defaults, or GDI/GPU fallback.
-- Do not move `shell/` or `input/`. Do not change `ui::views::MapViewport` or `content::MapContents`.
+- Do not move `shell/` or `input/`. Do not change `ui::views::MapViewport` or `content::GisContents`.
 - Agents do not run `build.bat`, `gn`, `ninja`, `cl`, or test binaries. The human compiles.
 - Work on `master`. Do not create a branch. Do not commit unless the user asks.
 - Copyright year 2026. New comments in English. Colocate each header with its `.cc`.
@@ -60,7 +60,7 @@ class ViewFrame {
 
 Copy the bodies from `MapScene::apply_pan`, `apply_zoom_at`, `apply_pinch`, `apply_world_extent`, `view_world_extent`, `map_to_view`, `view_to_map`. Defaults: `pan_x_ = 0`, `pan_y_ = 0`, `scale_ = 1`. `fit_extent`: if `scene.has_china_extent()` call `apply_world_extent(kChinaLonLatExtent, ...)`; else `scene.polygon_fit_box` and keep the `< 1.0` pad plus `frame_world_extent` margin `0.08`. Empty box returns without changing pan or scale.
 
-`OrbitFrame` (`app/views/camera/orbit_frame.h`): yaw/pitch/distance/extent, `apply_wheel_at`, `apply_pan`, `apply_pinch`, `apply_nav_key` (W/S/A/D and arrows only; K/J return false), `apply_draft` (no wireframe), `camera_matrices`, `camera_matrices_ortho`, `project`, `project_lon_lat`, `remember_view_size`, `world_extent` (`china_or`), `apply_world_extent`, `reset`. Defaults: yaw `kScene3dDefaultYaw`, pitch `0.4f`, distance `3.2f`. `kFovY = 0.785398f`. No `MapContents*`. No `push_extent_to_contents` / `pull_extent_from_contents`.
+`OrbitFrame` (`app/views/camera/orbit_frame.h`): yaw/pitch/distance/extent, `apply_wheel_at`, `apply_pan`, `apply_pinch`, `apply_nav_key` (W/S/A/D and arrows only; K/J return false), `apply_draft` (no wireframe), `camera_matrices`, `camera_matrices_ortho`, `project`, `project_lon_lat`, `remember_view_size`, `world_extent` (`china_or`), `apply_world_extent`, `reset`. Defaults: yaw `kScene3dDefaultYaw`, pitch `0.4f`, distance `3.2f`. `kFovY = 0.785398f`. No `GisContents*`. No `push_extent_to_contents` / `pull_extent_from_contents`.
 
 ### Track B — `src/app/views/present/`
 

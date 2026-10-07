@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/browser/input/map_hwnd_gestures.h"
+#include "content/browser/session/gis_hwnd_gestures.h"
 
 #include <cstdint>
 #include <cstring>
@@ -21,11 +21,11 @@ constexpr UINT_PTR kSubclassId = 0x53474D50u;  // 'SGMP'
 
 }  // namespace
 
-MapHwndGestures::~MapHwndGestures() {
+GisHwndGestures::~GisHwndGestures() {
   detach();
 }
 
-void MapHwndGestures::reset_state() {
+void GisHwndGestures::reset_state() {
   pinch_.reset();
   last_zoom_arg_ = 0;
   zooming_ = false;
@@ -37,7 +37,7 @@ void MapHwndGestures::reset_state() {
   rdown_ = false;
 }
 
-void MapHwndGestures::configure_hwnd(HWND hwnd, PinchFn on_pinch,
+void GisHwndGestures::configure_hwnd(HWND hwnd, PinchFn on_pinch,
                                      PanFn on_pan) {
   hwnd_ = hwnd;
   on_pinch_ = std::move(on_pinch);
@@ -56,11 +56,11 @@ void MapHwndGestures::configure_hwnd(HWND hwnd, PinchFn on_pinch,
   SetGestureConfig(hwnd_, 0, 2, gc, sizeof(GESTURECONFIG));
 }
 
-void MapHwndGestures::clear_callbacks() {
+void GisHwndGestures::clear_callbacks() {
   has_callbacks_ = false;
   // Assign empty when the slot looks live. Debug CRT poison in the first
   // pointer word (0xCDCDCDCDCDCDCDCD) means layout skew / UAF — _Tidy AVs
-  // (browse.3d select_map_tab → attach → detach). Reconstruct in place.
+  // (browse.3d select_view_tab → attach → detach). Reconstruct in place.
   auto reset_fn = [](auto& fn) {
     using Fn = std::remove_reference_t<decltype(fn)>;
     uintptr_t word0 = 0;
@@ -82,19 +82,19 @@ void MapHwndGestures::clear_callbacks() {
   reset_fn(on_resized_);
 }
 
-void MapHwndGestures::set_right_click(RightClickFn fn) {
+void GisHwndGestures::set_right_click(RightClickFn fn) {
   on_right_click_ = std::move(fn);
 }
 
-void MapHwndGestures::set_extent_watch(ExtentWatchFn fn) {
+void GisHwndGestures::set_extent_watch(ExtentWatchFn fn) {
   on_extent_watch_ = std::move(fn);
 }
 
-void MapHwndGestures::set_viewport_resized(ResizeFn fn) {
+void GisHwndGestures::set_viewport_resized(ResizeFn fn) {
   on_resized_ = std::move(fn);
 }
 
-bool MapHwndGestures::begin_extent_sample() {
+bool GisHwndGestures::begin_extent_sample() {
   if (extent_open_) {
     return false;
   }
@@ -105,7 +105,7 @@ bool MapHwndGestures::begin_extent_sample() {
   return true;
 }
 
-void MapHwndGestures::end_extent_sample() {
+void GisHwndGestures::end_extent_sample() {
   if (!extent_open_) {
     return;
   }
@@ -116,7 +116,7 @@ void MapHwndGestures::end_extent_sample() {
   }
 }
 
-void MapHwndGestures::attach(HWND hwnd, PinchFn on_pinch, PanFn on_pan) {
+void GisHwndGestures::attach(HWND hwnd, PinchFn on_pinch, PanFn on_pan) {
   // Skip detach when never wired — avoids tidy on unconstructed poison when
   // BrowserSession layout skew leaves has_callbacks_ non-zero garbage.
   if (hwnd_ || subclassed_ || has_callbacks_) {
@@ -133,7 +133,7 @@ void MapHwndGestures::attach(HWND hwnd, PinchFn on_pinch, PanFn on_pan) {
   configure_hwnd(hwnd, std::move(on_pinch), std::move(on_pan));
 }
 
-void MapHwndGestures::bind(HWND hwnd, PinchFn on_pinch, PanFn on_pan) {
+void GisHwndGestures::bind(HWND hwnd, PinchFn on_pinch, PanFn on_pan) {
   if (hwnd_ || subclassed_ || has_callbacks_) {
     detach();
   }
@@ -144,7 +144,7 @@ void MapHwndGestures::bind(HWND hwnd, PinchFn on_pinch, PanFn on_pan) {
   configure_hwnd(hwnd, std::move(on_pinch), std::move(on_pan));
 }
 
-void MapHwndGestures::detach() {
+void GisHwndGestures::detach() {
   if (extent_open_) {
     end_extent_sample();
   }
@@ -159,17 +159,17 @@ void MapHwndGestures::detach() {
   reset_state();
 }
 
-bool MapHwndGestures::try_handle(UINT msg, WPARAM wparam, LPARAM lparam) {
+bool GisHwndGestures::try_handle(UINT msg, WPARAM wparam, LPARAM lparam) {
   if (!hwnd_) {
     return false;
   }
   return on_message(msg, wparam, lparam);
 }
 
-LRESULT CALLBACK MapHwndGestures::subclass_proc(HWND hwnd, UINT msg,
+LRESULT CALLBACK GisHwndGestures::subclass_proc(HWND hwnd, UINT msg,
                                                 WPARAM wparam, LPARAM lparam,
                                                 UINT_PTR id, DWORD_PTR data) {
-  auto* self = reinterpret_cast<MapHwndGestures*>(data);
+  auto* self = reinterpret_cast<GisHwndGestures*>(data);
   if (self && id == kSubclassId) {
     if (msg == WM_NCDESTROY) {
       self->detach();
@@ -221,7 +221,7 @@ LRESULT CALLBACK MapHwndGestures::subclass_proc(HWND hwnd, UINT msg,
   return DefSubclassProc(hwnd, msg, wparam, lparam);
 }
 
-bool MapHwndGestures::on_message(UINT msg, WPARAM wparam, LPARAM lparam) {
+bool GisHwndGestures::on_message(UINT msg, WPARAM wparam, LPARAM lparam) {
   if (msg == WM_GESTURE) {
     return handle_gesture(lparam);
   }
@@ -241,7 +241,7 @@ bool MapHwndGestures::on_message(UINT msg, WPARAM wparam, LPARAM lparam) {
   return false;
 }
 
-bool MapHwndGestures::handle_gesture(LPARAM lparam) {
+bool GisHwndGestures::handle_gesture(LPARAM lparam) {
   GESTUREINFO gi = {};
   gi.cbSize = sizeof(gi);
   const auto handle = reinterpret_cast<HGESTUREINFO>(lparam);
@@ -313,7 +313,7 @@ bool MapHwndGestures::handle_gesture(LPARAM lparam) {
   return true;
 }
 
-void MapHwndGestures::handle_pointer(UINT msg, WPARAM wparam, LPARAM lparam) {
+void GisHwndGestures::handle_pointer(UINT msg, WPARAM wparam, LPARAM lparam) {
 #ifdef WM_POINTERDOWN
   // During an active GID_PAN session, skip pinch sampling so pan is not
   // mixed with accidental scale from the same two contacts.

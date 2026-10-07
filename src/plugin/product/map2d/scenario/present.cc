@@ -21,7 +21,7 @@ int scenario_present(HarnessShell& browser) {
       browser.orbit_frame()->camera_matrices(1.333f);
   if (cam.kind != render::rhi::CameraKind::kPerspective ||
       std::fabs(yaw_after - content::kScene3dDefaultYaw) < 0.001f) {
-    browser.detach_maps();
+    browser.detach_views();
     return 27;
   }
   // View matrix must not be identity after orbit.
@@ -34,7 +34,7 @@ int scenario_present(HarnessShell& browser) {
     }
   }
   if (!view_moved) {
-    browser.detach_maps();
+    browser.detach_views();
     return 28;
   }
   if (scene &&
@@ -47,7 +47,7 @@ int scenario_present(HarnessShell& browser) {
     if (!browser.scene3d()->present_gpu(
             static_cast<render::rhi::Device*>(scene->rhi_device()), 64, 64)) {
       std::fprintf(stderr, "FlyCube present_gpu after orbit failed\n");
-      browser.detach_maps();
+      browser.detach_views();
       return 29;
     }
     browser.mark("flycube-camera-ok");

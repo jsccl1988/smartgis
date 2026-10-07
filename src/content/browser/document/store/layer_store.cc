@@ -16,18 +16,18 @@ bool is_china_plpt_id(const std::string& id) {
          id == "china.text";
 }
 
-content::LayerKind resolve_layer_kind(const MapLayer& layer) {
+content::LayerKind resolve_layer_kind(const GisLayer& layer) {
   if (layer.kind != content::LayerKind::kUnknown) {
     return layer.kind;
   }
-  // MapLayer only stores vector MapFeature geometry today.
+  // GisLayer only stores vector GisFeature geometry today.
   if (!layer.features.empty()) {
     return content::LayerKind::kVector;
   }
   return content::LayerKind::kUnknown;
 }
 
-content::LayerDesc make_leaf_desc(const MapLayer& layer,
+content::LayerDesc make_leaf_desc(const GisLayer& layer,
                                   const std::string& active_id) {
   content::LayerDesc d;
   d.id = layer.id;
@@ -48,8 +48,8 @@ void LayerStore::clear() {
   last_open_was_ogr_ = false;
 }
 
-MapLayer* LayerStore::find_layer(const std::string& id) {
-  for (MapLayer& layer : layers_) {
+GisLayer* LayerStore::find_layer(const std::string& id) {
+  for (GisLayer& layer : layers_) {
     if (layer.id == id) {
       return &layer;
     }
@@ -57,8 +57,8 @@ MapLayer* LayerStore::find_layer(const std::string& id) {
   return nullptr;
 }
 
-const MapLayer* LayerStore::find_layer(const std::string& id) const {
-  for (const MapLayer& layer : layers_) {
+const GisLayer* LayerStore::find_layer(const std::string& id) const {
+  for (const GisLayer& layer : layers_) {
     if (layer.id == id) {
       return &layer;
     }
@@ -66,9 +66,9 @@ const MapLayer* LayerStore::find_layer(const std::string& id) const {
   return nullptr;
 }
 
-MapFeature* LayerStore::find_feature(const content::FeatureId& id) {
-  for (MapLayer& layer : layers_) {
-    for (MapFeature& f : layer.features) {
+GisFeature* LayerStore::find_feature(const content::FeatureId& id) {
+  for (GisLayer& layer : layers_) {
+    for (GisFeature& f : layer.features) {
       if (feature_id_eq(f.id, id)) {
         return &f;
       }
@@ -77,10 +77,10 @@ MapFeature* LayerStore::find_feature(const content::FeatureId& id) {
   return nullptr;
 }
 
-const MapFeature* LayerStore::find_feature(
+const GisFeature* LayerStore::find_feature(
     const content::FeatureId& id) const {
-  for (const MapLayer& layer : layers_) {
-    for (const MapFeature& f : layer.features) {
+  for (const GisLayer& layer : layers_) {
+    for (const GisFeature& f : layer.features) {
       if (feature_id_eq(f.id, id)) {
         return &f;
       }
@@ -112,7 +112,7 @@ void LayerStore::ensure_active_layer_or_front() {
 
 std::vector<content::LayerDesc> LayerStore::layer_descs() const {
   std::vector<content::LayerDesc> out;
-  // Cap reserve: a skewed BrowserSession/MapScene layout (parallel out/Debug
+  // Cap reserve: a skewed BrowserSession/GisScene layout (parallel out/Debug
   // rebuild) can leave layers_ as MSVC debug-fill; size() then looks like
   // ~10^18 and vector::reserve throws std::length_error / process abort.
   constexpr size_t kMaxLayers = 1u << 20;
@@ -126,7 +126,7 @@ std::vector<content::LayerDesc> LayerStore::layer_descs() const {
   china.reserve(4);
   other.reserve(n);
   bool china_any_visible = false;
-  for (const MapLayer& layer : layers_) {
+  for (const GisLayer& layer : layers_) {
     content::LayerDesc d = make_leaf_desc(layer, active_layer_id_);
     if (is_china_plpt_id(layer.id)) {
       china_any_visible = china_any_visible || d.visible;
@@ -170,7 +170,7 @@ size_t LayerStore::feature_count() const {
     return 0;
   }
   size_t n = 0;
-  for (const MapLayer& layer : layers_) {
+  for (const GisLayer& layer : layers_) {
     n += layer.features.size();
   }
   return n;
@@ -186,7 +186,7 @@ bool LayerStore::create_layer(const std::string& name,
   while (find_layer(id)) {
     id = name + "_" + std::to_string(suffix++);
   }
-  MapLayer layer;
+  GisLayer layer;
   layer.id = id;
   layer.name = name;
   layer.visible = true;
@@ -199,7 +199,7 @@ bool LayerStore::create_layer(const std::string& name,
 bool LayerStore::remove_layer(const std::string& id) {
   const auto it =
       std::find_if(layers_.begin(), layers_.end(),
-                   [&](const MapLayer& l) { return l.id == id; });
+                   [&](const GisLayer& l) { return l.id == id; });
   if (it == layers_.end()) {
     return false;
   }
@@ -212,7 +212,7 @@ bool LayerStore::remove_layer(const std::string& id) {
 }
 
 bool LayerStore::set_layer_visible(const std::string& id, bool visible) {
-  MapLayer* layer = find_layer(id);
+  GisLayer* layer = find_layer(id);
   if (!layer) {
     return false;
   }
@@ -251,28 +251,28 @@ bool LayerStore::move_layer(const std::string& id, int delta) {
   return true;
 }
 
-void LayerStore::add_sample_features(MapLayer* layer, const std::string& tag) {
+void LayerStore::add_sample_features(GisLayer* layer, const std::string& tag) {
   if (!layer) {
     return;
   }
   if (layer->kind == content::LayerKind::kUnknown) {
     layer->kind = content::LayerKind::kVector;
   }
-  MapFeature road;
+  GisFeature road;
   road.id = next_feature_id();
   road.kind = GeomKind::kLine;
   road.points = {{80, 220}, {220, 140}, {420, 280}, {620, 200}};
   road.fields = {{"name", tag + " road"}, {"type", "line"}};
   layer->features.push_back(std::move(road));
 
-  MapFeature parcel;
+  GisFeature parcel;
   parcel.id = next_feature_id();
   parcel.kind = GeomKind::kPolygon;
   parcel.points = {{160, 300}, {280, 300}, {280, 400}, {160, 400}, {160, 300}};
   parcel.fields = {{"name", tag + " parcel"}, {"type", "polygon"}};
   layer->features.push_back(std::move(parcel));
 
-  MapFeature node;
+  GisFeature node;
   node.id = next_feature_id();
   node.kind = GeomKind::kPoint;
   node.points = {{320, 180}};
@@ -281,8 +281,8 @@ void LayerStore::add_sample_features(MapLayer* layer, const std::string& tag) {
 }
 
 void LayerStore::clear_selection() {
-  for (MapLayer& layer : layers_) {
-    for (MapFeature& f : layer.features) {
+  for (GisLayer& layer : layers_) {
+    for (GisFeature& f : layer.features) {
       f.selected = false;
     }
   }
@@ -291,7 +291,7 @@ void LayerStore::clear_selection() {
 
 bool LayerStore::select_feature(const content::FeatureId& id) {
   clear_selection();
-  MapFeature* f = find_feature(id);
+  GisFeature* f = find_feature(id);
   if (!f) {
     return false;
   }
@@ -300,11 +300,11 @@ bool LayerStore::select_feature(const content::FeatureId& id) {
   return true;
 }
 
-const MapFeature* LayerStore::selected_feature() const {
+const GisFeature* LayerStore::selected_feature() const {
   return find_feature(selected_id_);
 }
 
-void LayerStore::replace_layers(std::vector<MapLayer> loaded) {
+void LayerStore::replace_layers(std::vector<GisLayer> loaded) {
   layers_.clear();
   layers_.swap(loaded);
   active_layer_id_ = layers_.empty() ? std::string() : layers_.front().id;

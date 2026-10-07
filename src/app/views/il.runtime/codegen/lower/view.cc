@@ -100,7 +100,7 @@ std::optional<Action> lower_camera_fly(const CallStmt& c, VarMap*) {
 
 std::optional<Action> try_lower_view_call(const CallStmt& c, VarMap* vars) {
   return lower_ops(
-      c, vars, op(lower_host<ir::detach_maps>, "detach_maps"),
+      c, vars, op(lower_host<ir::detach_views>, "detach_views"),
       op(lower_host<ir::stop_map_timers>, "stop_map_timers"),
       op(lower_host<ir::resume_map_timers>, "resume_map_timers"),
       op(lower_host<ir::invalidate_map2d>, "invalidate_map2d"),
@@ -108,7 +108,7 @@ std::optional<Action> try_lower_view_call(const CallStmt& c, VarMap* vars) {
       op(lower_activate_tool, "activate_tool"),
       op(lower_wait_ready, "wait_ready", "wait_map_ready"),
       op(lower_wait_viewport, "wait_viewport"),
-      op(lower_host<ir::edit_host_ready>, "require_edit_host", "expect_host"),
+      op(lower_host<ir::edit_tool_session_ready>, "require_edit_tool_session", "expect_host"),
       op(lower_browse_stress, "browse_stress"),
       op(lower_capture_browse_still, "capture_browse_still"),
       op(lower_host<ir::fps_bench>, "fps_bench"),

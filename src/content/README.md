@@ -5,7 +5,7 @@ All rights reserved.
 
 # `src/content` — embedder API + browser session
 
-One product DLL (`dll_stem=content`). Embedders include public headers and `ContentClient` only.
+One product DLL (`dll_stem=content`). Embedders include public headers and `GisContentsClient` only.
 Child-process launch lives in `content/browser/child`. Product headers do not include renderer/gpu headers.
 In-process browser session (`:browser_session` and present/GDI) is a **source_set**:
 Views/exe link it; it is **not** absorbed into `content.dll` (except the
@@ -13,12 +13,11 @@ exported Scene3d engine SoT — see `browser/present/scene3d/session/`).
 
 ```
 content/
-  public/          # 7 embedder headers (`map_contents.h` includes MapContentsObserver)
+  public/          # 7 embedder headers (abstract GisDocument; no gis_bootstrap / GisSceneDocument)
   app/             # ContentMain + process-type switch
-  browser/         # C10: 12 siblings. C11 tighten: contents/session/document/camera/present/capability/debug
+  browser/         # C11: contents/session/document/camera/present/capability/debug/child
   renderer/        # --type=renderer child
-  view/            # in-process ViewHost + LocalToolRouter
-  embed/           # HWND-free embed sample
+  view/            # in-process ToolSession + LocalToolRouter
   common/          # host pipe + frame ABI
 ```
 
@@ -36,9 +35,9 @@ public namespace.
 
 | Label | Role |
 | --- | --- |
-| `//src/content:content` | DLL (`content_sources` + view_host + embed + map_bootstrap) |
-| `:browser_session` | Owns `session/` + document/camera/present/input + `MapContents*` |
-| `:map_scene` / `:map_camera` / `:map_present` / `:scene3d_present` / `:map_hwnd_gestures` | Capability source_sets |
+| `//src/content:content` | DLL (`content_sources` + tool_session + gis_bootstrap) |
+| `:browser_session` | Owns `session/` + document/camera/present + gestures + `GisContents*` |
+| `:gis_scene` / `:gis_camera` / `:gis_present` / `:scene3d_present` / `:gis_hwnd_gestures` | Capability source_sets |
 | `:debug_agent` / `:capability` | Opt-in console + IL host |
 
 ## Verify
@@ -46,9 +45,9 @@ public namespace.
 ```bat
 build.bat debug content
 build.bat debug browser_session
-build.bat debug content_map_bootstrap_test
+build.bat debug content_gis_bootstrap_test
 build.bat debug scene3d_presenter_test
-build.bat debug map_scene_test
+build.bat debug gis_scene_test
 build.bat debug debug_agent_test
 ```
 

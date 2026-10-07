@@ -205,8 +205,8 @@ PyObject* analysis_run(PyObject*, PyObject* args, PyObject* kwargs) {
     }
     text = std::string("ok: ") + processing_id +
            " features=" + std::to_string(features);
-    if (g_gis_bridge.refresh_map) {
-      g_gis_bridge.refresh_map();
+    if (g_gis_bridge.refresh_gis) {
+      g_gis_bridge.refresh_gis();
     }
   }
 
@@ -334,8 +334,8 @@ PyObject* scene_select_layer(PyObject*, PyObject* args) {
   if (!g_gis_bridge.select_layer(id ? id : "")) {
     Py_RETURN_FALSE;
   }
-  if (g_gis_bridge.refresh_map) {
-    g_gis_bridge.refresh_map();
+  if (g_gis_bridge.refresh_gis) {
+    g_gis_bridge.refresh_gis();
   }
   Py_RETURN_TRUE;
 }
@@ -352,8 +352,8 @@ PyObject* scene_set_visible(PyObject*, PyObject* args) {
   if (!g_gis_bridge.set_layer_visible(id ? id : "", on != 0)) {
     Py_RETURN_FALSE;
   }
-  if (g_gis_bridge.refresh_map) {
-    g_gis_bridge.refresh_map();
+  if (g_gis_bridge.refresh_gis) {
+    g_gis_bridge.refresh_gis();
   }
   Py_RETURN_TRUE;
 }
@@ -380,8 +380,8 @@ PyObject* scene_open(PyObject*, PyObject* args) {
   if (!g_gis_bridge.open_path(path ? path : "")) {
     Py_RETURN_FALSE;
   }
-  if (g_gis_bridge.refresh_map) {
-    g_gis_bridge.refresh_map();
+  if (g_gis_bridge.refresh_gis) {
+    g_gis_bridge.refresh_gis();
   }
   Py_RETURN_TRUE;
 }
@@ -432,11 +432,11 @@ PyObject* scene_set_present_mode(PyObject*, PyObject* args) {
 }
 
 PyMethodDef kSceneMethods[] = {
-    {"layers", scene_layers, METH_NOARGS, "List MapScene layers."},
+    {"layers", scene_layers, METH_NOARGS, "List GisScene layers."},
     {"select_layer", scene_select_layer, METH_VARARGS, "Select layer by id."},
     {"set_visible", scene_set_visible, METH_VARARGS, "Set layer visibility."},
     {"extent", scene_extent, METH_NOARGS, "Map extent dict or None."},
-    {"open", scene_open, METH_VARARGS, "Open path into MapScene."},
+    {"open", scene_open, METH_VARARGS, "Open path into GisScene."},
     {"write", scene_write, METH_VARARGS, "Write active layer GeoJSON."},
     {"feature_count", scene_feature_count, METH_NOARGS, "Feature count."},
     {"present_mode", scene_present_mode, METH_NOARGS, "map2d|data|scene3d."},
@@ -466,8 +466,8 @@ PyObject* style_load(PyObject*, PyObject* args) {
   if (!g_gis_bridge.load_style_path(path ? path : "")) {
     Py_RETURN_FALSE;
   }
-  if (g_gis_bridge.refresh_map) {
-    g_gis_bridge.refresh_map();
+  if (g_gis_bridge.refresh_gis) {
+    g_gis_bridge.refresh_gis();
   }
   Py_RETURN_TRUE;
 }
@@ -477,8 +477,8 @@ PyObject* style_clear(PyObject*, PyObject*) {
     return bridge_required("clear_style");
   }
   g_gis_bridge.clear_style();
-  if (g_gis_bridge.refresh_map) {
-    g_gis_bridge.refresh_map();
+  if (g_gis_bridge.refresh_gis) {
+    g_gis_bridge.refresh_gis();
   }
   Py_RETURN_NONE;
 }
@@ -503,9 +503,9 @@ PyMethodDef kStyleMethods[] = {
 };
 
 PyModuleDef kSceneMod = {PyModuleDef_HEAD_INIT, "smartgis.gis.scene",
-                         "MapScene 2D/3D document façade.", -1, kSceneMethods};
+                         "GisScene 2D/3D document façade.", -1, kSceneMethods};
 PyModuleDef kStyleMod = {PyModuleDef_HEAD_INIT, "smartgis.gis.style",
-                         "Cartographic StyleDocument on MapScene.", -1,
+                         "Cartographic StyleDocument on GisScene.", -1,
                          kStyleMethods};
 PyModuleDef kGisMod = {
     PyModuleDef_HEAD_INIT, "smartgis.gis",

@@ -96,7 +96,7 @@ All rights reserved.
         <p><code>ProcessingPool</code> worker</p>
         <p><code>gis/analysis</code> / <code>algorithm/</code></p>
         <p>产物文件 + <code>operation_result</code> JSON</p>
-        <p>禁止 <code>MapScene</code> / Views</p>
+        <p>禁止 <code>GisScene</code> / Views</p>
       </div>
       <div class="lane gpu">
         <h3>Present（插件）</h3>
@@ -125,7 +125,7 @@ All rights reserved.
   <section class="panel">
     <h2>当前债（禁止再扩大）</h2>
     <p class="meta"><code>Browser::init</code> → <code>wire_plugin_analysis_writers</code> → 全局 writer。chrome 认识淹没掩膜与矿体网格。双轨期 shim 可暂留，不得新增 writer 类型。</p>
-    <div class="step bad" style="margin-top:8px"><strong>反模式</strong>产品 compute 结束调用 <code>g_mask_writer</code>，shell 再画 <code>MapScene</code>。</div>
+    <div class="step bad" style="margin-top:8px"><strong>反模式</strong>产品 compute 结束调用 <code>g_mask_writer</code>，shell 再画 <code>GisScene</code>。</div>
   </section>
 </div>
 <script>

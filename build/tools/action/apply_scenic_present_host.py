@@ -297,7 +297,7 @@ S3_H_TEXT = r"""// Copyright (c) 2026 The Mogu Authors.
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
 #include "content/browser/present/scene3d/software/scene3d_software_painter.h"
-#include "content/public/map_layer_types.h"
+#include "content/public/types.h"
 #include "render/rhi/rhi.h"
 #include "scenic/engine.h"
 #include "tool/draft/draft.h"
@@ -305,7 +305,7 @@ S3_H_TEXT = r"""// Copyright (c) 2026 The Mogu Authors.
 
 namespace content {
 
-class MapContents;
+class GisContents;
 class MapScene;
 class ViewFrame;
 
@@ -333,7 +333,7 @@ class Scene3dPresenter {
   void bind_orbit(const OrbitFrame* orbit);
   void bind_map(const MapScene* scene);
   void bind_label_frame(const ViewFrame* frame);
-  void bind_contents(MapContents* session, uint32_t view_id);
+  void bind_contents(GisContents* session, uint32_t view_id);
   void reset();
   void apply_draft(const tool::Draft& draft);
 
@@ -380,7 +380,7 @@ class Scene3dPresenter {
   Scene3dSoftwarePainter software_;
 
   const ViewFrame* label_frame_ = nullptr;
-  MapContents* contents_ = nullptr;
+  GisContents* contents_ = nullptr;
   const MapScene* map_scene_ = nullptr;
   uint32_t view_id_ = 0;
 
@@ -403,7 +403,7 @@ S3_CC_TEXT = r"""// Copyright (c) 2026 The Mogu Authors.
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/host/scenic_scene_bind.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
-#include "content/public/map_contents.h"
+#include "content/public/gis_contents.h"
 #include "base/trace/event/process_trace.h"
 
 #include <cstdlib>
@@ -469,7 +469,7 @@ void Scene3dPresenter::bind_map(const MapScene* scene) {
   rebind_software();
 }
 
-void Scene3dPresenter::bind_contents(MapContents* session, uint32_t view_id) {
+void Scene3dPresenter::bind_contents(GisContents* session, uint32_t view_id) {
   contents_ = session;
   view_id_ = view_id;
   software_.set_hosts_shared_scene(hosts_shared_scene());

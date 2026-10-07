@@ -12,14 +12,14 @@
 #endif
 #include <windows.h>
 
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "content/browser/session/browser_session.h"
 #include "content/public/plugin_host.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 
 namespace content {
-class MapContents;
+class GisContents;
 class PluginHost;
 }  // namespace content
 
@@ -51,22 +51,22 @@ class HarnessShell {
   virtual ui::views::DrawHost* draw_host() const = 0;
   virtual ui::views::DrawHost* data_draw_host() const = 0;
   virtual ui::views::DrawHost* scene_draw_host() const = 0;
-  virtual content::ViewHost* edit_view_host() const = 0;
-  virtual content::ViewHost* scene_host() = 0;
-  virtual content::MapScene* document() = 0;
+  virtual content::ToolSession* edit_tool_session() const = 0;
+  virtual content::ToolSession* scene_tool_session() = 0;
+  virtual content::GisScene* document() = 0;
   virtual content::Scene3dPresenter* scene3d() = 0;
   virtual content::Scene3dStereoSession* scene3d_stereo() = 0;
   virtual content::ViewFrame* view_frame() = 0;
   virtual content::OrbitFrame* orbit_frame() = 0;
   virtual content::Map2dPresenter* map2d() = 0;
-  virtual content::MapContents* map_contents() = 0;
+  virtual content::GisContents* gis_contents() = 0;
   virtual content::PluginHost* plugin_host() = 0;
 
   virtual bool run_tool_command(std::string_view command_id) = 0;
   virtual void refit_active_view() = 0;
   virtual void refresh_inspectors() = 0;
   virtual bool run_m2_harness_hooks(std::string* err) = 0;
-  virtual void select_map_tab(int index) = 0;
+  virtual void select_view_tab(int index) = 0;
   virtual void on_view_command(std::string_view command_id, int bookmark_index,
                                bool from_context, int view_x, int view_y) = 0;
   virtual void fit_map_extent() = 0;
@@ -75,7 +75,7 @@ class HarnessShell {
   virtual void mark(const char* step) = 0;
   virtual void mark_named(const wchar_t* leaf, const char* step,
                           bool truncate) = 0;
-  virtual void detach_maps() = 0;
+  virtual void detach_views() = 0;
   virtual void finish_scene3d(bool borrowed_shell) = 0;
   virtual void stop_present_timers() = 0;
   virtual void resume_present_timers() = 0;

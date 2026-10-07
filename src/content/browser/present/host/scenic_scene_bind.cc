@@ -3,10 +3,10 @@
 
 #include "content/browser/present/host/scenic_scene_bind.h"
 
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 
 #include <algorithm>
 #include <utility>
@@ -20,15 +20,15 @@ namespace content {
 namespace detail {
 namespace {
 
-scenic::GeomKind to_scenic_kind(MapScene::GeomKind kind) {
+scenic::GeomKind to_scenic_kind(GisScene::GeomKind kind) {
   switch (kind) {
-    case MapScene::GeomKind::kLine:
+    case GisScene::GeomKind::kLine:
       return scenic::GeomKind::kLine;
-    case MapScene::GeomKind::kPolygon:
+    case GisScene::GeomKind::kPolygon:
       return scenic::GeomKind::kPolygon;
-    case MapScene::GeomKind::kText:
+    case GisScene::GeomKind::kText:
       return scenic::GeomKind::kText;
-    case MapScene::GeomKind::kPoint:
+    case GisScene::GeomKind::kPoint:
       return scenic::GeomKind::kPoint;
   }
   return scenic::GeomKind::kPoint;
@@ -43,7 +43,7 @@ struct DraftItem {
 
 }  // namespace
 
-void fill_scenic_draw_items(const MapScene* scene, double scale,
+void fill_scenic_draw_items(const GisScene* scene, double scale,
                             std::vector<scenic::Vertex2>* xy,
                             std::vector<scenic::DrawItem>* items) {
   if (!xy || !items) {
@@ -57,11 +57,11 @@ void fill_scenic_draw_items(const MapScene* scene, double scale,
 
   size_t vert_n = 0;
   size_t feat_n = 0;
-  for (const MapScene::Layer& layer : scene->layers()) {
+  for (const GisScene::Layer& layer : scene->layers()) {
     if (!layer.visible) {
       continue;
     }
-    for (const MapScene::Feature& f : layer.features) {
+    for (const GisScene::Feature& f : layer.features) {
       if (f.points.empty()) {
         continue;
       }
@@ -83,18 +83,18 @@ void fill_scenic_draw_items(const MapScene* scene, double scale,
       std::min(vert_n, kMaxFeatures * kMaxVertsPerFeature);
 
   struct RankedFeature {
-    const MapScene::Layer* layer = nullptr;
-    const MapScene::Feature* feature = nullptr;
+    const GisScene::Layer* layer = nullptr;
+    const GisScene::Feature* feature = nullptr;
     scenic::GeomKind kind = scenic::GeomKind::kPoint;
     size_t vertex_count = 0;
   };
   std::vector<RankedFeature> ranked;
   ranked.reserve(feat_n);
-  for (const MapScene::Layer& layer : scene->layers()) {
+  for (const GisScene::Layer& layer : scene->layers()) {
     if (!layer.visible) {
       continue;
     }
-    for (const MapScene::Feature& f : layer.features) {
+    for (const GisScene::Feature& f : layer.features) {
       if (f.points.empty()) {
         continue;
       }
@@ -144,7 +144,7 @@ void fill_scenic_draw_items(const MapScene* scene, double scale,
       continue;
     }
 
-    const MapScene::Feature& f = *r.feature;
+    const GisScene::Feature& f = *r.feature;
     COLORREF fill = RGB(196, 214, 160);
     COLORREF stroke = RGB(40, 50, 60);
     int stroke_w = 1;
@@ -163,14 +163,14 @@ void fill_scenic_draw_items(const MapScene* scene, double scale,
             : 1u;
     size_t written = 0;
     for (size_t vi = 0; vi < src_n; vi += step) {
-      const MapScene::Vertex& p = f.points[vi];
+      const GisScene::Vertex& p = f.points[vi];
       verts.push_back(scenic::Vertex2{static_cast<float>(p.x),
                                       static_cast<float>(p.y)});
       ++written;
     }
     // Keep ring closure for polygons/lines when the last sample was skipped.
     if (src_n > 1 && step > 1 && ((src_n - 1) % step) != 0) {
-      const MapScene::Vertex& p = f.points[src_n - 1];
+      const GisScene::Vertex& p = f.points[src_n - 1];
       verts.push_back(scenic::Vertex2{static_cast<float>(p.x),
                                       static_cast<float>(p.y)});
       ++written;
@@ -207,7 +207,7 @@ scenic::ViewXform scenic_view_from_frame(const ViewFrame* frame) {
 }
 
 scenic::OrbitXform scenic_orbit_from_host(const OrbitFrame* orbit,
-                                          const MapScene* scene) {
+                                          const GisScene* scene) {
   scenic::OrbitXform xform;
   const Extent2 box = orbit ? orbit->world_extent() : kChinaLonLatExtent;
   const Extent2 e = china_or(box);

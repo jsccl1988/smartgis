@@ -2,8 +2,8 @@
 // All rights reserved.
 
 #include "content/browser/document/store/layer_store.h"
-#include "content/browser/document/map_scene.h"
-#include "content/public/map_layer_types.h"
+#include "content/browser/document/gis_scene.h"
+#include "content/public/types.h"
 #include "gis/tile/provider/tile_provider.h"
 
 #include <cstdio>
@@ -57,45 +57,45 @@ int main() {
   // Production fill: LayerStore emits kind + china PLPT group nesting.
   {
     content::detail::LayerStore store;
-    content::detail::MapLayer area;
+    content::detail::GisLayer area;
     area.id = "china.area";
     area.name = "area";
     area.visible = true;
     area.kind = content::LayerKind::kVector;
-    content::detail::MapFeature poly;
+    content::detail::GisFeature poly;
     poly.kind = content::detail::GeomKind::kPolygon;
     poly.points = {{0, 0}, {1, 0}, {1, 1}, {0, 0}};
     area.features.push_back(std::move(poly));
 
-    content::detail::MapLayer line;
+    content::detail::GisLayer line;
     line.id = "china.line";
     line.name = "line";
     line.visible = true;
     line.kind = content::LayerKind::kVector;
-    content::detail::MapFeature road;
+    content::detail::GisFeature road;
     road.kind = content::detail::GeomKind::kLine;
     road.points = {{0, 0}, {2, 2}};
     line.features.push_back(std::move(road));
 
-    content::detail::MapLayer point;
+    content::detail::GisLayer point;
     point.id = "china.point";
     point.name = "point";
     point.visible = true;
     point.kind = content::LayerKind::kVector;
 
-    content::detail::MapLayer text;
+    content::detail::GisLayer text;
     text.id = "china.text";
     text.name = "text";
     text.visible = true;
     text.kind = content::LayerKind::kVector;
 
-    content::detail::MapLayer basemap;
+    content::detail::GisLayer basemap;
     basemap.id = "Basemap";
     basemap.name = "Basemap";
     basemap.visible = true;
     basemap.kind = content::LayerKind::kRaster;
 
-    std::vector<content::detail::MapLayer> loaded;
+    std::vector<content::detail::GisLayer> loaded;
     loaded.push_back(std::move(area));
     loaded.push_back(std::move(line));
     loaded.push_back(std::move(point));
@@ -143,11 +143,11 @@ int main() {
   // Feature-bearing unknown kind still exports as vector.
   {
     content::detail::LayerStore store;
-    content::detail::MapLayer layer;
+    content::detail::GisLayer layer;
     layer.id = "path.shp#0";
     layer.name = "parcels";
     layer.visible = true;
-    content::detail::MapFeature f;
+    content::detail::GisFeature f;
     f.kind = content::detail::GeomKind::kPolygon;
     f.points = {{0, 0}, {1, 0}, {1, 1}, {0, 0}};
     layer.features.push_back(std::move(f));
@@ -160,9 +160,9 @@ int main() {
     }
   }
 
-  // MapScene injects a synthetic basemap raster when only TileProvider is set.
+  // GisScene injects a synthetic basemap raster when only TileProvider is set.
   {
-    content::MapScene scene;
+    content::GisScene scene;
     expect(scene.create_layer("Roads", "polygon"), "scene create roads");
     auto provider = std::make_shared<gis::tile::TileProvider>();
     // open_xyz may fail offline; injection keys off has_basemap_provider which

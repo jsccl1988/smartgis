@@ -359,7 +359,7 @@ void reassert_after_layout(Browser& browser,
     return;
   }
   if (spec.tab_after_layout >= 0) {
-    browser.select_map_tab(spec.tab_after_layout);
+    browser.select_view_tab(spec.tab_after_layout);
   }
   // Catalog showcase: layout_gate / wire can snap back to Layers — pin Maps
   // (index 2) again so the capture matches apply_ui_scenario_panels
@@ -405,8 +405,8 @@ void apply_ui_harness_theme() {
 }
 
 void stop_ui_map_present(Browser& browser) {
-  // Drain queued WM_TIMER as well as KillTimer (see stop_map_present_timers).
-  stop_map_present_timers(browser);
+  // Drain queued WM_TIMER as well as KillTimer (see stop_present_timers).
+  stop_present_timers(browser);
 }
 
 void force_ui_shell_repaint(Browser& browser) {
@@ -457,11 +457,11 @@ void run_horizon_map2d_fps_bench(Browser& browser) {
 void apply_ui_scenario_panels(Browser& browser, UiMode mode) {
   switch (mode) {
     case UiMode::kData:
-      browser.select_map_tab(0);
+      browser.select_view_tab(0);
       pump_views_messages(350);
       break;
     case UiMode::kScene: {
-      browser.select_map_tab(1);
+      browser.select_view_tab(1);
       pump_views_messages(800);
       // Lazy FlyCube attach needs several present ticks before HUD leaves
       // views-scene3d.gdi / Fps0 and the DEM fills the tab (not a sticker).
@@ -502,7 +502,7 @@ void apply_ui_scenario_panels(Browser& browser, UiMode mode) {
       break;
     }
     case UiMode::kCatalog:
-      browser.select_map_tab(0);
+      browser.select_view_tab(0);
       if (ui::views::CatalogView* cat = browser.catalog_view()) {
         // Maps page lists open docs (China); Layers is the default after seed.
         if (ui::views::TabStrip* tabs = cat->source_tabs()) {
@@ -517,11 +517,11 @@ void apply_ui_scenario_panels(Browser& browser, UiMode mode) {
     case UiMode::kInteract:
       // Language frontend runs ui.interact.il from apply_scenario_panels.
       // This path is the tab fallback when that script did not run.
-      browser.select_map_tab(0);
+      browser.select_view_tab(0);
       pump_views_messages(200);
-      browser.select_map_tab(1);
+      browser.select_view_tab(1);
       pump_views_messages(250);
-      browser.select_map_tab(0);
+      browser.select_view_tab(0);
       if (ui::views::CatalogView* cat = browser.catalog_view()) {
         if (ui::views::TabStrip* tabs = cat->source_tabs()) {
           tabs->set_active(0);
@@ -547,7 +547,7 @@ void apply_ui_scenario_panels(Browser& browser, UiMode mode) {
     default:
       // Short settle only — long pumps after China seed can AV when a present
       // timer races shell Yoga remeasure (visual_review #1 residual).
-      browser.select_map_tab(0);
+      browser.select_view_tab(0);
       pump_views_messages(80);
       break;
   }
@@ -633,7 +633,7 @@ int run_ui_present_capture(Browser& browser, UiMode mode) {
   ui::views::DrawHost* active =
       host_for(browser, spec.pane, spec.capture_fallback_to_map);
   if (spec.tab_before_capture >= 0) {
-    browser.select_map_tab(spec.tab_before_capture);
+    browser.select_view_tab(spec.tab_before_capture);
   }
   // Shell layout/repaint must run with Scene3d DXGI soft-hidden. Warming
   // present first then layout_contents deadlocks (~90s → suite timeout 124).
@@ -682,7 +682,7 @@ int run_ui_present_capture(Browser& browser, UiMode mode) {
     BringWindowToTop(hwnd);
     SetForegroundWindow(hwnd);
     if (spec.tab_after_layout >= 0) {
-      browser.select_map_tab(spec.tab_after_layout);
+      browser.select_view_tab(spec.tab_after_layout);
     }
     pump_views_messages(120);
   }

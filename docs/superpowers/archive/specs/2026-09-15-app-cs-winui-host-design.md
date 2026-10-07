@@ -10,11 +10,11 @@ All rights reserved.
 
 Status: superseded (2026-09-28 merge B)
 
-外部 C# 进程当 chrome，经 **C ABI** 调 `content::MapContents`；地图仍在独立 GPU 进程画。可复用 `MapView` 控件与产品 exe 同契约。**不是**桌面壳终局（终局仍是 Views + Skia）。
+外部 C# 进程当 chrome，经 **C ABI** 调 `content::GisContents`；地图仍在独立 GPU 进程画。可复用 `MapView` 控件与产品 exe 同契约。**不是**桌面壳终局（终局仍是 Views + Skia）。
 
 ## 背景
 
-`src/app/{views,winui,cef}` 三套壳共用同一产品契约：MenuBar · Catalog · Ambox · Map Edit|Data|3D · Inspector · StatusBar，命令 id 走 `MapContents::ActivateTool` / `CatalogCall`。仓库无 .cs / CLR。WinUI 方案文档允许 C# island **仅可选**，且禁止把整个 chrome 改成 C# 当 GN 入口。
+`src/app/{views,winui,cef}` 三套壳共用同一产品契约：MenuBar · Catalog · Ambox · Map Edit|Data|3D · Inspector · StatusBar，命令 id 走 `GisContents::ActivateTool` / `CatalogCall`。仓库无 .cs / CLR。WinUI 方案文档允许 C# island **仅可选**，且禁止把整个 chrome 改成 C# 当 GN 入口。
 
 本设计满足「外部 C# 调 GIS」+「上限最高的 C# 工具包（WinUI 3）」+「控件与示例 exe 都要」+「与当前 app 同等产品能力 / UI」，同时遵守：GN/`build.bat` 仍是工程入口；session / IPC / present 仍是 C++。
 
@@ -33,7 +33,7 @@ Status: superseded (2026-09-28 merge B)
 | Chrome | 任意 C# WinUI 3 进程（产品为 `SmartGisCs.exe`） | XAML 壳 + `SmartGis.WinUI.MapView`；Load `smartgis_host[_d].dll` |
 | GPU | **`SmartGisRender.exe`**（旁路，与 CEF 相同） | 现有 `--type=gpu`；C# PE **不能** ContentMain |
 
-`MapContents::StartRenderProcess` 对 `SmartGisCef*` / `SmartGisCs*`（以及设置了 GPU exe 覆盖的嵌入方）优先旁路 `SmartGisRender.exe`。Views / WinUI C++ 仍同 PE 再拉起。
+`GisContents::StartRenderProcess` 对 `SmartGisCef*` / `SmartGisCs*`（以及设置了 GPU exe 覆盖的嵌入方）优先旁路 `SmartGisRender.exe`。Views / WinUI C++ 仍同 PE 再拉起。
 
 稳定 FFI 是 C（`sg_host_*`，`extern "C"`，`__cdecl`）。C# 用 `DllImport` / `NativeLibrary`。HWND island + software DIB present 与 `app/winui/MapHost` 同路径（`kSoftwareDib`，子窗口 blit `Latest()`）。
 
@@ -41,7 +41,7 @@ Status: superseded (2026-09-28 merge B)
 
 | 路径 | 角色 |
 | --- | --- |
-| `src/app/cs/native/` | `smartgis_host` DLL：包 `MapContents` + HWND island |
+| `src/app/cs/native/` | `smartgis_host` DLL：包 `GisContents` + HWND island |
 | `src/app/cs/SmartGis.Host/` | P/Invoke + `MapSession` |
 | `src/app/cs/SmartGis.WinUI/` | `MapView` 可复用控件 |
 | `src/app/cs/SmartGisCs/` | 产品 chrome `SmartGisCs.exe` |

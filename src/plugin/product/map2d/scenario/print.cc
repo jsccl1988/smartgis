@@ -7,10 +7,11 @@
 #include "plugin/product/map2d/scenario/sample.h"
 #include "plugin/runtime/host/capability/marks.h"
 #include "plugin/runtime/host/capability/shell.h"
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
+#include "content/public/gis_document.h"
 #include "gis/style/document/style_document.h"
 #include "ui/views/map/viewport/draw_host.h"
 #include "vista/component/map/layout.h"
@@ -89,7 +90,7 @@ int scenario_print(HarnessShell& browser) {
   std::fprintf(stderr, "plugin-showcase: print layout path\n");
   browser.mark_named(kMarkPlugin, "print", true);
 
-  browser.select_map_tab(0);
+  browser.select_view_tab(0);
   browser.pump(200);
 
   if (!detail::try_open_china_sample(browser)) {
@@ -99,7 +100,7 @@ int scenario_print(HarnessShell& browser) {
   }
   if (!browser.document() || browser.document()->feature_count() < 3) {
     plugin_mark(browser, "china-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   plugin_mark(browser, "china-ok");
@@ -109,7 +110,7 @@ int scenario_print(HarnessShell& browser) {
   }
   browser.fit_map_extent();
   browser.pump(200);
-  if (content::MapScene* doc = browser.document()) {
+  if (content::GisScene* doc = browser.document()) {
     std::vector<std::string> drop_ids;
     for (const auto& layer : doc->layers()) {
       if (layer.name == "text" || layer.name == "anno" ||
@@ -122,7 +123,7 @@ int scenario_print(HarnessShell& browser) {
     }
     for (const auto& layer : doc->layers()) {
       for (const auto& f : layer.features) {
-        const std::string tok = content::MapScene::feature_token(f.id);
+        const std::string tok = content::GisDocument::feature_token(f.id);
         (void)doc->update_feature_field(tok, "name", "");
         (void)doc->update_feature_field(tok, "anno", "");
         (void)doc->update_feature_field(tok, "text", "");
@@ -147,7 +148,7 @@ int scenario_print(HarnessShell& browser) {
   if (!browser.capture_path(map_w, MAX_PATH, L"plugin-showcase-print-map.tmp.bmp") ||
       !browser.capture_path(out_w, MAX_PATH, L"plugin-showcase-print.bmp")) {
     plugin_mark(browser, "bmp-path-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   char map_a[MAX_PATH] = {};
@@ -157,14 +158,14 @@ int scenario_print(HarnessShell& browser) {
       WideCharToMultiByte(CP_ACP, 0, out_w, -1, out_a, MAX_PATH, nullptr,
                           nullptr) <= 0) {
     plugin_mark(browser, "bmp-path-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
   content::Map2dPresenter* map2d = browser.map2d();
   if (!map2d || !map2d->export_bmp(map_a, 640, 480)) {
     plugin_mark(browser, "map-export-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
@@ -174,7 +175,7 @@ int scenario_print(HarnessShell& browser) {
   int mstride = 0;
   if (!load_bmp_bgra(map_a, &map_bgra, &mw, &mh, &mstride)) {
     plugin_mark(browser, "map-read-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
 
@@ -194,14 +195,14 @@ int scenario_print(HarnessShell& browser) {
 
   if (!PrintComposer::export_page_bmp(pin, out_a)) {
     plugin_mark(browser, "compose-fail");
-    browser.detach_maps();
+    browser.detach_views();
     return 1;
   }
   DeleteFileA(map_a);
   plugin_mark(browser, "print-dialog-ok");
   plugin_mark(browser, "bmp-ok");
   plugin_mark(browser, "pass");
-  browser.detach_maps();
+  browser.detach_views();
   std::fprintf(stderr, "plugin-showcase: PASS mode=print (layout)\n");
   return 0;
 }

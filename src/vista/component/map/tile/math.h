@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Web Mercator meters and overlay-scale zoom. Degrees in, no MapScene.
+// Web Mercator meters and overlay-scale zoom. Degrees in, no GisScene.
 
 #ifndef VISTA_COMPONENT_MAP_TILE_MATH_H_
 #define VISTA_COMPONENT_MAP_TILE_MATH_H_

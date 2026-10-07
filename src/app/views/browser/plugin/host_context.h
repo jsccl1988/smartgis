@@ -9,7 +9,7 @@
 namespace content {
 class BrowserSession;
 class Map2dPresenter;
-class MapScene;
+class GisScene;
 class OrbitFrame;
 class PluginHost;
 class Scene3dPresenter;
@@ -22,7 +22,7 @@ namespace detail {
 // Narrow PluginHost Scene3dSink wiring. No Browser* — horizon fills callbacks.
 struct Scene3dHostContext {
   content::BrowserSession* session = nullptr;
-  content::MapScene* document = nullptr;
+  content::GisScene* document = nullptr;
   content::Scene3dPresenter* scene3d = nullptr;
   content::OrbitFrame* orbit = nullptr;
   content::PluginHost* host = nullptr;
@@ -30,20 +30,20 @@ struct Scene3dHostContext {
   std::function<void()> apply_china_product;
   std::function<void()> apply_china_atmo;
   std::function<void()> push_shared_extent;
-  std::function<void(int)> select_map_tab;
+  std::function<void(int)> select_view_tab;
 };
 
 // Narrow PluginHost Map2dSink wiring. No Browser* — horizon fills callbacks.
 struct Map2dHostContext {
   content::BrowserSession* session = nullptr;
-  content::MapScene* document = nullptr;
+  content::GisScene* document = nullptr;
   content::Map2dPresenter* map2d = nullptr;
   content::ViewFrame* view_frame = nullptr;
   content::PluginHost* host = nullptr;
   std::function<void()> present_map2d;
   std::function<void(int, int)> apply_china_product;
   std::function<void()> push_shared_extent;
-  std::function<void(int)> select_map_tab;
+  std::function<void(int)> select_view_tab;
   std::function<void(int*, int*)> view_size;
 };
 

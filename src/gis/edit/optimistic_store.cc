@@ -7,8 +7,8 @@
 
 namespace gis {
 
-bool OptimisticLayerStore::FeatureIdLess::operator()(
-    const content::FeatureId& a, const content::FeatureId& b) const {
+bool OptimisticLayerStore::FeatureIdLess::operator()(const FeatureId& a,
+                                                     const FeatureId& b) const {
   if (a.len != b.len) {
     return a.len < b.len;
   }
@@ -18,16 +18,14 @@ bool OptimisticLayerStore::FeatureIdLess::operator()(
 OptimisticLayerStore::OptimisticLayerStore() = default;
 OptimisticLayerStore::~OptimisticLayerStore() = default;
 
-void OptimisticLayerStore::seed_feature(const content::FeatureId& id,
-                                        uint64_t version) {
+void OptimisticLayerStore::seed_feature(const FeatureId& id, uint64_t version) {
   if (id.len == 0) {
     return;
   }
   versions_[id] = version;
 }
 
-uint64_t OptimisticLayerStore::feature_version(
-    const content::FeatureId& id) const {
+uint64_t OptimisticLayerStore::feature_version(const FeatureId& id) const {
   const auto it = versions_.find(id);
   if (it == versions_.end()) {
     return 0;

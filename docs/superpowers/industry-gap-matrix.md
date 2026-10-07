@@ -192,7 +192,7 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 | **M1** | Style JSON 驱动矢量着色 + XYZ 底图 + china_city 注记可读；导出一页 BMP（`m1-labels-ok` / `m1-style-ok` / `m1-basemap-ok` / `m1-export-ok`；exit 70–73）。执行计划：[`plans/2026-09-20-m1-carto-style-tile-export.md`](plans/2026-09-20-m1-carto-style-tile-export.md)（2026-09-20：`--self-test` + `build.bat e2e` 绿） |
 | **M2** | Views「处理」面板 ≥10 算子；buffer/clip 写回。计划：[`plans/2026-09-27-m2-processing-toolbox.md`](archive/plans/2026-09-27-m2-processing-toolbox.md)（`m2-panel-ok` / `m2-buffer-ok` / `m2-clip-ok`；exit 80–82；2026-09-27：`--self-test` + `build.bat e2e` / `te` 绿） |
 | **M3** | DEM + 3D Tiles 流式 + 大气开关。计划：[`plans/2026-09-27-m3-city-3d-stream.md`](archive/plans/2026-09-27-m3-city-3d-stream.md)（`m3-dem-ok` / `m3-tiles-ok` / `m3-atmosphere-ok`；exit 90–92；2026-09-27：`--self-test` + `build.bat e2e` / `te` 绿） |
-| **M4** | 双会话乐观冲突 + `content::open_map_host_path`。计划：[`plans/2026-09-27-m4-enterprise-edit-embed.md`](archive/plans/2026-09-27-m4-enterprise-edit-embed.md)（`m4-conflict-ok` / `m4-embed-ok`；exit 100–101；2026-09-27：`--self-test` + `build.bat e2e` / `te` 绿） |
+| **M4** | 双会话乐观冲突。计划：[`plans/2026-09-27-m4-enterprise-edit-embed.md`](archive/plans/2026-09-27-m4-enterprise-edit-embed.md)（`m4-conflict-ok`；exit 100；HWND-free embed sample 已移除） |
 
 ---
 
@@ -208,7 +208,7 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 
 ## 8. Map2D 钉死清单（2026-09-30）
 
-核对依据：CBM `smartgis` + `src/gis/style/**`、`src/gis/tile/**`、`src/vista/component/map/**`、`src/content/browser/present/map2d/**`、`src/plugin/product/map2d/print/**`、`src/content/browser/document/edit/**`、render-rhi §Map2d richness、[`2026-09-30-map2d-hillshade-line-casing.md`](plans/2026-09-30-map2d-hillshade-line-casing.md)。
+核对依据：CBM `smartgis` + `src/gis/style/**`、`src/gis/tile/**`、`src/vista/component/map/**`、`src/content/browser/present/map2d/**`、`src/plugin/product/map2d/print/**`、`src/content/browser/document/**`、render-rhi §Map2d richness、[`2026-09-30-map2d-hillshade-line-casing.md`](plans/2026-09-30-map2d-hillshade-line-casing.md)。
 
 刻意不追：Qt、Cesium Native、产品 Web GIS/mapd、第二套 GEOS、完整 MapLibre Native 链接。
 

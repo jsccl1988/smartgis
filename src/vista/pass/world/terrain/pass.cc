@@ -56,7 +56,26 @@ void TerrainPass::update_solid_terrain(const std::vector<Instance>& instances,
 bool TerrainPass::prepare_mesh(render::rhi::Device* device, const Instance& inst,
                                TessMesh* cpu, GpuMesh* mesh, float solid_r,
                                float solid_g, float solid_b, float solid_a) {
-  if (!device || !cpu || !mesh || inst.kind != NodeKind::kTerrain) {
+  if (!device || !mesh || inst.kind != NodeKind::kTerrain) {
+    return true;
+  }
+  const float* positions = nullptr;
+  size_t position_count = 0;
+  const uint32_t* indices = nullptr;
+  size_t index_count = 0;
+  if (cpu && !cpu->positions.empty() && !cpu->indices.empty()) {
+    positions = cpu->positions.data();
+    position_count = cpu->positions.size();
+    indices = cpu->indices.data();
+    index_count = cpu->indices.size();
+  } else if (inst.terrain.has_mesh()) {
+    // Cold first upload: bind Instance terrain buffers directly (no TessMesh
+    // deep copy before create_buffer / upload).
+    positions = inst.terrain.positions.data();
+    position_count = inst.terrain.positions.size();
+    indices = inst.terrain.indices.data();
+    index_count = inst.terrain.indices.size();
+  } else {
     return true;
   }
   const bool terrain_tex = inst.terrain.has_texture();
@@ -72,7 +91,7 @@ bool TerrainPass::prepare_mesh(render::rhi::Device* device, const Instance& inst
     mesh->texture = nullptr;
   }
   const bool terrain_tex_ok = terrain_gpu_tex != nullptr;
-  if (terrain_tex_ok) {
+  if (terrain_tex_ok && cpu) {
     cpu->has_image = true;
   }
   const bool with_uv = terrain_tex_ok;
@@ -80,22 +99,22 @@ bool TerrainPass::prepare_mesh(render::rhi::Device* device, const Instance& inst
   const bool uv_on_xz = terrain_tex_ok;
   const float* explicit_uvs = nullptr;
   if (terrain_tex_ok &&
-      inst.terrain.uvs.size() == (cpu->positions.size() / 3) * 2) {
+      inst.terrain.uvs.size() == (position_count / 3) * 2) {
     explicit_uvs = inst.terrain.uvs.data();
   }
-  if (!detail::upload_mesh(device, cpu->positions.data(), cpu->positions.size(),
-                           cpu->indices.data(), cpu->indices.size(), with_uv,
-                           with_normals, uv_on_xz, explicit_uvs, mesh)) {
+  if (!detail::upload_mesh(device, positions, position_count, indices,
+                           index_count, with_uv, with_normals, uv_on_xz,
+                           explicit_uvs, mesh)) {
     if (terrain_gpu_tex) {
       device->destroy_texture(terrain_gpu_tex);
     }
     return false;
   }
-  if (cpu->positions.size() >= 3) {
-    ::vista::detail::aabb_from_xyz(
-        cpu->positions.data(), cpu->positions.size(), &mesh->aabb_min_x,
-        &mesh->aabb_min_y, &mesh->aabb_min_z, &mesh->aabb_max_x,
-        &mesh->aabb_max_y, &mesh->aabb_max_z);
+  if (position_count >= 3) {
+    ::vista::detail::aabb_from_xyz(positions, position_count, &mesh->aabb_min_x,
+                                   &mesh->aabb_min_y, &mesh->aabb_min_z,
+                                   &mesh->aabb_max_x, &mesh->aabb_max_y,
+                                   &mesh->aabb_max_z);
   }
   if (terrain_tex_ok) {
     mesh->texture = terrain_gpu_tex;

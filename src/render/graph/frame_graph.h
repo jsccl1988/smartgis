@@ -2,7 +2,8 @@
 // All rights reserved.
 
 // One view, one camera, one command list, one present. present walks Effect
-// slots. Scene and map draws are Effect types outside this directory.
+// slots. Scene and map draws are Effect types outside this directory;
+// ShellOverlayEffect (HUD src-over) is the graph-owned overlay peer.
 
 #ifndef RENDER_GRAPH_FRAME_GRAPH_H_
 #define RENDER_GRAPH_FRAME_GRAPH_H_

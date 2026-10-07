@@ -29,12 +29,12 @@ void register_view(Browser& browser,
                    [b](const content::InputEvent& e) {
                      return dispatch_edit_input(*b, e);
                    },
-               base::tag_resolver<slot_detach_maps> =
-                   [b]() { detach_maps(*b); },
-               base::tag_resolver<slot_stop_map_present_timers> =
-                   [b]() { stop_map_present_timers(*b); },
-               base::tag_resolver<slot_resume_map_present_timers> =
-                   [b]() { resume_map_present_timers(*b); },
+               base::tag_resolver<slot_detach_views> =
+                   [b]() { detach_views(*b); },
+               base::tag_resolver<slot_stop_present_timers> =
+                   [b]() { stop_present_timers(*b); },
+               base::tag_resolver<slot_resume_present_timers> =
+                   [b]() { resume_present_timers(*b); },
                base::tag_resolver<slot_run_tool> =
                    [b](const std::string& command_id) {
                      return b->run_tool_command(command_id);
@@ -69,9 +69,9 @@ void register_view(Browser& browser,
                    [b](int timeout_ms, content::MapReadyStatus* status) {
                      return fill_map_ready_status(*b, timeout_ms, status);
                    },
-               base::tag_resolver<slot_edit_host_status> =
-                   [b](content::EditHostStatus* status) {
-                     return fill_edit_host_status(*b, status);
+               base::tag_resolver<slot_edit_tool_session_status> =
+                   [b](content::EditToolSessionStatus* status) {
+                     return fill_edit_tool_session_status(*b, status);
                    },
                base::tag_resolver<slot_tool_status> =
                    [b](content::ToolStatus* status) {

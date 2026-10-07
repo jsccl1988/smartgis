@@ -10,7 +10,7 @@ import("//testing/test.gni")
 #
 # In-DLL source_sets use TOOL_EXPORTS (legacy uses LEGACY_TOOL_EXPORTS).
 # Stable groups (:dispatch, :command, …) forward to :tool for existing deps.
-# content/public/map_layer_types.h (POD subset) and event_bus.h are usable
+# content/public/types.h (POD subset) and event_bus.h are usable
 # without linking //src/content (avoids a content↔tool DLL cycle).
 
 config("tool_config") {

@@ -16,8 +16,8 @@
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/camera/view_navigation.h"
-#include "content/browser/document/map_scene.h"
-#include "content/browser/input/map_hwnd_gestures.h"
+#include "content/browser/document/gis_scene.h"
+#include "content/browser/session/gis_hwnd_gestures.h"
 #include "content/browser/present/host/blit_frame_cache.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
@@ -25,13 +25,13 @@
 
 namespace content {
 
-class MapContents;
-class MapContentsObserver;
-class ViewHost;
+class GisContents;
+class GisContentsObserver;
+class ToolSession;
 
 // In-process browser session (Chromium WebContents analogue for Views).
 // Owns the document, camera, map2d and scene3d present facades, HWND
-// gestures, ViewHosts, and the optional MapContents OOP/GPU pipe.
+// gestures, ToolSessions, and the optional GisContents OOP/GPU pipe.
 // Not absorbed into content.dll — linked via //src/content:browser_session
 // (see shell §Content sink C5/C6).
 class BrowserSession {
@@ -47,11 +47,14 @@ class BrowserSession {
   BrowserSession(const BrowserSession&) = delete;
   BrowserSession& operator=(const BrowserSession&) = delete;
 
-  // Create ViewHosts. MapContents::Create is deferred to
-  // ensure_oop_render_process() (eager Create during init heap-corrupted the
-  // next CRT alloc in PluginShell::CommandCatalog). StartRenderProcess still
-  // waits for ensure unless ENABLE_OOP_RENDER=1.
-  void init_hosts();
+  // Create ToolSessions. create_gis_contents is deferred past PluginShell catalog
+  // init (eager Create during init_tool_sessions heap-corrupted the next CRT alloc).
+  // Call ensure_gis_contents() after PluginShell::init; StartRenderProcess
+  // still waits for ensure_oop_render_process unless ENABLE_OOP_RENDER=1.
+  void init_tool_sessions();
+
+  // Create GisContents without starting the OOP GPU child. Idempotent.
+  bool ensure_gis_contents();
 
   // Lazily start the OOP GPU child. No-op when already running or when
   // DISABLE_OOP_RENDER=1. Returns true when IsOopRender().
@@ -60,11 +63,11 @@ class BrowserSession {
   // Detach gestures / abandon mesh / release stereo before HWND teardown.
   void prepare_close();
 
-  void set_map_contents_observer(MapContentsObserver* observer);
-  void clear_map_contents_observer();
+  void set_gis_contents_observer(GisContentsObserver* observer);
+  void clear_gis_contents_observer();
 
-  MapScene& document() { return document_; }
-  const MapScene& document() const { return document_; }
+  GisScene& document() { return document_; }
+  const GisScene& document() const { return document_; }
   ViewFrame& view_frame() { return view_frame_; }
   const ViewFrame& view_frame() const { return view_frame_; }
   OrbitFrame& orbit_frame() { return orbit_; }
@@ -90,18 +93,18 @@ class BrowserSession {
   ViewNavigation& navigation() { return navigation_; }
   const ViewNavigation& navigation() const { return navigation_; }
 
-  MapHwndGestures& edit_gestures() { return edit_gestures_; }
-  MapHwndGestures& data_gestures() { return data_gestures_; }
-  MapHwndGestures& scene_gestures() { return scene_gestures_; }
+  GisHwndGestures& edit_gestures() { return edit_gestures_; }
+  GisHwndGestures& data_gestures() { return data_gestures_; }
+  GisHwndGestures& scene_gestures() { return scene_gestures_; }
 
   // Non-const pointers from const BrowserSession match std::unique_ptr::get().
-  MapContents* map_contents() const { return map_contents_.get(); }
-  ViewHost* edit_host() const { return edit_host_.get(); }
-  ViewHost* data_host() const { return data_host_.get(); }
-  ViewHost* scene_host() const { return scene_host_.get(); }
+  GisContents* gis_contents() const { return gis_contents_.get(); }
+  ToolSession* edit_tool_session() const { return edit_tool_session_.get(); }
+  ToolSession* data_tool_session() const { return data_tool_session_.get(); }
+  ToolSession* scene_tool_session() const { return scene_tool_session_.get(); }
 
   // Content mutations. App keeps product policy and widget updates and calls
-  // these instead of driving MapScene, presenters, camera, gestures, or blit.
+  // these instead of driving GisScene, presenters, camera, gestures, or blit.
 
   static bool is_extent_nonempty(const content::Extent2& e);
   static bool extent_looks_like_china(const content::Extent2& e);
@@ -228,9 +231,9 @@ class BrowserSession {
   std::uint64_t map2d_layout_build_count() const;
   bool map2d_last_present_reused_layout() const;
 
-  void bind_map_presenters();
+  void bind_presenters();
   void bind_scene3d_document();
-  void bind_scene3d_contents(MapContents* contents, std::uint32_t view_id);
+  void bind_scene3d_contents(GisContents* contents, std::uint32_t view_id);
   void scene3d_apply_draft(const tool::Draft& draft);
   void scene3d_paint(HDC hdc, int width_px, int height_px,
                      bool fill_background) const;
@@ -275,25 +278,25 @@ class BrowserSession {
   bool try_present_scene3d_stereo(HWND hwnd, HDC hdc, int width_px,
                                   int height_px);
 
-  void attach_gestures(MapHwndGestures* gestures, HWND hwnd,
-                       MapHwndGestures::PinchFn on_pinch,
-                       MapHwndGestures::PanFn on_pan);
-  void configure_gestures(MapHwndGestures* gestures,
-                          MapHwndGestures::RightClickFn on_right_click,
-                          MapHwndGestures::ExtentWatchFn on_extent_watch,
-                          MapHwndGestures::ResizeFn on_resized);
+  void attach_gestures(GisHwndGestures* gestures, HWND hwnd,
+                       GisHwndGestures::PinchFn on_pinch,
+                       GisHwndGestures::PanFn on_pan);
+  void configure_gestures(GisHwndGestures* gestures,
+                          GisHwndGestures::RightClickFn on_right_click,
+                          GisHwndGestures::ExtentWatchFn on_extent_watch,
+                          GisHwndGestures::ResizeFn on_resized);
 
  private:
-  // Hosts / MapContents first. Map2d/Scene3d presenters are heap Ptrs created
+  // Hosts / GisContents first. Map2d/Scene3d presenters are heap Ptrs created
   // in their own TUs so a stale sizeof cannot overflow this object into the
-  // CRT heap (0xC0000374 during ViewHost / Workspace::register_builtins).
-  std::unique_ptr<ViewHost> edit_host_;
-  std::unique_ptr<ViewHost> data_host_;
-  std::unique_ptr<ViewHost> scene_host_;
-  std::unique_ptr<MapContents> map_contents_;
+  // CRT heap (0xC0000374 during ToolSession / Workspace::register_builtins).
+  std::unique_ptr<ToolSession> edit_tool_session_;
+  std::unique_ptr<ToolSession> data_tool_session_;
+  std::unique_ptr<ToolSession> scene_tool_session_;
+  std::unique_ptr<GisContents> gis_contents_;
   bool prepare_close_done_ = false;
 
-  MapScene document_;
+  GisScene document_;
   ViewFrame view_frame_;
   OrbitFrame orbit_;
   Map2dPresenter::Ptr map2d_;
@@ -301,9 +304,9 @@ class BrowserSession {
   Scene3dStereoSession scene3d_stereo_;
   BlitFrameCache blit_;
   ViewNavigation navigation_;
-  MapHwndGestures edit_gestures_;
-  MapHwndGestures data_gestures_;
-  MapHwndGestures scene_gestures_;
+  GisHwndGestures edit_gestures_;
+  GisHwndGestures data_gestures_;
+  GisHwndGestures scene_gestures_;
 };
 
 }  // namespace content

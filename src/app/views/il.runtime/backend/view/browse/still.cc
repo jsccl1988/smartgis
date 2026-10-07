@@ -17,10 +17,10 @@
 #include "app/views/il.runtime/backend/horizon/atom/pump.h"
 #include "app/views/il.runtime/backend/plugin/dispatch.h"
 #include "app/views/util/exe_sidecar_path.h"
-#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scenario/seed/world3d_seed.h"
@@ -53,7 +53,7 @@ bool still_signal(const wchar_t* path, bool allow_32bpp, int* w, int* h) {
   return bmp_file_has_visible_signal(path, w, h, check);
 }
 
-void frame_map2d_still(Browser& browser, content::MapScene* doc, int w, int h) {
+void frame_map2d_still(Browser& browser, content::GisScene* doc, int w, int h) {
   content::ViewFrame* frame = browser.view_frame();
   if (!frame) {
     return;
@@ -147,7 +147,7 @@ bool capture_scene3d_hwnd(Browser& browser, ui::views::DrawHost* pane) {
 }
 
 void seed_scene3d_still(Browser& browser) {
-  resume_map_present_timers(browser);
+  resume_present_timers(browser);
   if (browser.scene3d()) {
     (void)with_harness_shell(browser, [](plugin::HarnessShell& shell) {
       plugin::detail::bind_plugin_scenario_shell(&shell);
@@ -166,7 +166,7 @@ bool capture_browse_map2d(Browser& browser, const wchar_t* mark_leaf) {
     return false;
   }
   mark_still(mark_leaf, "bmp-export-begin");
-  content::MapScene* doc = browser.document();
+  content::GisScene* doc = browser.document();
   frame_map2d_still(browser, doc, kMap2dStillW, kMap2dStillH);
   mark_still(mark_leaf, "bmp-framed");
   wchar_t path[MAX_PATH] = {};

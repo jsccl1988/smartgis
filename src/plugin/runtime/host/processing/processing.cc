@@ -135,7 +135,7 @@ void ProcessingPool::flush_for_test() {
       if (inflight_ > 0 && dones.empty()) {
         lock.unlock();
         // Showcase callers block on this from the UI thread. Worker factories
-        // publish into Scene3d / MapScene which needs DispatchMessage (display
+        // publish into Scene3d / GisScene which needs DispatchMessage (display
         // present, HWND) — wait without pumping deadlocks until suite timeout.
         MSG msg;
         while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {

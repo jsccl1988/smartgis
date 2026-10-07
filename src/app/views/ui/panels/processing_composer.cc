@@ -28,9 +28,10 @@
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/ui/panels/report_panel.h"
 #include "content/browser/session/browser_session.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/map_contents.h"
+#include "content/public/types.h"
+#include "content/public/gis_contents.h"
 #include "content/public/plugin_host.h"
+#include "content/public/tool_session.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/style_types.h"
@@ -337,7 +338,7 @@ void ProcessingComposer::run_processing_operator(const std::string& processing_i
       host_->set_status_message("Processing: no extent for clip");
       return;
     }
-    // MapScene stores Y flipped for screen; GeoJSON write_path unflips.
+    // GisScene stores Y flipped for screen; GeoJSON write_path unflips.
     // Clip fixture uses geographic lon/lat matching written GeoJSON.
     if (!write_m2_clip_geojson(clip, min_x, -max_y, max_x, -min_y)) {
       host_->set_status_message("Processing: clip fixture failed");
@@ -403,7 +404,7 @@ void ProcessingComposer::bind_gis_python_bridge() {
                ? static_cast<int>(host_->browser_->session().document_feature_count())
                : 0;
   };
-  bridge.refresh_map = [this]() {
+  bridge.refresh_gis = [this]() {
     host_->sync_catalog_from_scene();
     host_->sync_inspectors_from_scene();
     host_->invalidate_map_overlays();
@@ -526,7 +527,16 @@ void ProcessingComposer::bind_gis_python_bridge() {
         vid = pane->view_id();
       }
     }
-    host_->browser_->map_session()->ActivateTool(vid, tool_id.c_str());
+    content::ToolSession* session = host_->active_tool_session();
+    if (!session) {
+      session = host_->browser_->edit_tool_session();
+    }
+    if (!session) {
+      return false;
+    }
+    if (!session->execute(tool_id, vid)) {
+      session->activate(tool_id);
+    }
     return true;
   };
   plugin::set_gis_console_bridge(std::move(bridge));

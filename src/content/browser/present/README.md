@@ -5,10 +5,21 @@ All rights reserved.
 
 # `src/content/browser/present` — Chromium-style present stack
 
-Facade (`map2d_presenter` / `scene3d_presenter`) presents Vista/Vista and leftover
-stereo/GDI session flags. `src/scenic` is exploratory and is **not** linked from
-this stack; `MAP2D_ENGINE=scenic` / `SCENE3D_ENGINE=scenic` do not compile
-or load `scenic.dll` on the default product graph.
+## Product source of truth (SoT)
+
+| Lane | Product SoT | Opt-in exploratory |
+| --- | --- | --- |
+| map2d | **Vista `MapPass`** via `map2d/gpu` (+ shared `Map2dFrameCache` MapIR) | `--map2d-engine=scenic` → `ScenicRhi2dHost` / Map2dEngine |
+| scene3d | **Vista `WorldPass`** via `scene3d/gpu` (+ tileset LRU stream) | `--scene3d-engine=scenic` → `ScenicScene3dHost` |
+
+Default product builds never load `scenic.dll`. Scenic hosts **gate** on
+`prefer_map2d_scenic()` / `prefer_scene3d_scenic()` and drop sticky engines when
+the switch flips back to Vista — do not pay Scenic sync on the product path.
+Equal-profile matrix cells may force scenic; that is not the ship default.
+
+Facade (`map2d_presenter` / `scene3d_presenter`) routes to Vista GPU/software
+unless the scenic switch is set. Leftover stereo/GDI session flags remain under
+`scene3d/session/`.
 
 Layout mirrors Chromium **compositor / software / gpu** adapted to this repo’s
 colocation rule (`.h` next to `.cc`; no forwarding shims at old paths).
@@ -17,7 +28,7 @@ colocation rule (`.h` next to `.cc`; no forwarding shims at old paths).
 
 ```
 present/
-  host/                 # Surface helpers (BlitFrameCache, ShellOverlayEffect)
+  host/                 # Surface helpers (BlitFrameCache; ShellOverlayEffect → render/graph)
   map2d/
     map2d_presenter.*   # Thin facade: bind + forward to gpu/software
     frame/              # CPU compositor inputs: carto, LayerBatch, tile math
@@ -49,21 +60,26 @@ presenters and would reverse-depend on content.
 
 ## Composition (scheme C)
 
-- **map2d:** `Map2dPresenter` owns `Map2dGpuPresent` + `Map2dSoftwarePainter`.
-  Call sites may use the facade or `gpu()` / `software()`.
+- **map2d:** `Map2dPresenter` owns `Map2dGpuPresent` + `Map2dSoftwarePainter`
+  sharing one `Map2dFrameCache` (MapIR layout). Software keeps a separate GDI
+  present DIB for StaticReuse/InteractiveReuse; GPU MapPass reuses the same
+  MapIR — do not big-bang merge pixel caches.
 - **scene3d:** `Scene3dPresenter` owns `AtmosphereSession` + `Scene3dGpuPresent` +
   `Scene3dSoftwarePainter`. Callers use `atmosphere_session()` / `gpu()` /
   `software()` for domain toggles (no pure-forward API on the facade).
+- **tileset:** `TilesetStreamSession` (`scene3d/frame/tileset_stream.*`) pumps
+  select → LRU `ensure` under `kDefaultMaxTiles` / `kDefaultMaxEnsure`; product
+  present wires those defaults (Vista `TilesetContentCache` already LRU-evicts).
 
 ## GN
 
-- `:map_present` — `host/` + `map2d/**`
+- `:gis_present` — `host/` + `map2d/**`
 - `:scene3d_present` — `scene3d/**` except `session/scene3d_rhi_session.*` (that TU stays in `:content` for `CONTENT_EXPORT`)
 
 ## Verify
 
 ```bat
 build.bat
-build.bat map_scene_test
+build.bat gis_scene_test
 build.bat scene3d_presenter_test
 ```

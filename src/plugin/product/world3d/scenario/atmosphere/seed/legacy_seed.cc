@@ -7,7 +7,7 @@
 #include <windows.h>
 
 #include "base/process/switches.h"
-#include "content/browser/document/map_scene.h"
+#include "content/browser/document/gis_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scene/look/look.h"
@@ -23,7 +23,7 @@ int seed_atmosphere_legacy_mode(HarnessShell& browser,
   }
   atmosphere_mark("legacy-china-open");
   // Prefer china_city vectors so coast content assert can pass.
-  // Under ATMOSPHERE_SHOWCASE_GPU=1, MapScene::open_path(china_city)
+  // Under ATMOSPHERE_SHOWCASE_GPU=1, GisScene::open_path(china_city)
   // AVs (ExitProcess -1 after legacy-open-path). DEM still comes from
   // seed_procedural land rings; BMP label composite runs after present.
   const bool skip_china_open = []() {
@@ -31,7 +31,7 @@ int seed_atmosphere_legacy_mode(HarnessShell& browser,
     return g && g[0] == '1' && g[1] == '\0';
   }();
   if (!skip_china_open) {
-    if (content::MapScene* doc = browser.document()) {
+    if (content::GisScene* doc = browser.document()) {
       const bool need_china =
           !doc->has_china_extent() || doc->feature_count() == 0;
       if (need_china) {

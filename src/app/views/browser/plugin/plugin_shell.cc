@@ -12,6 +12,7 @@
 #include "app/views/browser/plugin/pack_enable.h"
 #include "app/views/browser/plugin/startup_apply.h"
 #include "base/trace/event/process_trace.h"
+#include "content/public/gis_contents.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/capability/pack_ensure.h"
@@ -53,28 +54,17 @@ void PluginShell::init_python() {
     return;
   }
   plugin::bind_registry_python(registry_.get(), python_.get());
-  python_->bind_host(host_.get());
+  python_->bind_host(host_);
 }
 
 bool PluginShell::init(content::EventBus* events) {
   BASE_TRACE_EVENT("PluginShell.init.body", "startup");
+  events_ = events;
   {
-    BASE_TRACE_EVENT("PluginHost.create", "startup");
+    BASE_TRACE_EVENT("PluginCatalog.create", "startup");
     LOGGING(LOG_INFO, "startup: PluginShell CommandCatalog");
     catalog_ = std::make_unique<tool::CommandCatalog>();
-    LOGGING(LOG_INFO, "startup: PluginShell create_plugin_host");
-    host_.reset(content::create_plugin_host(catalog_.get(), events, nullptr));
-    if (!host_) {
-      return false;
-    }
-    LOGGING(LOG_INFO, "startup: PluginShell HostCapabilities");
-    capabilities_ = std::make_unique<plugin::HostCapabilities>();
-    capabilities_->attach(host_.get());
   }
-  // Keep PainterRegistry out of content/: wire withdraw here only.
-  host_->set_ui_withdraw_hook([](std::string_view id) {
-    ui::views::PainterRegistry::get().withdraw_plugin(id);
-  });
   {
     BASE_TRACE_EVENT("PluginRegistry.setup", "startup");
     LOGGING(LOG_INFO, "startup: PluginShell Registry");
@@ -84,15 +74,45 @@ bool PluginShell::init(content::EventBus* events) {
     LOGGING(LOG_INFO, "startup: PluginShell ProcessingPool");
     pool_ = std::make_unique<plugin::ProcessingPool>(
         plugin::ProcessingMode::kThread);
-    plugin::attach_host_processing(host_.get(), pool_.get());
   }
   {
     BASE_TRACE_EVENT("PluginResourceRoots", "startup");
     install_builtin_resource_roots();
   }
   install_command_pack_enable();
-  // Defer CPython and LoadLibrary builtins until ensure_builtins / ensure_python
-  // so Browser::init → first paint is not blocked by plugin DLL enable.
+  // PluginHost is created on GisContents via attach_gis_contents (after
+  // ensure_gis_contents). Defer CPython / LoadLibrary until ensure_*.
+  return true;
+}
+
+bool PluginShell::attach_gis_contents(content::GisContents* contents) {
+  if (!contents || !catalog_) {
+    return false;
+  }
+  if (host_attached_ && host_) {
+    return true;
+  }
+  BASE_TRACE_EVENT("PluginHost.attach", "startup");
+  LOGGING(LOG_INFO, "startup: PluginShell ensure_plugin_host");
+  content::PluginHost* host =
+      contents->ensure_plugin_host(catalog_.get(), events_);
+  if (!host) {
+    return false;
+  }
+  host_ = host;
+  LOGGING(LOG_INFO, "startup: PluginShell HostCapabilities");
+  if (!capabilities_) {
+    capabilities_ = std::make_unique<plugin::HostCapabilities>();
+  }
+  capabilities_->attach(host_);
+  // Keep PainterRegistry out of content/: wire withdraw here only.
+  host_->set_ui_withdraw_hook([](std::string_view id) {
+    ui::views::PainterRegistry::get().withdraw_plugin(id);
+  });
+  if (pool_) {
+    plugin::attach_host_processing(host_, pool_.get());
+  }
+  host_attached_ = true;
   return true;
 }
 
@@ -111,12 +131,12 @@ void PluginShell::shutdown() {
   // or already-freed registry (init failure → unique_ptr reset → ~PluginShell).
   if (registry_ && host_) {
     if (manager_) {
-      manager_->destroy_all(host_.get());
+      manager_->destroy_all(host_);
     }
     const std::vector<plugin::PluginRecord> records = registry_->list();
     for (const plugin::PluginRecord& rec : records) {
       if (rec.state == plugin::PluginState::kEnabled) {
-        registry_->set_enabled(rec.manifest.id, false, host_.get());
+        registry_->set_enabled(rec.manifest.id, false, host_);
       }
     }
   }
@@ -132,17 +152,20 @@ void PluginShell::shutdown() {
   }
   manager_.reset();
   if (capabilities_ && host_) {
-    capabilities_->detach(host_.get());
+    capabilities_->detach(host_);
   }
   capabilities_.reset();
-  host_.reset();
+  // GisContents owns PluginHost — drop the non-owning view only.
+  host_ = nullptr;
+  host_attached_ = false;
+  events_ = nullptr;
   registry_.reset();
   catalog_.reset();
   plugin::clear_resource_roots();
 }
 
 content::PluginHost* PluginShell::host() const {
-  return host_.get();
+  return host_;
 }
 
 tool::CommandCatalog* PluginShell::commands() const {
@@ -175,7 +198,7 @@ bool PluginShell::run_processing(std::string_view processing_id,
   (void)ensure_builtins();
   (void)ensure_command(processing_id);
   // Enqueue on the utility pool, then drain here so callers see completed
-  // MapScene mutations before continuing (showcase export / marks).
+  // GisScene mutations before continuing (showcase export / marks).
   if (!host_->run_processing(processing_id, args_json)) {
     std::fprintf(stderr,
                  "plugin_shell: run_processing reject id=%.*s (missing or "
@@ -226,7 +249,7 @@ bool PluginShell::ensure_python() {
   if (!python_ || !python_->is_ready()) {
     return false;
   }
-  python_->bind_host(host_.get());
+  python_->bind_host(host_);
   return true;
 }
 
@@ -271,7 +294,7 @@ bool PluginShell::ensure_command(std::string_view command_id) {
     return false;
   }
   (void)ensure_discovered();
-  return plugin::ensure_for_command(host_.get(), command_id);
+  return plugin::ensure_for_command(host_, command_id);
 }
 
 bool PluginShell::start_builtins() {
@@ -279,7 +302,7 @@ bool PluginShell::start_builtins() {
     return false;
   }
   (void)ensure_discovered();
-  (void)app::register_builtin_plugins(registry_.get(), host_.get());
+  (void)app::register_builtin_plugins(registry_.get(), host_);
   // Builtins may add manifests after scan; refresh owner index.
   plugin::rebuild_contribute_index(*registry_);
   // Do not LoadLibrary every native pack here. Eight GDAL-linked plugin
@@ -296,7 +319,7 @@ bool PluginShell::apply_startup() {
     return true;
   }
   startup_applied_ = true;
-  return detail::apply_registry_startup(registry_.get(), host_.get(),
+  return detail::apply_registry_startup(registry_.get(), host_,
                                         &startup_viewport_, &startup_scenario_);
 }
 

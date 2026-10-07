@@ -14,7 +14,7 @@
 namespace app {
 namespace detail {
 
-// Poison / commit-region checks for ViewHost / Workspace pointers after
+// Poison / commit-region checks for ToolSession / Workspace pointers after
 // partial multi-agent out/Debug rebuilds (skewed vtables look like 0xCD…).
 
 inline bool ptr_addr_poison(uintptr_t addr) {

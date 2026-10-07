@@ -25,10 +25,11 @@
 #include "app/views/browser/plugin/plugin_shell.h"
 #include "app/views/browser/commands/view_commands.h"
 #include "plugin/runtime/host/catalog/registry.h"
-#include "content/public/map_layer_types.h"
-#include "content/public/map_contents.h"
+#include "content/public/types.h"
+#include "content/public/gis_contents.h"
+#include "content/public/gis_document.h"
 #include "content/public/plugin_host.h"
-#include "content/public/view_host.h"
+#include "content/public/tool_session.h"
 #include "vista/component/world/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "gis/edit/session.h"
@@ -83,11 +84,13 @@ std::string json_escape(const std::string& text) {
   return std::string(s, n);
 }
 
-void catalog_call(content::MapContents* session, const std::string& json) {
+void catalog_call(content::GisContents* session, const std::string& json) {
   if (!session) {
     return;
   }
-  session->CatalogCall(json.c_str());
+  if (content::GisDocument* doc = session->gis_document()) {
+    doc->catalog_call(json.c_str());
+  }
 }
 
 std::string path_stem(const std::string& path) {
@@ -109,10 +112,10 @@ std::string path_stem(const std::string& path) {
 
 void Browser::on_catalog_command(const std::string& command_id) {
   const HWND hwnd = ui_->hwnd();
-  content::MapContents* session =
-      ui_->active_map() ? ui_->active_map()->map_contents() : session_->map_contents();
+  content::GisContents* session =
+      ui_->active_map() ? ui_->active_map()->gis_contents() : session_->gis_contents();
   auto refresh = [this]() {
-    if (content::ViewHost* host = ui_->active_view_host()) {
+    if (content::ToolSession* host = ui_->active_tool_session()) {
       const uint32_t view_id = ui_->active_map() ? ui_->active_map()->view_id() : 0;
       host->execute("view.refresh", view_id);
     }

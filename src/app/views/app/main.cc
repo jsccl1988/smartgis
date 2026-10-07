@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 // Views host PE entry. Parses launch options (CLI11), then dispatches via
@@ -22,7 +22,7 @@
 #include "base/trace/diag/diagnostic_bootstrap.h"
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
-#include "content/public/content_client.h"
+#include "content/public/gis_contents_client.h"
 #include "ui/gfx/canvas/shell_canvas_backend.h"
 
 namespace {

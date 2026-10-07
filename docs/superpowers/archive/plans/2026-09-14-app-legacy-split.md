@@ -166,7 +166,7 @@ Run: `build.bat views` — must not require `legacy_ui`.
 
 **Files:**
 - Modify: `src/app/views/browser_view.*`, `app_commands.*`
-- Modify: `src/content/public/*` ViewHost / MapContents as needed
+- Modify: `src/content/public/*` ViewHost / GisContents as needed
 - Modify: `src/tool/*` workspace / gestures
 - Test: `src/ui/views/views_unittests.cc` and/or `--self-test`
 
@@ -203,7 +203,7 @@ Run: `build.bat views` — must not require `legacy_ui`.
 
 **Files:**
 - Modify: `src/ui/views` CatalogView / LayerTree
-- Modify: `src/app/views/browser_view.*` open-map → populate from MapContents/session
+- Modify: `src/app/views/browser_view.*` open-map → populate from GisContents/session
 - Prefer existing `CatalogCall` JSON; no second legend protocol
 
 **Interfaces:**

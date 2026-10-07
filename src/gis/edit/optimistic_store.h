@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <map>
 
-#include "content/public/map_layer_types.h"
 #include "gis/edit/mutation.h"
+#include "gis/feature/attrs.h"
 #include "gis/gis_export.h"
 
 namespace gis {
@@ -24,10 +24,10 @@ class GIS_EXPORT OptimisticLayerStore {
   OptimisticLayerStore& operator=(const OptimisticLayerStore&) = delete;
 
   // Ensure |id| exists at |version| (default 1). Overwrites any prior token.
-  void seed_feature(const content::FeatureId& id, uint64_t version = 1);
+  void seed_feature(const FeatureId& id, uint64_t version = 1);
 
   // 0 when the feature has never been seeded or committed.
-  uint64_t feature_version(const content::FeatureId& id) const;
+  uint64_t feature_version(const FeatureId& id) const;
   uint64_t layer_version() const { return layer_version_; }
 
   // Succeeds only when base_version == current feature version, then bumps
@@ -37,11 +37,10 @@ class GIS_EXPORT OptimisticLayerStore {
 
  private:
   struct FeatureIdLess {
-    bool operator()(const content::FeatureId& a,
-                    const content::FeatureId& b) const;
+    bool operator()(const FeatureId& a, const FeatureId& b) const;
   };
 
-  std::map<content::FeatureId, uint64_t, FeatureIdLess> versions_;
+  std::map<FeatureId, uint64_t, FeatureIdLess> versions_;
   uint64_t layer_version_ = 0;
 };
 

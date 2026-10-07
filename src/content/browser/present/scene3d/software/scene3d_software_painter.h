@@ -15,7 +15,7 @@
 namespace content {
 
 class AtmosphereSession;
-class MapScene;
+class GisScene;
 class OrbitFrame;
 class Scene3dGpuPresent;
 class ViewFrame;
@@ -30,7 +30,7 @@ class Scene3dSoftwarePainter {
   Scene3dSoftwarePainter& operator=(const Scene3dSoftwarePainter&) = delete;
 
   void bind(Scene3dGpuPresent* gpu, AtmosphereSession* atmosphere,
-            const OrbitFrame* orbit, const MapScene* scene,
+            const OrbitFrame* orbit, const GisScene* scene,
             const ViewFrame* label_frame);
   void set_hosts_shared_scene(bool on) { hosts_shared_scene_ = on; }
 
@@ -83,7 +83,7 @@ class Scene3dSoftwarePainter {
   Scene3dGpuPresent* gpu_ = nullptr;
   AtmosphereSession* atmosphere_ = nullptr;
   const OrbitFrame* orbit_ = nullptr;
-  const MapScene* scene_ = nullptr;
+  const GisScene* scene_ = nullptr;
   const ViewFrame* label_frame_ = nullptr;
   bool hosts_shared_scene_ = false;
   mutable HWND logo_hwnd_ = nullptr;

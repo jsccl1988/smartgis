@@ -26,19 +26,19 @@ int run_map2d_showcase(HarnessShell& browser, detail::ScenarioMode mode,
                showcase_h);
   detail::map2d_mark(name);
 
-  browser.select_map_tab(0);
+  browser.select_view_tab(0);
   detail::map2d_mark("tab-map");
   browser.pump(400);
   detail::map2d_mark("pumped");
 
   browser.stop_present_timers();
   if (const int rc = detail::seed_map2d_mode(browser, mode)) {
-    browser.detach_maps();
+    browser.detach_views();
     return rc;
   }
   if (const int rc =
           detail::frame_map2d_showcase(browser, mode, showcase_w, showcase_h)) {
-    browser.detach_maps();
+    browser.detach_views();
     return rc;
   }
   browser.resume_present_timers();
@@ -50,7 +50,7 @@ int run_map2d_showcase(HarnessShell& browser, detail::ScenarioMode mode,
 
   if (const int rc =
           detail::run_map2d_present(browser, name, showcase_w, showcase_h)) {
-    browser.detach_maps();
+    browser.detach_views();
     return rc;
   }
 
