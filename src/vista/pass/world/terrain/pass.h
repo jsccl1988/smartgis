@@ -13,7 +13,7 @@
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
 #include "vista/vista_export.h"
-#include "vista/component/world/cull/frustum_aabb.h"
+#include "vista/component/world/space/cull/frustum_aabb.h"
 #include "vista/component/world/instance.h"
 #include "vista/mesh/tessellate.h"
 #include "vista/pass/world/gpu_mesh.h"

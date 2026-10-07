@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "vista/component/map/place.h"
+#include "vista/component/map/place/place.h"
 
 namespace vista {
 class GlyphRasterizer;

@@ -42,6 +42,7 @@ bool try_bind_dib(HDC hdc, DibSurface* out);
 void fill_dib_solid(DibSurface* dib, uint32_t bgra);
 
 // Stretch tightly packed RGBA8 into the axis-aligned bbox of |pts|.
+// Clips to the HDC bitmap, then bilinear-samples coverage (keeps alpha).
 // kMultiply bakes luma into the coverage then multiplies the snapped land.
 // kOver is AlphaBlend (SRC_OVER).
 bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,

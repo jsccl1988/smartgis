@@ -58,7 +58,9 @@ struct BinaryCopyHandler {
   Status on_record_complete() { return Status::CONSUMED; }
 };
 
-// Load |path| into |out| via base::FileMMap (+ optional warmup) → FileLoader.
+// Explicit FileLoader path for a future chunked parse stage. Not used by
+// read_all: a 3-stage pipeline plus warmup page-touch is slower than serial
+// ReadFile when the only work is memcpy.
 // |parallel_num| 0 → hardware_concurrency (min 1).
 inline bool load_file_via_loader(const char* path, std::vector<uint8_t>* out,
                                  size_t parallel_num = 0,

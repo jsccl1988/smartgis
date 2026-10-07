@@ -263,7 +263,8 @@ int main() {
   expect(vista::tessellate_point_cloud(cloud.xyz.data(), cloud.point_count(), 0.1f,
                                      mesh),
          "tessellate");
-  expect(mesh.indices.size() == 9, "3 tris");
+  // One cube per point (12 triangles).
+  expect(mesh.indices.size() == cloud.point_count() * 36, "point cubes");
 
   // P1 chunks.
   {

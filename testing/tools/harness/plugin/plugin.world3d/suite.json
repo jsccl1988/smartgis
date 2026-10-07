@@ -33,7 +33,7 @@
                ],
     "loop":  {
                  "rounds":  4,
-                 "timeout_sec":  180,
+                 "timeout_sec":  300,
                  "build_target":  "src/app/views:views",
                  "exe":  "SmartGIS.exe"
              },

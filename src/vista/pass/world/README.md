@@ -33,7 +33,7 @@ Namespace stays `vista` / `vista::detail`. Do not add `vista::pass`.
 `WorldPass::sync_from(const World&)` and `record_draws` stay on this object.
 Content holds one long-lived `WorldPass`. Terrain upload / solid gate / `kTerrain`
 record live in `terrain/TerrainPass` (composed internally). Paint RGBA mapping lives in
-`"vista/component/world/paint.h"` (`rgba_from_resolved_paint`), not on the GPU facade.
+`"vista/component/world/instance/paint.h"` (`rgba_from_resolved_paint`), not on the GPU facade.
 
 GN: `world_pass_sources` depends on `//src/vista/component/world:world_sources` and
 `//src/render:render`.
@@ -48,11 +48,11 @@ GN: `world_pass_sources` depends on `//src/vista/component/world:world_sources` 
 
 The env string `GPUSCENE_PREP_PARALLEL` is unchanged so harness switches keep working.
 
-CPU index `vista/component/world/index/aabb_octree.*` wraps unibn. With cull on, `prep_cull_meshes` builds a frame-local octree (not stored on `WorldPass`).
+CPU index `vista/component/world/space/index/aabb_octree.*` wraps unibn. With cull on, `prep_cull_meshes` builds a frame-local octree (not stored on `WorldPass`).
 
 Tests: `//src/vista/pass/world:scene_gpu_test` (`scene_gpu_test`), `unified_draw_test`,
 `terrain_pass_test`.
 
 ---
 
-**最后更新：** 2026-10-06
+**最后更新：** 2026-10-07

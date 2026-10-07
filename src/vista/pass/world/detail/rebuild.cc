@@ -5,8 +5,8 @@
 
 #include "base/core/log.h"
 #include "vista/mesh/tessellate.h"
-#include "vista/component/world/envelope.h"
-#include "vista/component/world/kind_tess.h"
+#include "vista/component/world/space/envelope.h"
+#include "vista/component/world/instance/kind.h"
 #include "vista/pass/world/detail/tint.h"
 #include "vista/pass/world/detail/upload.h"
 

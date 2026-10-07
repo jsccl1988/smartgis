@@ -190,6 +190,7 @@ bool read_all_mapped_chunked(const std::string& path, std::vector<uint8_t>* out)
     return false;
   }
   out->resize(map.size());
+  // Contiguous DemIoPool parts (see io_pipeline.h).
   copy_bytes_chunked(out->data(), map.data(), map.size());
   return true;
 }
@@ -218,7 +219,11 @@ bool read_all(const std::string& path, std::vector<uint8_t>* out,
 }
 
 bool read_all(const std::string& path, std::vector<uint8_t>* out) {
-  return read_all_mapped_chunked(path, out);
+  const FileStamp stamp = file_stamp(path.c_str());
+  if (stamp.ok && stamp.size >= kDemIoMinParallelBytes) {
+    return read_all_mapped_chunked(path, out);
+  }
+  return read_all_baseline(path, out);
 }
 
 bool write_all(const std::string& path, const void* data, size_t bytes) {

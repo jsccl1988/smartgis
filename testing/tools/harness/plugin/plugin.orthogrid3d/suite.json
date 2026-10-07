@@ -19,7 +19,7 @@
                        ],
     "bmp":  {
                 "path":  "plugin-showcase-orthogrid3d.bmp",
-                "score_id":  "plugin_mesh"
+                "score_id":  "plugin_hex"
             },
     "report_name":  "plugin_orthogrid3d_loop_report.json",
     "probes":  [
@@ -37,8 +37,10 @@
                           "checklist":  [
                                             "hex_or_grid_3d",
                                             "surface_orth_grid",
+                                            "fe_zone_colors",
+                                            "fe_edge_ribbons",
                                             "no_black_frame"
                                         ],
-                          "expect_notes":  "orthogrid3d colored orthogonal hex volume with surface grid"
+                          "expect_notes":  "finite-element 3D: quarry hex volume with multi-zone faces + orthogonal grid ribbons (not amber 6-face toy)"
                       }
 }

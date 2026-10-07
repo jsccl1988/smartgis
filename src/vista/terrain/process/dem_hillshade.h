@@ -28,6 +28,7 @@ struct HillshadeParams {
 };
 
 // Finite-difference slope/aspect shade → tightly packed RGBA8.
+// Viewport LOD uses bilinear DEM sampling before Horn shade / jet sheet.
 // Nodata / ocean cells get alpha 0. Returns false when DEM empty or too small.
 VISTA_EXPORT bool shade_dem_rgba(const DemRaster& dem,
                                const HillshadeParams& params,

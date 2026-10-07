@@ -338,6 +338,14 @@ RENDER_EXPORT CameraMatrices make_orbit_camera(float yaw_radians,
                                                float aspect, float near_z,
                                                float far_z);
 
+// Free look-at camera (globe surface skim: eye above DEM, target ahead on path).
+RENDER_EXPORT CameraMatrices make_look_at_camera(float eye_x, float eye_y,
+                                                 float eye_z, float center_x,
+                                                 float center_y, float center_z,
+                                                 float fov_y_radians,
+                                                 float aspect, float near_z,
+                                                 float far_z);
+
 // GPU or CPU heap for vertex/index bytes. FlyCube types stay out of this header.
 class Buffer {
  public:

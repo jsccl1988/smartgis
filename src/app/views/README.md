@@ -108,17 +108,21 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 `--atmosphere-showcase=full` 共用——中国样例清掉 `china_city.style.json`（默认
 carto）、mainland 取景、`kChinaLonLatExtent` + orbit `distance=2.55`、3D 大气
 ocean/cloud/sky/**fog**（`SCENE3D_ATMO=0` / `SCENE3D_LAND_ONLY=1` 可关）。
-交互仍走 Vista；showcase/self-test 才强制 ContentMapView/GDI。
+产品默认 2D = Vista/FlyCube GPU SoT（`product_startup_policy`）；harness /
+ContentGdi / `FORCE_*` 才钉 ContentMapView/GDI。
 
-**2D 主路径 = RHI**：Map/Data 页默认 Vista；`MapScene::present_gpu` 把可见矢量层交给 `gis::vista::Layout` 生成 `MapIR`，再由 `vista::MapPass` 录到调用方 `Device` 并 present。成功时注记在帧内（`kText`），`paint_annotation_overlay` 只描选中；失败或强制时回退全量 GDI `MapScene::paint`（含注记）。
+**2D 主路径 = RHI**：Map/Data 页默认 `kGpuPresent`；`Map2dPresenter::present_gpu`
+→ Vista `Layout`/`MapPass`。成功且 present HWND 可见时，shell overlay 只画
+`paint_annotation_overlay`；失败或 `FORCE_GDI_MAP_OVERLAY=1` 时回退全量 GDI
+`Map2dPresenter::paint`。
 
 ```bat
 rem 强制 2D 走 ContentMapView / 跳过 Vista：
 set FORCE_CONTENT_MAPVIEW_2D=1
 rem 或: set PREFER_FLYCUBE_2D=0
-rem 强制 GDI 全量 overlay（仍可挂 Vista HWND，但不走 present_gpu）：
+rem 强制 GDI 全量 overlay（仍可挂 Vista HWND，但不以 present_gpu 为 SoT）：
 set FORCE_GDI_MAP_OVERLAY=1
-out\SmartGIS.exe
+out\Debug\SmartGisViews.exe
 ```
 
 3D 页：`view3d.trackball` 更新 `OrbitFrame` / `Scene3dPresenter`。默认

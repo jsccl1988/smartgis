@@ -84,6 +84,7 @@ All rights reserved.
       · 模块：<a href="../../../src/vista/README.md">src/vista/README.md</a>
     </div>
     <div class="rel">相关图：
+      <a href="./vista-world-component-layers.html">World 顶层</a>
       <a href="./world-lod-terrain.html">World LOD terrain</a>
       <a href="./legacy-render-architecture.html">上一代 Scenic</a>
       <a href="./render-accelerate-topology.html">A×B 并行</a>
@@ -107,8 +108,8 @@ All rights reserved.
         <h3>IR — CPU 可并行</h3>
         <ul>
           <li><code>component/map/</code> <code>Layout</code> → <code>MapIR</code></li>
-          <li><code>component/world/</code> <code>World</code> + <code>Instance</code>；sync / tess / cull / index</li>
-          <li><code>component/world/terrain/</code> <code>TerrainPayload</code> + LOD seed（raster / TIN / surface）</li>
+          <li><code>component/world/</code> 根 <code>World</code> + <code>Instance</code>；顶层 <code>space/</code> · <code>instance/</code> · <code>terrain/</code> · <code>pointcloud/</code></li>
+          <li><code>component/world/terrain/</code> <code>policy</code> · <code>grid</code> · 按源 seed（raster / nested / surface / TIN）</li>
           <li><code>mesh</code>（<code>fill/</code>·<code>line/</code>·<code>detail/</code>）CPU 三角化；<code>terrain</code> DEM bake（头文件无 World）</li>
           <li><code>assets</code> 模型 / 3D Tiles / 点云文件</li>
           <li><code>component/atmosphere</code> 场；<code>domain</code> 缝</li>
@@ -244,9 +245,9 @@ All rights reserved.
         <tr><th>目录</th><th>角色</th><th>线程</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>vista/component/map</code></td><td>CPU IR：<code>Layout</code> → <code>MapIR</code>。伞头 <code>vista/component/map/ir.h</code></td><td>Emit 可并行；碰撞串行。<code>map_sources</code> 禁止依赖 <code>render</code></td></tr>
+        <tr><td><code>vista/component/map</code></td><td>CPU IR：根 <code>Layout</code> → <code>MapIR</code>（伞头 <code>ir.h</code>）。职责目录 <code>carto</code>（含 collision）/ <code>shade</code> / <code>place</code> / <code>mvt</code> / <code>layout</code>（扁平）</td><td>Emit 可并行；碰撞串行。<code>map_sources</code> 禁止依赖 <code>render</code></td></tr>
         <tr><td><code>vista/pass/map</code></td><td>GPU：根 <code>MapPass</code> / <code>map_effect</code>；<code>detail/{atlas,encode,upload}</code>。GN <code>map_pass_sources</code></td><td>设备线程。依赖 <code>map_sources</code> + <code>render</code></td></tr>
-        <tr><td><code>vista/component/world</code></td><td><code>World</code> + <code>Instance</code>；CPU sync / tess / cull / index；<code>paint.h</code> 含 <code>rgba_from_resolved_paint</code></td><td>CPU。<code>world_sources</code> 依赖 <code>mesh</code>，禁止依赖 <code>render</code></td></tr>
+        <tr><td><code>vista/component/world</code></td><td>根 <code>World</code> + <code>Instance</code>。顶层 <code>space/</code>（坐标、视域、视锥、octree）· <code>instance/</code>（sync、paint、lit 策略、tess）· <code>pointcloud/</code> · <code>terrain/</code>（<code>policy</code> · <code>grid</code> · <code>mesh</code> · 按源 seed）。<code>instance/paint.h</code> 含 <code>rgba_from_resolved_paint</code>。<code>space</code> 与 <code>instance</code> 互不 include</td><td>CPU。<code>world_sources</code> 依赖 <code>mesh</code>，禁止依赖 <code>render</code></td></tr>
         <tr><td><code>vista/pass/world</code></td><td>GPU：根 <code>WorldPass</code> / <code>GpuMesh</code> / <code>opaque_effect</code>；<code>detail/{upload,tint,rebuild,draw,record}</code>；<code>cull/frustum_camera</code>。<code>sync_from</code> / <code>record_draws</code> 仍在 <code>WorldPass</code></td><td>设备线程。依赖 <code>world_sources</code> + <code>render</code></td></tr>
         <tr><td><code>vista/assets</code></td><td>模型、3D Tiles、点云文件解码。不改名</td><td>CPU。不依赖 <code>world</code></td></tr>
         <tr><td><code>vista/mesh</code></td><td>CPU xyz+indices。公开 <code>tessellate.h</code>；职责子目录 <code>fill/</code>·<code>line/</code>·<code>detail/</code></td><td>CPU。不依赖 <code>world</code> / <code>render</code></td></tr>

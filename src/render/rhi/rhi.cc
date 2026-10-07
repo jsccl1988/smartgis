@@ -114,6 +114,45 @@ CameraMatrices make_orbit_camera(float yaw_radians, float pitch_radians,
   return camera;
 }
 
+CameraMatrices make_look_at_camera(float eye_x, float eye_y, float eye_z,
+                                   float center_x, float center_y,
+                                   float center_z, float fov_y_radians,
+                                   float aspect, float near_z, float far_z) {
+  CameraMatrices camera = make_perspective_camera(fov_y_radians, aspect, near_z,
+                                                  far_z);
+  camera.kind = CameraKind::kPerspective;
+  // Match make_orbit_camera (+Y up). Radial-up at China skim latitudes rolled
+  // the basis enough that FlyCube present hung; +Y stays stable for globe hug.
+  float ux = 0.f;
+  float uy = 1.f;
+  float uz = 0.f;
+  float fx = center_x - eye_x;
+  float fy = center_y - eye_y;
+  float fz = center_z - eye_z;
+  const float fl = std::sqrt(fx * fx + fy * fy + fz * fz);
+  if (fl > 1e-8f) {
+    fx /= fl;
+    fy /= fl;
+    fz /= fl;
+    const float parallel = std::fabs(fx * ux + fy * uy + fz * uz);
+    if (parallel > 0.98f) {
+      // Look nearly vertical — use geocentric radial as up.
+      ux = eye_x;
+      uy = eye_y;
+      uz = eye_z;
+      const float ul = std::sqrt(ux * ux + uy * uy + uz * uz);
+      if (ul > 1e-8f) {
+        ux /= ul;
+        uy /= ul;
+        uz /= ul;
+      }
+    }
+  }
+  look_at(camera.view, eye_x, eye_y, eye_z, center_x, center_y, center_z, ux,
+          uy, uz);
+  return camera;
+}
+
 
 Device* create_null_device();
 Device* create_gdi_device();

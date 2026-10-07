@@ -6,7 +6,7 @@
 #include <cstdio>
 
 #include "gis/geo/ops/indexed_tin.h"
-#include "vista/component/world/terrain/lod.h"
+#include "vista/component/world/terrain/policy.h"
 #include "vista/component/world/world.h"
 
 namespace {

@@ -41,8 +41,7 @@ test("map_effect_test") {
     "detail/atlas.cc",
     "detail/encode.cc",
     "detail/upload.cc",
-    "../../component/map/place.cc",
-    "../../component/map/multiply.cc",
+    "../../component/map/place/place.cc",
     "glyph_windows.cc",
     "pass.cc",
     "pass_test.cc",
@@ -59,5 +58,7 @@ test("map_effect_test") {
     "//src/gis:gis",
     "//src/render:programs_sources",
     "//src/render:rhi_sources",
+    "//src/vista/component/map:map_multiply",
+    "//src/vista/component/map:map_multiply_avx2",
   ]
 }

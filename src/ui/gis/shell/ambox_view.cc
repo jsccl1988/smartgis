@@ -45,6 +45,62 @@ std::string label_for_id(std::string_view id) {
   return std::string(id.substr(slash + 1));
 }
 
+// Human labels for packed horizontal chips (group headers are hidden there).
+std::string label_for_command(std::string_view id) {
+  if (id == "select" || id == "selection") {
+    return "Select";
+  }
+  if (id == "identify") {
+    return "Identify";
+  }
+  if (id == "selection.clear") {
+    return "Clear";
+  }
+  if (id == "selection.point") {
+    return "Sel pt";
+  }
+  if (id == "selection.rect") {
+    return "Sel rect";
+  }
+  if (id == "selection.polygon") {
+    return "Sel poly";
+  }
+  if (id == "edit.append.point") {
+    return "Point";
+  }
+  if (id == "edit.append.linestring") {
+    return "Line";
+  }
+  if (id == "edit.append.polygon") {
+    return "Polygon";
+  }
+  if (id == "edit.undo") {
+    return "Undo";
+  }
+  if (id == "edit.redo") {
+    return "Redo";
+  }
+  if (id == "edit.cancel") {
+    return "Cancel";
+  }
+  if (id == "edit.vertex") {
+    return "Vertex";
+  }
+  if (id == "view3d.fps") {
+    return "FPS";
+  }
+  if (id == "view3d.sphere") {
+    return "Sphere";
+  }
+  if (id == "view3d.full" || id == "view.full") {
+    return "Full";
+  }
+  if (id == "view3d.trackball") {
+    return "Orbit";
+  }
+  return label_for_id(id);
+}
+
 void ensure_item(std::vector<AmboxView::Item>* items,
                  const char* id,
                  const char* label) {
@@ -91,7 +147,7 @@ void append_catalog_ids(tool::CommandCatalog* catalog,
     if (!target || has_item_id(target->items, id)) {
       return;
     }
-    target->items.push_back({std::string(id), label_for_id(id)});
+    target->items.push_back({std::string(id), label_for_command(id)});
   });
 }
 
@@ -629,14 +685,19 @@ void AmboxView::layout_horizontal(float scale) {
   const int row_h = host_h;
   const bool icon_only = effective_chip_style() == ChipStyle::kIconOnly;
   const int icon = icon_slot(scale);
+  // Content may be wider than the host; ScrollView scrolls inside the clipped
+  // Ambox bounds so chips never resize the map_column into the inspector
+  // (ui.shell no_sibling_overlap).
+  const int content_w = measure_content_width(scale);
 
   if (content_) {
-    content_->set_preferred_size(
-        {measure_content_width(scale), measure_content_height(scale)});
+    content_->set_preferred_size({content_w, measure_content_height(scale)});
   }
   if (scroll_) {
     scroll_->layout();
   }
+  // Width 0 → Yoga flex-fill of tool_bar_host; never prefer content width.
+  set_preferred_size({0, host_h});
 
   const Rect area = content_ ? content_->bounds() : b;
   const int y = area.y + (area.height > row_h ? (area.height - row_h) / 2 : 0);
@@ -716,9 +777,10 @@ void AmboxView::paint_self(ui::gfx::Canvas* canvas) {
   std::vector<ToolButton*> tools;
   collect_tool_buttons(&tools);
   if (tools.empty() && orientation_ == Orientation::kVertical) {
-    // Side Tools tab empty-state (visual_review #10).
+    // Side Tools tab empty-state (visual_review #10). Bright ink so the shell
+    // chrome_readable gate still sees label mass when plugin groups are empty.
     canvas->draw_text(b.x + dip_to_px(12, scale), b.y + dip_to_px(16, scale),
-                      L"No tools in this workspace", t.text_muted);
+                      L"No tools in this workspace", t.text_bright);
   }
   if (orientation_ == Orientation::kHorizontal) {
     canvas->fill_rect(b.x, b.bottom() - hair, b.width, hair, t.panel_header);

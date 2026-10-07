@@ -27,6 +27,8 @@ enum class Scene3dStartup {
 };
 
 // 2D Map Edit attach / overlay gates. Product vs harness faces.
+// kProduct / kFlyCube2d → GpuPresent + present_gpu SoT (no force GDI overlay).
+// kContentGdi / kInteract / kPluginScene3d → ContentMapView / GDI faces.
 enum class Map2dStartup {
   kProduct,
   kContentGdi,

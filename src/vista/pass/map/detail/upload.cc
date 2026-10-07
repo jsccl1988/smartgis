@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-#include "vista/component/map/multiply.h"
+#include "vista/component/map/shade/multiply.h"
 #include "render/rhi/rhi.h"
 
 namespace vista {

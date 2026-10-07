@@ -3,7 +3,7 @@
 
 #include "vista/pass/world/detail/upload.h"
 
-#include "vista/component/world/tessellate.h"
+#include "vista/component/world/instance/tessellate.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -130,7 +130,7 @@ render::rhi::Texture* upload_layer_texture(render::rhi::Device* device,
 
 // Upload symbol icon pixels. Prefers in-memory bytes; if only a path is set,
 // tries a binary file read. Encoded image formats (PNG/JPEG) are not decoded
-// here — path must already hold raw RGBA8 (or the read is skipped).
+// here —path must already hold raw RGBA8 (or the read is skipped).
 render::rhi::Texture* upload_symbol_texture(
     render::rhi::Device* device, const gis::style::SymbolEntry& symbol) {
   if (!device) {
@@ -246,7 +246,7 @@ bool upload_mesh(render::rhi::Device* device, const float* positions,
     stride = kLitPositionNormalStride;
   }
   const uint32_t ib_bytes = static_cast<uint32_t>(index_count * sizeof(uint32_t));
-  // Reuse GPU buffers when capacity matches — avoids full mesh destroy on
+  // Reuse GPU buffers when capacity matches —avoids full mesh destroy on
   // remesh (ocean/sky DEM re-upload, warm dirty). Cold first alloc still creates.
   const bool reuse_vb =
       out->vertex && out->vertex->byte_size() >= vb_bytes;

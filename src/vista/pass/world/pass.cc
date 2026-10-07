@@ -6,9 +6,9 @@
 #include <algorithm>
 
 #include "render/programs/programs.h"
-#include "vista/component/world/paint.h"
-#include "vista/component/world/pipelines.h"
-#include "vista/component/world/sync.h"
+#include "vista/component/world/instance/paint.h"
+#include "vista/component/world/instance/pipelines.h"
+#include "vista/component/world/instance/sync.h"
 #include "vista/pass/world/detail/upload.h"
 
 namespace vista {
@@ -43,9 +43,9 @@ WorldPass::~WorldPass() {
 }
 
 void WorldPass::destroy_pipelines() {
-  // Abandon only â never virtual-call through pipeline_device_. FlyCube may
+  // Abandon only — never virtual-call through pipeline_device_. FlyCube may
   // already be shut down, and a recycled/corrupt Device* AVs on the vtable
-  // load (atmosphere-showcase full: ensure_pipelines â destroy_pipelines).
+  // load (atmosphere-showcase full: ensure_pipelines → destroy_pipelines).
   // Matches abandon(); Device map entries are reclaimed on Device teardown.
   solid_pipeline_ = nullptr;
   textured_pipeline_ = nullptr;
@@ -63,7 +63,7 @@ bool WorldPass::ensure_pipelines(render::rhi::Device* device) {
     return false;
   }
   // Bare DEM (hypsometric) only needs solid + textured. Lit PSOs are cold-
-  // expensive under FlyCube/DX12 â create them lazily when a lit kind is live.
+  // expensive under FlyCube/DX12 — create them lazily when a lit kind is live.
   const bool want_lit = detail::want_lit_terrain();
   const bool need_model_lit = detail::want_model_lit(instances_);
   const bool need_lit = want_lit || need_model_lit;
@@ -72,7 +72,7 @@ bool WorldPass::ensure_pipelines(render::rhi::Device* device) {
     return true;
   }
   if (pipeline_device_ != device) {
-    // Stale or garbage device pointer â drop handles without virtual destroy.
+    // Stale or garbage device pointer — drop handles without virtual destroy.
     destroy_pipelines();
   }
   pipeline_device_ = device;
@@ -119,7 +119,7 @@ void WorldPass::abandon() {
   lit_textured_pipeline_ = nullptr;
   pipeline_device_ = nullptr;
   meshes_.clear();
-  // Drop CPU instances too â leaving Debug-iterator proxies across a Device
+  // Drop CPU instances too — leaving Debug-iterator proxies across a Device
   // swap made the next sync_from push_back AV in _Orphan_range (world3d
   // present after abandon_mesh + new FlyCube HWND).
   instances_.clear();
@@ -177,7 +177,7 @@ void WorldPass::clear_view_camera() {
 void WorldPass::set_solid_color(float r, float g, float b, float a) {
   // Color is a draw-time constant (ColorCB), not baked into vertex buffers.
   // Marking meshes_dirty_ here forced full GPU re-upload every Scene3d present
-  // (caller sets white each frame) â that dominated FPS.
+  // (caller sets white each frame) — that dominated FPS.
   if (solid_r_ == r && solid_g_ == g && solid_b_ == b && solid_a_ == a) {
     return;
   }
@@ -288,7 +288,7 @@ void WorldPass::sync_from(const vista::World& world) {
       !(instances_.empty() && world.node_count() > 0)) {
     return;
   }
-  // Build into a fresh vector then swap â avoids Debug STL orphan-proxy AV when
+  // Build into a fresh vector then swap — avoids Debug STL orphan-proxy AV when
   // instances_ was cleared/reused after abandon across Device boundaries.
   detail::copy_world_instances(world, &instances_);
   synced_generation_ = world.generation();

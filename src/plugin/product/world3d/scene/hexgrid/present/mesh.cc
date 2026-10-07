@@ -236,9 +236,9 @@ bool present_hex_grid_mesh(content::GisDocument* doc,
     (void)z_span;
     const double cell =
         xy_span / static_cast<double>((std::max)((std::max)(nx, ny), 2) - 1);
-    // Hairline overlay (FlyCube has no line PSO). 0.07*cell read as fat
-    // black bars on the HWND capture.
-    const double half_w = cell * 0.016;
+    // FE edge ribbons (FlyCube has no line PSO). Too thin vanishes after
+    // studio fit; too fat (0.07*cell) reads as solid black bars.
+    const double half_w = cell * 0.028;
     std::vector<float> tin_geo;
     std::vector<float> tin_uv;
     std::vector<unsigned> tin_idx;

@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "render/rhi/rhi.h"
-#include "vista/component/world/terrain/lod.h"
+#include "vista/component/world/terrain/policy.h"
 #include "vista/component/world/world.h"
 #include "vista/pass/world/pass.h"
 

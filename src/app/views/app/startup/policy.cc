@@ -30,10 +30,16 @@ bool want_flycube_2d() {
 }
 
 bool pins_content_mapview(const LaunchPolicy& policy) {
+  // Product / FlyCube2d pin GPU present — ContentMapView is harness opt-in.
   return policy.map2d == Map2dStartup::kPluginScene3d ||
-         policy.map2d == Map2dStartup::kProduct ||
          policy.map2d == Map2dStartup::kInteract ||
          policy.map2d == Map2dStartup::kContentGdi;
+}
+
+void apply_flycube_2d_face() {
+  base::set_switch("force-content-mapview-2d", "0");
+  base::set_switch("prefer-flycube-2d", "1");
+  base::set_switch("force-gdi-map-overlay", "0");
 }
 
 void apply_map2d_face(const LaunchPolicy& policy, bool fps) {
@@ -54,17 +60,13 @@ void apply_map2d_face(const LaunchPolicy& policy, bool fps) {
       }
       break;
     case Map2dStartup::kFlyCube2d:
-      base::set_switch("force-content-mapview-2d", "0");
-      base::set_switch("prefer-flycube-2d", "1");
-      base::set_switch("force-gdi-map-overlay", "0");
+      apply_flycube_2d_face();
       break;
     case Map2dStartup::kProduct:
-      if (!fps) {
-        base::set_switch("force-content-mapview-2d", "1");
-        if (!base::switch_is_one("enable-oop-render")) {
-          base::set_switch("disable-oop-render", "1");
-        }
-      }
+      // Product 2D SoT = Vista/FlyCube present_gpu (MapPass). ContentMapView
+      // + full GDI overlay stay opt-in (FORCE_CONTENT_MAPVIEW_2D /
+      // FORCE_GDI_MAP_OVERLAY / harness ContentGdi faces).
+      apply_flycube_2d_face();
       break;
   }
 }
@@ -89,7 +91,7 @@ LaunchPolicy product_startup_policy() {
   p.scene3d = Scene3dStartup::kLeave;
   p.map2d = Map2dStartup::kProduct;
   p.skip_ambox_catalog = false;
-  p.force_gdi_overlay = true;
+  p.force_gdi_overlay = false;
   return p;
 }
 
@@ -157,12 +159,12 @@ void apply_startup_policy(const LaunchPolicy& policy_in) {
               ? base::switch_cstr("prefer-flycube-2d")
               : "(null)");
 
-  // Stereo / explicit 2D FlyCube / FPS bench: allow DXGI on Map Edit.
-  // Default Scene3d FlyCube must not clear the 2D ContentMapView gate on
-  // product / interact / plugin-3d (SetWindowPos deadlock).
+  // Stereo / product FlyCube / FPS bench: allow DXGI on Map Edit.
+  // Content-pinned faces (interact / ContentGdi / plugin-3d) keep the gate.
   if (!pins_content_mapview(policy) &&
       (content::prefer_scene3d_stereo_gl() || want_flycube_2d() || fps ||
-       policy.map2d == Map2dStartup::kFlyCube2d)) {
+       policy.map2d == Map2dStartup::kFlyCube2d ||
+       policy.map2d == Map2dStartup::kProduct)) {
     base::set_switch("force-content-mapview-2d", "0");
   }
 

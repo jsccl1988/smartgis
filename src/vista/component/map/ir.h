@@ -19,8 +19,11 @@
 // DrawItem::anchor_x / anchor_y is the pixel-space rotation pivot for
 // kIcon and kText. Colors are 0xAARRGGBB, matching ResolvedPaint.
 // World items (fill, line, circle, raster) stay in the view CRS
-// (pixel_space false). Raster quads use u/v 0..1 with v = 0 on the north
-// edge (max_y). Icon and text stay screen HUD (pixel_space true,
+// (pixel_space false). Generic raster quads use u/v 0..1 with v = 0 on the
+// north edge (max_y). Hillshade is the exception: bake row0=north but
+// FlyCube samples v=0 on the opposite edge, so emit_hillshade binds v=1
+// at max_y (otherwise the jet sheet is south-up and cream land ghosts
+// north of the mass). Icon and text stay screen HUD (pixel_space true,
 // axis-aligned); the pass rotates them about the anchor by angle_rad.
 // Vertex already carries an optional z in that same CRS.
 

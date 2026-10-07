@@ -113,13 +113,11 @@ void frame_orthogrid3d_orbit(content::OrbitFrame* orbit) {
   orbit->apply_world_extent(kHexLab);
   // Do NOT push_shared_extent: showcase skips select_map_tab(2), so the
   // Map-Edit 2D China crop would overwrite this hex lab orbit extent.
-  // South elevation of the hex volume (yaw=π looks from -Z). A small yaw
-  // offset keeps a hint of the side wall without the underside clip of
-  // the previous close 3/4 orbit.
+  // Classic 3/4 FE block view: top cap + two walls + grid ribbons readable.
   orbit->set_dolly_limits(0.55f, 8.0f);
-  orbit->set_distance(4.20f);
-  orbit->set_pitch(0.42f);
-  orbit->set_yaw(3.14159265f - 0.18f);
+  orbit->set_distance(3.75f);
+  orbit->set_pitch(0.62f);
+  orbit->set_yaw(2.45f);
 }
 
 void seed_orthogrid3d_orbit(HarnessShell& browser, content::Scene3dPresenter* cam,

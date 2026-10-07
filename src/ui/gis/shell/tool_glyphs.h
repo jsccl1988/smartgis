@@ -46,7 +46,9 @@ inline void paint_tool_glyph(ui::gfx::Canvas* canvas,
   const int cy = box.y + box.height / 2;
   const int half = std::max(2, box.width / 2 - inset);
 
-  if (command_id == "select" || glyph_id_starts(command_id, "selection.") ||
+  // Plain Select / identify cursor only — do NOT blanket-match selection.*
+  // (selection.clear/point/rect/polygon need distinct glyphs; visual_review #1).
+  if (command_id == "select" || command_id == "selection" ||
       glyph_id_ends(command_id, ".select") ||
       glyph_id_ends(command_id, ".Select")) {
     const int tip_x = box.x + inset;

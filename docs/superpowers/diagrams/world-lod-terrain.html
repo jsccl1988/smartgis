@@ -93,8 +93,9 @@ All rights reserved.
         <h3>IR — component/world/terrain</h3>
         <ul>
           <li><code>TerrainPayload</code> 嵌在 Node / Instance</li>
-          <li>lod：max_edge · TIN stride/空间抽稀 · nested + morph/skirt</li>
-          <li>seed：raster / view tiles / nested / surface / TIN</li>
+          <li><code>policy</code>：max_edge · TIN stride · cache key · morph</li>
+          <li><code>grid</code>：nested 环 + edge skirts</li>
+          <li>seed TU：raster / nested / surface / TIN</li>
           <li><code>assert_no_deps</code> render</li>
         </ul>
       </div>
@@ -124,7 +125,7 @@ All rights reserved.
       <text class="box-sub" x="32" y="98">+ view AABB</text>
 
       <rect class="stage" data-i="1" x="200" y="40" width="180" height="90" rx="7" fill="#e5f3ec" stroke="#2f7d62"/>
-      <text class="box-title" x="212" y="68">terrain/seed + lod</text>
+      <text class="box-title" x="212" y="68">policy · grid · seed</text>
       <text class="box-sub" x="212" y="88">raster · TIN · nested</text>
       <text class="box-sub" x="212" y="108">→ TerrainPayload</text>
 

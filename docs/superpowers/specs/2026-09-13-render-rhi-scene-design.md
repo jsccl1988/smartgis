@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-06 — **§Vista world LOD terrain**（TIN centroid-camera 空间抽稀；nested CPU morph + edge skirts；无 GPU clipmap tess；图 [world-lod-terrain.html](../diagrams/world-lod-terrain.html)）。Prior same day — raster/TIN/nested-grid/surface LOD component+pass。Prior 2026-10-05 — **§Vista IR/Pass lanes** 拆 `atmosphere` / `atmosphere_pass`（对标 `map`/`map_pass`；CPU `session` + `cpu_waves` 留在 `atmosphere/`；GPU pass 进 `atmosphere_pass/`；图 [`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)）。Prior same day — **§Vista world_pass deep split**（根公开 `pass`/`gpu_mesh`/`opaque_effect` + `detail/{upload,tint,rebuild,draw,record}` + `cull/`；`rgba_from_resolved_paint` 归 `world/paint.h`；图 [`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)）。Prior same day — **§Vista mesh subdirectory**（`mesh/` 按职责拆 `fill/` · `line/` · `detail/`；公开仍 `"vista/mesh/tessellate.h"`；图 [`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)）。Prior same day — **§Vista IR/Pass lanes**（停用「逻辑 / 物理」；目录以该节为准：`map`/`MapIR` + `map_pass`/`MapPass`，`world`/`Instance` + `world_pass`/`WorldPass`；`frame/` 与 `scene/` 退出目标布局；图 [`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)）。Prior same day — **§Vista scene subdirectory**（取消 `scene/gpu/`；`GpuScene` 与 `map/` 一样落在模块根；公开 `"vista/scene/scene.h"`；图 [`vista-scene-octree.html`](../diagrams/vista-scene-octree.html)）。Prior same day — **§Vista map/frame scenic damage**（N0 拆回 `geom_walk` / `mesh_emit` / `tess_grain`，删掉焊在一起的 `geom_mesh`；N1–N3 锁脏瓦片 / pack / job abort；图 [`vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)）。Prior same day — **§Vista map deep split**（`vista/component/map` 公开 IR/Layout 头拆开 + emit 辅件按职责；图仍 [`vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)）。Prior same day — **§Vista scene unibn octree**（`vista/scene/index` + 渲染视锥外过滤；图 [`vista-scene-octree.html`](../diagrams/vista-scene-octree.html)）。Prior same day — **§Vista map/frame scenic-peer**（`vista/component/map` CPU × `vista/frame` GPU 对照 Scenic `paint/map`；U1–U4 as-built；图 [`vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html)）。Prior 2026-10-04 — **§DEM / hillshade bake profile + bench**（`cat=bake` · CPU `parallel_for` vs Thrust；图 [`hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html)）。Prior same day — **§Scenic copy-type split**：`math.h`（vector 别名）与 `scenic_impl_export.h`（宏 + 一处 autolink）；STL/`ulong` 糖在 `scenic::detail` 非全局；`render/backend_dll.h` 共用 Loader。Prior same day — **§Vista logical/physical lanes U0–U4**（Task 8）。Prior same day — **§Scenic scene3d peer lock**：`scene3d/` ↔ `vista/scene`，禁止下沉 `rhi3d/impl/common`（[`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html)）。Prior same day — **§Vista logical/physical lanes**：[`vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html) 与 [`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) 对照 CPU Emit×N 与 GPU 设备线程。Prior same day — **§Content present/scene3d slim**：`scenic_engine_host` + `frame/{look_preset,scene3d_overlays}`；规范图 [`scene3d-present-layers.html`](../diagrams/scene3d-present-layers.html)。Prior same day — **§content present accelerate**：`content/browser/present` 三车道（C cache / G GPU 合成 / E `base::execution`）；规范图 [`content-present-accelerate.html`](../diagrams/content-present-accelerate.html)。Prior same day — **§RHI2D cc frame-beat upgrade**：`cc/` 是帧拍（commit/activate/FrameJob），与 `MapScheduler`×`TileGraphRunner` **组合不合并**；升级只在 `src/scenic` / `src/content`（[`rhi2d-paint-map-strategy.html`](../diagrams/rhi2d-paint-map-strategy.html)）。Prior same day — **§RHI2D map-layer-feature paint strategy**：`paint/map/` 拆 map / layer / feature（prep → encode → submit）；与 carto/cc 保持 sibling，不并入（同图）。Prior same day — **§RHI2D public composition split**：`Device2d*` 并入 `render_device.h`（无独立 `device_parts.h`）。Prior same day — **§Carto draw lattice seam**：`paint/carto/draw` 只消费 `LatticeView2d`，不认识 `plugin::detail::OrthoLattice`（[`rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html)）。Prior same day — Mini expression 路径 `gis/style/eval/expression.*`（style 子目录 nest）。Prior same day — **§RHI2D public composition split**（`Device2d*` + thin `RenderDevice2d`，与 rhi3d 同形；无 `Map2dSession`；[`rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html)）。**§Scenic**：copy 制图消费 `gis::style::ResolvedPaint`。**§rhi3d public API composition**（[`rhi3d-public-api-lanes.html`](../diagrams/rhi3d-public-api-lanes.html)）。copy TUs 去 Smt 前缀 + 零 `#include "legacy/…"`。**§Vista subdirectory tighten P0–P3 landed**。Prior 2026-10-03 — Scene3d GPU present 终态：`graph::present` 1 CL（sky/depth → opaque DEM → ocean → post）· §Map2d present：**MapFrame 双出口**（制图一次在 `Layout::build`；GDI 只消费 `DrawItem`）· [`map2d-present-frame.html`](../diagrams/map2d-present-frame.html) · §src_render Scene3d equal-profile：**world3d 矩阵 + cold vs warm**（P0 cold upload；`GPUSCENE_PREP_PARALLEL` default-off） · §Vista Map2d equal-profile **P0–P3 总方案** · §GPU-process × §vista parallel **统一规范图** [`render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（A×B + Scene3d cold） · …
+**Updated:** 2026-10-07 — **§Vista map component layers**（顶层五条：`carto` · `shade` · `place` · `mvt` · `layout`；collision 并入 carto；layout 扁平；图 [`vista-map-component-layers.html`](../diagrams/vista-map-component-layers.html)）。Prior same day — **§Vista map layout layers**（扁平 `layout/` 文件角色；图 [`vista-map-layout-layers.html`](../diagrams/vista-map-layout-layers.html)）。Prior same day — **§Vista world space layers** · **§Vista world component layers**。
 **Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；multiprocess [`../ui-shell-multiprocess.md`](../ui-shell-multiprocess.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)。  
 **Diagrams:** **World LOD terrain** [../diagrams/world-lod-terrain.html](../diagrams/world-lod-terrain.html) · **Vista scene octree** [`../diagrams/vista-scene-octree.html`](../diagrams/vista-scene-octree.html) · **Vista map/frame scenic-peer** [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html) · **DEM / hillshade bake** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html) · **Scene3d present** [`../diagrams/scene3d-present-layers.html`](../diagrams/scene3d-present-layers.html) · **content present accelerate** [`../diagrams/content-present-accelerate.html`](../diagrams/content-present-accelerate.html) · **rhi2d frame-beat + map/layer/feature** [`../diagrams/rhi2d-paint-map-strategy.html`](../diagrams/rhi2d-paint-map-strategy.html) · **rhi3d public lanes** [`../diagrams/rhi3d-public-api-lanes.html`](../diagrams/rhi3d-public-api-lanes.html) · **Vista 子目录分层** [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html) · **Scenic** [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · **RHI2D composition split** [`../diagrams/rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html) · **Map2d present** [`../diagrams/map2d-present-frame.html`](../diagrams/map2d-present-frame.html) · **A×B 规范图** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（含 **§8 Scene3d cold vs warm**） · Views shell [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · GIS MapFrame [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)  
 **Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · **gpu accelerate（§GPU-process 唯一 checklist）** [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · **vista parallel** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md) · suite/bench [`../plans/2026-09-28-render-rhi-suite-bench.md`](../plans/2026-09-28-render-rhi-suite-bench.md) · **Map2d hillshade + line casing** [`../plans/2026-09-30-map2d-hillshade-line-casing.md`](../plans/2026-09-30-map2d-hillshade-line-casing.md) · **world3d pointcloud LAS** [`../plans/2026-09-30-world3d-pointcloud-las.md`](../plans/2026-09-30-world3d-pointcloud-las.md) · **D3D leftover capability** [`../plans/2026-09-29-d3d-leftover-capability.md`](../plans/2026-09-29-d3d-leftover-capability.md) · **GL leftover capability** [`../plans/2026-09-29-gl-leftover-capability.md`](../plans/2026-09-29-gl-leftover-capability.md) · GDI leftover worker [`../plans/2026-09-29-gdi-leftover-worker.md`](../plans/2026-09-29-gdi-leftover-worker.md) · GDI carto math [`../plans/2026-09-29-gdi-carto-base-math.md`](../plans/2026-09-29-gdi-carto-base-math.md) · GDI layout/compose [`../plans/2026-09-29-gdi-layout-device-compose.md`](../plans/2026-09-29-gdi-layout-device-compose.md) · GDI profile [`../plans/2026-09-29-gdi-leftover-profile.md`](../plans/2026-09-29-gdi-leftover-profile.md) · **GDI internal RHI** [`../plans/2026-09-29-gdi-internal-rhi-reshape.md`](../plans/2026-09-29-gdi-internal-rhi-reshape.md) · **Legacy Pipeline+Arena** [`../plans/2026-09-30-legacy-render-pipeline-arena.md`](../plans/2026-09-30-legacy-render-pipeline-arena.md) · **rhi2d Chromium-cc** [`../plans/2026-10-01-rhi2d-chromium-cc-compose.md`](../archive/plans/2026-10-01-rhi2d-chromium-cc-compose.md) · **rhi2d leftover tile-raster** [`../plans/2026-10-01-rhi2d-leftover-tile-raster.md`](../plans/2026-10-01-rhi2d-leftover-tile-raster.md) · **rhi3d leftover parallel frame** [`../plans/2026-10-01-rhi3d-parallel-frame.md`](../archive/plans/2026-10-01-rhi3d-parallel-frame.md) · **rhi3d Eigen frustum** [`../plans/2026-10-01-rhi3d-eigen-base-math.md`](../archive/plans/2026-10-01-rhi3d-eigen-base-math.md)。  
@@ -1892,7 +1892,7 @@ CPU contract remains `vista::MapFrame`. Cartography runs once in `Layout::build`
 ### Locked
 
 1. **Colors.** The only color source is `default_carto_style_json` / `MapFrame::background_rgba` (`0xAARRGGBB`). Carto headers carry no `COLORREF` palette and no second road/river `COLORREF` table.
-2. **Batches.** Policy lives in `vista/component/map/detail/carto_filter` (`vista::detail`). `build_layer_batches` in `detail/batch_build.cc` takes POD features. Vista does not include `map_scene.h`. `Layout::build(LayoutInput, vector<LayerBatch>)` stays. Content copies `MapScene` → POD at the boundary.
+2. **Batches.** Policy lives in `vista/component/map/detail/carto_filter` (`vista::detail`). `build_layer_batches` in `batch.cc` takes POD features. Vista does not include `map_scene.h`. `Layout::build(LayoutInput, vector<LayerBatch>)` stays. Content copies `MapScene` → POD at the boundary.
 3. **Line casing.** Two style layers, `road-casing` then `road`. Width is the existing `LineTessOptions::pixel_width`. `emit_lines` tessellates both. `LineTessOptions` has no third casing width. GDI draws `kLine` only as triangles (`append_tris`). Items with fewer than 3 indices are skipped, same as an empty mesh. There is no `flush_stroke_run` cartography.
 4. **Labels.** The only labels are `DrawKind::kText` from `emit_symbols` plus `detail/collision` (scale floor, budget, and 8-direction nudge live there; along-line slots stay §Symbol collision). There is no second whole-string `paint_labels_projected` / `LabelOccupancy` path and no whole-string `DrawItem`.
 5. **Blend.** `DrawItem` carries `enum class DrawBlend : uint8_t { kOver, kMultiply }` defaulting to `kOver`, defined in `vista/component/map/draw.h`. That header does not include `rhi.h`. `emit_hillshade` sets `kMultiply`; `emit_raster` stays `kOver`. One vista pure function implements luma multiply `dst.rgb * ((1 - a) + a * luma)`. GDI calls it only for `kMultiply`; `kOver` is `AlphaBlend`. GPU adds `BlendMode::kMultiply` (`dst.rgb *= src.rgb`). Fixed-function blend cannot express `dst * ((1 - a) + a * luma)`, so opacity and luma are baked into the texture with that same function before upload (alpha hard cut), and multiply items use opacity 1. `Pass` and GDI read the same `DrawBlend`. Do not multiply every `kRaster`.
@@ -3269,10 +3269,10 @@ M1–M4 语义已落地。本 § 只拆 **责任层**，不改 `Layout::build` /
 | --- | --- | --- | --- |
 | 公开 IR | `view.h` `draw.h` | `View` / `MapFrame` / `DrawItem` | OGR 批、tess 并行开关 |
 | 公开编排 | `layout.h` `batch.h` | `Layout` / `LayoutInput` / `LayerBatch` / `build_layer_batches` | GPU encode |
-| 覆盖 | `multiply.h` | hillshade luma coverage | emit tess |
-| 风格策略 | `detail/carto_filter.*` | scale / role / stem | `OGRGeometry` 构造 |
-| POD→OGR | `detail/batch_build.cc` | `LayerBatchSet` 生命周期 | Raster 上传 |
-| 阶段 | `layout/{collect,emit,coalesce}.*` | 可见层、派发、同笔合并 | 单几何 tess 细节 |
+| 覆盖 | `shade/multiply.h` | hillshade luma coverage | emit tess |
+| 风格策略 | `carto/filter.*` | scale / role / stem | `OGRGeometry` 构造 |
+| POD→OGR | `batch.cc` | `LayerBatchSet` 生命周期 | Raster 上传 |
+| 阶段 | `layout/{collect,pack,emit,coalesce}.*` | 可见层、派发、同笔合并 | 单几何 tess 细节 |
 | 键 / 并行 / 走几何 / 网格 | `layout/{slice_key,tess_grain,geom_walk,mesh_emit}.*` | 各管一块 | 混进同一个 `geom_mesh` |
 | 按类 emit | `layout/{fill,line,point,symbol,raster}.*` | 仍按几何类 | 再套 `internal/` |
 
@@ -3689,6 +3689,211 @@ content present → WorldPass only
 - 不新开 dated spec；不改 plan 文件
 
 ---
+## §Vista map layout layers（2026-10-07）
+
+**Status:** active  
+**Updated:** 2026-10-07 — 收紧：`layout/` 扁平，四组文件角色（policy / geom / paint / stage）不再套子目录。  
+**Diagram:** [`../diagrams/vista-map-layout-layers.html`](../diagrams/vista-map-layout-layers.html)  
+**Hung off:** §Vista map deep split · §Vista map/frame scenic damage · §Vista map component layers  
+**Code:** `src/vista/component/map/layout/` · [`../../../src/vista/component/map/README.md`](../../../src/vista/component/map/README.md)
+
+§Vista map deep split 把职责从 `geom_mesh` 拆成并列文件。中间一度按依赖方向套了 `layout/{policy,geom,paint,stage}` 四层子目录。本 § **收紧**：磁盘回到扁平 `layout/`，依赖方向仍靠 include 规则（stage → paint → geom → policy）。画家不再 include stage 头（`layout_gen_stale` 在 `gen.h`）；瓦片裙边裁剪在 `clip`（不在 `pack`）。fill 与 line 共用 `SourceBatchIndex` 和 `run_ordered_tess`。公开签名、画家 z、瓦片 splice、`VISTA_LAYOUT_PARALLEL` 不变。禁止第三公共命名空间。无转发头。
+
+### 文件角色（同目录）
+
+| 角色 | 磁盘 | 拥有 | 不拥有 |
+| --- | --- | --- | --- |
+| policy | `layout/{slice_key,tess_grain,view_metrics,gen}.*` | 瓦片键、并行阈值、像素比、`layout_gen_stale` | OGR、DrawItem 合并 |
+| geom | `layout/{geom_walk,mesh_emit,attrs,clip}.*` | 走几何、网格、属性、瓦片裙边裁剪 | style 层序、`parallel_for` |
+| paint | `layout/{fill,line,point,symbol,raster}.*` + `source_index.h` + `tess_jobs.h` | 按 `LayerType` 出 `DrawItem`；有序 tess | 流水线调度 |
+| stage | `layout/{collect,pack,emit,coalesce}.*` | `Layout::build` 的四步 | 单个几何的 tess 细节 |
+
+`layout.h` / `layout.cc` 留在 `map/` 根。`layout.cc` 只 include stage 与 policy 文件。
+
+### 依赖
+
+```
+layout.cc → stage → paint → geom → policy
+                ↘ policy ↗
+paint ↛ stage
+geom ↛ paint
+policy ↛ geom
+```
+
+### 不做什么
+
+- 不把四组文件角色再套成 `layout/{policy,geom,paint,stage}/` 或 `layout/internal/`。
+- 不改 `Layout::build`、`MapIR` 字段、画家 z。
+- 不借 HDC / `MapPainter`，不新开 dated spec。
+
+### Acceptance
+
+- [x] `layout/` 扁平；无 `stage/` / `paint/` / `geom/` / `policy/` 子目录；无旧路径转发头
+- [x] paint 不 include stage 头；`layout_gen_stale` 在 `gen.h`
+- [x] `prepare_tile_clip` 在 `clip`；`pack_geoms` 仍是 stage 文件
+- [x] fill / line 走 `run_ordered_tess`（`layer_ord` 合并）
+- [ ] `frame_test` 编译通过
+
+---
+
+## §Vista map component layers（2026-10-07）
+
+**Status:** active  
+**Updated:** 2026-10-07 — 收紧：顶层五条正交目录；`collision/` 并入 `carto/`；`layout/` 扁平（见 §Vista map layout layers）。  
+**Diagram:** [`../diagrams/vista-map-component-layers.html`](../diagrams/vista-map-component-layers.html)  
+**Hung off:** §Vista map layout layers · §Vista map deep split · §Vista world component layers  
+**Code:** `src/vista/component/map/` · [`../../../src/vista/component/map/README.md`](../../../src/vista/component/map/README.md)
+
+§Vista map deep split 把辅件收进 `detail/`。本 § 解散杂项目录后，再收紧到 **五条正交顶层**：`carto` · `shade` · `place` · `mvt` · `layout`。注记碰撞与风格策略同属制图策略，并入 `carto/`。`layout/` 内不再套四层子目录。禁止第三公共命名空间 `vista::map`。无转发头。`Layout::build`、`build_layer_batches`、`apply_multiply_coverage`、`bake_hillshade_slot`、`decode_mvt_to_map_frame` 签名不变。AVX2 仍是独立 `map_multiply` / `map_multiply_avx2`，源文件在 `shade/`。
+
+### 目录
+
+| 层 | 磁盘 | 拥有 | 不拥有 |
+| --- | --- | --- | --- |
+| 公开 IR | `ir.h` `view.h` `draw.h` `batch.h` `layout.h` `layout.cc` `color.h` | `View` / `DrawItem` / `LayerBatch` / `Layout::build`；`0xAARRGGBB` 解包 | OGR 构造、tess |
+| 批次实现 | `batch.cc` | `build_layer_batches`、`LayerBatchSet` 生命周期 | scale / role 策略 |
+| 制图策略 | `carto/{filter,style,collision}.*` | 比例尺、线角色、地名等级、默认 style JSON、`LabelGrid` | `OGRGeometry` 构造、layout stage 头 |
+| 晕渲 | `shade/{multiply,bake}.*` `shade/multiply_avx2.cc` | luma coverage、bake 编排与 `TileSlot` | Horn 算法（`vista/terrain`）、`place/` |
+| 放置 | `place/` | `MapIR` → ortho mesh | RHI |
+| 矢量瓦片 | `mvt/` | MVT → `LayerBatch` / `MapIR` | `gis/tile` 解码实现 |
+| 布局 | `layout/`（扁平） | 见 §Vista map layout layers | 本表其余目录 |
+
+### 依赖方向
+
+```
+ir.h → view, draw, batch, layout
+batch.cc → carto/filter
+layout.cc → layout stage → paint → geom → policy
+layout emit / symbol → carto/collision
+carto ↛ layout stage，不构造 OGR
+shade ↛ place，不 include layout painters
+place → ir + color
+mvt → ir
+pass/map → place, shade/multiply, color
+map_sources ↛ render
+```
+
+### 不做什么
+
+- 不留 `detail/`、独立 `collision/`、或 `layout/{stage,paint,geom,policy}/`。
+- 不留根上 `place.h` / `shade/multiply.h` 转发头。
+- 不把 `batch.h` 或 `layout.h` / `layout.cc` 挪进子目录。
+- 不改公开函数签名，不把 AVX2 编进 scalar TU。
+- 不新开 dated spec。
+
+### Acceptance
+
+- [x] 根只留公开 IR + `batch.cc` + `color.h`；无 `detail/`
+- [x] 顶层仅 `carto` / `shade` / `place` / `mvt` / `layout`；collision 在 `carto/`
+- [ ] `frame_test` 编译通过
+
+---
+
+## §Vista world component layers（2026-10-07）
+
+**Status:** active  
+**Updated:** 2026-10-07  
+**Hung off:** §Vista world component deep split · §Vista world space layers  
+**Diagram:** [`../diagrams/vista-world-component-layers.html`](../diagrams/vista-world-component-layers.html)  
+**Code:** `src/vista/component/world/{space,instance,terrain,pointcloud}` · [`../../../src/vista/component/world/README.md`](../../../src/vista/component/world/README.md)
+
+§Vista world component deep split 把 CPU 辅件拆成十个并列子目录。本 § 按依赖方向收成四条顶层。公开图留在根。空间问题进 `space/`，帧镜像进 `instance/`，节点内容仍是 `terrain/` 与 `pointcloud/`。`space` 内再分见 **§Vista world space layers**。不套 `coord/coord.h` 同名一层。`space` 与 `instance` 互不 include。禁止第三公共命名空间。无转发头。`World` / `Instance` 字段与 `sync_from` 拷贝语义不变。
+
+### 目录
+
+| 层 | 磁盘 | 拥有 | 不拥有 |
+| --- | --- | --- | --- |
+| 公开图 | `world.*` `instance.h` | `World` / `Node` / `Instance` | tess、视锥、Device |
+| space | `space/{coord,envelope}.*` + `space/cull/` + `space/index/` | Y-up↔GIS、视域包络、视锥、prep、AABB octree | 风格、tess、Device |
+| instance | `instance/{sync,pipelines,paint,tessellate,kind}.*` | 节点拷贝、lit 策略、RGBA、矢量 tess、按 `NodeKind` 派发 | 视锥、octree |
+| terrain | `terrain/` | payload / policy / grid / mesh / 按源 seed | RHI（同上一节） |
+| pointcloud | `pointcloud/` | chunk + LOD | LAS 解码 |
+
+### 依赖
+
+```
+world.h → terrain/payload → terrain/policy
+world.h → pointcloud/chunk
+instance.h → world.h
+
+space/cull/prep_cull → space/{index/aabb_octree,cull/frustum_aabb,cull/mesh_cull}
+space/coord → world
+space/envelope → instance.h
+space ↛ instance/
+
+instance/kind → instance/tessellate → instance/paint
+instance/sync → instance.h + world
+instance/pipelines → instance.h
+instance/ ↛ space
+
+pass/world → space/{envelope,cull/*,index/*}
+             + instance/{sync,paint,pipelines,tessellate,kind}
+```
+
+### 不做什么
+
+- 不把四条再套进 `internal/`、`frame/` 或 `scene/`。
+- 不改 `World` / `Instance` 字段、`sync_from` 拷贝语义、`GPUSCENE_PREP_PARALLEL` 字面量。
+- 不改 `world_test` / `seed_tin_test` / `pointcloud_test` 的 `output_name`。
+- 不留旧路径转发头。
+- 不新开 dated spec。
+
+### Acceptance
+
+- [x] 顶层只剩 `space`、`instance`、`terrain`、`pointcloud`
+- [x] `space` 不 include `instance`，`instance` 不 include `space`
+- [ ] `world_test` / `seed_tin_test` / `pointcloud_test` 编译通过
+
+---
+
+## §Vista world space layers（2026-10-07）
+
+**Status:** active  
+**Updated:** 2026-10-07  
+**Hung off:** §Vista world component layers · §Vista map layout layers（对等：语义子目录，非同名再套）  
+**Diagram:** [`../diagrams/vista-world-space-layers.html`](../diagrams/vista-world-space-layers.html)  
+**Code:** `src/vista/component/world/space/` · [`../../../src/vista/component/world/README.md`](../../../src/vista/component/world/README.md)
+
+§Vista world component layers 把空间问题收进 `space/`。本 § 在 `space/` 内按依赖再分：foundation 留在根，视锥/prep 进 `cull/`，AABB 索引进 `index/`。对标 map `layout/` 的文件角色——语义分组，禁止 `coord/coord.h`。无转发头。公开符号与 `GPUSCENE_PREP_PARALLEL` 字面量不变。
+
+### 目录
+
+| 层 | 磁盘 | 拥有 | 不拥有 |
+| --- | --- | --- | --- |
+| foundation | `space/coord.*` `space/envelope.*` | Y-up↔GIS、ortho/顶点 AABB | 视锥平面、octree、Device |
+| cull | `space/cull/{frustum_aabb,mesh_cull,prep_cull}.*` | 平面提取、mesh POD、prep 工人与开关 | unibn 适配器本体、`instance/` |
+| index | `space/index/aabb_octree.*` | unibn 中心点 octree + 精确 AABB | prep 策略、Device |
+
+### 依赖
+
+```
+space/coord → world.h
+space/envelope → instance.h
+space/cull/frustum_aabb  （无 space 内依赖）
+space/cull/mesh_cull     （POD only）
+space/index/aabb_octree → space/cull/frustum_aabb
+space/cull/prep_cull → space/cull/{frustum_aabb,mesh_cull} + space/index/aabb_octree
+space ↛ instance/
+pass/world → space/{envelope,cull/*,index/*}
+scenic scene_to_world → space/coord
+```
+
+### 不做什么
+
+- 不套 `coord/coord.h` / `envelope/envelope.h`。
+- 不把 `MeshCullItem` 并进 `prep_cull.h` 迫使 `gpu_mesh.h` 拉 octree。
+- 不改 `prep_cull_meshes` / `extract_frustum_planes` 签名。
+- 不留扁平 `space/frustum_aabb.h` 等旧路径转发头。
+- 不新开 dated spec。
+
+### Acceptance
+
+- [x] `space/` 根只留 `coord` / `envelope`；cull 与 index 在子目录
+- [x] `cull/prep_cull` → `index` → `cull/frustum`；foundation 不 include cull/index
+- [ ] 外部 include 与 `world_sources` 指向新路径；编译墙绿
+
+---
+
 ## Folded topics (2026-09-28 merge B)
 
 Former hot specs are under `archive/specs/` (`superseded`). **Revise this file** (append `§`) for new requirements in this topic. Do not create a new `YYYY-MM-DD-*-design.md`.

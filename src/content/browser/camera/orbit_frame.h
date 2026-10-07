@@ -79,6 +79,13 @@ class OrbitFrame {
   // Orbit pitch in radians (clamped to tool::kOrbitPitchMin/Max).
   void set_pitch(float pitch);
 
+  // Globe terrain-hug: horizontal forward look-at (eye above DEM, target ahead
+  // on the flight path). When active, camera_matrices ignores orbit look-at-origin.
+  void set_forward_skim(float eye_x, float eye_y, float eye_z, float target_x,
+                        float target_y, float target_z);
+  void clear_forward_skim();
+  bool forward_skim_active() const { return forward_skim_; }
+
  private:
   content::Extent2 extent_{};
   float yaw_ = kScene3dDefaultYaw;
@@ -91,6 +98,13 @@ class OrbitFrame {
   int last_w_ = 0;
   int last_h_ = 0;
   bool has_last_ = false;
+  bool forward_skim_ = false;
+  float skim_eye_x_ = 0.f;
+  float skim_eye_y_ = 0.f;
+  float skim_eye_z_ = 0.f;
+  float skim_tgt_x_ = 0.f;
+  float skim_tgt_y_ = 0.f;
+  float skim_tgt_z_ = 0.f;
 };
 
 }  // namespace content

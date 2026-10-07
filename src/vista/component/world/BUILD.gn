@@ -9,58 +9,46 @@ import("//testing/test.gni")
 # Generic geometry tessellation lives in //src/vista/mesh.
 # Device upload is //src/vista/pass/world. This target assert_no_deps render.
 
-# Separate set: same basename as terrain/lod.cc → MSVC lod.obj collision in one
-# source_set (GN Duplicate object file).
-source_set("world_pointcloud_lod") {
-  sources = [
-    "pointcloud/point_lod.cc",
-    "pointcloud/point_lod.h",
-  ]
-  include_dirs += [ "//src" ]
-  configs += [ "//build:legacy" ]
-  public_configs = [ "//build:legacy" ]
-  defines = [
-    "_USRDLL",
-    "VISTA_EXPORTS",
-  ]
-  public_deps = [
-    "//src/vista/terrain:terrain_sources",
-    "//src/base:base",
-    "//third_party:octree",
-  ]
-}
-
 source_set("world_sources") {
   sources = [
-    "coord.cc",
-    "coord.h",
+    "instance.h",
+    "instance/kind.cc",
+    "instance/kind.h",
+    "instance/paint.cc",
+    "instance/paint.h",
+    "instance/pipelines.cc",
+    "instance/pipelines.h",
+    "instance/sync.cc",
+    "instance/sync.h",
+    "instance/tessellate.cc",
+    "instance/tessellate.h",
     "pointcloud/chunk.cc",
     "pointcloud/chunk.h",
-    "terrain/lod.cc",
-    "terrain/lod.h",
+    "pointcloud/point_lod.cc",
+    "pointcloud/point_lod.h",
+    "space/coord.cc",
+    "space/coord.h",
+    "space/cull/frustum_aabb.cc",
+    "space/cull/frustum_aabb.h",
+    "space/cull/mesh_cull.h",
+    "space/cull/prep_cull.cc",
+    "space/cull/prep_cull.h",
+    "space/envelope.cc",
+    "space/envelope.h",
+    "space/index/aabb_octree.cc",
+    "space/index/aabb_octree.h",
+    "terrain/grid.cc",
+    "terrain/grid.h",
+    "terrain/mesh.cc",
+    "terrain/mesh.h",
+    "terrain/nested.cc",
     "terrain/payload.h",
-    "terrain/seed.cc",
+    "terrain/policy.cc",
+    "terrain/policy.h",
+    "terrain/raster.cc",
     "terrain/seed.h",
-    "cull/frustum_aabb.cc",
-    "cull/frustum_aabb.h",
-    "cull/mesh_cull.h",
-    "cull/prep_cull.cc",
-    "cull/prep_cull.h",
-    "envelope.cc",
-    "envelope.h",
-    "index/aabb_octree.cc",
-    "index/aabb_octree.h",
-    "instance.h",
-    "kind_tess.cc",
-    "kind_tess.h",
-    "paint.cc",
-    "paint.h",
-    "pipelines.cc",
-    "pipelines.h",
-    "sync.cc",
-    "sync.h",
-    "tessellate.cc",
-    "tessellate.h",
+    "terrain/surface.cc",
+    "terrain/tin.cc",
     "world.cc",
     "world.h",
   ]
@@ -75,7 +63,6 @@ source_set("world_sources") {
     "//src/render:render",
   ]
   public_deps = [
-    ":world_pointcloud_lod",
     "//src/vista/assets:assets_sources",
     "//src/vista/mesh:mesh_sources",
     "//src/vista/terrain:terrain_sources",

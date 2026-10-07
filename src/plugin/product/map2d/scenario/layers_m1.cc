@@ -1,9 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "plugin/product/self_test/probe.h"
+#include "plugin/product/map2d/scenario/probe.h"
 
-#include "plugin/product/self_test/shell.h"
+#include "plugin/runtime/host/capability/shell.h"
 #include <windows.h>
 #include <shellapi.h>
 
@@ -35,7 +35,7 @@
 #include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/view/view.h"
-#include "plugin/product/print/composer/print_composer.h"
+#include "plugin/product/map2d/print/composer/print_composer.h"
 
 #include <algorithm>
 #include <chrono>
@@ -54,10 +54,10 @@
 
 namespace plugin {
 
-int self_test_layers_m1(SelfTestShell& browser) {
+int scenario_layers_m1(HarnessShell& browser) {
 // Document layers + features (Catalog / overlay paint). m0-save clears the
 // seeded china pack and keeps a single round-trip linestring; polygon
-// append adds a second feature â€” require >= 2, not the pre-clear count.
+// append adds a second feature â€?require >= 2, not the pre-clear count.
 // Pause 2D present only. Hiding Scene3d GPU present after edit_m0 races
 // Display and AVs (exit -1) before layers-ok.
 browser.pump(50);
@@ -91,7 +91,7 @@ browser.mark("layers-ok");
       return 26;
     }
     if (city_pack) {
-      // china_city.gpkg is area/line/point â€” city names live on point only
+      // china_city.gpkg is area/line/point â€?city names live on point only
       // (no parallel text layer; see testing/data/build_china_city.py).
       if (browser.document()->layer_count() < 3) {
         std::fprintf(stderr,

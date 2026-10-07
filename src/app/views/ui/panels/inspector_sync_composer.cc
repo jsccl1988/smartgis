@@ -82,6 +82,13 @@ namespace app {
 InspectorSyncComposer::InspectorSyncComposer(BrowserView* host) : host_(host) {}
 
 void InspectorSyncComposer::sync_inspectors_from_scene() {
+  // FeatureInfo / AttributeTable are lazy inspector pages. Harness and
+  // select_feature→refresh_inspectors must materialize them before sync, or
+  // feature_info() stays null and map2d.scenario.edit_m0 exits 61.
+  if (host_->feature_info_tab_ >= 0) {
+    host_->ensure_inspector_tab(host_->feature_info_tab_);
+    host_->ensure_inspector_tab(host_->feature_info_tab_ + 1);
+  }
   if (host_->attribute_table_) {
     std::vector<std::string> cols;
     std::vector<std::vector<std::string>> rows;

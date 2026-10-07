@@ -4,22 +4,20 @@
 #include "vista/component/map/layout/line.h"
 
 #include <memory>
-#include <string>
-#include <unordered_map>
+#include <optional>
 #include <utility>
 #include <vector>
 
-#include "base/execution/executor/pool/global_executor.h"
-#include "base/execution/parallel/for.h"
-#include "gis/style/paint_resolve.h"
 #include "gis/style/eval/style_rules.h"
+#include "gis/style/paint_resolve.h"
 #include "gis/style/style_types.h"
 #include "vista/component/map/layout/attrs.h"
-#include "vista/component/map/layout/emit.h"
+#include "vista/component/map/layout/clip.h"
 #include "vista/component/map/layout/geom_walk.h"
 #include "vista/component/map/layout/mesh_emit.h"
-#include "vista/component/map/layout/pack.h"
-#include "vista/component/map/layout/tess_grain.h"
+#include "vista/component/map/layout/source_index.h"
+#include "vista/component/map/layout/tess_jobs.h"
+#include "vista/component/map/layout/gen.h"
 #include "vista/mesh/line/line_tess.h"
 #include "vista/mesh/tessellate.h"
 #include "ogrsf_frmts.h"
@@ -41,29 +39,10 @@ struct LineJob {
 void emit_lines(const std::vector<const gis::style::StyleLayer*>& line_layers,
                 const LayoutInput& in, const std::vector<LayerBatch>& layers,
                 double wupp, MapIR* frame, const LayoutTile* clip_tile) {
-  if (line_layers.empty()) {
+  if (line_layers.empty() || !frame) {
     return;
   }
-  std::unordered_map<std::string, std::vector<const LayerBatch*>> by_source;
-  by_source.reserve(layers.size() * 2);
-  for (const LayerBatch& batch : layers) {
-    by_source[batch.source_layer].push_back(&batch);
-  }
-  auto visit_batches = [&](const gis::style::StyleLayer& layer, auto&& fn) {
-    if (layer.source_layer.empty()) {
-      for (const LayerBatch& batch : layers) {
-        fn(batch);
-      }
-      return;
-    }
-    const auto it = by_source.find(layer.source_layer);
-    if (it == by_source.end()) {
-      return;
-    }
-    for (const LayerBatch* batch : it->second) {
-      fn(*batch);
-    }
-  };
+  const SourceBatchIndex batches(layers);
 
   std::vector<LineJob> jobs;
   jobs.reserve(4096);
@@ -73,7 +52,7 @@ void emit_lines(const std::vector<const gis::style::StyleLayer*>& line_layers,
       return;
     }
     const gis::style::StyleLayer& layer = *line_layers[li];
-    visit_batches(layer, [&](const LayerBatch& batch) {
+    batches.visit(layer, layers, [&](const LayerBatch& batch) {
       for (size_t i = 0; i < batch.geoms.size(); ++i) {
         if (layout_gen_stale(in)) {
           return;
@@ -105,51 +84,15 @@ void emit_lines(const std::vector<const gis::style::StyleLayer*>& line_layers,
   if (jobs.empty()) {
     return;
   }
-  if (!vista_layout_parallel_enabled() || jobs.size() < kParallelTessMinGeoms) {
-    for (const LineJob& job : jobs) {
-      if (layout_gen_stale(in)) {
-        return;
-      }
-      vista::TessMesh mesh;
-      if (!vista::tessellate_line(job.line, job.opts, mesh) ||
-          mesh.indices.empty()) {
-        continue;
-      }
-      frame->items.push_back(
-          mesh_item(mesh, DrawKind::kLine, job.rgba, job.opacity));
+  auto to_item = [](const LineJob& job) -> std::optional<DrawItem> {
+    vista::TessMesh mesh;
+    if (!vista::tessellate_line(job.line, job.opts, mesh) ||
+        mesh.indices.empty()) {
+      return std::nullopt;
     }
-    return;
-  }
-  std::vector<DrawItem> items(jobs.size());
-  std::vector<char> valid(jobs.size(), 0);
-  base::execution::GlobalNThreadPoolExecutor executor;
-  base::execution::parallel_for(
-      executor, size_t{0}, jobs.size(),
-      [&](size_t i) {
-        if (layout_gen_stale(in)) {
-          return;
-        }
-        vista::TessMesh mesh;
-        if (!vista::tessellate_line(jobs[i].line, jobs[i].opts, mesh) ||
-            mesh.indices.empty()) {
-          return;
-        }
-        items[i] =
-            mesh_item(mesh, DrawKind::kLine, jobs[i].rgba, jobs[i].opacity);
-        valid[i] = 1;
-      },
-      kParallelTessGrain);
-  std::vector<std::vector<DrawItem>> by_layer(line_layers.size());
-  for (size_t i = 0; i < jobs.size(); ++i) {
-    if (valid[i]) {
-      by_layer[jobs[i].layer_ord].push_back(std::move(items[i]));
-    }
-  }
-  for (std::vector<DrawItem>& bucket : by_layer) {
-    for (DrawItem& item : bucket) {
-      frame->items.push_back(std::move(item));
-    }
-  }
+    return mesh_item(mesh, DrawKind::kLine, job.rgba, job.opacity);
+  };
+  run_ordered_tess(in, line_layers.size(), jobs, to_item, &frame->items);
 }
 
 void emit_line(const gis::style::StyleLayer& layer, const LayoutInput& in,

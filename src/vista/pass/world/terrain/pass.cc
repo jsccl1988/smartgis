@@ -8,7 +8,7 @@
 #include "vista/pass/world/detail/draw.h"
 #include "vista/pass/world/detail/tint.h"
 #include "vista/pass/world/detail/upload.h"
-#include "vista/component/world/envelope.h"
+#include "vista/component/world/space/envelope.h"
 
 namespace vista {
 

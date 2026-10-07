@@ -33,7 +33,12 @@ Rect intersect_rect(const Rect& a, const Rect& b) {
   return Rect{x0, y0, x1 - x0, y1 - y0};
 }
 
-struct RowStripStore {
+}  // namespace
+
+// Per-row DisplayList cache. Slots are heap vector elements (not a giant
+// inline array of DisplayLists) so FeatureInfo markup / page-heap does not
+// see a multi-DisplayList burst on TableView construction.
+struct TableView::RowStripStore {
   struct Slot {
     int row = -1;
     int y = 0;
@@ -48,23 +53,19 @@ struct RowStripStore {
     ui::gfx::Color control_hover = 0;
     ui::gfx::DisplayList cmds;
   };
-  static constexpr int kSlots = 48;
-  Slot slots[kSlots];
+  static constexpr int kSlots = 24;
+  // Empty until first paint; resize once rather than an inline Slot[N] array
+  // (48 inline DisplayLists previously tripped page-heap on FeatureInfo load).
+  std::vector<Slot> slots;
 };
 
-void delete_row_strip_store(void* p) {
-  delete static_cast<RowStripStore*>(p);
-}
-
-}  // namespace
-
-TableView::TableView() : row_strips_(nullptr, delete_row_strip_store) {
+TableView::TableView() {
   set_preferred_size({320, 160});
   set_focusable(true);
-  // Allocate RowStripStore on first paint. FeatureInfo markup constructs a
-  // TableView during init_shell; 48 DisplayLists here trip page-heap IFEO
-  // (vector write across a guard page) before any plugin body runs.
+  // RowStripStore is allocated on first paint (see cached_row_strip).
 }
+
+TableView::~TableView() {}
 
 float TableView::scale_factor() const {
   if (widget()) {
@@ -108,11 +109,10 @@ int TableView::column_width(int col) const {
 void TableView::invalidate_row_cache() {
   cache_valid_ = false;
   row_cache_.clear();
-  auto* store = static_cast<RowStripStore*>(row_strips_.get());
-  if (!store) {
+  if (!row_strips_) {
     return;
   }
-  for (RowStripStore::Slot& slot : store->slots) {
+  for (RowStripStore::Slot& slot : row_strips_->slots) {
     slot.row = -1;
     slot.cmds.clear();
   }
@@ -397,12 +397,15 @@ void TableView::paint_row_strip(ui::gfx::DisplayList* dl, int row, int y) const 
 
 const ui::gfx::DisplayList* TableView::cached_row_strip(int row, int y) {
   if (!row_strips_) {
-    row_strips_.reset(new RowStripStore());
+    row_strips_ = std::make_unique<RowStripStore>();
   }
-  auto* store = static_cast<RowStripStore*>(row_strips_.get());
+  if (row_strips_->slots.size() <
+      static_cast<size_t>(RowStripStore::kSlots)) {
+    row_strips_->slots.resize(static_cast<size_t>(RowStripStore::kSlots));
+  }
   RowStripStore::Slot& slot =
-      store->slots[static_cast<size_t>(row) %
-                   static_cast<size_t>(RowStripStore::kSlots)];
+      row_strips_->slots[static_cast<size_t>(row) %
+                         static_cast<size_t>(RowStripStore::kSlots)];
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   const bool sel = (row == selected_);

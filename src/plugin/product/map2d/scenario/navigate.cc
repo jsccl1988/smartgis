@@ -1,9 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "plugin/product/self_test/probe.h"
+#include "plugin/product/map2d/scenario/probe.h"
 
-#include "plugin/product/self_test/shell.h"
+#include "plugin/runtime/host/capability/shell.h"
 #include <windows.h>
 #include <shellapi.h>
 
@@ -51,7 +51,7 @@
 
 namespace plugin {
 
-int self_test_navigate(SelfTestShell& browser) {
+int scenario_navigate(HarnessShell& browser) {
   // C++ navigate stage for full --self-test. Lean suite "browse" is browse.il.
 
 // Pan tool must activate without crash (Map tab).
@@ -127,7 +127,7 @@ if (!browser.run_tool_command("view.pan")) {
       browser.detach_maps();
       return 49;
     }
-    // Sleep only â€” pumping WM_PAINT/present during the burst races input.
+    // Sleep only â€?pumping WM_PAINT/present during the burst races input.
     ::Sleep(20);
   }
   ::Sleep(50);

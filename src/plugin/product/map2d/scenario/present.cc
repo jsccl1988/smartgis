@@ -1,9 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "plugin/product/self_test/probe.h"
+#include "plugin/product/map2d/scenario/probe.h"
 
-#include "plugin/product/self_test/shell.h"
+#include "plugin/runtime/host/capability/shell.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "render/rhi/rhi.h"
 #include "ui/views/map/viewport/draw_host.h"
@@ -13,7 +13,7 @@
 
 namespace plugin {
 
-int self_test_present(SelfTestShell& browser) {
+int scenario_present(HarnessShell& browser) {
   // FlyCube orbit camera matrices must track shell yaw/pitch.
   ui::views::DrawHost* scene = browser.scene_draw_host();
   const float yaw_after = browser.orbit_frame()->yaw();

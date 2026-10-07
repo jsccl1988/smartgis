@@ -12,14 +12,28 @@ namespace content {
 namespace detail {
 namespace {
 
-inline POINT midpoint(const POINT& a, const POINT& b) {
-  return POINT{(a.x + b.x) / 2, (a.y + b.y) / 2};
-}
-
-inline bool near_point(const POINT& a, const POINT& b) {
-  const LONG dx = a.x > b.x ? a.x - b.x : b.x - a.x;
-  const LONG dy = a.y > b.y ? a.y - b.y : b.y - a.y;
-  return dx <= 1 && dy <= 1;
+// Coverage blend into an existing BGRA pixel (A stays opaque).
+inline void blend_bgra_coverage(uint32_t* dst, uint32_t src_bgra, float cov) {
+  if (!dst || cov <= 0.f) {
+    return;
+  }
+  if (cov >= 1.f) {
+    *dst = src_bgra | 0xff000000u;
+    return;
+  }
+  const float ic = 1.f - cov;
+  const uint32_t d = *dst;
+  const float db = static_cast<float>(d & 0xff);
+  const float dg = static_cast<float>((d >> 8) & 0xff);
+  const float dr = static_cast<float>((d >> 16) & 0xff);
+  const float sb = static_cast<float>(src_bgra & 0xff);
+  const float sg = static_cast<float>((src_bgra >> 8) & 0xff);
+  const float sr = static_cast<float>((src_bgra >> 16) & 0xff);
+  const auto pack = [](float v) -> uint32_t {
+    return static_cast<uint32_t>((std::min)(255.f, v + 0.5f));
+  };
+  *dst = 0xff000000u | (pack(dr * ic + sr * cov) << 16) |
+         (pack(dg * ic + sg * cov) << 8) | pack(db * ic + sb * cov);
 }
 
 }  // namespace
@@ -114,18 +128,32 @@ void fill_tri_solid(DibSurface* dib, POINT a, POINT b, POINT c, uint32_t bgra) {
       x0 = x1;
       x1 = tmp;
     }
-    int xa = static_cast<int>(std::floor(x0 + 0.5));
-    int xb = static_cast<int>(std::floor(x1 + 0.5));
-    if (xa > xb) {
-      continue;
-    }
-    xa = (std::max)(0, xa);
-    xb = (std::min)(dib->width - 1, xb);
-    if (xa > xb) {
-      continue;
-    }
+    // Subpixel edge coverage (sampling interpolation) instead of round-to-
+    // nearest hard spans — kills staircase aliases on diagonal strokes.
+    const int x_left = static_cast<int>(std::floor(x0));
+    const int x_right = static_cast<int>(std::floor(x1));
     uint32_t* row = dib->row(y);
-    std::fill(row + xa, row + xb + 1, bgra);
+    if (x_left == x_right) {
+      if (x_left >= 0 && x_left < dib->width) {
+        const float cov =
+            static_cast<float>((std::min)(x1, x0 + 1.0) - x0);
+        blend_bgra_coverage(row + x_left, bgra, (std::min)(1.f, cov));
+      }
+      continue;
+    }
+    if (x_left >= 0 && x_left < dib->width) {
+      const float cov = 1.f - static_cast<float>(x0 - x_left);
+      blend_bgra_coverage(row + x_left, bgra, cov);
+    }
+    const int xa = (std::max)(0, x_left + 1);
+    const int xb = (std::min)(dib->width - 1, x_right - 1);
+    if (xa <= xb) {
+      std::fill(row + xa, row + xb + 1, bgra);
+    }
+    if (x_right >= 0 && x_right < dib->width) {
+      const float cov = static_cast<float>(x1 - x_right);
+      blend_bgra_coverage(row + x_right, bgra, (std::min)(1.f, cov));
+    }
   }
 }
 
@@ -377,63 +405,18 @@ void FillBatch::append_tris(HDC hdc, DcStyle* style, HBRUSH b, HPEN p,
   }
 }
 
-void append_line_mesh(HDC hdc, DcStyle* style, FillBatch* fills,
-                      StrokeBatch* strokes, HBRUSH brush, HPEN null_pen,
-                      HPEN mesh_pen, COLORREF color,
+void append_line_mesh(HDC hdc, DcStyle* style, FillBatch* fills, HBRUSH brush,
+                      HPEN null_pen, COLORREF color,
                       const std::vector<POINT>& pts,
                       const std::vector<uint32_t>& indices) {
-  if (!style || !fills || !strokes) {
+  if (!style || !fills) {
     return;
   }
-  const size_t nvert = pts.size();
-  std::vector<POINT> chain;
-  size_t n_seg = 0;
-  auto flush_chain = [&]() {
-    if (chain.size() >= 2) {
-      strokes->append(hdc, style, mesh_pen, chain, /*as_mesh=*/true);
-    }
-    chain.clear();
-  };
-  size_t i = 0;
-  while (i + 2 < indices.size()) {
-    if (i + 5 < indices.size()) {
-      uint32_t q[4] = {};
-      const TessQuad kind = classify_tess_quad(indices.data() + i, nvert, q);
-      if (kind == TessQuad::kSegment) {
-        const POINT m0 = midpoint(pts[q[0]], pts[q[1]]);
-        const POINT m1 = midpoint(pts[q[3]], pts[q[2]]);
-        if (poly_outside_view(&m0, 1, fills->view_w, fills->view_h) &&
-            poly_outside_view(&m1, 1, fills->view_w, fills->view_h)) {
-          i += 6;
-          continue;
-        }
-        if (near_point(m0, m1)) {
-          i += 6;
-          continue;
-        }
-        if (!chain.empty() && !near_point(chain.back(), m0)) {
-          flush_chain();
-        }
-        if (chain.empty()) {
-          chain.push_back(m0);
-        }
-        chain.push_back(m1);
-        ++n_seg;
-        i += 6;
-        continue;
-      }
-      if (kind == TessQuad::kFan) {
-        i += 6;
-        continue;
-      }
-    }
-    i += 3;
-  }
-  flush_chain();
-  if (n_seg == 0) {
-    fills->append_tris(hdc, style, brush, null_pen, color, pts, indices,
-                       /*coalesce=*/false);
-  }
+  // Keep Layout's tessellated stroke width. Collapsing to cosmetic 1px
+  // PolyPolyline centerlines made diagonal rivers/borders staircase badly.
+  // coalesce=true hits DIB fill_tri_solid (subpixel edge coverage).
+  fills->append_tris(hdc, style, brush, null_pen, color, pts, indices,
+                     /*coalesce=*/true);
 }
 
 }  // namespace detail

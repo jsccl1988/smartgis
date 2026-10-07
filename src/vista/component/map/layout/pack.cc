@@ -6,6 +6,7 @@
 #include "gis/envelope.h"
 #include "gis/geo/ops/geometry_traits.h"
 #include "ogrsf_frmts.h"
+#include "vista/component/map/layout/slice_key.h"
 #include "vista/component/map/layout/view_metrics.h"
 
 namespace vista {
@@ -91,18 +92,6 @@ std::unique_ptr<OGRGeometry> clone_without_holes(const OGRGeometry* geom) {
   return nullptr;
 }
 
-std::unique_ptr<OGRPolygon> make_aabb_polygon(const LayoutTile& tile) {
-  auto ring = std::make_unique<OGRLinearRing>();
-  ring->addPoint(tile.min_x, tile.min_y);
-  ring->addPoint(tile.max_x, tile.min_y);
-  ring->addPoint(tile.max_x, tile.max_y);
-  ring->addPoint(tile.min_x, tile.max_y);
-  ring->addPoint(tile.min_x, tile.min_y);
-  auto poly = std::make_unique<OGRPolygon>();
-  poly->addRingDirectly(ring.release());
-  return poly;
-}
-
 }  // namespace
 
 PackedGeoms::PackedGeoms() = default;
@@ -158,38 +147,6 @@ PackedGeoms pack_geoms(const LayoutInput& in,
     packed.batches.push_back(std::move(dst));
   }
   return packed;
-}
-
-bool prepare_tile_clip(const OGRGeometry* geom, const LayoutTile* tile,
-                       std::vector<std::unique_ptr<OGRGeometry>>* store,
-                       const OGRGeometry** use) {
-  if (!use) {
-    return false;
-  }
-  *use = geom;
-  if (!geom) {
-    return false;
-  }
-  if (!tile || !store) {
-    return true;
-  }
-  OGREnvelope env;
-  const_cast<OGRGeometry*>(geom)->getEnvelope(&env);
-  if (!aabb_intersects(env.MinX, env.MinY, env.MaxX, env.MaxY, *tile)) {
-    return false;
-  }
-  if (aabb_contained(env.MinX, env.MinY, env.MaxX, env.MaxY, *tile)) {
-    return true;
-  }
-  std::unique_ptr<OGRPolygon> clip = make_aabb_polygon(*tile);
-  OGRGeometry* hit = const_cast<OGRGeometry*>(geom)->Intersection(clip.get());
-  if (!hit || hit->IsEmpty()) {
-    delete hit;
-    return false;
-  }
-  store->emplace_back(hit);
-  *use = store->back().get();
-  return true;
 }
 
 }  // namespace detail

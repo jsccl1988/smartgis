@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/benchmark.gni")
 import("//testing/test.gni")
 
 # CPU Layout → MapIR. place has no RHI and compiles here.
@@ -9,54 +10,57 @@ import("//testing/test.gni")
 # Compiled into //src/vista:vista. Not a second scene.
 source_set("map_sources") {
   sources = [
+    "batch.cc",
     "batch.h",
-    "detail/batch_build.cc",
-    "detail/carto_filter.cc",
-    "detail/carto_filter.h",
-    "detail/collision.cc",
-    "detail/collision.h",
+    "carto/filter.cc",
+    "carto/filter.h",
+    "carto/style.cc",
+    "carto/collision.cc",
+    "carto/collision.h",
     "color.h",
-    "detail/default_style.cc",
     "draw.h",
     "ir.h",
-    "detail/hillshade_bake.cc",
-    "detail/hillshade_bake.h",
+    "mvt/mvt.cc",
+    "mvt/mvt.h",
+    "place/place.cc",
+    "place/place.h",
+    "shade/bake.cc",
+    "shade/bake.h",
     "layout.cc",
     "layout.h",
     "layout/attrs.cc",
     "layout/attrs.h",
+    "layout/clip.cc",
+    "layout/clip.h",
+    "layout/geom_walk.cc",
+    "layout/geom_walk.h",
+    "layout/mesh_emit.cc",
+    "layout/mesh_emit.h",
+    "layout/fill.cc",
+    "layout/fill.h",
+    "layout/line.cc",
+    "layout/line.h",
+    "layout/point.cc",
+    "layout/point.h",
+    "layout/raster.cc",
+    "layout/raster.h",
+    "layout/source_index.h",
+    "layout/symbol.cc",
+    "layout/symbol.h",
+    "layout/tess_jobs.h",
+    "layout/gen.h",
+    "layout/slice_key.h",
+    "layout/tess_grain.h",
+    "layout/view_metrics.cc",
+    "layout/view_metrics.h",
     "layout/coalesce.cc",
     "layout/coalesce.h",
     "layout/collect.cc",
     "layout/collect.h",
     "layout/emit.cc",
     "layout/emit.h",
-    "layout/fill.cc",
-    "layout/fill.h",
-    "layout/geom_walk.cc",
-    "layout/geom_walk.h",
-    "layout/line.cc",
-    "layout/line.h",
-    "layout/mesh_emit.cc",
-    "layout/mesh_emit.h",
     "layout/pack.cc",
     "layout/pack.h",
-    "layout/point.cc",
-    "layout/point.h",
-    "layout/raster.cc",
-    "layout/raster.h",
-    "layout/slice_key.h",
-    "layout/symbol.cc",
-    "layout/symbol.h",
-    "layout/tess_grain.h",
-    "layout/view_metrics.cc",
-    "layout/view_metrics.h",
-    "multiply.cc",
-    "multiply.h",
-    "detail/mvt_layout.cc",
-    "detail/mvt_layout.h",
-    "place.cc",
-    "place.h",
     "view.h",
   ]
   include_dirs += [ "//src" ]
@@ -69,12 +73,58 @@ source_set("map_sources") {
   assert_no_deps = [
     "//src/render:render",
   ]
+  public_deps = [
+    ":map_multiply",
+  ]
   deps = [
     "//src/base:foundation",
     "//src/base:base",
     "//src/gis:gis",
     "//src/vista/mesh:mesh_sources",
     "//src/vista/terrain:terrain_sources",
+  ]
+}
+
+# AVX2 lives in its own TU so the scalar file is not compiled with /arch:AVX2.
+# Runtime CPUID in shade/multiply.cc skips the kernel when YMM is unavailable.
+source_set("map_multiply") {
+  sources = [
+    "shade/multiply.cc",
+    "shade/multiply.h",
+    "shade/multiply_kern.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  public_deps = [ ":map_multiply_avx2" ]
+}
+
+source_set("map_multiply_avx2") {
+  sources = [ "shade/multiply_avx2.cc" ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  if (current_cpu == "x64" || current_cpu == "x86") {
+    configs += [ "//src/base/math:math_simd_avx2" ]
+  }
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+}
+
+# Scalar vs AVX2 vs public dispatch. Kernel time only (memcpy is paused).
+benchmark("multiply_benchmark") {
+  output_name = "multiply_benchmark"
+  sources = [ "shade/multiply_benchmark.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  use_benchmark_main = false
+  deps = [
+    ":map_multiply",
+    ":map_multiply_avx2",
   ]
 }
 

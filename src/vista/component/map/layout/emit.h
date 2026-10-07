@@ -6,11 +6,10 @@
 #ifndef VISTA_COMPONENT_MAP_LAYOUT_EMIT_H_
 #define VISTA_COMPONENT_MAP_LAYOUT_EMIT_H_
 
-#include <atomic>
 #include <vector>
 
 #include "vista/component/map/batch.h"
-#include "vista/component/map/detail/collision.h"
+#include "vista/component/map/carto/collision.h"
 #include "vista/component/map/draw.h"
 #include "vista/component/map/layout.h"
 
@@ -22,11 +21,6 @@ struct StyleLayer;
 
 namespace vista {
 namespace detail {
-
-inline bool layout_gen_stale(const LayoutInput& in) {
-  return in.live_layout_gen != nullptr && in.layout_gen != 0 &&
-         in.live_layout_gen->load(std::memory_order_acquire) != in.layout_gen;
-}
 
 void emit_visible_layers(const LayoutInput& in,
                          const std::vector<LayerBatch>& layers,

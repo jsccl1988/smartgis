@@ -62,30 +62,71 @@ void write_lambert_rgba(uint8_t* px, float shade, bool contrast, float sr,
   px[3] = 255;
 }
 
-// Second surface: Origin jet sheet + white isolines, lit by the Lambert bake
-// already in |pixels|. Ocean stays A=0 so the carto/imagery base shows.
-void compose_elevation_sheet(uint8_t* pixels, int w, int h, const DemRaster& dem,
-                             int step_x, int step_y, int cols, int rows,
-                             float sg, float hg) {
-  if (!pixels || w < 2 || h < 2) {
-    return;
+// Bilinear sample of the DEM grid at fractional column/row (clamped).
+float sample_meters_bilinear(const DemRaster& dem, float col_f, float row_f) {
+  const int cols = dem.cols();
+  const int rows = dem.rows();
+  if (cols < 1 || rows < 1) {
+    return 0.f;
   }
-  std::vector<float> lod(static_cast<size_t>(w) * static_cast<size_t>(h), 0.f);
+  col_f = std::clamp(col_f, 0.f, static_cast<float>(cols - 1));
+  row_f = std::clamp(row_f, 0.f, static_cast<float>(rows - 1));
+  const int c0 = static_cast<int>(std::floor(col_f));
+  const int r0 = static_cast<int>(std::floor(row_f));
+  const int c1 = (std::min)(c0 + 1, cols - 1);
+  const int r1 = (std::min)(r0 + 1, rows - 1);
+  const float tx = col_f - static_cast<float>(c0);
+  const float ty = row_f - static_cast<float>(r0);
+  const float h00 = dem.meters_at(c0, r0);
+  const float h10 = dem.meters_at(c1, r0);
+  const float h01 = dem.meters_at(c0, r1);
+  const float h11 = dem.meters_at(c1, r1);
+  const float h0 = h00 * (1.f - tx) + h10 * tx;
+  const float h1 = h01 * (1.f - tx) + h11 * tx;
+  return h0 * (1.f - ty) + h1 * ty;
+}
+
+// Viewport LOD heights via pixel-center bilinear (avoids nearest-step jaggies).
+void fill_lod_bilinear(const DemRaster& dem, int w, int h,
+                       std::vector<float>* lod) {
+  lod->assign(static_cast<size_t>(w) * static_cast<size_t>(h), 0.f);
+  const float cols_f = static_cast<float>(dem.cols());
+  const float rows_f = static_cast<float>(dem.rows());
+  const float inv_w = 1.f / static_cast<float>(w);
+  const float inv_h = 1.f / static_cast<float>(h);
   for (int row = 0; row < h; ++row) {
-    const int src_row = (std::min)(rows - 1, row * step_y);
+    const float fy =
+        (static_cast<float>(row) + 0.5f) * inv_h * rows_f - 0.5f;
+    float* rowp =
+        lod->data() + static_cast<size_t>(row) * static_cast<size_t>(w);
     for (int col = 0; col < w; ++col) {
-      const int src_col = (std::min)(cols - 1, col * step_x);
-      lod[static_cast<size_t>(row) * static_cast<size_t>(w) +
-          static_cast<size_t>(col)] = dem.meters_at(src_col, src_row);
+      const float fx =
+          (static_cast<float>(col) + 0.5f) * inv_w * cols_f - 0.5f;
+      rowp[col] = sample_meters_bilinear(dem, fx, fy);
     }
   }
+}
+
+// Second surface: Origin jet sheet + white isolines, lit by the Lambert bake
+// already in |pixels|. Ocean stays A=0 so the carto/imagery base shows.
+// |lod| is the bilinear-downsampled height grid (w*h).
+void compose_elevation_sheet(uint8_t* pixels, int w, int h, const float* lod,
+                             float sg, float hg) {
+  if (!pixels || !lod || w < 2 || h < 2) {
+    return;
+  }
+  const size_t n = static_cast<size_t>(w) * static_cast<size_t>(h);
   std::vector<uint8_t> overlay;
-  if (!bake_elevation_overlay_rgba(lod.data(), w, h, true, true, 0.f,
-                                   &overlay) ||
-      overlay.size() < lod.size() * 4u) {
+  if (!bake_elevation_overlay_rgba(lod, w, h, true, true, 0.f, &overlay) ||
+      overlay.size() < n * 4u) {
     return;
   }
   const float denom = (std::max)(1.e-4f, hg - sg);
+  auto is_isoline = [](const uint8_t* ov4) -> bool {
+    const int mx = (std::max)(ov4[0], (std::max)(ov4[1], ov4[2]));
+    const int mn = (std::min)(ov4[0], (std::min)(ov4[1], ov4[2]));
+    return mx > 210 && (mx - mn) < 48;
+  };
   for (int row = 0; row < h; ++row) {
     uint8_t* rowp =
         pixels + static_cast<size_t>(row) * static_cast<size_t>(w) * 4u;
@@ -100,10 +141,7 @@ void compose_elevation_sheet(uint8_t* pixels, int w, int h, const DemRaster& dem
         rowp[i + 3] = 0;
         continue;
       }
-      const int mx = (std::max)(ov[i + 0], (std::max)(ov[i + 1], ov[i + 2]));
-      const int mn = (std::min)(ov[i + 0], (std::min)(ov[i + 1], ov[i + 2]));
-      const bool isoline = mx > 210 && (mx - mn) < 48;
-      if (isoline) {
+      if (is_isoline(ov + i)) {
         rowp[i + 0] = ov[i + 0];
         rowp[i + 1] = ov[i + 1];
         rowp[i + 2] = ov[i + 2];
@@ -120,6 +158,49 @@ void compose_elevation_sheet(uint8_t* pixels, int w, int h, const DemRaster& dem
       rowp[i + 2] = static_cast<uint8_t>(
           std::clamp(static_cast<float>(ov[i + 2]) * lit, 0.f, 255.f) + 0.5f);
       rowp[i + 3] = 255;
+    }
+  }
+  // Soft-feather isoline edges into neighboring jet cells (1px) so upscale
+  // bilinear has a coverage ramp instead of a hard white/stair edge.
+  for (int row = 1; row + 1 < h; ++row) {
+    for (int col = 1; col + 1 < w; ++col) {
+      const size_t i =
+          (static_cast<size_t>(row) * static_cast<size_t>(w) +
+           static_cast<size_t>(col)) *
+          4u;
+      const uint8_t* ov = overlay.data() + i;
+      if (ov[3] == 0 || is_isoline(ov)) {
+        continue;
+      }
+      int iso_n = 0;
+      const int dcol[4] = {-1, 1, 0, 0};
+      const int drow[4] = {0, 0, -1, 1};
+      for (int k = 0; k < 4; ++k) {
+        const size_t j =
+            (static_cast<size_t>(row + drow[k]) * static_cast<size_t>(w) +
+             static_cast<size_t>(col + dcol[k])) *
+            4u;
+        if (overlay[j + 3] != 0 && is_isoline(overlay.data() + j)) {
+          ++iso_n;
+        }
+      }
+      if (iso_n == 0) {
+        continue;
+      }
+      uint8_t* rowp = pixels + i;
+      const float t = 0.22f * static_cast<float>(iso_n);
+      rowp[0] = static_cast<uint8_t>(
+          std::clamp(static_cast<float>(rowp[0]) * (1.f - t) + 255.f * t, 0.f,
+                     255.f) +
+          0.5f);
+      rowp[1] = static_cast<uint8_t>(
+          std::clamp(static_cast<float>(rowp[1]) * (1.f - t) + 255.f * t, 0.f,
+                     255.f) +
+          0.5f);
+      rowp[2] = static_cast<uint8_t>(
+          std::clamp(static_cast<float>(rowp[2]) * (1.f - t) + 255.f * t, 0.f,
+                     255.f) +
+          0.5f);
     }
   }
 }
@@ -184,24 +265,25 @@ bool shade_dem_rgba(const DemRaster& dem, const HillshadeParams& params,
   uint8_t* pixels = rgba->data();
   g_last_shade_cuda.store(0, std::memory_order_relaxed);
 
+  // Bilinear LOD first, then shade on the dense w×h grid (step=1). Nearest
+  // step sampling left staircase bands and isolines after zoom stretch.
+  std::vector<float> lod;
+  {
+    BASE_TRACE_EVENT("lod_bilinear", "bake");
+    fill_lod_bilinear(dem, w, h, &lod);
+  }
+
   const BakeBackend backend = shade_backend();
   const bool allow_cuda = backend != BakeBackend::kCpu;
   const bool require_cuda = backend == BakeBackend::kCuda;
 
-  const std::vector<float>* heights = nullptr;
-  dem.export_bake_cache(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-                        nullptr, nullptr, nullptr, &heights, nullptr);
-  if (allow_cuda && heights &&
-      heights->size() ==
-          static_cast<size_t>(cols) * static_cast<size_t>(rows)) {
+  if (allow_cuda) {
     BASE_TRACE_EVENT("shade_cuda", "bake");
-    if (try_shade_dem_thrust(heights->data(), cols, rows, step_x, step_y, w, h,
-                             dx_m, dy_m, exag, az, sin_alt, cos_alt, sr, sg, sb,
-                             hr, hg, hb, pixels)) {
+    if (try_shade_dem_thrust(lod.data(), w, h, 1, 1, w, h, dx_m, dy_m, exag, az,
+                             sin_alt, cos_alt, sr, sg, sb, hr, hg, hb, pixels)) {
       g_last_shade_cuda.store(1, std::memory_order_relaxed);
       if (params.color_ramp == 1) {
-        compose_elevation_sheet(pixels, w, h, dem, step_x, step_y, cols, rows,
-                                sg, hg);
+        compose_elevation_sheet(pixels, w, h, lod.data(), sg, hg);
       }
       if (out_w) {
         *out_w = w;
@@ -216,27 +298,23 @@ bool shade_dem_rgba(const DemRaster& dem, const HillshadeParams& params,
     return false;
   }
 
-  const bool grid_ok =
-      heights &&
-      heights->size() == static_cast<size_t>(cols) * static_cast<size_t>(rows);
   std::vector<float> shade_grid;
   int shade_w = 0;
   int shade_h = 0;
   const bool have_grid =
-      grid_ok &&
       gis::detail::horn_lambert_shade_grid(
-          heights->data(), cols, rows, step_x, step_y, dx_m, dy_m, exag, az,
-          sin_alt, cos_alt, &shade_grid, &shade_w, &shade_h) &&
+          lod.data(), w, h, 1, 1, dx_m, dy_m, exag, az, sin_alt, cos_alt,
+          &shade_grid, &shade_w, &shade_h) &&
       shade_w == w && shade_h == h;
 
   auto shade_row = [&](int row) {
-    const int src_row = (std::min)(rows - 1, row * step_y);
     uint8_t* rowp =
         pixels +
         static_cast<size_t>(row) * static_cast<size_t>(w) * 4u;
+    const float* lod_row =
+        lod.data() + static_cast<size_t>(row) * static_cast<size_t>(w);
     for (int col = 0; col < w; ++col) {
-      const int src_col = (std::min)(cols - 1, col * step_x);
-      const float c = dem.meters_at(src_col, src_row);
+      const float c = lod_row[col];
       // Treat near-flat ocean / nodata as transparent.
       if (c <= 1.f) {
         continue;
@@ -246,10 +324,18 @@ bool shade_dem_rgba(const DemRaster& dem, const HillshadeParams& params,
         shade = shade_grid[static_cast<size_t>(row) * static_cast<size_t>(w) +
                            static_cast<size_t>(col)];
       } else {
-        const float zw = dem.meters_at(src_col - step_x, src_row);
-        const float ze = dem.meters_at(src_col + step_x, src_row);
-        const float zs = dem.meters_at(src_col, src_row + step_y);
-        const float zn = dem.meters_at(src_col, src_row - step_y);
+        const int c0 = (std::max)(0, col - 1);
+        const int c1 = (std::min)(w - 1, col + 1);
+        const int r0 = (std::max)(0, row - 1);
+        const int r1 = (std::min)(h - 1, row + 1);
+        const float zw = lod[static_cast<size_t>(row) * static_cast<size_t>(w) +
+                             static_cast<size_t>(c0)];
+        const float ze = lod[static_cast<size_t>(row) * static_cast<size_t>(w) +
+                             static_cast<size_t>(c1)];
+        const float zs = lod[static_cast<size_t>(r1) * static_cast<size_t>(w) +
+                             static_cast<size_t>(col)];
+        const float zn = lod[static_cast<size_t>(r0) * static_cast<size_t>(w) +
+                             static_cast<size_t>(col)];
         shade = gis::detail::horn_lambert_shade(zw, ze, zs, zn, dx_m, dy_m, exag,
                                                az, sin_alt, cos_alt);
       }
@@ -271,8 +357,7 @@ bool shade_dem_rgba(const DemRaster& dem, const HillshadeParams& params,
   }
 
   if (params.color_ramp == 1) {
-    compose_elevation_sheet(pixels, w, h, dem, step_x, step_y, cols, rows, sg,
-                            hg);
+    compose_elevation_sheet(pixels, w, h, lod.data(), sg, hg);
   }
 
   if (out_w) {

@@ -62,11 +62,10 @@ struct FillBatch {
                    const std::vector<uint32_t>& indices, bool coalesce);
 };
 
-// Tessellated kLine (indices.size()>=3): cosmetic centerline when segment
-// quads classify; otherwise chunked mesh via FillBatch (not stroke-run).
-void append_line_mesh(HDC hdc, DcStyle* style, FillBatch* fills,
-                      StrokeBatch* strokes, HBRUSH brush, HPEN null_pen,
-                      HPEN mesh_pen, COLORREF color,
+// Tessellated kLine (indices.size()>=3): filled stroke quads via FillBatch
+// (DIB subpixel edge coverage when bound). Not a cosmetic 1px centerline.
+void append_line_mesh(HDC hdc, DcStyle* style, FillBatch* fills, HBRUSH brush,
+                      HPEN null_pen, COLORREF color,
                       const std::vector<POINT>& pts,
                       const std::vector<uint32_t>& indices);
 

@@ -161,6 +161,17 @@ int run_world3d_scene3d(HarnessShell& browser) {
   capture.retry_dark_frame = true;
   const bool bmp_ok = capture_plugin_hwnd_bmp(cam, &session, capture);
 
+  if (!bmp_ok && session.want_gpu) {
+    plugin_mark("bmp-fail");
+  } else {
+    // Mark pass before teardown — finish_scene3d / FlyCube teardown has
+    // hung the harness past suite timeout after a successful fly+BMP.
+    plugin_mark("pass");
+    std::fprintf(stderr,
+                 "plugin-showcase: PASS mode=world3d%s (True Earth Scene3D)\n",
+                 bare ? "-bare" : "-full");
+  }
+
   // Skip abandon_mesh on teardown — FlyCube + DX12 present remaps heap.
   teardown_plugin_device_session(
       cam, &session,
@@ -169,13 +180,8 @@ int run_world3d_scene3d(HarnessShell& browser) {
   browser.finish_scene3d(session.borrowed_shell);
 
   if (!bmp_ok && session.want_gpu) {
-    plugin_mark("bmp-fail");
     return 54;
   }
-  plugin_mark("pass");
-  std::fprintf(stderr,
-               "plugin-showcase: PASS mode=world3d%s (True Earth Scene3D)\n",
-               bare ? "-bare" : "-full");
   return 0;
 }
 

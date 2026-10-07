@@ -10,7 +10,8 @@
 
 namespace app {
 
-// Interactive product (empty scenario_id): ContentMapView 2D, Scene3d unchanged.
+// Interactive product (empty scenario_id): FlyCube/Vista 2D GPU SoT;
+// Scene3d engine left unchanged (env / View menu).
 LaunchPolicy product_startup_policy();
 
 // Policy registered on the scenario, or a GDI harness fallback for unknown ids.

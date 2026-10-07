@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "vista/component/map/detail/collision.h"
+#include "vista/component/map/carto/collision.h"
 #include "vista/component/map/ir.h"
 
 namespace vista {

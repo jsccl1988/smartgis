@@ -199,7 +199,8 @@ void paint_map_frame_gdi(
       stroke_run.active = false;
       return;
     }
-    HPEN core_pen = pen_for(stroke_run.color, 1);
+    // 2px cosmetic stroke: 1px GDI polylines staircase on diagonals.
+    HPEN core_pen = pen_for(stroke_run.color, 2);
     for (const auto& path : stroke_run.paths) {
       stroke_batch.append(hdc, &style, core_pen, path);
     }
@@ -256,13 +257,11 @@ void paint_map_frame_gdi(
         in_text_run = false;
         sync_dib_before_gdi();
         item_to_points(item, xform, &pts);
-        // Tessellated lines: cosmetic 1px PolyPolyline of emit_segment_quad
-        // centerlines (P2d unit china). If no segment classifies, chunked mesh.
+        // Tessellated lines: filled stroke quads (Layout width) + DIB edge AA.
         if (item.indices.size() >= 3) {
           flush_stroke_run();
-          append_line_mesh(hdc, &style, &fill_batch, &stroke_batch,
-                           brush_for(color), null_pen, pen_for(color, 1), color,
-                           pts, item.indices);
+          append_line_mesh(hdc, &style, &fill_batch, brush_for(color), null_pen,
+                           color, pts, item.indices);
         } else {
           fill_batch.flush(hdc, &style);
           if (stroke_run.active && stroke_run.color != color) {

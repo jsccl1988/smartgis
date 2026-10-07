@@ -7,7 +7,7 @@
 #define VISTA_PASS_WORLD_CULL_FRUSTUM_CAMERA_H_
 
 #include "render/rhi/rhi.h"
-#include "vista/component/world/cull/frustum_aabb.h"
+#include "vista/component/world/space/cull/frustum_aabb.h"
 #include "vista/vista_export.h"
 
 namespace vista {

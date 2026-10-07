@@ -1,9 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "plugin/product/self_test/probe.h"
+#include "plugin/product/map2d/scenario/probe.h"
 
-#include "plugin/product/self_test/shell.h"
+#include "plugin/runtime/host/capability/shell.h"
 
 #include "content/public/map_contents.h"
 #include "content/public/view_host.h"
@@ -37,7 +37,7 @@ bool viewport_has_presented_frame(ui::views::DrawHost* pane) {
          surface.width_px >= 8 && surface.height_px >= 8;
 }
 
-bool try_open_china_sample(SelfTestShell& browser, bool* city_pack) {
+bool try_open_china_sample(HarnessShell& browser, bool* city_pack) {
   if (city_pack) {
     *city_pack = false;
   }
@@ -45,7 +45,10 @@ bool try_open_china_sample(SelfTestShell& browser, bool* city_pack) {
   if (!doc) {
     return false;
   }
-  if (doc->layer_count() > 0 && doc->feature_count() >= 3) {
+  // Only reuse an already-loaded China pack. edit_m0 clears seed data and
+  // leaves a small round-trip layer — that must not short-circuit reload.
+  if (doc->layer_count() > 0 && doc->feature_count() >= 3 &&
+      doc->has_china_extent()) {
     if (city_pack && doc->layer_count() >= 3 && doc->feature_count() >= 200) {
       *city_pack = true;
     }

@@ -9,7 +9,7 @@
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "ui/views/map/viewport/draw_host.h"
 
-#include "vista/component/map/detail/hillshade_bake.h"
+#include "vista/component/map/shade/bake.h"
 
 #include <cstdio>
 #include <cstdlib>

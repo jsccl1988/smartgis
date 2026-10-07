@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "render/rhi/rhi.h"
-#include "vista/component/world/cull/mesh_cull.h"
+#include "vista/component/world/space/cull/mesh_cull.h"
 #include "vista/component/world/world.h"
 
 namespace vista {

@@ -679,6 +679,11 @@ void BrowserView::wire_catalog() {
             session, std::string("{\"op\":\"set_visible\",\"id\":\"") +
                          detail::json_escape(id) + "\",\"visible\":" +
                          (visible ? "true" : "false") + "}");
+        // Fingerprint includes visibility, but drop the published MapIR so the
+        // next present cannot StaticReuse a frame that still shows Land/jet.
+        if (browser_->map2d()) {
+          browser_->map2d()->invalidate_frame_cache();
+        }
         invalidate_map_overlays();
         sync_inspectors_from_scene();
         if (status_bar_) {
@@ -943,10 +948,11 @@ void BrowserView::populate_ambox() {
       }
     }
   }
-  // Horizontal map tool bar + vertical right-dock AMBox share the same groups.
+  // Map tool bar owns Select/Edit workspace chips. Right dock lists plugin
+  // AMBox groups only — twin chip strips failed visual_review #3.
   ambox_->populate_from_commands(catalogs, plugin_groups);
   if (side_ambox_) {
-    side_ambox_->populate_from_commands(catalogs, std::move(plugin_groups));
+    side_ambox_->set_groups(std::move(plugin_groups));
   }
 }
 

@@ -1,0 +1,142 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista world — space · instance · terrain · pointcloud</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+  }
+  .hero h1 { margin: 0 0 4px; font-size: 1.22rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 13px; }
+  .box-sub { font-size: 11px; fill: var(--muted); }
+  .arrow { fill: none; stroke: #8a96a8; stroke-width: 2; marker-end: url(#arr); }
+  .flow { stroke-dasharray: 7 5; animation: dash 1.1s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Vista <code>component/world</code> — 四条顶层</h1>
+    <p>
+      公开图留在根。<code>space/</code> 回答「在哪、看见谁」，<code>instance/</code> 回答「怎么填好 <code>Instance</code>」。
+      两条互不 include，Pass 在设备线程上才把它们合到一次录制。节点内容仍是 <code>terrain/</code> 与 <code>pointcloud/</code>。
+    </p>
+    <p class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista world component layers</a>
+      · 总览：<a href="vista-subdirectory-layers.html">vista-subdirectory-layers.html</a>
+    </p>
+  </header>
+
+  <section class="panel">
+    <h2>分层（谁可以 include 谁）</h2>
+    <svg class="diagram" viewBox="0 0 920 460" role="img" aria-label="world 四条顶层与依赖方向">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="40" y="16" width="840" height="64" rx="8" fill="#f7f9fb" stroke="#d8dee6"/>
+      <text class="box-title" x="56" y="42" fill="#1a2330">公开</text>
+      <text class="box-sub" x="56" y="62">world.h · instance.h　宿主只认这道缝。TerrainPayload 与 PointCloudChunk 嵌在 Node 上</text>
+
+      <rect x="40" y="108" width="250" height="128" rx="8" fill="#e7eef6" stroke="#c5d4e6"/>
+      <text class="box-title" x="56" y="134" fill="#2563a8">space/</text>
+      <text class="box-sub" x="56" y="156">coord · envelope（根）</text>
+      <text class="box-sub" x="56" y="174">cull/ · index/</text>
+      <text class="box-sub" x="56" y="192">prep → octree → frustum</text>
+      <text class="box-sub" x="56" y="216">细图 vista-world-space-layers</text>
+
+      <rect x="335" y="108" width="250" height="128" rx="8" fill="#f6eee4" stroke="#e2c9ae"/>
+      <text class="box-title" x="351" y="134" fill="#b06a1a">instance/</text>
+      <text class="box-sub" x="351" y="156">sync · pipelines</text>
+      <text class="box-sub" x="351" y="174">paint · tessellate · kind</text>
+      <text class="box-sub" x="351" y="192">kind → tessellate → paint</text>
+      <text class="box-sub" x="351" y="216">不读视锥、不建 octree</text>
+
+      <rect x="630" y="108" width="250" height="128" rx="8" fill="#e8f0ea" stroke="#b7d0c4"/>
+      <text class="box-title" x="646" y="134" fill="#2f7d62">terrain/ · pointcloud/</text>
+      <text class="box-sub" x="646" y="156">payload · policy · grid · mesh</text>
+      <text class="box-sub" x="646" y="174">按源 seed</text>
+      <text class="box-sub" x="646" y="192">chunk · point LOD</text>
+      <text class="box-sub" x="646" y="216">写在节点上，不是 Pass</text>
+
+      <path class="arrow" d="M165 108 V86"/>
+      <path class="arrow" d="M460 108 V86"/>
+      <path class="arrow" d="M755 108 V86"/>
+      <text class="box-sub" x="400" y="100">space ↛ instance</text>
+
+      <text class="box-title" x="40" y="280" fill="#1a2330">一帧（两条 CPU 车道并行，Pass 才汇合）</text>
+      <rect id="s1" x="40" y="296" width="200" height="48" rx="8" fill="#e7eef6" stroke="#2563a8"/>
+      <text class="box-sub" x="52" y="324" fill="#2563a8">space　prep_cull</text>
+      <rect id="m1" x="40" y="356" width="200" height="48" rx="8" fill="#f6eee4" stroke="#b06a1a"/>
+      <text class="box-sub" x="52" y="384" fill="#b06a1a">instance　sync + tess</text>
+      <rect id="p1" x="320" y="326" width="220" height="48" rx="8" fill="#efeaf8" stroke="#5b4f8a"/>
+      <text class="box-sub" x="332" y="354" fill="#5b4f8a">pass/world　upload + record</text>
+      <path class="arrow flow" d="M240 320 H310"/>
+      <path class="arrow flow" d="M240 380 H310"/>
+      <text class="box-sub" x="560" y="354">space 不等 instance。工人不碰 Device。</text>
+      <text class="box-sub" x="40" y="440">无 frame/、无 scene/、无 coord/coord.h。GPUSCENE_PREP_PARALLEL 字面量不变。</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>依赖</h2>
+    <table class="map">
+      <thead><tr><th>层</th><th>可以依赖</th><th>不可以依赖</th></tr></thead>
+      <tbody>
+        <tr><td>公开图</td><td><code>terrain/payload</code>、<code>pointcloud/chunk</code></td><td><code>space/</code>、<code>instance/</code>、RHI</td></tr>
+        <tr><td>space</td><td><code>world.h</code> / <code>instance.h</code>；内层见 <a href="vista-world-space-layers.html">space layers</a></td><td><code>instance/</code></td></tr>
+        <tr><td>instance</td><td><code>instance.h</code>；<code>kind</code> → <code>tessellate</code> → <code>paint</code></td><td><code>space/</code></td></tr>
+        <tr><td>terrain / pointcloud</td><td>公开图（seed 写入 <code>World</code>）</td><td>Device、<code>pass/world</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+  const steps = ["s1", "m1", "p1"];
+  let i = 0;
+  setInterval(() => {
+    steps.forEach((id, n) => {
+      const el = document.getElementById(id);
+      const on = (i < 2 && n < 2) || (i === 2 && n === 2);
+      el.setAttribute("stroke-width", on ? "2.6" : "1");
+    });
+    i = (i + 1) % 3;
+  }, 700);
+</script>
+</body>
+</html>

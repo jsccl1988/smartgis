@@ -52,12 +52,16 @@ class SliceCache {
 
 // Inputs that are not per-feature. symbols is matched by id.
 // hillshade_tiles: host-baked DEM shade underlay (texture_key + lon/lat).
+// dem_clip: DEM lon/lat AABB for land clip / jet cream suppression when the
+// host knows the bake footprint even if tiles are momentarily empty.
 struct LayoutInput {
   View view;
   const gis::style::StyleDocument* style = nullptr;
   double zoom = 0;
   std::vector<TileSlot> tiles;
   std::vector<TileSlot> hillshade_tiles;
+  bool have_dem_clip = false;
+  TileSlot dem_clip{};
   const GlyphMetrics* metrics = nullptr;
   std::vector<SymbolAsset> symbols;
   // Settle / C1: skip fill/line/circle/extrusion/heatmap/raster/hillshade and

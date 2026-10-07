@@ -340,9 +340,44 @@ void Scene3dOverlays::attach_tin(vista::World* world, const OrbitGeoFrame& geo,
   const bool water_albedo =
       tin_has_albedo_ && tin_albedo_[2] >= 140 && tin_albedo_[1] >= 100 &&
       tin_albedo_[0] < 90 && tin_albedo_[2] > tin_albedo_[0] + 40;
-  // Hex volume from quarry lon/lat often collapses to a colinear "rainbow
-  // needle" under China-scale geo_frame. Rebuild a closed studio box so
-  // stick_or_stratum sees a filled amber/zone volume in the camera frustum.
+  // Fit the authored FE hex volume (outer faces + grid ribbons + zone UVs)
+  // into a studio AABB. Preserves topology — do not replace with a 6-face toy.
+  auto fit_hex_fe_volume_to_studio = [&]() {
+    constexpr float kSpan = 2.55f;
+    constexpr float kSlab = 1.90f;
+    const float dem_sx = (std::max)(dem_max_x - dem_min_x, 1.0e-3f);
+    const float dem_sz = (std::max)(dem_max_z - dem_min_z, 1.0e-3f);
+    float place_cx = 0.f;
+    float place_cz = 0.f;
+    if (dem_aabb && dem_sx <= 8.f && dem_sz <= 8.f) {
+      place_cx = 0.5f * (dem_min_x + dem_max_x);
+      place_cz = 0.5f * (dem_min_z + dem_max_z);
+    }
+    const float dem_roof =
+        (dem_aabb && dem_sx <= 8.f && dem_sz <= 8.f) ? dem_max_y : 0.f;
+    const float y0 = dem_roof + 0.12f;
+    const float src_sx = (std::max)(mx_x - mn_x, 1.0e-4f);
+    const float src_sy = (std::max)(mx_y - mn_y, 1.0e-4f);
+    const float src_sz = (std::max)(mx_z - mn_z, 1.0e-4f);
+    const float hs = 0.5f * kSpan;
+    for (size_t i = 0; i < orbit_xyz.size() / 3u; ++i) {
+      const float tx = (orbit_xyz[i * 3u] - mn_x) / src_sx;
+      const float ty = (orbit_xyz[i * 3u + 1u] - mn_y) / src_sy;
+      const float tz = (orbit_xyz[i * 3u + 2u] - mn_z) / src_sz;
+      orbit_xyz[i * 3u] = place_cx - hs + tx * kSpan;
+      orbit_xyz[i * 3u + 1u] = y0 + ty * kSlab;
+      orbit_xyz[i * 3u + 2u] = place_cz - hs + tz * kSpan;
+    }
+    mn_x = place_cx - hs;
+    mx_x = place_cx + hs;
+    mn_y = y0;
+    mx_y = y0 + kSlab;
+    mn_z = place_cz - hs;
+    mx_z = place_cz + hs;
+  };
+
+  // Fallback only when there is no zone atlas: closed studio box so score
+  // stick_or_stratum still sees a filled volume under China-scale geo_frame.
   auto rebuild_hex_studio_box = [&]() {
     constexpr float kSpan = 2.45f;
     constexpr float kSlab = 2.05f;
@@ -434,7 +469,15 @@ void Scene3dOverlays::attach_tin(vista::World* world, const OrbitGeoFrame& geo,
     mx_y = y1;
   };
 
-  if (hex_albedo && dem_aabb) {
+  if (hex_albedo && volume_drape) {
+    // Keep quarry FE mesh + zone atlas + edge ribbons (finite-element look).
+    fit_hex_fe_volume_to_studio();
+    LOGGING(LOG_INFO,
+            "scene3d.present hex_fe verts=%zu idx=%zu "
+            "out_xz=[%.3f,%.3f]x[%.3f,%.3f] out_y=[%.3f,%.3f]",
+            orbit_xyz.size() / 3u, orbit_idx.size(), mn_x, mx_x, mn_z, mx_z,
+            mn_y, mx_y);
+  } else if (hex_albedo && dem_aabb) {
     rebuild_hex_studio_box();
     LOGGING(LOG_INFO,
             "scene3d.present hex_studio dem_xz=[%.3f,%.3f]x[%.3f,%.3f] "

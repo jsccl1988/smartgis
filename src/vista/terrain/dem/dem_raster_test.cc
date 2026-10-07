@@ -18,7 +18,7 @@
 #include <windows.h>
 
 #include "gis/style/style_types.h"
-#include "vista/component/map/detail/hillshade_bake.h"
+#include "vista/component/map/shade/bake.h"
 #include "vista/terrain/dem/dem_frame.h"
 #include "vista/terrain/dem/dem_raster.h"
 #include "vista/component/world/terrain/seed.h"

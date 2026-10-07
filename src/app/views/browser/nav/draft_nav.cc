@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -159,14 +160,14 @@ void Browser::fit_map_extent() {
   refresh_scale();
   if (ui::views::StatusBar* bar = status_bar()) {
     if (session_->document().last_open_was_ogr()) {
-      bar->set_crs_text(
-          session_->document().has_china_extent() ? "EPSG:4326 (China)" : "EPSG:4326");
+      bar->set_crs_text("EPSG:4326");
     } else {
       bar->set_crs_text("local");
     }
-    bar->set_message(
-        "Layers: " + std::to_string(session_->document().layer_count()) +
-        " Features: " + std::to_string(session_->document().feature_count()));
+    // Compact message — status cell is leftmost; avoid jammed "Layers: N Features: M".
+    bar->set_message(std::format(
+        "{} layers · {} feats", session_->document().layer_count(),
+        session_->document().feature_count()));
   }
 }
 

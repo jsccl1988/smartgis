@@ -1,9 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "plugin/product/self_test/probe.h"
+#include "plugin/product/map2d/scenario/probe.h"
 
-#include "plugin/product/self_test/shell.h"
+#include "plugin/runtime/host/capability/shell.h"
 #include <windows.h>
 #include <shellapi.h>
 
@@ -51,12 +51,12 @@
 
 namespace plugin {
 
-int self_test_milestones(SelfTestShell& browser) {
+int scenario_milestones(HarnessShell& browser) {
 
 // M2: Processing panel + buffer/clip write-back.
 {
   std::string err;
-  if (!browser.run_m2_self_test_hooks(&err)) {
+  if (!browser.run_m2_harness_hooks(&err)) {
     std::fprintf(stderr, "M2 self-test failed: %s\n", err.c_str());
     browser.detach_maps();
     if (err.find("clip") != std::string::npos) {
@@ -131,7 +131,7 @@ browser.mark("pass");
 // via PeekMessage and can re-enter ContentMapView present under Debug CRT;
 // that races exit_after_scenario's TerminateProcess and surfaces as
 // exit 0xFFFFFFFF after green marks (same class as browse.3d / ui_showcase).
-// TerminateProcess skips orderly HWND teardown â€” leave timers alone.
+// TerminateProcess skips orderly HWND teardown â€?leave timers alone.
 browser.mark("detached");
 return 0;
 }

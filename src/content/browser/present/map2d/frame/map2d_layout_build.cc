@@ -19,7 +19,7 @@
 #include "base/process/switches.h"
 #include "base/trace/event/process_trace.h"
 #include "gis/style/document/style_document.h"
-#include "vista/component/map/detail/hillshade_bake.h"
+#include "vista/component/map/shade/bake.h"
 #include "vista/component/map/ir.h"
 #include "vista/pass/map/pass.h"
 #include "vista/terrain/dem/dem_raster.h"
@@ -31,6 +31,26 @@ namespace {
 bool env_flag_one(const char* key) {
   const char* e = std::getenv(key);
   return e && e[0] == '1' && e[1] == '\0';
+}
+
+// china_city "area" is the Layers panel "Land" row. Jet hillshade is the land
+// surface, so it must follow that checkbox — otherwise Lines-only still paints
+// the full DEM sheet.
+bool china_land_layer_visible(const MapScene* scene) {
+  if (!scene) {
+    return true;
+  }
+  bool saw_area = false;
+  for (const MapScene::Layer& layer : scene->layers()) {
+    if (layer.name != "area") {
+      continue;
+    }
+    saw_area = true;
+    if (layer.visible) {
+      return true;
+    }
+  }
+  return !saw_area;
 }
 
 }  // namespace
@@ -67,14 +87,28 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
   const bool force_hillshade =
       base::switch_is_one("map2d-force-hillshade") ||
       env_flag_one("MAP2D_FORCE_HILLSHADE");
-  const bool skip_hillshade =
+  const bool land_visible = china_land_layer_visible(in.scene);
+  const bool no_hillshade_switch =
       base::switch_is_one("map2d-no-hillshade") ||
-      env_flag_one("MAP2D_NO_HILLSHADE") ||
-      (!force_hillshade && in.scene && !in.scene->has_china_extent());
+      env_flag_one("MAP2D_NO_HILLSHADE");
+  const bool no_china_extent =
+      !force_hillshade && in.scene && !in.scene->has_china_extent();
+  const bool land_hidden = !force_hillshade && !land_visible;
+  const bool skip_hillshade =
+      no_hillshade_switch || no_china_extent || land_hidden;
+  if (skip_hillshade) {
+    std::fprintf(stderr,
+                 "map2d: hillshade skip - switch=%d china_extent=%d "
+                 "land_visible=%d force=%d\n",
+                 no_hillshade_switch ? 1 : 0, no_china_extent ? 0 : 1,
+                 land_visible ? 1 : 0, force_hillshade ? 1 : 0);
+  }
 
   if (!skip_hillshade && in.hillshade_ready &&
       in.hillshade_slot.texture_key != 0) {
     layout_in.hillshade_tiles.push_back(in.hillshade_slot);
+    layout_in.have_dem_clip = true;
+    layout_in.dem_clip = in.hillshade_slot;
   }
   if (!skip_hillshade && layout_in.hillshade_tiles.empty()) {
     if (const gis::style::StyleLayer* hs =
@@ -92,32 +126,29 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
         }
         if (baked.ok && baked.width > 0 && baked.height > 0 &&
             !baked.rgba.empty()) {
-          // First china layout: bake/cache DEM shade but do not emit the
-          // raster DrawItem. force-GDI blit_rgba_quad (kMultiply at full
-          // viewport) dominated cold ShowWindow (~4s+ Debug). Next rebuild
-          // after show invalidate attaches shade. MAP2D_FORCE_HILLSHADE=1
-          // keeps shade on frame 0 for harnesses that require it.
-          const bool attach_tile =
-              force_hillshade || in.layout_build_count > 0;
-          if (attach_tile) {
-            layout_in.hillshade_tiles.push_back(baked.slot);
-          }
+          // Attach the jet sheet on the same layout that baked it. Deferring
+          // to layout_build_count>0 left cream land (#f5f3e9) on the first
+          // present; StaticReuse then held that white China until settle.
+          layout_in.have_dem_clip = true;
+          layout_in.dem_clip = baked.slot;
+          layout_in.hillshade_tiles.push_back(baked.slot);
           out->baked_w = baked.width;
           out->baked_h = baked.height;
           out->hillshade_slot = baked.slot;
           out->baked_rgba = std::move(baked.rgba);
           std::fprintf(stderr,
                        "map2d: hillshade baked %dx%d from %s tiles=%zu "
-                       "opacity=%.2f key=0x%08x defer_first=%d\n",
+                       "opacity=%.2f key=0x%08x\n",
                        out->baked_w, out->baked_h, dem_path.c_str(),
                        layout_in.hillshade_tiles.size(),
-                       layout_in.hillshade_tiles.empty()
-                           ? 0.f
-                           : layout_in.hillshade_tiles.back().opacity,
-                       layout_in.hillshade_tiles.empty()
-                           ? 0u
-                           : layout_in.hillshade_tiles.back().texture_key,
-                       attach_tile ? 0 : 1);
+                       layout_in.hillshade_tiles.back().opacity,
+                       layout_in.hillshade_tiles.back().texture_key);
+        } else {
+          std::fprintf(stderr,
+                       "map2d: hillshade skip - bake failed ok=%d %dx%d "
+                       "rgba=%zu path=%s\n",
+                       baked.ok ? 1 : 0, baked.width, baked.height,
+                       baked.rgba.size(), dem_path.c_str());
         }
         out->hillshade_ms =
             std::chrono::duration_cast<std::chrono::milliseconds>(

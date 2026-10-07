@@ -14,9 +14,9 @@
 #include <vector>
 
 #include "vista/pass/map/detail/atlas.h"
-#include "vista/component/map/place.h"
+#include "vista/component/map/place/place.h"
 #include "vista/pass/map/detail/upload.h"
-#include "vista/component/map/multiply.h"
+#include "vista/component/map/shade/multiply.h"
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
 

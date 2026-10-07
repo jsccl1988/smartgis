@@ -15,7 +15,7 @@
 #include "vista/component/world/world.h"
 #include "scenic/scene3d/scene/map_to_scene.h"
 #include "scenic/scene3d/scene/scene_to_world.h"
-#include "vista/component/world/coord.h"
+#include "vista/component/world/space/coord.h"
 #include "vista/terrain/dem/dem_height_field.h"
 #include "vista/component/world/terrain/seed.h"
 #include "scenic/scene3d/primitive/surface/terrain.h"

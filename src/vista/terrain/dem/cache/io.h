@@ -40,7 +40,7 @@ void warmup_dem_bake_cache();
 //   kBaseline      — CreateFile + serial ReadFile chunks (no mmap / prefetch /
 //                    parallel copy / FileLoader warmup).
 //   kMappedChunked — base::MappedFile (kSequential + PrefetchVirtualMemory)
-//                    then copy_bytes_chunked (io_pipeline steal).
+//                    then copy_bytes_chunked (contiguous DemIoPool parts).
 //   kFileLoader    — base::FileMMap warmup + dem/cache BinaryCopyHandler
 //                    (execution::Pipeline produce/parse/consume).
 enum class DemIoReadMode {
@@ -49,7 +49,9 @@ enum class DemIoReadMode {
   kFileLoader = 2,
 };
 
-// Product default: MappedFile + io_pipeline chunk steal.
+// Product default: serial ReadFile below kDemIoMinParallelBytes (128 MiB).
+// MappedFile + DemIoPool at or above that size. FileLoader stays an
+// explicit mode for chunked parse, not the memcpy path.
 bool read_all(const std::string& path, std::vector<uint8_t>* out);
 
 bool read_all_baseline(const std::string& path, std::vector<uint8_t>* out);

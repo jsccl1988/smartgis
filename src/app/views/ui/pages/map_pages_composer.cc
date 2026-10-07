@@ -272,11 +272,9 @@ void MapPagesComposer::wire_map_scene() {
     return [this, pane](HDC hdc, const RECT& rc) {
       const int w = rc.right - rc.left;
       const int h = rc.bottom - rc.top;
-      // GDI overlay paints into |hdc| (backbuffer DIB). FlyCube present_gpu
-      // writes the DXGI swapchain — last_gpu_present_ok must NOT skip full
-      // GDI here or the DIB stays teal/empty (annotations only). Only skip
-      // full GDI when FlyCube 2D actually presented this viewport; ContentMapView
-      // SharedSurface often lands as ocean-only without vector fills.
+      // Product default 2D SoT = FlyCube present_gpu (DXGI). GDI overlay is
+      // annotation/flash only once the present HWND is visible and carto drew.
+      // ContentMapView / FORCE_GDI_MAP_OVERLAY remain harness opt-in fallbacks.
       const bool force_gdi = []() {
         if (const char* env = base::switch_cstr("force-gdi-map-overlay")) {
           return env[0] == '1' && env[1] == '\0';
@@ -287,22 +285,16 @@ void MapPagesComposer::wire_map_scene() {
           pane &&
           pane->attach_mode() ==
               ui::views::DrawHost::AttachMode::kContentMapView;
-      // StretchBlt pan/zoom preview is for FlyCube/GDI debounce only. Under
-      // ContentMapView + FORCE_GDI the preview DIB is often empty/cream and
-      // would hide Map2dPresenter::paint (browse HWND record / motion_gate).
+      // StretchBlt pan/zoom preview is for FlyCube debounce. Under
+      // ContentMapView + FORCE_GDI the preview DIB is often empty/cream.
       if (!force_gdi && !content_map &&
           host_->browser_->blit()->in_preview() &&
           host_->browser_->blit()->present(hdc, w, h)) {
         return;
       }
-      // Only treat FlyCube as SoT when the DXGI present popup is visible and
-      // carto actually drew. Bare product often keeps the popup hidden after
-      // init (SW_HIDE + reveal race) while last_gpu_present_ok is already true
-      // — skipping paint then leaves the embed as ocean-only ("no map"), unlike
-      // --ui-showcase=shell which FORCE_GDI paints china onto the shell DIB.
-      // ContentMapView SharedSurface is leftover GPU stub (orange tessellation
-      // / ocean clear) — never skip in-proc Map2dPresenter china carto for it.
       content::Map2dPresenter* map2d = host_->browser_->map2d();
+      // input_hwnd() returns the present popup only while it is visible —
+      // skip full GDI only then, else the embed stays navy/ocean until reveal.
       const bool flycube_present_visible =
           pane &&
           pane->attach_mode() == ui::views::DrawHost::AttachMode::kGpuPresent &&
@@ -315,10 +307,10 @@ void MapPagesComposer::wire_map_scene() {
         const char* map_eng = base::switch_cstr("map2d-engine");
         return map_eng && map_eng[0] && _stricmp(map_eng, "scenic") == 0;
       }();
-      (void)content_map;
       if (!force_gdi && map2d && flycube_sot && !scenic_2d) {
         map2d->paint_annotation_overlay(hdc, w, h);
       } else if (map2d) {
+        // Fallback: ContentMapView, GDI force, or GPU not yet revealed/drew.
         map2d->paint(hdc, w, h, true);
         host_->browser_->blit()->capture(hdc, w, h);
       }

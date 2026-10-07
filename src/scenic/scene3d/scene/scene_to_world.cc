@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "vista/terrain/dem/dem_frame.h"
-#include "vista/component/world/coord.h"
+#include "vista/component/world/space/coord.h"
 
 namespace scenic {
 namespace detail {

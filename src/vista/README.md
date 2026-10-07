@@ -29,15 +29,15 @@ Target names below are authoritative even while sources are mid-move. `frame/` a
 
 | Dir | Role | Include |
 | --- | --- | --- |
-| `component/map/` | CPU IR: `Layout` → `MapIR` (place has no RHI) | `"vista/component/map/ir.h"` umbrella; types in `view.h` / `draw.h` / `batch.h` / `layout.h` |
-| `component/map/detail/` | `carto_filter` ⊥ `batch_build`, `collision`, hillshade bake, MVT | `"vista/component/map/detail/collision.h"` |
-| `component/map/layout/` | collect / emit / coalesce + per-geom emit | `"vista/component/map/layout/fill.h"` |
+| `component/map/` | CPU IR: `Layout` → `MapIR`；顶层 `carto` / `shade` / `place` / `mvt` / `layout` | `"vista/component/map/ir.h"` umbrella；types in `view.h` / `draw.h` / `batch.h` / `layout.h` |
+| `component/map/carto/` | filter / style / label collision | `"vista/component/map/carto/collision.h"` |
+| `component/map/layout/` | 扁平：collect / emit / coalesce + per-geom emit | `"vista/component/map/layout/fill.h"` |
 | `pass/map/` | `MapPass` (upload / encode / record) | `"vista/pass/map/pass.h"` |
-| `component/world/` | `World` node graph; CPU `Instance`, sync, tess, cull, index | `"vista/component/world/world.h"` |
-| `component/world/terrain/` | `TerrainPayload` + discrete LOD seed (raster / TIN / surface) | `"vista/component/world/terrain/seed.h"` |
-| `component/world/cull/` | frustum POD + prep_cull (not `frustum_camera`) | `"vista/component/world/cull/prep_cull.h"` |
-| `component/world/index/` | unibn AABB octree | `"vista/component/world/index/aabb_octree.h"` |
+| `component/world/` | `World` node graph + `Instance` (public root) | `"vista/component/world/world.h"` |
+| `component/world/space/` | `coord` / `envelope`; `cull/` (frustum / mesh / prep); `index/` (AABB octree) | `"vista/component/world/space/cull/prep_cull.h"` |
+| `component/world/instance/` | Instance fill: copy, lit policy, paint, kind tess | `"vista/component/world/instance/paint.h"` |
 | `component/world/pointcloud/` | Chunk / LOD buckets on a node | `"vista/component/world/pointcloud/chunk.h"` |
+| `component/world/terrain/` | `TerrainPayload` + `policy` / `grid` / seed by source | `"vista/component/world/terrain/seed.h"` |
 | `pass/world/` | `WorldPass` (`sync_from`, `record_draws`); composes `TerrainPass`; `GpuMesh`; `opaque_effect` | `"vista/pass/world/pass.h"` |
 | `pass/world/terrain/` | `TerrainPass` (upload / solid gate / kTerrain) | `"vista/pass/world/terrain/pass.h"` |
 | `pass/world/detail/` | upload / tint / rebuild / draw / record | `"vista/pass/world/detail/upload.h"` |

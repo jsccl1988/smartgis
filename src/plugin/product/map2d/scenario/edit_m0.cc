@@ -1,9 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "plugin/product/self_test/probe.h"
+#include "plugin/product/map2d/scenario/probe.h"
 
-#include "plugin/product/self_test/shell.h"
+#include "plugin/runtime/host/capability/shell.h"
 #include <windows.h>
 #include <shellapi.h>
 
@@ -51,7 +51,7 @@
 
 namespace plugin {
 
-int self_test_edit_m0(SelfTestShell& browser) {
+int scenario_edit_m0(HarnessShell& browser) {
 content::ViewHost* host = browser.edit_view_host();
 if (!host || !host->workspace() || !host->edits()) {
   return 11;
@@ -75,7 +75,7 @@ if (!host->edits()->can_undo()) {
   return 15;
 }
 {
-  // å°¾ FeatureGeom: DraftPipeline must commit map-CRS geometry on draw.*.
+  // å°?FeatureGeom: DraftPipeline must commit map-CRS geometry on draw.*.
   auto* mem = dynamic_cast<gis::MemoryEditSession*>(host->edits());
   if (!mem || mem->committed_count() < 1) {
     return 15;
@@ -254,7 +254,7 @@ browser.mark("selection-ok");
   browser.mark("m0-save-ok");
 }
 
-// Input interaction: draw.polygon ?FeatureGeom ring (å°¾ append path).
+// Input interaction: draw.polygon ?FeatureGeom ring (å°?append path).
 {
   const size_t before = browser.document()->feature_count();
   if (!browser.run_tool_command("edit.append.polygon")) {

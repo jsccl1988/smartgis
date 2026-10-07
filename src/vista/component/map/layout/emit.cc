@@ -9,8 +9,9 @@
 #include "vista/component/map/layout/line.h"
 #include "vista/component/map/layout/point.h"
 #include "vista/component/map/layout/raster.h"
-#include "vista/component/map/layout/slice_key.h"
 #include "vista/component/map/layout/symbol.h"
+#include "vista/component/map/layout/gen.h"
+#include "vista/component/map/layout/slice_key.h"
 #include "vista/component/map/layout/view_metrics.h"
 
 namespace vista {

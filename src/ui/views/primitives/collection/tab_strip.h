@@ -47,6 +47,7 @@ class UI_EXPORT TabStrip : public View {
   // Absolute bounds of the clickable tab header band.
   Rect header_bounds() const;
   // Content-sized tab cell (label + pad); packed left-to-right in the header.
+  // Shrinks proportionally when the natural sum exceeds the header width.
   int tab_width_at(int i) const;
   int tab_x_at(int i) const;
 
@@ -56,6 +57,8 @@ class UI_EXPORT TabStrip : public View {
  private:
   void apply_page_visibility();
   int tab_at(int x, int y) const;
+  int natural_tab_width_at(int i) const;
+  int tabs_natural_total_width() const;
 
   std::vector<std::string> titles_;
   std::vector<View*> pages_;

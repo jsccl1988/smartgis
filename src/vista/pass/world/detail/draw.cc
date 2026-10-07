@@ -3,7 +3,7 @@
 
 #include "vista/pass/world/detail/draw.h"
 
-#include "vista/component/world/cull/prep_cull.h"
+#include "vista/component/world/space/cull/prep_cull.h"
 #include "vista/pass/world/detail/upload.h"
 
 #include <cstddef>

@@ -3,7 +3,7 @@
 
 #include "vista/pass/world/detail/tint.h"
 
-#include "vista/component/world/paint.h"
+#include "vista/component/world/instance/paint.h"
 
 namespace vista {
 namespace detail {

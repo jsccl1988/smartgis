@@ -114,9 +114,10 @@ All rights reserved.
         <tr><th>条件</th><th>AttachMode</th><th>WM_PAINT SoT</th></tr>
       </thead>
       <tbody>
+        <tr><td>产品默认 / FlyCube 2D</td><td><code>kGpuPresent</code></td><td>present_gpu SoT；overlay 仅注记</td></tr>
         <tr><td>GPU present 2D/3D</td><td><code>kGpuPresent</code></td><td>Display 线程 DXGI；embed 只填不透明色</td></tr>
         <tr><td>Scenic 2D，无 force-content</td><td><code>kPlaceholder</code></td><td>Map2dPresenter overlay</td></tr>
-        <tr><td>Vista + force-content-mapview-2d</td><td><code>kContentMapView</code></td><td>仍 overlay；<strong>不</strong> blit SharedSurface</td></tr>
+        <tr><td>Harness force-content-mapview-2d</td><td><code>kContentMapView</code></td><td>GDI Map2dPresenter::paint；<strong>不</strong> blit SharedSurface</td></tr>
         <tr><td>Scenic/GDI Scene3d</td><td><code>kPlaceholder</code></td><td>Scene3dPresenter overlay</td></tr>
         <tr><td>Scene3d ContentMapView</td><td><code>kContentMapView</code></td><td>SharedSurface blit + HUD overlay</td></tr>
       </tbody>

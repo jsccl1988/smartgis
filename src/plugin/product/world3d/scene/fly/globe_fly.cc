@@ -33,8 +33,46 @@ void lerp_ll(float lon0, float lat0, float lon1, float lat1, float u,
   *lat = lat0 + (lat1 - lat0) * u;
 }
 
-// Layer policy for the four cinematic beats. Always toggles ocean off when
-// rewinding out of the sea skim so parked DEM frames are not Gerstner-tinted.
+// Match make_orbit_camera spherical mapping (yaw around +Y, pitch from XZ).
+void ll_to_xyz(float lon_deg, float lat_deg, float radius, float* x, float* y,
+               float* z) {
+  float yaw = 0.f;
+  float pitch = 0.f;
+  look_yaw_pitch(lon_deg, lat_deg, &yaw, &pitch);
+  const float cp = std::cos(pitch);
+  const float sp = std::sin(pitch);
+  const float cy = std::cos(yaw);
+  const float sy = std::sin(yaw);
+  *x = radius * cp * sy;
+  *y = radius * sp;
+  *z = radius * cp * cy;
+}
+
+float surface_r(const vista::GlobePass* globe, float lon, float lat,
+                float clearance) {
+  float r = 1.f + clearance;
+  if (globe && globe->has_surface()) {
+    r = globe->surface_radius(lon, lat) + clearance;
+  }
+  return r;
+}
+
+// West China DEM → central mountains → east coast → East China Sea.
+void sample_skim_path(float u01, float* lon, float* lat) {
+  const float u = globe_fly_ease((std::max)(0.f, (std::min)(1.f, u01)));
+  if (u < 0.22f) {
+    lerp_ll(78.f, 38.5f, 92.f, 35.5f, u / 0.22f, lon, lat);
+  } else if (u < 0.45f) {
+    lerp_ll(92.f, 35.5f, 105.f, 34.2f, (u - 0.22f) / 0.23f, lon, lat);
+  } else if (u < 0.68f) {
+    lerp_ll(105.f, 34.2f, 116.5f, 32.8f, (u - 0.45f) / 0.23f, lon, lat);
+  } else if (u < 0.86f) {
+    lerp_ll(116.5f, 32.8f, 122.5f, 31.4f, (u - 0.68f) / 0.18f, lon, lat);
+  } else {
+    lerp_ll(122.5f, 31.4f, 128.5f, 30.2f, (u - 0.86f) / 0.14f, lon, lat);
+  }
+}
+
 void apply_globe_fly_layers(content::AtmosphereSession* session, float t01) {
   if (!session) {
     return;
@@ -46,12 +84,87 @@ void apply_globe_fly_layers(content::AtmosphereSession* session, float t01) {
   } else if (t01 < 0.42f) {
     session->set_sat_cloud_enabled(true);
     session->set_ocean_enabled(false);
-  } else if (t01 < 0.85f) {
+  } else if (t01 < 0.82f) {
     session->set_sat_cloud_enabled(t01 < 0.55f);
     session->set_ocean_enabled(false);
   } else {
     session->set_sat_cloud_enabled(false);
     session->set_ocean_enabled(true);
+  }
+}
+
+// Horizontal-forward terrain-hug (正前方):
+// eye above the DEM roof along the look segment, look target ahead at the
+// same cruise radius (tangent). DEM relief scrolls under the horizon —
+// not nadir look-at-origin.
+void apply_forward_terrain_hug(content::OrbitFrame* orbit,
+                               const vista::GlobePass* globe, float path_u,
+                               float* out_lon, float* out_lat,
+                               float* out_dist) {
+  // Floor above prior FlyCube AV band (~1.08 R). Clearance covers detail
+  // peaks between samples. Look-ahead chord must exceed skim near (~0.05).
+  constexpr float kClear = 0.07f;
+  constexpr float kHugFloor = 1.14f;
+  constexpr float kLookAheadPath = 0.20f;
+
+  float lon = 105.f;
+  float lat = 35.f;
+  sample_skim_path(path_u, &lon, &lat);
+  float lon_a = lon;
+  float lat_a = lat;
+  float ahead_u = (std::min)(1.f, path_u + kLookAheadPath);
+  sample_skim_path(ahead_u, &lon_a, &lat_a);
+  if (ahead_u - path_u < 0.03f) {
+    sample_skim_path((std::max)(0.f, path_u - kLookAheadPath), &lon, &lat);
+    sample_skim_path(path_u, &lon_a, &lat_a);
+    ahead_u = path_u;
+    path_u = (std::max)(0.f, path_u - kLookAheadPath);
+  }
+
+  // Roof of DEM under the look segment — peaks mid-chord pierce near plane.
+  float cruise = kHugFloor;
+  for (int i = 0; i <= 8; ++i) {
+    const float u =
+        path_u + (ahead_u - path_u) * (static_cast<float>(i) / 8.f);
+    float slon = lon;
+    float slat = lat;
+    sample_skim_path(u, &slon, &slat);
+    cruise = (std::max)(cruise, surface_r(globe, slon, slat, kClear));
+  }
+
+  float ex = 0.f;
+  float ey = 0.f;
+  float ez = 0.f;
+  float ax = 0.f;
+  float ay = 0.f;
+  float az = 0.f;
+  ll_to_xyz(lon, lat, cruise, &ex, &ey, &ez);
+  // Ahead unit direction (surface). Full tangent look-at (target at cruise)
+  // wedges FlyCube present; aim partway toward the ahead surface so the
+  // view is forward-oblique (horizon + DEM relief) without a dead GPU.
+  ll_to_xyz(lon_a, lat_a, 1.f, &ax, &ay, &az);
+  constexpr float kLookTargetR = 0.42f;
+  float tx = ax * kLookTargetR;
+  float ty = ay * kLookTargetR;
+  float tz = az * kLookTargetR;
+
+  float yaw = 0.f;
+  float pitch = 0.f;
+  look_yaw_pitch(lon, lat, &yaw, &pitch);
+  orbit->set_dolly_limits(1.05f, 12.f);
+  orbit->set_yaw(yaw);
+  orbit->set_pitch(pitch);
+  orbit->set_distance(cruise);
+  orbit->set_forward_skim(ex, ey, ez, tx, ty, tz);
+
+  if (out_lon) {
+    *out_lon = lon;
+  }
+  if (out_lat) {
+    *out_lat = lat;
+  }
+  if (out_dist) {
+    *out_dist = cruise;
   }
 }
 
@@ -69,17 +182,17 @@ void apply_world3d_globe_flythrough(content::OrbitFrame* orbit,
                                     float china_yaw,
                                     float china_pitch,
                                     const vista::GlobePass* globe,
-                                    content::AtmosphereSession* session) {
+                                    content::AtmosphereSession* session,
+                                    bool allow_forward_skim) {
   if (!orbit) {
     return;
   }
   apply_globe_fly_layers(session, t01);
 
-  orbit->set_dolly_limits(1.12f, 12.f);
   constexpr float kSpaceDist = 12.f;
   constexpr float kHighDist = 2.85f;
   constexpr float kSurfaceClear = 0.055f;
-  constexpr float kSkimDistFloor = 1.14f;
+  constexpr float kHugStart = 0.60f;
 
   float look_lon = 105.f;
   float look_lat = 35.f;
@@ -87,68 +200,75 @@ void apply_world3d_globe_flythrough(content::OrbitFrame* orbit,
   float yaw = china_yaw;
   float pitch = china_pitch;
 
+  if (t01 < kHugStart || !allow_forward_skim) {
+    orbit->clear_forward_skim();
+  }
+
   if (t01 <= 0.12f) {
+    orbit->set_dolly_limits(1.12f, 12.f);
     dist = kSpaceDist;
     look_lon = 105.f;
     look_lat = 35.f;
   } else if (t01 < 0.40f) {
+    orbit->set_dolly_limits(1.12f, 12.f);
     const float u = globe_fly_ease((t01 - 0.12f) / 0.28f);
     dist = kSpaceDist + (kHighDist - kSpaceDist) * u;
     yaw = china_yaw + 0.06f * u;
     look_lon = 105.f;
     look_lat = 35.f;
-  } else if (t01 < 0.52f) {
+  } else if (t01 < 0.50f) {
+    // High China hold (suite park / landish score BMP).
+    orbit->set_dolly_limits(1.12f, 12.f);
     dist = kHighDist;
-    const float u = (t01 - 0.40f) / 0.12f;
+    const float u = (t01 - 0.40f) / 0.10f;
     yaw = china_yaw + 0.06f + 0.10f * u;
     look_lon = 105.f;
     look_lat = 35.f;
-  } else {
-    float u_path = 0.f;
-    if (t01 < 0.70f) {
-      u_path = globe_fly_ease((t01 - 0.52f) / 0.18f);
-      lerp_ll(78.f, 38.f, 92.f, 32.f, u_path, &look_lon, &look_lat);
-    } else if (t01 < 0.82f) {
-      u_path = globe_fly_ease((t01 - 0.70f) / 0.12f);
-      lerp_ll(92.f, 32.f, 108.f, 34.f, u_path, &look_lon, &look_lat);
-    } else if (t01 < 0.92f) {
-      u_path = globe_fly_ease((t01 - 0.82f) / 0.10f);
-      lerp_ll(108.f, 34.f, 118.f, 32.5f, u_path, &look_lon, &look_lat);
-    } else {
-      u_path = globe_fly_ease((t01 - 0.92f) / 0.08f);
-      lerp_ll(118.f, 32.5f, 124.f, 31.2f, u_path, &look_lon, &look_lat);
-    }
+  } else if (t01 < kHugStart) {
+    // Dive onto west DEM entry; pre-load China detail at the skim entry
+    // lon/lat so the first forward-skim frame does not remesh+recamera.
+    orbit->set_dolly_limits(1.12f, 12.f);
+    const float u = globe_fly_ease((t01 - 0.50f) / (kHugStart - 0.50f));
+    sample_skim_path(0.f, &look_lon, &look_lat);
     float aim_yaw = china_yaw;
     float aim_pitch = china_pitch;
     look_yaw_pitch(look_lon, look_lat, &aim_yaw, &aim_pitch);
-    const float skim_pitch = aim_pitch;
-    if (t01 < 0.70f) {
-      const float u = globe_fly_ease((t01 - 0.52f) / 0.18f);
-      constexpr float kHighYawBias = 0.16f;
-      const float dive_start_yaw = china_yaw + kHighYawBias;
-      yaw = dive_start_yaw + (aim_yaw - dive_start_yaw) * u;
-      pitch = china_pitch + (skim_pitch - china_pitch) * u;
-      float surface = 1.0f + kSurfaceClear;
-      if (globe && globe->has_surface()) {
-        surface = globe->surface_radius(look_lon, look_lat) + kSurfaceClear;
-      }
-      dist = kHighDist + (surface - kHighDist) * u;
-    } else {
-      yaw = aim_yaw + 0.04f;
-      pitch = skim_pitch;
-      float surface = 1.0f + kSurfaceClear;
-      if (globe && globe->has_surface()) {
-        surface = globe->surface_radius(look_lon, look_lat) + kSurfaceClear;
-      }
-      dist = (std::max)(kSkimDistFloor, surface);
+    yaw = china_yaw + (aim_yaw - china_yaw) * u;
+    pitch = china_pitch + (aim_pitch - china_pitch) * u;
+    constexpr float kDiveFloor = 1.18f;
+    const float surface = surface_r(globe, look_lon, look_lat, kSurfaceClear);
+    dist = kHighDist + ((std::max)(kDiveFloor, surface) - kHighDist) * u;
+  } else {
+    // West→east terrain-hug over China DEM → ocean.
+    const float path_u = globe_fly_ease((t01 - kHugStart) / (1.f - kHugStart));
+    if (allow_forward_skim) {
+      // Horizontal forward (正前方) look-at — DEM relief under a curved horizon.
+      apply_forward_terrain_hug(orbit, globe, path_u, &look_lon, &look_lat,
+                                &dist);
+      (void)session;
+      return;
+    }
+    // Orbit path-hug (look-at-origin): free look-at skim deadlocks FlyCube
+    // present_gpu. Close China DEM still reads as forward immersion; over
+    // open water climb so Gerstner + coast form a readable horizon band.
+    sample_skim_path(path_u, &look_lon, &look_lat);
+    look_yaw_pitch(look_lon, look_lat, &yaw, &pitch);
+    constexpr float kOrbitHugFloor = 1.14f;
+    dist = (std::max)(kOrbitHugFloor,
+                      surface_r(globe, look_lon, look_lat, kSurfaceClear));
+    // Keep near-surface over the coast/sea — climbing to ≥1.3 R reads as a
+    // space globe still and loses the skim horizon.
+    if (t01 >= 0.82f) {
+      dist = (std::max)(1.16f, (std::min)(dist, 1.20f));
     }
   }
-  if (session) {
-    session->update_globe_detail_lod(dist, look_lon, look_lat);
-  }
+
   orbit->set_yaw(yaw);
   orbit->set_pitch(pitch);
   orbit->set_distance(dist);
+  if (session) {
+    session->update_globe_detail_lod(dist, look_lon, look_lat);
+  }
 }
 
 }  // namespace plugin

@@ -1,0 +1,153 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista map layout — 扁平文件角色</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --policy: #e7eef6; --policy-ink: #2563a8;
+    --geom: #e8f0ea; --geom-ink: #2f7d62;
+    --paint: #f6eee4; --paint-ink: #b06a1a;
+    --stage: #efeaf8; --stage-ink: #5b4f8a;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+  }
+  .hero h1 { margin: 0 0 4px; font-size: 1.22rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 13px; }
+  .box-sub { font-size: 11px; fill: var(--muted); }
+  .arrow { fill: none; stroke: #8a96a8; stroke-width: 2; marker-end: url(#arr); }
+  .flow { stroke-dasharray: 7 5; animation: dash 1.1s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Vista <code>layout/</code> — 扁平目录，四组文件角色</h1>
+    <p>
+      <code>Layout::build</code> 仍是公开缝。<code>layout/</code> 不再套
+      <code>policy/geom/paint/stage</code> 子目录；依赖方向靠 include 规则：
+      stage → paint → geom → policy。画家序、瓦片 splice、<code>layout_gen</code> abort 不变。
+    </p>
+    <p class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista map layout layers</a>
+      · 模块顶层：<a href="vista-map-component-layers.html">vista-map-component-layers.html</a>
+      · 对照 Scenic：<a href="vista-map-frame-scenic-peer.html">vista-map-frame-scenic-peer.html</a>
+    </p>
+  </header>
+
+  <section class="panel">
+    <h2>文件角色（谁可以 include 谁）</h2>
+    <svg class="diagram" viewBox="0 0 920 420" role="img" aria-label="layout 文件角色与依赖方向">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="40" y="24" width="840" height="72" rx="8" fill="#f7f9fb" stroke="#d8dee6"/>
+      <text class="box-title" x="56" y="50" fill="#1a2330">公开</text>
+      <text class="box-sub" x="56" y="72">layout.h · Layout::build　不认识 OGR 走几何、tess 粒度、按类 painter</text>
+
+      <rect x="40" y="124" width="200" height="110" rx="8" fill="#efeaf8" stroke="#c9bddf"/>
+      <text class="box-title" x="56" y="150" fill="#5b4f8a">stage 文件</text>
+      <text class="box-sub" x="56" y="172">collect · pack</text>
+      <text class="box-sub" x="56" y="190">emit · coalesce</text>
+      <text class="box-sub" x="56" y="214">流水线，不 tess 单个几何</text>
+
+      <rect x="260" y="124" width="200" height="110" rx="8" fill="#f6eee4" stroke="#e2c9ae"/>
+      <text class="box-title" x="276" y="150" fill="#b06a1a">paint 文件</text>
+      <text class="box-sub" x="276" y="172">fill · line · point</text>
+      <text class="box-sub" x="276" y="190">symbol · raster</text>
+      <text class="box-sub" x="276" y="214">source index + ordered tess</text>
+
+      <rect x="480" y="124" width="200" height="110" rx="8" fill="#e8f0ea" stroke="#b7d0c4"/>
+      <text class="box-title" x="496" y="150" fill="#2f7d62">geom 文件</text>
+      <text class="box-sub" x="496" y="172">walk · mesh · attrs</text>
+      <text class="box-sub" x="496" y="190">clip（瓦片裙边）</text>
+      <text class="box-sub" x="496" y="214">不读 style 层序</text>
+
+      <rect x="700" y="124" width="180" height="110" rx="8" fill="#e7eef6" stroke="#c5d4e6"/>
+      <text class="box-title" x="716" y="150" fill="#2563a8">policy 文件</text>
+      <text class="box-sub" x="716" y="172">slice_key · grain</text>
+      <text class="box-sub" x="716" y="190">view_metrics · gen</text>
+      <text class="box-sub" x="716" y="214">无 OGR、无 DrawItem 合并</text>
+
+      <path class="arrow" d="M140 196 H250"/>
+      <path class="arrow" d="M360 196 H470"/>
+      <path class="arrow" d="M360 150 H690"/>
+      <path class="arrow" d="M580 196 H690"/>
+      <text class="box-sub" x="168" y="118">只向下 · 同目录</text>
+
+      <text class="box-title" x="40" y="280" fill="#1a2330">一帧</text>
+      <rect id="s1" x="40" y="296" width="150" height="44" rx="8" fill="#efeaf8" stroke="#5b4f8a"/>
+      <text class="box-sub" x="52" y="322" fill="#5b4f8a">1 collect_visible</text>
+      <rect id="s2" x="220" y="296" width="150" height="44" rx="8" fill="#efeaf8" stroke="#c9bddf"/>
+      <text class="box-sub" x="232" y="322" fill="#5b4f8a">2 pack_geoms</text>
+      <rect id="s3" x="400" y="296" width="200" height="44" rx="8" fill="#f6eee4" stroke="#e2c9ae"/>
+      <text class="box-sub" x="412" y="322" fill="#b06a1a">3 emit（tile splice）</text>
+      <rect id="s4" x="630" y="296" width="170" height="44" rx="8" fill="#efeaf8" stroke="#c9bddf"/>
+      <text class="box-sub" x="642" y="322" fill="#5b4f8a">4 coalesce</text>
+      <path class="arrow flow" d="M190 318 H210"/>
+      <path class="arrow flow" d="M370 318 H390"/>
+      <path class="arrow flow" d="M600 318 H620"/>
+      <text class="box-sub" x="40" y="370">gen 过期：style 层、tile、tess job 边界停。UI 不 join。冷帧 fill/line 仍是一次 parallel_for，按 layer_ord 合并。</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>依赖</h2>
+    <table class="map">
+      <thead><tr><th>角色</th><th>可以依赖</th><th>不可以依赖</th></tr></thead>
+      <tbody>
+        <tr><td>policy</td><td>公开 <code>View</code> / <code>LayoutInput</code></td><td>geom、paint、stage、OGR</td></tr>
+        <tr><td>geom</td><td>policy、<code>DrawItem</code>、OGR</td><td>paint、stage</td></tr>
+        <tr><td>paint</td><td>geom、policy</td><td><code>emit.h</code>（生成号在 <code>gen.h</code>）</td></tr>
+        <tr><td>stage</td><td>paint、geom、policy</td><td>RHI / HWND</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+  const steps = ["s1", "s2", "s3", "s4"];
+  let i = 0;
+  setInterval(() => {
+    steps.forEach((id, n) => {
+      const el = document.getElementById(id);
+      el.setAttribute("stroke-width", n === i ? "2.6" : "1");
+    });
+    i = (i + 1) % steps.length;
+  }, 700);
+</script>
+</body>
+</html>

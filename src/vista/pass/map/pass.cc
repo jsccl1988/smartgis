@@ -16,7 +16,7 @@
 #include "base/trace/event/process_trace.h"
 #include "vista/pass/map/detail/atlas.h"
 #include "vista/pass/map/detail/encode.h"
-#include "vista/component/map/place.h"
+#include "vista/component/map/place/place.h"
 #include "vista/pass/map/detail/upload.h"
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"

@@ -3,8 +3,8 @@
 
 // OGR geometry walks for layout emit. No mesh building, no RHI.
 
-#ifndef VISTA_COMPONENT_MAP_LAYOUT_GEOM_WALK_H_
-#define VISTA_COMPONENT_MAP_LAYOUT_GEOM_WALK_H_
+#ifndef VISTA_COMPONENT_MAP_LAYOUT_WALK_H_
+#define VISTA_COMPONENT_MAP_LAYOUT_WALK_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -66,4 +66,4 @@ bool anchor_xy(const OGRGeometry* geom, double* x, double* y);
 }  // namespace detail
 }  // namespace vista
 
-#endif  // VISTA_COMPONENT_MAP_LAYOUT_GEOM_WALK_H_
+#endif  // VISTA_COMPONENT_MAP_LAYOUT_WALK_H_

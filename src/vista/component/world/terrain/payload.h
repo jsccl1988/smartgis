@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "vista/component/world/terrain/lod.h"
+#include "vista/component/world/terrain/policy.h"
 
 namespace vista {
 

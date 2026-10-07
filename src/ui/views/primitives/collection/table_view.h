@@ -25,6 +25,7 @@ namespace views {
 class UI_EXPORT TableView : public View {
  public:
   TableView();
+  ~TableView() override;
   void set_columns(const std::vector<std::string>& cols);
   void add_row(const std::vector<std::string>& cells);
   void clear_rows();
@@ -110,8 +111,9 @@ class UI_EXPORT TableView : public View {
   bool cache_valid_ = false;
   ui::gfx::DisplayList row_cache_;
 
-  // Sliding per-row command strips; heap type lives in the .cc.
-  std::unique_ptr<void, void (*)(void*)> row_strips_{nullptr, nullptr};
+  // Sliding per-row command strips (defined in the .cc; out-of-line dtor).
+  struct RowStripStore;
+  std::unique_ptr<RowStripStore> row_strips_;
 };
 
 }  // namespace views

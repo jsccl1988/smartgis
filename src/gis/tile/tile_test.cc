@@ -10,7 +10,7 @@
 
 #include "vista/mesh/tessellate.h"
 #include "gis/tile/provider/mvt.h"
-#include "vista/component/map/detail/mvt_layout.h"
+#include "vista/component/map/mvt/mvt.h"
 #include "gis/tile/layer/provider_tile_layer.h"
 #include "gis/tile/provider/source_registry.h"
 #include "gis/tile/provider/style_source.h"

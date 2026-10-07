@@ -17,7 +17,7 @@
 #include "gis/style/paint_resolve.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/eval/style_rules.h"
-#include "vista/component/map/detail/carto_filter.h"
+#include "vista/component/map/carto/filter.h"
 #include "vista/component/map/ir.h"
 #include "vista/terrain/process/land_mask.h"
 #include "tool/draft/draft.h"

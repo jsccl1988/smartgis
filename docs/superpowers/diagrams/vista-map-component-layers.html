@@ -1,0 +1,151 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista map — 五条正交顶层</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+  }
+  .hero h1 { margin: 0 0 4px; font-size: 1.22rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 13px; }
+  .box-sub { font-size: 11px; fill: var(--muted); }
+  .arrow { fill: none; stroke: #8a96a8; stroke-width: 2; marker-end: url(#arr); }
+  .flow { stroke-dasharray: 7 5; animation: dash 1.1s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Vista <code>component/map</code> — 根公开，五条正交子目录</h1>
+    <p>
+      模块根只放公开 IR 和编排。顶层仅 <code>carto</code> · <code>shade</code> ·
+      <code>place</code> · <code>mvt</code> · <code>layout</code>。
+      注记碰撞并入 <code>carto/</code>；<code>layout/</code> 内不再套子目录。
+    </p>
+    <p class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista map component layers</a>
+      · 布局文件角色：<a href="vista-map-layout-layers.html">vista-map-layout-layers.html</a>
+    </p>
+  </header>
+
+  <section class="panel">
+    <h2>分层（谁可以 include 谁）</h2>
+    <svg class="diagram" viewBox="0 0 920 420" role="img" aria-label="map 顶层职责与依赖方向">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="40" y="20" width="840" height="64" rx="8" fill="#f7f9fb" stroke="#d8dee6"/>
+      <text class="box-title" x="56" y="46" fill="#1a2330">公开根</text>
+      <text class="box-sub" x="56" y="66">ir.h · view · draw · batch.h · layout.h/cc · color.h　宿主只 include ir.h</text>
+
+      <rect id="c1" x="40" y="112" width="170" height="88" rx="8" fill="#e7eef6" stroke="#c5d4e6"/>
+      <text class="box-title" x="56" y="138" fill="#2563a8">carto/</text>
+      <text class="box-sub" x="56" y="158">filter · style · collision</text>
+      <text class="box-sub" x="56" y="176">无 OGR 构造</text>
+
+      <rect id="c2" x="230" y="112" width="150" height="88" rx="8" fill="#e8f0ea" stroke="#b7d0c4"/>
+      <text class="box-title" x="246" y="138" fill="#2f7d62">batch.cc</text>
+      <text class="box-sub" x="246" y="158">POD → OGR</text>
+      <text class="box-sub" x="246" y="176">声明在 batch.h</text>
+
+      <rect id="c3" x="400" y="112" width="240" height="88" rx="8" fill="#efeaf8" stroke="#c9bddf"/>
+      <text class="box-title" x="416" y="138" fill="#5b4f8a">layout/</text>
+      <text class="box-sub" x="416" y="158">扁平：stage / paint / geom / policy</text>
+      <text class="box-sub" x="416" y="176">文件角色，不再套子目录</text>
+
+      <rect id="c4" x="660" y="112" width="220" height="88" rx="8" fill="#f6eee4" stroke="#e2c9ae"/>
+      <text class="box-title" x="676" y="138" fill="#b06a1a">shade/</text>
+      <text class="box-sub" x="676" y="158">multiply · avx2 · bake</text>
+      <text class="box-sub" x="676" y="176">不 include place / painters</text>
+
+      <path class="arrow flow" d="M210 156 H220"/>
+      <path class="arrow flow" d="M380 156 H390"/>
+
+      <rect id="c5" x="40" y="240" width="200" height="88" rx="8" fill="#e8f0ea" stroke="#b7d0c4"/>
+      <text class="box-title" x="56" y="266" fill="#2f7d62">place/</text>
+      <text class="box-sub" x="56" y="286">MapIR → mesh</text>
+      <text class="box-sub" x="56" y="304">无 RHI</text>
+
+      <rect id="c6" x="270" y="240" width="170" height="88" rx="8" fill="#e7eef6" stroke="#c5d4e6"/>
+      <text class="box-title" x="286" y="266" fill="#2563a8">mvt/</text>
+      <text class="box-sub" x="286" y="286">瓦片 → 批次</text>
+      <text class="box-sub" x="286" y="304">解码在 gis/tile</text>
+
+      <rect x="470" y="240" width="410" height="88" rx="8" fill="#f7f9fb" stroke="#d8dee6"/>
+      <text class="box-title" x="486" y="266" fill="#1a2330">pass/map</text>
+      <text class="box-sub" x="486" y="286">place · shade/multiply · color</text>
+      <text class="box-sub" x="486" y="304">设备线程，不进 map_sources</text>
+
+      <path class="arrow" d="M240 284 H260"/>
+      <path class="arrow flow" d="M440 284 H460"/>
+
+      <text class="box-sub" x="40" y="360">一帧：carto 或 mvt 产出策略与批次，layout 写出 MapIR；collision 在 carto/，emit 之后串行。</text>
+      <text class="box-sub" x="40" y="380">shade 的 coverage 同时给 GDI 和 GPU 上传。place 把 MapIR 变成 ortho mesh，给 pass 上传。</text>
+      <text class="box-sub" x="40" y="400">虚线在动的边是这一帧的数据。shade 与 place 之间没有箭头。</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>依赖</h2>
+    <table class="map">
+      <thead><tr><th>目录</th><th>可以依赖</th><th>不可以依赖</th></tr></thead>
+      <tbody>
+        <tr><td><code>carto</code></td><td>公开 <code>View</code> / 比例尺数字</td><td>layout stage 头、OGR 构造</td></tr>
+        <tr><td><code>batch.cc</code></td><td><code>carto/filter</code>、OGR</td><td>layout painters</td></tr>
+        <tr><td><code>layout</code></td><td><code>carto/collision</code>（symbol / emit）</td><td>RHI、<code>place</code></td></tr>
+        <tr><td><code>shade</code></td><td>公开 <code>TileSlot</code>、<code>vista/terrain</code></td><td><code>place/</code>、layout painters</td></tr>
+        <tr><td><code>place</code></td><td><code>ir.h</code>、<code>color.h</code></td><td>RHI、<code>shade/</code></td></tr>
+        <tr><td><code>mvt</code></td><td><code>ir.h</code>、<code>gis/tile</code> 解码</td><td>layout stage 头</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+  const steps = ["c1", "c2", "c3", "c4"];
+  let i = 0;
+  setInterval(() => {
+    steps.forEach((id, n) => {
+      const el = document.getElementById(id);
+      el.setAttribute("stroke-width", n === i ? "2.6" : "1");
+    });
+    i = (i + 1) % steps.length;
+  }, 700);
+</script>
+</body>
+</html>

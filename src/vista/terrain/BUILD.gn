@@ -134,11 +134,12 @@ source_set("dem_bake_cache_sources") {
   ]
 }
 
-# MappedFile+io_pipeline vs FileMMap+FileLoader (warm page cache).
+# Real dem_bake blobs: Baseline vs Mapped+io_pipeline vs FileLoader.
 benchmark("dem_io_benchmark") {
   output_name = "dem_io_benchmark"
   sources = [ "dem/cache/io_benchmark.cc" ]
   include_dirs += [ "//src" ]
+  use_benchmark_main = false
   deps = [
     ":dem_cache_io_sources",
     "//src/base:base",

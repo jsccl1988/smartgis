@@ -42,7 +42,11 @@ bool MapSceneGisDocument::set_layer_visible(std::string_view id, bool visible) {
   if (!scene_ || id.empty()) {
     return false;
   }
-  return scene_->set_layer_visible(std::string(id), visible);
+  if (!scene_->set_layer_visible(std::string(id), visible)) {
+    return false;
+  }
+  notify_layers_changed();
+  return true;
 }
 
 size_t MapSceneGisDocument::layer_count() const {

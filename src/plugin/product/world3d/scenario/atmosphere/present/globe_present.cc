@@ -68,8 +68,8 @@ AtmosphereGlobeFlyResult run_atmosphere_globe_fly_presents(
       mode, mode_name, cam, device, present_hwnd, owned_present_hwnd,
       /*want_gpu=*/true, /*globe_flythrough=*/true, scene);
 
-  // Qinling / central mountains (west-east skim), not the suite score BMP.
-  plugin::apply_world3d_globe_flythrough(orbit, 0.76f, china_yaw, china_pitch, globe, atm);
+  // Terrain-hug over central China DEM (west→east path), not the score park.
+  plugin::apply_world3d_globe_flythrough(orbit, 0.78f, china_yaw, china_pitch, globe, atm);
   for (int warm = 0; warm < 4; ++warm) {
     if (scene) {
       scene->request_frame();

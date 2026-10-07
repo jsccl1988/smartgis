@@ -2,18 +2,20 @@
 // All rights reserved.
 
 // Layout orchestrator: collect_visible → pack_geoms → emit_* → coalesce.
-// Public signature stays Layout::build.
+// Files under layout/ stay flat; include rules keep stage → paint → geom →
+// policy. Public signature stays Layout::build.
 
 #include "vista/component/map/layout.h"
 
 #include "base/memory/arena.h"
 #include "base/trace/event/process_trace.h"
-#include "vista/component/map/detail/collision.h"
+#include "vista/component/map/carto/collision.h"
+#include "vista/component/map/layout/gen.h"
+#include "vista/component/map/layout/view_metrics.h"
 #include "vista/component/map/layout/coalesce.h"
 #include "vista/component/map/layout/collect.h"
 #include "vista/component/map/layout/emit.h"
 #include "vista/component/map/layout/pack.h"
-#include "vista/component/map/layout/view_metrics.h"
 #include "vista/mesh/tessellate.h"
 
 namespace vista {

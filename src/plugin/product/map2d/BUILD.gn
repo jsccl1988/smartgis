@@ -56,12 +56,14 @@ source_set("map2d_views") {
   data_deps = [ ":map2d_resources" ]
 }
 
-# HWND/BMP present/FPS. Linked into SmartGIS.exe, not the native plugin DLL.
-# hwnd_register is separate from GIS scenario/register (same directory).
+# HWND/BMP present/FPS + GIS harness payloads (edit_m0 / layers / …).
+# Linked into SmartGIS.exe, not the native plugin DLL.
+# hwnd_register (china/print showcase) is separate from register.cc GIS cmds.
 source_set("map2d_harness") {
   sources = [
     "scenario/capture.cc",
     "scenario/capture.h",
+    "scenario/edit_m0.cc",
     "scenario/fps_bench.cc",
     "scenario/fps_bench.h",
     "scenario/framing.cc",
@@ -74,13 +76,21 @@ source_set("map2d_harness") {
     "scenario/hwnd_register.h",
     "scenario/interact.cc",
     "scenario/interact.h",
+    "scenario/layers_m1.cc",
+    "scenario/milestones.cc",
     "scenario/mode_seed.cc",
     "scenario/mode_seed.h",
+    "scenario/navigate.cc",
+    "scenario/present.cc",
     "scenario/present_run.cc",
     "scenario/present_run.h",
     "scenario/print.cc",
+    "scenario/probe.cc",
+    "scenario/probe.h",
     "scenario/progress.cc",
     "scenario/progress.h",
+    "scenario/register.cc",
+    "scenario/register.h",
     "scenario/run.cc",
     "scenario/sample.cc",
     "scenario/sample.h",
@@ -93,12 +103,19 @@ source_set("map2d_harness") {
     ":map2d_views",
     ":print_composer",
     "//src/base:base",
+    "//src/content:browser_session",
     "//src/content:content",
+    "//src/content:embed_sample",
     "//src/gis:gis",
+    "//src/gis/edit:edit",
+    "//src/gis/tile:tile",
     "//src/gpu:gpu_lib",
+    "//src/net:net",
     "//src/plugin/runtime/host:host",
     "//src/render:rhi",
     "//src/tool:dispatch",
+    "//src/tool:workspace",
+    "//src/ui/gis:ui_gis",
     "//src/ui/views:views",
     "//src/vista:vista",
     "//third_party:gdal",

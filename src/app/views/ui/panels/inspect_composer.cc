@@ -178,6 +178,9 @@ void InspectComposer::wire_legend_panel() {
   host_->legend_panel_->set_toggle([this](const std::string& id, bool visible) {
     if (host_->browser_->document()->set_layer_visible(id, visible)) {
       host_->sync_catalog_from_scene();
+      if (host_->browser_->map2d()) {
+        host_->browser_->map2d()->invalidate_frame_cache();
+      }
       host_->invalidate_map_overlays();
       host_->set_status_message(std::string("Layer ") + id +
                          (visible ? " visible" : " hidden"));

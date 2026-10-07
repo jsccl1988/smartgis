@@ -107,7 +107,7 @@ bool ShellLayoutComposer::build_from_markup() {
   host_->rebuild_menus();
 
   auto catalog = std::make_unique<ui::views::CatalogView>();
-  catalog->set_preferred_size({300, 0});
+  catalog->set_preferred_size({360, 0});
   catalog->set_title("Catalog");
   host_->catalog_ = catalog.get();
   // Top headers (QGIS/ArcGIS Pro): bottom-aligned catalog+map+inspector strips
@@ -116,7 +116,7 @@ bool ShellLayoutComposer::build_from_markup() {
     host_->catalog_->source_tabs()->set_header_placement(
         ui::views::TabStrip::HeaderPlacement::kTop);
   }
-  catalog_host->set_preferred_size({300, 0});
+  catalog_host->set_preferred_size({360, 0});
   mount_fill(catalog_host, std::move(catalog));
   host_->wire_catalog();
 
@@ -154,7 +154,6 @@ bool ShellLayoutComposer::build_from_markup() {
   });
   tool_bar_host->set_preferred_size({0, 48});
   mount_fill(tool_bar_host, std::move(tool_bar));
-  host_->populate_ambox();
 
   auto side = std::make_unique<ui::views::TabStrip>();
   // Idle Feature copy fits ~280 DIP; 400 squeezed the map for empty identify.
@@ -192,6 +191,9 @@ bool ShellLayoutComposer::build_from_markup() {
   host_->inspector_tabs_ = side.get();
   inspector_host->set_preferred_size({kInspectorWDip, 0});
   mount_fill(inspector_host, std::move(side));
+  // After side_ambox_ is live — AmboxView ctor seeds Select/Edit; map bar keeps
+  // them, right dock is cleared to plugin groups only (visual_review #3).
+  host_->populate_ambox();
 
   work->set_preferred_size({0, 0});
   main_split->set_preferred_size({0, 0});
@@ -281,7 +283,7 @@ void ShellLayoutComposer::build_imperative() {
   host_->rebuild_menus();
 
   auto catalog = std::make_unique<ui::views::CatalogView>();
-  catalog->set_preferred_size({300, 0});
+  catalog->set_preferred_size({360, 0});
   catalog->set_title("Catalog");
   host_->catalog_ = catalog.get();
   if (host_->catalog_->source_tabs()) {
@@ -315,7 +317,6 @@ void ShellLayoutComposer::build_imperative() {
     }
     host_->browser_->run_tool_command(id);
   });
-  host_->populate_ambox();
 
   auto catalog_map = std::make_unique<ui::views::Splitter>(
       ui::views::Splitter::Orientation::kHorizontal);
@@ -355,6 +356,8 @@ void ShellLayoutComposer::build_imperative() {
       side->add_tab("Selection", make_inspector_placeholder());
   host_->layer_props_tab_ = side->add_tab("Layer", make_inspector_placeholder());
   host_->legend_tab_ = side->add_tab("Legend", make_inspector_placeholder());
+  // side_ambox_ ready — populate map bar + clear ctor Select/Edit on the dock.
+  host_->populate_ambox();
   host_->spatial_analysis_tab_ =
       side->add_tab("Analysis", make_inspector_placeholder());
   host_->processing_tab_ =

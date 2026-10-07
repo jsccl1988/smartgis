@@ -9,9 +9,10 @@
 #include <string>
 #include <vector>
 
-#include "vista/component/map/detail/carto_filter.h"
-#include "vista/component/map/detail/collision.h"
+#include "vista/component/map/carto/filter.h"
+#include "vista/component/map/carto/collision.h"
 #include "vista/component/map/layout/slice_key.h"
+#include "vista/component/map/shade/multiply.h"
 #include "vista/component/map/ir.h"
 #include "gis/style/paint_resolve.h"
 #include "gis/style/document/style_document.h"
@@ -74,6 +75,47 @@ int main() {
 
   const Layout layout;
   const FixedAdvance metrics;
+
+  // AVX2 groups of 8 plus a scalar tail must match the per-pixel formula.
+  {
+    auto scalar_px = [](uint8_t* px, float op) {
+      if (px[3] < 160) {
+        px[0] = 0;
+        px[1] = 0;
+        px[2] = 0;
+        px[3] = 0;
+        return;
+      }
+      const float r = static_cast<float>(px[0]) / 255.f;
+      const float g = static_cast<float>(px[1]) / 255.f;
+      const float b = static_cast<float>(px[2]) / 255.f;
+      const float luma = 0.299f * r + 0.587f * g + 0.114f * b;
+      const float m = (1.f - op) + op * luma;
+      const float clamped = (std::max)(0.f, (std::min)(1.f, m));
+      const auto factor = static_cast<uint8_t>(clamped * 255.f + 0.5f);
+      px[0] = factor;
+      px[1] = factor;
+      px[2] = factor;
+      px[3] = 255;
+    };
+    constexpr float k_op = 0.55f;
+    constexpr int k_pixels = 19;
+    std::vector<uint8_t> got(static_cast<size_t>(k_pixels) * 4u);
+    for (int i = 0; i < k_pixels; ++i) {
+      got[static_cast<size_t>(i) * 4u + 0] = static_cast<uint8_t>(i * 13);
+      got[static_cast<size_t>(i) * 4u + 1] = static_cast<uint8_t>(255 - i * 7);
+      got[static_cast<size_t>(i) * 4u + 2] = static_cast<uint8_t>(i * 19);
+      got[static_cast<size_t>(i) * 4u + 3] =
+          (i % 5 == 0) ? static_cast<uint8_t>(100) : static_cast<uint8_t>(200);
+    }
+    std::vector<uint8_t> expected = got;
+    for (int i = 0; i < k_pixels; ++i) {
+      scalar_px(expected.data() + static_cast<size_t>(i) * 4u, k_op);
+    }
+    vista::apply_multiply_coverage(got, k_op);
+    expect(got == expected, "multiply avx2 matches scalar formula");
+    std::fflush(stderr);
+  }
 
   // Empty input still carries the default background and no meshes.
   {
@@ -747,6 +789,14 @@ int main() {
     expect(!frame.items.empty() && frame.items[0].kind == DrawKind::kRaster &&
                frame.items[0].blend == vista::DrawBlend::kOver,
            "jet hillshade overpaints land");
+    expect(count_kind(frame, DrawKind::kFill) == 0,
+           "jet hillshade suppresses cream land");
+    expect(!frame.items.empty() && frame.items[0].vertices.size() == 4 &&
+               frame.items[0].vertices[0].y >
+                   frame.items[0].vertices[2].y &&
+               frame.items[0].vertices[0].v == 1.f &&
+               frame.items[0].vertices[2].v == 0.f,
+           "hillshade v=1 at north (FlyCube)");
   }
 
   // Land that sits outside the DEM slot is clipped (no cream fringe).
@@ -784,6 +834,79 @@ int main() {
     const vista::MapIR frame = layout.build(in, {land});
     expect(count_kind(frame, DrawKind::kFill) == 0,
            "land outside DEM slot dropped");
+  }
+
+  // dem_clip alone (hillshade DrawItem deferred) still drops cream fringe.
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style("{\"version\":8,\"layers\":["
+                       "{\"id\":\"land\",\"type\":\"fill\",\"source-layer\":"
+                       "\"land\",\"paint\":{\"fill-color\":\"#f5f3e9\"}}"
+                       "]}",
+                       &doc),
+           "dem_clip land style");
+    LayoutInput in;
+    in.view = square_view(200, 20);
+    in.style = &doc;
+    in.zoom = 8;
+    in.have_dem_clip = true;
+    in.dem_clip.min_x = 0;
+    in.dem_clip.min_y = 0;
+    in.dem_clip.max_x = 5;
+    in.dem_clip.max_y = 5;
+    OGRPolygon far;
+    OGRLinearRing* ring = new OGRLinearRing();
+    ring->addPoint(10, 10);
+    ring->addPoint(18, 10);
+    ring->addPoint(18, 18);
+    ring->addPoint(10, 18);
+    ring->addPoint(10, 10);
+    far.addRingDirectly(ring);
+    LayerBatch land;
+    land.source_layer = "land";
+    land.geoms = {&far};
+    const vista::MapIR frame = layout.build(in, {land});
+    expect(count_kind(frame, DrawKind::kFill) == 0,
+           "dem_clip drops land outside DEM");
+  }
+
+  // Jet style + dem_clip (no tile yet) must not emit cream land — first-frame
+  // white China when the host deferred the raster DrawItem.
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style("{\"version\":8,\"layers\":["
+                       "{\"id\":\"shade\",\"type\":\"hillshade\",\"paint\":{"
+                       "\"hillshade-color-ramp\":\"jet\"}},"
+                       "{\"id\":\"land\",\"type\":\"fill\",\"source-layer\":"
+                       "\"land\",\"paint\":{\"fill-color\":\"#f5f3e9\"}}"
+                       "]}",
+                       &doc),
+           "jet dem_clip cream style");
+    LayoutInput in;
+    in.view = square_view(200, 20);
+    in.style = &doc;
+    in.zoom = 8;
+    in.have_dem_clip = true;
+    in.dem_clip.min_x = 0;
+    in.dem_clip.min_y = 0;
+    in.dem_clip.max_x = 20;
+    in.dem_clip.max_y = 20;
+    OGRPolygon land_poly;
+    OGRLinearRing* ring = new OGRLinearRing();
+    ring->addPoint(2, 2);
+    ring->addPoint(18, 2);
+    ring->addPoint(18, 18);
+    ring->addPoint(2, 18);
+    ring->addPoint(2, 2);
+    land_poly.addRingDirectly(ring);
+    LayerBatch land;
+    land.source_layer = "land";
+    land.geoms = {&land_poly};
+    const vista::MapIR frame = layout.build(in, {land});
+    expect(count_kind(frame, DrawKind::kFill) == 0,
+           "jet dem_clip suppresses cream land");
+    expect(count_kind(frame, DrawKind::kRaster) == 0,
+           "jet dem_clip without tiles emits no raster");
   }
 
   // Fill-extrusion v1: prism walls + roof DrawItems for a zoom-matched layer.
@@ -991,9 +1114,8 @@ int main() {
     in.view.max_y = 10;
     in.style = &doc;
     in.zoom = 8;
-    const vista::MapIR first = layout.build(in, {land});
-    expect(!first.items.empty() && first.items[0].cache_key != 0,
-           "tagged cache_key on valid view");
+    // Empty SliceCache forces the warm tiled emit path (tags cache_key).
+    // Cold cross-layer emit intentionally skips tagging for china first paint.
     struct MapSlices : vista::SliceCache {
       std::map<uint64_t, std::vector<vista::DrawItem>> store;
       const std::vector<vista::DrawItem>* find(uint64_t key) const override {
@@ -1004,12 +1126,15 @@ int main() {
         return &it->second;
       }
     } slices;
+    in.retained_slices = &slices;
+    const vista::MapIR first = layout.build(in, {land});
+    expect(!first.items.empty() && first.items[0].cache_key != 0,
+           "tagged cache_key on valid view");
     for (const auto& item : first.items) {
       if (item.cache_key != 0) {
         slices.store[item.cache_key].push_back(item);
       }
     }
-    in.retained_slices = &slices;
     const double tile_w = vista::detail::layout_tile_world_size(in.view);
     in.view.min_x += tile_w;
     in.view.max_x += tile_w;

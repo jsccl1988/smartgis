@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "vista/component/world/cull/frustum_aabb.h"
-#include "vista/component/world/cull/prep_cull.h"
+#include "vista/component/world/space/cull/frustum_aabb.h"
+#include "vista/component/world/space/cull/prep_cull.h"
 #include "vista/pass/world/cull/frustum_camera.h"
 #include "vista/pass/world/detail/draw.h"
 #include "vista/pass/world/gpu_mesh.h"

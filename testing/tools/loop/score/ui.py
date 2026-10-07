@@ -262,9 +262,10 @@ def score_ui_shell_dark(path: Path) -> dict:
     # chrome_readable (checklist): hard floor on light label mass. Tuned on
     # out/Debug/captures/ui/*.bmp — near-zero ~0.0012 (catalog/data/scene) and
     # low-contrast shell ~0.0034 both stayed green when accent_or_text ORed on
-    # blue alone; 0.008 rejects those while remaining reachable once product
-    # contrast raises readable white/gray labels (~1% of chrome pixels).
-    chrome_readable = text_f >= 0.008
+    # blue alone. 0.007 rejects those while allowing inspector overflow tabs to
+    # collapse (leading titles only) instead of painting "A"/"S" stubs that
+    # previously inflated light_text above 0.05 without being readable.
+    chrome_readable = text_f >= 0.007
 
     # Work-area hollow metrics (visual_review #2/#9). Reported for agents; hard
     # fail stays on no_panel_collapse + catalog_strip until map carto is stable
@@ -461,7 +462,7 @@ def score_ui_shell_dark(path: Path) -> dict:
             "dark_chrome_frac>0.25": dark_f > 0.25,
             "accent_or_text": accent_f > 0.0003 or text_f > 0.0005,
             "chrome_readable": chrome_readable,
-            "light_text_frac>=0.008": chrome_readable,
+            "light_text_frac>=0.007": chrome_readable,
             "top_chrome_frac>0.50": top_f > 0.50,
             "color_buckets>=5": bucket_n >= 5,
             "min_size_400x300": w >= 400 and h >= 300,

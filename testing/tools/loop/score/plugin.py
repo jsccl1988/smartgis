@@ -550,3 +550,51 @@ def score_plugin_mesh(path: Path) -> dict:
     }
 
 
+def score_plugin_hex(path: Path) -> dict:
+    """Orthogrid3d finite-element hex volume (zone atlas + edge ribbons).
+
+    Rejects the amber 6-face studio toy (color_buckets≈2–3, edge_frac≈0) that
+    previously false-greened plugin_mesh while looking like a flat parallelogram.
+    """
+    base = score_plugin_mesh(path)
+    w, h, pixels = load_bmp_rgb(path)
+    n = max(1, len(pixels))
+    # Zone atlas: lime / magenta / purple / blue patches on outer faces.
+    zone = sum(
+        1
+        for r, g, b in pixels
+        if (
+            (r > 140 and g > 180 and b < 120)  # lime/yellow cap
+            or (r > 160 and b > 120 and g < 160 and r > g + 10)  # pink/magenta
+            or (r > 100 and b > 140 and g < 120)  # purple
+            or (b > 140 and g > 80 and r < 120 and b > r + 30)  # blue wall
+        )
+    )
+    zone_f = zone / n
+    edge_f = float(base.get("edge_frac") or 0.0)
+    divers = int(base.get("color_buckets") or 0)
+    amber_f = float(base.get("amber_frac") or 0.0)
+    # FE look: multi-zone paint OR dense dark grid ink; never amber-only slab.
+    fe_zones = zone_f > 0.04
+    fe_edges = edge_f > 0.006
+    fe_diversity = divers >= 6
+    fe_ok = (fe_zones and fe_edges) or (fe_diversity and fe_edges) or (
+        fe_zones and divers >= 5
+    )
+    toy_amber = amber_f > 0.08 and edge_f < 0.003 and zone_f < 0.02
+    gates = dict(base.get("gates") or {})
+    gates["fe_zone_frac>0.04"] = fe_zones
+    gates["fe_edge_frac>0.006"] = fe_edges
+    gates["fe_color_buckets>=6"] = fe_diversity
+    gates["not_toy_amber_slab"] = not toy_amber
+    gates["fe_hex_volume"] = fe_ok and not toy_amber
+    ok = bool(base.get("ok")) and fe_ok and not toy_amber
+    out = dict(base)
+    out["ok"] = ok
+    out["zone_frac"] = round(zone_f, 5)
+    out["gates"] = gates
+    out["width"] = w
+    out["height"] = h
+    return out
+
+

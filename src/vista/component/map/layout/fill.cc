@@ -5,22 +5,20 @@
 
 #include <algorithm>
 #include <memory>
-#include <string>
-#include <unordered_map>
+#include <optional>
 #include <utility>
 #include <vector>
 
-#include "base/execution/executor/pool/global_executor.h"
-#include "base/execution/parallel/for.h"
-#include "gis/style/paint_resolve.h"
 #include "gis/style/eval/style_rules.h"
+#include "gis/style/paint_resolve.h"
 #include "gis/style/style_types.h"
 #include "vista/component/map/layout/attrs.h"
-#include "vista/component/map/layout/emit.h"
+#include "vista/component/map/layout/clip.h"
 #include "vista/component/map/layout/geom_walk.h"
 #include "vista/component/map/layout/mesh_emit.h"
-#include "vista/component/map/layout/pack.h"
-#include "vista/component/map/layout/tess_grain.h"
+#include "vista/component/map/layout/source_index.h"
+#include "vista/component/map/layout/tess_jobs.h"
+#include "vista/component/map/layout/gen.h"
 #include "vista/mesh/tessellate.h"
 #include "ogrsf_frmts.h"
 
@@ -38,6 +36,57 @@ uint32_t darken_argb(uint32_t argb, float factor) {
   const uint32_t b =
       static_cast<uint32_t>(static_cast<float>(argb & 0xffu) * f);
   return (a << 24) | (r << 16) | (g << 8) | b;
+}
+
+// Jet hillshade is a full land surface (kOver). Cream land under it shows
+// through transparent ocean cells and, when Y-mirrored relative to the DEM
+// sheet, reads as an upside-down white China north of the jet mass.
+// have_dem_clip alone also suppresses cream: hosts may publish the DEM AABB
+// a frame before the raster DrawItem is attached (map2d_test dem_clip case).
+bool jet_hillshade_active(const LayoutInput& in) {
+  if (!in.style) {
+    return false;
+  }
+  if (in.hillshade_tiles.empty() && !in.have_dem_clip) {
+    return false;
+  }
+  for (const gis::style::StyleLayer& layer : in.style->layers) {
+    if (layer.type != gis::style::LayerType::kHillshade) {
+      continue;
+    }
+    const auto ramp = layer.paint.find("hillshade-color-ramp");
+    if (ramp != layer.paint.end() && ramp->second == "jet") {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool dem_land_clip_tile(const LayoutInput& in, LayoutTile* hs) {
+  if (!hs) {
+    return false;
+  }
+  if (!in.hillshade_tiles.empty()) {
+    hs->min_x = in.hillshade_tiles[0].min_x;
+    hs->min_y = in.hillshade_tiles[0].min_y;
+    hs->max_x = in.hillshade_tiles[0].max_x;
+    hs->max_y = in.hillshade_tiles[0].max_y;
+    for (const TileSlot& slot : in.hillshade_tiles) {
+      hs->min_x = (std::min)(hs->min_x, slot.min_x);
+      hs->min_y = (std::min)(hs->min_y, slot.min_y);
+      hs->max_x = (std::max)(hs->max_x, slot.max_x);
+      hs->max_y = (std::max)(hs->max_y, slot.max_y);
+    }
+    return true;
+  }
+  if (in.have_dem_clip) {
+    hs->min_x = in.dem_clip.min_x;
+    hs->min_y = in.dem_clip.min_y;
+    hs->max_x = in.dem_clip.max_x;
+    hs->max_y = in.dem_clip.max_y;
+    return true;
+  }
+  return false;
 }
 
 void lift_mesh_z(vista::TessMesh* mesh, float z) {
@@ -201,31 +250,12 @@ void emit_fill_extrusion(const gis::style::StyleLayer& layer,
 void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
                 const LayoutInput& in, const std::vector<LayerBatch>& layers,
                 double wupp, MapIR* frame, const LayoutTile* clip_tile) {
-  if (fill_layers.empty()) {
+  if (fill_layers.empty() || !frame) {
     return;
   }
   // Index batches by source-layer so each style layer skips unrelated slots
   // (land/water/… walks used to scan every batch).
-  std::unordered_map<std::string, std::vector<const LayerBatch*>> by_source;
-  by_source.reserve(layers.size() * 2);
-  for (const LayerBatch& batch : layers) {
-    by_source[batch.source_layer].push_back(&batch);
-  }
-  auto visit_batches = [&](const gis::style::StyleLayer& layer, auto&& fn) {
-    if (layer.source_layer.empty()) {
-      for (const LayerBatch& batch : layers) {
-        fn(batch);
-      }
-      return;
-    }
-    const auto it = by_source.find(layer.source_layer);
-    if (it == by_source.end()) {
-      return;
-    }
-    for (const LayerBatch* batch : it->second) {
-      fn(*batch);
-    }
-  };
+  const SourceBatchIndex batches(layers);
 
   std::vector<FillJob> jobs;
   std::vector<std::unique_ptr<OGRGeometry>> clip_store;
@@ -234,7 +264,12 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
       return;
     }
     const gis::style::StyleLayer& layer = *fill_layers[li];
-    visit_batches(layer, [&](const LayerBatch& batch) {
+    // Jet sheet replaces cream land; keeping land only feeds the upside-down
+    // white ghost through transparent ocean texels.
+    if (layer.source_layer == "land" && jet_hillshade_active(in)) {
+      continue;
+    }
+    batches.visit(layer, layers, [&](const LayerBatch& batch) {
       for (size_t i = 0; i < batch.geoms.size(); ++i) {
         if (layout_gen_stale(in)) {
           return;
@@ -244,27 +279,19 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
         if (!prepare_tile_clip(raw, clip_tile, &clip_store, &geom) || !geom) {
           continue;
         }
-        // Hillshade slot is the DEM footprint. Land polygons that extend
-        // past it (Korea / Mongolia cream slab) stay unshaded — clip land
-        // to the bake AABB so ocean background shows instead of a hole.
-        if (layer.source_layer == "land" && !in.hillshade_tiles.empty()) {
+        // Hillshade / dem_clip is the DEM footprint. Land polygons that
+        // extend past it (Korea / Mongolia cream slab) stay unshaded —
+        // clip land so ocean background shows instead of a hole.
+        if (layer.source_layer == "land") {
           LayoutTile hs;
-          hs.min_x = in.hillshade_tiles[0].min_x;
-          hs.min_y = in.hillshade_tiles[0].min_y;
-          hs.max_x = in.hillshade_tiles[0].max_x;
-          hs.max_y = in.hillshade_tiles[0].max_y;
-          for (const TileSlot& slot : in.hillshade_tiles) {
-            hs.min_x = (std::min)(hs.min_x, slot.min_x);
-            hs.min_y = (std::min)(hs.min_y, slot.min_y);
-            hs.max_x = (std::max)(hs.max_x, slot.max_x);
-            hs.max_y = (std::max)(hs.max_y, slot.max_y);
+          if (dem_land_clip_tile(in, &hs)) {
+            const OGRGeometry* clipped = nullptr;
+            if (!prepare_tile_clip(geom, &hs, &clip_store, &clipped) ||
+                !clipped) {
+              continue;
+            }
+            geom = clipped;
           }
-          const OGRGeometry* clipped = nullptr;
-          if (!prepare_tile_clip(geom, &hs, &clip_store, &clipped) ||
-              !clipped) {
-            continue;
-          }
-          geom = clipped;
         }
         const gis::style::AttrMap& attrs = attrs_at(batch, i);
         if (!gis::style::eval_filter(layer.filter, attrs)) {
@@ -282,56 +309,20 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
   }
   FillTessOptions fill_opts;
   fill_opts.world_units_per_pixel = wupp;
-  auto to_item = [fill_opts](const FillJob& job) -> std::pair<DrawItem, bool> {
+  auto to_item = [fill_opts](const FillJob& job) -> std::optional<DrawItem> {
     vista::TessMesh mesh;
     if (!vista::tessellate_geometry(job.geom, fill_opts, mesh) ||
         mesh.indices.empty()) {
-      return {{}, false};
+      return std::nullopt;
     }
     DrawItem item = mesh_item(mesh, DrawKind::kFill, job.paint.fill_color,
                               job.paint.fill_opacity);
     if (job.pattern) {
       item.symbol_id = job.paint.fill_pattern;
     }
-    return {std::move(item), true};
+    return item;
   };
-  if (!vista_layout_parallel_enabled() || jobs.size() < kParallelTessMinGeoms) {
-    for (const FillJob& job : jobs) {
-      if (layout_gen_stale(in)) {
-        return;
-      }
-      auto [item, ok] = to_item(job);
-      if (ok) {
-        frame->items.push_back(std::move(item));
-      }
-    }
-    return;
-  }
-  std::vector<DrawItem> items(jobs.size());
-  std::vector<char> valid(jobs.size(), 0);
-  base::execution::GlobalNThreadPoolExecutor executor;
-  base::execution::parallel_for(
-      executor, size_t{0}, jobs.size(),
-      [&](size_t i) {
-        if (layout_gen_stale(in)) {
-          return;
-        }
-        auto [item, ok] = to_item(jobs[i]);
-        if (!ok) {
-          return;
-        }
-        items[i] = std::move(item);
-        valid[i] = 1;
-      },
-      kParallelTessGrain);
-  // Preserve layer order even if jobs were interleaved in the vector by layer.
-  for (size_t li = 0; li < fill_layers.size(); ++li) {
-    for (size_t i = 0; i < jobs.size(); ++i) {
-      if (valid[i] && jobs[i].layer_ord == li) {
-        frame->items.push_back(std::move(items[i]));
-      }
-    }
-  }
+  run_ordered_tess(in, fill_layers.size(), jobs, to_item, &frame->items);
 }
 
 void emit_fill(const gis::style::StyleLayer& layer, const LayoutInput& in,

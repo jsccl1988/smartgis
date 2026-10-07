@@ -11,10 +11,10 @@
 #include "gis/style/eval/style_rules.h"
 #include "gis/style/style_types.h"
 #include "vista/component/map/layout/attrs.h"
-#include "vista/component/map/layout/emit.h"
+#include "vista/component/map/layout/clip.h"
 #include "vista/component/map/layout/geom_walk.h"
 #include "vista/component/map/layout/mesh_emit.h"
-#include "vista/component/map/layout/pack.h"
+#include "vista/component/map/layout/gen.h"
 #include "ogrsf_frmts.h"
 
 namespace vista {

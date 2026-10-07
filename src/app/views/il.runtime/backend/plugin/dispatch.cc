@@ -97,7 +97,9 @@ class BrowserHarnessShell final : public plugin::HarnessShell {
 
   void pump(DWORD ms) override { pump_messages(ms); }
   void mark(const char* step) override {
-    write_mark(kHarnessMarkLeaf, step, /*truncate=*/true);
+    // Append only. Horizon IL marks already truncated/seeded the leaf;
+    // truncate=true here would wipe hwnd-ok / orbit-ok before gate score.
+    write_mark(kHarnessMarkLeaf, step, /*truncate=*/false);
   }
   void mark_named(const wchar_t* leaf, const char* step,
                   bool truncate) override {
@@ -182,6 +184,7 @@ int dispatch_plugin_command(Browser& browser, const char* command_id,
   if (id.starts_with("map2d") || id.starts_with("print.")) {
     (void)plugin::register_map2d(host);
     (void)plugin::register_map2d_scenario(host);
+    (void)plugin::register_map2d_scenarios(host);
   } else if (id.starts_with("report")) {
     (void)plugin::register_report(host);
   } else if (id.starts_with("world3d") || id.starts_with("baogrid") ||

@@ -115,7 +115,7 @@ void TabStrip::set_change(std::function<void(int)> fn) {
   change_ = std::move(fn);
 }
 
-int TabStrip::tab_width_at(int i) const {
+int TabStrip::natural_tab_width_at(int i) const {
   if (i < 0 || i >= static_cast<int>(titles_.size())) {
     return 0;
   }
@@ -126,6 +126,50 @@ int TabStrip::tab_width_at(int i) const {
   const int pad = dip_to_px(kTabPadXDip, scale) * 2;
   const int min_w = dip_to_px(kTabMinWidthDip, scale);
   return std::max(min_w, text.width + pad);
+}
+
+int TabStrip::tabs_natural_total_width() const {
+  int sum = 0;
+  for (int i = 0; i < static_cast<int>(titles_.size()); ++i) {
+    sum += natural_tab_width_at(i);
+  }
+  return sum;
+}
+
+int TabStrip::tab_width_at(int i) const {
+  const int natural = natural_tab_width_at(i);
+  if (natural <= 0) {
+    return 0;
+  }
+  const int avail = header_bounds().width;
+  const int total = tabs_natural_total_width();
+  // Fit titles into the header (visual_review #2 / ui.shell):
+  // 1) everything fits → natural widths
+  // 2) mild overflow → proportional shrink with a legibility floor
+  // 3) floor sum still overflows (inspector's many tabs) → keep leading
+  //    tabs at natural width and collapse the rest to 0 (no "A"/"S" stubs)
+  if (avail <= 0 || total <= avail) {
+    return natural;
+  }
+  const float scale = view_scale(this);
+  const int floor_w = std::max(1, dip_to_px(kTabMinWidthDip, scale));
+  const int n = static_cast<int>(titles_.size());
+  if (n > 0 && floor_w * n <= avail) {
+    const int scaled = std::max(1, (natural * avail) / total);
+    return std::max(floor_w, scaled);
+  }
+  int used = 0;
+  for (int j = 0; j < n; ++j) {
+    const int wj = natural_tab_width_at(j);
+    if (used + wj > avail) {
+      return 0;
+    }
+    if (j == i) {
+      return wj;
+    }
+    used += wj;
+  }
+  return natural;
 }
 
 int TabStrip::tab_x_at(int i) const {
@@ -231,6 +275,9 @@ void TabStrip::paint_self(ui::gfx::Canvas* canvas) {
   for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {
     const int x = tab_x_at(i);
     const int w = tab_width_at(i);
+    if (w <= 0) {
+      continue;
+    }
     const bool on = (i == active_);
     if (on) {
       canvas->fill_rect(x, header.y, w, th, t.control_press);

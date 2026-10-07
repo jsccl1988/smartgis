@@ -1,0 +1,26 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+// Luma multiply baked into a straight RGBA8 coverage. No RHI header.
+
+#ifndef VISTA_COMPONENT_MAP_SHADE_MULTIPLY_H_
+#define VISTA_COMPONENT_MAP_SHADE_MULTIPLY_H_
+
+#include <cstdint>
+#include <span>
+
+#include "vista/vista_export.h"
+
+namespace vista {
+
+// Hillshade coverage into straight RGBA8 (tightly packed, length % 4 == 0).
+// luma = 0.299R+0.587G+0.114B; m = (1-opacity)+opacity*luma;
+// A < 160 -> 0, else 255. RGB channels scaled by m.
+// x86 uses AVX2 for groups of 8 pixels when the CPU and OS allow YMM;
+// the tail and every other build stay on the scalar formula.
+VISTA_EXPORT void apply_multiply_coverage(std::span<std::uint8_t> rgba,
+                                        float opacity);
+
+}  // namespace vista
+
+#endif  // VISTA_COMPONENT_MAP_SHADE_MULTIPLY_H_

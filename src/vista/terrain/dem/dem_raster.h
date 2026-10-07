@@ -36,7 +36,8 @@ class VISTA_EXPORT DemRaster {
 
   float sample(double x, double y) const;
   float sample_meters(double x, double y) const;
-  // Clamped grid sample (no bilinear). Hillshade and downsample use this.
+  // Clamped grid sample (no bilinear). shade_dem_rgba LOD uses bilinear
+  // separately; this remains the integer-cell accessor.
   float meters_at(int col, int row) const;
   float min_meters() const { return min_m_; }
   float max_meters() const { return max_m_; }

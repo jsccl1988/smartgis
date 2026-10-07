@@ -48,7 +48,7 @@ Vista tests live under `//src/vista:vista_test_all` (not `gis_test_all`).
 | Capability | Product surface | Test | Bench |
 | --- | --- | --- | --- |
 | Map frame | vista/component/map | Y `frame_test` | N |
-| MVT → MapFrame | vista/component/map/detail/mvt_layout | Y `tile_test` (deps vista.dll) | N |
+| MVT → MapFrame | vista/component/map/mvt | Y `tile_test` (deps vista.dll) | N |
 | World / DEM / land mask | vista/component/world | Y `world_*` / dem / land_mask | N |
 | Assets model / tileset | vista/assets | Y `model_test` / `tileset_test` | N |
 | Atmosphere field / systems | vista/component/atmosphere | Y field/procedural/ingest + cloud/ocean/env | N |

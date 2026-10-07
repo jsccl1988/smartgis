@@ -157,8 +157,24 @@ void OrbitFrame::apply_draft(const tool::Draft& draft) {
 }
 
 render::rhi::CameraMatrices OrbitFrame::camera_matrices(float aspect) const {
+  const float asp = aspect > 0.05f ? aspect : 1.333f;
+  if (forward_skim_) {
+    const float dx = skim_tgt_x_ - skim_eye_x_;
+    const float dy = skim_tgt_y_ - skim_eye_y_;
+    const float dz = skim_tgt_z_ - skim_eye_z_;
+    const float sep2 = dx * dx + dy * dy + dz * dz;
+    const float elen2 = skim_eye_x_ * skim_eye_x_ + skim_eye_y_ * skim_eye_y_ +
+                        skim_eye_z_ * skim_eye_z_;
+    if (sep2 > 1.0e-4f && elen2 > 0.5f) {
+      // Same near/far as make_orbit_camera — divergent clip planes hung FlyCube
+      // when switching from orbit dive into look-at skim.
+      return render::rhi::make_look_at_camera(
+          skim_eye_x_, skim_eye_y_, skim_eye_z_, skim_tgt_x_, skim_tgt_y_,
+          skim_tgt_z_, kScene3dFovY, asp, 0.1f, 100.f);
+    }
+  }
   return render::rhi::make_orbit_camera(yaw_, pitch_, distance_, kScene3dFovY,
-                                        aspect, 0.1f, 100.f);
+                                        asp, 0.1f, 100.f);
 }
 
 render::rhi::CameraMatrices OrbitFrame::camera_matrices_ortho(
@@ -217,10 +233,12 @@ void OrbitFrame::reset() {
   pitch_ = 0.4f;
   distance_ = 3.2f;
   has_last_ = false;
+  clear_forward_skim();
 }
 
 void OrbitFrame::set_dolly_limits(float min_distance, float max_distance) {
-  dolly_min_ = (std::max)(0.5f, min_distance);
+  // Globe surface skim (~1.02 R) needs a floor below the old 0.5 clamp.
+  dolly_min_ = (std::max)(0.15f, min_distance);
   dolly_max_ = (std::max)(dolly_min_ + 0.05f, max_distance);
   distance_ = (std::max)(dolly_min_, (std::min)(distance_, dolly_max_));
 }
@@ -235,6 +253,22 @@ void OrbitFrame::set_yaw(float yaw) {
 
 void OrbitFrame::set_pitch(float pitch) {
   pitch_ = std::clamp(pitch, tool::kOrbitPitchMin, tool::kOrbitPitchMax);
+}
+
+void OrbitFrame::set_forward_skim(float eye_x, float eye_y, float eye_z,
+                                  float target_x, float target_y,
+                                  float target_z) {
+  forward_skim_ = true;
+  skim_eye_x_ = eye_x;
+  skim_eye_y_ = eye_y;
+  skim_eye_z_ = eye_z;
+  skim_tgt_x_ = target_x;
+  skim_tgt_y_ = target_y;
+  skim_tgt_z_ = target_z;
+}
+
+void OrbitFrame::clear_forward_skim() {
+  forward_skim_ = false;
 }
 
 }  // namespace content

@@ -12,7 +12,6 @@
 
 #include "vista/component/map/batch.h"
 #include "vista/component/map/layout.h"
-#include "vista/component/map/layout/slice_key.h"
 
 class OGRGeometry;
 
@@ -34,12 +33,6 @@ struct PackedGeoms {
 
 PackedGeoms pack_geoms(const LayoutInput& in,
                        const std::vector<LayerBatch>& layers);
-
-// Intersection with tile skirt AABB. nullptr *use means skip.
-// When the envelope is already inside the skirt, *use stays the source geom.
-bool prepare_tile_clip(const OGRGeometry* geom, const LayoutTile* tile,
-                       std::vector<std::unique_ptr<OGRGeometry>>* store,
-                       const OGRGeometry** use);
 
 }  // namespace detail
 }  // namespace vista
