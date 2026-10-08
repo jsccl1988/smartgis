@@ -102,18 +102,12 @@ void MapPagesComposer::switch_map_tab(int i) {
   // GisContents forward decls; keep the free helper unambiguous.
   ::  content::debug_agent().push_record_event(
       "select_view_tab", std::string("{\"index\":") + std::to_string(i) + "}");
-  // Leaving 3D (interact Phase C): hide the Scene3d present popup BEFORE
-  // layout_contents. Async-only hide races remasure and deadlocks UI↔Display
-  // (rc 124, no interact-2d-b-ok). Match layout_gate: sync SW_HIDE on the
-  // present HWND (no Display join), then KillTimer via pause_present.
+  // Leaving 3D: pause first so Display stops Present, then async-hide the
+  // DXGI popup. Sync ShowWindow/SetWindowPos on the flip HWND hung the UI
+  // thread in NtUserSetWindowPos (plain launch: tab switch freeze).
   if (i != 1 && host_->map_scene_) {
-    host_->map_scene_->set_gpu_present_visible(false);
-    if (HWND present = host_->map_scene_->present_hwnd()) {
-      if (IsWindow(present)) {
-        ShowWindow(present, SW_HIDE);
-      }
-    }
     host_->map_scene_->pause_present();
+    host_->map_scene_->set_gpu_present_visible(false);
   }
   // Entering 3D: stop Map Edit present + drain queued WM_TIMER before lazy
   // Scene attach. KillTimer-only / set_gpu_present_visible(false) leaves
