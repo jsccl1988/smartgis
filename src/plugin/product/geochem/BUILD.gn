@@ -30,6 +30,8 @@ source_set("geochem_views") {
   ]
   deps = [
     "//src/content:content",
+    # GisScene lives in the shell-linked source_set (not content.dll).
+    "//src/content:gis_scene",
     "//src/gis:gis",
     "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/widgets:widgets",

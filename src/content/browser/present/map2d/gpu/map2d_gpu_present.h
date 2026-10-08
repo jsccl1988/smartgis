@@ -57,6 +57,11 @@ class Map2dGpuPresent {
   // Drop Pass / overlay GPU state and invalidate shared frame cache.
   void invalidate_frame_cache();
 
+  // Flash pulse this present (flashing tool && Browser::flash_lit). Breaks
+  // StaticReuse via map2d_selection_signature — strokes are MapIR on MapPass.
+  void set_flash_pulse(bool pulse) { flash_pulse_ = pulse; }
+  bool flash_pulse() const { return flash_pulse_; }
+
   // |shell| / |shell_generation| mirror gpu::DrawRequest.shell (src-over HUD).
   bool present(render::rhi::Device* device, uint32_t width_px,
                uint32_t height_px, const ui::gfx::ShellRaster* shell = nullptr,
@@ -96,6 +101,8 @@ class Map2dGpuPresent {
   // Last shell generation successfully presented (StaticReuse skip).
   uint64_t last_shell_generation_ = 0;
   bool last_had_shell_ = false;
+  bool flash_pulse_ = false;
+  uint64_t last_selection_sig_ = 0;
 };
 
 }  // namespace content

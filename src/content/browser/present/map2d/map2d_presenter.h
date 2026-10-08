@@ -18,7 +18,7 @@
 
 #include "content/browser/present/map2d/frame/map2d_frame_cache.h"
 #include "content/browser/present/map2d/gpu/map2d_gpu_present.h"
-#include "content/browser/present/map2d/software/map2d_software_painter.h"
+#include "content/browser/present/map2d/hdc/map2d_hdc_painter.h"
 #include "content/content_export.h"
 #include "scenic/engine.h"
 #include "ui/gfx/raster/shell_raster.h"
@@ -59,13 +59,14 @@ class Map2dPresenter {
   const Map2dFrameCache& frame_cache() const { return cache_; }
   Map2dGpuPresent& gpu() { return gpu_; }
   const Map2dGpuPresent& gpu() const { return gpu_; }
-  Map2dSoftwarePainter& software() { return software_; }
-  const Map2dSoftwarePainter& software() const { return software_; }
+
+  // Forwarded to Map2dGpuPresent (selection flash pulse on MapPass).
+  void set_flash_pulse(bool pulse) { gpu_.set_flash_pulse(pulse); }
 
   bool hosts_scenic_present() const;
 
-  // Drops published MapIR / GPU·software latches only when scene/layer
-  // fingerprint changed. Camera-only callers are no-ops (layout_builds_delta).
+  // Drops published MapIR / GPU·HDC latches only when scene/layer fingerprint
+  // changed. Camera-only callers are no-ops (layout_builds_delta).
   void invalidate_frame_cache();
 
   bool present_gpu(render::rhi::Device* device, uint32_t width_px,
@@ -92,7 +93,8 @@ class Map2dPresenter {
 
   Map2dFrameCache cache_;
   Map2dGpuPresent gpu_;
-  Map2dSoftwarePainter software_;
+  // Opt-in HDC carto (export / FORCE_GDI / ContentMapView). Not GPU backup.
+  Map2dHdcPainter hdc_;
 
   const GisScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;

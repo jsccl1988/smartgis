@@ -32,9 +32,9 @@ bool try_bind_dib(HDC hdc, DibSurface* out) {
   out->stride_px = ds.dsBm.bmWidthBytes / 4;
   // CreateDIBSection(..., biHeight=-H) stores top-down bits. GetObjectW on
   // some stacks reports dsBmih.biHeight=+H while the buffer stays top-down —
-  // trusting that positive sign inverted DibSurface::row (map2d_frame_gdi_test
+  // trusting that positive sign inverted DibSurface::row (map2d_hdc_frame_test
   // red quad landed at y=19..59 instead of 300..340). Map2d paint/export HDCs
-  // are always created top-down (see Map2dSoftwarePainter::export_bmp /
+  // are always created top-down (see Map2dHdcPainter::export_bmp /
   // ensure_present_cache_dib); do not bind bottom-up DIBs here.
   out->top_down = true;
   return out->valid();

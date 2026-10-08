@@ -5,7 +5,7 @@
 #include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/document/gis_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "content/browser/present/scene3d/software/scene3d_software_painter.h"
+#include "content/browser/present/scene3d/hdc/scene3d_hdc_painter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "vista/terrain/dem/dem_frame.h"
 #include "render/rhi/rhi.h"
@@ -406,7 +406,7 @@ int main() {
         for (int i = 0; i < 160 * 120; ++i) {
           px[i] = 0xFF808080u;  // mid gray so the dark badge is distinct
         }
-        content::Scene3dSoftwarePainter::paint_engine_logo(mem, 160, 120,
+        content::Scene3dHdcPainter::paint_engine_logo(mem, 160, 120,
                                                     "ContentMapView");
         // Sample bottom-right margin (badge sits ~14px inset).
         const int sx = 160 - 20;

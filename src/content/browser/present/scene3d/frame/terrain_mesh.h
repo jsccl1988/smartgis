@@ -15,7 +15,7 @@ namespace content {
 class GisScene;
 
 // Thin adapter: forwards to vista::rebuild_dem_view_mesh (China-box, LOD skip,
-// orbit normalize). Caller owns present mutex on GPU/software paint paths.
+// orbit normalize). Caller owns present mutex on GPU/hdc paint paths.
 void rebuild_terrain_mesh(vista::World* world,
                           const GisScene* scene,
                           const Extent2& extent,

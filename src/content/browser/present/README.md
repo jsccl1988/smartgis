@@ -15,71 +15,69 @@ All rights reserved.
 Default product builds never load `scenic.dll`. Scenic hosts **gate** on
 `prefer_map2d_scenic()` / `prefer_scene3d_scenic()` and drop sticky engines when
 the switch flips back to Vista — do not pay Scenic sync on the product path.
-Equal-profile matrix cells may force scenic; that is not the ship default.
 
-Facade (`map2d_presenter` / `scene3d_presenter`) routes to Vista GPU/software
-unless the scenic switch is set. Leftover stereo/GDI session flags remain under
-`scene3d/session/`.
+## File naming (locked)
 
-Layout mirrors Chromium **compositor / software / gpu** adapted to this repo’s
-colocation rule (`.h` next to `.cc`; no forwarding shims at old paths).
+| Pattern | Example |
+| --- | --- |
+| Facade | `{lane}_presenter.*` |
+| Phase clocks | `{lane}_phase_profile.*` |
+| GPU present | `{lane}/gpu/{lane}_gpu_present.*` |
+| HDC / soft paint | `{lane}/hdc/{lane}_hdc_{unit}.*` |
+| Frame / CPU IR | `{lane}/frame/{lane}_{unit}.*` |
+| Shared host GDI | `host/gdi/gdi_{unit}.*` |
+| Selection overlay (GPU) | `map2d/gpu/map2d_selection_overlay.*` |
+
+Do **not** mix `gdi` / `software` / `hdc` prefixes inside `{lane}/hdc/`.
+HDC opt-in is not a GPU sticky backup; product selection/flash for map2d is
+MapIR overlay on MapPass.
 
 ## Layers
 
 ```
 present/
-  host/                 # Surface helpers (BlitFrameCache; ShellOverlayEffect → render/graph)
+  host/                 # BlitFrameCache; ShellOverlayEffect → render/graph
+    gdi/                # Shared HDC primitives (ScopedGdiPen/Brush, halo text)
   map2d/
-    map2d_presenter.*   # Thin facade: bind + forward to gpu/software
+    map2d_presenter.*   # Thin facade: bind + forward to gpu / hdc
     frame/              # CPU compositor inputs: carto, LayerBatch, tile math
-    gpu/                # Pass lifetime, MapIR cache, present_gpu
-    software/           # GDI fallback (Map2dSoftwarePainter + paint TUs)
+    gpu/                # MapPass present + selection MapIR overlay
+    hdc/                # Opt-in MapIR→HDC (export / FORCE_GDI / ContentMapView)
+    scenic/             # Opt-in ScenicRhi2dHost
   scene3d/
-    scene3d_presenter.* # Thin facade: bind + present/paint + accessors only
+    scene3d_presenter.* # Thin facade: bind + present/paint
     session/            # Engine SoT (prefer_*) + Scene3dStereoSession
     frame/              # OrbitGeoFrame + rebuild_terrain_mesh
-    atmosphere/         # Environment load + prepare_* + M3 hooks
+    atmosphere/         # Environment load + prepare_*
     gpu/                # WorldPass / present_gpu / shell overlay
-    software/           # GDI HUD, wind, wireframe, engine-logo
+    hdc/                # Soft DEM + HUD (uses host/gdi primitives)
 ```
 
-| Layer | Role (Chromium analogue) | Public include surface |
+| Layer | Role | Public include surface |
 | --- | --- | --- |
-| Facade (`*/…_presenter.h`) | WebContents-ish orchestration | Shell + tests (may call nested types) |
-| `frame/` | Frame / compositor inputs | Prefer internal; carto also used by document tests |
-| `gpu/` | GPU present + cache / mesh | Facade or direct for hosts that only present |
-| `software/` | Software (GDI) paint | Facade or direct for HUD / export |
-| `atmosphere/` | Atmosphere session prep | `atmosphere_session()` (not Presenter forwards) |
-| `session/` | Vista / Stereo / GDI SoT + leftover stereo LoadLibrary | Shell / MapSession (`scene3d_rhi_session` is `CONTENT_EXPORT` in `content.dll`) |
+| Facade (`*_presenter.h`) | Orchestration | Shell + tests |
+| `frame/` | Frame / compositor inputs | Prefer internal |
+| `gpu/` | GPU present (+ map2d selection overlay) | Facade or present-only hosts |
+| `hdc/` | Opt-in HDC paint / export / HUD | Facade; harness FORCE_GDI |
+| `atmosphere/` | Atmosphere session prep | `atmosphere_session()` |
+| `session/` | Vista / Stereo / GDI SoT | Shell / MapSession |
 | `host/` | Surface / preview cache | Shell gesture preview |
+| `host/gdi/` | Thin Win32 GDI helpers | Product HDC paths only |
 
-Namespaces stay `content` (internals in `content::detail`). Input bridging stays
-in `../input/`; camera/orbit in `../camera/`; layers/features in `../document/`.
-**`software/` must not live under `src/render`** — those TUs implement content
-presenters and would reverse-depend on content.
+Namespaces stay `content` (internals in `content::detail`).
 
-## Composition (scheme C)
+## Composition
 
-- **map2d:** `Map2dPresenter` owns `Map2dGpuPresent` + `Map2dSoftwarePainter`
-  sharing one `Map2dFrameCache` (MapIR layout). Software keeps a separate GDI
-  present DIB for StaticReuse/InteractiveReuse; GPU MapPass reuses the same
-  MapIR — do not big-bang merge pixel caches.
+- **map2d:** `Map2dPresenter` owns `Map2dGpuPresent` + `Map2dHdcPainter`
+  sharing one `Map2dFrameCache`. Selection/flash strokes append on GPU present.
+  HDC keeps a separate present DIB for opt-in StaticReuse/InteractiveReuse.
 - **scene3d:** `Scene3dPresenter` owns `AtmosphereSession` + `Scene3dGpuPresent` +
-  `Scene3dSoftwarePainter`. Callers use `atmosphere_session()` / `gpu()` /
-  `software()` for domain toggles (no pure-forward API on the facade).
-- **tileset:** `TilesetStreamSession` (`scene3d/frame/tileset_stream.*`) pumps
-  select → LRU `ensure` under `kDefaultMaxTiles` / `kDefaultMaxEnsure`; product
-  present wires those defaults (Vista `TilesetContentCache` already LRU-evicts).
+  `Scene3dHdcPainter`. Callers use `atmosphere_session()` / `gpu()` / `hdc()`.
+- **tileset:** `TilesetStreamSession` (`scene3d/frame/tileset_stream.*`).
 
 ## GN
 
 - `:gis_present` — `host/` + `map2d/**`
-- `:scene3d_present` — `scene3d/**` except `session/scene3d_rhi_session.*` (that TU stays in `:content` for `CONTENT_EXPORT`)
-
-## Verify
-
-```bat
-build.bat
-build.bat gis_scene_test
-build.bat scene3d_presenter_test
-```
+- `:scene3d_present` — `scene3d/**` except `session/scene3d_rhi_session.*`
+  (that TU stays in `:content` for `CONTENT_EXPORT`)
+- Test: `map2d_hdc_frame_test` (MapIR→HDC unit)

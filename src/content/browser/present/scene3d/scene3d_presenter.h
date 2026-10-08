@@ -16,7 +16,7 @@
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
 #include "content/browser/present/scene3d/scenic_engine_host.h"
-#include "content/browser/present/scene3d/software/scene3d_software_painter.h"
+#include "content/browser/present/scene3d/hdc/scene3d_hdc_painter.h"
 #include "content/public/types.h"
 #include "render/rhi/rhi.h"
 #include "tool/draft/draft.h"
@@ -28,7 +28,7 @@ class GisContents;
 class GisScene;
 class ViewFrame;
 
-// Thin 3D present facade: Atmosphere + GPU/software, or hosted scenic::Engine.
+// Thin 3D present facade: Atmosphere + GPU/HDC, or hosted scenic::Engine.
 class Scene3dPresenter {
  public:
   // Heap-allocate in this TU so BrowserSession (exe source_set) does not
@@ -51,8 +51,8 @@ class Scene3dPresenter {
   const AtmosphereSession& atmosphere_session() const { return *atmosphere_; }
   Scene3dGpuPresent& gpu() { return gpu_; }
   const Scene3dGpuPresent& gpu() const { return gpu_; }
-  Scene3dSoftwarePainter& software() { return software_; }
-  const Scene3dSoftwarePainter& software() const { return software_; }
+  Scene3dHdcPainter& hdc() { return hdc_; }
+  const Scene3dHdcPainter& hdc() const { return hdc_; }
 
   bool hosts_scenic_present() const;
 
@@ -112,12 +112,12 @@ class Scene3dPresenter {
   void set_render_engine_name(const char* name) const;
 
  private:
-  void rebind_software();
+  void rebind_hdc();
 
   // Heap Ptr — do not embed AtmosphereSession by value (sizeof skew / exe bloat).
   AtmosphereSession::Ptr atmosphere_;
   Scene3dGpuPresent gpu_;
-  Scene3dSoftwarePainter software_;
+  Scene3dHdcPainter hdc_;
   mutable detail::ScenicScene3dHost scenic_host_;
 
   const ViewFrame* label_frame_ = nullptr;

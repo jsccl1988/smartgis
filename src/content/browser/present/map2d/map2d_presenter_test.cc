@@ -6,7 +6,7 @@
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
-#include "content/browser/present/map2d/software/map2d_frame_gdi.h"
+#include "content/browser/present/map2d/hdc/map2d_hdc_frame.h"
 #include "gis/tile/provider/tile_provider.h"
 #include "vista/component/map/ir.h"
 #include "net/http/http.h"
@@ -39,7 +39,7 @@ void expect(bool ok, const char* msg) {
 }  // namespace
 
 int run_map2d_presenter_tests() {
-  // P2 software GDI batch smoke: many same-brush fills + same-pen strokes.
+  // P2 HDC batch smoke: many same-brush fills + same-pen strokes.
   {
     vista::MapIR frame;
     frame.background_rgba = 0xfff5f0e6u;
@@ -90,7 +90,7 @@ int run_map2d_presenter_tests() {
       if (mem && dib) {
         HGDIOBJ old = SelectObject(mem, dib);
         const auto t0 = std::chrono::steady_clock::now();
-        content::detail::paint_map_frame_gdi(mem, frame, view, true, {});
+        content::detail::paint_map_frame_hdc(mem, frame, view, true, {});
         const int64_t paint_ms =
             std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - t0)
@@ -348,7 +348,7 @@ int run_map2d_presenter_tests() {
     expect(presenter.last_present_reused_layout(),
            "pan reuses cached MapIR");
 
-    // Same camera again after quiet settle debounce (~200ms) — settle rebuild
+    // Same camera again after quiet settle debounce (~200ms) �?settle rebuild
     // for GPU labels.
     Sleep(250);
     expect(presenter.present_gpu(device.get(), 128, 128), "settle present");
@@ -365,7 +365,7 @@ int run_map2d_presenter_tests() {
     expect(presenter.layout_build_count() == builds_after_settle,
            "fingerprint-stable invalidate skips layout rebuild");
 
-    // Visibility moves content_hash — must drop published MapIR.
+    // Visibility moves content_hash �?must drop published MapIR.
     expect(!scene.layers().empty(), "china has layers");
     const std::string lid = scene.layers().front().id;
     const bool was_vis = scene.layers().front().visible;

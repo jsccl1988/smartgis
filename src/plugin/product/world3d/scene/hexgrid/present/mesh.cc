@@ -515,7 +515,7 @@ bool present_hex_grid_mesh(content::GisDocument* doc,
         atlas[p + 2] = 0x5a;
         atlas[p + 3] = 0xff;
       }
-      // Amber shell so Scene3dSoftwarePaint hex_like / score stick_or_stratum
+      // Amber shell so Scene3dHdcPainter hex_like / score stick_or_stratum
       // recognize the volume (green albedo was misclassified as DEM pad).
       constexpr uint8_t kHexAlbedo[4] = {0xe0, 0xa0, 0x40, 0xf0};
       if (scene3d) {

@@ -20,7 +20,7 @@ namespace content {
 enum class Scene3dEngine : uint32_t {
   kFlyCube = 0,   // DX12 RHI (default product SoT)
   kStereoGl = 1,  // Leftover stereo (OpenGL or D3D11 via STEREO_API)
-  kGdi = 2,       // Software DEM paint (product HWND / Scene3dPresenter)
+  kGdi = 2,       // HDC DEM paint (product HWND / Scene3dPresenter)
   kScenic = 3,    // Content-hosted scenic::Engine (scenic.dll)
 };
 
@@ -49,7 +49,7 @@ CONTENT_EXPORT bool prefer_scene3d_stereo_opengl();
 // True when leftover stereo is on and STEREO_API selects Direct3D (default).
 CONTENT_EXPORT bool prefer_scene3d_stereo_d3d();
 
-// True when the selected engine is software GDI DEM.
+// True when the selected engine is HDC / GDI DEM.
 CONTENT_EXPORT bool prefer_scene3d_gdi();
 
 // True when --scene3d-engine=scenic, SCENE3D_ENGINE=scenic, or kScenic.

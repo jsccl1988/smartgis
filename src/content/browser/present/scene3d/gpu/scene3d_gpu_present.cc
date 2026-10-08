@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"

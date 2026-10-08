@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 #include "app/views/ui/pages/map_pages_composer.h"
@@ -27,7 +27,7 @@ void MapPagesComposer::commit_widget_shell_to_maps() {
 
 
 void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty) {
-  // Copy under ShellCompositor::mu_ �?borrowed shell_raster() bits race the
+  // Copy under ShellCompositor::mu_ -- borrowed shell_raster() bits race the
   // raster worker's DIB swap/release and corrupt the process heap
   // (0xC0000374) when overlay crop memcpy runs unlocked.
   std::vector<std::uint8_t> shell_copy;
@@ -37,7 +37,7 @@ void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty)
       !shell.bgra || shell.width_px == 0 || shell.height_px == 0) {
     return;
   }
-  // Hidden tab bodies keep a full client rect after SW_HIDE �?they must not
+  // Hidden tab bodies keep a full client rect after SW_HIDE -- they must not
   // receive BGRA crops (and must not keep per-pane "missing" true).
   auto pane_overlay_live = [](ui::views::DrawHost* pane) -> bool {
     if (!pane) {
@@ -50,10 +50,10 @@ void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty)
     }
     return IsWindowVisible(hwnd) != FALSE;
   };
-  // U3: unchanged published generation �?skip MapWindowPoints + BGRA memcpy.
+  // U3: unchanged published generation -- skip MapWindowPoints + BGRA memcpy.
   // Per-pane slots alone were wrong when they counted hidden map_scene_ as
   // missing: dirty-filtered edit publish + invalidate_map_overlays then
-  // re-copied the scene HWND every time (overlay_copy_bytes ×2.4).
+  // re-copied the scene HWND every time (overlay_copy_bytes 2.4).
   // Tab reveal clears last_shell_overlay_gen_ in switch_map_tab so HUD reseeds.
   if (gen != 0 && gen == host_->last_shell_overlay_gen_) {
     return;
@@ -121,7 +121,7 @@ void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty)
       }
     }
     if (!slot) {
-      // Never steal another pane's slot �?that would drop gen-skip for both.
+      // Never steal another pane's slot -- that would drop gen-skip for both.
       if (!empty) {
         return;
       }
@@ -152,7 +152,7 @@ void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty)
     slot->width = crop_w;
     slot->height = crop_h;
   });
-  // Mark gen consumed even when dirty-filter skipped every pane �?matches the
+  // Mark gen consumed even when dirty-filter skipped every pane -- matches the
   // pre-regression U3 coalesce (tab switch clears this for HUD reseed).
   if (gen != 0) {
     host_->last_shell_overlay_gen_ = gen;
@@ -163,7 +163,7 @@ void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty)
 void MapPagesComposer::invalidate_map_overlays() {
   // If the shell DIB is not published yet, schedule a paint so the next
   // OnShellPublished can crop overlays; otherwise maps stay on a clear color.
-  // Do not borrow shell_raster() bits here �?generation alone is enough.
+  // Do not borrow shell_raster() bits here -- generation alone is enough.
   if (host_->widget_.shell_generation() == 0) {
     host_->widget_.schedule_paint();
   }

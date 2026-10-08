@@ -5,6 +5,7 @@
 
 #include "content/content_export.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
+#include "content/browser/present/map2d/gpu/map2d_selection_overlay.h"
 
 #include <atomic>
 #include <chrono>
@@ -213,11 +214,16 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
          (!shell_present ||
           (shell_generation != 0 &&
            shell_generation == last_shell_generation_)));
+    const uint64_t selection_sig =
+        detail::map2d_selection_signature(scene_, flash_pulse_);
+    const bool selection_dirty = selection_sig != last_selection_sig_;
+
     const bool reuse_action =
         action == Map2dFrameCache::PresentAction::kStaticReuse ||
         (fps_bench &&
          action == Map2dFrameCache::PresentAction::kInteractiveReuse);
-    if (reuse_action && last_present_ok_ && map2d_pass_ && shell_stable) {
+    if (reuse_action && last_present_ok_ && map2d_pass_ && shell_stable &&
+        !selection_dirty) {
       cache_->note_present_outcome(
           Map2dFrameCache::PresentAction::kStaticReuse);
       last_present_ok_ = true;
@@ -231,10 +237,11 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     // keeps hit slices. Interactive / StaticReuse (incl. post-surface-reset
     // hollow fill) must NOT invalidate_uploaded — DrawCache encode fills the
     // clear swapchain without a china cold re-upload.
+    // Selection-only dirty still re-records (overlay items have no cache_key).
     const bool record_all =
         action == Map2dFrameCache::PresentAction::kRebuildFull ||
         action == Map2dFrameCache::PresentAction::kSettleRebuild ||
-        !last_present_ok_;
+        !last_present_ok_ || selection_dirty;
     const bool full_replace =
         action == Map2dFrameCache::PresentAction::kRebuildFull;
     if (!map2d_pass_) {
@@ -268,6 +275,8 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       cam = cache_->camera();
       builds = cache_->layout_build_count();
     }
+    detail::append_map2d_selection_overlay(scene_, frame_, width_px, height_px,
+                                           flash_pulse_, &frame_snap);
 
     vista::reset_last_pass_record_ms();
     const auto gpu_t0 = std::chrono::steady_clock::now();
@@ -287,6 +296,7 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     last_present_drew_ = ok;
     g_full.fetch_add(1, std::memory_order_relaxed);
     if (ok) {
+      last_selection_sig_ = selection_sig;
       last_had_shell_ = shell_present;
       // Only latch non-zero gens — 0 means "unversioned" and must not pretend
       // shell_stable on the next StaticReuse check.

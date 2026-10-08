@@ -65,7 +65,7 @@ void Map2dPresenter::bind(const GisScene* scene, const ViewFrame* frame) {
   frame_ = frame;
   cache_.bind(scene, frame);
   gpu_.bind(scene, frame, &cache_);
-  software_.bind(scene, frame, &cache_);
+  hdc_.bind(scene, frame, &cache_);
 }
 
 void Map2dPresenter::invalidate_frame_cache() {
@@ -76,7 +76,7 @@ void Map2dPresenter::invalidate_frame_cache() {
     return;
   }
   gpu_.invalidate_frame_cache();
-  software_.invalidate_present_cache();
+  hdc_.invalidate_present_cache();
 }
 
 void Map2dPresenter::sync_scenic(uint32_t width_px, uint32_t height_px) const {
@@ -156,20 +156,22 @@ void Map2dPresenter::paint(HDC hdc, int width_px, int height_px,
       return;
     }
   }
-  software_.paint(hdc, width_px, height_px, fill_background);
+  hdc_.paint(hdc, width_px, height_px, fill_background);
 }
 
 void Map2dPresenter::paint_annotation_overlay(HDC hdc, int width_px,
                                               int height_px) const {
+  // Product selection strokes are MapPass overlays. HDC annotation remains
+  // for FORCE_GDI / ContentMapView harness faces only.
   if (!scenic_) {
-    software_.paint_annotation_overlay(hdc, width_px, height_px);
+    hdc_.paint_annotation_overlay(hdc, width_px, height_px);
   }
 }
 
 void Map2dPresenter::paint_flash_overlay(HDC hdc, int width_px,
                                          int height_px) const {
   if (!scenic_) {
-    software_.paint_flash_overlay(hdc, width_px, height_px);
+    hdc_.paint_flash_overlay(hdc, width_px, height_px);
   }
 }
 
@@ -193,11 +195,11 @@ bool Map2dPresenter::export_bmp(const std::string& path, int width_px,
                                  static_cast<uint32_t>(height_px));
     }
   }
-  return software_.export_bmp(path, width_px, height_px);
+  return hdc_.export_bmp(path, width_px, height_px);
 }
 
 size_t Map2dPresenter::basemap_tiles_drawn() const {
-  return scenic_ ? 0 : software_.basemap_tiles_drawn();
+  return scenic_ ? 0 : hdc_.basemap_tiles_drawn();
 }
 
 }  // namespace content

@@ -3,7 +3,7 @@
 
 #include "content/browser/present/host/blit_frame_cache.h"
 
-#include "content/browser/present/map2d/software/map2d_frame_gdi.h"
+#include "content/browser/present/map2d/hdc/map2d_hdc_frame.h"
 
 namespace content {
 

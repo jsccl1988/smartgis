@@ -30,7 +30,7 @@ Scene3dPresenter::Scene3dPresenter() {
     }
   }
   atmosphere_->bind_gpu(&gpu_);
-  rebind_software();
+  rebind_hdc();
   if (scenic_host_.ensure()) {
     gpu_.render_engine_name = "scenic";
   }
@@ -61,27 +61,27 @@ bool Scene3dPresenter::has_legacy_coast_vectors() const {
 }
 
 Scene3dPresenter::~Scene3dPresenter() {
-  software_.release_engine_logo_overlay();
+  hdc_.release_engine_logo_overlay();
   if (atmosphere_) {
     atmosphere_->release_passes();
     gpu_.abandon(atmosphere_.get());
   }
 }
 
-void Scene3dPresenter::rebind_software() {
-  software_.bind(&gpu_, atmosphere_.get(), gpu_.orbit(),
+void Scene3dPresenter::rebind_hdc() {
+  hdc_.bind(&gpu_, atmosphere_.get(), gpu_.orbit(),
                  atmosphere_ ? atmosphere_->scene() : nullptr, label_frame_);
-  software_.set_hosts_shared_scene(hosts_shared_scene());
+  hdc_.set_hosts_shared_scene(hosts_shared_scene());
 }
 
 void Scene3dPresenter::bind_orbit(const OrbitFrame* orbit) {
   gpu_.bind_orbit(orbit);
-  rebind_software();
+  rebind_hdc();
 }
 
 void Scene3dPresenter::bind_label_frame(const ViewFrame* frame) {
   label_frame_ = frame;
-  rebind_software();
+  rebind_hdc();
 }
 
 void Scene3dPresenter::bind_scene(const GisScene* scene) {
@@ -90,13 +90,13 @@ void Scene3dPresenter::bind_scene(const GisScene* scene) {
     atmosphere_->bind_scene(scene);
   }
   gpu_.bind_scene(scene);
-  rebind_software();
+  rebind_hdc();
 }
 
 void Scene3dPresenter::bind_contents(GisContents* session, uint32_t view_id) {
   contents_ = session;
   view_id_ = view_id;
-  software_.set_hosts_shared_scene(hosts_shared_scene());
+  hdc_.set_hosts_shared_scene(hosts_shared_scene());
 }
 
 bool Scene3dPresenter::hosts_shared_scene() const {
@@ -227,7 +227,7 @@ void Scene3dPresenter::paint(HDC hdc, int width_px, int height_px,
   if (prefer_scene3d_scenic()) {
     gpu_.render_engine_name = "scenic";
   }
-  software_.paint(hdc, width_px, height_px, fill_background);
+  hdc_.paint(hdc, width_px, height_px, fill_background);
 }
 
 bool Scene3dPresenter::export_bmp(const std::string& path, int width_px,
@@ -239,14 +239,14 @@ bool Scene3dPresenter::export_bmp(const std::string& path, int width_px,
 void Scene3dPresenter::paint_hud(HDC hdc, int width_px, int height_px) const {
   BASE_TRACE_EVENT("hud", "scene3d");
   if (!scenic_host_.is_live()) {
-    software_.paint_hud(hdc, width_px, height_px);
+    hdc_.paint_hud(hdc, width_px, height_px);
   }
 }
 
 void Scene3dPresenter::paint_legacy_place_labels(HDC hdc, int width_px,
                                                 int height_px) const {
   if (!scenic_host_.is_live()) {
-    software_.paint_legacy_place_labels(hdc, width_px, height_px);
+    hdc_.paint_legacy_place_labels(hdc, width_px, height_px);
   }
 }
 

@@ -281,7 +281,7 @@ void ShellLifecycleComposer::show_shell() {
   // ShowWindow may present an empty compositor front (async raster). Re-layout
   // and schedule shell paint only — do not call host_->invalidate_map_overlays() here:
   // that syncs paint_map_content while ContentMapView / Map2dPresenter are
-  // still settling and has AVd in Map2dSoftwarePainter (STL orphan) under
+  // still settling and has AVd in Map2dHdcPainter (STL orphan) under
   // --self-test. Kick the active map HWND asynchronously (InvalidateRect,
   // no UpdateWindow).
   host_->widget_.layout_contents();

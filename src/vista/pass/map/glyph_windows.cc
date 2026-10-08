@@ -56,7 +56,7 @@ int encode_utf16(uint32_t codepoint, wchar_t out[3]) {
 }
 
 std::unique_ptr<Gdiplus::Font> make_font(float text_size_px) {
-  // Match map2d_frame_gdi CreateFont face so Layout advances equal GDI TextOut.
+  // Match map2d_hdc_frame CreateFont face so Layout advances equal GDI TextOut.
   const wchar_t* faces[] = {L"Microsoft YaHei UI", L"Microsoft YaHei",
                             L"Segoe UI", L"Arial", L"Tahoma"};
   for (const wchar_t* face : faces) {

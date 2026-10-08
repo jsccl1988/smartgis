@@ -39,7 +39,7 @@ int run_map2d_present(HarnessShell& browser,
   map2d_mark("cache-ready");
 
   // Capture uses software export_bmp �?do NOT UpdateWindow here. Sync GDI
-  // paint through the HWND has AVd in Map2dSoftwarePainter / ContentMapView
+  // paint through the HWND has AVd in Map2dHdcPainter / ContentMapView
   // under parallel harness (mark stops at bmp-path). Async InvalidateRect is
   // enough so the live HWND may refresh; BMP does not depend on it.
   if (ui::views::DrawHost* pane = browser.draw_host()) {

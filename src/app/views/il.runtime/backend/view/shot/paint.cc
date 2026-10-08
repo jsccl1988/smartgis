@@ -47,7 +47,7 @@ bool write_software_scene3d_bmp(content::Scene3dPresenter* cam,
   HGDIOBJ old = SelectObject(mem, dib);
   bool painted = false;
   try {
-    cam->software().paint(mem, w, h, true);
+    cam->hdc().paint(mem, w, h, true);
     painted = true;
   } catch (...) {
     painted = false;

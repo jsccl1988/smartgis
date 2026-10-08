@@ -131,7 +131,7 @@ class Scene3dGpuPresent {
   OrbitGeoFrame& geo_frame() { return geo_frame_; }
   const OrbitGeoFrame& geo_frame() const { return geo_frame_; }
 
-  // recursive: software paint() holds the lock then may call
+  // recursive: hdc paint() holds the lock then may call
   // paint_legacy_place_labels which snapshots labels under the same mutex.
   std::recursive_mutex& mutex() const { return present_mu_; }
 
@@ -143,7 +143,7 @@ class Scene3dGpuPresent {
   }
   const std::vector<uint8_t>& overlay_rgba() const { return overlays_.rgba(); }
   // Index into local_idx_ where DEM tris end and overlay TIN tris begin
-  // (software paint uses this to tint free-surface water cyan).
+  // (hdc paint uses this to tint free-surface water cyan).
   size_t dem_local_idx_count() const { return dem_local_idx_count_; }
   bool overlay_tin_has_albedo() const { return overlays_.tin_has_albedo(); }
   const uint8_t* overlay_tin_albedo() const { return overlays_.tin_albedo(); }
@@ -156,7 +156,7 @@ class Scene3dGpuPresent {
   uint32_t overlay_tin_tex_h() const { return overlays_.tin_tex_h(); }
   size_t dem_local_xyz_count() const { return dem_local_xyz_count_; }
 
-  // Caller must hold mutex(). Used by software paint path.
+  // Caller must hold mutex(). Used by hdc paint path.
   // Returns true when DEM LOD/extent changed (overlays must re-attach).
   bool rebuild_local_mesh();
 
@@ -179,7 +179,7 @@ class Scene3dGpuPresent {
 
   void remember_view_size(int width_px, int height_px) const;
 
-  // Last present/paint sets this for HUD badge (shared with software painter).
+  // Last present/paint sets this for HUD badge (shared with hdc painter).
   mutable const char* render_engine_name = "pending";
   // Present cadence for HUD "Fps%.3f" (legacy Scene::Render).
   mutable float last_fps = 0.f;

@@ -30,7 +30,7 @@ namespace content {
 namespace detail {
 namespace {
 
-// Mirrors prefer_map2d_scenic() without pulling map2d_presenter.h (gpu/software).
+// Mirrors prefer_map2d_scenic() without pulling map2d_presenter.h (gpu/hdc).
 bool scenic_engine_switch_on() {
   const char* raw = base::switch_cstr("map2d-engine");
   return raw && raw[0] && _stricmp(raw, "scenic") == 0;
