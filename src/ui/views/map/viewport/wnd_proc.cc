@@ -27,12 +27,16 @@ void DrawHost::publish_display_client_size(uint32_t width_px,
   std::lock_guard<std::mutex> lock(display_mu_);
   uint32_t cw = width_px > 0 ? width_px : 1;
   uint32_t ch = height_px > 0 ? height_px : 1;
-  if (gpu_present_hwnd_ && IsWindow(gpu_present_hwnd_)) {
-    RECT pr = {};
-    GetClientRect(gpu_present_hwnd_, &pr);
-    if (pr.right > 0 && pr.bottom > 0) {
-      cw = static_cast<uint32_t>(pr.right);
-      ch = static_cast<uint32_t>(pr.bottom);
+  // Prefer embed client over present HWND. An oversized DXGI popup used to
+  // poison swapchain extent and keep covering TabStrip after layout settle.
+  if (HWND embed = native_view()) {
+    if (IsWindow(embed)) {
+      RECT er = {};
+      GetClientRect(embed, &er);
+      if (er.right > 0 && er.bottom > 0) {
+        cw = static_cast<uint32_t>(er.right);
+        ch = static_cast<uint32_t>(er.bottom);
+      }
     }
   }
   if (role_ == Role::kScene3d) {
@@ -322,6 +326,10 @@ LRESULT CALLBACK DrawHost::child_wnd_proc(HWND hwnd, UINT msg,
   }
   if (msg == WM_TIMER && wparam == kPresentTimerId) {
     self->handle_present_timer(hwnd);
+    return 0;
+  }
+  if (msg == kMsgRevealGpuPresent) {
+    self->reveal_gpu_present_if_ready();
     return 0;
   }
   if (msg == WM_PAINT) {

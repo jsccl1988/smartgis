@@ -116,14 +116,35 @@ void DrawHost::destroy_gpu_present_hwnd() {
 
 void DrawHost::reveal_gpu_present_if_ready() {
   if (!gpu_present_want_visible_.load(std::memory_order_acquire)) {
+    reveal_posted_.store(false, std::memory_order_release);
     return;
   }
   if (display_stop_) {
+    reveal_posted_.store(false, std::memory_order_release);
     return;
   }
   if (!gpu_present_hwnd_ || !IsWindow(gpu_present_hwnd_)) {
+    reveal_posted_.store(false, std::memory_order_release);
     return;
   }
+  HWND embed = native_view();
+  // Present HWND is created on the UI thread. Display mailbox must not call
+  // SetWindowPos/ShowWindow here — that races tab-switch sync and hangs in
+  // NtUserSetWindowPos (plain launch: 3D tab dead, UI frozen).
+  if (embed && IsWindow(embed)) {
+    const DWORD ui_tid = GetWindowThreadProcessId(embed, nullptr);
+    if (ui_tid != 0 && ui_tid != GetCurrentThreadId()) {
+      bool expected = false;
+      if (reveal_posted_.compare_exchange_strong(expected, true,
+                                                 std::memory_order_acq_rel)) {
+        if (!PostMessageW(embed, kMsgRevealGpuPresent, 0, 0)) {
+          reveal_posted_.store(false, std::memory_order_release);
+        }
+      }
+      return;
+    }
+  }
+  reveal_posted_.store(false, std::memory_order_release);
   DisplayInit init = DisplayInit::kIdle;
   {
     std::lock_guard<std::mutex> lock(display_mu_);
@@ -144,23 +165,23 @@ void DrawHost::reveal_gpu_present_if_ready() {
   }
   // Init may have used a pre-layout client (multi-k px). Re-sync to the embed
   // before ShowWindow so the DXGI popup cannot cover Catalog / horizon.
+  // Never enlarge past embed client — View bounds alone over-covered TabStrip.
   RECT rc = {};
-  if (HWND embed = native_view()) {
+  if (embed) {
     GetClientRect(embed, &rc);
   }
   uint32_t w = rc.right > 0 ? static_cast<uint32_t>(rc.right) : 1;
   uint32_t h = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 1;
+  const Rect& laid_out = bounds();
+  if (laid_out.width > 1 && laid_out.height > 1) {
+    w = (std::min)(w, static_cast<uint32_t>(laid_out.width));
+    h = (std::min)(h, static_cast<uint32_t>(laid_out.height));
+  }
   if (role_ == Role::kScene3d) {
     clamp_scene3d_swapchain_size(&w, &h);
   }
-  const Rect& laid_out = bounds();
-  if (laid_out.width > 1 && laid_out.height > 1) {
-    w = static_cast<uint32_t>(laid_out.width);
-    h = static_cast<uint32_t>(laid_out.height);
-  }
   sync_gpu_present_hwnd(w, h);
-  SetWindowPos(gpu_present_hwnd_, present_z_insert_after(native_view()), 0,
-               0, 0, 0,
+  SetWindowPos(gpu_present_hwnd_, present_z_insert_after(embed), 0, 0, 0, 0,
                kAsyncPresentPos | SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
   sync_identity_frame();
 }
@@ -174,7 +195,7 @@ void DrawHost::set_gpu_present_visible(bool show) {
     async_show_present_hwnd(gpu_present_hwnd_, false);
     if (identity_badge_ && identity_badge_parent_ == gpu_present_hwnd_ &&
         IsWindow(identity_badge_)) {
-      ShowWindow(identity_badge_, SW_HIDE);
+      async_show_present_hwnd(identity_badge_, false);
     }
     return;
   }
@@ -219,16 +240,17 @@ void DrawHost::sync_gpu_present_hwnd(uint32_t width_px,
   }
   w = (std::max)(1, w);
   h = (std::max)(1, h);
-  // Never SWP_SHOWWINDOW here — that reopened the NOREDIRECTION hole before
-  // Init Present. Visibility is owned by reveal_gpu_present_if_ready.
-  // SWP_ASYNCWINDOWPOS: Display mailbox must not block on the UI thread.
-  UINT flags = kAsyncPresentPos;
-  if (!gpu_present_want_visible_.load(std::memory_order_acquire) ||
-      !IsWindowVisible(gpu_present_hwnd_)) {
-    flags |= SWP_NOZORDER;
+  RECT cur = {};
+  GetWindowRect(gpu_present_hwnd_, &cur);
+  if (cur.left == tl.x && cur.top == tl.y && cur.right == tl.x + w &&
+      cur.bottom == tl.y + h) {
+    return;
   }
-  SetWindowPos(gpu_present_hwnd_, present_z_insert_after(embed), tl.x, tl.y,
-               w, h, flags);
+  // Geometry only — never HWND_TOP here. Z-order on every sync raced the
+  // shell TabStrip and hung UI in NtUserSetWindowPos during switch_map_tab.
+  // Visibility / raise is owned by reveal_gpu_present_if_ready.
+  SetWindowPos(gpu_present_hwnd_, nullptr, tl.x, tl.y, w, h,
+               kAsyncPresentPos | SWP_NOZORDER | SWP_NOSENDCHANGING);
 }
 
 HWND DrawHost::ensure_gpu_present_hwnd(uint32_t width_px,

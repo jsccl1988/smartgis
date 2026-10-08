@@ -252,6 +252,9 @@ class UI_EXPORT DrawHost : public View {
                                            LPARAM lparam);
 
   static constexpr UINT_PTR kPresentTimerId = 1;
+  // Display thread posts this to the embed HWND; reveal must run on the UI
+  // thread that owns the DXGI present popup (cross-thread SetWindowPos hangs).
+  static constexpr UINT kMsgRevealGpuPresent = WM_APP + 0x5256;  // 'RV'
 
   AttachMode mode_ = AttachMode::kNone;
   Role role_ = Role::kMapEdit;
@@ -309,6 +312,8 @@ class UI_EXPORT DrawHost : public View {
   // once (WS_EX_NOREDIRECTIONBITMAP is a desktop hole before that).
   std::atomic<bool> gpu_present_want_visible_{false};
   std::atomic<bool> present_paused_{false};
+  // Coalesce Display→UI reveal posts (BeginFrame can fire faster than UI).
+  std::atomic<bool> reveal_posted_{false};
 
   // Display / present mailbox (P4) + DWM/vblank BeginFrame (P5).
   // kPending while kInit runs. Queue-empty is not failure: the task is popped

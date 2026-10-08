@@ -5,7 +5,6 @@
 #define BASE_TIME_FRAME_TIMER_H_
 
 #include <chrono>
-#include <cstdio>
 
 namespace base {
 
@@ -22,7 +21,7 @@ class FrameTimer {
     elapsed_ = 0.0f;
     stamp_ = 0.0f;
     scale_ = 1.0f;
-    std::snprintf(clock_buf_, sizeof(clock_buf_), "00:00:00");
+    write_clock(0, 0, 0);
   }
 
   void update() {
@@ -35,7 +34,9 @@ class FrameTimer {
     const int hh = (total_sec / 3600) % 24;
     const int mm = (total_sec / 60) % 60;
     const int ss = total_sec % 60;
-    std::snprintf(clock_buf_, sizeof(clock_buf_), "%02d:%02d:%02d", hh, mm, ss);
+    // Manual digits — avoid snprintf/CRT locks (UI timer + Display present
+    // both call note_hud_frame and deadlocked on ucrtbased locks).
+    write_clock(hh, mm, ss);
   }
 
   void set_clock(unsigned char /*hh*/, unsigned char /*mm*/) {
@@ -54,6 +55,18 @@ class FrameTimer {
   }
 
  private:
+  void write_clock(int hh, int mm, int ss) {
+    clock_buf_[0] = static_cast<char>('0' + (hh / 10) % 10);
+    clock_buf_[1] = static_cast<char>('0' + hh % 10);
+    clock_buf_[2] = ':';
+    clock_buf_[3] = static_cast<char>('0' + (mm / 10) % 10);
+    clock_buf_[4] = static_cast<char>('0' + mm % 10);
+    clock_buf_[5] = ':';
+    clock_buf_[6] = static_cast<char>('0' + (ss / 10) % 10);
+    clock_buf_[7] = static_cast<char>('0' + ss % 10);
+    clock_buf_[8] = '\0';
+  }
+
   clock::time_point start_{};
   clock::time_point last_{};
   float elapsed_ = 0.0f;

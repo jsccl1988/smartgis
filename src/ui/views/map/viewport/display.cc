@@ -179,7 +179,9 @@ void DrawHost::display_run_present(uint32_t width_px, uint32_t height_px,
   last_gpu_present_ok_.store(ok, std::memory_order_release);
   if (ok) {
     frame_presented_.store(frame_token, std::memory_order_release);
-    note_hud_frame();
+    // Do not note_hud_frame() here. Display + UI WM_TIMER both hit FrameTimer /
+    // debug CRT stdio locks and froze the UI thread (NtWait on __acrt_lock).
+    // HUD FPS is sampled on the UI present timer only.
     // Safe to lift NOREDIRECTION after a real Present (Resize path hides first).
     reveal_gpu_present_if_ready();
     if (!was_ok) {
