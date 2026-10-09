@@ -128,7 +128,7 @@ int run_map2d_presenter_tests() {
       }
       content::ViewFrame frame;
       frame.apply_world_extent({73.0, 18.0, 135.0, 54.0}, 1280, 720);
-      // Heap-own via create() â€?by-value Map2dPresenter smashes RTC cookies
+      // Heap-own via create() - by-value Map2dPresenter smashes RTC cookies
       // when scenic / frame-cache sizeof drifts across the content DLL boundary.
       auto presenter = content::Map2dPresenter::create();
       presenter->bind(&scene, &frame);
