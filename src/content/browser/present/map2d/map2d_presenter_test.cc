@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/browser/present/map2d/map2d_presenter.h"
+#include "content/browser/present/map2d/map2d_presenter->h"
 
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/gis_scene.h"
@@ -128,8 +128,10 @@ int run_map2d_presenter_tests() {
       }
       content::ViewFrame frame;
       frame.apply_world_extent({73.0, 18.0, 135.0, 54.0}, 1280, 720);
-      content::Map2dPresenter presenter;
-      presenter.bind(&scene, &frame);
+      // Heap-own via create() â€?by-value Map2dPresenter smashes RTC cookies
+      // when scenic / frame-cache sizeof drifts across the content DLL boundary.
+      auto presenter = content::Map2dPresenter::create();
+      presenter->bind(&scene, &frame);
       char tmp[MAX_PATH] = {};
       if (GetTempPathA(MAX_PATH, tmp) <= 0) {
         break;
@@ -139,7 +141,7 @@ int run_map2d_presenter_tests() {
       base::set_switch("map2d-no-hillshade", "1");
       base::set_switch("map2d-export-reuse", "0");
       content::reset_map2d_phase_sample();
-      const bool ok = presenter.export_bmp(bmp, 1280, 720);
+      const bool ok = presenter->export_bmp(bmp, 1280, 720);
       const content::Map2dPhaseSample ph = content::map2d_last_phase_sample();
       std::fprintf(stderr,
                    "map2d_presenter_test: china_faithful export_ok=%d "
@@ -152,23 +154,23 @@ int run_map2d_presenter_tests() {
     }
   }
 
-  // Views 2D RHI path: GisScene ï¿½?map2d Layout/Pass on Null device.
+  // Views 2D RHI path: GisScene ï¿?map2d Layout/Pass on Null device.
   {
     content::GisScene scene;
     scene.seed_default();
     expect(scene.feature_count() > 0, "seed has features for present_gpu");
     content::ViewFrame frame;
     frame.fit_extent(scene, 800, 600);
-    content::Map2dPresenter presenter;
-    presenter.bind(&scene, &frame);
+    auto presenter = content::Map2dPresenter::create();
+    presenter->bind(&scene, &frame);
     std::unique_ptr<render::rhi::Device> device(
         render::rhi::create_device(render::rhi::Backend::kNull));
     expect(device != nullptr && device->initialize(render::rhi::DeviceDesc()),
            "null device for present_gpu");
-    expect(presenter.present_gpu(device.get(), 64, 64),
+    expect(presenter->present_gpu(device.get(), 64, 64),
            "present_gpu after seed_default (Null)");
     // kText lives in the map2d frame; success does not need the GDI label overlay.
-    expect(presenter.last_gpu_present_ok(),
+    expect(presenter->last_gpu_present_ok(),
            "present_gpu success does not depend on GDI label overlay");
     // Selection stroke overlay must not require a live HWND.
     HDC screen = GetDC(nullptr);
@@ -187,7 +189,7 @@ int run_map2d_presenter_tests() {
       expect(mem && dib, "annotation DIB");
       if (mem && dib) {
         HGDIOBJ old = SelectObject(mem, dib);
-        presenter.paint_annotation_overlay(mem, 64, 64);
+        presenter->paint_annotation_overlay(mem, 64, 64);
         SelectObject(mem, old);
         DeleteObject(dib);
       }
@@ -233,8 +235,8 @@ int run_map2d_presenter_tests() {
     scene.seed_default();
     content::ViewFrame frame;
     frame.apply_world_extent({73.0, 18.0, 135.0, 54.0}, 256, 256);
-    content::Map2dPresenter presenter;
-    presenter.bind(&scene, &frame);
+    auto presenter = content::Map2dPresenter::create();
+    presenter->bind(&scene, &frame);
     auto provider = std::make_shared<gis::tile::TileProvider>();
     expect(provider->open_xyz("http://tiles.local/{z}/{x}/{y}.png"),
            "basemap open_xyz");
@@ -261,8 +263,8 @@ int run_map2d_presenter_tests() {
         CreateDIBSection(mem, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
     expect(dib != nullptr, "basemap CreateDIBSection");
     HGDIOBJ old = SelectObject(mem, dib);
-    presenter.paint(mem, 256, 256);
-    expect(presenter.basemap_tiles_drawn() > 0, "basemap tiles drawn");
+    presenter->paint(mem, 256, 256);
+    expect(presenter->basemap_tiles_drawn() > 0, "basemap tiles drawn");
     SelectObject(mem, old);
     if (dib) {
       DeleteObject(dib);
@@ -274,7 +276,7 @@ int run_map2d_presenter_tests() {
     expect(GetTempPathA(MAX_PATH, tmp) > 0, "export temp");
     std::string bmp = std::string(tmp) + "gis_scene_m1_export.bmp";
     DeleteFileA(bmp.c_str());
-    expect(presenter.export_bmp(bmp, 320, 240), "export_bmp");
+    expect(presenter->export_bmp(bmp, 320, 240), "export_bmp");
     FILE* bf = nullptr;
     expect(fopen_s(&bf, bmp.c_str(), "rb") == 0 && bf, "open export bmp");
     char magic[2] = {};
@@ -295,15 +297,15 @@ int run_map2d_presenter_tests() {
     expect(scene.feature_count() > 0, "china seed for layout cache");
     content::ViewFrame frame;
     frame.fit_extent(scene, 128, 128);
-    content::Map2dPresenter presenter;
-    presenter.bind(&scene, &frame);
+    auto presenter = content::Map2dPresenter::create();
+    presenter->bind(&scene, &frame);
     std::unique_ptr<render::rhi::Device> device(
         render::rhi::create_device(render::rhi::Backend::kNull));
     expect(device != nullptr && device->initialize(render::rhi::DeviceDesc()),
            "null device for layout cache");
-    expect(presenter.present_gpu(device.get(), 128, 128), "cache first present");
-    expect(presenter.layout_build_count() == 1, "first present builds layout");
-    expect(!presenter.last_present_reused_layout(),
+    expect(presenter->present_gpu(device.get(), 128, 128), "cache first present");
+    expect(presenter->layout_build_count() == 1, "first present builds layout");
+    expect(!presenter->last_present_reused_layout(),
            "first present is a full build");
     {
       const content::Map2dPhaseSample phase =
@@ -321,70 +323,70 @@ int run_map2d_presenter_tests() {
       expect(phase.hillshade_ms == 0, "cold first layout defers hillshade");
     }
 
-    expect(presenter.present_gpu(device.get(), 128, 128), "static second present");
-    const uint64_t builds_after_second = presenter.layout_build_count();
+    expect(presenter->present_gpu(device.get(), 128, 128), "static second present");
+    const uint64_t builds_after_second = presenter->layout_build_count();
     // Either pure StaticReuse (no DEM / NO_HILLSHADE) or one deferred
     // hillshade attach rebuild (reuse_slices) before StaticReuse latches.
     expect(builds_after_second == 1 || builds_after_second == 2,
            "static or deferred hillshade attach");
     if (builds_after_second == 1) {
-      expect(presenter.last_present_reused_layout(),
+      expect(presenter->last_present_reused_layout(),
              "static repeat reuses layout");
     }
 
-    expect(presenter.present_gpu(device.get(), 128, 128), "warm static present");
-    const uint64_t builds_warm = presenter.layout_build_count();
+    expect(presenter->present_gpu(device.get(), 128, 128), "warm static present");
+    const uint64_t builds_warm = presenter->layout_build_count();
     // Attach rebuild lands on the second present; further static presents
     // must not keep rebuilding.
     expect(builds_warm == builds_after_second,
            "warm static does not thrash layout");
-    expect(presenter.last_present_reused_layout(),
+    expect(presenter->last_present_reused_layout(),
            "warm static reuses layout");
 
     frame.apply_pan(16, -8);
-    expect(presenter.present_gpu(device.get(), 128, 128), "interactive pan present");
-    expect(presenter.layout_build_count() == builds_warm,
+    expect(presenter->present_gpu(device.get(), 128, 128), "interactive pan present");
+    expect(presenter->layout_build_count() == builds_warm,
            "pan within zoom bucket skips layout");
-    expect(presenter.last_present_reused_layout(),
+    expect(presenter->last_present_reused_layout(),
            "pan reuses cached MapIR");
 
-    // Same camera again after quiet settle debounce (~200ms) ï¿½?settle rebuild
+    // Same camera again after quiet settle debounce (~200ms) ï¿?settle rebuild
     // for GPU labels.
     Sleep(250);
-    expect(presenter.present_gpu(device.get(), 128, 128), "settle present");
-    expect(presenter.layout_build_count() == builds_warm + 1,
+    expect(presenter->present_gpu(device.get(), 128, 128), "settle present");
+    expect(presenter->layout_build_count() == builds_warm + 1,
            "settle rebuilds layout once");
-    expect(!presenter.last_present_reused_layout(),
+    expect(!presenter->last_present_reused_layout(),
            "settle is a full rebuild");
-    const uint64_t builds_after_settle = presenter.layout_build_count();
+    const uint64_t builds_after_settle = presenter->layout_build_count();
 
     // Fingerprint-stable: public invalidate must not bump layout_builds.
-    presenter.invalidate_frame_cache();
-    expect(presenter.present_gpu(device.get(), 128, 128),
+    presenter->invalidate_frame_cache();
+    expect(presenter->present_gpu(device.get(), 128, 128),
            "noop invalidate present");
-    expect(presenter.layout_build_count() == builds_after_settle,
+    expect(presenter->layout_build_count() == builds_after_settle,
            "fingerprint-stable invalidate skips layout rebuild");
 
-    // Visibility moves content_hash ï¿½?must drop published MapIR.
+    // Visibility moves content_hash ï¿?must drop published MapIR.
     expect(!scene.layers().empty(), "china has layers");
     const std::string lid = scene.layers().front().id;
     const bool was_vis = scene.layers().front().visible;
     expect(scene.set_layer_visible(lid, !was_vis), "toggle layer visible");
-    presenter.invalidate_frame_cache();
-    expect(presenter.present_gpu(device.get(), 128, 128),
+    presenter->invalidate_frame_cache();
+    expect(presenter->present_gpu(device.get(), 128, 128),
            "after content invalidate");
-    expect(presenter.layout_build_count() == builds_after_settle + 1,
+    expect(presenter->layout_build_count() == builds_after_settle + 1,
            "content invalidate forces a new layout build");
   }
 
   {
     base::set_switch("map2d-engine", "");
-    content::Map2dPresenter off;
-    expect(!off.hosts_scenic_present(), "default map2d not scenic");
+    auto off = content::Map2dPresenter::create();
+    expect(!off->hosts_scenic_present(), "default map2d not scenic");
     base::set_switch("map2d-engine", "scenic");
-    content::Map2dPresenter on;
+    auto on = content::Map2dPresenter::create();
     expect(content::prefer_map2d_scenic(), "env scenic map2d");
-    expect(on.hosts_scenic_present(),
+    expect(on->hosts_scenic_present(),
            "map2d env scenic hosts scenic.dll");
     base::set_switch("map2d-engine", "");
   }
