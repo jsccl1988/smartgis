@@ -14,8 +14,8 @@ import("//testing/test.gni")
 # native DLLs under $root_out_dir/plugins/<package>/ (see //src/plugin/product:product_native).
 source_set("plugin_builtins") {
   sources = [
-    "browser/plugin/builtins.cc",
-    "browser/plugin/builtins.h",
+    "browser/plugin/shell/builtins.cc",
+    "browser/plugin/shell/builtins.h",
   ]
   include_dirs += [ "//src" ]
   deps = [
@@ -40,29 +40,36 @@ source_set("shell_browser") {
     "browser/commands/session_commands.cc",
     "browser/commands/view_commands.cc",
     "browser/commands/view_commands.h",
+    "browser/nav/detail/attach_mode.h",
+    "browser/nav/detail/ptr_guard.h",
+    "browser/nav/detail/seh_workspace.cc",
+    "browser/nav/detail/seh_workspace.h",
     "browser/nav/draft_nav.cc",
+    "browser/nav/extent_nav.cc",
+    "browser/nav/gesture_nav.cc",
+    "browser/nav/view_nav.cc",
     "browser/nav/deferred_china_seed.cc",
-    "browser/plugin/host_context.h",
-    "browser/plugin/map2d_bridges.cc",
-    "browser/plugin/map2d_bridges.h",
-    "browser/plugin/pack_enable.cc",
-    "browser/plugin/pack_enable.h",
-    "browser/plugin/path_resolve.cc",
-    "browser/plugin/path_resolve.h",
-    "browser/plugin/plugin_host_wiring.cc",
-    "browser/plugin/plugin_shell.cc",
-    "browser/plugin/plugin_shell.h",
-    "browser/plugin/plugins_dir.cc",
-    "browser/plugin/playback.cc",
-    "browser/plugin/playback.h",
-    "browser/plugin/present.cc",
-    "browser/plugin/present.h",
-    "browser/plugin/preview_host.cc",
-    "browser/plugin/preview_host.h",
-    "browser/plugin/scene3d_bridges.cc",
-    "browser/plugin/scene3d_bridges.h",
-    "browser/plugin/startup_apply.cc",
-    "browser/plugin/startup_apply.h",
+    "browser/plugin/detail/path_resolve.cc",
+    "browser/plugin/detail/path_resolve.h",
+    "browser/plugin/host/host_context.h",
+    "browser/plugin/host/map2d_bridges.cc",
+    "browser/plugin/host/map2d_bridges.h",
+    "browser/plugin/host/plugin_host_wiring.cc",
+    "browser/plugin/host/scene3d_bridges.cc",
+    "browser/plugin/host/scene3d_bridges.h",
+    "browser/plugin/present/playback.cc",
+    "browser/plugin/present/playback.h",
+    "browser/plugin/present/present.cc",
+    "browser/plugin/present/present.h",
+    "browser/plugin/present/preview_host.cc",
+    "browser/plugin/present/preview_host.h",
+    "browser/plugin/shell/pack_enable.cc",
+    "browser/plugin/shell/pack_enable.h",
+    "browser/plugin/shell/plugin_shell.cc",
+    "browser/plugin/shell/plugin_shell.h",
+    "browser/plugin/shell/plugins_dir.cc",
+    "browser/plugin/shell/startup_apply.cc",
+    "browser/plugin/shell/startup_apply.h",
   ]
   deps = [
     "//src/content:browser_session",
@@ -103,9 +110,7 @@ source_set("shell_ui") {
     "ui/horizon/inspector_host_composer.h",
     "ui/horizon/menu_composer.cc",
     "ui/horizon/menu_composer.h",
-    "ui/pages/detail/ptr_guard.h",
-    "ui/pages/detail/seh_workspace.cc",
-    "ui/pages/detail/seh_workspace.h",
+    "ui/pages/detail/viewport_hdc.h",
     "ui/pages/map_pages_composer.cc",
     "ui/pages/map_pages_composer.h",
     "ui/pages/map_pages_gestures.cc",
@@ -124,6 +129,7 @@ source_set("shell_ui") {
     "ui/panels/plugin_catalog_view.h",
     "ui/panels/processing_composer.cc",
     "ui/panels/processing_composer.h",
+    "ui/panels/processing_python_bridge.cc",
     "ui/panels/report_panel.cc",
     "ui/panels/report_panel.h",
     "ui/shell/detail/seh_seed.cc",
@@ -175,8 +181,8 @@ win32_app("views") {
     "app/startup/scenario.cc",
     "app/startup/scenario.h",
     "app/startup/scenario_builtins.cc",
-    "browser/plugin/report_suite.cc",
-    "browser/plugin/report_suite.h",
+    "browser/plugin/harness/report_suite.cc",
+    "browser/plugin/harness/report_suite.h",
   ]
   deps = [
     ":shell_browser",
@@ -271,15 +277,15 @@ test("views_launch_options_test") {
 test("plugin_playback_test") {
   output_name = "plugin_playback_test"
   sources = [
-    "browser/plugin/playback.cc",
-    "browser/plugin/playback_test.cc",
+    "browser/plugin/present/playback.cc",
+    "browser/plugin/present/playback_test.cc",
   ]
   include_dirs += [ "//src" ]
 }
 
 test("plugin_builtins_test") {
   output_name = "plugin_builtins_test"
-  sources = [ "browser/plugin/builtins_test.cc" ]
+  sources = [ "browser/plugin/shell/builtins_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
     ":plugin_builtins",

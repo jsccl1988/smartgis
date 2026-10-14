@@ -93,12 +93,9 @@ int run_scenario(Browser& browser, const Scenario& scenario) {
       base::set_switch("prefer-gdi-device", "0");
     }
   }
-  bool try_il = scenario.suite_id != nullptr;
-  if (try_il && scenario.plugin_command &&
-      std::strncmp(scenario.plugin_command, "map2d.", 6) == 0) {
-    const char* force_il = base::switch_cstr("map2d-showcase-il");
-    try_il = force_il && force_il[0] == '1' && force_il[1] == '\0';
-  }
+  // Prefer IR suite script when registered; fall through to plugin_command /
+  // C++ run on failure (no sticky map2d-showcase-il switch).
+  const bool try_il = scenario.suite_id != nullptr;
   if (try_il) {
     const int rc =
         run_suite_script_rc(browser, scenario.suite_id, scenario.mark_leaf,

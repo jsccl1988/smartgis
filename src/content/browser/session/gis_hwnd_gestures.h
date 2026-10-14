@@ -17,8 +17,10 @@ namespace content {
 
 // Touch / trackpad gestures on a GIS viewport HWND:
 // - GID_ZOOM / WM_POINTER pinch → zoom
-// - GID_PAN (two-finger drag, including left/right) → pan
-// Trackpad horizontal wheel stays on MapViewport (WM_MOUSEHWHEEL).
+// - GID_PAN (two-finger drag, including left/right) → pan when on_pan is set
+//   (Scene3d). Map2d leaves on_pan empty and blocks GID_PAN; pan is LMB drag.
+// Trackpad horizontal wheel (WM_MOUSEHWHEEL) is ignored for Map2d pan in
+// Browser::handle_draft; click-drag remains the only Map2d translate path.
 //
 // Prefer attach() when the HWND already has a foreign wndproc (Views).
 // Prefer bind() + try_handle() when this host owns the wndproc (Cs popup),

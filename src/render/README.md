@@ -31,7 +31,7 @@ GN：`//src/render:render_all` 进日常 `src_all`。leftover DLL 另编 `//src/
 ## As-built（Views 2D 主路径 = RHI，2026-09-27）
 
 - **Views 主像素路径**：地图是 `Layout` → 一个 `record_all` 的 `MapEffect` → `render::graph::present`。`Scene3dPresenter::present_gpu` 走同一个 `present`，效果顺序是大气前段、`OpaqueEffect`、大气后段。录制顺序只有四个槽：`kBeforeOpaque`、`kOpaque`（地形 / 模型 / 地图世界网格）、`kAfterOpaque`、`kOverlay`（屏幕图标和文字）。`ViewInput` 只有宽高、相机和 `Effect*` 列表。地图相机是视口经纬度的正交；三维在非 Null 后端传入透视相机。`View::mode == kPerspective` 时由宿主提供相机。壳栅格仍用 `ui/gfx`；**禁止** Skia 画 GIS 地图。
-- GDI `GisScene::paint` 为过渡/导出/强制 overlay；GPU 成功后只叠 `paint_annotation_overlay`（注记/选中）。`FORCE_GDI_MAP_OVERLAY=1` / `PREFER_FLYCUBE_2D=0` 可退回。
+- Soft MapIR→HDC / `paint_annotation_overlay` 已删除。2D SoT 为 Vista `MapPass`（选中/闪烁 MapIR）；导出为 scenic `export_bmp`。
 - Views 主路径不经 leftover RHI session；`rhi3d/public/bridge`（`LeftoverRecorder` / `bind_rhi_present` / `leftover_session`）已删除。
 - Views `MapViewport`：Map Edit/Data/Scene3d 默认优先 Vista；`PREFER_GDI_DEVICE=1` 跳过。
 - 投影只在相机上：地图 `make_ortho_camera`；三维 `set_view_camera`。`set_view_ortho` 只在没设视图相机时给旧的二维种类用。

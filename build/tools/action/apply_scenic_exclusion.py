@@ -16,7 +16,11 @@ def main() -> int:
     root = Path(__file__).resolve().parents[3]
     map_cc = root / "src/content/browser/present/map2d/map2d_presenter.cc"
     s3_cc = root / "src/content/browser/present/scene3d/scene3d_presenter.cc"
-    s3_host = root / "src/content/browser/present/scene3d/scenic_engine_host.cc"
+    # Host may live next to the presenter or under scenic/ after colocated splits.
+    s3_host_candidates = (
+        root / "src/content/browser/present/scene3d/scenic/scenic_engine_host.cc",
+        root / "src/content/browser/present/scene3d/scenic_engine_host.cc",
+    )
     map_text = map_cc.read_text(encoding="utf-8")
     if "create_map2d_engine" not in map_text:
         raise SystemExit(
@@ -24,6 +28,7 @@ def main() -> int:
             "restore presenter sources or run apply_scenic_present_host.py once"
         )
     s3_text = s3_cc.read_text(encoding="utf-8")
+    s3_host = next((p for p in s3_host_candidates if p.is_file()), s3_host_candidates[0])
     s3_host_text = s3_host.read_text(encoding="utf-8") if s3_host.is_file() else ""
     if "scenic_host_" not in s3_text and "create_scene3d_engine" not in s3_text:
         raise SystemExit(

@@ -59,8 +59,9 @@ void Rhi2dCartoDrawStyle::release_from_dc(HDC dc) {
 
 int Rhi2dCartoDrawStyle::prepare_for_drawing(HDC dc, bool recording,
                                         HINSTANCE h_inst, RenderContext* rc,
-                                        bool is_river, int road_class,
-                                        const Style* style, int draw_mode) {
+                                        bool is_river, int river_class,
+                                        int road_class, const Style* style,
+                                        int draw_mode) {
   if (!dc && !recording) {
     return kErrInvalidParam;
   }
@@ -87,11 +88,16 @@ int Rhi2dCartoDrawStyle::prepare_for_drawing(HDC dc, bool recording,
   int brush_tp = -1;
   int brush_style = 0;
   if (format & ST_PenDesc) {
-    pen_px = road_class > 0 ? carto2d_road_width_px(rc->fblc, road_class)
-                            : carto2d_stroke_px_kind(rc->fblc, is_river, false);
-    stroke = road_class > 0
-                 ? carto2d_road_fill_color(road_class)
-                 : (is_river ? carto2d_river_color() : carto2d_admin_stroke());
+    if (road_class > 0 && !is_river) {
+      pen_px = carto2d_road_width_px(rc->fblc, road_class);
+      stroke = carto2d_road_fill_color(road_class);
+    } else if (is_river) {
+      pen_px = carto2d_river_width_px(rc->fblc, river_class);
+      stroke = carto2d_river_color_class(river_class);
+    } else {
+      pen_px = carto2d_stroke_px_kind(rc->fblc, false, false);
+      stroke = carto2d_admin_stroke();
+    }
   }
   if (format & ST_BrushDesc) {
     BrushDesc brush = style->get_brush_desc();
@@ -104,6 +110,7 @@ int Rhi2dCartoDrawStyle::prepare_for_drawing(HDC dc, bool recording,
   const bool cache_hit =
       style_cache_valid_ && cache_draw_mode_ == draw_mode &&
       cache_format_ == format && cache_road_class_ == road_class &&
+      cache_river_class_ == river_class &&
       cache_is_river_ == (is_river ? 1 : 0) && cache_pen_px_ == pen_px &&
       cache_pen_ == stroke && cache_fill_ == fill &&
       cache_brush_tp_ == brush_tp && cache_brush_style_ == brush_style &&
@@ -203,6 +210,7 @@ int Rhi2dCartoDrawStyle::prepare_for_drawing(HDC dc, bool recording,
   cache_draw_mode_ = draw_mode;
   cache_format_ = format;
   cache_road_class_ = road_class;
+  cache_river_class_ = river_class;
   cache_is_river_ = is_river ? 1 : 0;
   cache_pen_px_ = pen_px;
   cache_pen_ = stroke;

@@ -19,6 +19,7 @@
 #include "plugin/product/geochem/present/present.h"
 #include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
+#include "plugin/runtime/host/processing/processing_phase.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
 #include "plugin/runtime/widgets/present_surface_picker.h"
@@ -151,10 +152,7 @@ std::string stats_json(const GeochemCommit& commit) {
   return buf.GetString();
 }
 
-bool geochem_load(content::PluginHost* host, std::string_view args_json) {
-  if (host) {
-    return publish(host, g_last_commit, "geochem.load");
-  }
+bool geochem_load_compute(std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"geochem.load\"}");
@@ -179,7 +177,7 @@ bool geochem_load(content::PluginHost* host, std::string_view args_json) {
   commit.legend =
       gis::detail::build_geochem_grade_legend(set, element, 5);
   attach_cached_idw(&commit);
-  if (!publish(host, commit, "geochem.load")) {
+  if (!publish(nullptr, commit, "geochem.load")) {
     return false;
   }
   set_operation_result(
@@ -189,10 +187,15 @@ bool geochem_load(content::PluginHost* host, std::string_view args_json) {
   return true;
 }
 
-bool geochem_stats(content::PluginHost* host, std::string_view args_json) {
-  if (host) {
-    return publish(host, g_last_commit, "geochem.stats");
-  }
+bool geochem_load(content::PluginHost* host, std::string_view args_json) {
+  return run_processing_phases(
+      host, args_json, geochem_load_compute,
+      [](content::PluginHost* h) {
+        return publish(h, g_last_commit, "geochem.load");
+      });
+}
+
+bool geochem_stats_compute(std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"geochem.stats\"}");
@@ -252,17 +255,22 @@ bool geochem_stats(content::PluginHost* host, std::string_view args_json) {
     }
   }
 
-  if (!publish(host, commit, "geochem.stats")) {
+  if (!publish(nullptr, commit, "geochem.stats")) {
     return false;
   }
   set_operation_result(stats_json(commit));
   return true;
 }
 
-bool geochem_analyze(content::PluginHost* host, std::string_view args_json) {
-  if (host) {
-    return publish(host, g_last_commit, "geochem.analyze");
-  }
+bool geochem_stats(content::PluginHost* host, std::string_view args_json) {
+  return run_processing_phases(
+      host, args_json, geochem_stats_compute,
+      [](content::PluginHost* h) {
+        return publish(h, g_last_commit, "geochem.stats");
+      });
+}
+
+bool geochem_analyze_compute(std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"geochem.analyze\"}");
@@ -328,7 +336,7 @@ bool geochem_analyze(content::PluginHost* host, std::string_view args_json) {
     (void)gis::detail::write_geochem_idw_geotiff(output, commit.idw, mask_out);
   }
 
-  if (!publish(host, commit, "geochem.analyze")) {
+  if (!publish(nullptr, commit, "geochem.analyze")) {
     return false;
   }
 
@@ -364,10 +372,15 @@ bool geochem_analyze(content::PluginHost* host, std::string_view args_json) {
   return true;
 }
 
-bool geochem_style_apply(content::PluginHost* host, std::string_view args_json) {
-  if (host) {
-    return publish(host, g_last_commit, "geochem.style_apply");
-  }
+bool geochem_analyze(content::PluginHost* host, std::string_view args_json) {
+  return run_processing_phases(
+      host, args_json, geochem_analyze_compute,
+      [](content::PluginHost* h) {
+        return publish(h, g_last_commit, "geochem.analyze");
+      });
+}
+
+bool geochem_style_apply_compute(std::string_view args_json) {
   rapidjson::Document args;
   parse_args_json(args_json, &args);
   std::string element = g_last_element.empty() ? "Cu" : g_last_element;
@@ -389,7 +402,7 @@ bool geochem_style_apply(content::PluginHost* host, std::string_view args_json) 
   commit.legend =
       gis::detail::build_geochem_grade_legend(g_last_samples, element, classes);
   attach_cached_idw(&commit);
-  if (!publish(host, commit, "geochem.style_apply")) {
+  if (!publish(nullptr, commit, "geochem.style_apply")) {
     return false;
   }
   set_operation_result(
@@ -398,12 +411,12 @@ bool geochem_style_apply(content::PluginHost* host, std::string_view args_json) 
   return true;
 }
 
-void show_dialog(const wchar_t* title, std::unique_ptr<ui::views::View> body) {
-  if (!body) {
-    return;
-  }
-  show_owned_dialog(title, body->preferred_size().width,
-                    body->preferred_size().height, std::move(body));
+bool geochem_style_apply(content::PluginHost* host, std::string_view args_json) {
+  return run_processing_phases(
+      host, args_json, geochem_style_apply_compute,
+      [](content::PluginHost* h) {
+        return publish(h, g_last_commit, "geochem.style_apply");
+      });
 }
 
 }  // namespace
@@ -443,19 +456,21 @@ bool register_geochem(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"geochem.analyze", "地球化学分析"},
           [host](content::PluginHost*) {
-            show_dialog(L"地球化学分析",
-                        wrap_with_present_surface(
-                            host, std::make_unique<AnalyzeDialog>(host)));
+            show_view_dialog(
+                L"地球化学分析",
+                wrap_with_present_surface(
+                    host, std::make_unique<AnalyzeDialog>(host)));
           })) {
     return false;
   }
   if (!host->contribute_dialog(
           kPluginId, {"geochem.about", "关于"},
           [](content::PluginHost*) {
-            show_dialog(L"关于",
-                        std::make_unique<AboutDialog>(
-                            "Geochem\nSample grades + IDW heat raster "
-                            "(native.geochem_stats / native.geochem_idw)"));
+            show_view_dialog(
+                L"关于",
+                std::make_unique<AboutDialog>(
+                    "Geochem\nSample grades + IDW heat raster "
+                    "(native.geochem_stats / native.geochem_idw)"));
           })) {
     return false;
   }

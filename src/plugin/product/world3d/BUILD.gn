@@ -288,8 +288,6 @@ source_set("world3d_harness_atmosphere") {
     "scenario/atmosphere/present/globe_present.h",
     "scenario/atmosphere/session/host.cc",
     "scenario/atmosphere/session/host.h",
-    "scenario/atmosphere/capture/label_composite.cc",
-    "scenario/atmosphere/capture/label_composite.h",
     "scenario/atmosphere/seed/legacy_seed.cc",
     "scenario/atmosphere/seed/legacy_seed.h",
     "scenario/atmosphere/common/linger.cc",

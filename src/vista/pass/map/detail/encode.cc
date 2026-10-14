@@ -89,7 +89,17 @@ void encode_draws(render::rhi::CommandList* list, const vista::View& view,
                      static_cast<float>(view.height_px), 0.f, 1.f);
   list->set_depth_mode(render::rhi::DepthMode::kDisabled);
 
-  for (const UploadedDraw& draw : draws) {
+  // Painter order: solids/lines → DEM rasters → glyph/icon textures.
+  // DEM must sit above cream fills; glyphs must sit above DEM. A single
+  // pass interleaved by upload bucket order can cover jet with later
+  // solids from a subsequent cache_key run.
+  auto is_dem_raster = [](const UploadedDraw& d) {
+    return d.textured && d.dem_raster && d.texture != nullptr;
+  };
+  auto is_overlay_tex = [](const UploadedDraw& d) {
+    return d.textured && !d.dem_raster;
+  };
+  auto emit = [&](const UploadedDraw& draw) {
     if (draw.textured) {
       draw_textured(list, textured, multiply, draw.vertices, draw.indices,
                     draw.index_count, draw.first_index, draw.stride,
@@ -98,6 +108,21 @@ void encode_draws(render::rhi::CommandList* list, const vista::View& view,
       draw_solid(list, solid, draw.vertices, draw.indices, draw.index_count,
                  draw.first_index, draw.stride, draw.r, draw.g, draw.b,
                  draw.a);
+    }
+  };
+  for (const UploadedDraw& draw : draws) {
+    if (!draw.textured) {
+      emit(draw);
+    }
+  }
+  for (const UploadedDraw& draw : draws) {
+    if (is_dem_raster(draw)) {
+      emit(draw);
+    }
+  }
+  for (const UploadedDraw& draw : draws) {
+    if (is_overlay_tex(draw)) {
+      emit(draw);
     }
   }
 

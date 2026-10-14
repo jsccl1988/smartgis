@@ -16,6 +16,7 @@
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
+#include "plugin/runtime/host/processing/processing_phase.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
 #include "plugin/runtime/widgets/present_surface_picker.h"
@@ -63,12 +64,7 @@ bool publish_viz(content::PluginHost* host,
   return true;
 }
 
-bool mine_load_boreholes(content::PluginHost* host, std::string_view args_json) {
-  if (host) {
-    gis::detail::StratumTin empty_tin;
-    return publish_viz(host, g_last_tin.ok ? g_last_tin : empty_tin, g_last_holes,
-                       "mine.load_boreholes");
-  }
+bool mine_load_boreholes_compute(std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_args_json(args_json, &args)) {
     set_operation_result(
@@ -96,7 +92,7 @@ bool mine_load_boreholes(content::PluginHost* host, std::string_view args_json) 
   g_last_csv = input;
 
   gis::detail::StratumTin empty_tin;
-  if (!publish_viz(host, empty_tin, holes, "mine.load_boreholes")) {
+  if (!publish_viz(nullptr, empty_tin, holes, "mine.load_boreholes")) {
     return false;
   }
 
@@ -106,12 +102,17 @@ bool mine_load_boreholes(content::PluginHost* host, std::string_view args_json) 
   return true;
 }
 
-bool mine_interpolate_stratum(content::PluginHost* host,
-                              std::string_view args_json) {
-  if (host) {
-    return publish_viz(host, g_last_tin, g_last_holes,
-                       "mine.interpolate_stratum");
-  }
+bool mine_load_boreholes(content::PluginHost* host, std::string_view args_json) {
+  return run_processing_phases(
+      host, args_json, mine_load_boreholes_compute,
+      [](content::PluginHost* h) {
+        gis::detail::StratumTin empty_tin;
+        return publish_viz(h, g_last_tin.ok ? g_last_tin : empty_tin,
+                           g_last_holes, "mine.load_boreholes");
+      });
+}
+
+bool mine_interpolate_stratum_compute(std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_args_json(args_json, &args)) {
     set_operation_result(
@@ -159,7 +160,7 @@ bool mine_interpolate_stratum(content::PluginHost* host,
     }
   }
 
-  if (!publish_viz(host, tin, holes, "mine.interpolate_stratum")) {
+  if (!publish_viz(nullptr, tin, holes, "mine.interpolate_stratum")) {
     return false;
   }
 
@@ -169,6 +170,16 @@ bool mine_interpolate_stratum(content::PluginHost* host,
       tin.stratum_id + "\",\"triangles\":" + std::to_string(tri_count) +
       ",\"contacts\":" + std::to_string(holes.contacts.size()) + "}");
   return true;
+}
+
+bool mine_interpolate_stratum(content::PluginHost* host,
+                              std::string_view args_json) {
+  return run_processing_phases(
+      host, args_json, mine_interpolate_stratum_compute,
+      [](content::PluginHost* h) {
+        return publish_viz(h, g_last_tin, g_last_holes,
+                           "mine.interpolate_stratum");
+      });
 }
 
 bool mine_prism_volume(content::PluginHost*, std::string_view args_json) {
@@ -229,14 +240,6 @@ bool mine_prism_volume(content::PluginHost*, std::string_view args_json) {
   return true;
 }
 
-void show_dialog(const wchar_t* title, std::unique_ptr<ui::views::View> body) {
-  if (!body) {
-    return;
-  }
-  show_owned_dialog(title, body->preferred_size().width,
-                    body->preferred_size().height, std::move(body));
-}
-
 }  // namespace
 
 bool register_mine(content::PluginHost* host) {
@@ -279,18 +282,20 @@ bool register_mine(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"mine.interpolate_stratum", "地层TIN插值"},
           [host](content::PluginHost*) {
-            show_dialog(L"地层TIN插值",
-                        wrap_with_present_surface(
-                            host, std::make_unique<InterpolateDialog>(host)));
+            show_view_dialog(
+                L"地层TIN插值",
+                wrap_with_present_surface(
+                    host, std::make_unique<InterpolateDialog>(host)));
           })) {
     return false;
   }
   if (!host->contribute_dialog(
           kPluginId, {"mine.about", "关于"},
           [](content::PluginHost*) {
-            show_dialog(L"关于",
-                        std::make_unique<AboutDialog>(
-                            "Mine\nBorehole CSV → stratum TIN + prism volume"));
+            show_view_dialog(
+                L"关于",
+                std::make_unique<AboutDialog>(
+                    "Mine\nBorehole CSV → stratum TIN + prism volume"));
           })) {
     return false;
   }

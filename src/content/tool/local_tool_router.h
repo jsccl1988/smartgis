@@ -1,0 +1,62 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef CONTENT_TOOL_LOCAL_TOOL_ROUTER_H_
+#define CONTENT_TOOL_LOCAL_TOOL_ROUTER_H_
+
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <memory>
+
+#include "content/content_export.h"
+#include "content/public/types.h"
+#include "content/public/tool_session.h"
+
+namespace gis {
+class EditSession;
+}
+
+namespace content {
+
+// Shell input that missed ribbon/tree/dialog. Local in-process path
+// uses tool::Workspace; leftover OOP/web still send HostMsg JSON.
+class ToolRouter {
+ public:
+  virtual ~ToolRouter() = default;
+  virtual void activate(uint32_t view_id, const char* tool_id) = 0;
+  virtual void dispatch(uint32_t view_id, const InputEvent& e) = 0;
+};
+
+// In-process ToolRouter: per-view Workspace first, leftover IPC optional.
+class CONTENT_EXPORT LocalToolRouter final : public ToolRouter {
+ public:
+  using ActivateIpc = std::function<void(uint32_t view_id, const char* tool_id)>;
+  using DispatchIpc =
+      std::function<void(uint32_t view_id, const InputEvent& e)>;
+
+  LocalToolRouter();
+  ~LocalToolRouter() override;
+
+  LocalToolRouter(const LocalToolRouter&) = delete;
+  LocalToolRouter& operator=(const LocalToolRouter&) = delete;
+
+  ToolSession* tool_session(uint32_t view_id);
+  void close(uint32_t view_id);
+  void bind_edits(uint32_t view_id, gis::EditSession* edits);
+
+  void set_activate_ipc(ActivateIpc fn);
+  void set_dispatch_ipc(DispatchIpc fn);
+
+  void activate(uint32_t view_id, const char* tool_id) override;
+  void dispatch(uint32_t view_id, const InputEvent& e) override;
+
+ private:
+  std::map<uint32_t, std::unique_ptr<ToolSession>> tool_sessions_;
+  ActivateIpc activate_ipc_;
+  DispatchIpc dispatch_ipc_;
+};
+
+}  // namespace content
+
+#endif  // CONTENT_TOOL_LOCAL_TOOL_ROUTER_H_

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "gis/datasource/ogr/ogr_text_encoding.h"
+#include "gis/tile/protocol/mercator_math.h"
 
 namespace vista {
 namespace {
@@ -78,13 +79,14 @@ size_t accept_label_count(const LabelScreenBox* boxes, size_t count) {
 }
 
 int label_min_importance(double scale) {
-  // fit_extent(China) lands near scale 8–16. Allow prefecture / capital
-  // stems (importance 2) so MapIR labels match city names; keep counties
-  // (1) for closer zooms.
-  if (scale < 22.0) {
+  // Mainland framing is ~48° lon; absolute scale grows with viewport width
+  // (800px≈17, 1280px≈27). Gate on zoom=8+log2(scale) so national overview
+  // keeps prefecture/capital stems (2) and defers counties (1) until zoom-in.
+  const double zoom = gis::tile::zoom_from_scale(scale);
+  if (zoom < 14.0) {
     return 2;
   }
-  if (scale < 48.0) {
+  if (zoom < 16.0) {
     return 1;
   }
   return 0;
@@ -205,31 +207,33 @@ bool line_is_major_class(const char* kind, const char* feature_class) {
 
 bool line_visible_at_scale(LineRole role, double length, bool major_class,
                            double scale) {
-  // MapLibre-style road gate at national frame (product scale ≈ 8–16).
+  // MapLibre-style road gate at national frame. Absolute scale tracks
+  // viewport width for the same lon span — use zoom=8+log2(scale).
   // Stem-aggregated length joins short trunk pieces; 0.12° is the bare-piece
   // floor so continuous roads read as networks.
-  if (role == LineRole::kRoad && scale < 22.0) {
+  const double zoom = gis::tile::zoom_from_scale(scale);
+  if (role == LineRole::kRoad && zoom < 14.0) {
     return major_class && length >= 0.12;
   }
   if (major_class) {
-    if (scale < 48.0) {
+    if (zoom < 16.0) {
       return length >= 0.6;
     }
-    return length >= 0.05 || scale >= 96.0;
+    return length >= 0.05 || zoom >= 18.0;
   }
   double min_len = 0.0;
   if (role == LineRole::kWater) {
-    if (scale < 22.0) {
+    if (zoom < 14.0) {
       min_len = 0.8;
-    } else if (scale < 48.0) {
+    } else if (zoom < 16.0) {
       min_len = 0.4;
-    } else if (scale < 96.0) {
+    } else if (zoom < 18.0) {
       min_len = 0.15;
     }
   } else if (role == LineRole::kRoad) {
-    if (scale < 48.0) {
+    if (zoom < 16.0) {
       min_len = 0.7;
-    } else if (scale < 96.0) {
+    } else if (zoom < 18.0) {
       min_len = 0.15;
     }
   }
@@ -238,16 +242,17 @@ bool line_visible_at_scale(LineRole role, double length, bool major_class,
 
 int line_stroke_px(LineRole role, double length, double scale) {
   const bool trunk = length >= (role == LineRole::kRoad ? 3.0 : 4.0);
+  const double zoom = gis::tile::zoom_from_scale(scale);
   if (role == LineRole::kWater || role == LineRole::kRoad) {
-    if (scale < 22.0) {
+    if (zoom < 14.0) {
       return trunk ? 2 : 1;
     }
-    if (scale < 96.0) {
+    if (zoom < 18.0) {
       return trunk ? 3 : 2;
     }
     return trunk ? 4 : 2;
   }
-  return scale < 48.0 ? 1 : 2;
+  return zoom < 16.0 ? 1 : 2;
 }
 
 void fill_stem_lengths(const StemSpan* spans, size_t count, double touch_tol,

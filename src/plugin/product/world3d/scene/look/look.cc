@@ -22,7 +22,8 @@ void apply_china_orbit(content::OrbitFrame* orbit) {
   }
   orbit->reset();
   orbit->apply_world_extent(content::kChinaLonLatExtent);
-  orbit->set_distance(1.45f);
+  orbit->set_dolly_limits(content::kScene3dDollyMinLocal, 12.f);
+  orbit->set_distance(content::kScene3dDefaultDistance);
   orbit->set_pitch(0.52f);
   orbit->set_yaw(content::kScene3dDefaultYaw);
 }
@@ -98,12 +99,18 @@ bool apply_world3d_look(content::Scene3dPresenter* cam,
   switch (look) {
     case World3dLook::kLand:
       apply_china_orbit(orbit);
+      // Land-only still needs china_dem + ContourSheet. Flags alone left a
+      // navy clear (atmosphere-showcase=land / SCENE3D_LAND_ONLY) with no
+      // mesh — same national Contour face as product Scene3D tab.
+      cam->atmosphere_session().seed_procedural(/*with_land_rings=*/true);
       cam->atmosphere_session().set_ocean_enabled(false);
       cam->atmosphere_session().set_cloud_enabled(false);
       cam->atmosphere_session().set_sky_enabled(false);
       cam->atmosphere_session().set_fog_enabled(false);
       cam->atmosphere_session().set_globe_enabled(false);
       cam->atmosphere_session().set_sat_cloud_enabled(false);
+      cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
+      (void)cam->atmosphere_session().apply_contour_suite_defaults();
       break;
     case World3dLook::kOcean:
       apply_china_orbit(orbit);
@@ -117,6 +124,8 @@ bool apply_world3d_look(content::Scene3dPresenter* cam,
       apply_china_orbit(orbit);
       orbit->set_distance(3.6f);
       orbit->set_pitch(0.36f);
+      // Same ContourSheet + china_dem bind as kLand — flags alone leave a
+      // translucent Local DEM plane on navy (atmosphere-showcase=full score).
       cam->atmosphere_session().seed_procedural(/*with_land_rings=*/true);
       cam->atmosphere_session().set_globe_enabled(false);
       cam->atmosphere_session().set_sat_cloud_enabled(false);
@@ -125,6 +134,7 @@ bool apply_world3d_look(content::Scene3dPresenter* cam,
       cam->atmosphere_session().set_sky_enabled(true);
       cam->atmosphere_session().set_fog_enabled(true);
       cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
+      (void)cam->atmosphere_session().apply_contour_suite_defaults();
       break;
     case World3dLook::kCoast: {
       orbit->reset();
@@ -181,7 +191,8 @@ bool apply_world3d_look(content::Scene3dPresenter* cam,
         constexpr content::Extent2 kEastChina{112.0, 30.0, 121.0, 38.0};
         orbit->apply_world_extent(kEastChina);
       }
-      orbit->set_distance(1.45f);
+      orbit->set_dolly_limits(content::kScene3dDollyMinLocal, 12.f);
+      orbit->set_distance(content::kScene3dDefaultDistance);
       orbit->set_pitch(0.52f);
       orbit->set_yaw(2.25f);
       break;

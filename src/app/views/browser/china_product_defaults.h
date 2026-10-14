@@ -4,6 +4,8 @@
 #ifndef APP_VIEWS_BROWSER_CHINA_PRODUCT_DEFAULTS_H_
 #define APP_VIEWS_BROWSER_CHINA_PRODUCT_DEFAULTS_H_
 
+#include "content/public/types.h"
+
 namespace app {
 
 class Browser;
@@ -43,6 +45,16 @@ ChinaScene3dAtmoFlags apply_china_scene3d_product_defaults(Browser& browser);
 // Leftover stereo look (opt-in): black clear, ocean sea plane, no sky/cloud/fog,
 // hypsometric DEM orbit, place-name overlays. Does not change default atmosphere.
 ChinaScene3dAtmoFlags apply_china_scene3d_legacy_look(Browser& browser);
+
+// After show_shell + fit: drop pre-china FlyCube latch when sync China is
+// seeded. Always reset even if show_shell already built a layout (that frame
+// may be wrong-size / latched). Session-only (no ui_); returns true when the
+// caller should invalidate_native_map.
+bool note_product_map2d_surface_after_show(Browser& browser);
+
+// Orbit sync from GisContents ExtentChanged — only China lon/lat boxes
+// (pixel/world crops would shrink DEM into a sticker on the ocean).
+bool should_sync_orbit_extent(const content::Extent2& e);
 
 }  // namespace app
 

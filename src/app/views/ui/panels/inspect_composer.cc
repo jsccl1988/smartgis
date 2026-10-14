@@ -211,7 +211,7 @@ bool InspectComposer::try_consume_measure_draft(const tool::Draft& draft) {
     map_pts.emplace_back(mx, my);
   }
 
-  const bool china = host_->browser_->session().document_has_china_extent();
+  const bool china = host_->browser_->session().document_has_land_surface();
   auto segment_m = [china](double x0, double y0, double x1, double y1) {
     const double dx = x1 - x0;
     const double dy = y1 - y0;

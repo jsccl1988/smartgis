@@ -13,15 +13,16 @@ class Browser;
 
 // Scene3d engine applied before Browser::init when SCENE3D_ENGINE is unset.
 // Product packs own scenario bodies; chrome only pins the engine face.
+// kGdi = placeholder engine (no soft DEM); keeps 2D harness off Display.
 enum class Scene3dStartup {
   kLeave,
   kGdi,
   kFlyCube,
 };
 
-// 2D Map Edit attach / overlay gates. Product vs harness faces.
-// kProduct / kFlyCube2d → GpuPresent + present_gpu SoT (no force GDI overlay).
-// kContentGdi / kInteract / kPluginScene3d → ContentMapView / GDI faces.
+// 2D Map Edit attach gates. Soft MapIR->HDC overlay is gone.
+// kProduct / kFlyCube2d → GpuPresent + present_gpu SoT.
+// kContentGdi / kInteract / kPluginScene3d → ContentMapView embed paint.
 enum class Map2dStartup {
   kProduct,
   kContentGdi,
@@ -32,6 +33,8 @@ enum class Map2dStartup {
 
 // Present / catalog gates for one registered suite entry. Applied before
 // Browser::init; suite selection itself is plugin.json `startup.scenario`.
+// |force_gdi_overlay| is obsolete (always cleared) — kept for LaunchPolicy
+// row layout / constexpr initializers.
 struct LaunchPolicy {
   Scene3dStartup scene3d = Scene3dStartup::kGdi;
   Map2dStartup map2d = Map2dStartup::kContentGdi;

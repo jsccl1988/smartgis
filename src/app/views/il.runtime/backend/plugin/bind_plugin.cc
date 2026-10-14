@@ -10,7 +10,7 @@
 #include <utility>
 
 #include "app/views/browser/browser.h"
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "app/views/il.runtime/backend/plugin/dispatch.h"
 #include "app/views/il.runtime/bind/slots.h"
 #include "base/process/switches.h"

@@ -223,6 +223,7 @@ void fill_resolved_paint(const StyleLayer& layer, const SymbolLibrary* library,
   out->icon_offset_x = 0.f;
   out->icon_offset_y = 0.f;
   out->symbol_placement = "point";
+  out->text_color = 0xFF141820u;
   out->text_halo_color = 0;
   out->text_halo_width = 0.f;
   out->background_color = 0xFF000000;
@@ -335,6 +336,19 @@ void fill_resolved_paint(const StyleLayer& layer, const SymbolLibrary* library,
         resolve_string(layer.layout, "symbol-placement", attrs, zoom);
     if (!placement.empty()) {
       out->symbol_placement = placement;
+    }
+  }
+  apply_color("text-color", &out->text_color);
+  {
+    // text-color is paint in the Style Spec; allow layout fallback for older
+    // china JSON that nested it under layout.
+    if (layer.paint.find("text-color") == layer.paint.end()) {
+      const std::string c =
+          resolve_string(layer.layout, "text-color", attrs, zoom);
+      uint32_t argb = 0;
+      if (!c.empty() && parse_color(c, &argb)) {
+        out->text_color = argb;
+      }
     }
   }
   apply_color("text-halo-color", &out->text_halo_color);

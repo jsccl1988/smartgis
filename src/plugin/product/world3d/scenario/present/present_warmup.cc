@@ -10,7 +10,7 @@
 #include "ui/views/map/viewport/draw_host.h"
 #include "plugin/product/world3d/scenario/seed/world3d_seed.h"
 #include "app/views/util/exe_sidecar_path.h"
-#include "content/browser/present/scene3d/scene3d_phase_profile.h"
+#include "content/browser/present/scene3d/profile/scene3d_phase_profile.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "render/rhi/rhi.h"
 

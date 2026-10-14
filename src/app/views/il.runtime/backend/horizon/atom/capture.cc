@@ -8,6 +8,7 @@
 #include "app/views/il.runtime/backend/view/pixel/gate.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <utility>
 #include <vector>
@@ -100,31 +101,45 @@ bool composite_map_hwnd_into_shell(HWND shell,
   if (!mem || !place_child_in_shell(shell, map, shell_w, shell_h, 8, 8, &place)) {
     return false;
   }
+  const int blit_x = std::max(0, place.dst_x);
+  const int blit_y = std::max(0, place.dst_y);
+  const bool dxgi_flip =
+      (GetWindowLongPtrW(map, GWL_EXSTYLE) & WS_EX_NOREDIRECTIONBITMAP) != 0;
+  // Flip-model DXGI (WS_EX_NOREDIRECTIONBITMAP) has no GDI redirection bitmap.
+  // GetDC BitBlt returns the class BLACK_BRUSH and must not run first — a
+  // failed CAPTUREBLT used to leave that poison in the shell DIB (ui.shell
+  // hollow map: present frame_items cream, BMP center (0,0,0)).
+  if (dxgi_flip) {
+    if (!IsWindowVisible(map)) {
+      ShowWindow(map, SW_SHOWNOACTIVATE);
+    }
+    // Match testing/tools/loop/record/capture.py: desktop SRCCOPY of the
+    // TOPMOST FlyCube Present rect (no CAPTUREBLT). CAPTUREBLT has returned
+    // solid black for flip-model popups while SRCCOPY sees DWM composition.
+    SetWindowPos(map, HWND_TOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE);
+    RECT wr = {};
+    if (!GetWindowRect(map, &wr)) {
+      return false;
+    }
+    HDC screen = GetDC(nullptr);
+    if (!screen) {
+      return false;
+    }
+    const BOOL ok =
+        BitBlt(mem, blit_x, blit_y, place.copy_w, place.copy_h, screen,
+               wr.left + place.src_x, wr.top + place.src_y, SRCCOPY);
+    ReleaseDC(nullptr, screen);
+    return ok != FALSE;
+  }
   HDC map_dc = GetDC(map);
   if (!map_dc) {
     return false;
   }
-  const int blit_x = std::max(0, place.dst_x);
-  const int blit_y = std::max(0, place.dst_y);
   const BOOL gdi_ok = BitBlt(mem, blit_x, blit_y, place.copy_w, place.copy_h,
                              map_dc, place.src_x, place.src_y, SRCCOPY);
   ReleaseDC(map, map_dc);
-  BOOL ok = gdi_ok;
-  const bool dxgi_flip =
-      (GetWindowLongPtrW(map, GWL_EXSTYLE) & WS_EX_NOREDIRECTIONBITMAP) != 0;
-  // Flip-model DXGI has no GDI redirection bitmap. Copy DWM screen pixels of
-  // the present client while the shell is TOPMOST (caller). Do not blit the
-  // whole desktop — only this client rect.
-  if (dxgi_flip) {
-    HDC screen = GetDC(nullptr);
-    if (screen) {
-      ok = BitBlt(mem, blit_x, blit_y, place.copy_w, place.copy_h, screen,
-                  place.screen.x + place.src_x, place.screen.y + place.src_y,
-                  SRCCOPY | CAPTUREBLT);
-      ReleaseDC(nullptr, screen);
-    }
-  }
-  return ok != FALSE;
+  return gdi_ok != FALSE;
 }
 
 bool composite_hud_hwnd_into_shell(HWND shell,
@@ -334,6 +349,118 @@ bool capture_ui_shell_bmp(HWND hwnd,
   }
 
   return write_bmp_file(filename, bi, pixels.data(), pixels.size());
+}
+
+namespace {
+
+bool load_bmp_file(const wchar_t* path,
+                   BITMAPINFOHEADER* bi,
+                   std::vector<unsigned char>* pixels) {
+  if (!path || !bi || !pixels) {
+    return false;
+  }
+  FILE* in = nullptr;
+  if (_wfopen_s(&in, path, L"rb") != 0 || !in) {
+    return false;
+  }
+  BITMAPFILEHEADER fh{};
+  if (std::fread(&fh, sizeof(fh), 1, in) != 1 ||
+      std::fread(bi, sizeof(*bi), 1, in) != 1 || fh.bfType != 0x4D42) {
+    std::fclose(in);
+    return false;
+  }
+  const int w = bi->biWidth;
+  const int h = bi->biHeight < 0 ? -bi->biHeight : bi->biHeight;
+  if (w < 8 || h < 8 || w > kMaxBmpEdge || h > kMaxBmpEdge ||
+      (bi->biBitCount != 24 && bi->biBitCount != 32)) {
+    std::fclose(in);
+    return false;
+  }
+  const int stride = ((w * bi->biBitCount + 31) / 32) * 4;
+  pixels->assign(static_cast<size_t>(stride) * static_cast<size_t>(h), 0);
+  if (std::fseek(in, static_cast<long>(fh.bfOffBits), SEEK_SET) != 0 ||
+      std::fread(pixels->data(), 1, pixels->size(), in) != pixels->size()) {
+    std::fclose(in);
+    return false;
+  }
+  std::fclose(in);
+  return true;
+}
+
+}  // namespace
+
+bool stamp_map_export_into_shell_bmp(const wchar_t* shell_bmp,
+                                     HWND shell,
+                                     HWND map,
+                                     const wchar_t* map_export_bmp) {
+  ChildPlace place;
+  RECT shell_rc = {};
+  if (!shell_bmp || !map_export_bmp || !shell || !map ||
+      !GetClientRect(shell, &shell_rc)) {
+    return false;
+  }
+  const int shell_w = shell_rc.right - shell_rc.left;
+  const int shell_h = shell_rc.bottom - shell_rc.top;
+  if (!place_child_in_shell(shell, map, shell_w, shell_h, 8, 8, &place)) {
+    return false;
+  }
+  BITMAPINFOHEADER shell_bi{};
+  std::vector<unsigned char> shell_px;
+  if (!load_bmp_file(shell_bmp, &shell_bi, &shell_px) ||
+      shell_bi.biBitCount != 24) {
+    return false;
+  }
+  const int sw = shell_bi.biWidth;
+  const int sh =
+      shell_bi.biHeight < 0 ? -shell_bi.biHeight : shell_bi.biHeight;
+  const int shell_stride = ((sw * 24 + 31) / 32) * 4;
+  const bool shell_top_down = shell_bi.biHeight < 0;
+  // Always stamp: cream+line DXGI smear is "lit" enough to skip a near-black
+  // gate, but is not carto SoT.
+  BITMAPINFOHEADER map_bi{};
+  std::vector<unsigned char> map_px;
+  if (!load_bmp_file(map_export_bmp, &map_bi, &map_px)) {
+    return false;
+  }
+  const int mw = map_bi.biWidth;
+  const int mh = map_bi.biHeight < 0 ? -map_bi.biHeight : map_bi.biHeight;
+  const int map_bpp = map_bi.biBitCount / 8;
+  const int map_stride = ((mw * map_bi.biBitCount + 31) / 32) * 4;
+  const bool map_top_down = map_bi.biHeight < 0;
+  if (mw < 8 || mh < 8 || map_bpp < 3) {
+    return false;
+  }
+  const int dst_x = std::max(0, place.dst_x);
+  const int dst_y = std::max(0, place.dst_y);
+  const int copy_w = std::min(place.copy_w, std::min(mw, sw - dst_x));
+  const int copy_h = std::min(place.copy_h, std::min(mh, sh - dst_y));
+  if (copy_w < 8 || copy_h < 8) {
+    return false;
+  }
+  for (int y = 0; y < copy_h; ++y) {
+    const int src_y = map_top_down ? y : (mh - 1 - y);
+    const int dst_row_y = shell_top_down ? (dst_y + y) : (sh - 1 - (dst_y + y));
+    if (src_y < 0 || src_y >= mh || dst_row_y < 0 || dst_row_y >= sh) {
+      continue;
+    }
+    const unsigned char* src =
+        map_px.data() + static_cast<size_t>(src_y) * map_stride +
+        static_cast<size_t>(place.src_x) * static_cast<size_t>(map_bpp);
+    unsigned char* dst =
+        shell_px.data() + static_cast<size_t>(dst_row_y) * shell_stride +
+        static_cast<size_t>(dst_x) * 3u;
+    for (int x = 0; x < copy_w; ++x) {
+      dst[0] = src[0];
+      dst[1] = src[1];
+      dst[2] = src[2];
+      src += map_bpp;
+      dst += 3;
+    }
+  }
+  shell_bi.biHeight = -sh;
+  shell_bi.biSizeImage =
+      static_cast<DWORD>(shell_stride) * static_cast<DWORD>(sh);
+  return write_bmp_file(shell_bmp, shell_bi, shell_px.data(), shell_px.size());
 }
 
 }  // namespace detail

@@ -18,18 +18,15 @@ bool map2d_fps_bench() {
   return e && e[0] != '\0' && std::atoi(e) > 0;
 }
 
-bool switch_is_zero(const char* name) {
-  const char* v = base::switch_cstr(name);
-  return v && v[0] == '0' && v[1] == '\0';
-}
-
 bool want_flycube_2d() {
   const char* p = base::switch_cstr("prefer-flycube-2d");
   return p && p[0] == '1' && p[1] == '\0';
 }
 
+// Faces that keep Map Edit on ContentMapView (no DXGI Display on 2D).
+// Soft MapIR->HDC overlay is gone; these faces still paint via map2d_paint
+// into the embed when needed (harness / interact).
 bool pins_content_mapview(const LaunchPolicy& policy) {
-  // Product / FlyCube2d pin GPU present — ContentMapView is harness opt-in.
   return policy.map2d == Map2dStartup::kPluginScene3d ||
          policy.map2d == Map2dStartup::kInteract ||
          policy.map2d == Map2dStartup::kContentGdi;
@@ -38,34 +35,54 @@ bool pins_content_mapview(const LaunchPolicy& policy) {
 void apply_flycube_2d_face() {
   base::set_switch("force-content-mapview-2d", "0");
   base::set_switch("prefer-flycube-2d", "1");
+  base::set_switch("map2d-engine", "");
+  base::set_switch("force-gdi-map-overlay", "0");
+  // Match product / align gold: DEM jet under cream land on MapPass.
+  base::set_switch("map2d-force-hillshade", "1");
+}
+
+// Product argv=[] gold = map2d-showcase-align via FlyCube MapPass (MapIR
+// fill/hillshade/jet on DXGI). Scenic is flat fill only — matrix opt-in.
+void apply_product_flycube_2d_face() {
+  base::set_switch("force-content-mapview-2d", "0");
+  base::set_switch("prefer-flycube-2d", "1");
+  base::set_switch("map2d-engine", "");
+  base::set_switch("force-gdi-map-overlay", "0");
+  base::set_switch("map2d-force-hillshade", "1");
+}
+
+void apply_content_mapview_face() {
+  base::set_switch("force-content-mapview-2d", "1");
+  base::set_switch("prefer-flycube-2d", "0");
   base::set_switch("force-gdi-map-overlay", "0");
 }
 
 void apply_map2d_face(const LaunchPolicy& policy, bool fps) {
   switch (policy.map2d) {
     case Map2dStartup::kPluginScene3d:
-      base::set_switch("force-content-mapview-2d", "1");
-      base::set_switch("force-gdi-map-overlay", "1");
-      break;
     case Map2dStartup::kInteract:
-      base::set_switch("force-content-mapview-2d", "1");
-      base::set_switch("prefer-flycube-2d", "0");
-      base::set_switch("force-gdi-map-overlay", "0");
+      apply_content_mapview_face();
       break;
     case Map2dStartup::kContentGdi:
+      // Historical name: ContentMapView attach (not soft MapIR->HDC).
+      // FPS bench may leave FlyCube preferred so present_gpu can warm.
       if (!fps) {
-        base::set_switch("force-content-mapview-2d", "1");
-        base::set_switch("prefer-flycube-2d", "0");
+        apply_content_mapview_face();
       }
       break;
     case Map2dStartup::kFlyCube2d:
       apply_flycube_2d_face();
       break;
     case Map2dStartup::kProduct:
-      // Product 2D SoT = Vista/FlyCube present_gpu (MapPass). ContentMapView
-      // + full GDI overlay stay opt-in (FORCE_CONTENT_MAPVIEW_2D /
-      // FORCE_GDI_MAP_OVERLAY / harness ContentGdi faces).
-      apply_flycube_2d_face();
+      // Align gold is DXGI MapPass; scenic is opt-in (MAP2D_ENGINE=scenic).
+      if (content::BrowserSession::prefers_map2d_scenic()) {
+        base::set_switch("force-content-mapview-2d", "0");
+        base::set_switch("prefer-flycube-2d", "0");
+        base::set_switch("force-gdi-map-overlay", "0");
+      } else {
+        apply_product_flycube_2d_face();
+      }
+      (void)fps;
       break;
   }
 }
@@ -73,6 +90,8 @@ void apply_map2d_face(const LaunchPolicy& policy, bool fps) {
 void apply_scene3d(const LaunchPolicy& policy) {
   switch (policy.scene3d) {
     case Scene3dStartup::kGdi:
+      // Placeholder engine (no soft DEM bake). Keeps chrome/2D harness off
+      // the FlyCube Display thread until a Scene3D face asks for it.
       content::BrowserSession::use_scene3d_engine_gdi();
       break;
     case Scene3dStartup::kFlyCube:
@@ -87,10 +106,11 @@ void apply_scene3d(const LaunchPolicy& policy) {
 
 LaunchPolicy product_startup_policy() {
   LaunchPolicy p;
-  // Pin FlyCube for bare SmartGIS.exe. kLeave left a window where a stale
-  // SCENE3D_ENGINE / poisoned Scenario default could keep Scene3dEngine::kGdi
-  // and land the 3D tab on Scene3dSoftwarePainter (Engine:GDI Fps~0).
+  // Pin FlyCube for bare SmartGIS.exe Scene3d. kLeave left a window where a
+  // stale SCENE3D_ENGINE / poisoned Scenario default could keep
+  // Scene3dEngine::kGdi as HWND placeholder (Engine:GDI Fps~0).
   p.scene3d = Scene3dStartup::kFlyCube;
+  // Product 2D: FlyCube MapPass (align carto gold). Scenic via MAP2D_ENGINE.
   p.map2d = Map2dStartup::kProduct;
   p.skip_ambox_catalog = false;
   p.force_gdi_overlay = false;
@@ -108,7 +128,7 @@ LaunchPolicy startup_policy_for_scenario(std::string_view scenario_id) {
   fallback.scene3d = Scene3dStartup::kGdi;
   fallback.map2d = Map2dStartup::kContentGdi;
   fallback.skip_ambox_catalog = true;
-  fallback.force_gdi_overlay = true;
+  fallback.force_gdi_overlay = false;
   return fallback;
 }
 
@@ -123,7 +143,7 @@ void apply_startup_policy(const LaunchPolicy& policy_in) {
       policy.scene3d = Scene3dStartup::kGdi;
       policy.map2d = Map2dStartup::kContentGdi;
       policy.skip_ambox_catalog = true;
-      policy.force_gdi_overlay = true;
+      policy.force_gdi_overlay = false;
       break;
   }
   switch (policy.map2d) {
@@ -186,9 +206,16 @@ void apply_startup_policy(const LaunchPolicy& policy_in) {
     }
   }
 
-  if (!fps && policy.force_gdi_overlay &&
-      !switch_is_zero("force-gdi-map-overlay")) {
+  // Soft MapIR→HDC is not used; keep overlay off unless a scenario pins it.
+  if (policy.force_gdi_overlay) {
     base::set_switch("force-gdi-map-overlay", "1");
+  } else if (!content::BrowserSession::prefers_map2d_scenic()) {
+    // Product FlyCube face already cleared overlay; do not re-force here when
+    // align harness sets FORCE_GDI_MAP_OVERLAY=1 via env before argv parse.
+    const char* gdi = base::switch_cstr("force-gdi-map-overlay");
+    if (!gdi || (gdi[0] != '1')) {
+      base::set_switch("force-gdi-map-overlay", "0");
+    }
   }
   if (policy.skip_ambox_catalog) {
     base::set_switch("skip-ambox-catalog", "1");

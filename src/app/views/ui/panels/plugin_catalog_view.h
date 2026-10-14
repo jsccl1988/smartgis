@@ -30,25 +30,32 @@ class TableView;
 
 namespace app {
 
-// Horizon plugin list: enable/disable plus hover tooltip with metadata.
+class Browser;
+
+// Right-dock plugin catalog: enable/disable, Run scenario demo, hover tip.
 class PluginCatalogView : public ui::views::View {
  public:
-  PluginCatalogView(plugin::Registry* registry, content::PluginHost* host);
+  PluginCatalogView(plugin::Registry* registry, content::PluginHost* host,
+                    Browser* browser = nullptr);
 
+  // Optional floating dialog (tests / fallback). Product shell docks this view.
   static bool run_modal(HWND owner, plugin::Registry* registry,
-                        content::PluginHost* host);
+                        content::PluginHost* host, Browser* browser = nullptr);
 
   void refresh();
 
  private:
   void on_enable();
   void on_disable();
+  void on_run();
   void on_hover_row(int row);
   std::string selected_id() const;
   std::string tooltip_for_row(int row) const;
+  std::string scenario_id_for_plugin(const std::string& plugin_id) const;
 
   plugin::Registry* registry_ = nullptr;
   content::PluginHost* host_ = nullptr;
+  Browser* browser_ = nullptr;
   ui::views::TableView* table_ = nullptr;
   ui::views::Label* tooltip_ = nullptr;
   ui::views::Label* error_ = nullptr;

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 #include "app/views/il.runtime/backend/view/camera/fit_scene_box.h"
@@ -10,7 +10,7 @@
 
 #include "app/views/browser/browser.h"
 #include "content/browser/camera/orbit_frame.h"
-#include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
+#include "content/browser/present/scene3d/gpu/present/scene3d_gpu_present.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "ui/views/map/viewport/draw_host.h"
 
@@ -93,26 +93,30 @@ bool fit_scene_box(Browser& browser) {
     radius = std::sqrt(hx * hx + hy * hy + hz * hz);
     height_ratio = hy / (std::max)(radius, 1.0e-3f);
   } else {
-    // Lon/lat world extent 鈫?approximate orbit diagonal (~3.2 for full China).
+    // Lon/lat world extent -> approximate orbit diagonal (~3.2 for full China).
     const content::Extent2 e = orbit->world_extent();
     const double span_lon = e.xmax - e.xmin;
     const double span_lat = e.ymax - e.ymin;
     const double span = (std::max)(span_lon, span_lat);
     if (span > 1.0e-6) {
-      // China ~62掳 maps to orbit diagonal ~3.2.
+      // China ~62 deg maps to orbit diagonal ~3.2.
       radius = static_cast<float>(span / 62.0 * 2.25);
     }
   }
 
+  // Keep the dolly floor outside the mesh sphere so close orbit cannot park
+  // the eye inside the DEM (near-plane half-cut). Tiny pads still allow 0.55.
+  const float dolly_min = (std::max)(radius * 1.05f, 0.55f);
   float dist = distance_for_radius(radius);
-  dist = (std::max)(0.65f, (std::min)(dist, 11.5f));
-  orbit->set_dolly_limits(0.55f, 12.f);
+  dist = (std::max)(dolly_min, (std::min)(dist, 11.5f));
+  orbit->set_dolly_limits(dolly_min, 12.f);
   orbit->set_distance(dist);
 
   // Elevated 3/4 view: taller boxes need a slightly flatter pitch so the
-  // roof/cutaway stays in frame; flat DEM gets a steeper look-down.
+  // roof/cutaway stays in frame; flat DEM gets a steeper look-down so the
+  // country fills enough of the frame for atmosphere.full landish (>3%).
   const float pitch =
-      (std::max)(0.32f, (std::min)(0.72f, 0.52f - 0.18f * height_ratio));
+      (std::max)(0.55f, (std::min)(0.92f, 0.82f - 0.22f * height_ratio));
   orbit->set_pitch(pitch);
 
   // Prefer south-of-target (north up) with a small yaw bias for volume sides.

@@ -5,10 +5,10 @@ All rights reserved.
 
 # `src/app/views` desktop shell (QGIS-style menus + map context)
 
-**Status:** active  
-**Date:** 2026-09-27  
-**Updated:** 2026-10-07 — **§Content browser subdirectory tighten** landed (C11 dirs; `types.h`; `gis_bootstrap`/`GisSceneDocument` out of public; attrs→gis). Same day — **§Content process layers** (app vs `content/browser` vs vista/scenic/gpu; `ChildProcessHost` at `content/browser/child`; four-step upgrade, product default in-process, `ENABLE_OOP_RENDER` stays off; diagram `content-browser-layers.html`). Same day — **§Content public embedder** (`src/content/public` is the only embedder API; `GisContentsClient` is browser-process hooks; diagram `content-embedder.html`). Same day — **`app/startup` launch table slim** (drop `ScenarioKind`; cmdline showcase enums removed — scenario id from plugin.json; atmosphere modes in `world3d/scenario/atmosphere/mode.h`; Scene3D GIS suites pin `Scene3dStartup::kFlyCube`). Same day — **Product 2D SoT = FlyCube/Vista `present_gpu`** (`product_startup_policy` clears `force-content-mapview-2d` / `force-gdi-map-overlay`; ContentMapView+GDI remain harness opt-in). Prior same day — **`ui.interact*` host/gesture split** (`gesture_script` / `UI_INTERACT_GESTURE_SCRIPT`; four registry rows share `ui.interact.host`). Prior same day — **`suite.json` drop `showcase` kind** (il.runtime has no showcase lane; all `harness/{browser,plugin,ui}` suites are `kind=integration`). Prior same day — **`harness/plugin/plugin.*` → `kind=integration`** (IR peer `browser.console`). Prior same day — **`harness/shell/` folded into `harness/browser/` as `browser.*` integration suites** (`kind=integration`; gate = `browser.gpu` + `browser.harness`). Prior same day — **`harness/shell/*.il` IR-ordered** (horizon → document → view → plugin; named args; `browse.3d` scene tab once). Prior same day — **`il.runtime/runtime/` → `il.runtime/backend/`:** host stdlib directory and GN `source_set("backend")`; `:lower` does not depend on `:backend`; `:il.runtime` aliases `:driver` (removed intermediate `group("backend")` that aliased `:driver`). Prior 2026-10-06 — **Four objects:** `document` / `view` / `plugin` / `horizon` are the same names on `content::CapabilityHost` and `app::ir`. `view` is any `ViewKind` (edit, data, scene, future world). `il.runtime/{codegen,runtime}` (later renamed `backend/`): `:lower` does not depend on the host stdlib target; `:driver` links once then applies; `:il.runtime` aliases `:driver`. Prior same day — **One GN `:backend`:** `clock` / `capture` / `capability` / `:compile` are a single `source_set("backend")`. `:il.runtime` aliases it. Prior same day — **`backend/` is flat:** no `compile/` or `runtime/` subdirs. Colliding names are `eval_host` / `capture_host`, `lower_document` / `horizon_document`, `lower_expect` / `shell_expect`, `lower_bind.h` / `bind_horizon.h` / `bind_plugin.h`. GN `:compile` does not dep `:capability`. Prior same day — **Capture + expect fold into `backend/runtime/horizon`:** BMP, mark, present-session, and expect/probe/debug-console lived in that pack’s `atom/` and `sema/` before the flatten. `bind_horizon.h` declares `bind_horizon`, `bind_export`, and `bind_expect`. Prior same day — **No `execution/sema/showcase`:** product `*_run` verbs register in `src/plugin` and lower via `try_lower_plugin_call`; testing gates lower in `sema/expect`; browse/UI capture lower in `sema/horizon`. Suite order stays `testing/tools/harness/**/*.il`. Prior same day — **Horizon sema `ui`:** theme, linger, fps bench, and shell BMP composite fold into `horizon/sema/ui` (former `ui_shell`). Prior same day — **Horizon bind/sema/atom:** `capability/horizon` is `bind` → `sema` → `atom` keyed off IL verbs; `capture_browse_still` composes `capture`; `wait_ready` / `expect_*` bind in `expect`. Prior same day — **Capture atom/sema:** `capability/capture` is `bind` → `sema` → `atom` (no `codec`/`policy`/`present`/`scene`/`surface`). Prior same day — **Compiler DAG** (language ⊥ capability):** `language/load` is the source manager (recursive walk in `util/find_named`; no `capability/` include). `language/driver` (`backend.h`) selects `.il` / `.json` / `.py`. `run_script` links once then `apply_script`; interact panel apply does not `bind_host` again; OS wait uses Host `pump`/`mark`/`select_view_tab`. `capability/` still must not include `language/`. Prior same day — **`src/app/views/harness/` deleted:** LaunchPolicy registry is `app/startup/scenario.*`; `report_suite` is `browser/plugin/`. Same day — **Semantic calls:** `ir/api.h` is the language-neutral surface (`app::semantic`; IL decodes `CallStmt`, a future `.py` backend calls the same functions via `language/backend.h`). Browse and `ui.interact` step order live in `*.il` (`ui.interact.host.il` wraps `ui.interact.il`). `capability` does not include `language/`. `harness/ui` composer removed. Same day — **`horizon/ui`:** theme, repaint, and shell BMP composite live in `shell.cc`; scenario panels, layout gate, and present capture share `ModeSpec` in `showcase.cc`. Same day — **`capability/capture/present` primitives:** `gpu_env` · `frame` · `session` · `pane`. Same day — **`capability/shell` folded into `capability/horizon/shell`:** window, path, and HWND inject are a horizon pack; `bind_horizon` sequences `bind_shell` / `bind_document` / `bind_browse` / `bind_ui`. Same day — **`capability/capture/present` primitives:** `gpu_env` · `capture_hwnd` · `frame` · `borrow` · `device` · `session` · `warmup` · `pane`. Same day — **capture `surface/hwnd`:** `present_hwnd` and `hwnd_capture` are one module (present-window lifetime + client readback). Same day — **`testing/tools/loop` layers:** `contract/` `drive/` `interact/` `record/` `score/` `review/` (`loop-layers.html`); runner composes only. Same day — **il.runtime language ⊥ capability:** `language/` façade (`run_script` / `interact_*`); HWND inject is Host slots (`capability/horizon/shell/surface`); GN `:capability` does not dep `:execution`. Same day — **`capability/capture` layers** (`codec` · `policy` · `surface` · `present` · `scene` · `bind`; present includes surface; scene composes `present_scene3d_gpu` + `surface/hwnd`). Same day — **`capability/horizon` packs** `clock/` `document/` `browse/` `shell/` `ui/` (`bind_horizon` sequences `bind_shell` / `bind_document` / `bind_browse` / `bind_ui`). Same day — **`capability/gate` → `capability/expect`** (`bind_expect`; HWND/layout/console atoms, not CI `--gate`). Same day — **Gate composers deleted:** sequences live in `testing/tools/harness/shell/{harness,console}/*.il`. Same day — **`il.runtime/capability/session` folded into `capability/horizon`** (`bind_horizon` owns document/tools/browse + UI chrome slots). Same day — **`il.runtime/capability/export` folded into `capability/capture`**. Same day — **`il.runtime/capability/paths` folded into `capability/horizon/shell`** (`bind_paths` / `text.*`; `bind_horizon` calls `bind_shell`). Same day — **`il.runtime/capability/chrome` → `capability/horizon`** (`bind_horizon`). Same day — **harness leftover dirs deleted** (`showcase/` `chrome/` `self_test/` `capture/` `browse/` `input/`; disk is `harness/{run,ui}`). Same day — **§Harness IL capability cut** locked: `harness/run` stays a LaunchPolicy registry; host primitives (`capture`, pump, dispatch, gates) move to `il.runtime/capability`; `input` / `browse` / `ui` sequences move to `*.il`. Same day — **§Harness capability runtime** `app/views/runtime` → `src/app/views/il.runtime` (`il.runtime`; GN `//src/app/views/il.runtime:il.runtime`). Same day — **§Harness capability runtime** Scene3D plugin suites dispatch via IL coarse `*_run` (`world3d_run` / `mine_run` / `stormsurge_run` / `orthogrid3d_run`); grammar stays `IDENT`. Same day — Chrome present/playback/preview moved `runtime/plugin/` → `browser/plugin/`. Same day — Atmosphere inspector moved to `smartgis.world3d` (`world3d.atmosphere` dock). Same day — **§Harness capability runtime** rename `runtime/interact/` → `runtime/execution/` (`try_apply_execution` / `is_execution_path`; GN `:execution`; grammar stays `Interact.g4`). Same day — **§Harness pipeline** `src/app/views/harness/showcase/` deleted; GIS bodies stay in `plugin/product/<pkg>/scenario/` (`*_harness`). Same day — **§Harness pipeline** `harness/chrome/` **deleted**; HWND gates live in `harness/run`; `browse`/`input`/`ui` are siblings. Same day — **§Plugin catalog_view** (`app::PluginCatalogView` hover tooltip). Prior same day — map2d HWND showcase links via `map2d_harness` (exe/test only; native DLL stays GIS `map2d_scenario`). Prior same day — map2d showcase bodies in `plugin/product/map2d/scenario/showcase`; chrome dispatcher is `harness/run`. Prior same day — harness pipeline dirs `run/` `capture/` `analyze/` `bugs/` `repair/` `chrome/`; GIS scenarios dispatched to plugins (`--harness`, alias `--self-test`). Prior same day — as-built lock: `src/app/views/{app,browser,ui,harness,runtime,util}` peers (no extra `shell/` dir; GIS capabilities stay in `content/browser`). Prior same day — merge `content/public/{map_types,catalog_layers,feature_attrs}.h` → `types.h`. Prior same day — `runtime/execution/` by concern (`wire`/`policy`/`io`/`host`/`exec`; façade `apply.*`). Prior same day — `runtime/` peers `capability/` · `execution/` · `plugin/`. Prior same day — `app/` process-entry subdirs (`host/` · `process/` · `cmdline/` · `startup/`; `main.cc` under `app/`). Prior same day — product chrome → **horizon** in `src/` (Interact `exec/horizon`; Chrome Trace / Chromium `chrome/` unchanged). Prior same day — drop extra `shell/` nesting (`app/views/{app,browser,ui,harness,runtime}`). Prior same day — `plugin/product/builtins` façade; PluginShell opaque register. Prior same day — Scene3dSink install folded into `plugin_host_wiring.cc`; runtime seams `plugin_present` · `plugin_playback`. Prior same day — plugin host seams at `runtime/` root; chrome no product stores. Prior 2026-10-05 — drop `map/` root include forwards. Same day — **§DrawHost naming** (UI primary canvas; no map/flycube vocabulary). Same day — **§Views primitives composition** (radio tree exclusivity, TreeView/ScrollView hit+wheel, markup attrs). Same day — **§Views kernel seams** (layout drain, CommitGate, caption cancel). Same day — **§UI chrome equal-profile harness** (`harness-auto-ui-opt`). Same day — **§DrawHost paint composition** (2D ContentMapView leftover SharedSurface is not SoT; viewport paint split by responsibility). Prior 2026-10-04 — **§Content browser subdirectory tighten** (C11: fold thin `browser/` siblings; flatten `document/` helpers). Prior same day — C10 remaining root TUs into `{bootstrap,contents,catalog,attrs,plugin,session}/` (scheme C; public/ unchanged). Prior 2026-10-03 — `content/browser/present/scene3d/{policy,stereo}` folded into `session/` (scheme C as-built). Prior 2026-10-02 — GIS product modals colocated under `ui/gis/catalog|inspect` (drop flat `dialogs/`; `AttStruct` → `AttributeSchema`). Prior same-day §Horizon product brand; `*Chrome` → `*Composer` / `init_shell` / `ui/views/map/frame` batch rename. Prior same-day §Debug Console D1–D7; UI Views shell HTML; §shell/ui composers; §Shell chrome layout; §Declarative markup; §Startup profile; 2026-10-01 — §Visual review; `ui/views/map` nest; §Chromium Browser plugin writers; §IL interaction recorder. Prior 2026-09-30 — §Shell perf / compositor; §UI visual forensics; §Harness suite loop. Do not open new dated twins.  
-**Diagram:** [`../diagrams/content-embedder.html`](../diagrams/content-embedder.html) · [`../diagrams/loop-layers.html`](../diagrams/loop-layers.html) · [`../diagrams/capability-horizon-layers.html`](../diagrams/capability-horizon-layers.html) · [`../diagrams/capability-capture-layers.html`](../diagrams/capability-capture-layers.html) · [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · [`../diagrams/views-runtime-layers.html`](../diagrams/views-runtime-layers.html) · [`../diagrams/harness-il-capability.html`](../diagrams/harness-il-capability.html) · [`../diagrams/map-viewport-paint.html`](../diagrams/map-viewport-paint.html) · [`../diagrams/content-browser-layers.html`](../diagrams/content-browser-layers.html) · [`../diagrams/debug-console-agent.html`](../diagrams/debug-console-agent.html) · as-built process [`../diagrams/views-window-process.html`](../diagrams/views-window-process.html)
+**Status:** active
+**Date:** 2026-09-27
+**Updated:** 2026-10-15 — **map2d hillshade gate** `GisScene::can_attach_hillshade()`（`LayerRole::kLandSurface` + drawable extent + resolvable DEM；删 `has_china_extent`）。Prior 2026-10-14 — **§DrawHost shell.cc split**（`shell_overlay.cc` / `identity_frame.cc` + `detail/{engine_identity,overlay_hole_keys}.h`；引擎 id 字节稳定）。Prior 2026-10-13 — **§Cold start product-only**（`product_startup_policy` + DefaultChina + `run_loop`；retire `--*showcase` / sticky `*SHOWCASE*`；`PluginCatalogView` Run + CI `HARNESS_SUITE` post-start；diagram `views-startup-decision.html`）。Prior 2026-10-10 — **§browser/plugin subdirectory** (`shell/` · `host/` · `present/` · `harness/` · `detail/`；diagram `browser-plugin-subdirectory-layers.html`)。Prior 2026-10-08 — **§Present layering** deepen（role dirs + soft present removed；RHI §Content present subdirectory layers）。Prior same day — **§shell/ui composers** deepen wave 2: `browser/nav` same-class multi-TU (`draft`/`extent`/`view`/`gesture` + `detail/seh_workspace`); `processing_python_bridge.cc`; SEH/ptr_guard owned by `browser/nav/detail`. Prior same day — wave 1 `util/view_tree.h` / `viewport_hdc.h` / LaunchPolicy after soft MapIR→HDC. Prior 2026-10-07 — **§Content browser subdirectory tighten** landed (C11 dirs; `types.h`; `gis_bootstrap`/`GisSceneDocument` out of public; attrs→gis). Same day — **§Content process layers** (app vs `content/browser` vs vista/scenic/gpu; `ChildProcessHost` at `content/browser/child`; four-step upgrade, product default in-process, `ENABLE_OOP_RENDER` stays off; diagram `content-browser-layers.html`). Same day — **§Content public embedder** (`src/content/public` is the only embedder API; `GisContentsClient` is browser-process hooks; diagram `content-embedder.html`). Same day — **`app/startup` launch table slim** (drop `ScenarioKind`; cmdline showcase enums removed — scenario id from plugin.json; atmosphere modes in `world3d/scenario/atmosphere/mode.h`; Scene3D GIS suites pin `Scene3dStartup::kFlyCube`). Same day — **Product 2D SoT = FlyCube/Vista `present_gpu`** (`product_startup_policy` clears `force-content-mapview-2d` / `force-gdi-map-overlay`; ContentMapView+GDI remain harness opt-in). Prior same day — **`ui.interact*` host/gesture split** (`gesture_script` / `UI_INTERACT_GESTURE_SCRIPT`; four registry rows share `ui.interact.host`). Prior same day — **`suite.json` drop `showcase` kind** (il.runtime has no showcase lane; all `harness/{browser,plugin,ui}` suites are `kind=integration`). Prior same day — **`harness/plugin/plugin.*` → `kind=integration`** (IR peer `browser.console`). Prior same day — **`harness/shell/` folded into `harness/browser/` as `browser.*` integration suites** (`kind=integration`; gate = `browser.gpu` + `browser.harness`). Prior same day — **`harness/shell/*.il` IR-ordered** (horizon → document → view → plugin; named args; `browse.3d` scene tab once). Prior same day — **`il.runtime/runtime/` → `il.runtime/backend/`:** host stdlib directory and GN `source_set("backend")`; `:lower` does not depend on `:backend`; `:il.runtime` aliases `:driver` (removed intermediate `group("backend")` that aliased `:driver`). Prior 2026-10-06 — **Four objects:** `document` / `view` / `plugin` / `horizon` are the same names on `content::CapabilityHost` and `app::ir`. `view` is any `ViewKind` (edit, data, scene, future world). `il.runtime/{codegen,runtime}` (later renamed `backend/`): `:lower` does not depend on the host stdlib target; `:driver` links once then applies; `:il.runtime` aliases `:driver`. Prior same day — **One GN `:backend`:** `clock` / `capture` / `capability` / `:compile` are a single `source_set("backend")`. `:il.runtime` aliases it. Prior same day — **`backend/` is flat:** no `compile/` or `runtime/` subdirs. Colliding names are `eval_host` / `capture_host`, `lower_document` / `horizon_document`, `lower_expect` / `shell_expect`, `lower_bind.h` / `bind_horizon.h` / `bind_plugin.h`. GN `:compile` does not dep `:capability`. Prior same day — **Capture + expect fold into `backend/runtime/horizon`:** BMP, mark, present-session, and expect/probe/debug-console lived in that pack’s `atom/` and `sema/` before the flatten. `bind_horizon.h` declares `bind_horizon`, `bind_export`, and `bind_expect`. Prior same day — **No `execution/sema/showcase`:** product `*_run` verbs register in `src/plugin` and lower via `try_lower_plugin_call`; testing gates lower in `sema/expect`; browse/UI capture lower in `sema/horizon`. Suite order stays `testing/tools/harness/**/*.il`. Prior same day — **Horizon sema `ui`:** theme, linger, fps bench, and shell BMP composite fold into `horizon/sema/ui` (former `ui_shell`). Prior same day — **Horizon bind/sema/atom:** `capability/horizon` is `bind` → `sema` → `atom` keyed off IL verbs; `capture_browse_still` composes `capture`; `wait_ready` / `expect_*` bind in `expect`. Prior same day — **Capture atom/sema:** `capability/capture` is `bind` → `sema` → `atom` (no `codec`/`policy`/`present`/`scene`/`surface`). Prior same day — **Compiler DAG** (language ⊥ capability):** `language/load` is the source manager (recursive walk in `util/find_named`; no `capability/` include). `language/driver` (`backend.h`) selects `.il` / `.json` / `.py`. `run_script` links once then `apply_script`; interact panel apply does not `bind_host` again; OS wait uses Host `pump`/`mark`/`select_view_tab`. `capability/` still must not include `language/`. Prior same day — **`src/app/views/harness/` deleted:** LaunchPolicy registry is `app/startup/scenario.*`; `report_suite` is `browser/plugin/`. Same day — **Semantic calls:** `ir/api.h` is the language-neutral surface (`app::semantic`; IL decodes `CallStmt`, a future `.py` backend calls the same functions via `language/backend.h`). Browse and `ui.interact` step order live in `*.il` (`ui.interact.host.il` wraps `ui.interact.il`). `capability` does not include `language/`. `harness/ui` composer removed. Same day — **`horizon/ui`:** theme, repaint, and shell BMP composite live in `shell.cc`; scenario panels, layout gate, and present capture share `ModeSpec` in `showcase.cc`. Same day — **`capability/capture/present` primitives:** `gpu_env` · `frame` · `session` · `pane`. Same day — **`capability/shell` folded into `capability/horizon/shell`:** window, path, and HWND inject are a horizon pack; `bind_horizon` sequences `bind_shell` / `bind_document` / `bind_browse` / `bind_ui`. Same day — **`capability/capture/present` primitives:** `gpu_env` · `capture_hwnd` · `frame` · `borrow` · `device` · `session` · `warmup` · `pane`. Same day — **capture `surface/hwnd`:** `present_hwnd` and `hwnd_capture` are one module (present-window lifetime + client readback). Same day — **`testing/tools/loop` layers:** `contract/` `drive/` `interact/` `record/` `score/` `review/` (`loop-layers.html`); runner composes only. Same day — **il.runtime language ⊥ capability:** `language/` façade (`run_script` / `interact_*`); HWND inject is Host slots (`capability/horizon/shell/surface`); GN `:capability` does not dep `:execution`. Same day — **`capability/capture` layers** (`codec` · `policy` · `surface` · `present` · `scene` · `bind`; present includes surface; scene composes `present_scene3d_gpu` + `surface/hwnd`). Same day — **`capability/horizon` packs** `clock/` `document/` `browse/` `shell/` `ui/` (`bind_horizon` sequences `bind_shell` / `bind_document` / `bind_browse` / `bind_ui`). Same day — **`capability/gate` → `capability/expect`** (`bind_expect`; HWND/layout/console atoms, not CI `--gate`). Same day — **Gate composers deleted:** sequences live in `testing/tools/harness/shell/{harness,console}/*.il`. Same day — **`il.runtime/capability/session` folded into `capability/horizon`** (`bind_horizon` owns document/tools/browse + UI chrome slots). Same day — **`il.runtime/capability/export` folded into `capability/capture`**. Same day — **`il.runtime/capability/paths` folded into `capability/horizon/shell`** (`bind_paths` / `text.*`; `bind_horizon` calls `bind_shell`). Same day — **`il.runtime/capability/chrome` → `capability/horizon`** (`bind_horizon`). Same day — **harness leftover dirs deleted** (`showcase/` `chrome/` `self_test/` `capture/` `browse/` `input/`; disk is `harness/{run,ui}`). Same day — **§Harness IL capability cut** locked: `harness/run` stays a LaunchPolicy registry; host primitives (`capture`, pump, dispatch, gates) move to `il.runtime/capability`; `input` / `browse` / `ui` sequences move to `*.il`. Same day — **§Harness capability runtime** `app/views/runtime` → `src/app/views/il.runtime` (`il.runtime`; GN `//src/app/views/il.runtime:il.runtime`). Same day — **§Harness capability runtime** Scene3D plugin suites dispatch via IL coarse `*_run` (`world3d_run` / `mine_run` / `stormsurge_run` / `orthogrid3d_run`); grammar stays `IDENT`. Same day — Chrome present/playback/preview moved `runtime/plugin/` → `browser/plugin/`. Same day — Atmosphere inspector moved to `smartgis.world3d` (`world3d.atmosphere` dock). Same day — **§Harness capability runtime** rename `runtime/interact/` → `runtime/execution/` (`try_apply_execution` / `is_execution_path`; GN `:execution`; grammar stays `Interact.g4`). Same day — **§Harness pipeline** `src/app/views/harness/showcase/` deleted; GIS bodies stay in `plugin/product/<pkg>/scenario/` (`*_harness`). Same day — **§Harness pipeline** `harness/chrome/` **deleted**; HWND gates live in `harness/run`; `browse`/`input`/`ui` are siblings. Same day — **§Plugin catalog_view** (`app::PluginCatalogView` hover tooltip). Prior same day — map2d HWND showcase links via `map2d_harness` (exe/test only; native DLL stays GIS `map2d_scenario`). Prior same day — map2d showcase bodies in `plugin/product/map2d/scenario/showcase`; chrome dispatcher is `harness/run`. Prior same day — harness pipeline dirs `run/` `capture/` `analyze/` `bugs/` `repair/` `chrome/`; GIS scenarios dispatched to plugins (`--harness`, alias `--self-test`). Prior same day — as-built lock: `src/app/views/{app,browser,ui,harness,runtime,util}` peers (no extra `shell/` dir; GIS capabilities stay in `content/browser`). Prior same day — merge `content/public/{map_types,catalog_layers,feature_attrs}.h` → `types.h`. Prior same day — `runtime/execution/` by concern (`wire`/`policy`/`io`/`host`/`exec`; façade `apply.*`). Prior same day — `runtime/` peers `capability/` · `execution/` · `plugin/`. Prior same day — `app/` process-entry subdirs (`host/` · `process/` · `cmdline/` · `startup/`; `main.cc` under `app/`). Prior same day — product chrome → **horizon** in `src/` (Interact `exec/horizon`; Chrome Trace / Chromium `chrome/` unchanged). Prior same day — drop extra `shell/` nesting (`app/views/{app,browser,ui,harness,runtime}`). Prior same day — `plugin/product/builtins` façade; PluginShell opaque register. Prior same day — Scene3dSink install folded into `plugin_host_wiring.cc`; runtime seams `plugin_present` · `plugin_playback`. Prior same day — plugin host seams at `runtime/` root; chrome no product stores. Prior 2026-10-05 — drop `map/` root include forwards. Same day — **§DrawHost naming** (UI primary canvas; no map/flycube vocabulary). Same day — **§Views primitives composition** (radio tree exclusivity, TreeView/ScrollView hit+wheel, markup attrs). Same day — **§Views kernel seams** (layout drain, CommitGate, caption cancel). Same day — **§UI chrome equal-profile harness** (`harness-auto-ui-opt`). Same day — **§DrawHost paint composition** (2D ContentMapView leftover SharedSurface is not SoT; viewport paint split by responsibility). Prior 2026-10-04 — **§Content browser subdirectory tighten** (C11: fold thin `browser/` siblings; flatten `document/` helpers). Prior same day — C10 remaining root TUs into `{bootstrap,contents,catalog,attrs,plugin,session}/` (scheme C; public/ unchanged). Prior 2026-10-03 — `content/browser/present/scene3d/{policy,stereo}` folded into `session/` (scheme C as-built). Prior 2026-10-02 — GIS product modals colocated under `ui/gis/catalog|inspect` (drop flat `dialogs/`; `AttStruct` → `AttributeSchema`). Prior same-day §Horizon product brand; `*Chrome` → `*Composer` / `init_shell` / `ui/views/map/frame` batch rename. Prior same-day §Debug Console D1–D7; UI Views shell HTML; §shell/ui composers; §Shell chrome layout; §Declarative markup; §Startup profile; 2026-10-01 — §Visual review; `ui/views/map` nest; §Chromium Browser plugin writers; §IL interaction recorder. Prior 2026-09-30 — §Shell perf / compositor; §UI visual forensics; §Harness suite loop. Do not open new dated twins.
+**Diagram:** [`../diagrams/views-startup-decision.html`](../diagrams/views-startup-decision.html) · [`../diagrams/browser-plugin-subdirectory-layers.html`](../diagrams/browser-plugin-subdirectory-layers.html) · [`../diagrams/content-embedder.html`](../diagrams/content-embedder.html) · [`../diagrams/loop-layers.html`](../diagrams/loop-layers.html) · [`../diagrams/capability-horizon-layers.html`](../diagrams/capability-horizon-layers.html) · [`../diagrams/capability-capture-layers.html`](../diagrams/capability-capture-layers.html) · [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · [`../diagrams/views-runtime-layers.html`](../diagrams/views-runtime-layers.html) · [`../diagrams/harness-il-capability.html`](../diagrams/harness-il-capability.html) · [`../diagrams/map-viewport-paint.html`](../diagrams/map-viewport-paint.html) · [`../diagrams/content-browser-layers.html`](../diagrams/content-browser-layers.html) · [`../diagrams/debug-console-agent.html`](../diagrams/debug-console-agent.html) · as-built process [`../diagrams/views-window-process.html`](../diagrams/views-window-process.html)
 **Plans:** [`../plans/2026-09-20-m0-views-main-path.md`](../plans/2026-09-20-m0-views-main-path.md) · [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md) · compositor / markup / forensics / harness on later § Plan lines
 **Related:**
 
@@ -118,7 +118,8 @@ src/app/views/
       view_commands.h / .cc     # navigation table + menu item builder
       view_commands_test.cc
     nav/
-      draft_nav.cc
+      draft_nav.cc / extent_nav.cc / view_nav.cc / gesture_nav.cc
+      detail/{seh_workspace,ptr_guard,attach_mode}
     plugin/
       plugin_shell.h / .cc
   ui/                           # Widget tree only
@@ -315,8 +316,8 @@ src/app/views/
   browser/                        # Browser controller (≈ chrome/browser)
     browser.*                     # owns MapSession; public controller API
     commands/                     # pure tables / builders (no Widget)
-    nav/                          # draft / extent navigation helpers on Browser
-    plugin/                       # PluginShell + plugin_host_wiring (bridges only)
+    nav/                          # draft / extent / view / gesture + detail SEH
+    plugin/                       # shell/ · host/ · present/ · harness/ · detail/
   ui/                             # BrowserView only (≈ chrome/browser/ui)
     browser_view.*                # Widget tree + thin forwards; holds Browser*
     pages/                        # MapPagesComposer
@@ -405,7 +406,7 @@ Shell may include only present **facades** + `session/` + `host/` headers it nee
 4. [x] S4 — `browser_view.*` is Widget chrome + thin wire; pages/panels UI accessors + forwards.
 5. [x] S5 — `BrowserUiDelegate` / `create_browser_ui`; GN `:shell_ui` → `:shell_browser` only.
 6. [x] Sync as-built blurbs in `src/app/views/README.md` / `docs/superpowers/src-layout.md` (no new dated specs).
-7. [x] S6 — product present moved to `src/plugin/product` processing; chrome keeps `browser/plugin/{plugin_shell,plugin_host_wiring,present,playback}`; `browser.cc` is lifecycle/chrome only.
+7. [x] S6 — product present moved to `src/plugin/product` processing; chrome keeps `browser/plugin/{shell,host,present}` (`PluginShell` / wiring / present·playback); `browser.cc` is lifecycle/chrome only.
 
 ---
 
@@ -435,10 +436,11 @@ Non-goals: do not change menu ids / AM Box grouping from §2–§4; do not reloc
 
 ```
 content/browser/document/
-  gis_scene.*                 # thin façade; public API unchanged
+  gis_scene.*                 # thin façade (PIMPL); public API unchanged
+  gis_document.*              # GisSceneDocument adapter (not public/)
   gis_scene_test.cc
-  store/   map_layer.h + layer_store.*     # GeomKind/Feature/Layer + CRUD/selection/ids
-  ingest/  ogr_ingest.* + geojson_write.* + seed_paths.*
+  store/   map_layer.h + layer_store.*     # GeomKind/MapFeature/MapLayer + CRUD
+  ingest/  china_clip.* + ogr_ingest.* + geojson_write.* + seed_paths.*
   style/   style_bind.*                    # StyleDocument + basemap ptr + resolve
   query/   extent_query.* + inspector.*
   edit/    feature_edit.*                  # draft / vertex / TIN / hit_test
@@ -448,8 +450,8 @@ content/browser/document/
 | --- | --- |
 | Public surface | Callers keep `GisScene*`; new types live in `content::detail` |
 | Types | `MapLayer` / `MapFeature` / `GeomKind` in `detail`; `GisScene` exposes `using Layer = detail::MapLayer` (etc.) |
-| Ownership | `GisScene` owns `LayerStore` + `StyleBind` by value; ingest/query/edit take store (and style when needed) |
-| Nesting | One level under `document/` only |
+| Ownership | `GisScene::Impl` owns `LayerStore` + `StyleBind`; ingest/query/edit take store (and style when needed) |
+| Nesting | One level under `document/` only (`ingest/china_clip` is a peer of `ogr_ingest`) |
 | Behavior | No paint / open / seed / extent semantics change |
 | Docs | Revise this living § + module notes; no new dated twin |
 
@@ -457,26 +459,30 @@ Plan: [`../plans/2026-09-28-document-map-scene-split.md`](../archive/plans/2026-
 
 ### §Present layering（Chromium-style, 2026-09-28）
 
-As-built under `src/content/browser/present/` (module README: [`../../../src/content/browser/present/README.md`](../../../src/content/browser/present/README.md)):
+**Updated:** 2026-10-08 — role deepen + soft present removed. Normative tree:
+RHI **§Content present subdirectory layers** ·
+[`content-present-subdirectory-layers.html`](../diagrams/content-present-subdirectory-layers.html) ·
+module [`../../../src/content/browser/present/README.md`](../../../src/content/browser/present/README.md).
 
 ```
 present/
-  host/                 # BlitFrameCache — present-surface preview (StretchBlt)
+  host/{blit,overlay,scenic,gdi}/   # preview / shell HUD / scenic bind / Win32 helpers
   map2d/
-    map2d_presenter.*   # Thin facade → gpu + software
-    frame/              # carto policy, LayerBatch, tile/mercator math
-    gpu/                # Map2dGpuPresent (Pass + MapFrame cache)
-    software/           # Map2dSoftwarePainter (GDI)
+    map2d_presenter.*               # Facade → gpu (+ optional scenic)
+    profile/                        # phase clocks
+    frame/{cache,carto,batches,layout,tile}/
+    gpu/{present,selection}/
   scene3d/
-    scene3d_presenter.* # Thin facade → atmosphere + gpu + software
-    session/            # prefer_scene3d_flycube policy + Scene3dStereoSession
-    frame/              # OrbitGeoFrame
-    atmosphere/         # AtmosphereSession (Environment + prepare_*)
-    gpu/                # Scene3dGpuPresent (mesh + present)
-    software/           # Scene3dSoftwarePainter (GDI HUD / wind / logo)
+    scene3d_presenter.*             # Facade → atmosphere + gpu (+ optional scenic)
+    profile/
+    scenic/                         # ScenicScene3dHost
+    session/                        # prefer_* SoT + StereoSession
+    atmosphere/
+    frame/{orbit,terrain,tileset,overlay}/
+    gpu/present/
 ```
 
-Shell includes only facades + `session/` + `host/` headers it needs.
+No `software/` / `scene3d_cpu/`. Shell includes only facades + `session/` + `host/` headers it needs.
 
 **Atmosphere (3D only):** `AtmospherePanel` → `Browser::scene3d()` setters；geo 对齐见 atmosphere living §China 3D geo-alignment。Map2d 不接 atmosphere。
 
@@ -523,7 +529,7 @@ wWinMain → parse_views_launch_options → ContentMainParams{process_type_set}
 
 ## §China product defaults（interactive ↔ showcase, 2026-09-30）
 
-**Status:** active  
+**Status:** active
 **As-built:** `browser/china_product_defaults.{h,cc}`; callers: `Browser::fit_map_extent`, `BrowserView::switch_map_tab`, `--map2d-showcase=china`, `--atmosphere-showcase=full`.
 
 ### Locked decisions
@@ -546,8 +552,8 @@ wWinMain → parse_views_launch_options → ContentMainParams{process_type_set}
 
 ## §Chromium Browser / BrowserView（Approach 1, 2026-09-28）
 
-**Locked package:** Scope C + Ownership A + Directory A + Public API A.  
-User approved **Approach 1** with **parallel landing**.  
+**Locked package:** Scope C + Ownership A + Directory A + Public API A.
+User approved **Approach 1** with **parallel landing**.
 **Stack contract (Chromium map, full deps, gaps, S1–S5):** see **§Chromium-style app/views layering**.
 
 ### Goal
@@ -689,11 +695,11 @@ app/views capability roots FORBIDDEN after land
 
 ## §Content browser subdirectory tighten（2026-10-04）
 
-**Status:** active（P1–P3 产品搬迁已落地；见下方勾选）  
-**Updated:** 2026-10-07 — C11 目录收紧 + `map_layer_types`→`types` + `gis_bootstrap` 出 public + attrs→`gis/feature` + `GisSceneDocument` 出 public。  
-**Diagram:** [`../diagrams/content-browser-layers.html`](../diagrams/content-browser-layers.html)  
-**As-built:** [`../src-layout.md`](../src-layout.md) Hosted map row · [`../../../src/content/browser/README.md`](../../../src/content/browser/README.md)  
-**Precedent:** C10 in §Content sink · GIS `gis/model` flatten · Vista **§Vista subdirectory tighten**  
+**Status:** active（P1–P3 产品搬迁已落地；见下方勾选）
+**Updated:** 2026-10-08 — document：`map_layer` 命名对齐 + `china_clip` 抽出 + `GisScene` PIMPL；删死代码 `add_sample_features` / `style_seed_relative_paths`。先前：C11 目录收紧 + `gis_bootstrap` 出 public + attrs→`gis/feature` + `GisSceneDocument` 出 public。
+**Diagram:** [`../diagrams/content-browser-layers.html`](../diagrams/content-browser-layers.html)
+**As-built:** [`../src-layout.md`](../src-layout.md) Hosted map row · [`../../../src/content/browser/README.md`](../../../src/content/browser/README.md)
+**Precedent:** C10 in §Content sink · GIS `gis/model` flatten · Vista **§Vista subdirectory tighten**
 **Checklist:** 下列分阶即本 § 的可执行表（不新开 dated plan 只重述搬目录）。每步可编译；scheme C，无转发头。
 
 C10 把 `browser/` 根上 TU 按 public 头 1:1 拆成 12 个同级目录。职责对了，但 **薄目录过多**。本 § 收紧同级面，**不**重开 chrome vs content，**不**改 C1–C9 / C3 present 嵌套。
@@ -705,7 +711,7 @@ C10 把 `browser/` 根上 TU 按 public 头 1:1 拆成 12 个同级目录。职�
 | C11a | `content.dll` public 实现并入 **`contents/`**：`gis_contents` + `gis_bootstrap`（头+cc 共置，**已离开** `public/`）+ `catalog_layers` + `plugin_host`。删除 `bootstrap/` `catalog/` `plugin/`。 |
 | C11a′ | **attrs → gis**：`FeatureId` / `NamedField` / token helpers → `gis/feature/attrs.h`（header-only）；`content/public/types.h` 以 `using` 再导出 `content::*`。不再进 `contents/`。 |
 | C11b | `input/gis_hwnd_gestures.*` → **`session/`**。删除 `input/`。 |
-| C11c | `document/`：**根**放场景核 `gis_scene.*` + `gis_document.*`（`GisSceneDocument`）；职责子目录 `store/` `edit/` `ingest/` `query/` `style/`（头与 `.cc` 共置）。`map_layer.h` 仍是 `content::detail` POD。`gis_bootstrap` 在 `contents/`，不属于 document store。 |
+| C11c | `document/`：**根**放场景核 `gis_scene.*`（PIMPL）+ `gis_document.*`（`GisSceneDocument`）；职责子目录 `store/` `edit/` `ingest/` `query/` `style/`（头与 `.cc` 共置）。`store/map_layer.h` = `content::detail` POD（`MapLayer`/`MapFeature`）。`ingest/china_clip.*` 从 `ogr_ingest` 抽出。`gis_bootstrap` 在 `contents/`，不属于 document store。 |
 | C11d | **不收紧：** `present/**`（C3）、`debug/{cmd,policy,schema,wire}`、`camera/`、`capability/`、`child/`。 |
 | C11e | 无转发头。`public/` 仅抽象面：`GisDocument` 抽象类；**不**暴露 `GisSceneDocument`。 |
 | C11f | **GisDocument ownership：** `GisContents` **持有**适配器（`take_gis_document` / `gis_document()`）。`GisScene` 仍在 `BrowserSession`；壳在 PluginShell 之后 `ensure_gis_contents` + `take` `GisSceneDocument`。`PluginHost::gis_document` **只转发**到已 bind 的 GisContents（无 maps 时测试可走本地指针）。 |
@@ -730,7 +736,7 @@ src/content/browser/
 - [x] **P1 `contents/` 合并** + attrs→gis + `gis_bootstrap` 出 public
 - [x] **P2 `input/` → `session/`**
 - [x] **P3 `document/` 职责子目录** + `GisSceneDocument` 下沉（根=场景核）
-- [ ] **P4 验证** `build.bat debug` 受影响 test
+- [x] **P4 验证** `gis_scene_test` / `feature_edit_test`（document 重构后）
 
 ### 不做什么
 
@@ -743,8 +749,8 @@ src/content/browser/
 
 ## §Content public embedder（2026-10-07）
 
-**Status:** active  
-**Diagram:** [`../diagrams/content-embedder.html`](../diagrams/content-embedder.html)  
+**Status:** active
+**Diagram:** [`../diagrams/content-embedder.html`](../diagrams/content-embedder.html)
 **Precedent:** §Content sink（目录已落地）· §Content browser subdirectory tighten（C11 不在本 § 重开）· §Process entry（`content_main` 仍是进程入口）
 
 目录下沉已经落地，include 边界还没有关上。Chromium 里 `chrome`、`content_shell`、WebView 只包含 `content/public`，并实现 content 定义的 client；`content` 不包含 `chrome`。本 § 按同一方向收口嵌入面，不新开 dated spec，不改写 C1–C11。
@@ -756,7 +762,7 @@ src/content/browser/
 | E1 | `src/content/public` 是唯一嵌入 API（Chromium `content/public` 的对应物）。 |
 | E2 | 两条轴不合并。产品嵌入方（今天 `app/views`，以及未来 exe）实现 `GisContentsClient`，只用现有 7 个公开头。进程内插件留在 `PluginHost`，不为插件加第二套嵌入 API。 |
 | E3 | `content` 不得依赖 `src/app` 或 `ui/views`。`PluginHost` 上已有的 `UiPainterInstaller` / `UiWithdrawHook` 回调缝保留：content 不认识 Views 控件。 |
-| E4 | 产品不得 `#include` `content/browser`、`content/renderer`、`content/view`、`content/app`。 |
+| E4 | 产品不得 `#include` `content/browser`、`content/renderer`、`content/tool`、`content/app`。 |
 | E5 | **二分：** `GisContentsClient` = content→app 进程钩子（仅 `browser_main`）；`GisContents` = 核心能力宿主（视口/文档适配器）。文档能力不挂 GisContentsClient。`--type=renderer\|gpu` 分发留在 content 内部。不把 `BrowserSession`、`ViewFrame`、presenter 升入 public。 |
 | E6 | `CapabilityHost` 留在 `il.runtime` 缝（`content/browser/capability`），不进 public。 |
 | E7 | 公开面最小增量：新增 `content/public/gis_contents_client.h`；公开入口为 `content_main(params, GisContentsClient&)`。现有 7 个头的方法签名不动。`content/app/content_main.h` 改为转发到 public，避免双份入口。 |
@@ -800,8 +806,8 @@ src/content/browser/
 
 ## §Content process layers（2026-10-07）
 
-**Status:** active  
-**Diagram:** [`../diagrams/content-browser-layers.html`](../diagrams/content-browser-layers.html)  
+**Status:** active
+**Diagram:** [`../diagrams/content-browser-layers.html`](../diagrams/content-browser-layers.html)
 **Precedent:** [§Content public embedder](#content-public-embedder)（公开合同不在本 § 重开）· §Content browser subdirectory tighten（C11 目录拍平不在本 § 做）· §Process entry（`content_main` 仍是进程入口）
 
 本 § 只锁实现留在哪一层，以及多进程怎么升级。嵌入方仍然只走上一节的公开面。产品默认仍是进程内呈现。
@@ -847,9 +853,9 @@ src/content/browser/
 
 ## §GIS panels A+B+C（2026-09-28）
 
-**Status:** active  
-**Updated:** 2026-09-28  
-**Toolkit contract:** this file § GIS panels A+B+C + archive twin [`../archive/specs/2026-09-13-ui-views-controls-design.md`](../archive/specs/2026-09-13-ui-views-controls-design.md)  
+**Status:** active
+**Updated:** 2026-09-28
+**Toolkit contract:** this file § GIS panels A+B+C + archive twin [`../archive/specs/2026-09-13-ui-views-controls-design.md`](../archive/specs/2026-09-13-ui-views-controls-design.md)
 **Plan:** [`../plans/2026-09-28-gis-panels-abc.md`](../plans/2026-09-28-gis-panels-abc.md)
 
 Shell owns inspector TabStrip placement and `shell_panels.cc` wiring. Panels stay string/callback-only.
@@ -868,8 +874,8 @@ Non-goals unchanged for layout composer / topology / network.
 
 ## §Diagnostic Tools（2026-09-28）
 
-**Status:** active  
-**Updated:** 2026-09-30 — UI Views paint/compositor spans (`ui.views`); Trace tab + `UI` filter; UiDesigner docks Console+Trace by default  
+**Status:** active
+**Updated:** 2026-09-30 — UI Views paint/compositor spans (`ui.views`); Trace tab + `UI` filter; UiDesigner docks Console+Trace by default
 **Plan:** [`../plans/2026-09-28-render-trace-profiler.md`](../archive/plans/2026-09-28-render-trace-profiler.md) (timing) + memory § in hybrid; console: [`2026-09-28-debug-console-design.md`](../archive/specs/2026-09-28-debug-console-design.md) + [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md)
 
 VS-style bottom **Diagnostic Tools** dock (replaces standalone Debug Console + Inspector `RenderTrace`):
@@ -904,10 +910,10 @@ Bootstrap API: `src/base/trace/diag/diagnostic_bootstrap.{h,cc}`. `base::trace::
 
 ## §Debug Console（2026-09-28）
 
-**Status:** active  
-**Updated:** 2026-10-02 — D1–D7 landing (host layers/overlay, rpc.methods/schema, diag.pack, console UX, policy gate, record/:script, Ask stub)  
-**Owning spec:** [`2026-09-28-debug-console-design.md`](../archive/specs/2026-09-28-debug-console-design.md)  
-**Plan:** [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md)  
+**Status:** active
+**Updated:** 2026-10-02 — D1–D7 landing (host layers/overlay, rpc.methods/schema, diag.pack, console UX, policy gate, record/:script, Ask stub)
+**Owning spec:** [`2026-09-28-debug-console-design.md`](../archive/specs/2026-09-28-debug-console-design.md)
+**Plan:** [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md)
 **Diagram:** [`../diagrams/debug-console-agent.html`](../diagrams/debug-console-agent.html)
 
 Bottom-dock **Debug Console** capabilities live under Diagnostic Tools tabs. Shell responsibilities:
@@ -938,9 +944,9 @@ Full protocol, LogSink, Python worker, and sdbd bridge live in the owning spec.
 
 ## §GIS Python Console + analysis results（2026-09-28）
 
-**Status:** active  
-**Updated:** 2026-09-28 — dual-runtime A (embed + worker parallel); prior phase-1 analysis  
-**Plan:** [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../archive/plans/2026-09-28-gis-python-spatial-analysis.md)  
+**Status:** active
+**Updated:** 2026-09-28 — dual-runtime A (embed + worker parallel); prior phase-1 analysis
+**Plan:** [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../archive/plans/2026-09-28-gis-python-spatial-analysis.md)
 **Related:** plugin-host §smartgis.gis bindings + **§Python dual-runtime**; algorithm-layer OpsRunner
 
 ### Locked choices
@@ -983,8 +989,8 @@ Bare Console lines (no leading `:`) and `:py …` both use `DebugAgentHost.py_ev
 
 ## §Console coverage + performance（2026-09-28）
 
-**Status:** active  
-**Plan:** [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md) (L0/L1/L2 coverage + bench checklists)  
+**Status:** active
+**Plan:** [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md) (L0/L1/L2 coverage + bench checklists)
 **As-built:** [`../ui-testing.md`](../ui-testing.md) + [`../../../testing/README.md`](../../../testing/README.md)
 
 Coverage and timing for the Debug Console / `DebugAgent` command surface — **not** a replacement for Views L0/L1/L2 pixel or interactive harness.
@@ -1137,8 +1143,8 @@ As-built: [`docs/superpowers/ui-views-skia.md`](../ui-views-skia.md), [`src/ui/g
 
 ## §UI interactive harness + overlay bench（2026-09-28）
 
-**Status:** accepted  
-**Plan:** [`../plans/2026-09-28-ui-interactive-overlay-bench.md`](../plans/2026-09-28-ui-interactive-overlay-bench.md)  
+**Status:** accepted
+**Plan:** [`../plans/2026-09-28-ui-interactive-overlay-bench.md`](../plans/2026-09-28-ui-interactive-overlay-bench.md)
 **As-built alignment:** [`../ui-testing.md`](../ui-testing.md) **P2 / L1** (process-in interactive sequences + overlay bench; not a replacement for L1′ `--self-test` or L2 pixel).
 
 Chromium-style **dual layer** for Views UI validation: in-process C++ harness (synthetic events + overlay scenes) plus optional **DebugAgent** `ui.*` RPC for console / Python orchestration when a live `SmartGIS.exe` is running.
@@ -1215,8 +1221,8 @@ Chromium-style **dual layer** for Views UI validation: in-process C++ harness (s
 
 ## §UI visual forensics (A+C)（2026-09-28）
 
-**Status:** accepted  
-**Plan:** [`../plans/2026-09-28-ui-visual-forensics.md`](../plans/2026-09-28-ui-visual-forensics.md)  
+**Status:** accepted
+**Plan:** [`../plans/2026-09-28-ui-visual-forensics.md`](../plans/2026-09-28-ui-visual-forensics.md)
 **As-built alignment:** [`../ui-testing.md`](../ui-testing.md) **L1c** (failure capture + optional record-all; not a gate for default `build.bat te`).
 
 **Scheme 1 (approved):** complement existing semantic / `layout_check` gates with **Mode A** (automatic failure dumps) and optional **Mode C** (Python forensics driver + offline frame analysis). Map GPU pixels are never golden targets; dumps are **shell offscreen capture only**.
@@ -1297,8 +1303,8 @@ Path: `tools/debug/scripts/ui_visual_forensics.py` (**not** wired into default `
 
 ## §Harness suite loop（2026-09-29）
 
-**Status:** active (Wave 1+2 landed: marks + BMP suites; registry covers browse/console/input + atmosphere/map2d/ui modes).  
-**As-built:** [`../ui-testing.md`](../ui-testing.md) L1′ loops; `testing/tools/loop_runner.py` + `loop/{contract,drive,interact,record,score,review}`.  
+**Status:** active (Wave 1+2 landed: marks + BMP suites; registry covers browse/console/input + atmosphere/map2d/ui modes).
+**As-built:** [`../ui-testing.md`](../ui-testing.md) L1′ loops; `testing/tools/loop_runner.py` + `loop/{contract,drive,interact,record,score,review}`.
 **Diagram:** [`../diagrams/loop-layers.html`](../diagrams/loop-layers.html)
 
 Unify outer Python rebuild/retry loops and in-process harness paths under a shared **suite id** contract. Not product `PluginHost`.
@@ -1344,8 +1350,8 @@ Unify outer Python rebuild/retry loops and in-process harness paths under a shar
 
 ## §UI interact script（A inproc + C OS）（2026-09-30）
 
-**Status:** active (Wave 2: Interact DSL + ANTLR).  
-**Updated:** 2026-10-07  
+**Status:** active (Wave 2: Interact DSL + ANTLR).
+**Updated:** 2026-10-07
 **As-built:** `src/app/views/il.runtime/frontend/Interact.g4` + suite-colocated `*.il`; C++/Python ANTLR visitors (gen under `out/{Debug|Release}/gen`, not checked in); `loop/interact/dsl.py` + `os_inject.py`; suites `ui.interact` / `ui.interact.os` / `ui.interact.smoke` / `ui.interact.combo` share one host chrome + per-suite gesture body.
 
 Authoring is **Interact DSL** (`.il`). Approach C: ANTLR **visitor → AST → direct execution** (no JSON Step IR). Same grammar for inproc (C++) and OS (Python). GN `interact_antlr_gen` (JDK + `antlr-4.13.2-complete.jar`) writes lexer/parser into `$root_gen_dir`; RD mirrors removed.
@@ -1391,9 +1397,9 @@ Authoring is **Interact DSL** (`.il`). Approach C: ANTLR **visitor → AST → d
 
 ## §Harness capability runtime（2026-09-30）
 
-**Status:** active (Wave 2: atomic Host verbs + full `.il` suite bodies — edit scripts without rebuild).  
-**Plan:** [`../plans/2026-09-30-harness-capability-runtime.md`](../archive/plans/2026-09-30-harness-capability-runtime.md)  
-**As-built:** `content/browser/capability/` Host; `app/views/il.runtime/{codegen,backend}/` + `browser/plugin/` (present/playback/preview); Interact ops via Host (`run_plugin_command` / `wait_viewport` / `debug_exec` / browse / digitize / `run_processing`); product packages register **scenario** ops (`map2d_run` / `atmosphere_run` / `world3d_run` / `mine_run` / `stormsurge_run` / `orthogrid3d_run`) through `plugin::register_scenario_op` — `try_lower_plugin_call` uses `has_scenario_op` (Interact.g4 stays `IDENT`). No il.runtime showcase lane / `register_showcase_op`. Suite contracts are `kind=integration` only. Wave 2 adds `resolve_data` / `capture_path` / `sidecar_path` / `doc_clear` / `fit_extent` / `export_bmp` / `apply_style_file` / `suppress_dialogs` / `require_plugins` with `$var` bind via `as=` (no grammar change). Wave 2b (2026-10-07): `fit_scene_box` + `camera_fly(mode=orbit|spherical)` on `ViewCapability` (`backend/view/camera/`); 2D suites mark `extent-ok`, 3D suites mark `fit-box-ok` / `camera-fly-ok`. DebugAgent `script.run` thin wrap. Suite scripts colocated under `testing/tools/harness/<family>/<suite_id>/*.il`. Product payload stores live under `src/plugin/product`.  
+**Status:** active (Wave 2: atomic Host verbs + full `.il` suite bodies — edit scripts without rebuild).
+**Plan:** [`../plans/2026-09-30-harness-capability-runtime.md`](../archive/plans/2026-09-30-harness-capability-runtime.md)
+**As-built:** `content/browser/capability/` Host; `app/views/il.runtime/{codegen,backend}/` + `browser/plugin/` (present/playback/preview); Interact ops via Host (`run_plugin_command` / `wait_viewport` / `debug_exec` / browse / digitize / `run_processing`); product packages register **scenario** ops (`map2d_run` / `atmosphere_run` / `world3d_run` / `mine_run` / `stormsurge_run` / `orthogrid3d_run`) through `plugin::register_scenario_op` — `try_lower_plugin_call` uses `has_scenario_op` (Interact.g4 stays `IDENT`). No il.runtime showcase lane / `register_showcase_op`. Suite contracts are `kind=integration` only. Wave 2 adds `resolve_data` / `capture_path` / `sidecar_path` / `doc_clear` / `fit_extent` / `export_bmp` / `apply_style_file` / `suppress_dialogs` / `require_plugins` with `$var` bind via `as=` (no grammar change). Wave 2b (2026-10-07): `fit_scene_box` + `camera_fly(mode=orbit|spherical)` on `ViewCapability` (`backend/view/camera/`); 2D suites mark `extent-ok`, 3D suites mark `fit-box-ok` / `camera-fly-ok`. DebugAgent `script.run` thin wrap. Suite scripts colocated under `testing/tools/harness/<family>/<suite_id>/*.il`. Product payload stores live under `src/plugin/product`.
 **Diagram:** [`../diagrams/views-runtime-layers.html`](../diagrams/views-runtime-layers.html)
 
 ### Intent
@@ -1411,7 +1417,7 @@ Deepen the Interact DSL from **UI-only** into a **shared scenario language** for
 | → codegen | `app/views/il.runtime/codegen/` | `:lower` lowers AST to `Code`. Does not depend on `:backend`. |
 | → backend | `app/views/il.runtime/backend/` | `document` / `view` / `plugin` / `horizon`. `link/bind_host` registers in that order. GN `source_set("backend")`. |
 | → session | `app/views/il.runtime/codegen/session/` | `:driver` links Host once, then `apply_script`. `:il.runtime` aliases `:driver`. Future `.py` must not parse Interact.g4. |
-| → plugin | `browser/plugin/{present,playback,pretool_session,plugin_host_wiring,report_suite}` | Tab/dataset present; plugin-agnostic ResultPlayback; Scene3dSink install (file-local in wiring). No flood/traffic/orthogrid payload. |
+| → plugin | `browser/plugin/{shell,host,present,harness,detail}` | Tab/dataset present; plugin-agnostic ResultPlayback; Scene3dSink install (`host/plugin_host_wiring`). No flood/traffic/orthogrid payload. |
 | Launch table | `app/startup/scenario.*` | `{id, mark_leaf, LaunchPolicy, suite_id}` + `run_scenario`. `src/app/views/harness/` deleted. |
 | Authoring | `testing/tools/harness/<family>/<suite_id>/*.il` | Source of truth for suite bodies (full migration). |
 | DebugAgent | `content/browser/debug` | `script.run` / `:script` → Host `script_run` callback only. |
@@ -1427,7 +1433,7 @@ Deepen the Interact DSL from **UI-only** into a **shared scenario language** for
 | 4b | Wave 2 (2026-09-30): atomic verbs + `$var`/`as=` in DSL; `plugin.*` suites are full `.il` bodies; C++ showcase body removed. |
 | 5 | No Qt; no FlaUI; OS driver path unchanged (`@os` / `loop/interact/os_inject.py`). |
 | 6 | Do not expand product Python DSL in Wave 1. |
-| 7 | Runtime layout (2026-10-06): peers `capability/` · `execution/` (dir was `interact/` until 2026-10-06 rename). Chrome plugin seams live in `browser/plugin/` (present/playback/preview + wiring). Scene3dSink install lives in `plugin_host_wiring.cc`. Product payload stores live in `src/plugin/product`. Grammar stays `Interact.g4`. |
+| 7 | Runtime layout (2026-10-06): peers `capability/` · `execution/` (dir was `interact/` until 2026-10-06 rename). Chrome plugin seams live in `browser/plugin/{shell,host,present,harness,detail}`. Scene3dSink install lives in `host/plugin_host_wiring.cc`. Product payload stores live in `src/plugin/product`. Grammar stays `Interact.g4`. |
 | 8 | Execution subdirectory (2026-10-06): compiler phases — `front/` (AST + parse) · `sema/` (bind now + `Code`) · `io/` (utf8 files) · `host/` (mark/pump) · `eval/` (run `Code`). HWND inject is capability Host slots. Public façade stays `apply.*`. |
 | 9 | Capability bind (2026-10-06): `bind_host` sequences capture `export_bmp` / `bind_plugin` / `bind_horizon` / `bind_expect`. `bind_horizon` fills IL horizon/document/input/ui slots in one binder. Path + HWND inject live in `horizon/atom/{paths,surface}`. Expect wait/geom/layout slots bind in `expect/bind`. Suite path search shares `find_named_under` in `util/find_named`. |
 | 10 | Language backends are replaceable (2026-10-06): `language/` is the only place that knows `.il` vs a future `.py`. HWND inject is Host slots filled by `capability/horizon/atom/surface`. `:capability` must not GN-dep `:execution` or `:ir`. `language/load` must not include `capability/`; recursive file walk is `util/find_named`. |
@@ -1458,9 +1464,9 @@ Deepen the Interact DSL from **UI-only** into a **shared scenario language** for
 
 ## §Harness IL capability cut（2026-10-06）
 
-**Status:** accepted (landed). Capture / pump / dispatch / gates / chrome primitives live under `il.runtime/capability`. `app/startup/scenario.*` is the LaunchPolicy registry. `report_suite` is `browser/plugin/`. Browse and ui step order is `*.il`. `capability/horizon/atom/stress.cc` is the `browse_stress` atom.  
-**Updated:** 2026-10-07 — scenario verb→op (`register_scenario_op` / `has_scenario_op`). Same day — Viewport framing ops: 2D suites call `fit_extent` (full document extent); 3D suites call `fit_scene_box` (world-component AABB → best orbit) then `camera_fly(mode=orbit|spherical)`. Ops live on `ViewCapability` / `il.runtime/backend/view/camera/`. Prior same day — Browser family deep-merge: `browser.browse` → `browser.map2d.browse`, `browser.browse.3d` → `browser.world3d.browse`; map2d/world3d payload suites share the same IR prelude as stress siblings. Prior same day — `kind=showcase` removed globally under `testing/tools/harness` and `ScenarioKind` (il.runtime showcase lane gone; `register_scenario_op` only). All live suites are `kind=integration`. Prior same day — `harness/plugin/plugin.*` IR peer `browser.console`. Prior same day — `harness/shell/` merged into `harness/browser/` as `browser.{harness,console,browse,browse.3d,input,gpu}`. Bodies stay IR-ordered (`horizon` → `document` → `view` → `plugin`). Product gate is `browser.gpu` + `browser.harness`.  
-**Extends:** §Harness suite loop, §Harness capability runtime (decision 3), §UI interact script.  
+**Status:** accepted (landed). Capture / pump / dispatch / gates / chrome primitives live under `il.runtime/capability`. `app/startup/scenario.*` is the LaunchPolicy registry. `report_suite` is `browser/plugin/`. Browse and ui step order is `*.il`. `capability/horizon/atom/stress.cc` is the `browse_stress` atom.
+**Updated:** 2026-10-07 — scenario verb→op (`register_scenario_op` / `has_scenario_op`). Same day — Viewport framing ops: 2D suites call `fit_extent` (full document extent); 3D suites call `fit_scene_box` (world-component AABB → best orbit) then `camera_fly(mode=orbit|spherical)`. Ops live on `ViewCapability` / `il.runtime/backend/view/camera/`. Prior same day — Browser family deep-merge: `browser.browse` → `browser.map2d.browse`, `browser.browse.3d` → `browser.world3d.browse`; map2d/world3d payload suites share the same IR prelude as stress siblings. Prior same day — `kind=showcase` removed globally under `testing/tools/harness` and `ScenarioKind` (il.runtime showcase lane gone; `register_scenario_op` only). All live suites are `kind=integration`. Prior same day — `harness/plugin/plugin.*` IR peer `browser.console`. Prior same day — `harness/shell/` merged into `harness/browser/` as `browser.{harness,console,browse,browse.3d,input,gpu}`. Bodies stay IR-ordered (`horizon` → `document` → `view` → `plugin`). Product gate is `browser.gpu` + `browser.harness`.
+**Extends:** §Harness suite loop, §Harness capability runtime (decision 3), §UI interact script.
 **Diagram:** [`../diagrams/harness-il-capability.html`](../diagrams/harness-il-capability.html)
 
 `src/app/views/harness/` is gone. Three layers stay distinct: host primitives in flat `backend/` fill `CapabilityHost`; `*.il` plus `driver` / `lower_*` own step order; `app/startup/` keeps the launch table that `browser_main` / `startup/policy` read before `Browser` exists. Shell and view expect gates report `ShellStatus` / `LayoutStatus` / `GeomStatus` / `ViewScaleStatus`; `app::ir` compares those snapshots and keeps the existing fail codes.
@@ -1490,7 +1496,7 @@ Namespace stays `app` / `app::detail`. No `ui_run(mode)` (same rule as the exist
 | `pump/` · `probe.cc` | `capability/horizon/atom/pump` · `capability/expect/sema/probe` |
 | `dispatch.cc` (`with_harness_shell`, `dispatch_plugin_command`) | `capability/plugin` (slot `run_plugin_command` already exists) |
 | Gate composers (`shell_ready` / `layout_bounds` / `console.cc`) | Atoms in `capability/expect` (`bind_expect`, `expect.*`, `probe.*`, `debug_console.*`); order in `browser.harness.il` / `browser.console.il` |
-| `report_suite.*` | `browser/plugin/report_suite.*` |
+| `report_suite.*` | `browser/plugin/harness/report_suite.*` |
 
 Suite ids under `harness/{browser,plugin,ui}/` are all `kind=integration` (no `showcase` kind). Mark leaf basenames may still say `*-showcase-*.txt` / BMP for capture stability; captures route under `captures/<family>/`.
 
@@ -1574,7 +1580,7 @@ Mark leaves stay: `harness-mark.txt`, `browse-3d-mark.txt`, `ui-showcase-mark.tx
 
 ## §Text2UI（2026-09-30）
 
-**Status:** active (landing).  
+**Status:** active (landing).
 **Hosts:** `src/ui/views/text2ui/` (API + template + validate); `src/app/ui_designer` (Generate UI + Cursor Agent `LlmBackend`).
 
 ### Intent
@@ -1604,8 +1610,8 @@ Natural-language → Views declarative markup (`.ui.xml` fragment) inside UiDesi
 
 ## §Startup profile（2026-10-02）
 
-**Status:** active  
-**Updated:** 2026-10-04 — P3 Diagnostic Tools Console/Memory lazy markup (LoadMarkup cut).  
+**Status:** active
+**Updated:** 2026-10-04 — P3 Diagnostic Tools Console/Memory lazy markup (LoadMarkup cut).
 **As-built:** `src/base/trace/diag/startup_profile.h` + `BASE_TRACE_EVENT(..., "startup")` on the SmartGisViews launch path.
 
 ### Goal
@@ -1637,7 +1643,7 @@ Phases covered (non-exhaustive): `wWinMain`, `ParseLaunchOptions`, `ContentMain`
 | **P1-2** | Product path may `set_defer_china_seed(true)` (idle open after show). Harness/self-test stay sync; `SYNC_CHINA_SEED=1` / `DEFER_CHINA_SEED=1` override |
 | **P1-3** | Report WebView2 created in `wire_report_panel` only when Report tab is materialized |
 | **P2-1** | `WaitFirstMapPresent` opt-in only (`SYNC_FIRST_MAP_PRESENT=1`). Product show returns after shell paint + map invalidate — does not block on full carto/GPU token |
-| **P2-2** | `HillshadeBake` skipped until `GisScene::has_china_extent()` (demo/defer seed no longer pays ~0.4s GDAL shade). Force: `MAP2D_FORCE_HILLSHADE=1`; hard off: `MAP2D_NO_HILLSHADE=1` |
+| **P2-2** | `HillshadeBake` skipped until `GisScene::can_attach_hillshade()` (drawable extent + visible `LayerRole::kLandSurface` + resolvable DEM; demo/defer seed no longer pays ~0.4s GDAL shade). Force: `MAP2D_FORCE_HILLSHADE=1`; hard off: `MAP2D_NO_HILLSHADE=1` |
 | **P2-3** | `FlyCube.Init` async by default (UI wait 0). Opt-in sync: `SYNC_FLYCUBE_INIT=1` (MapEdit/Data 800ms, Scene3d 2500ms) |
 | **P3-1** | `DiagnosticToolsPanel`: Output + Trace eager (LogSink / default tab); Console + Memory `load_markup` on first tab select (`replace_page`) |
 
@@ -1672,9 +1678,9 @@ stderr lines: `[startup-profile] …`. Full chrome buffer still via `TRACE_DUMP`
 
 ## §Shell perf upgrade waves（2026-09-30）
 
-**Status:** active  
-**Plan:** [`../plans/2026-09-30-ui-shell-perf-upgrade.md`](../archive/plans/2026-09-30-ui-shell-perf-upgrade.md)  
-**Predecessor:** [`../plans/2026-09-28-ui-compositor-thread.md`](../plans/2026-09-28-ui-compositor-thread.md) (P0–P5 roles landed; Deferred absorbed as U3–U5)  
+**Status:** active
+**Plan:** [`../plans/2026-09-30-ui-shell-perf-upgrade.md`](../archive/plans/2026-09-30-ui-shell-perf-upgrade.md)
+**Predecessor:** [`../plans/2026-09-28-ui-compositor-thread.md`](../plans/2026-09-28-ui-compositor-thread.md) (P0–P5 roles landed; Deferred absorbed as U3–U5)
 **Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)（浅色 SVG：shell/toolkit/gfx/DrawHost/GPU 泳道 + Commit→compositor→raster→GPU 流水线动画）
 
 Close the highest-ROI gap vs Chromium-class shell feel **without** vendoring `cc`/viz. Scenario map (as-built):
@@ -1713,7 +1719,7 @@ Close the highest-ROI gap vs Chromium-class shell feel **without** vendoring `cc
 
 ## §Views kernel seams（2026-10-05）
 
-**Status:** active  
+**Status:** active
 **Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)（既有泳道；L1 PaintCommit 含 CommitGate）
 
 `src/ui/views/kernel` stays the widget/layout/event/compositor host. Public includes (`view/view.h`, `widget/widget.h`, `compositor/shell_compositor.h`) stay stable. Composition inside the kernel:
@@ -1736,10 +1742,10 @@ Locked behavior:
 
 ## §UI chrome equal-profile harness（2026-10-05）
 
-**Status:** active  
-**Skill:** [`.cursor/skills/harness-auto-ui-opt/SKILL.md`](../../../.cursor/skills/harness-auto-ui-opt/SKILL.md)  
-**Runner:** [`testing/tools/harness/ui/run_ui_profile_matrix.py`](../../../testing/tools/harness/ui/run_ui_profile_matrix.py)  
-**Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)  
+**Status:** active
+**Skill:** [`.cursor/skills/harness-auto-ui-opt/SKILL.md`](../../../.cursor/skills/harness-auto-ui-opt/SKILL.md)
+**Runner:** [`testing/tools/harness/ui/run_ui_profile_matrix.py`](../../../testing/tools/harness/ui/run_ui_profile_matrix.py)
+**Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)
 **Extends:** §Shell perf upgrade waves (U0 measure)
 
 Locked equal-profile for **Views chrome** (not map GPU):
@@ -1758,9 +1764,9 @@ FALSE-GAP: `hud_fps` is DrawHost HUD, not a chrome peer. Recommendations map hot
 
 ## §Map browse forensic harness（2026-09-30）
 
-**Status:** active  
-**Plan:** [`../plans/2026-09-30-map-browse-forensic-harness.md`](../plans/2026-09-30-map-browse-forensic-harness.md)  
-**Extends:** §Harness suite loop, §Harness capability runtime, §UI interact script, §UI visual forensics  
+**Status:** active
+**Plan:** [`../plans/2026-09-30-map-browse-forensic-harness.md`](../plans/2026-09-30-map-browse-forensic-harness.md)
+**Extends:** §Harness suite loop, §Harness capability runtime, §UI interact script, §UI visual forensics
 **Also covers:** leftover MFC `SmartGIS-Legacy.exe` 2D Edit browse + leftover GL/D3D scene3d showcase (freeze path; harness-only)
 
 ### Goal
@@ -1816,8 +1822,8 @@ Reproduce and **analyze** map-browse failures on **both** product shells (Views 
 
 ## §IL interaction recorder（hybrid OS + agent）（2026-10-01）
 
-**Status:** active  
-**Updated:** 2026-10-01  
+**Status:** active
+**Updated:** 2026-10-01
 **As-built:** `testing/tools/loop/record/{il_recorder,os_hook,il_compact,agent_events}.py`; `loop_runner.py --record-il`; DebugAgent `record.enable` / `record.poll` / `record.clear`; `BrowserView::switch_map_tab` → `push_record_event("select_view_tab")`.
 
 ### Intent
@@ -1904,9 +1910,9 @@ Open (or attach) the product app, record a human repro session, and emit a repla
 
 ## §Report dock（WebView2 report browser, 2026-09-30）
 
-**Status:** active  
-**Updated:** 2026-09-30  
-**Capability spec:** [`2026-09-13-plugin-host-design.md`](2026-09-13-plugin-host-design.md) §report browser capability  
+**Status:** active
+**Updated:** 2026-09-30
+**Capability spec:** [`2026-09-13-plugin-host-design.md`](2026-09-13-plugin-host-design.md) §report browser capability
 **Plan:** [`../plans/2026-09-30-plugin-report-browser.md`](../plans/2026-09-30-plugin-report-browser.md)
 
 ### Goal
@@ -1933,10 +1939,10 @@ Host an inspector **Report** tab that embeds `plugin::ReportBrowser` (v1 WebView
 
 ## §Visual review closed-loop（2026-10-01）
 
-**Status:** active  
-**Updated:** 2026-10-01 (Wave2: browse/ui/legacy checklist seed + real `--review-prep` on `legacy.browse.2d` + `map2d.china`)  
-**Plan:** [`../plans/2026-10-01-harness-visual-review.md`](../plans/2026-10-01-harness-visual-review.md)  
-**Extends:** §Harness suite loop, §UI visual forensics (A+C), §Map browse forensic harness  
+**Status:** active
+**Updated:** 2026-10-01 (Wave2: browse/ui/legacy checklist seed + real `--review-prep` on `legacy.browse.2d` + `map2d.china`)
+**Plan:** [`../plans/2026-10-01-harness-visual-review.md`](../plans/2026-10-01-harness-visual-review.md)
+**Extends:** §Harness suite loop, §UI visual forensics (A+C), §Map browse forensic harness
 **As-built:** `testing/tools/loop/review/`; `loop_runner --review-prep`; `.cursor/skills/harness-visual-review/SKILL.md`; `docs/superpowers/ui-testing.md` §Visual review.
 
 ### Goal
@@ -2017,8 +2023,8 @@ run / --review-prep
 
 ## §Shell chrome layout（2026-10-02）
 
-**Status:** active  
-**Updated:** 2026-10-04 — chrome density (toolbar 32 DIP, inspector 280 DIP, diag one chrome row ~120 DIP).  
+**Status:** active
+**Updated:** 2026-10-04 — chrome density (toolbar 32 DIP, inspector 280 DIP, diag one chrome row ~120 DIP).
 **Owns:** product `BrowserView::build_contents` chrome geometry (not a new dated twin).
 
 | Region | Choice |
@@ -2041,11 +2047,48 @@ Checklist:
 
 ---
 
+## §browser/plugin subdirectory（2026-10-10）
+
+**Status:** active
+**Updated:** 2026-10-10
+**Owns:** role dirs under `src/app/views/browser/plugin/` (chrome PluginShell platform only; product payload stays in `src/plugin/product`).
+**Diagram:** [`../diagrams/browser-plugin-subdirectory-layers.html`](../diagrams/browser-plugin-subdirectory-layers.html)
+**Module README:** [`../../../src/app/views/browser/plugin/README.md`](../../../src/app/views/browser/plugin/README.md)
+
+### Locked layout
+
+```
+browser/plugin/
+  shell/      # PluginShell · plugins_dir · builtins · pack_enable · startup_apply
+  host/       # host_context · plugin_host_wiring · map2d/scene3d bridges
+  present/    # present · PluginPlayback · PluginPreviewHost
+  harness/    # report_suite (showcase / FakeReportBrowser only)
+  detail/     # path_resolve helpers for bridges
+```
+
+### Decisions
+
+| # | Decision |
+| --- | --- |
+| 1 | Split by **responsibility**, not file size. Mirror `content/present` role dirs and `browser/nav/detail`. |
+| 2 | Public namespaces stay `app` / `app::detail`. Directory names do **not** add a third semantic namespace. |
+| 3 | Colocate `.h` with `.cc`; update `//src/app/views` sources + every `#include` in the same change. **No** forwarding headers at old flat paths. |
+| 4 | Product present writers stay out of chrome (`src/plugin/product`). `host/` callbacks stay product-agnostic at the call site; China defaults fill once in `plugin_host_wiring`. |
+| 5 | Do not reopen a dated layout twin (ban list → this living file / plugin-host living row). |
+
+### Checklist
+
+1. [x] `git mv` flat TUs into `shell/` · `host/` · `present/` · `harness/` · `detail/`.
+2. [x] `BUILD.gn` + includes + include guards; `plugin/README.md` + parent `browser/README.md`.
+3. [x] Living § + diagram; `src-layout.md` app row; plugin-host path notes for playback.
+
+---
+
 ## §shell/ui composers（2026-10-02）
 
-**Status:** active  
-**Updated:** 2026-10-07  
-**Owns:** deep split of `src/app/views/ui` after S1–S5 file-only multi-TU landed.  
+**Status:** active
+**Updated:** 2026-10-08
+**Owns:** deep split of `src/app/views/ui` after S1–S5 file-only multi-TU landed.
 **Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)
 
 ### Before → after
@@ -2075,12 +2118,19 @@ BrowserView                    # Widget fields + BrowserUiDelegate thin forwards
   │    MapPagesComposer          # public API; bodies split across pages/*.cc
   │    ├─ map_pages_viewport.cc / scene_wire / shell_overlay / tool_seams /
   │    │   gestures / tab_switch
-  │    └─ detail/                # ptr_guard + SEH workspace bind (app::detail)
+  │    └─ detail/viewport_hdc.h  # cold-fill + shell borrow
   ├─ panels/
-  │    ProcessingComposer / InspectComposer / InspectorSyncComposer /
+  │    ProcessingComposer (+ processing_python_bridge.cc) /
+  │    InspectComposer / InspectorSyncComposer /
   │    DebugConsoleComposer / ReportPanel* / PluginCatalogView*
   └─ (Atmosphere dock in world3d plugin)
+
+browser/nav/{draft,extent,view,gesture}_nav.cc   # Browser:: same-class multi-TU
+browser/nav/detail/{seh_workspace,ptr_guard,attach_mode}
+util/view_tree.h                                 # paint_role walk / dump
 ```
+
+
 
 Atmosphere inspector wiring lives in `plugin/product/world3d/scene/atmosphere/` (`world3d.atmosphere` dock + `plugin.ui.shell`).
 
@@ -2102,16 +2152,18 @@ Rules:
 5. [x] Peel `build_contents` into `ShellLayoutComposer`: `load_markup("shell/main_app.ui.xml")` + host mount (Catalog / Map tabs / Ambox tool bar / right inspector / Diagnostic / Status); imperative fallback if markup missing. `splitter` markup tag + Yoga skip for splitter children.
 6. [x] Split `MapPagesComposer` bodies into `map_pages_{viewport,scene_wire,shell_overlay,tool_seams,gestures,tab_switch}.cc` + thin `map_pages_composer.cc` (ctor / flash / active queries).
 7. [x] Deep split residual `browser_view` chrome into `ui/shell/` (layout + lifecycle + seh_seed) and `ui/horizon/` (menu / catalog / ambox / inspector_host; directory was briefly `ui/chrome/`, renamed to match Horizon brand — no shim).
+8. [x] Dedup debug view-tree walk into `util/view_tree.h`; extract embed cold-fill / shell borrow into `pages/detail/viewport_hdc.h`; LaunchPolicy after soft MapIR→HDC removal (`force_gdi_overlay` ignored; ContentGdi = ContentMapView; kGdi scene3d stays Display-off placeholder).
+9. [x] Split `browser/nav/draft_nav.cc` into `draft` / `extent` / `view` / `gesture` TUs; hoist SEH + ptr_guard to `browser/nav/detail/` (shared with MapPages); peel `ProcessingComposer::bind_gis_python_bridge` into `processing_python_bridge.cc`.
 
 ---
 
 ## §ui/views/map subdirectory nest（2026-10-01）
 
-As-built: `src/ui/views/map/` nests by responsibility — `viewport/` (`DrawHost` + `display` / `present` / `backbuffer` / `wnd_proc` / `shell` / `gpu_present` + `paint_policy` / `features`), `input/` (`viewport_input`, `TouchMultitouch`), `frame/` (identity HUD, embed fill), `device/` (legacy CreateRenderDevice helpers). Callers include `"ui/views/map/viewport/draw_host.h"` and `"ui/views/map/input/touch_multitouch.h"` (or umbrella `views.h`). Namespace remains `ui::views`. Module README: [`../../../src/ui/views/README.md`](../../../src/ui/views/README.md).
+As-built: `src/ui/views/map/` nests by responsibility — `viewport/` (`DrawHost` + `display` / `present` / `backbuffer` / `wnd_proc` / `shell_overlay` / `identity_frame` / `gpu_present` + `detail/` + `paint_policy` / `features`), `input/` (`viewport_input`, `TouchMultitouch`), `frame/` (identity HUD, embed fill), `device/` (legacy CreateRenderDevice helpers). Callers include `"ui/views/map/viewport/draw_host.h"` and `"ui/views/map/input/touch_multitouch.h"` (or umbrella `views.h`). Namespace remains `ui::views`. Module README: [`../../../src/ui/views/README.md`](../../../src/ui/views/README.md).
 
 ## §DrawHost naming（2026-10-05）
 
-**Status:** active  
+**Status:** active
 **Diagram:** [`../diagrams/map-viewport-paint.html`](../diagrams/map-viewport-paint.html)
 
 The Views HWND in `src/ui/views/map` is the shell **primary draw surface** (主绘图区), not a GIS product type. Toolkit widgets and `src/app/views` callers must not say *map* / *flycube*. GIS map/scene/world3d/FlyCube stay in `src/content`, `src/render/rhi/flycube`, and presenters. `CanvasHost` is already `src/app/ui_designer/canvas` — do not reuse that name.
@@ -2133,7 +2185,7 @@ The Views HWND in `src/ui/views/map` is the shell **primary draw surface** (主�
 
 ## §DrawHost paint composition（2026-10-05）
 
-**Status:** active  
+**Status:** active
 **Diagram:** [`../diagrams/map-viewport-paint.html`](../diagrams/map-viewport-paint.html)
 
 `DrawHost` HWND paint is composition, not a god `paint.cc`. Locked seams:
@@ -2144,8 +2196,18 @@ The Views HWND in `src/ui/views/map` is the shell **primary draw surface** (主�
 | `present.cc` | 3D ContentMapView SharedSurface blit + overlay compose + present timer |
 | `backbuffer.cc` | Offscreen DIB + `export_bmp` |
 | `display.cc` / `gpu_present.cc` | Display mailbox + DXGI present popup |
-| `shell.cc` | Identity HUD + staged shell overlay |
-| `paint_policy.h` | `force-gdi-*` / `map2d-engine=scenic` / `force-content-mapview-2d` |
+| `shell_overlay.cc` | Staged shell overlay (`clear` / `commit` / `snapshot`) + hole punch |
+| `identity_frame.cc` | Identity HUD HWND + FPS (`note_hud` / `sync_identity_frame`) |
+| `detail/engine_identity.h` | Role/AttachMode → engine id + title (byte-stable harness contract) |
+| `detail/overlay_hole_keys.h` | Theme + named magic BGR keys for overlay alpha punch |
+| `paint_policy.h` | `force-gdi-*` / `map2d-engine`+`MAP2D_ENGINE` scenic / `map-identity-hud` / `force-content-mapview-2d` |
+
+## §DrawHost shell.cc split（2026-10-14）
+
+**Status:** active
+**Diagram:** [`../diagrams/map-viewport-paint.html`](../diagrams/map-viewport-paint.html)
+
+`shell.cc` split by responsibility (same-class multi-TU; `DrawHost` public API unchanged). Engine id / title strings stay byte-stable.
 
 ### 2D SoT (locked)
 
@@ -2159,7 +2221,7 @@ The Views HWND in `src/ui/views/map` is the shell **primary draw surface** (主�
 
 ## §Views primitives composition（2026-10-05）
 
-**Status:** active  
+**Status:** active
 **Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) (Primitives 控件 panel)
 
 Locked seams under `src/ui/views/primitives/` (public include paths unchanged; helpers in `ui::views::detail`):
@@ -2195,17 +2257,50 @@ Former hot specs are under `archive/specs/` (`superseded`). **Revise this file**
 
 ## §Plugin catalog_view (2026-10-06)
 
-**Status:** active  
-**Updated:** 2026-10-06  
+**Status:** active
+**Updated:** 2026-10-09 — product surface is the **right-dock Plugins** inspector tab (`plugins_tab_` → lazy `PluginCatalogView`); menu **Plugins → Manage plugins…** (`view.plugins`) activates that tab (not a modal).
 **Diagram:** [`../diagrams/plugin-manager-lifecycle.html`](../diagrams/plugin-manager-lifecycle.html)
 
 Plugin **list management** lives in the Horizon shell, not in `content/public`.
 
 | Path | Role |
 | --- | --- |
-| `src/app/views/ui/panels/plugin_catalog_view.*` | `app::PluginCatalogView` — table of registry rows; hover a row shows an info tooltip (name, version, kind, state, trust, directory, description) |
-| `PluginCatalogView::run_modal` | Modal dialog hosting the catalog (`BrowserView::on_plugins`) |
+| `src/app/views/ui/panels/plugin_catalog_view.*` | `app::PluginCatalogView` — dock table (`id`/`name`/`state`); Enable / Disable / **Run**; hover tip has version, kind, trust, directory, description, scenario id |
+| Right-dock tab **Plugins** | Lazy page via `InspectorHostComposer::ensure_inspector_tab` (`plugins_tab_`) |
+| Menu **Plugins → Manage plugins…** | `view.plugins` → `BrowserView::on_plugins` → `show_inspector_tab_index(plugins_tab_)` |
+| `PluginCatalogView::run_modal` | Optional floating dialog (tests / fallback); not the product path |
 | `plugin::ManagerView` | Host/store install-zip table (tests); not the product catalog |
 
 Do not introduce Qt. Tooltip is a Views `Label` updated from `TableView::set_row_hover`. Enable/disable stay on `plugin::Registry`.
+
+## §Cold start product-only（2026-10-13）
+
+**Status:** active  
+**Updated:** 2026-10-13  
+**Diagram:** [`../diagrams/views-startup-decision.html`](../diagrams/views-startup-decision.html)
+
+### Goal state
+
+| Entry | Behavior |
+| --- | --- |
+| Bare `SmartGIS.exe` | Always `apply_startup_policy(product_startup_policy())` + DefaultChina seed + `run_loop` |
+| `PluginCatalogView` **Run** | Dispatches `ScenarioRegistry` / `run_scenario` / `dispatch_plugin_command` without cold-start `scenario_id` |
+| CI / harness | Start bare shell; set `HARNESS_SUITE=<registry id>` only (post-show exit). **No** `set *SHOWCASE*` |
+
+### Locked
+
+1. CLI keeps `--type` / `--plugins-dir` / `--debug-console` / `--shell-canvas` / `--enable-oop-render`. **Retired:** `--map2d-showcase` / `--plugin-showcase` (argv extras ignored; never fill a launch scenario).
+2. Cold path never peeks `plugin.json` `startup.scenario` into a registry id, never sets `harness-run` from scenario, never elevates `PluginShell::startup_scenario()` after show.
+3. Sticky `*SHOWCASE*` env / switches (sizes, linger, GPU, mode, D3D) are deleted from product / scenic / scenario packs — replace with constants or explicit Run / suite params.
+4. `ScenarioRegistry` remains the library for panel Run and CI `HARNESS_SUITE` post-start (`exit_after_scenario` after product show only when `harness-suite` is set).
+5. Stage-2 (display diagnosis / map garble) is out of this § — cleanup first.
+
+### As-built touch points
+
+| Path | Role |
+| --- | --- |
+| `app/cmdline/views_launch_options.*` | Host flags only |
+| `app/main.cc` / `app/process/browser_main.cc` | Product policy + optional `HARNESS_SUITE` after show |
+| `ui/panels/plugin_catalog_view.*` | Enable / Disable / **Run** |
+| `testing/tools/loop/drive/{env,plugin}.py` | Scrub SHOWCASE; do not write `startup.scenario` |
 

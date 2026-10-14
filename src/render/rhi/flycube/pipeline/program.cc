@@ -35,8 +35,11 @@ GpuTexture* find_texture(const std::vector<TextureBind>& binds, uint32_t slot) {
 }
 
 ::BlendDesc blend_desc(BlendMode mode) {
+  // Value-initialize: FlyCube/D3D12 rejects PSOs when unset write-mask /
+  // logic-op fields hold stack garbage (opaque `return {}` worked; SrcAlpha
+  // / Multiply with a default-constructed BlendDesc did not).
   if (mode == BlendMode::kSrcAlpha) {
-    ::BlendDesc alpha;
+    ::BlendDesc alpha{};
     alpha.blend_enable = true;
     alpha.src_color_blend_factor = BlendFactor::kSrcAlpha;
     alpha.dst_color_blend_factor = BlendFactor::kOneMinusSrcAlpha;
@@ -48,7 +51,7 @@ GpuTexture* find_texture(const std::vector<TextureBind>& binds, uint32_t slot) {
   }
   if (mode == BlendMode::kMultiply) {
     // dst.rgb *= src.rgb. Leave dst alpha unchanged so src alpha is ignored.
-    ::BlendDesc multiply;
+    ::BlendDesc multiply{};
     multiply.blend_enable = true;
     multiply.src_color_blend_factor = BlendFactor::kZero;
     multiply.dst_color_blend_factor = BlendFactor::kSrcColor;

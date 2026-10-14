@@ -15,8 +15,8 @@
 #include "base/execution/parallel/for.h"
 #include "vista/component/map/draw.h"
 #include "vista/component/map/layout.h"
-#include "vista/component/map/layout/gen.h"
-#include "vista/component/map/layout/tess_grain.h"
+#include "vista/component/map/layout/policy/gen.h"
+#include "vista/component/map/layout/policy/tess_grain.h"
 
 namespace vista {
 namespace detail {

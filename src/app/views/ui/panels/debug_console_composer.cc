@@ -21,10 +21,11 @@
 #endif
 #include <windows.h>
 
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "app/views/il.runtime/backend/horizon/atom/mark.h"
 #include "app/views/il.runtime/codegen/session/run_script.h"
 #include "app/views/util/charset.h"
+#include "app/views/util/view_tree.h"
 #include "base/process/switches.h"
 #include "content/browser/debug/debug_agent.h"
 #include "content/browser/session/browser_session.h"
@@ -36,44 +37,6 @@
 #include "ui/views/map/viewport/draw_host.h"
 
 namespace app {
-
-namespace {
-
-const ui::views::View* find_view_by_paint_role(const ui::views::View* root,
-                                               std::string_view name) {
-  if (!root) {
-    return nullptr;
-  }
-  if (root->paint_role() == name) {
-    return root;
-  }
-  for (size_t i = 0; i < root->child_count(); ++i) {
-    if (const ui::views::View* hit =
-            find_view_by_paint_role(root->child_at(i), name)) {
-      return hit;
-    }
-  }
-  return nullptr;
-}
-
-void append_view_tree_lines(const ui::views::View* view, int depth,
-                            std::ostringstream& oss) {
-  if (!view) {
-    return;
-  }
-  for (int i = 0; i < depth; ++i) {
-    oss << ' ';
-  }
-  const std::string_view role = view->paint_role();
-  const ui::views::Rect b = view->bounds();
-  oss << (role.empty() ? "view" : role) << " [" << b.x << ',' << b.y << ' '
-      << b.width << 'x' << b.height << "]\n";
-  for (size_t i = 0; i < view->child_count(); ++i) {
-    append_view_tree_lines(view->child_at(i), depth + 1, oss);
-  }
-}
-
-}  // namespace
 
 // Diagnostic tools / debug-agent host binding.
 
@@ -142,7 +105,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
       return std::string("not wired");
     }
     const ui::views::View* hit =
-        find_view_by_paint_role(root, std::string_view(name));
+        detail::find_view_by_paint_role(root, std::string_view(name));
     if (!hit) {
       return std::string("not wired");
     }
@@ -180,7 +143,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
       return std::string("not wired");
     }
     std::ostringstream oss;
-    append_view_tree_lines(root, 0, oss);
+    detail::append_view_tree_lines(root, 0, oss);
     return oss.str();
   };
   host.ui_overlay_stats = [this]() {

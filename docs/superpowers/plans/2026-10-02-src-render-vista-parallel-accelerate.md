@@ -7,9 +7,9 @@ All rights reserved.
 
 > Hung off living [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) **§src_render + vista parallel accelerate**.  
 > **Directory tighten (landed, not this plan):** living **§Vista subdirectory tighten**.  
-> **Upgrade U0–U4 (landed):** living **§Vista logical/physical lanes**. Follow-on **M1–M4:** living **§Vista map/frame scenic-peer** · [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html). �?Scenic 脏区 / 帧拍 / prep 语义；不�?HDC、D3D11 deferred、焊死的 `MapPainter`�? 
-> **IR/GPU 目录（权威）�?* living **§Vista IR/Pass lanes**。逻辑/物理词汇退役。目标磁盘是 `vista/component/map`（`MapIR`�? `vista/pass/map`（`MapPass`），`vista/component/world`（`World` + `Instance`�? `vista/pass/world`（`WorldPass`）。下文文件表和任务勾选仍用勾选当时的 `vista/frame` / `vista/scene` 名字，不改写�? 
-> **Diagram (normative visual):** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html) �?**A×B 深度整合**；Topology A �?§2–�?（`stage_frame` �?`build_layout_parallel` �?`prep_cull_parallel` �?`record_and_present`）�? 
+> **Upgrade U0–U4 (landed):** living **§Vista logical/physical lanes**. Follow-on **M1–M4:** living **§Vista map/frame scenic-peer** · [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html). �?Scenic 脝区 / 帧拝 / prep 语义；丝�?HDC〝D3D11 deferred〝焊死的 `MapPainter`�? 
+> **IR/GPU 目录（权娝）�?* living **§Vista IR/Pass lanes**。逻辑/物睆话汇退役。目标磝盘是 `vista/component/map`（`MapIR`�? `vista/pass/map`（`MapPass`），`vista/component/world`（`World` + `Instance`�? `vista/pass/world`（`WorldPass`）。下文文件表和任务勾选仝用勾选当时的 `vista/frame` / `vista/scene` 坝字，丝改写�? 
+> **Diagram (normative visual):** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html) �?**A×B 深度整坈**；Topology A �?§2–�?（`stage_frame` �?`build_layout_parallel` �?`prep_cull_parallel` �?`record_and_present`）�? 
 > **CPU boundary:** [`gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html).  
 > **Related:** [`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · [`ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)  
 > **Present C/G/E:** living **§content present accelerate** · [`../diagrams/content-present-accelerate.html`](../diagrams/content-present-accelerate.html) · this plan **Task 7**.  
@@ -48,9 +48,9 @@ Env (product): `VISTA_LAYOUT_PARALLEL`; `GPUSCENE_PREP_PARALLEL` **default off**
 | --- | --- | --- |
 | `vista/component/map/frame.h` | Types | `LayoutInput` · `LayerBatch` · `MapFrame` · `Layout` |
 | `vista/component/map/layout.cc` | CPU orchestrator | `Layout::build` |
-| `vista/component/map/layout/fill.cc` · `line.cc` | Tess grain | `emit_fills` / `emit_lines` + `parallel_for` |
-| `vista/component/map/layout/{point,symbol}.cc` | Unify V1 | `emit_circles` / `emit_heatmap` / `emit_symbols` |
-| `vista/component/map/layout/tess_grain.h` | Thresholds | `kParallelTessMinGeoms` · `kParallelTessGrain` |
+| `vista/component/map/layout/paint/fill.cc` � `line.cc` | Tess grain | `emit_fills` / `emit_lines` + `parallel_for` |
+| `vista/component/map/layout/paint/{point,symbol}.cc` | Unify V1 | `emit_circles` / `emit_heatmap` / `emit_symbols` |
+| `vista/component/map/layout/policy/tess_grain.h` | Thresholds | `kParallelTessMinGeoms` · `kParallelTessGrain` |
 | `vista/component/world/terrain/mesh/*` | TLS scratch | tess helpers |
 | `content/.../map2d/frame/map2d_frame_cache.*` | L1 cache | `prepare_for_present` · `rebuild_layout` �?V2 `stage_frame` |
 | `content/.../map2d/frame/map2d_batches.cc` | Layer jobs | `batches_via_parallel_for` · `merge_parts` |
@@ -69,9 +69,9 @@ Env (product): `VISTA_LAYOUT_PARALLEL`; `GPUSCENE_PREP_PARALLEL` **default off**
 
 ### Task 1: Contract doc + env surface �?V0
 
-- [x] Living § locked (L0–L3 + **代码�?* §§1�?)
+- [x] Living § locked (L0–L3 + **代砝�?* §§1�?)
 - [x] Light HTML diagram (layering + named pipeline stages)
-- [x] Document env pointer in `src/render/README.md`（接线代码仍�?V1�?- [x] Explicit non-goal: no GDI tile HDC / no D3D11 deferred on product path
+- [x] Document env pointer in `src/render/README.md`（接线代砝仝�?V1�?- [x] Explicit non-goal: no GDI tile HDC / no D3D11 deferred on product path
 
 ### Task 2: Vista layout grain (Map2d CPU) �?V1
 
@@ -114,6 +114,8 @@ Env (product): `VISTA_LAYOUT_PARALLEL`; `GPUSCENE_PREP_PARALLEL` **default off**
 
 Hung off **§content present accelerate**. Do not open a twin plan.
 
+> **Checkbox truth (2026-10-13):** [x] rows below are historical hints only. C0 / G0 / E1 (and peers) **land status follows code + living §content present accelerate** (and §Content present ↔ Chromium mapping). Do not treat a checked box as proof of ship; especially C1 is **dead / do not revive** in the living § even if listed [x] here.
+
 - [x] C0/E0: shrink `Map2dFrameCache` mutex off `graph::present`; dual published/building slots; hillshade prefetch on `base::execution` (drop `std::thread` detach)
 - [x] G0: `kInteractiveReuse` never `invalidate_uploaded`; pan uses `Pass` DrawCache encode
 - [x] C1: per-layer `DrawItem` cache (`cache_key` / `layer_slices_`); settle reuses world items instead of drop-whole-frame tess
@@ -131,12 +133,12 @@ Hung off **§Vista logical/physical lanes**. Move order and acceptance live in t
 Borrow from Scenic: frame-beat discard (already `stage_frame`), prep-before-draw (already `prep_cull`), dirty-slice emit. Leave on Scenic: private HDC, D3D11 deferred TLS, fused `MapPainter` / `Scene::Render`, in-engine present.
 
 - [x] U0 tradeoff + upgrade table in the living § and both generation diagrams
-- [x] U1 `map_sources` `assert_no_deps` render；`place` �?CPU 集。`scene_cpu_sources` 仍可再收
-- [x] U2 `vista/component/map` 逻辑、`vista/frame` 物理、`FramePass`
+- [x] U1 `map_sources` `assert_no_deps` render；`place` �?CPU 集。`scene_cpu_sources` 仝坯冝收
+- [x] U2 `vista/component/map` 逻辑〝`vista/frame` 物睆〝`FramePass`
 - [x] U3 `domain/atmosphere` �?`atmosphere/session` (`session_sources`). GPU atmosphere target does not depend on it. `domain.h` stays
 - [x] U4 re-emit `DrawItem` slices whose `cache_key` missed (`retained_slices`). `FramePass::upload_keyed_slices` on the device thread. No HDC
 
-Follow-on M1–M4: living **§Vista map/frame scenic-peer**（AABB tile dirty、prep 波、DrawItem coalesce、emit abort）�?
+Follow-on M1–M4: living **§Vista map/frame scenic-peer**（AABB tile dirty〝prep 波〝DrawItem coalesce〝emit abort）�?
 **M4 host wiring (2026-10-05):** `Map2dFrameCache::rebuild_layout` sets `LayoutInput::layout_gen` + `live_layout_gen` (`std::atomic<uint64_t>` on the cache; mailbox `request_gen_` is the same atomic on the E-lane path). After `Layout::build`, if live gen �?the passed gen the host does not `absorb_layer_slices` / does not publish (`cached_frame_` / `published_` stay). `retained_slices` unchanged. No HWND join.
 
 U5 / multi-CL stays Task 5. Do not start it from this task.

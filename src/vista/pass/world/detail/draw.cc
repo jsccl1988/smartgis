@@ -69,6 +69,11 @@ void record_kind(render::rhi::CommandList* list,
   }
   list->set_viewport(0, 0, static_cast<float>(width), static_cast<float>(height),
                      0, 1);
+  // Solid-forced DEM must still kWrite on depth-attached opaque passes.
+  // kDisabled needs a depth_off_ds_ PSO variant; solid_pipeline_desc does not
+  // compile one, so FlyCube skips the draw (navy clear + translucent ghost on
+  // atmosphere.full / large FlyCube HWND). Ocean stays skipped under the
+  // albedo gate — DEM depth is what post sky/cloud expect.
   if (pass.enable_depth) {
     list->set_depth_mode(render::rhi::DepthMode::kWrite);
   }
@@ -89,10 +94,20 @@ void record_kind(render::rhi::CommandList* list,
     }
     const render::programs::Color color{mesh.solid_r, mesh.solid_g, mesh.solid_b,
                                 mesh.solid_a};
-    if (mesh.texture && !force_solid_terrain && lit && lit_textured_pipeline &&
+    // Albedo gate: FlyCube textured SRVs sample near-black after ocean/sky heap
+    // churn (atmosphere.full dark-red DEM silhouette). Solid PSO + olive
+    // ColorCB with DepthMode::kWrite is the score face.
+    if (force_solid_terrain && kind == vista::NodeKind::kTerrain && solid) {
+      if (pass.enable_depth) {
+        list->set_depth_mode(render::rhi::DepthMode::kWrite);
+      }
+      list->set_pipeline(solid);
+      list->set_constants(render::programs::kColorSlot, &color,
+                          static_cast<uint32_t>(sizeof(color)));
+    } else if (mesh.texture && lit && lit_textured_pipeline &&
         kind == vista::NodeKind::kTerrain) {
-      // DEM hypsometric / draped imagery. Prefer unlit textured so authored
-      // bake RGB reaches the swapchain.
+      // DEM hypsometric / draped imagery / olive gate. Prefer unlit textured so
+      // authored bake RGB reaches the swapchain.
       // Write DEM depth so post-opaque ocean/cloud/fog depth-test correctly.
       // (Ocean must record *after* this draw — see Scene3dGpuPresent::present.)
       if (pass.enable_depth) {
@@ -108,7 +123,7 @@ void record_kind(render::rhi::CommandList* list,
       }
       list->set_constants(render::programs::kColorSlot, &color,
                           static_cast<uint32_t>(sizeof(color)));
-    } else if (mesh.texture && !force_solid_terrain) {
+    } else if (mesh.texture) {
       list->set_pipeline(textured);
       list->bind_texture(mesh.texture, render::programs::kTextureSlot);
       // kPsTextured multiplies sample by ColorCB tint (map2d opacity path).

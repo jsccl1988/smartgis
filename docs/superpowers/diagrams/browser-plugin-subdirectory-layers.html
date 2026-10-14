@@ -1,0 +1,197 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>browser/plugin — 子目录分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --shell: #2563a8; --host: #2f7d62; --present: #b06a1a; --harness: #6b5ea8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  @media (max-width: 960px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2); min-height: 180px;
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.78rem; color: var(--muted); }
+  .lane.shell { border-top: 3px solid var(--shell); }
+  .lane.host { border-top: 3px solid var(--host); }
+  .lane.present { border-top: 3px solid var(--present); }
+  .lane.harness { border-top: 3px solid var(--harness); }
+  .lane.detail { border-top: 3px solid #5a6a7e; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 11px; }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .note { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .flow .s { opacity: 0.35; }
+  .flow .s1 { animation: beat 6.5s 0s infinite; }
+  .flow .s2 { animation: beat 6.5s 1.1s infinite; }
+  .flow .s3 { animation: beat 6.5s 2.2s infinite; }
+  .flow .s4 { animation: beat 6.5s 3.3s infinite; }
+  @keyframes beat {
+    0%, 10% { opacity: 0.35; }
+    8%, 22% { opacity: 1; }
+    30%, 100% { opacity: 0.35; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>browser/plugin — 子目录分层</h1>
+    <p>按职责拆 <code>shell/</code> · <code>host/</code> · <code>present/</code> · <code>harness/</code> · <code>detail/</code>。产品 payload 仍在 <code>src/plugin/product</code>；壳只保留平台与中立 present。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§browser/plugin subdirectory</a>
+      · 模块：<a href="../../../src/app/views/browser/plugin/README.md">plugin/README.md</a>
+    </div>
+    <div class="rel">相关图：
+      <a href="./views-window-process.html">Views 进程</a>
+      <a href="./content-present-subdirectory-layers.html">content present 子目录</a>
+      <a href="./harness-il-capability.html">harness IL</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层</h2>
+    <div class="lanes">
+      <div class="lane shell">
+        <h3>shell/ — 平台所有权</h3>
+        <ul>
+          <li><code>PluginShell</code></li>
+          <li><code>plugins_dir</code> / <code>peek_plugin_startup</code></li>
+          <li>builtins · pack_enable</li>
+          <li>startup_apply</li>
+        </ul>
+      </div>
+      <div class="lane host">
+        <h3>host/ — PluginHost sinks</h3>
+        <ul>
+          <li><code>host_context.h</code></li>
+          <li><code>plugin_host_wiring.cc</code></li>
+          <li>map2d / scene3d bridges</li>
+          <li>horizon 填回调，无 Browser*</li>
+        </ul>
+      </div>
+      <div class="lane present">
+        <h3>present/ — 壳呈现</h3>
+        <ul>
+          <li>tab / dataset present</li>
+          <li><code>PluginPlayback</code></li>
+          <li><code>PluginPreviewHost</code></li>
+          <li>不点名 flood/traffic 存储</li>
+        </ul>
+      </div>
+      <div class="lane harness">
+        <h3>harness/ — 套件专用</h3>
+        <ul>
+          <li><code>report_suite</code></li>
+          <li>FakeReportBrowser</li>
+          <li>不进交互默认路径</li>
+        </ul>
+      </div>
+      <div class="lane detail">
+        <h3>detail/ — 共享助手</h3>
+        <ul>
+          <li><code>path_resolve</code></li>
+          <li>exe 相对路径</li>
+          <li>bridges 共用</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原则流（冷启动 → 呈现）</h2>
+    <svg class="diagram flow" viewBox="0 0 1040 220" role="img" aria-label="plugin：shell → host wire → present → HWND">
+      <rect class="s s1" x="12" y="40" width="230" height="120" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="28" y="68" fill="#2563a8">1 shell/</text>
+      <text class="box-sub" x="28" y="92">PluginShell::init / attach</text>
+      <text class="box-sub" x="28" y="112">builtins + Registry scan</text>
+      <text class="box-sub" x="28" y="132">optional apply_startup</text>
+
+      <rect class="s s2" x="274" y="40" width="230" height="120" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="290" y="68" fill="#1d6b4f">2 host/</text>
+      <text class="box-sub" x="290" y="92">host_context 填回调</text>
+      <text class="box-sub" x="290" y="112">install map2d / scene3d bridges</text>
+      <text class="box-sub" x="290" y="132">product defaults 只在 wiring</text>
+
+      <rect class="s s3" x="536" y="40" width="230" height="120" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="552" y="68" fill="#8a5a12">3 present/</text>
+      <text class="box-sub" x="552" y="92">present_dataset / tab switch</text>
+      <text class="box-sub" x="552" y="112">PluginPlayback · PreviewHost</text>
+      <text class="box-sub" x="552" y="132">ticks *.present_frame</text>
+
+      <rect class="s s4" x="798" y="40" width="230" height="120" rx="8" fill="#f3eef8" stroke="#d8dee6"/>
+      <text class="lane-label" x="814" y="68" fill="#6b5ea8">4 HWND / harness</text>
+      <text class="box-sub" x="814" y="92">主 tab 或 surface=1 预览</text>
+      <text class="box-sub" x="814" y="112">harness/report_suite 仅套件</text>
+      <text class="box-sub" x="814" y="132">payload 在 product/</text>
+
+      <path d="M242 100 H274" stroke="#94a3b8" stroke-width="2" marker-end="url(#a)"/>
+      <path d="M504 100 H536" stroke="#94a3b8" stroke-width="2" marker-end="url(#a)"/>
+      <path d="M766 100 H798" stroke="#94a3b8" stroke-width="2" marker-end="url(#a)"/>
+      <defs>
+        <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+    </svg>
+    <p class="note">动画按阶段点亮：谁拥有 Registry、谁装 Sink、谁切 tab / 播帧、谁只走 harness。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 目录对照</h2>
+    <table class="map">
+      <thead>
+        <tr><th>旧（扁平）</th><th>新（角色子目录）</th><th>备注</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>plugin_shell.*</code> · <code>builtins.*</code> · <code>pack_enable.*</code> · <code>startup_apply.*</code></td><td><code>shell/</code></td><td>平台所有权</td></tr>
+        <tr><td><code>host_context.h</code> · <code>*_bridges.*</code> · <code>plugin_host_wiring.cc</code></td><td><code>host/</code></td><td>PluginHost sinks</td></tr>
+        <tr><td><code>present.*</code> · <code>playback.*</code> · <code>preview_host.*</code></td><td><code>present/</code></td><td>壳呈现表面</td></tr>
+        <tr><td><code>report_suite.*</code></td><td><code>harness/</code></td><td>套件专用</td></tr>
+        <tr><td><code>path_resolve.*</code></td><td><code>detail/</code></td><td>共享助手</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

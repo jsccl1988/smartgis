@@ -3,6 +3,8 @@
 
 #include "plugin/runtime/host/native/manager.h"
 
+#include <cstdio>
+
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/contribute_index.h"
 #include "plugin/runtime/host/catalog/resource_roots.h"
@@ -153,6 +155,22 @@ bool PluginManager::start_native(const PluginRecord& rec,
   if (dll_path.empty()) {
     dll_path = join_dll(rec.directory, rec.manifest.library);
   }
+  // #region agent log
+  {
+    FILE* f = nullptr;
+    if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
+        f) {
+      std::fprintf(
+          f,
+          "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"F\","
+          "\"location\":\"manager.cc:start_native\",\"message\":\"before "
+          "LoadLibrary\",\"data\":{\"id\":\"%s\",\"dll\":\"%s\"},\"timestamp\":"
+          "0}\n",
+          rec.manifest.id.c_str(), dll_path.c_str());
+      std::fclose(f);
+    }
+  }
+  // #endregion
   auto it = modules_.find(rec.manifest.id);
   if (it == modules_.end() || !it->second) {
     it = modules_.emplace(rec.manifest.id, std::make_unique<NativeModule>()).first;
@@ -160,12 +178,74 @@ bool PluginManager::start_native(const PluginRecord& rec,
   NativeModule* mod = it->second.get();
   if (!mod->is_loaded() && !mod->load(dll_path)) {
     last_error_ = mod->last_error();
+    // #region agent log
+    {
+      FILE* f = nullptr;
+      if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
+          f) {
+        std::fprintf(
+            f,
+            "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"F\","
+            "\"location\":\"manager.cc:load_fail\",\"message\":\"LoadLibrary "
+            "failed\",\"data\":{\"id\":\"%s\",\"err\":\"%s\"},\"timestamp\":0}"
+            "\n",
+            rec.manifest.id.c_str(), last_error_.c_str());
+        std::fclose(f);
+      }
+    }
+    // #endregion
     return false;
   }
+  // #region agent log
+  {
+    FILE* f = nullptr;
+    if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
+        f) {
+      std::fprintf(
+          f,
+          "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"F\","
+          "\"location\":\"manager.cc:before_init\",\"message\":\"before "
+          "plugin init\",\"data\":{\"id\":\"%s\"},\"timestamp\":0}\n",
+          rec.manifest.id.c_str());
+      std::fclose(f);
+    }
+  }
+  // #endregion
   if (mod->init(host) != 0) {
     last_error_ = mod->last_error();
+    // #region agent log
+    {
+      FILE* f = nullptr;
+      if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
+          f) {
+        std::fprintf(
+            f,
+            "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"F\","
+            "\"location\":\"manager.cc:init_fail\",\"message\":\"init "
+            "failed\",\"data\":{\"id\":\"%s\",\"err\":\"%s\"},\"timestamp\":0}"
+            "\n",
+            rec.manifest.id.c_str(), last_error_.c_str());
+        std::fclose(f);
+      }
+    }
+    // #endregion
     return false;
   }
+  // #region agent log
+  {
+    FILE* f = nullptr;
+    if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
+        f) {
+      std::fprintf(
+          f,
+          "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"F\","
+          "\"location\":\"manager.cc:start_ok\",\"message\":\"native start "
+          "ok\",\"data\":{\"id\":\"%s\"},\"timestamp\":0}\n",
+          rec.manifest.id.c_str());
+      std::fclose(f);
+    }
+  }
+  // #endregion
   return true;
 }
 

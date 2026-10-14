@@ -12,11 +12,12 @@ host hint. Compiled into `vista.dll` (`//src/vista/component/map:map_sources`).
 
 Living lock: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md)
 **§Vista map component layers** · **§Vista map layout layers**.
-Diagram: [`vista-map-component-layers.html`](../../../../docs/superpowers/diagrams/vista-map-component-layers.html).
+Diagram: [`vista-map-component-layers.html`](../../../../docs/superpowers/diagrams/vista-map-component-layers.html)
+· [`vista-map-layout-layers.html`](../../../../docs/superpowers/diagrams/vista-map-layout-layers.html).
 
 ## Layers
 
-Five orthogonal subdirs under the public root. No nested dirs inside `layout/`.
+Five orthogonal subdirs under the public root. `layout/` nests four role dirs.
 
 | Path | Owns |
 | --- | --- |
@@ -28,16 +29,27 @@ Five orthogonal subdirs under the public root. No nested dirs inside `layout/`.
 | `shade/` | Hillshade luma coverage (`multiply.*`, vir-simd AVX2-width TU) and bake / `TileSlot` (`bake.*`). Shade math stays in `vista/terrain`. |
 | `place/` | MapIR → ortho meshes (no RHI). |
 | `mvt/` | MVT → batches / `MapIR`. Decode stays in `gis/tile`. |
-| `layout/` | Flat pipeline + painters + geom helpers + policy headers. |
+| `layout/` | Nested roles: `stage/` · `paint/` · `geom/` · `policy/`. |
 
-`layout/` file roles (include rules, not subdirs): stage (`collect` / `pack` / `emit` / `coalesce`) → paint (`fill` / `line` / `point` / `symbol` / `raster`) → geom (`geom_walk` / `mesh_emit` / `attrs` / `clip`) → policy (`slice_key` / `tess_grain` / `view_metrics` / `gen`). Painters do not include stage headers. `carto` does not construct OGR and does not include stage headers. `shade` does not include `place/` or layout painters.
+`layout/` deps: stage → paint → geom → policy. Painters do not include stage
+headers (`layout_gen_stale` lives in `policy/gen.h`). `carto` does not construct
+OGR and does not include stage headers. `shade` does not include `place/` or
+layout painters.
+
+| Role | Path |
+| --- | --- |
+| stage | `layout/stage/{collect,pack,emit,coalesce}.*` |
+| paint | `layout/paint/{fill,line,point,symbol,raster}.*` + `source_index.h` + `tess_jobs.h` |
+| geom | `layout/geom/{geom_walk,mesh_emit,attrs,clip}.*` |
+| policy | `layout/policy/{slice_key,tess_grain,view_metrics,gen}.*` |
 
 Do not add `vista::map` as a public third namespace. Internals stay `vista::detail`.
-No forwarding headers at retired `detail/`, `collision/`, `layout/{stage,paint,geom,policy}/`, or root `place.h` / `multiply.h`.
+No forwarding headers at retired `detail/`, `collision/`, flat `layout/*.h`, or
+root `place.h` / `multiply.h`.
 
 Tests: `//src/vista/component/map:frame_test` (`frame_test.exe`).
 Benchmark: `//src/vista/component/map:multiply_benchmark` (`multiply_benchmark`). Scalar, AVX2 kernel, and public dispatch at 64²–1024².
 
 ---
 
-**最后更新：** 2026-10-07
+**最后更新：** 2026-10-08

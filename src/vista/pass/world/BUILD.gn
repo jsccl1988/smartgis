@@ -40,6 +40,15 @@ source_set("world_pass_sources") {
     "detail/upload.cc",
     "detail/upload.h",
     "gpu_mesh.h",
+    "hud/hud_build.cc",
+    "hud/hud_build.h",
+    "hud/hud_effect.cc",
+    "hud/hud_effect.h",
+    "hud/hud_ir.h",
+    "hud/hud_pass.cc",
+    "hud/hud_pass.h",
+    "hud/hud_raster.cc",
+    "hud/hud_raster.h",
     "opaque_effect.cc",
     "opaque_effect.h",
     "pass.cc",
@@ -52,6 +61,7 @@ source_set("world_pass_sources") {
   public_deps = [
     ":world_pass_terrain",
     "//src/render:render",
+    "//src/vista/component/world:atmosphere_cpu_sources",
     "//src/vista/component/world:world_sources",
     "//third_party:gdal",
   ]
@@ -59,6 +69,10 @@ source_set("world_pass_sources") {
     "//src/base:base",
     "//src/base:core",
     "//src/gis:gis",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
   ]
 }
 

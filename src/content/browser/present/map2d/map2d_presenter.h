@@ -16,9 +16,8 @@
 #endif
 #include <windows.h>
 
-#include "content/browser/present/map2d/frame/map2d_frame_cache.h"
-#include "content/browser/present/map2d/gpu/map2d_gpu_present.h"
-#include "content/browser/present/map2d/hdc/map2d_hdc_painter.h"
+#include "content/browser/present/map2d/frame/cache/map2d_frame_cache.h"
+#include "content/browser/present/map2d/gpu/present/map2d_gpu_present.h"
 #include "content/content_export.h"
 #include "scenic/engine.h"
 #include "ui/gfx/raster/shell_raster.h"
@@ -36,6 +35,8 @@ class ViewFrame;
 
 CONTENT_EXPORT bool prefer_map2d_scenic();
 
+// Map2d facade: FlyCube MapPass GPU present (+ optional scenic matrix cell).
+// Soft MapIR→HDC is not used.
 class Map2dPresenter {
  public:
   // Same heap-owning factory as Scene3dPresenter::create — do not embed
@@ -65,9 +66,13 @@ class Map2dPresenter {
 
   bool hosts_scenic_present() const;
 
-  // Drops published MapIR / GPU·HDC latches only when scene/layer fingerprint
+  // Drops published MapIR / GPU latches only when scene/layer fingerprint
   // changed. Camera-only callers are no-ops (layout_builds_delta).
   void invalidate_frame_cache();
+  // Unconditional MapIR / Pass drop (DefaultChina post-show, surface settle).
+  // Fingerprint-stable invalidate_frame_cache is a no-op and cannot clear a
+  // wrong first layout latched before final client fit.
+  void force_invalidate_frame_cache();
 
   bool present_gpu(render::rhi::Device* device, uint32_t width_px,
                    uint32_t height_px,
@@ -79,22 +84,31 @@ class Map2dPresenter {
   uint64_t layout_build_count() const;
   bool last_present_reused_layout() const;
 
+  // HWND path: scenic paint_hdc when MAP2D_ENGINE=scenic; otherwise ocean fill
+  // (product carto is DXGI MapPass).
   void paint(HDC hdc, int width_px, int height_px) const;
   void paint(HDC hdc, int width_px, int height_px, bool fill_background) const;
+  // No-ops: selection/flash are MapPass MapIR overlays.
   void paint_annotation_overlay(HDC hdc, int width_px, int height_px) const;
   void paint_flash_overlay(HDC hdc, int width_px, int height_px) const;
 
+  // Scenic when MAP2D_ENGINE=scenic; else MapIR→BMP (align carto gold).
   bool export_bmp(const std::string& path, int width_px, int height_px) const;
   size_t basemap_tiles_drawn() const;
 
  private:
   void ensure_scenic() const;
   void sync_scenic(uint32_t width_px, uint32_t height_px) const;
+  bool export_bmp_via_scenic(const std::string& path, int width_px,
+                             int height_px) const;
+  bool export_bmp_via_mapir(const std::string& path, int width_px,
+                            int height_px) const;
 
-  Map2dFrameCache cache_;
+  // gpu_ before cache_: Map2dFrameCache is large (MapIR / Arena). A sizeof
+  // drift that wrote past cache_ used to smash map2d_pass_ (float 1.0f /
+  // 0x3f800000 → AV in MapPass::abandon on BindPresenters).
   Map2dGpuPresent gpu_;
-  // Opt-in HDC carto (export / FORCE_GDI / ContentMapView). Not GPU backup.
-  Map2dHdcPainter hdc_;
+  Map2dFrameCache cache_;
 
   const GisScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
@@ -103,6 +117,9 @@ class Map2dPresenter {
   // std::mutex on MSVC x64 (80) so member offsets stay layout-compatible.
   mutable std::recursive_mutex scenic_mu_;
   mutable std::unique_ptr<scenic::Engine> scenic_;
+  // Scenic has no MapIR layout cache; count successful paint/present so
+  // WaitFirstMapPresent / session probes see progress.
+  mutable uint64_t scenic_present_count_ = 0;
   mutable std::vector<scenic::Vertex2> scenic_xy_;
   mutable std::vector<scenic::DrawItem> scenic_items_;
 };

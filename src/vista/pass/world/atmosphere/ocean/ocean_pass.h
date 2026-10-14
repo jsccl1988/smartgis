@@ -109,6 +109,11 @@ class VISTA_EXPORT OceanPass {
   // True after the last successful record() that queued GPU FFT dispatches.
   bool used_gpu_fft() const { return used_gpu_fft_; }
 
+  // Sea-mask topology size after remesh (0 = no ocean quads / all land).
+  uint32_t index_count() const { return index_count_; }
+  // Mean of CPU sea mask (1 = sea). Empty mask reports 1 (open-sea default).
+  float sea_mask_mean() const;
+
   // Encode scales after the last record (Hs energy-normalized for FFT paths).
   float height_scale() const { return height_scale_; }
   float disp_scale() const { return disp_scale_; }

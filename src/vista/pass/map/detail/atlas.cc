@@ -169,6 +169,14 @@ AtlasLayout pack_atlas(GlyphRasterizer* glyphs,
   if (used_w <= 0 || used_h <= 0 || used_h > 2048) {
     return atlas;
   }
+  // Pad width to a multiple of 64 so RGBA8 row bytes are 256-aligned (D3D12
+  // texture upload pitch). Tight 61px shelves needed padding in the upload
+  // path; keeping the atlas itself aligned avoids any remaining shear.
+  constexpr int kPitchAlignPx = 64;
+  used_w = (used_w + kPitchAlignPx - 1) / kPitchAlignPx * kPitchAlignPx;
+  if (used_w > 2048) {
+    return atlas;
+  }
 
   std::vector<uint8_t> pixels(static_cast<size_t>(used_w) *
                                   static_cast<size_t>(used_h) * 4u,

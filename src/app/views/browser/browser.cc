@@ -3,14 +3,16 @@
 
 #include "app/views/browser/browser.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <string>
 #include <string_view>
 
+#include "app/views/browser/china_product_defaults.h"
 #include "app/views/browser/ui_delegate.h"
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
@@ -176,7 +178,7 @@ bool Browser::init() {
       if (!session_->ensure_oop_render_process()) {
         LOGGING(LOG_WARNING,
                 "startup: enable_oop_render requested but StartRenderProcess "
-                "failed ï¿½?continuing in-process");
+                "failed continuing in-process");
       }
     }
   }
@@ -253,29 +255,34 @@ void Browser::show() {
     // Full first-map present wait is opt-in (SYNC_FIRST_MAP_PRESENT=1).
     ui_->show_shell();
   }
-  // Fit after horizon is visible (final client size). Extent-only nudge;
-  // init_shell already framed from SeedDocument (demo or sync China).
-  // Showcase / harness (SKIP_AMBOX_CATALOG): demo-only seed AVs inside
-  // fit_map_extent (cdb world3d-early2 Browser::show). Scene3D framing is
-  // applied later by apply_china_scene3d_product_defaults.
+  // Fit after horizon is visible (final client size). show_shell may already
+  // have pumped a first carto layout (layout_build_count > 0) at a pre-reseed
+  // size / FlyCube latch — do not skip fit on that count or DefaultChina keeps
+  // the smeared HWND face. Harness (skip-ambox-catalog): demo-only seed AVs
+  // inside fit_map_extent. Scene3D framing is applied later via product defaults.
   const bool skip_fit = []() {
     const char* skip = base::switch_cstr("skip-ambox-catalog");
     return skip && skip[0] != '\0' && skip[0] != '0';
   }();
-  const bool first_carto_ready = session_->map2d_layout_build_count() > 0;
-  if (!skip_fit && !first_carto_ready) {
+  if (!skip_fit) {
     if (!seh_fit_map_extent(this)) {
       LOGGING(LOG_WARNING, "startup: Browser::show fit_map_extent SEH");
     }
   }
-  // Sync China seed (default product path): drop any pre-china FlyCube latch
-  // so the first interactive present records china carto ï¿½?same face as
-  // --ui-showcase=shell without forcing GDI overlay.
-  if (session_->document_has_china_extent() && !first_carto_ready) {
-    session_->note_map2d_surface_reset();
-    session_->invalidate_map2d_frame_cache();
-    if (ui_) {
-      ui_->invalidate_native_map();
+  // Sync China: always drop latch + invalidate so the post-fit present records
+  // final-client carto (gate on layout_build_count contradicted this).
+  if (note_product_map2d_surface_after_show(*this) && ui_) {
+    ui_->invalidate_native_map();
+  }
+  // Opt-in dump after fit+reset (overwrites show_shell's early pre-fit dump).
+  if (const char* dump = base::switch_cstr("map2d-dump-bmp")) {
+    if (dump[0]) {
+      const bool ok = session_->map2d_export_bmp(dump, 1280, 720);
+      std::fprintf(stderr,
+                   "map2d-dump-bmp(post-show): %s path=%s layout=%llu\n",
+                   ok ? "ok" : "fail", dump,
+                   static_cast<unsigned long long>(
+                       session_->map2d_layout_build_count()));
     }
   }
   navigation_baselined_ = true;
@@ -298,15 +305,9 @@ void Browser::prepare_close() {
     return;
   }
   prepare_close_done_ = true;
-  // Cancel deferred China seed before it blocks the UI thread on land-clip
+  // Cancel deferred product seed before it blocks the UI thread on land-clip
   // (WM_CLOSE cannot run until that timer callback returns).
-  if (HWND shell = hwnd()) {
-    if (IsWindow(shell)) {
-      constexpr UINT_PTR kDeferChina = 0x43484E41u;  // 'CHNA'
-      KillTimer(shell, kDeferChina);
-      RemovePropW(shell, L"DeferChinaBrowser");
-    }
-  }
+  cancel_deferred_china_seed();
   // Detach DrawHost / join Display before abandon_mesh. Reversing that
   // order lets Scene3d present hold present_mu_ while the UI thread blocks in
   // abandon, and release_rhi_device waits forever for a destroy ack the Display
@@ -403,19 +404,12 @@ void Browser::select_view_tab(int index) {
 }
 
 void Browser::OnExtentChanged(uint32_t /*view_id*/, const content::Extent2& e) {
-  if (syncing_extent_ || !content::BrowserSession::is_extent_nonempty(e)) {
-    return;
-  }
-  // 2D ViewFrame is owned by shell pan/wheel navigation. Applying remote
-  // ExtentChanged here races in-flight push_shared_extent echoes and undoes
-  // cursor zoom (self-test exit 47). Orbit tracks only a China lon/lat box;
-  // pixel or world extents shrink the DEM into a sticker on the ocean.
-  if (!content::BrowserSession::extent_looks_like_china(e)) {
+  if (syncing_extent_ || !should_sync_orbit_extent(e)) {
     return;
   }
   // GisContents recv / renderer_recv threads deliver this off the UI thread.
   // OrbitFrame + StatusBar/Label must not run there (heap corruption /
-  // 0xC0000374). Always PostMessage ï¿½?never apply on the caller thread
+  // 0xC0000374). Always PostMessage — never apply on the caller thread
   // (including the old "no HWND yet" fallback, which still raced Label).
   HWND shell = hwnd();
   if (!shell || !IsWindow(shell)) {
@@ -430,8 +424,7 @@ void Browser::OnExtentChanged(uint32_t /*view_id*/, const content::Extent2& e) {
 }
 
 void Browser::apply_extent_changed_on_ui(const content::Extent2& e) {
-  if (syncing_extent_ || !content::BrowserSession::is_extent_nonempty(e) ||
-      !content::BrowserSession::extent_looks_like_china(e)) {
+  if (syncing_extent_ || !should_sync_orbit_extent(e)) {
     return;
   }
   syncing_extent_ = true;

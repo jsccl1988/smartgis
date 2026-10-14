@@ -23,6 +23,7 @@ Namespace stays `vista` / `vista::detail`. Do not add `vista::pass`.
 | `terrain/pass.*` | `TerrainPass`: DEM/TIN upload, solid gate, `kTerrain` record | yes |
 | `gpu_mesh.h` | `GpuMesh` POD + `as_cull_item` | yes |
 | `opaque_effect.*` | frame-graph `kOpaque` adapter | yes |
+| `hud/hud_*.*` | `HudFrame` IR + raster + `HudPass` / `HudEffect` (`kOverlay`) | yes |
 | `detail/upload.*` | VB/IB/texture upload | yes |
 | `detail/tint.*` | paint / point / DEM default tint on `GpuMesh` | no Device calls |
 | `detail/rebuild.cc` | `WorldPass::rebuild_meshes` (tess → upload) | yes |
@@ -69,4 +70,9 @@ Tests: `//src/vista/pass/world:scene_gpu_test` (`scene_gpu_test`), `unified_draw
 
 ---
 
-**最后更新：** 2026-10-07
+Screen HUD (compass / status / place-names / wind / engine badge) is
+`hud/HudPass` recorded as `kOverlay` after atmosphere post. Content fills
+`HudFrame` on `Scene3dGpuPresent::present`; there is no Scene3d FORCE_GDI
+soft path.
+
+**最后更新：** 2026-10-08

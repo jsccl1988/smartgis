@@ -3,8 +3,10 @@
 
 #include "vista/pass/map/detail/upload.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <span>
 #include <unordered_map>
@@ -37,6 +39,7 @@ struct MeshBucket {
 // Pending draw before device create_buffer; bucket_index selects MeshBucket.
 struct PendingDraw {
   bool textured = false;
+  bool dem_raster = false;
   size_t bucket_index = 0;
   render::rhi::Texture* texture = nullptr;
   uint32_t first_index = 0;
@@ -130,10 +133,10 @@ void append_xyzuv(MeshBucket* bucket,
 void push_or_coalesce(std::vector<PendingDraw>* pending, PendingDraw draw) {
   if (!pending->empty()) {
     PendingDraw& last = pending->back();
-    if (last.textured == draw.textured && last.texture == draw.texture &&
-        last.bucket_index == draw.bucket_index && last.blend == draw.blend &&
-        last.r == draw.r && last.g == draw.g && last.b == draw.b &&
-        last.a == draw.a &&
+    if (last.textured == draw.textured && last.dem_raster == draw.dem_raster &&
+        last.texture == draw.texture && last.bucket_index == draw.bucket_index &&
+        last.blend == draw.blend && last.r == draw.r && last.g == draw.g &&
+        last.b == draw.b && last.a == draw.a &&
         last.first_index + last.index_count == draw.first_index) {
       last.index_count += draw.index_count;
       return;
@@ -176,27 +179,6 @@ render::rhi::Texture* upload_rgba_checked(
     return nullptr;
   }
   return upload_rgba_texture(device, rgba->data(), w, h, keep);
-}
-
-UploadedDraw make_draw(bool textured, render::rhi::Buffer* vb,
-                       render::rhi::Buffer* ib, uint32_t index_count,
-                       uint32_t first_index, uint32_t stride,
-                       render::rhi::Texture* texture, float r, float g, float b,
-                       float a, render::rhi::BlendMode blend) {
-  UploadedDraw draw;
-  draw.textured = textured;
-  draw.vertices = vb;
-  draw.indices = ib;
-  draw.index_count = index_count;
-  draw.first_index = first_index;
-  draw.stride = stride;
-  draw.texture = texture;
-  draw.r = r;
-  draw.g = g;
-  draw.b = b;
-  draw.a = a;
-  draw.blend = blend;
-  return draw;
 }
 
 float clamp01(float v) {
@@ -309,6 +291,38 @@ std::vector<UploadedDraw> upload_draws(
       if (load_raster(key, &rgba, &w, &h)) {
         if (multiply) {
           bake_multiply_raster(&rgba, w, h, opacity);
+        } else {
+          // Jet DEM ('HSHD'): bake layer opacity into land texel alpha.
+          // Textured PS uses tex.a only (not tint.a) so ColorCB cannot zero
+          // the sheet. Ocean pixels stay a=0 for the MapIR clear.
+          constexpr uint32_t kHillshadeKey = 0x48534844u;
+          if (key == kHillshadeKey) {
+            // TEMP: tiny solid-red texture (glyph-atlas scale). If land goes
+            // red, the 1536x960 upload/sample path is at fault.
+            if (std::getenv("SMARTGIS_HSHD_TINY") != nullptr) {
+              w = 64;
+              h = 64;
+              rgba.assign(static_cast<size_t>(w) * static_cast<size_t>(h) * 4u,
+                          0);
+              for (size_t i = 0; i + 3 < rgba.size(); i += 4) {
+                rgba[i] = 255;
+                rgba[i + 1] = 0;
+                rgba[i + 2] = 0;
+                rgba[i + 3] = 255;
+              }
+            } else {
+              const size_t need =
+                  static_cast<size_t>(w) * static_cast<size_t>(h) * 4u;
+              const float op = clamp01(opacity);
+              if (rgba.size() >= need && op < 0.999f) {
+                const int scale = static_cast<int>(op * 255.f + 0.5f);
+                for (size_t i = 3; i < need; i += 4) {
+                  rgba[i] = static_cast<uint8_t>(
+                      (static_cast<int>(rgba[i]) * scale + 127) / 255);
+                }
+              }
+            }
+          }
         }
         texture = upload_rgba_checked(device, &rgba, w, h, textures);
       }
@@ -380,6 +394,7 @@ std::vector<UploadedDraw> upload_draws(
   struct ResolvedMesh {
     bool skip = true;
     bool textured = false;
+    bool dem_raster = false;
     bool uv = false;
     size_t bucket_index = 0;
     render::rhi::Texture* texture = nullptr;
@@ -427,7 +442,12 @@ std::vector<UploadedDraw> upload_draws(
       if (!load_raster) {
         continue;
       }
-      const bool multiply = mesh.blend == vista::DrawBlend::kMultiply;
+      // Jet DEM hillshade ('HSHD') must stay kOver. A mistaken multiply bake
+      // turns the colorful sheet into grayscale coverage and, with isolines,
+      // reads as horizontal gray streaks over cream land on FlyCube present.
+      constexpr uint32_t kHillshadeKey = 0x48534844u;
+      const bool multiply = mesh.blend == vista::DrawBlend::kMultiply &&
+                            mesh.raster_key != kHillshadeKey;
       const float shade_opacity = mesh.a;
       render::rhi::Texture* texture =
           cached_raster(mesh.raster_key, multiply, shade_opacity);
@@ -443,6 +463,11 @@ std::vector<UploadedDraw> upload_draws(
         // them again. RGB tint stays the unpacked draw color.
         item.a = 1.f;
         item.blend = render::rhi::BlendMode::kMultiply;
+      } else if (mesh.raster_key == kHillshadeKey) {
+        item.blend = render::rhi::BlendMode::kSrcAlpha;
+        // Opacity already in texel alpha; keep tint.a = 1.
+        item.a = 1.f;
+        item.dem_raster = true;
       }
     } else if (mesh.source == MeshSource::kIcon) {
       render::rhi::Texture* texture = nullptr;
@@ -496,6 +521,7 @@ std::vector<UploadedDraw> upload_draws(
     }
     PendingDraw draw;
     draw.textured = item.textured;
+    draw.dem_raster = item.dem_raster;
     draw.bucket_index = item.bucket_index;
     draw.texture = item.texture;
     draw.first_index = first_index;
@@ -537,9 +563,21 @@ std::vector<UploadedDraw> upload_draws(
     }
     const uint32_t stride =
         p.textured ? kUvStride : kPositionStride;
-    draws.push_back(make_draw(p.textured, bucket.vb, bucket.ib, p.index_count,
-                              p.first_index, stride, p.texture, p.r, p.g, p.b,
-                              p.a, p.blend));
+    UploadedDraw draw;
+    draw.textured = p.textured;
+    draw.dem_raster = p.dem_raster;
+    draw.vertices = bucket.vb;
+    draw.indices = bucket.ib;
+    draw.index_count = p.index_count;
+    draw.first_index = p.first_index;
+    draw.stride = stride;
+    draw.texture = p.texture;
+    draw.r = p.r;
+    draw.g = p.g;
+    draw.b = p.b;
+    draw.a = p.a;
+    draw.blend = p.blend;
+    draws.push_back(draw);
   }
   return draws;
 }

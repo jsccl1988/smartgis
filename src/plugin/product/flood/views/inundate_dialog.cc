@@ -3,13 +3,13 @@
 
 #include "plugin/product/flood/views/inundate_dialog.h"
 
-#include <cstdlib>
 #include <memory>
 #include <string>
 #include <utility>
 
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/resource_roots.h"
+#include "plugin/runtime/widgets/dialog_fields.h"
 #include "plugin/runtime/widgets/present_surface_picker.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
@@ -19,21 +19,8 @@
 
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-#include "base/process/switches.h"
 
 namespace plugin {
-namespace {
-
-double parse_double(const std::string& text, double fallback) {
-  if (text.empty()) {
-    return fallback;
-  }
-  char* end = nullptr;
-  const double v = std::strtod(text.c_str(), &end);
-  return end != text.c_str() ? v : fallback;
-}
-
-}  // namespace
 
 InundateDialog::InundateDialog(content::PluginHost* host) : host_(host) {
   constexpr int kW = 520;
@@ -70,16 +57,10 @@ InundateDialog::InundateDialog(content::PluginHost* host) : host_(host) {
     btn->set_click([this] { on_ok(); });
   }
 
-  const char* sample_dir = base::switch_cstr("plugin-sample-dir");
-  const std::string base =
-      sample_dir && *sample_dir ? std::string(sample_dir) : "../data/plugin";
+  const std::string base = plugin_sample_dir();
   sample_path_ = base + "/flood_valley.geojson";
-  if (dem_path_ && dem_path_->text().empty()) {
-    dem_path_->set_text(base + "/flood_basin_sample.tif");
-  }
-  if (output_path_ && output_path_->text().empty()) {
-    output_path_->set_text(base + "/flood_mask.tif");
-  }
+  set_textfield_if_empty(dem_path_, base + "/flood_basin_sample.tif");
+  set_textfield_if_empty(output_path_, base + "/flood_mask.tif");
 
   auto box = std::make_unique<ui::views::BoxLayout>(
       ui::views::BoxLayout::Orientation::kVertical);
@@ -129,21 +110,21 @@ std::string InundateDialog::build_json() const {
   w.Key("output");
   w.String(output_path_ ? output_path_->text().c_str() : "");
   w.Key("seed_x");
-  w.Double(parse_double(seed_x_ ? seed_x_->text() : "", 0.0));
+  w.Double(parse_field_double(seed_x_ ? seed_x_->text() : "", 0.0));
   w.Key("seed_y");
-  w.Double(parse_double(seed_y_ ? seed_y_->text() : "", 0.0));
+  w.Double(parse_field_double(seed_y_ ? seed_y_->text() : "", 0.0));
   const std::string depth =
       water_depth_ ? water_depth_->text() : std::string();
   if (!depth.empty()) {
     w.Key("water_depth");
-    w.Double(parse_double(depth, 0.0));
+    w.Double(parse_field_double(depth, 0.0));
   } else {
     w.Key("water_level");
-    w.Double(parse_double(water_level_ ? water_level_->text() : "", 100.0));
+    w.Double(parse_field_double(water_level_ ? water_level_->text() : "", 100.0));
   }
   w.Key("frames");
   w.Int(static_cast<int>(
-      parse_double(frames_ ? frames_->text() : "", 12.0)));
+      parse_field_double(frames_ ? frames_->text() : "", 12.0)));
   if (frames_dir_ && !frames_dir_->text().empty()) {
     w.Key("frames_dir");
     w.String(frames_dir_->text().c_str());

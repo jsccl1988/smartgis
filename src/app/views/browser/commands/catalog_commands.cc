@@ -22,7 +22,7 @@
 
 #include "app/views/browser/commands/app_commands.h"
 #include "content/browser/session/browser_session.h"
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "app/views/browser/commands/view_commands.h"
 #include "plugin/runtime/host/catalog/registry.h"
 #include "content/public/types.h"
@@ -287,7 +287,9 @@ void Browser::on_catalog_command(const std::string& command_id) {
             : std::string();
     const int delta = (command_id == "catalog.layer.move_up") ? -1 : 1;
     if (!id.empty() && session_->move_layer(id, delta)) {
+      // Order is in ContentFingerprint; drop MapIR like visibility toggles.
       ui_->sync_catalog_from_scene();
+      session_->invalidate_map2d_frame_cache();
       ui_->invalidate_map_overlays();
       status(delta < 0 ? "Layer moved up" : "Layer moved down");
     }

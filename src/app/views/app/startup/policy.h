@@ -10,11 +10,12 @@
 
 namespace app {
 
-// Interactive product (empty scenario_id): FlyCube/Vista 2D GPU SoT;
-// Scene3d engine left unchanged (env / View menu).
+// Cold-start product policy: FlyCube map2d (align carto gold); Scene3d FlyCube.
+// Scenic 2D via MAP2D_ENGINE=scenic. Bare SmartGIS.exe always applies this.
 LaunchPolicy product_startup_policy();
 
-// Policy registered on the scenario, or a GDI harness fallback for unknown ids.
+// Policy for an explicit ScenarioRegistry id (panel Run / HARNESS_SUITE).
+// Unknown ids fall back to a GDI harness face — never used for cold start.
 LaunchPolicy startup_policy_for_scenario(std::string_view scenario_id);
 
 // Scene3d / Map2d engine gates and overlay switches before Browser::init.

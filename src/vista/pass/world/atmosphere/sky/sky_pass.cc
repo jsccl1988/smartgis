@@ -17,7 +17,10 @@
 namespace vista {
 namespace {
 
-constexpr uint32_t kSkyConstantSlot = 1;
+// Must not reuse programs::kColorSlot (1) — a shared command-list recorder
+// keeps slot bytes across passes; SkyCB (80) then poisons solid ColorCB (16)
+// and DEM draws as a ghost plane on atmosphere.full.
+constexpr uint32_t kSkyConstantSlot = 3;
 
 render::rhi::GraphicsPipelineDesc sky_graphics_desc() {
   // Fullscreen NDC sky: SkyCB tint only (screen-space; no CameraCB — unused
@@ -235,7 +238,12 @@ bool SkyPass::record(render::rhi::Device* device, render::rhi::CommandList* list
   sky.sun_x = params_.sun_x;
   sky.sun_y = params_.sun_y;
   sky.sun_z = params_.sun_z;
+  // Flat DEM must stay on day Rayleigh. A stale/NaN space_blend from a prior
+  // globe present lerps the hardcoded day colors to black starfield.
   sky.space_blend = (params_.dome_radius < 0.f) ? 1.0f : 0.0f;
+  if (!(sky.space_blend >= 0.f) || !(sky.space_blend <= 1.f)) {
+    sky.space_blend = 0.f;
+  }
   sky.zenith_r = params_.zenith_r;
   sky.zenith_g = params_.zenith_g;
   sky.zenith_b = params_.zenith_b;

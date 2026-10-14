@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/component/map/layout/clip.h"
+#include "vista/component/map/layout/geom/clip.h"
 
 #include <memory>
 #include <utility>

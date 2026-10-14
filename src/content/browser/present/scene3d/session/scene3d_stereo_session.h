@@ -14,7 +14,7 @@
 namespace content {
 
 // Runtime LoadLibrary of scenic_impl (stereo HWND GL/D3D) without linking the
-// DLL into product TUs. Prefer GPU capture_bgr24 over GDI BitBlt — double-
+// DLL into product TUs. Prefer GPU capture_bgr24 over GDI BitBlt  - double-
 // buffered GL has no PFD_SUPPORT_GDI.
 class Scene3dStereoSession {
  public:

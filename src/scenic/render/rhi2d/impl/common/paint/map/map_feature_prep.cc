@@ -228,6 +228,7 @@ void prepare_one_feature(OGRFeature* feature, const gis::Envelope& env_viewp,
   out->anno[0] = '\0';
   out->label_priority = 5;
   out->is_river = false;
+  out->river_class = 0;
   out->road_class = 0;
   out->anno_angle = 0.f;
   out->feature_type = FtUnknown;
@@ -329,7 +330,8 @@ void prepare_one_feature(OGRFeature* feature, const gis::Envelope& env_viewp,
   const char* kind = cached_field(feature, cache->kind);
   const char* cls = cached_field(feature, cache->cls);
   out->is_river = carto2d_is_river_kind(kind);
-  out->road_class = carto2d_road_class(kind, cls);
+  out->river_class = out->is_river ? carto2d_river_class(kind, cls) : 0;
+  out->road_class = out->is_river ? 0 : carto2d_road_class(kind, cls);
 
   switch (type) {
     case wkbPolygon:

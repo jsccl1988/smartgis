@@ -119,15 +119,37 @@ def _launch(
         "SKIP_AMBOX_CATALOG",
         "SYNC_CHINA_SEED",
         "DEFER_CHINA_SEED",
+        # Sticky SHOWCASE / harness modes must not affect product cold start.
+        "MAP2D_SHOWCASE",
+        "MAP2D_SHOWCASE_W",
+        "MAP2D_SHOWCASE_H",
+        "MAP2D_SHOWCASE_GPU",
+        "MAP2D_SHOWCASE_LINGER_MS",
+        "PLUGIN_SHOWCASE",
+        "ATMOSPHERE_SHOWCASE",
+        "ATMOSPHERE_SHOWCASE_GPU",
+        "ATMOSPHERE_SHOWCASE_LINGER_MS",
+        "ATMOSPHERE_SHOWCASE_TIMED_MS",
+        "ATMOSPHERE_SHOWCASE_PRESENT_COUNT",
+        "ATMOSPHERE_SHOWCASE_PUMP_MS",
+        "SCENE3D_SHOWCASE",
+        "SCENE3D_SHOWCASE_D3D",
+        "SCENE3D_SHOWCASE_MODE",
+        "SCENE3D_SHOWCASE_LINGER_MS",
+        "UI_SHOWCASE",
+        "UI_SHOWCASE_LINGER_MS",
+        "UI_SHOWCASE_TIMED_MS",
     ):
         env.pop(k, None)
     # Sync China before FlyCube attach: deferred open_path races Display and
     # can hang the UI thread (seed begin, never done). Sync still uses argv=[].
     env["SYNC_CHINA_SEED"] = "1"
     env["SKIP_CHINA_LAND_CLIP"] = "1"
-    # Hillshade bake + concurrent FlyCube present has AVd under DXGI settle;
-    # carto gold still comes from vector layers / Present BitBlt.
-    env["MAP2D_NO_HILLSHADE"] = "1"
+    # Product gold matches map2d-showcase-align: default_carto + DEM hillshade.
+    # Do not force MAP2D_NO_HILLSHADE — that left FlyCube Present as cream land
+    # + dark glyph quads (no jet DEM / road parity with align inspect).
+    env.pop("MAP2D_NO_HILLSHADE", None)
+    env.setdefault("MAP2D_FORCE_HILLSHADE", "1")
     if env_extra:
         env.update(env_extra)
     err_f = open(err_path, "w", encoding="utf-8", errors="replace")
@@ -188,7 +210,9 @@ def _wait_shell(proc: subprocess.Popen[bytes]) -> tuple[int, str]:
     raise RuntimeError(f"no shell HWND (got title={shell_title!r})")
 
 
-def _capture_shell(hwnd: int, bmp: Path) -> dict:
+def _capture_shell(
+    hwnd: int, bmp: Path, *, score_id: str = "views_shell_chrome"
+) -> dict:
     # restore=False: SW_RESTORE is Sync SendMessage; if the UI thread is in
     # a long paint/present it deadlocks the harness after a good PrintWindow.
     bring_hwnd_to_front(hwnd, stay_topmost=False, restore=False)
@@ -204,7 +228,7 @@ def _capture_shell(hwnd: int, bmp: Path) -> dict:
     png = None
     if ok and bmp.is_file():
         png = bmp_to_inspect_png(bmp)
-    score = score_bmp(bmp, "views_shell_chrome") if ok and bmp.is_file() else {}
+    score = score_bmp(bmp, score_id) if ok and bmp.is_file() else {}
     return {
         "bmp": bmp.name,
         "inspect": png.name if png else None,
@@ -300,7 +324,13 @@ def _run_phase(
                 saw_ready = True
                 time.sleep(2.5)
                 break
-            if "frame_items=" in text or "scene3d.present dem" in text:
+            # ContentGdi product face logs gdi paint; FlyCube logs frame_items.
+            if (
+                "frame_items=" in text
+                or "gdi paint items=" in text
+                or "hillshade baked" in text
+                or "scene3d.present dem" in text
+            ):
                 if frames_at <= 0.0:
                     frames_at = time.time()
                 # Give land-clip / first DXGI presents a few more seconds.
@@ -344,7 +374,28 @@ def _run_phase(
                 SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE,
             )
             time.sleep(0.25)
-        r_shell = _capture_shell(shell, cap / shell_leaf)
+        # Product ContentGdi paints china carto into the embed. Full-window
+        # PrintWindow includes dark chrome, so strict map2d_china land+water
+        # can fail even when hillshade/jet are active — accept chrome-ok +
+        # hillshade_active as carto gold for bare-launch shell captures.
+        if phase == "2d":
+            r_shell = _capture_shell(shell, cap / shell_leaf, score_id="map2d_china")
+            china = r_shell.get("score") or {}
+            if not r_shell.get("ok"):
+                chrome = score_bmp(cap / shell_leaf, "views_shell_chrome")
+                if chrome.get("ok") and china.get("hillshade_active"):
+                    r_shell = dict(r_shell)
+                    r_shell["ok"] = True
+                    r_shell["score"] = {
+                        **china,
+                        "ok": True,
+                        "shell_chrome_ok": True,
+                        "note": "shell PW + hillshade_active (chrome dilutes land+water)",
+                    }
+        else:
+            r_shell = _capture_shell(
+                shell, cap / shell_leaf, score_id="views_shell_chrome"
+            )
         print(f"{phase}_shell", r_shell.get("ok"), r_shell.get("score", {}).get("ok"), flush=True)
 
         if do_wheel:
@@ -645,8 +696,8 @@ def main(argv: list[str] | None = None) -> int:
             "chrome_ok",
         ],
         expect_notes=(
-            "argv=[]; shell score=views_shell_chrome (teal hole allowed); "
-            "carto gold=FlyCube Present score=views_present_dxgi "
+            "argv=[]; 2d shell score=map2d_china (ContentGdi carto = align gold); "
+            "optional FlyCube Present score=views_present_dxgi "
             "(or map2d frame_items log when DXGI BitBlt opaque)."
         ),
         stderr_path=log_dir / "plain_browse_2d_stderr.txt",

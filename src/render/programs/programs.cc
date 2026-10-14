@@ -57,7 +57,10 @@ struct PSIn
 float4 main(PSIn input) : SV_TARGET
 {
     float4 tex = base_color_texture.Sample(linear_sampler, input.uv);
-    return float4(tex.rgb * tint.rgb, tex.a * tint.a);
+    // Coverage lives in tex.a (glyphs + DEM ocean a=0). Do not multiply
+    // tint.a: a stale ColorCB.a of 0 made the DEM sheet fully transparent
+    // under SrcAlpha (cream land + gray streaks under labels).
+    return float4(tex.rgb * tint.rgb, tex.a);
 }
 )";
 
@@ -374,8 +377,14 @@ rhi::GraphicsPipelineDesc solid_pipeline_desc() {
 }
 
 rhi::GraphicsPipelineDesc textured_pipeline_desc() {
-  return make_desc(kVsTextured, kPsTextured, rhi::VertexLayout::kPositionUv,
-                   kTexturedBindings, 4);
+  // FlyCube locks blend on the PSO (set_blend_mode is a no-op). Jet hillshade
+  // and glyphs need SrcAlpha so A=0 ocean / empty atlas cells do not replace
+  // the MapIR ocean clear and cream land with opaque black RGB.
+  rhi::GraphicsPipelineDesc desc =
+      make_desc(kVsTextured, kPsTextured, rhi::VertexLayout::kPositionUv,
+                kTexturedBindings, 4);
+  desc.blend = rhi::BlendMode::kSrcAlpha;
+  return desc;
 }
 
 rhi::GraphicsPipelineDesc lit_pipeline_desc() {

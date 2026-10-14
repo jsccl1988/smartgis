@@ -3,7 +3,7 @@
 
 """Run plugin.world3d equal-profile backend/parallel matrix.
 
-Same China DEM Scene3D on SmartGIS.exe --plugin-showcase=world3d with
+Same China DEM Scene3D on SmartGIS.exe (HARNESS_SUITE=plugin.world3d) with
 PLUGIN_WORLD3D_PERF_BARE=1 (sky/ocean/cloud/fog + pointcloud overlay
 off; pump_ms=0). Primary metric is warm ms_per_present (discard first cold
 and last DXGI-tail frame; n=6 → warm=4). Scenic rhi3d GL + D3D11 use the
@@ -53,7 +53,7 @@ _SCENIC_GPU_PERF_ENV: dict[str, str | None] = {
 # role: perf (performance table) | smoke (run + gate only; not a perf peer)
 # leftover/legacy hosts are frozen — GL/D3D peers are scenic rhi3d on Views.
 ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
-    # Views world3d: leave SCENE3D_ENGINE unset so plugin-showcase keeps
+    # Views world3d: leave SCENE3D_ENGINE unset so HARNESS_SUITE keeps
     # the GDI shell default; FlyCube is acquired on the showcase HWND only.
     # GDI is not a 3D GPU peer — omitted from this matrix.
     (
@@ -120,7 +120,7 @@ ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
             **_SCENIC_GPU_PERF_ENV,
             "SCENE3D_ENGINE": "stereo_gl",
             "STEREO_API": "OpenGL",
-            "SCENE3D_SHOWCASE_D3D": "0",
+            "HARNESS_SUITE": "plugin.world3d",
         },
     ),
     (
@@ -133,7 +133,7 @@ ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
             **_SCENIC_GPU_PERF_ENV,
             "SCENE3D_ENGINE": "stereo_d3d",
             "STEREO_API": "Direct3D",
-            "SCENE3D_SHOWCASE_D3D": "1",
+            "HARNESS_SUITE": "plugin.world3d",
             "RHI3D_D3D_DEFERRED": "0",
         },
     ),
@@ -461,8 +461,9 @@ def run_views_world3d(row_id: str, backend: str, parallel: str,
     t0_wall = time.time()
     try:
         try:
+            env.setdefault("HARNESS_SUITE", "plugin.world3d")
             proc = subprocess.run(
-                [str(views_exe), "--plugin-showcase=world3d"],
+                [str(views_exe)],
                 cwd=str(OUT),
                 env=env,
                 capture_output=True,

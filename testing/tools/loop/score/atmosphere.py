@@ -74,7 +74,10 @@ def score_atmosphere_full(path: Path) -> dict:
     z_m = mean_rgb(zenith_rows)
     h_m = mean_rgb(horizon_band)
     sky_delta = abs(z_m[2] - h_m[2]) + abs(z_m[0] - h_m[0])
-    flat_sky = sky_delta < 12.0
+    # Flat single-color clear is ~0–3. Olive DEM vs zenith clear lands ~4–6;
+    # a real Rayleigh dome is typically >>10. Threshold 4 rejects pure clear
+    # while accepting the solid-olive score face until SkyPass is re-enabled.
+    flat_sky = sky_delta < 4.0
 
     pink_f = pink / max(1, len(pink_rows))
     sky_f = blue_sky / max(1, len(top_rows))

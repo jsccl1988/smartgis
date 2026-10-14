@@ -11,7 +11,7 @@ namespace app {
 
 class BrowserView;
 
-// Wires processing / playback / report / spatial / Python GIS horizon.
+// Wires processing / playback / report / spatial; Python bridge is a peer TU.
 class ProcessingComposer {
  public:
   explicit ProcessingComposer(BrowserView* host);

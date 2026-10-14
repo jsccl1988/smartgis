@@ -19,7 +19,7 @@
 #include <windows.h>
 
 #include "app/views/browser/browser.h"
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "base/process/switches.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/registry.h"
@@ -138,17 +138,22 @@ void AmboxComposer::populate_ambox() {
 
 
 void AmboxComposer::on_plugins() {
-  if (host_->browser_->plugins()) {
-    (void)host_->browser_->plugins()->ensure_builtins();
-    // Re-bind after builtins so report callbacks see a live PluginHost.
-    host_->ensure_inspector_tab(host_->report_tab_);
-    host_->attach_report_plugin_bridge();
-    PluginCatalogView::run_modal(host_->widget_.hwnd(), host_->browser_->plugins()->registry(),
-                                 host_->browser_->plugins()->host());
-    host_->ambox_include_plugins_ = true;
-    host_->populate_ambox();
-    host_->ambox_include_plugins_ = false;
+  if (!host_->browser_->plugins()) {
+    return;
   }
+  (void)host_->browser_->plugins()->ensure_builtins();
+  // Right-dock Plugins only — do not materialize Report/WebView2 here
+  // (that used to run on every Manage plugins… and could stall/crash).
+  // Do not set ambox_include_plugins_: that pushes PluginShell::commands()
+  // into populate_from_commands, and CommandCatalog::for_each AVs when the
+  // catalog maps are mid-rebuild after ensure_builtins (0xC0000005).
+  host_->ensure_inspector_tab(host_->plugins_tab_);
+  host_->show_inspector_tab_index(host_->plugins_tab_);
+  if (host_->plugin_catalog_) {
+    host_->plugin_catalog_->refresh();
+  }
+  // Refresh side Tools groups (enabled packs) without the map-bar catalog walk.
+  host_->populate_ambox();
 }
 
 

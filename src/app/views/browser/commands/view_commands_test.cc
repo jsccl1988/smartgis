@@ -91,9 +91,10 @@ int main() {
   expect(menus.file.size() == 4, "file menu count");
   expect(menus.edit.size() == 3, "edit menu count");
   expect(menus.layer.size() == 4, "layer menu count");
+  expect(menus.plugins.size() == 1, "plugins menu count");
   expect(menus.view.size() == 21, "view menu is nav plus tail");
   if (menus.file.size() == 4 && menus.view.size() == 21 &&
-      menus.layer.size() == 4) {
+      menus.layer.size() == 4 && menus.plugins.size() == 1) {
     expect(menus.file[0].label == "Open", "file starts at Open");
     expect(menus.file[3].label == "Exit", "file ends at Exit");
     expect(menus.view[0].label == "Pan", "view starts at Pan");
@@ -105,6 +106,7 @@ int main() {
     expect(menus.view[19].label == "RHI", "rhi row");
     expect(menus.view[20].label == "MapLibre", "maplibre row");
     expect(menus.layer[3].label == "Zoom to layer", "layer zoom row");
+    expect(menus.plugins[0].label == "Manage plugins…", "plugins manage row");
   }
 
   if (g_fails) {

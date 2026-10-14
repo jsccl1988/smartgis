@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/component/map/layout/symbol.h"
+#include "vista/component/map/layout/paint/symbol.h"
 
 #include <algorithm>
 #include <cmath>
@@ -9,14 +9,15 @@
 #include <utility>
 #include <vector>
 
+#include "base/process/switches.h"
 #include "gis/style/paint_resolve.h"
 #include "gis/style/eval/style_rules.h"
 #include "gis/style/style_types.h"
-#include "vista/component/map/layout/attrs.h"
-#include "vista/component/map/layout/geom_walk.h"
-#include "vista/component/map/layout/mesh_emit.h"
-#include "vista/component/map/layout/gen.h"
-#include "vista/component/map/layout/view_metrics.h"
+#include "vista/component/map/layout/geom/attrs.h"
+#include "vista/component/map/layout/geom/geom_walk.h"
+#include "vista/component/map/layout/geom/mesh_emit.h"
+#include "vista/component/map/layout/policy/gen.h"
+#include "vista/component/map/layout/policy/view_metrics.h"
 #include "ogrsf_frmts.h"
 
 namespace vista {
@@ -113,6 +114,7 @@ struct SymbolCand {
   float text_size = 16.f;
   float halo_width = 0.f;
   uint32_t halo_rgba = 0;
+  uint32_t text_rgba = 0xff141820u;
   const SymbolAsset* icon = nullptr;
   float icon_size = 1.f;
   float icon_off_x = 0.f;
@@ -259,13 +261,15 @@ void emit_kept_symbol(const SymbolCand& cand, const GlyphMetrics* metrics,
       glyph.text_size_px = cand.text_size;
       glyph.halo_width_px = cand.halo_width;
       glyph.halo_rgba = cand.halo_rgba;
-      glyph.rgba = 0xff000000u;
+      glyph.rgba = cand.text_rgba;
       glyph.opacity = 1.f;
       glyph.angle_rad = angle_rad;
       glyph.anchor_x = ax;
       glyph.anchor_y = ay;
+      // Local UVs 0..1; place_frame::write_local_glyph_uv recomputes from the
+      // quad bbox, then atlas remap_cell_uv scales into the packed cell.
       push_quad(&glyph, ax + origin.x + pen, ay + origin.y, adv, cand.text_size,
-                0.f, 0.f, 0.f, 0.f);
+                0.f, 0.f, 1.f, 1.f);
       items->push_back(std::move(glyph));
     }
     pen += adv;
@@ -278,6 +282,10 @@ void emit_symbols(const gis::style::StyleLayer& layer, const LayoutInput& in,
                   const std::vector<LayerBatch>& layers, float fblc,
                   LabelGrid* grid, MapIR* frame) {
   if (!screen_ready(in.view)) {
+    return;
+  }
+  // A/B: MAP2D_NO_LABELS=1 skips symbol text/icons (isolates glyph GPU streaks).
+  if (base::switch_is_one("map2d-no-labels")) {
     return;
   }
   const bool along_line = [&] {
@@ -336,6 +344,7 @@ void emit_symbols(const gis::style::StyleLayer& layer, const LayoutInput& in,
       } else if (cand.halo_width > 0.f) {
         cand.halo_rgba = 0xffffffffu;
       }
+      cand.text_rgba = paint.text_color ? paint.text_color : 0xff141820u;
       double wx = 0;
       double wy = 0;
       float angle_deg = 0.f;

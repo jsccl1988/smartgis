@@ -99,10 +99,10 @@ int main() {
   if (stub) {
     expect(stub->last_pipeline == sky.pipeline() && sky.pipeline() != nullptr,
            "sky HLSL pipeline");
-    const auto* sky_cb = stub->constant_at(1);
+    const auto* sky_cb = stub->constant_at(3);
     expect(sky_cb != nullptr &&
                sky_cb->byte_size == sizeof(vista::SkyConstants),
-           "sky SkyCB slot 1");
+           "sky SkyCB slot 3");
     expect(stub->draw_indexed_calls >= 1u, "sky drew indexed");
   }
 

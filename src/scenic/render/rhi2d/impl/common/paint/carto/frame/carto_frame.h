@@ -50,11 +50,16 @@ unsigned carto2d_water_fill();
 unsigned carto2d_boost_fill(unsigned bgr);
 unsigned carto2d_admin_stroke();
 unsigned carto2d_river_color();
+unsigned carto2d_river_color_class(int river_class);
 unsigned carto2d_road_color();
 bool carto2d_is_river_kind(const char* kind);
 bool carto2d_is_road_kind(const char* kind, const char* cls = nullptr);
 
-// 0=none, 1=road, 2=highway, 3=expressway (from kind and/or cls tags).
+// OMT waterway: 0=none, 1=stream, 2=canal, 3=river (prefer cls over kind).
+int carto2d_river_class(const char* kind, const char* cls);
+int carto2d_river_width_px(float fblc, int river_class);
+
+// OMT road: 0=none, 1=primary, 2=trunk, 3=motorway (prefer cls over kind).
 int carto2d_road_class(const char* kind, const char* cls);
 unsigned carto2d_road_casing_color(int road_class);
 unsigned carto2d_road_fill_color(int road_class);

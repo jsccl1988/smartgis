@@ -194,6 +194,15 @@ def _commit_bmp(
 
 
 def _dib_from_hdc(hdc_mem: int, hbmp: int, w: int, h: int) -> bytes | None:
+    """Return tightly packed BGR24 (row stride = w*3).
+
+    GetDIBits requires DWORD-aligned DIB rows ((w*3+3)&~3). A packed-only
+    buffer on widths like 2150 produced RGB channel-rotation garbage and
+    false map2d_china / present scores.
+    """
+    if w <= 0 or h <= 0:
+        return None
+    row = ((w * 3 + 3) // 4) * 4
     bmi = BITMAPINFOHEADER()
     bmi.biSize = ctypes.sizeof(BITMAPINFOHEADER)
     bmi.biWidth = w
@@ -201,13 +210,23 @@ def _dib_from_hdc(hdc_mem: int, hbmp: int, w: int, h: int) -> bytes | None:
     bmi.biPlanes = 1
     bmi.biBitCount = 24
     bmi.biCompression = BI_RGB
-    buf = (ctypes.c_ubyte * (w * h * 3))()
+    bmi.biSizeImage = row * h
+    buf = (ctypes.c_ubyte * (row * h))()
     got = gdi32.GetDIBits(
         hdc_mem, hbmp, 0, h, ctypes.byref(buf), ctypes.byref(bmi), DIB_RGB_COLORS
     )
     if got == 0:
         return None
-    return bytes(buf)
+    raw = bytes(buf)
+    if row == w * 3:
+        return raw
+    packed = bytearray(w * h * 3)
+    src_row = w * 3
+    for y in range(h):
+        s = y * row
+        d = y * src_row
+        packed[d : d + src_row] = raw[s : s + src_row]
+    return bytes(packed)
 
 
 def _with_compat_bitmap(

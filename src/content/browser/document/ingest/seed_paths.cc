@@ -21,13 +21,6 @@ std::string path_stem(const std::string& path) {
   return path.substr(begin, end - begin);
 }
 
-std::vector<std::string> style_seed_relative_paths() {
-  // Intentionally empty: china_city.style.json disables carto remap. Hosts
-  // that need an on-disk style must pass an explicit path; default china seed
-  // uses in-memory default_carto_style_json via a null StyleDocument.
-  return {};
-}
-
 }  // namespace detail
 
 std::vector<std::string> china_seed_relative_paths() {

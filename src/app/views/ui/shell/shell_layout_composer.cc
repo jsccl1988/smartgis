@@ -12,7 +12,7 @@
 #include <utility>
 
 #include "app/views/browser/browser.h"
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "ui/gis/catalog/catalog_view.h"
 #include "ui/gis/debug/diagnostic_tools_panel.h"
 #include "ui/gis/inspect/attribute_table.h"
@@ -191,6 +191,7 @@ bool ShellLayoutComposer::build_from_markup() {
   host_->report_tab_ = side->add_tab("Report", make_inspector_placeholder());
   host_->atmosphere_tab_ =
       side->add_tab("Atmosphere", make_inspector_placeholder());
+  host_->plugins_tab_ = side->add_tab("Plugins", make_inspector_placeholder());
   side->set_change([this](int i) { host_->ensure_inspector_tab(i); });
   side->set_active(0);  // Tools. Identify switches to Feature.
   host_->inspector_tabs_ = side.get();
@@ -370,6 +371,7 @@ void ShellLayoutComposer::build_imperative() {
   host_->report_tab_ = side->add_tab("Report", make_inspector_placeholder());
   host_->atmosphere_tab_ =
       side->add_tab("Atmosphere", make_inspector_placeholder());
+  host_->plugins_tab_ = side->add_tab("Plugins", make_inspector_placeholder());
   side->set_change([this](int i) { host_->ensure_inspector_tab(i); });
   side->set_active(0);  // Tools. Identify switches to Feature.
   host_->inspector_tabs_ = side.get();

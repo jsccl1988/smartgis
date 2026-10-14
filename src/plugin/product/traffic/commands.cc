@@ -13,6 +13,8 @@
 #include "plugin/product/traffic/present/present.h"
 #include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
+#include "plugin/runtime/host/processing/playback_frames.h"
+#include "plugin/runtime/host/processing/processing_phase.h"
 #include "plugin/runtime/host/processing/reexport_file.h"
 #include "plugin/runtime/widgets/about_dialog.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
@@ -41,42 +43,7 @@ int traffic_prefix_points(int point_count, int frames, int frame_index) {
 }
 
 
-bool traffic_cost_path(content::PluginHost* host, std::string_view args_json) {
-  if (host) {
-    if (!g_last_path.ok) {
-      set_operation_result(
-          "{\"error\":\"path_failed\",\"op\":\"traffic.cost_path\"}");
-      return false;
-    }
-    const int point_count = static_cast<int>(g_last_path.xy.size() / 2);
-    content::GisDocument* gis = host->gis_document();
-    if (!gis) {
-      set_operation_result(
-          "{\"error\":\"no_path_seam\",\"op\":\"traffic.cost_path\"}");
-      return false;
-    }
-    if (!present_traffic_path(gis, g_last_path.xy.data(), point_count,
-                              g_last_path.total_cost, g_last_network.c_str(),
-                              point_count)) {
-      set_operation_result(
-          "{\"error\":\"no_path_seam\",\"op\":\"traffic.cost_path\"}");
-      return false;
-    }
-    if (content::PluginHost::Playback* pb = host->playback()) {
-      pb->clear();
-      const int frames = g_last_frames > 0 ? g_last_frames : 1;
-      for (int i = 0; i < frames; ++i) {
-        pb->push_frame("{\"index\":" + std::to_string(i) + "}");
-      }
-      pb->set_index(static_cast<size_t>(frames - 1));
-    }
-    (void)host->present_dataset(kPluginId, "", 0);
-    set_operation_result(
-        std::string("{\"ok\":true,\"op\":\"traffic.cost_path\",\"points\":") +
-        std::to_string(point_count) + ",\"cost\":" +
-        std::to_string(g_last_path.total_cost) + "}");
-    return true;
-  }
+bool traffic_cost_path_compute(std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"traffic.cost_path\"}");
@@ -131,6 +98,39 @@ bool traffic_cost_path(content::PluginHost* host, std::string_view args_json) {
   return true;
 }
 
+bool traffic_cost_path_present(content::PluginHost* host) {
+  if (!g_last_path.ok) {
+    set_operation_result(
+        "{\"error\":\"path_failed\",\"op\":\"traffic.cost_path\"}");
+    return false;
+  }
+  const int point_count = static_cast<int>(g_last_path.xy.size() / 2);
+  content::GisDocument* gis =
+      require_gis_document(host, "traffic.cost_path", "no_path_seam");
+  if (!gis) {
+    return false;
+  }
+  if (!present_traffic_path(gis, g_last_path.xy.data(), point_count,
+                            g_last_path.total_cost, g_last_network.c_str(),
+                            point_count)) {
+    set_operation_result(
+        "{\"error\":\"no_path_seam\",\"op\":\"traffic.cost_path\"}");
+    return false;
+  }
+  fill_playback_index_frames(host, g_last_frames > 0 ? g_last_frames : 1);
+  (void)host->present_dataset(kPluginId, "", 0);
+  set_operation_result(
+      std::string("{\"ok\":true,\"op\":\"traffic.cost_path\",\"points\":") +
+      std::to_string(point_count) + ",\"cost\":" +
+      std::to_string(g_last_path.total_cost) + "}");
+  return true;
+}
+
+bool traffic_cost_path(content::PluginHost* host, std::string_view args_json) {
+  return run_processing_phases(host, args_json, traffic_cost_path_compute,
+                               traffic_cost_path_present);
+}
+
 bool traffic_export_path(content::PluginHost*, std::string_view args_json) {
   return reexport_cached_file(&g_last_output, args_json, "traffic.export_path");
 }
@@ -142,25 +142,14 @@ bool traffic_present_frame(content::PluginHost* host,
         "{\"error\":\"no_traffic_session\",\"op\":\"traffic.present_frame\"}");
     return false;
   }
-  content::GisDocument* gis = host->gis_document();
+  content::GisDocument* gis =
+      require_gis_document(host, "traffic.present_frame", "no_path_seam");
   if (!gis) {
-    set_operation_result(
-        "{\"error\":\"no_path_seam\",\"op\":\"traffic.present_frame\"}");
     return false;
-  }
-  int index = 0;
-  rapidjson::Document args;
-  if (parse_args_json(args_json, &args)) {
-    args_json_int(args, "index", &index);
   }
   const int point_count = static_cast<int>(g_last_path.xy.size() / 2);
   const int frames = g_last_frames > 0 ? g_last_frames : 1;
-  if (index < 0) {
-    index = 0;
-  }
-  if (index >= frames) {
-    index = frames - 1;
-  }
+  const int index = parse_frame_index_arg(args_json, frames);
   const int prefix = traffic_prefix_points(point_count, frames, index);
   if (!present_traffic_path(gis, g_last_path.xy.data(), point_count,
                             g_last_path.total_cost, g_last_network.c_str(),
@@ -169,19 +158,9 @@ bool traffic_present_frame(content::PluginHost* host,
         "{\"error\":\"present_failed\",\"op\":\"traffic.present_frame\"}");
     return false;
   }
-  if (content::PluginHost::Playback* pb = host->playback()) {
-    pb->set_index(static_cast<size_t>(index));
-  }
+  set_playback_frame_index(host, index);
   set_operation_result("{\"ok\":true,\"op\":\"traffic.present_frame\"}");
   return true;
-}
-
-void show_dialog(const wchar_t* title, std::unique_ptr<ui::views::View> body) {
-  if (!body) {
-    return;
-  }
-  show_owned_dialog(title, body->preferred_size().width,
-                    body->preferred_size().height, std::move(body));
 }
 
 }  // namespace
@@ -207,18 +186,20 @@ bool register_traffic(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"traffic.shortest_path", "最佳路径分析"},
           [host](content::PluginHost*) {
-            show_dialog(L"最佳路径分析",
-                        wrap_with_present_surface(
-                            host, std::make_unique<ShortestPathDialog>(host)));
+            show_view_dialog(
+                L"最佳路径分析",
+                wrap_with_present_surface(
+                    host, std::make_unique<ShortestPathDialog>(host)));
           })) {
     return false;
   }
   if (!host->contribute_dialog(
           kPluginId, {"traffic.about", "关于"},
           [](content::PluginHost*) {
-            show_dialog(L"关于",
-                        std::make_unique<AboutDialog>(
-                            "Traffic\nUrban least-cost path (native.cost_path)"));
+            show_view_dialog(
+                L"关于",
+                std::make_unique<AboutDialog>(
+                    "Traffic\nUrban least-cost path (native.cost_path)"));
           })) {
     return false;
   }

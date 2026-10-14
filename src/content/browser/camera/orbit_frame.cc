@@ -5,12 +5,15 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
 
+#include "base/process/switches.h"
 #include "tool/nav/camera_nav.h"
 
 namespace content {
@@ -157,6 +160,24 @@ void OrbitFrame::apply_draft(const tool::Draft& draft) {
 }
 
 render::rhi::CameraMatrices OrbitFrame::camera_matrices(float aspect) const {
+  // Scripted e2e: lock orbit from switches (no DXGI SendInput / human ops).
+  if (const char* d = base::switch_cstr("scene3d-orbit-distance")) {
+    if (d[0]) {
+      const_cast<OrbitFrame*>(this)->set_distance(
+          static_cast<float>(std::atof(d)));
+    }
+  }
+  if (const char* p = base::switch_cstr("scene3d-orbit-pitch")) {
+    if (p[0]) {
+      const_cast<OrbitFrame*>(this)->set_pitch(
+          static_cast<float>(std::atof(p)));
+    }
+  }
+  if (const char* y = base::switch_cstr("scene3d-orbit-yaw")) {
+    if (y[0]) {
+      const_cast<OrbitFrame*>(this)->set_yaw(static_cast<float>(std::atof(y)));
+    }
+  }
   const float asp = aspect > 0.05f ? aspect : 1.333f;
   if (forward_skim_) {
     const float dx = skim_tgt_x_ - skim_eye_x_;
@@ -175,6 +196,10 @@ render::rhi::CameraMatrices OrbitFrame::camera_matrices(float aspect) const {
           skim_tgt_z_, kSkimFovY, asp, kSkimNear, kSkimFar);
     }
   }
+
+  // FlyCube-proven clip (0.1, 100). Do not raise near from clearance: that
+  // washed the lit DEM to a flat ocean ghost. Close half-cuts are prevented
+  // by kScene3dDollyMinLocal keeping the eye outside the DEM sphere.
   return render::rhi::make_orbit_camera(yaw_, pitch_, distance_, kScene3dFovY,
                                         asp, 0.1f, 100.f);
 }
@@ -233,7 +258,7 @@ void OrbitFrame::project_lon_lat(double lon, double lat, int width_px,
 void OrbitFrame::reset() {
   yaw_ = kScene3dDefaultYaw;
   pitch_ = 0.4f;
-  distance_ = 3.2f;
+  distance_ = kScene3dDefaultDistance;
   has_last_ = false;
   clear_forward_skim();
 }

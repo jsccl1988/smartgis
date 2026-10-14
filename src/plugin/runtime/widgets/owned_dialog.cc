@@ -25,4 +25,15 @@ ui::views::Dialog::Result show_owned_dialog(
                                       std::move(body));
 }
 
+ui::views::Dialog::Result show_view_dialog(
+    const wchar_t* title,
+    std::unique_ptr<ui::views::View> body) {
+  if (!body) {
+    return {};
+  }
+  const int width = body->preferred_size().width;
+  const int height = body->preferred_size().height;
+  return show_owned_dialog(title, width, height, std::move(body));
+}
+
 }  // namespace plugin

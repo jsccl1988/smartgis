@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/component/map/layout/line.h"
+#include "vista/component/map/layout/paint/line.h"
 
 #include <map>
 #include <memory>
@@ -14,13 +14,13 @@
 #include "gis/style/eval/style_rules.h"
 #include "gis/style/paint_resolve.h"
 #include "gis/style/style_types.h"
-#include "vista/component/map/layout/attrs.h"
-#include "vista/component/map/layout/clip.h"
-#include "vista/component/map/layout/geom_walk.h"
-#include "vista/component/map/layout/mesh_emit.h"
-#include "vista/component/map/layout/source_index.h"
-#include "vista/component/map/layout/tess_jobs.h"
-#include "vista/component/map/layout/gen.h"
+#include "vista/component/map/layout/geom/attrs.h"
+#include "vista/component/map/layout/geom/clip.h"
+#include "vista/component/map/layout/geom/geom_walk.h"
+#include "vista/component/map/layout/geom/mesh_emit.h"
+#include "vista/component/map/layout/paint/source_index.h"
+#include "vista/component/map/layout/paint/tess_jobs.h"
+#include "vista/component/map/layout/policy/gen.h"
 #include "vista/mesh/line/line_tess.h"
 #include "vista/mesh/tessellate.h"
 #include "ogrsf_frmts.h"

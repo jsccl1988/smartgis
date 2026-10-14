@@ -16,7 +16,7 @@ All rights reserved.
 | --- | --- |
 | `src/gis/geo/mesh/geometry.h` + `hex_grid.cpp` | `geo::HexGrid` |
 | `src/plugin/product/orthogrid3d/**` | Laplace3d, 8-corner solve, `.vts`, commands |
-| `src/app/views/shell/browser/plugin/plugin_shell.cc` + `BUILD.gn` | Register builtin |
+| `src/app/views/shell/browser/plugin/shell/plugin_shell.cc` + `BUILD.gn` | Register builtin |
 
 ## Tasks
 

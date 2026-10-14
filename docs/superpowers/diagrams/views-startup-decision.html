@@ -1,0 +1,160 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Views 冷启动决策 — product vs scenario</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --product: #2f7d62; --demo: #b06a1a; --ci: #6b5ea8;
+    --code: #243447; --code-bg: #eef2f6; --ban: #a33a3a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 16px 20px 12px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 12px 14px 14px; margin-bottom: 12px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  @media (max-width: 800px) { .lanes { grid-template-columns: 1fr; } }
+  .lane { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--panel2); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.88rem; font-weight: 650; }
+  .lane.product h3 { color: var(--product); }
+  .lane.demo h3 { color: var(--demo); }
+  .lane.ci h3 { color: var(--ci); }
+  .lane ul { margin: 0; padding-left: 1.1em; font-size: 0.85rem; color: var(--muted); }
+  .lane li { margin: 3px 0; }
+  .flow { width: 100%; height: auto; display: block; }
+  .note { margin: 8px 0 0; font-size: 0.85rem; color: var(--muted); }
+  .ban { color: var(--ban); font-weight: 650; }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .stage { opacity: 0.35; }
+  .stage.on { opacity: 1; }
+  @keyframes pulse-edge {
+    0%, 100% { stroke-opacity: 0.35; }
+    50% { stroke-opacity: 1; }
+  }
+  .edge-anim { animation: pulse-edge 2.4s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Views 冷启动决策</h1>
+    <p>Bare <code>SmartGIS.exe</code> 永远走产品策略；场景 demo 只经面板 Run 或 CI 显式 <code>HARNESS_SUITE</code>。</p>
+    <p class="meta">Living: Views §Cold start product-only · Plugin-host §plugin.json startup · 2026-10-13</p>
+  </header>
+
+  <section class="panel">
+    <h2>三入口分层</h2>
+    <div class="lanes">
+      <div class="lane product">
+        <h3>1. 产品冷启动</h3>
+        <ul>
+          <li><code>parse_views_launch_options</code>：仅 host flags</li>
+          <li><code>product_startup_policy()</code></li>
+          <li>DefaultChina + <code>run_loop</code></li>
+          <li class="ban">不读 scenario_id / *SHOWCASE*</li>
+        </ul>
+      </div>
+      <div class="lane demo">
+        <h3>2. 面板 Run</h3>
+        <ul>
+          <li><code>PluginCatalogView</code> Enable / Disable / <strong>Run</strong></li>
+          <li><code>find_scenario</code> → <code>run_scenario</code></li>
+          <li>进程保持交互，不 Terminate</li>
+        </ul>
+      </div>
+      <div class="lane ci">
+        <h3>3. CI 显式 API</h3>
+        <ul>
+          <li>先 bare 启动（同产品策略）</li>
+          <li>show 后读 <code>HARNESS_SUITE</code></li>
+          <li><code>exit_after_scenario</code></li>
+          <li class="ban">禁止 set *SHOWCASE*</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原则流（谁决策 / 谁永不碰冷启动）</h2>
+    <svg class="flow" viewBox="0 0 980 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="startup flow">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="20" y="24" width="160" height="56" rx="8" fill="#fff" stroke="#d8dee6"/>
+      <text x="100" y="48" text-anchor="middle" font-size="12" font-weight="650" fill="#1a2330">wWinMain</text>
+      <text x="100" y="66" text-anchor="middle" font-size="10" fill="#5a6a7e">CLI host flags</text>
+
+      <rect x="220" y="24" width="200" height="56" rx="8" fill="#e8f6f0" stroke="#2f7d62"/>
+      <text x="320" y="48" text-anchor="middle" font-size="12" font-weight="650" fill="#2f7d62">product_startup_policy</text>
+      <text x="320" y="66" text-anchor="middle" font-size="10" fill="#5a6a7e">Browser::show → run_loop</text>
+
+      <rect x="480" y="24" width="200" height="56" rx="8" fill="#fff8ef" stroke="#b06a1a"/>
+      <text x="580" y="48" text-anchor="middle" font-size="12" font-weight="650" fill="#b06a1a">PluginCatalogView Run</text>
+      <text x="580" y="66" text-anchor="middle" font-size="10" fill="#5a6a7e">run_scenario (interactive)</text>
+
+      <rect x="740" y="24" width="220" height="56" rx="8" fill="#f3f0fa" stroke="#6b5ea8"/>
+      <text x="850" y="48" text-anchor="middle" font-size="12" font-weight="650" fill="#6b5ea8">HARNESS_SUITE</text>
+      <text x="850" y="66" text-anchor="middle" font-size="10" fill="#5a6a7e">post-show exit_after_scenario</text>
+
+      <path class="edge-anim" d="M180 52 H210" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+      <path d="M420 52 H470" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#arr)" opacity="0.45"/>
+      <path d="M320 80 V120 H580 V80" stroke="#b06a1a" stroke-width="1.5" fill="none" stroke-dasharray="5 4" opacity="0.7"/>
+      <path d="M320 80 V150 H850 V80" stroke="#6b5ea8" stroke-width="1.5" fill="none" stroke-dasharray="5 4" opacity="0.7"/>
+
+      <rect x="20" y="190" width="940" height="100" rx="8" fill="#fff" stroke="#d8dee6"/>
+      <text x="40" y="218" font-size="12" font-weight="650" fill="#a33a3a">冷启动禁止（已删除）</text>
+      <text x="40" y="242" font-size="11" fill="#5a6a7e">--map2d-showcase / --plugin-showcase → scenario_id</text>
+      <text x="40" y="262" font-size="11" fill="#5a6a7e">plugin.json startup.scenario 提升 / peek → exit_after_scenario</text>
+      <text x="40" y="282" font-size="11" fill="#5a6a7e">sticky MAP2D_SHOWCASE* · PLUGIN_SHOWCASE · ATMOSPHERE_SHOWCASE* · SCENE3D_SHOWCASE* · UI_SHOWCASE*</text>
+    </svg>
+    <p class="note">实线：冷启动主路径。虚线：产品 show 之后的显式 demo / CI，不改变 LaunchPolicy 选择。</p>
+  </section>
+
+  <section class="panel">
+    <h2>对照表</h2>
+    <table class="map">
+      <thead>
+        <tr><th>信号</th><th>冷启动</th><th>正确用法</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>--type</code> / <code>--plugins-dir</code> / <code>--debug-console</code> / <code>--shell-canvas</code></td><td>允许</td><td>host 进程 flags</td></tr>
+        <tr><td><code>--*showcase</code> / <code>*SHOWCASE*</code> env</td><td class="ban">忽略 / 已删读点</td><td>常量或 Run / suite 参数</td></tr>
+        <tr><td><code>plugin.json startup.scenario</code></td><td class="ban">不提升</td><td>面板 Run / <code>HARNESS_SUITE</code></td></tr>
+        <tr><td><code>HARNESS_SUITE</code></td><td>不影响 policy</td><td>show 后显式跑 ScenarioRegistry</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+(function () {
+  var stages = document.querySelectorAll('.stage');
+  var i = 0;
+  if (!stages.length) return;
+  setInterval(function () {
+    stages.forEach(function (el) { el.classList.remove('on'); });
+    stages[i % stages.length].classList.add('on');
+    i++;
+  }, 1200);
+})();
+</script>
+</body>
+</html>

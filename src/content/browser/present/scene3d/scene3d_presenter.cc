@@ -30,7 +30,6 @@ Scene3dPresenter::Scene3dPresenter() {
     }
   }
   atmosphere_->bind_gpu(&gpu_);
-  rebind_hdc();
   if (scenic_host_.ensure()) {
     gpu_.render_engine_name = "scenic";
   }
@@ -61,27 +60,18 @@ bool Scene3dPresenter::has_legacy_coast_vectors() const {
 }
 
 Scene3dPresenter::~Scene3dPresenter() {
-  hdc_.release_engine_logo_overlay();
   if (atmosphere_) {
     atmosphere_->release_passes();
     gpu_.abandon(atmosphere_.get());
   }
 }
 
-void Scene3dPresenter::rebind_hdc() {
-  hdc_.bind(&gpu_, atmosphere_.get(), gpu_.orbit(),
-                 atmosphere_ ? atmosphere_->scene() : nullptr, label_frame_);
-  hdc_.set_hosts_shared_scene(hosts_shared_scene());
-}
-
 void Scene3dPresenter::bind_orbit(const OrbitFrame* orbit) {
   gpu_.bind_orbit(orbit);
-  rebind_hdc();
 }
 
 void Scene3dPresenter::bind_label_frame(const ViewFrame* frame) {
   label_frame_ = frame;
-  rebind_hdc();
 }
 
 void Scene3dPresenter::bind_scene(const GisScene* scene) {
@@ -90,13 +80,12 @@ void Scene3dPresenter::bind_scene(const GisScene* scene) {
     atmosphere_->bind_scene(scene);
   }
   gpu_.bind_scene(scene);
-  rebind_hdc();
 }
 
 void Scene3dPresenter::bind_contents(GisContents* session, uint32_t view_id) {
   contents_ = session;
   view_id_ = view_id;
-  hdc_.set_hosts_shared_scene(hosts_shared_scene());
+  gpu_.set_hosts_shared_scene(hosts_shared_scene());
 }
 
 bool Scene3dPresenter::hosts_shared_scene() const {
@@ -198,6 +187,7 @@ bool Scene3dPresenter::present_gpu(render::rhi::Device* device,
                                   const ui::gfx::ShellRaster* shell,
                                   uint64_t shell_generation) {
   BASE_TRACE_EVENT("presenter", "scene3d");
+  gpu_.set_hosts_shared_scene(hosts_shared_scene());
   // Overlay TIN (stormsurge water / hex shell / mine clay) lives on gpu_.
   // Scenic present skips that buffer — fall through when albedo is set.
   const bool scenic_live = scenic_host_.ensure();
@@ -216,9 +206,7 @@ bool Scene3dPresenter::present_gpu(render::rhi::Device* device,
 void Scene3dPresenter::paint(HDC hdc, int width_px, int height_px,
                             bool fill_background) const {
   BASE_TRACE_EVENT("presenter_paint", "scene3d");
-  // Product DrawHost skips GPU present when --scene3d-engine=scenic, so the
-  // HWND path is the one that must present the hosted engine. Software DEM
-  // remains the fallback when scenic.dll did not load.
+  // Scenic MemFrame only. Soft DEM / FORCE_GDI removed — fail closed.
   if (scenic_host_.paint_hdc(hdc, width_px, height_px, gpu_.orbit(),
                              gis_scene_, label_frame_)) {
     gpu_.render_engine_name = "scenic";
@@ -227,27 +215,16 @@ void Scene3dPresenter::paint(HDC hdc, int width_px, int height_px,
   if (prefer_scene3d_scenic()) {
     gpu_.render_engine_name = "scenic";
   }
-  hdc_.paint(hdc, width_px, height_px, fill_background);
+  (void)hdc;
+  (void)width_px;
+  (void)height_px;
+  (void)fill_background;
 }
 
 bool Scene3dPresenter::export_bmp(const std::string& path, int width_px,
                                   int height_px) const {
   return scenic_host_.export_bmp(path, width_px, height_px, gpu_.orbit(),
                                  gis_scene_, label_frame_);
-}
-
-void Scene3dPresenter::paint_hud(HDC hdc, int width_px, int height_px) const {
-  BASE_TRACE_EVENT("hud", "scene3d");
-  if (!scenic_host_.is_live()) {
-    hdc_.paint_hud(hdc, width_px, height_px);
-  }
-}
-
-void Scene3dPresenter::paint_legacy_place_labels(HDC hdc, int width_px,
-                                                int height_px) const {
-  if (!scenic_host_.is_live()) {
-    hdc_.paint_legacy_place_labels(hdc, width_px, height_px);
-  }
 }
 
 }  // namespace content

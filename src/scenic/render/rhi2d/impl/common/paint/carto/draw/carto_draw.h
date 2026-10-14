@@ -62,6 +62,7 @@ class Rhi2dCartoDraw {
   int& feature_type();
   int& label_priority();
   bool& is_river();
+  int& river_class();
   int& road_class();
   bool& lock_style();
 
@@ -144,6 +145,7 @@ class Rhi2dCartoDraw {
   int feature_type_;
   int label_priority_;
   bool is_river_;
+  int river_class_;
   int road_class_;
 
   Rhi2dCartoDrawStyle style_;

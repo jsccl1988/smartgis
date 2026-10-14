@@ -14,8 +14,8 @@
 #include <cstring>
 #include <string_view>
 
-#include "app/views/ui/pages/detail/ptr_guard.h"
-#include "app/views/ui/pages/detail/seh_workspace.h"
+#include "app/views/browser/nav/detail/ptr_guard.h"
+#include "app/views/browser/nav/detail/seh_workspace.h"
 #include "base/core/log.h"
 #include "content/browser/session/browser_session.h"
 #include "content/public/tool_session.h"

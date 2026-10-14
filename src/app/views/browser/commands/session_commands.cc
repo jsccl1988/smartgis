@@ -10,7 +10,7 @@
 #include <string_view>
 #include <utility>
 
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "content/browser/session/browser_session.h"
 #include "plugin/runtime/processing/builtin_ops.h"
 #include "plugin/runtime/processing/ops_runner.h"

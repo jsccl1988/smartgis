@@ -11,8 +11,8 @@
 
 namespace app {
 
-// Host-process flags only. Harness scene: --plugin-showcase → |scenario_id|;
-// otherwise plugin.json `startup.scenario` is peeked before Browser::init.
+// Host-process flags only. Cold start never selects a ScenarioRegistry id —
+// demos run from PluginCatalogView::Run (or CI explicit post-start API).
 struct ViewsLaunchOptions {
   content::ProcessType process_type = content::ProcessType::kBrowser;
   bool debug_console = false;
@@ -21,8 +21,6 @@ struct ViewsLaunchOptions {
   bool enable_oop_render = false;
   bool ok = true;
   int exit_code = 0;
-  // ScenarioRegistry id (--plugin-showcase or plugin.json). Empty = product.
-  std::string scenario_id;
   // present_dataset surface sticky: main|preview (empty = main).
   std::string plugin_present;
   std::string atmosphere_fields;
@@ -31,10 +29,6 @@ struct ViewsLaunchOptions {
   // Product plugin resource root. Empty → default <exe>/plugins.
   std::string plugins_dir;
 };
-
-inline bool is_harness_launch(const ViewsLaunchOptions& options) {
-  return !options.scenario_id.empty();
-}
 
 // Touch trailing members so a TU compiled against a truncated ViewsLaunchOptions
 // (missing plugins_dir) fails at compile time instead of reading 0xCC past the

@@ -1,11 +1,12 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-"""Patch out/<config>/plugins/<pkg>/plugin.json for harness scenario selection.
+"""Patch out/<config>/plugins/<pkg>/plugin.json for harness package activate.
 
-Views CLI no longer maps --plugin-showcase / --map2d-showcase onto
-ScenarioRegistry. Differentiated harness runs write startup.scenario onto the
-copied plugin.json next to the exe (default: flood for chrome-only suites).
+Cold start never reads startup.scenario (product_startup_policy + run_loop).
+Scenario demos are PluginCatalogView Run or a future CI post-start API.
+This helper still toggles activate / clears leftover scenario keys so sticky
+plugin.json cannot imply a cold-start hijack.
 """
 
 from __future__ import annotations
@@ -75,8 +76,10 @@ def suite_plugin_package(suite_id: str) -> str:
         return "world3d"
     if sid.startswith("browser.map2d"):
         return "map2d"
-    # Chrome / UI / console / input / harness: edit flood plugin.json.
-    return "flood"
+    # Chrome / UI / console / input / harness: keep map2d active so china
+    # carto fills the Edit map hole. flood activate left a black DXGI hole
+    # (ui.shell lower_map_frac≈0) despite Layers Land/Lines/Points checked.
+    return "map2d"
 
 
 def _plugins_root(exe: Path) -> Path:
@@ -140,7 +143,9 @@ def apply_suite_plugin_startup(suite: Suite, exe: Path) -> Path | None:
             startup = {}
         if pkg_dir.name == target_pkg:
             startup["activate"] = True
-            startup["scenario"] = suite.id
+            # Do not write startup.scenario — cold start ignores it; demos are
+            # explicit Run / post-start API (stage-2 harness wire).
+            startup.pop("scenario", None)
             target_path = manifest
         else:
             startup["activate"] = False
@@ -153,7 +158,11 @@ def apply_suite_plugin_startup(suite: Suite, exe: Path) -> Path | None:
             flush=True,
         )
         return None
-    print(f"plugin.json startup: {target_path} scenario={suite.id}", flush=True)
+    print(
+        f"plugin.json startup: {target_path} activate={target_pkg} "
+        f"(suite={suite.id}, no cold scenario)",
+        flush=True,
+    )
     return target_path
 
 

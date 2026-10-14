@@ -25,18 +25,30 @@
       "source-layer": "line",
       "filter": ["any", ["in", "kind", "river", "lake"], ["in", "line_kind", "river", "lake"]],
       "paint": {
-        "line-color": "#1565c0",
-        "line-width": 2
+        "line-color": "#4a8ab8",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 2, 11, 2.5, 14, 3.2]
+      }
+    },
+    {
+      "id": "line-road-casing",
+      "type": "line",
+      "source-layer": "line",
+      "minzoom": 5,
+      "filter": ["any", ["==", "kind", "road"], ["==", "line_kind", "road"]],
+      "paint": {
+        "line-color": ["match", ["get", "class"], "motorway", "#6a5430", "trunk", "#7a6038", "primary", "#8a7040", "#8a7040"],
+        "line-width": ["*", ["match", ["get", "class"], "motorway", 1.35, "trunk", 1.2, "primary", 1.05, 1], ["interpolate", ["linear"], ["zoom"], 5, 2.8, 11, 3.5, 14, 5]]
       }
     },
     {
       "id": "line-road",
       "type": "line",
       "source-layer": "line",
+      "minzoom": 5,
       "filter": ["any", ["==", "kind", "road"], ["==", "line_kind", "road"]],
       "paint": {
-        "line-color": "#8d6e63",
-        "line-width": 1.25
+        "line-color": ["match", ["get", "class"], "motorway", "#f0d080", "trunk", "#e8c870", "primary", "#e0c06a", "#e0c06a"],
+        "line-width": ["*", ["match", ["get", "class"], "motorway", 1.4, "trunk", 1.2, "primary", 1.05, 1], ["interpolate", ["linear"], ["zoom"], 5, 1.2, 11, 1.6, 14, 2.4]]
       }
     },
     {
@@ -45,9 +57,60 @@
       "source-layer": "point",
       "paint": {
         "circle-color": "#e65100",
-        "circle-radius": 3
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2.5, 12, 4]
+      }
+    },
+    {
+      "id": "point-label",
+      "type": "symbol",
+      "source-layer": "point",
+      "layout": {
+        "symbol-placement": "point",
+        "text-field": "{name}",
+        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 11, 14, 14, 16],
+        "text-anchor": "center"
+      },
+      "paint": {
+        "text-color": "#141820",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 2.5
+      }
+    },
+    {
+      "id": "river-label",
+      "type": "symbol",
+      "source-layer": "line",
+      "minzoom": 8,
+      "filter": ["any", ["in", "kind", "river", "lake"], ["in", "line_kind", "river", "lake"]],
+      "layout": {
+        "symbol-placement": "line",
+        "text-field": "{name}",
+        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 10, 12, 12, 16, 14],
+        "text-anchor": "center"
+      },
+      "paint": {
+        "text-color": "#1a4a6a",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 2
+      }
+    },
+    {
+      "id": "road-label",
+      "type": "symbol",
+      "source-layer": "line",
+      "minzoom": 11,
+      "filter": ["any", ["==", "kind", "road"], ["==", "line_kind", "road"]],
+      "layout": {
+        "symbol-placement": "line",
+        "text-field": "{name}",
+        "text-size": ["interpolate", ["linear"], ["zoom"], 11, 10, 14, 12, 16, 14],
+        "text-anchor": "center"
+      },
+      "paint": {
+        "text-color": "#3a2a10",
+        "text-halo-color": "#fff8e8",
+        "text-halo-width": 2
       }
     }
   ]
 }
-

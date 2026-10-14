@@ -142,7 +142,7 @@ Algorithm: finite-difference slope/aspect (Horn or equivalent) + Lambertian-ish 
 - Modify: `src/vista/component/map/hillshade_bake.{h,cc}` (`HillshadeBakeSample` + phase clocks)
 - Modify: `src/vista/component/world/terrain/process/dem_hillshade.*` (`BAKE_BACKEND`)
 - Modify: `src/vista/component/world/terrain/process/land_mask.*` (`LandMaskBakeSample`)
-- Modify: `src/content/browser/present/map2d/frame/map2d_layout_build.cc` (`cat=bake` not `startup`)
+- Modify: `src/content/browser/present/map2d/frame/layout/map2d_layout_build.cc` (`cat=bake` not `startup`)
 - Modify: `src/app/views/harness/showcase/map2d/present/fps_bench.cc` (echo bake sample)
 - Test: `dem_raster_test` / `land_mask_test` when `BAKE_BENCH=1`
 - Create: `testing/tools/harness/browser/run_hillshade_bake_bench.py`

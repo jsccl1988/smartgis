@@ -90,16 +90,11 @@ def run_one(engine_id: str, label: str, cmd: list[str], src_name: str) -> dict:
     # Product default is D3D; GL shots must force OpenGL.
     if engine_id == "legacy-scene3d-gl":
         env["STEREO_API"] = "OpenGL"
-        env["SCENE3D_SHOWCASE_D3D"] = "0"
-    elif engine_id == "legacy-scene3d-d3d":
+            elif engine_id == "legacy-scene3d-d3d":
         env["STEREO_API"] = "Direct3D"
-        env["SCENE3D_SHOWCASE_D3D"] = "1"
-    else:
+            else:
         env.pop("STEREO_API", None)
-        env.pop("SCENE3D_SHOWCASE_D3D", None)
-    env.pop("SCENE3D_SHOWCASE_LINGER_MS", None)
-    env.pop("MAP2D_SHOWCASE_LINGER_MS", None)
-    env["PYTHONUNBUFFERED"] = "1"
+                    env["PYTHONUNBUFFERED"] = "1"
 
     log(f"\n######## ENGINE {engine_id} �?{label} ########")
     log("CMD: " + " ".join(cmd))

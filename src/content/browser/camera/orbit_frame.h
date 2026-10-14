@@ -22,6 +22,14 @@ inline constexpr float kScene3dDefaultYaw = vista::kDemDefaultOrbitYaw;
 // ~77° fits the diagonal with margin for the pitched ground plane.
 inline constexpr float kScene3dFovY = 1.35f;
 
+// Framing distance for look-at-origin local DEM (matches vista kTargetSpan).
+inline constexpr float kScene3dDefaultDistance = 3.2f;
+
+// Dolly floor so the eye stays outside the normalized DEM sphere
+// (~kTargetSpan * 0.9). Closer values (1.2–1.45) parked the camera inside
+// the mesh and near-plane clipped half the country when zooming in.
+inline constexpr float kScene3dDollyMinLocal = 2.9f;
+
 // Orbit camera for a 3D view: yaw, pitch, distance, and the lon/lat extent
 // used for ortho framing and geographic projection.
 class OrbitFrame {
@@ -69,8 +77,8 @@ class OrbitFrame {
   // Dolly distance in world units (clamped to the wheel / dolly range).
   void set_distance(float distance);
 
-  // Override dolly clamp (default [1.2, 12]). Globe skim uses a lower floor
-  // so the camera can hug DEM relief without piercing peaks.
+  // Override dolly clamp (default [kScene3dDollyMinLocal, 12]). Globe skim
+  // uses a lower floor so the camera can hug DEM relief without piercing peaks.
   void set_dolly_limits(float min_distance, float max_distance);
 
   // Orbit yaw in radians (around +Y).
@@ -90,8 +98,8 @@ class OrbitFrame {
   content::Extent2 extent_{};
   float yaw_ = kScene3dDefaultYaw;
   float pitch_ = 0.4f;
-  float distance_ = 3.2f;
-  float dolly_min_ = 1.2f;
+  float distance_ = kScene3dDefaultDistance;
+  float dolly_min_ = kScene3dDollyMinLocal;
   float dolly_max_ = 12.f;
   int last_x_ = 0;
   int last_y_ = 0;

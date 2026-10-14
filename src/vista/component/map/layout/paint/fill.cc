@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/component/map/layout/fill.h"
+#include "vista/component/map/layout/paint/fill.h"
 
 #include <algorithm>
 #include <memory>
@@ -12,13 +12,13 @@
 #include "gis/style/eval/style_rules.h"
 #include "gis/style/paint_resolve.h"
 #include "gis/style/style_types.h"
-#include "vista/component/map/layout/attrs.h"
-#include "vista/component/map/layout/clip.h"
-#include "vista/component/map/layout/geom_walk.h"
-#include "vista/component/map/layout/mesh_emit.h"
-#include "vista/component/map/layout/source_index.h"
-#include "vista/component/map/layout/tess_jobs.h"
-#include "vista/component/map/layout/gen.h"
+#include "vista/component/map/layout/geom/attrs.h"
+#include "vista/component/map/layout/geom/clip.h"
+#include "vista/component/map/layout/geom/geom_walk.h"
+#include "vista/component/map/layout/geom/mesh_emit.h"
+#include "vista/component/map/layout/paint/source_index.h"
+#include "vista/component/map/layout/paint/tess_jobs.h"
+#include "vista/component/map/layout/policy/gen.h"
 #include "vista/mesh/tessellate.h"
 #include "ogrsf_frmts.h"
 
@@ -36,27 +36,6 @@ uint32_t darken_argb(uint32_t argb, float factor) {
   const uint32_t b =
       static_cast<uint32_t>(static_cast<float>(argb & 0xffu) * f);
   return (a << 24) | (r << 16) | (g << 8) | b;
-}
-
-// Jet hillshade is a full land surface (kOver). Cream land under it shows
-// through transparent ocean cells inside the DEM quad (not only past the
-// AABB). Skip land only when a jet raster DrawItem is actually attached —
-// dem_clip alone (bake pending / failed) must keep cream land so the map
-// does not fall through to a black clear + line-only face.
-bool jet_hillshade_active(const LayoutInput& in) {
-  if (!in.style || in.hillshade_tiles.empty()) {
-    return false;
-  }
-  for (const gis::style::StyleLayer& layer : in.style->layers) {
-    if (layer.type != gis::style::LayerType::kHillshade) {
-      continue;
-    }
-    const auto ramp = layer.paint.find("hillshade-color-ramp");
-    if (ramp != layer.paint.end() && ramp->second == "jet") {
-      return true;
-    }
-  }
-  return false;
 }
 
 bool dem_land_clip_tile(const LayoutInput& in, LayoutTile* hs) {
@@ -261,10 +240,27 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
       return;
     }
     const gis::style::StyleLayer& layer = *fill_layers[li];
-    // Jet sheet replaces cream land; keeping land feeds cream through
-    // transparent ocean texels inside the DEM quad.
-    if (layer.source_layer == "land" && jet_hillshade_active(in)) {
-      continue;
+    // Jet hillshade is kOver and land-masked (ocean A=0). Cream land under
+    // that sheet leaked through ocean cells as beige spill — layers-off DEM
+    // looked clean, layers-on looked broken. Skip land fill when the jet
+    // tile is already attached. Deferred first layout (no tiles) still
+    // paints cream so the viewport is not a black clear while bake runs.
+    if (layer.source_layer == "land" && !in.hillshade_tiles.empty() &&
+        in.style) {
+      bool jet_sheet = false;
+      for (const gis::style::StyleLayer& sl : in.style->layers) {
+        if (sl.type != gis::style::LayerType::kHillshade) {
+          continue;
+        }
+        const auto ramp = sl.paint.find("hillshade-color-ramp");
+        if (ramp != sl.paint.end() && ramp->second == "jet") {
+          jet_sheet = true;
+          break;
+        }
+      }
+      if (jet_sheet) {
+        continue;
+      }
     }
     batches.visit(layer, layers, [&](const LayerBatch& batch) {
       for (size_t i = 0; i < batch.geoms.size(); ++i) {

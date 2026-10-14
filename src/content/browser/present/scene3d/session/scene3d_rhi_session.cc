@@ -43,21 +43,12 @@ bool stereo_api_is_d3d_from_env() {
       return true;
     }
   }
-  if (const char* flag = base::switch_cstr("scene3d-showcase-d3d")) {
-    if (flag[0] == '0' || flag[0] == 'n' || flag[0] == 'N') {
-      return false;
-    }
-    if (flag[0] == '1' || flag[0] == 'y' || flag[0] == 'Y') {
-      return true;
-    }
-  }
   return true;
 }
 
 void set_stereo_api_env(bool want_d3d) {
 #if defined(_WIN32)
   base::set_switch("stereo-api", want_d3d ? "Direct3D" : "OpenGL");
-  base::set_switch("scene3d-showcase-d3d", want_d3d ? "1" : "0");
 #else
   (void)want_d3d;
 #endif
@@ -202,7 +193,7 @@ bool load_scene3d_scenic_dll() {
 
 bool force_content_mapview_3d() {
   // Only leftover stereo needs a ContentMapView HWND. Scenic/GDI paint
-  // Scene3dPresenter on the product HWND — ContentMapView SharedSurface
+  // Scene3dPresenter on the product HWND  - ContentMapView SharedSurface
   // plus overlay fill flashes navy every present tick.
   return prefer_scene3d_stereo_gl();
 }

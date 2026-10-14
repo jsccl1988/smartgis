@@ -26,8 +26,9 @@ int prepare_atmosphere_device_session(HarnessShell& browser,
   }
 
   RhiPresentSessionOpts opts;
-  opts.gpu_env = "atmosphere-showcase-gpu";
-  opts.gpu_policy = GpuEnvPolicy::kDefaultOffRequireOne;
+  // Explicit scenario Run: GPU on by default (no sticky atmosphere-showcase-gpu).
+  opts.gpu_env = "plugin-world3d-gpu";
+  opts.gpu_policy = GpuEnvPolicy::kDefaultOnUnlessZero;
   opts.gpu_env_fallback = nullptr;
   opts.require_scene_hwnd = true;
   opts.realize_scene_hwnd = true;

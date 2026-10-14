@@ -108,7 +108,7 @@ void Scene3dStereoSession::release() {
   module_ = nullptr;
 
   if (view && destroy && module) {
-    // destroy_ must still map inside this module's allocation — VirtualQuery
+    // destroy_ must still map inside this module's allocation  - VirtualQuery
     // "executable" alone can pass for remapped pages that are not this DLL.
     MEMORY_BASIC_INFORMATION mbi = {};
     if (VirtualQuery(reinterpret_cast<const void*>(destroy), &mbi,
@@ -129,7 +129,7 @@ void Scene3dStereoSession::release() {
 }
 
 void Scene3dStereoSession::abandon() {
-  // Intentionally leak view_ / module_ — FlyCube product path must not call
+  // Intentionally leak view_ / module_  - FlyCube product path must not call
   // leftover GL destroy_ when pages may already be remapped (mine/stormsurge
   // Scene3D tab AV). Matches FlyCube Device* leak in atmosphere showcase.
   view_ = nullptr;

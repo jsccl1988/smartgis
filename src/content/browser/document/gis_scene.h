@@ -16,25 +16,25 @@
 #endif
 #include <windows.h>
 
-#include "content/browser/document/store/layer_store.h"
-#include "content/browser/document/style/style_bind.h"
+#include "content/browser/document/store/map_layer.h"
 #include "content/public/types.h"
+#include "gis/style/document/style_document.h"
 #include "gis/style/style_types.h"
 #include "gis/tile/provider/tile_provider.h"
-#include "vista/terrain/dem/mask/land_mask.h"
 #include "tool/draft/draft.h"
+#include "vista/terrain/dem/mask/land_mask.h"
 
 namespace content {
 
-// In-process GIS document facade: layers and features in map space. Pan,
+// In-process GIS document façade: layers and features in map space. Pan,
 // scale, and paint live on ViewFrame and Map2dPresenter. Implementation is
-// composed under document/{store,ingest,style,query,edit}/.
+// composed under document/{store,ingest,style,query,edit}/ behind Impl.
 class GisScene {
  public:
   using GeomKind = detail::GeomKind;
   using Vertex = detail::Vertex;
-  using Feature = detail::GisFeature;
-  using Layer = detail::GisLayer;
+  using Feature = detail::MapFeature;
+  using Layer = detail::MapLayer;
   using Field = content::NamedField;
   using LayerDesc = content::LayerDesc;
 
@@ -70,18 +70,14 @@ class GisScene {
   void set_style_document(std::shared_ptr<gis::style::StyleDocument> doc);
   void clear_style_document();
   bool load_style_path(const std::string& path);
-  bool has_style_document() const { return style_.has_style_document(); }
-  const gis::style::StyleDocument* style_document() const {
-    return style_.style_document();
-  }
-  std::shared_ptr<gis::style::StyleDocument> style_document_shared() const {
-    return style_.style_document_shared();
-  }
+  bool has_style_document() const;
+  const gis::style::StyleDocument* style_document() const;
+  std::shared_ptr<gis::style::StyleDocument> style_document_shared() const;
 
   // Optional XYZ/WMTS TileProvider drawn under vectors (mockable via set_fetch_fn).
   void set_basemap_provider(std::shared_ptr<gis::tile::TileProvider> provider);
   void clear_basemap_provider();
-  bool has_basemap_provider() const { return style_.has_basemap_provider(); }
+  bool has_basemap_provider() const;
 
   // Test helper: resolve paint for a Catalog layer name + attrs at |zoom|.
   bool resolve_style_for_test(const std::string& source_layer,
@@ -91,10 +87,10 @@ class GisScene {
   void clear();
 
   std::vector<LayerDesc> layer_descs() const;
-  const std::string& active_layer_id() const { return store_.active_layer_id(); }
-  size_t layer_count() const { return store_.layers().size(); }
+  const std::string& active_layer_id() const;
+  size_t layer_count() const;
   size_t feature_count() const;
-  bool last_open_was_ogr() const { return store_.last_open_was_ogr(); }
+  bool last_open_was_ogr() const;
 
   // Envelope of visible feature vertices in map space (Y already flipped for
   // screen). Returns false when there are no vertices.
@@ -107,19 +103,24 @@ class GisScene {
   bool polygon_fit_box(double* min_x, double* min_y, double* max_x,
                        double* max_y) const;
 
-  const std::vector<detail::GisLayer>& layers() const { return store_.layers(); }
-  gis::tile::TileProvider* basemap_provider() const {
-    return style_.basemap_provider();
-  }
+  const std::vector<Layer>& layers() const;
+  gis::tile::TileProvider* basemap_provider() const;
 
   // Resolved style colors for one feature. False keeps the cartography defaults.
-  bool style_colors_for_feature(const detail::GisLayer& layer,
-                                const detail::GisFeature& f, double scale,
-                                COLORREF* fill, COLORREF* stroke,
+  bool style_colors_for_feature(const Layer& layer, const Feature& f,
+                                double scale, COLORREF* fill, COLORREF* stroke,
                                 int* stroke_width) const;
 
-  // True when extent looks like China lon/lat sample (CRS84, Y flipped).
-  bool has_china_extent() const;
+  // True when visible features yield a non-empty map envelope.
+  bool has_drawable_extent() const;
+  // True when ingest tagged at least one LayerRole::kLandSurface layer.
+  bool has_land_surface() const;
+  // True when a land-surface layer is currently visible.
+  bool land_surface_visible() const;
+  // True when a host DEM path resolves (sample override or on-disk dem).
+  bool has_resolvable_dem() const;
+  // Hillshade eligibility: drawable extent + visible land + resolvable DEM.
+  bool can_attach_hillshade() const;
 
   bool create_layer(const std::string& name, const std::string& geometry_type);
   bool remove_layer(const std::string& id);
@@ -157,7 +158,7 @@ class GisScene {
                              int point_count, const uint8_t* rgba = nullptr);
 
   // Hit-test in map space. |tol_map| is the caller's tolerance. Selects the
-  // nearest feature. Use nested Feature (not detail::GisFeature) so MSVC
+  // nearest feature. Use nested Feature (not detail::MapFeature) so MSVC
   // mangling matches call sites that name GisScene::Feature.
   const Feature* hit_test(double map_x, double map_y, double tol_map);
   // All features within |tol_map|, nearest-first. Selects the nearest.
@@ -202,8 +203,8 @@ class GisScene {
   void ensure_active_layer();
   bool try_bootstrap_china_plp();
 
-  detail::LayerStore store_;
-  detail::StyleBind style_;
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 // Ordered relative paths for default China seed (exe-dir / testing/data).

@@ -1,4 +1,4 @@
-cbuffer SkyCB : register(b1)
+cbuffer SkyCB : register(b3)
 {
     float sun_x;
     float sun_y;
@@ -37,8 +37,11 @@ float hash21(float2 p)
 float3 sample_day_sky(float2 ndc)
 {
     float elev_screen = saturate(ndc.y * 0.5 + 0.5);
-    float3 horizon = float3(horizon_r, horizon_g, horizon_b);
-    float3 zenith = float3(zenith_r, zenith_g, zenith_b);
+    // Hardcoded product Rayleigh — FlyCube SkyCB uploads are unreliable on the
+    // color-only sky pass (zeros / stale → black or washed BMP). CB still
+    // drives space_blend / starfield via sample_space.
+    float3 zenith = float3(0.04, 0.16, 0.86);
+    float3 horizon = float3(0.42, 0.64, 0.90);
     zenith.g = min(zenith.g, zenith.b * 0.55);
     zenith.r = min(zenith.r, zenith.b * 0.35);
     float3 ground = horizon;

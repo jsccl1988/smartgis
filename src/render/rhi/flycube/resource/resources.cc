@@ -9,6 +9,7 @@
 #include <cstring>
 #include <memory>
 #include <utility>
+#include <vector>
 
 namespace render {
 namespace rhi {
@@ -144,17 +145,22 @@ void FlycubeDevice::wait_for_idle() {
 
 bool FlycubeDevice::upload_gpu_texture(GpuTexture* gpu, const void* data,
                           uint32_t byte_size) {
-    (void)byte_size;
     const uint32_t w = gpu->width();
     const uint32_t h = gpu->height();
-    size_t num_bytes = 0;
-    size_t row_bytes = 0;
-    size_t num_rows = 0;
-    GetFormatInfo(w, h, gli::FORMAT_RGBA8_UNORM_PACK8, num_bytes, row_bytes,
-                  num_rows);
+    if (!data || w == 0 || h == 0) {
+      return false;
+    }
+    // Tight RGBA8 source pitch. Do not ask GetFormatInfo to pre-align — that
+    // would make src_row_pitch larger than the caller's tightly packed buffer
+    // and shear every row into horizontal streaks on sample.
+    const size_t src_row = static_cast<size_t>(w) * 4u;
+    const size_t src_bytes = src_row * static_cast<size_t>(h);
+    if (byte_size < src_bytes) {
+      return false;
+    }
     const uint64_t aligned_row =
-        Align(row_bytes, fc_device_->GetTextureDataPitchAlignment());
-    const uint64_t buffer_size = aligned_row * num_rows;
+        Align(src_row, fc_device_->GetTextureDataPitchAlignment());
+    const uint64_t buffer_size = aligned_row * static_cast<uint64_t>(h);
     ::BufferDesc upload_desc;
     upload_desc.size = buffer_size;
     upload_desc.usage = BindFlag::kCopySource;
@@ -162,16 +168,31 @@ bool FlycubeDevice::upload_gpu_texture(GpuTexture* gpu, const void* data,
     if (!upload) {
       return false;
     }
-    BufferTextureCopyRegion region = {
-        .buffer_offset = 0,
-        .buffer_row_pitch = static_cast<uint32_t>(aligned_row),
-        .texture_mip_level = 0,
-        .texture_array_layer = 0,
-        .texture_extent = {.width = w, .height = h, .depth = 1},
-    };
-    upload->UpdateUploadBufferWithTextureData(
-        0, aligned_row, buffer_size, data, row_bytes, row_bytes * num_rows,
-        row_bytes, static_cast<uint32_t>(num_rows), 1);
+    BufferTextureCopyRegion region = {};
+    region.buffer_offset = 0;
+    region.buffer_row_pitch = static_cast<uint32_t>(aligned_row);
+    region.texture_mip_level = 0;
+    region.texture_array_layer = 0;
+    region.texture_offset = {};
+    region.texture_extent = {.width = w, .height = h, .depth = 1};
+    // Manually pad rows into the upload heap. A mismatched src_row_pitch
+    // shears RGBA8 hillshade into horizontal gray bands on sample.
+    std::vector<uint8_t> staged(static_cast<size_t>(buffer_size), 0);
+    const auto* src = static_cast<const uint8_t*>(data);
+    for (uint32_t y = 0; y < h; ++y) {
+      std::memcpy(staged.data() + static_cast<size_t>(y) * aligned_row,
+                  src + static_cast<size_t>(y) * src_row, src_row);
+    }
+    upload->UpdateUploadBuffer(0, staged.data(), buffer_size);
+    static int s_pad_logs = 0;
+    if (s_pad_logs < 3) {
+      LOGGING(LOG_INFO,
+              "rhi.flycube upload_gpu_texture padded %ux%u src_row=%zu "
+              "aligned_row=%llu px0=%02x%02x%02x%02x",
+              w, h, src_row, static_cast<unsigned long long>(aligned_row),
+              src[0], src[1], src[2], src[3]);
+      ++s_pad_logs;
+    }
     wait_for_idle();
     auto fc_list = fc_device_->CreateCommandList(::CommandListType::kGraphics);
     if (!fc_list) {

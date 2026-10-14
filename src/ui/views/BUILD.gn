@@ -243,7 +243,10 @@ source_set("views_map") {
     "map/viewport/gpu_present.cc",
     "map/viewport/paint_policy.h",
     "map/viewport/present.cc",
-    "map/viewport/shell.cc",
+    "map/viewport/shell_overlay.cc",
+    "map/viewport/identity_frame.cc",
+    "map/viewport/detail/engine_identity.h",
+    "map/viewport/detail/overlay_hole_keys.h",
     "map/viewport/wnd_proc.cc",
   ]
   defines = _views_layer_defines

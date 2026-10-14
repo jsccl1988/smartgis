@@ -3,8 +3,14 @@
 
 #include "content/browser/session/browser_session.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 
 #include "base/process/switches.h"
 #include "base/trace/event/process_trace.h"
@@ -279,8 +285,8 @@ bool BrowserSession::copy_feature_xy(
   return document_.copy_feature_xy(id, out);
 }
 
-bool BrowserSession::document_has_china_extent() const {
-  return document_.has_china_extent();
+bool BrowserSession::document_has_land_surface() const {
+  return document_.has_land_surface();
 }
 
 std::size_t BrowserSession::document_layer_count() const {
@@ -433,8 +439,12 @@ float BrowserSession::orbit_distance() const {
 void BrowserSession::apply_china_scene3d_orbit() {
   orbit_.reset();
   orbit_.apply_world_extent(kChinaLonLatExtent);
-  orbit_.set_distance(1.45f);
-  orbit_.set_pitch(0.52f);
+  // Frame at kScene3dDefaultDistance (FOV 1.35). The old 1.45 fill distance
+  // parked the eye inside the DEM sphere and near-plane clipped close views.
+  orbit_.set_dolly_limits(kScene3dDollyMinLocal, 12.f);
+  orbit_.set_distance(kScene3dDefaultDistance);
+  // Steeper look-down so Local DEM fills landish/sky_delta score bands.
+  orbit_.set_pitch(0.78f);
   orbit_.set_yaw(kScene3dDefaultYaw);
 }
 
@@ -547,6 +557,10 @@ void BrowserSession::invalidate_map2d_frame_cache() {
   map2d().invalidate_frame_cache();
 }
 
+void BrowserSession::force_invalidate_map2d_frame_cache() {
+  map2d().force_invalidate_frame_cache();
+}
+
 void BrowserSession::note_map2d_surface_reset() {
   map2d().note_surface_reset();
 }
@@ -554,16 +568,6 @@ void BrowserSession::note_map2d_surface_reset() {
 void BrowserSession::map2d_paint(HDC hdc, int width_px, int height_px,
                                  bool fill_background) const {
   map2d().paint(hdc, width_px, height_px, fill_background);
-}
-
-void BrowserSession::map2d_paint_annotation(HDC hdc, int width_px,
-                                            int height_px) const {
-  map2d().paint_annotation_overlay(hdc, width_px, height_px);
-}
-
-void BrowserSession::map2d_paint_flash(HDC hdc, int width_px,
-                                       int height_px) const {
-  map2d().paint_flash_overlay(hdc, width_px, height_px);
 }
 
 bool BrowserSession::map2d_export_bmp(const std::string& path, int width_px,
@@ -619,11 +623,6 @@ void BrowserSession::scene3d_apply_draft(const tool::Draft& draft) {
 void BrowserSession::scene3d_paint(HDC hdc, int width_px, int height_px,
                                    bool fill_background) const {
   scene3d().paint(hdc, width_px, height_px, fill_background);
-}
-
-void BrowserSession::scene3d_paint_hud(HDC hdc, int width_px,
-                                       int height_px) const {
-  scene3d().paint_hud(hdc, width_px, height_px);
 }
 
 void BrowserSession::scene3d_set_render_engine_name(const char* name) {

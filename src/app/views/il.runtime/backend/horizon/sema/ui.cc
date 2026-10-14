@@ -12,6 +12,7 @@
 #include "app/views/il.runtime/backend/view/present/env.h"
 #include "app/views/il.runtime/backend/horizon/sema/expect.h"
 #include "app/views/il.runtime/backend/horizon/atom/pump.h"
+#include "app/views/il.runtime/backend/view/shot/export.h"
 #include "app/views/il.runtime/backend/plugin/dispatch.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "plugin/product/map2d/scenario/fps_bench.h"
@@ -27,6 +28,7 @@
 #include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -438,12 +440,8 @@ void force_ui_shell_repaint(Browser& browser) {
 }
 
 int ui_linger_ms() {
-  LingerEnvOpts opts;
-  opts.timed_ms_env = "ui-showcase-timed-ms";
-  opts.linger_ms_env = "ui-showcase-linger-ms";
-  opts.linger_ms_zero_only = false;
-  opts.default_until_close = false;
-  return parse_linger_env(opts).ms;
+  // Capture-only default — no sticky UI_SHOWCASE_LINGER_MS.
+  return 0;
 }
 
 void run_horizon_map2d_fps_bench(Browser& browser) {
@@ -630,6 +628,32 @@ int run_ui_present_capture(Browser& browser, UiMode mode) {
     pump_views_messages(static_cast<DWORD>(linger));
   }
 
+  // Shell/data/catalog: ensure china carto is not StaticReuse-latched before
+  // BMP (hollow black map hole with Layers still checked).
+  if (mode == UiMode::kShell || mode == UiMode::kData ||
+      mode == UiMode::kCatalog) {
+    if (note_product_map2d_surface_after_show(browser)) {
+      if (BrowserUiDelegate* ui = browser.ui()) {
+        ui->invalidate_native_map();
+      }
+      // Wait for a drew (or ok+layout) frame after the latch drop so capture
+      // does not sample a clear swapchain mid-rebuild.
+      const DWORD t0 = GetTickCount();
+      while (GetTickCount() - t0 < 2500u) {
+        if (browser.session().map2d_last_gpu_present_drew() ||
+            (browser.session().map2d_last_gpu_present_ok() &&
+             browser.session().map2d_layout_build_count() > 0)) {
+          break;
+        }
+        if (ui::views::DrawHost* pane = browser.draw_host()) {
+          pane->request_frame();
+          pane->invalidate_native();
+        }
+        pump_views_messages(40);
+      }
+    }
+  }
+
   ui::views::DrawHost* active =
       host_for(browser, spec.pane, spec.capture_fallback_to_map);
   if (spec.tab_before_capture >= 0) {
@@ -713,6 +737,34 @@ int run_ui_present_capture(Browser& browser, UiMode mode) {
     dump_ui_paint_profile(spec, mode, hud_fps);
     stop_ui_map_present(browser);
     return 54;
+  }
+  // FlyCube flip HWND BitBlt is not SoT: class-black or scanline smear while
+  // MapIR present logs cream+hillshade. Always stamp MapIR into the map hole.
+  if ((mode == UiMode::kShell || mode == UiMode::kData ||
+       mode == UiMode::kCatalog) &&
+      map_hwnd && browser.map2d() &&
+      browser.session().document_has_land_surface()) {
+    wchar_t map_export[MAX_PATH] = {};
+    if (exe_capture_path(map_export, MAX_PATH, L"ui-showcase-shell-map.tmp.bmp")) {
+      DeleteFileW(map_export);
+      Map2dExportOpts opts;
+      opts.apply_frame = false;
+      opts.invalidate_cache = false;
+      opts.kick_paint = false;
+      opts.pump_ms = 0;
+      opts.require_features = false;
+      RECT mrc = {};
+      if (GetClientRect(map_hwnd, &mrc)) {
+        opts.width = (std::max)(8, static_cast<int>(mrc.right - mrc.left));
+        opts.height = (std::max)(8, static_cast<int>(mrc.bottom - mrc.top));
+      }
+      if (export_map2d_bmp(&browser, map_export, "document_extent", opts) &&
+          stamp_map_export_into_shell_bmp(bmp_path, browser.hwnd(), map_hwnd,
+                                          map_export)) {
+        ui_mark("bmp-map-stamp-ok");
+      }
+      DeleteFileW(map_export);
+    }
   }
   ui_mark("bmp-ok");
   dump_ui_paint_profile(spec, mode, hud_fps);

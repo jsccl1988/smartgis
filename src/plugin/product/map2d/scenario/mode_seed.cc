@@ -21,7 +21,7 @@ namespace {
 
 void ensure_china_maplibre_carto(HarnessShell& browser) {
   content::GisScene* doc = browser.document();
-  if (!doc || !doc->has_china_extent()) {
+  if (!doc || !doc->has_land_surface()) {
     return;
   }
   const std::shared_ptr<gis::style::StyleDocument> style =

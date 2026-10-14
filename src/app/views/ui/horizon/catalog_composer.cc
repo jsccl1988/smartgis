@@ -33,7 +33,7 @@ void CatalogComposer::wire_catalog() {
   // Bare launch seeds china_city (same pack as harness). Label Sources/Maps
   // to match --ui-showcase=shell so interactive fix loops see china_city.
   if (host_->browser_ &&
-      host_->browser_->session().document_has_china_extent()) {
+      host_->browser_->session().document_has_land_surface()) {
     host_->catalog_->set_source_names({"china_city"});
     host_->catalog_->set_map_docs({{"china_city", "", "China", false}});
   } else {

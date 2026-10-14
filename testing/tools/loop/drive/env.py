@@ -13,11 +13,31 @@ _SCRUB_KEYS = (
     "FORCE_CONTENT_MAPVIEW_2D",
     "PREFER_FLYCUBE_2D",
     "PREFER_GDI_DEVICE",
-    "MAP2D_SHOWCASE_GPU",
     "MAP2D_EXPORT_REUSE",
     "MAP2D_FPS_BENCH_MS",
     "MAP2D_ENGINE",
     "MAP2D_NO_HILLSHADE",
+    # Retired sticky SHOWCASE family — sizes/GPU/linger are C++ constants or
+    # explicit panel/CI Run params (never ambient env on cold start).
+    "MAP2D_SHOWCASE",
+    "MAP2D_SHOWCASE_W",
+    "MAP2D_SHOWCASE_H",
+    "MAP2D_SHOWCASE_GPU",
+    "MAP2D_SHOWCASE_LINGER_MS",
+    "PLUGIN_SHOWCASE",
+    "ATMOSPHERE_SHOWCASE",
+    "ATMOSPHERE_SHOWCASE_GPU",
+    "ATMOSPHERE_SHOWCASE_LINGER_MS",
+    "ATMOSPHERE_SHOWCASE_TIMED_MS",
+    "ATMOSPHERE_SHOWCASE_PRESENT_COUNT",
+    "ATMOSPHERE_SHOWCASE_PUMP_MS",
+    "SCENE3D_SHOWCASE",
+    "SCENE3D_SHOWCASE_D3D",
+    "SCENE3D_SHOWCASE_MODE",
+    "SCENE3D_SHOWCASE_LINGER_MS",
+    "UI_SHOWCASE",
+    "UI_SHOWCASE_LINGER_MS",
+    "UI_SHOWCASE_TIMED_MS",
     # Parent matrix shells leave scenic / world3d bare / wireframe on;
     # that yields red-ball HWND BMPs and flat PERF_BARE disks for product
     # suites that expect FlyCube + full materials / GDI carto.
@@ -60,5 +80,4 @@ def prepare_env(suite: Suite) -> dict[str, str]:
     if suite.driver == "os":
         env["UI_INTERACT_DRIVER"] = "os"
         env.setdefault("UI_INTERACT_OS_WAIT_MS", "8000")
-        env.setdefault("UI_SHOWCASE_LINGER_MS", "0")
     return env

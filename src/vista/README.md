@@ -31,14 +31,14 @@ Target names below are authoritative even while sources are mid-move. `frame/` a
 | --- | --- | --- |
 | `component/map/` | CPU IR: `Layout` �?`MapIR`；顶�?`carto` / `shade` / `place` / `mvt` / `layout` | `"vista/component/map/ir.h"` umbrella；types in `view.h` / `draw.h` / `batch.h` / `layout.h` |
 | `component/map/carto/` | filter / style / label collision | `"vista/component/map/carto/collision.h"` |
-| `component/map/layout/` | 扁平：collect / emit / coalesce + per-geom emit | `"vista/component/map/layout/fill.h"` |
+| `component/map/layout/` | `policy` / `geom` / `paint` / `stage` 四层；collect → emit → coalesce | `"vista/component/map/layout/paint/fill.h"` |
 | `pass/map/` | `MapPass` (upload / encode / record) | `"vista/pass/map/pass.h"` |
 | `component/world/` | `World` node graph + `Instance` (public root) | `"vista/component/world/world.h"` |
 | `component/world/space/` | `coord` / `envelope`; `cull/` (frustum / mesh / prep); `index/` (AABB octree) | `"vista/component/world/space/cull/prep_cull.h"` |
 | `component/world/instance/` | Instance fill: copy, lit policy, paint, kind tess | `"vista/component/world/instance/paint.h"` |
 | `component/world/pointcloud/` | Chunk / LOD buckets on a node | `"vista/component/world/pointcloud/chunk.h"` |
 | `component/world/terrain/` | `TerrainPayload` + `policy` / `grid` / seed by source | `"vista/component/world/terrain/seed.h"` |
-| `pass/world/` | `WorldPass` (`sync_from`, `record_draws`); composes `TerrainPass`; `GpuMesh`; `opaque_effect` | `"vista/pass/world/pass.h"` |
+| `pass/world/` | `WorldPass` (`sync_from`, `record_draws`); composes `TerrainPass`; `GpuMesh`; `opaque_effect`; `hud/` (`HudPass` screen overlay) | `"vista/pass/world/pass.h"` / `"vista/pass/world/hud/hud_pass.h"` |
 | `pass/world/terrain/` | `TerrainPass` (upload / solid gate / kTerrain) | `"vista/pass/world/terrain/pass.h"` |
 | `pass/world/detail/` | upload / tint / rebuild / draw / record | `"vista/pass/world/detail/upload.h"` |
 | `pass/world/cull/` | `frustum_camera` (CameraMatrices �?planes) | `"vista/pass/world/cull/frustum_camera.h"` |
@@ -72,3 +72,7 @@ Public C++ stays two levels: `vista` (components and passes) and `vista::atmosph
 - `//src/vista/pass/world/atmosphere:atmosphere_pass_sources` must not depend on `session_sources`.
 - Env strings `GPUSCENE_PREP_PARALLEL` and `VISTA_LAYOUT_PARALLEL` stay. They drive `WorldPass` prep and `Layout` emit.
 - Test executable `output_name` values stay (`map2d_pass_test`, `scene_gpu_test`, `unified_draw_test`). `content` `present/map2d` and `present/scene3d` directory names stay.
+
+---
+
+**最后更新：** 2026-10-08

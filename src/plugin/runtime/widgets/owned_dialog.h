@@ -21,6 +21,12 @@ PLUGIN_HOST_EXPORT ui::views::Dialog::Result show_owned_dialog(
     int height,
     std::unique_ptr<ui::views::View> body);
 
+// Convenience: size from |body|->preferred_size() (falls back inside
+// show_owned_dialog when preferred size is empty).
+PLUGIN_HOST_EXPORT ui::views::Dialog::Result show_view_dialog(
+    const wchar_t* title,
+    std::unique_ptr<ui::views::View> body);
+
 }  // namespace plugin
 
 #endif  // PLUGIN_WIDGETS_OWNED_DIALOG_H_

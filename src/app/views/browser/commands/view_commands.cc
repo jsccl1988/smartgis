@@ -108,6 +108,7 @@ constexpr ShellRow kFileEditLayer[] = {
     {"Layer", "Add basemap", "catalog.layer.add_basemap"},
     {"Layer", "Remove layer", "catalog.layer.remove"},
     {"Layer", "Zoom to layer", "view.zoom_layer"},
+    {"Plugins", "Manage plugins…", "view.plugins"},
 };
 
 constexpr ShellRow kViewTail[] = {
@@ -133,6 +134,8 @@ void append_menu(std::string_view menu, const ShellRow& row,
     dest = &out->edit;
   } else if (menu == "Layer") {
     dest = &out->layer;
+  } else if (menu == "Plugins") {
+    dest = &out->plugins;
   }
   if (!dest) {
     return;

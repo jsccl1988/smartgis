@@ -34,13 +34,23 @@ bool seh_fit_map_extent(Browser* browser) {
 
 }  // namespace
 
+void Browser::cancel_deferred_china_seed() {
+  HWND shell = hwnd();
+  if (!shell || !IsWindow(shell)) {
+    return;
+  }
+  constexpr UINT_PTR kDeferChina = 0x43484E41u;  // 'CHNA'
+  KillTimer(shell, kDeferChina);
+  RemovePropW(shell, L"DeferChinaBrowser");
+}
+
 void Browser::schedule_deferred_china_seed() {
   const bool skip_deferred_china = []() {
     const char* skip = base::switch_cstr("skip-ambox-catalog");
     return skip && skip[0] != '\0' && skip[0] != '0';
   }();
   if (!defer_china_seed_ || skip_deferred_china ||
-      session().document_has_china_extent()) {
+      session().document_has_land_surface()) {
     return;
   }
   HWND shell = hwnd();
@@ -56,20 +66,11 @@ void Browser::schedule_deferred_china_seed() {
         GetPropW(timer_hwnd, L"DeferChinaBrowser"));
     RemovePropW(timer_hwnd, L"DeferChinaBrowser");
     if (!self || self->is_close_prepared() ||
-        self->session().document_has_china_extent()) {
+        self->session().document_has_land_surface()) {
       return;
     }
     BASE_TRACE_EVENT("try_open_china", "startup");
     LOGGING(LOG_INFO, "startup: deferred China seed begin");
-#if defined(_MSC_VER)
-    base::set_switch("skip-china-land-clip", "1");
-#else
-    setenv("skip-china-land-clip", "1", 1);
-#endif
-    LOGGING(LOG_INFO, "startup: SKIP_CHINA_LAND_CLIP=%s",
-            base::switch_cstr("skip-china-land-clip")
-                ? base::switch_cstr("skip-china-land-clip")
-                : "(null)");
     if (BrowserUiDelegate* ui = self->ui()) {
       ui->pause_all_presents();
     }
@@ -120,13 +121,8 @@ void Browser::schedule_deferred_china_seed() {
     } catch (...) {
       LOGGING(LOG_ERROR, "startup: deferred China seed unknown exception");
     }
-#if defined(_MSC_VER)
-    base::set_switch("skip-china-land-clip", "");
-#else
-    unsetenv("skip-china-land-clip");
-#endif
     LOGGING(LOG_INFO, "startup: deferred China seed done china=%d",
-            self->session().document_has_china_extent() ? 1 : 0);
+            self->session().document_has_land_surface() ? 1 : 0);
   });
 }
 

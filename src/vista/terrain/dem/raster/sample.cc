@@ -302,7 +302,10 @@ void dem_seed_lonlat_box(double in_minx, double in_miny, double in_maxx,
 int dem_seed_cache_key(float camera_distance) {
   const int next_lod = DemRaster::lod_max_edge(camera_distance);
   const int grid_key = camera_distance < 2.4f ? 2 : 1;
-  return next_lod * 10 + grid_key;
+  // Epoch 4: DEM-sized atlases use bright Contour isoline ink (paint.cc).
+  // Bump when DEM seed RGBA layout/policy changes so disk/mem hits stay honest.
+  constexpr int kSeedTexEpoch = 4;
+  return kSeedTexEpoch * 100000 + next_lod * 10 + grid_key;
 }
 
 bool DemRaster::sample_globe_surface(double minx, double miny, double maxx,

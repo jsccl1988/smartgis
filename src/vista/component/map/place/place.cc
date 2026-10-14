@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <utility>
 #include <vector>
 
@@ -254,10 +255,16 @@ std::vector<PlacedMesh> place_frame(const vista::MapIR& frame,
       continue;
     }
     // Skip insane meshes before indices_fit walks the index buffer.
+    // Cap must match coalesce kMaxCoalesceVerts / kMaxCoalesceIndices.
     constexpr size_t kMaxPlaceVerts = 1u << 20;
     constexpr size_t kMaxPlaceIndices = 2u << 20;
     if (item.vertices.size() > kMaxPlaceVerts ||
         item.indices.size() > kMaxPlaceIndices) {
+      std::fprintf(stderr,
+                   "map2d: place skip oversized kind=%d verts=%zu indices=%zu "
+                   "(cap %zu/%zu)\n",
+                   static_cast<int>(item.kind), item.vertices.size(),
+                   item.indices.size(), kMaxPlaceVerts, kMaxPlaceIndices);
       continue;
     }
     if (!indices_fit(item.indices, item.vertices.size())) {

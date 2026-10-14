@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/core/log.h"
 #include "base/process/switches.h"
 #include "base/trace/event/process_trace.h"
 #include "gis/style/paint_resolve.h"
@@ -155,7 +156,8 @@ struct DiskHeader {
 std::string disk_cache_path(const std::string& dem_path,
                             const vista::HillshadeParams& params) {
   char suffix[96];
-  std::snprintf(suffix, sizeof(suffix), ".hs_%d_%.0f_r%d.bin", params.max_edge,
+  // v2: map2d jet bake drops isoline stamps (see compose_elevation_sheet).
+  std::snprintf(suffix, sizeof(suffix), ".hs2_%d_%.0f_r%d.bin", params.max_edge,
                 params.illumination_direction_deg, params.color_ramp);
   return dem_path + suffix;
 }
@@ -347,9 +349,9 @@ HillshadeBake bake_hillshade_slot(const std::string& dem_path, double zoom,
     sample.mem_ms = elapsed_ms(t);
     if (have) {
       sample.mem_hit = 1;
-      std::fprintf(stderr,
-                   "map2d: hillshade cache hit %dx%d max_edge=%d path=%s\n",
-                   out.width, out.height, params.max_edge, dem_path.c_str());
+      LOGGING(LOG_INFO,
+              "map2d: hillshade cache hit %dx%d max_edge=%d path=%s",
+              out.width, out.height, params.max_edge, dem_path.c_str());
       fill_slot(&out.slot, dem_minx, dem_miny, dem_maxx, dem_maxy, texture_key,
                 params.color_ramp);
       out.ok = true;
@@ -370,9 +372,9 @@ HillshadeBake bake_hillshade_slot(const std::string& dem_path, double zoom,
       cache_store(dem_path, params, out.rgba, out.width, out.height, dem_minx,
                   dem_miny, dem_maxx, dem_maxy);
       sample.store_ms = elapsed_ms(t);
-      std::fprintf(stderr,
-                   "map2d: hillshade disk hit %dx%d max_edge=%d path=%s\n",
-                   out.width, out.height, params.max_edge, dem_path.c_str());
+      LOGGING(LOG_INFO,
+              "map2d: hillshade disk hit %dx%d max_edge=%d path=%s",
+              out.width, out.height, params.max_edge, dem_path.c_str());
       fill_slot(&out.slot, dem_minx, dem_miny, dem_maxx, dem_maxy, texture_key,
                 params.color_ramp);
       out.ok = true;
@@ -389,8 +391,8 @@ HillshadeBake bake_hillshade_slot(const std::string& dem_path, double zoom,
     BASE_TRACE_EVENT("load_dem", "bake");
     if (!dem.load_gdal_raster(dem_path.c_str()) || dem.empty()) {
       sample.load_ms = elapsed_ms(t);
-      std::fprintf(stderr, "map2d: hillshade skip - DEM load failed (%s)\n",
-                   dem_path.c_str());
+      LOGGING(LOG_WARNING, "map2d: hillshade skip - DEM load failed (%s)",
+              dem_path.c_str());
       publish_sample(sample);
       return out;
     }
@@ -405,7 +407,7 @@ HillshadeBake bake_hillshade_slot(const std::string& dem_path, double zoom,
     out.rgba.clear();
     out.width = 0;
     out.height = 0;
-    std::fprintf(stderr, "map2d: hillshade skip - shade_dem_rgba failed\n");
+    LOGGING(LOG_WARNING, "map2d: hillshade skip - shade_dem_rgba failed");
     publish_sample(sample);
     return out;
   }

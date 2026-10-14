@@ -53,6 +53,10 @@ struct DrawItem {
   uint64_t cache_key = 0;
 };
 
+// Host texture id for heatmap density kRaster ('HEAT'). Matches content
+// kMap2dHeatmapTextureKey — load_raster must serve this key.
+inline constexpr uint32_t kHeatmapTextureKey = 0x48454154u;
+
 // One CPU frame. Background is a clear, not a mesh.
 struct MapIR {
   // Product carto ocean (#aad3df). Keep this as the no-style clear so jet

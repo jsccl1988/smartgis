@@ -5,7 +5,7 @@
 
 #include "plugin/runtime/host/capability/shell.h"
 #include "plugin/product/world3d/scenario/atmosphere/seed/legacy_seed.h"
-#include "plugin/product/world3d/scenario/atmosphere/common/progress.h"
+#include "plugin/runtime/host/capability/scenario_shell.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "plugin/product/world3d/scene/look/look.h"

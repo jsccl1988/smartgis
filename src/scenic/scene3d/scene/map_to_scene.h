@@ -62,7 +62,7 @@ SCENIC_IMPL_EXPORT int seed_geojson_into_scene(LP3DRENDERDEVICE device,
 SCENIC_IMPL_EXPORT int seed_sample_map_into_scene(LP3DRENDERDEVICE device,
                                                     Scene* scene);
 
-// Per-object leftover showcase seed for --scene3d-showcase <mode>.
+// Per-object leftover showcase seed by explicit |mode|.
 // Modes: china (default) | terrain | cube | sphere | water | pointcloud |
 // northarray. Mesh modes clear the DEM framing cache so orbit frames the
 // object AABB. Returns objects added (northarray returns 1 with a synthetic
@@ -71,7 +71,7 @@ SCENIC_IMPL_EXPORT int seed_showcase_mode_into_scene(LP3DRENDERDEVICE device,
                                                        Scene* scene,
                                                        const char* mode);
 
-// SCENE3D_SHOWCASE_MODE env, or "china" when unset / empty.
+// Default seed mode for stereo HWND create ("china"). No sticky SHOWCASE env.
 SCENIC_IMPL_EXPORT const char* showcase_mode_from_env();
 
 // Drop DEM framing cache (mesh showcase must not prefer leftover china AABB).

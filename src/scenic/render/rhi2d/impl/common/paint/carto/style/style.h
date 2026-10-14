@@ -23,8 +23,9 @@ class Rhi2dCartoDrawStyle {
   Rhi2dCartoDrawStyle& operator=(const Rhi2dCartoDrawStyle&) = delete;
 
   int prepare_for_drawing(HDC dc, bool recording, HINSTANCE h_inst,
-                          RenderContext* rc, bool is_river, int road_class,
-                          const Style* style, int draw_mode = R2_COPYPEN);
+                          RenderContext* rc, bool is_river, int river_class,
+                          int road_class, const Style* style,
+                          int draw_mode = R2_COPYPEN);
   int end_drawing(HDC dc);
   // Drop cached pen/brush from the DC (call at end of map/layer paint).
   void flush(HDC dc);
@@ -52,6 +53,7 @@ class Rhi2dCartoDrawStyle {
   int cache_draw_mode_ = 0;
   ulong cache_format_ = 0;
   int cache_road_class_ = -1;
+  int cache_river_class_ = -1;
   int cache_is_river_ = 0;
   int cache_pen_px_ = 0;
   COLORREF cache_pen_ = 0;

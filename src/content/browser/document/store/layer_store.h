@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "content/browser/document/store/gis_layer.h"
+#include "content/browser/document/store/map_layer.h"
 #include "content/public/types.h"
 
 namespace content {
@@ -19,8 +19,8 @@ class LayerStore {
  public:
   void clear();
 
-  std::vector<GisLayer>& layers() { return layers_; }
-  const std::vector<GisLayer>& layers() const { return layers_; }
+  std::vector<MapLayer>& layers() { return layers_; }
+  const std::vector<MapLayer>& layers() const { return layers_; }
 
   const std::string& active_layer_id() const { return active_layer_id_; }
   void set_active_layer_id(std::string id) {
@@ -35,10 +35,10 @@ class LayerStore {
 
   uint32_t next_id_value() const { return next_id_; }
 
-  GisLayer* find_layer(const std::string& id);
-  const GisLayer* find_layer(const std::string& id) const;
-  GisFeature* find_feature(const content::FeatureId& id);
-  const GisFeature* find_feature(const content::FeatureId& id) const;
+  MapLayer* find_layer(const std::string& id);
+  const MapLayer* find_layer(const std::string& id) const;
+  MapFeature* find_feature(const content::FeatureId& id);
+  const MapFeature* find_feature(const content::FeatureId& id) const;
 
   content::FeatureId next_feature_id();
   void ensure_active_layer_or_front();
@@ -54,16 +54,15 @@ class LayerStore {
   bool select_layer(const std::string& id);
   bool move_layer(const std::string& id, int delta);
 
-  void add_sample_features(GisLayer* layer, const std::string& tag);
   void clear_selection();
   bool select_feature(const content::FeatureId& id);
-  const GisFeature* selected_feature() const;
+  const MapFeature* selected_feature() const;
 
   // Replace all layers after a successful OGR ingest (clears selection).
-  void replace_layers(std::vector<GisLayer> loaded);
+  void replace_layers(std::vector<MapLayer> loaded);
 
  private:
-  std::vector<GisLayer> layers_;
+  std::vector<MapLayer> layers_;
   std::string active_layer_id_;
   content::FeatureId selected_id_{};
   uint32_t next_id_ = 1;

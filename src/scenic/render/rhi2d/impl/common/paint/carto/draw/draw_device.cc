@@ -49,7 +49,7 @@ int GdiDeviceDraw::draw_device_polyline(const POINT* pts, int n) {
 
   // Roads: same dual-GDI-pen path for encode and immediate (GdiBackend).
   bool drew = false;
-  if (c_->road_class_ > 0) {
+  if (c_->road_class_ > 0 && !c_->is_river_) {
     const int fill_w = carto2d_road_width_px(c_->rc_->fblc, c_->road_class_);
     const COLORREF fill_c = carto2d_road_fill_color(c_->road_class_);
     const COLORREF case_c = carto2d_road_casing_color(c_->road_class_);
@@ -129,7 +129,7 @@ int GdiDeviceDraw::draw_device_polylines(const POINT* pts,
     return kErrNone;
   }
   // Roads: one casing PolyPolyline + one fill PolyPolyline.
-  if (c_->road_class_ > 0) {
+  if (c_->road_class_ > 0 && !c_->is_river_) {
     const int fill_w = carto2d_road_width_px(c_->rc_->fblc, c_->road_class_);
     const COLORREF fill_c = carto2d_road_fill_color(c_->road_class_);
     const COLORREF case_c = carto2d_road_casing_color(c_->road_class_);

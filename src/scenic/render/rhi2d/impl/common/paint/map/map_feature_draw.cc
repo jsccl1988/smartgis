@@ -182,7 +182,10 @@ int draw_unprepared_feature(Rhi2dCartoDraw* carto, const RenderContext& ctx,
       (carto->feature_type() == FtAnno && anno[0]) ? anno : name;
   carto->label_priority() = carto2d_label_priority(label, kind, cls, adcode);
   carto->is_river() = carto2d_is_river_kind(kind);
-  carto->road_class() = carto2d_road_class(kind, cls);
+  carto->river_class() =
+      carto->is_river() ? carto2d_river_class(kind, cls) : 0;
+  carto->road_class() =
+      carto->is_river() ? 0 : carto2d_road_class(kind, cls);
   if (!(carto->feature_type() == FtAnno && anno[0])) {
     if (const char* picked = carto2d_label_text(
             prep_field_cstr(feature, cache->anno), name,

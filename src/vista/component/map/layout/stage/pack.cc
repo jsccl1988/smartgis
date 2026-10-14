@@ -1,13 +1,13 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/component/map/layout/pack.h"
+#include "vista/component/map/layout/stage/pack.h"
 
 #include "gis/envelope.h"
 #include "gis/geo/ops/geometry_traits.h"
 #include "ogrsf_frmts.h"
-#include "vista/component/map/layout/slice_key.h"
-#include "vista/component/map/layout/view_metrics.h"
+#include "vista/component/map/layout/policy/slice_key.h"
+#include "vista/component/map/layout/policy/view_metrics.h"
 
 namespace vista {
 namespace detail {

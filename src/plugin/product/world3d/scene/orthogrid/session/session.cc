@@ -13,6 +13,7 @@
 #include "plugin/product/world3d/scene/orthogrid/present/mesh.h"
 #include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
+#include "plugin/runtime/host/processing/playback_frames.h"
 #include "content/public/plugin_host.h"
 
 #include <rapidjson/document.h>
@@ -107,16 +108,7 @@ OrthogridMeshCommit commit_at_frame(const detail::BoundarySolve& solved,
 }
 
 void fill_playback(content::PluginHost* host, int frame_count) {
-  if (!host) {
-    return;
-  }
-  if (content::PluginHost::Playback* pb = host->playback()) {
-    pb->clear();
-    for (int i = 0; i < frame_count; ++i) {
-      pb->push_frame("{\"index\":" + std::to_string(i) + "}");
-    }
-    pb->set_index(static_cast<size_t>(frame_count > 0 ? frame_count - 1 : 0));
-  }
+  fill_playback_index_frames(host, frame_count);
 }
 
 bool commit_solved(const detail::BoundarySolve& solved) {
@@ -247,26 +239,22 @@ bool orthogrid_present_frame(content::PluginHost* host,
         "{\"error\":\"no_orthogrid_session\",\"op\":\"orthogrid.present_frame\"}");
     return false;
   }
-  content::GisDocument* gis = host->gis_document();
+  content::GisDocument* gis = require_gis_document(
+      host, "orthogrid.present_frame", "no_orthogrid_seam");
   if (!gis) {
-    set_operation_result(
-        "{\"error\":\"no_orthogrid_seam\",\"op\":\"orthogrid.present_frame\"}");
     return false;
   }
-  int index = 0;
-  rapidjson::Document args;
-  if (parse_args_json(args_json, &args)) {
-    args_json_int(args, "index", &index);
-  }
+  const int frame_count =
+      commit_at_frame(g_last_solved, /*frame_index=*/-1).frame_count;
+  const int index = parse_frame_index_arg(
+      args_json, frame_count > 0 ? frame_count : 1);
   const OrthogridMeshCommit commit = commit_at_frame(g_last_solved, index);
   if (!present_orthogrid_mesh(gis, commit)) {
     set_operation_result(
         "{\"error\":\"present_failed\",\"op\":\"orthogrid.present_frame\"}");
     return false;
   }
-  if (content::PluginHost::Playback* pb = host->playback()) {
-    pb->set_index(static_cast<size_t>(index < 0 ? 0 : index));
-  }
+  set_playback_frame_index(host, index);
   set_operation_result("{\"ok\":true,\"op\":\"orthogrid.present_frame\"}");
   return true;
 }

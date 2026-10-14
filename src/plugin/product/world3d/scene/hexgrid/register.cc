@@ -19,6 +19,7 @@
 #include "plugin/runtime/host/capability/shell.h"
 #include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
+#include "plugin/runtime/host/processing/playback_frames.h"
 #include "tool/command/command.h"
 #include "ui/views/dialogs/file_picker.h"
 
@@ -113,10 +114,9 @@ bool orthogrid3d_present_frame(content::PluginHost* host,
         "{\"error\":\"no_hexgrid_session\",\"op\":\"orthogrid3d.present_frame\"}");
     return false;
   }
-  content::GisDocument* gis = host->gis_document();
+  content::GisDocument* gis = require_gis_document(
+      host, "orthogrid3d.present_frame", "no_hexgrid_seam");
   if (!gis) {
-    set_operation_result(
-        "{\"error\":\"no_hexgrid_seam\",\"op\":\"orthogrid3d.present_frame\"}");
     return false;
   }
   HexGridCommit commit;
@@ -133,9 +133,7 @@ bool orthogrid3d_present_frame(content::PluginHost* host,
         "{\"error\":\"present_failed\",\"op\":\"orthogrid3d.present_frame\"}");
     return false;
   }
-  if (content::PluginHost::Playback* pb = host->playback()) {
-    pb->set_index(0);
-  }
+  set_playback_frame_index(host, 0);
   set_operation_result("{\"ok\":true,\"op\":\"orthogrid3d.present_frame\"}");
   return true;
 }

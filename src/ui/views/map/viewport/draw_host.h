@@ -141,6 +141,9 @@ class UI_EXPORT DrawHost : public View {
   void maybe_sync_identity_hud();
   // Sample present cadence into hud_fps_ (Display or UI thread).
   void note_hud_frame();
+  // Publish GPU/engine present FPS into the title / identity HUD (Scene3D).
+  // Avoids the 16ms WM_TIMER sampler drifting away from real presents.
+  void publish_present_fps(float fps);
   // Smoothed present FPS. First/idle samples cap dt at 250ms so HUD is not
   // stuck at Fps0.000 after attach.
   float hud_fps() const {

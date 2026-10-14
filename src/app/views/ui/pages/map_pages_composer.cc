@@ -13,8 +13,7 @@
 
 #include <functional>
 
-#include "app/views/ui/pages/detail/seh_workspace.h"
-#include "base/process/switches.h"
+#include "app/views/browser/nav/detail/seh_workspace.h"
 #include "content/public/tool_session.h"
 #include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/collection/tab_strip.h"
@@ -35,9 +34,7 @@ void MapPagesComposer::sync_flash_timer() {
   constexpr UINT_PTR kFlash = 0x464C5348u;
   SetPropW(h, L"FlashBrowser", reinterpret_cast<HANDLE>(host_));
   content::ToolSession* host = host_->active_tool_session();
-  const bool on = base::switch_cstr("map2d-showcase")
-                      ? false
-                      : detail::seh_tool_session_flashing(host);
+  const bool on = detail::seh_tool_session_flashing(host);
   KillTimer(h, kFlash);
   if (!on) {
     host_->browser_->set_flash_lit(true);

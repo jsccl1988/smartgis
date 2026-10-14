@@ -570,7 +570,7 @@ Coverage：`src/gis/model` 8 个 parse_partial（`feature.h` / `map.h` / `map_la
 | `append_cloned_feature` / `copy_layer(OGRLayer*)` | `model/feature/feature_api.h` | catalog `copy_layer`（leftover UI）；OGR 拷贝本身可产品化 | `copy_layer(SmtLayer*)` / `SmtRasterLayer*` | **KEEP** OGR 两参拷贝。**MOVE** `Smt*` 重载已在 leftover。产品 Feature 不再 `set_style(const char*)`（named lookup 在 leftover `SmtFeature`） |
 | `gis::Envelope` | `model/envelope.h` | `geo/ops/geometry_traits.h` `fill_envelope`；`MapLayer`/`Map` | leftover carto / rhi2d map paint / scene3d `geo_object` | **KEEP**（header-only MBR；可与 `OGREnvelope` 互拷，不是第二套几何） |
 | `gis::CrsId` | `model/crs/crs.h`（已删） | 无调用方 | — | **DELETE** 空 stub（权威 CRS 仍是 `OGRLayer::GetSpatialRef()` / `OGRSpatialReference`；PROJ 在 `gis/geo/proj`） |
-| `EditSession` / `CommandEditSession` / `MapEditSession` / `OptimisticLayerStore` | `model/edit/` | `content/view`；`tool/workspace`；`app/views` fill/nav/self-test | `legacy/tool/draft/appendfeaturetool`；`legacy/ui/map/viewport/view_2d_edit` | **KEEP**。编辑会话写 `OGRLayer`/`Feature`，不写 `SmtLayer` 虚 CRUD |
+| `EditSession` / `CommandEditSession` / `MapEditSession` / `OptimisticLayerStore` | `model/edit/` | `content/tool`；`tool/workspace`；`app/views` fill/nav/self-test | `legacy/tool/draft/appendfeaturetool`；`legacy/ui/map/viewport/view_2d_edit` | **KEEP**。编辑会话写 `OGRLayer`/`Feature`，不写 `SmtLayer` 虚 CRUD |
 | `geo::geometry_traits` / `OGRGeometry` | `gis/geo`（非 model） | 产品几何唯一层次 | leftover 经 `Feature::geometry()` | **KEEP** 在 `gis/geo`；Feature.geo **就是** `OGRGeometry*` |
 
 **DELETE：** 空 `CrsId` stub 已删。`SmtSpIdxInfo` 在 leftover `layer.h`，图上 out=0 时再确认能否删。

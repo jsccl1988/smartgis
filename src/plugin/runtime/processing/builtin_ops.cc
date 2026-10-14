@@ -5,7 +5,7 @@
 
 #include <string>
 
-#include "app/views/browser/plugin/builtins.h"
+#include "app/views/browser/plugin/shell/builtins.h"
 #include "content/public/plugin_host.h"
 
 namespace plugin {

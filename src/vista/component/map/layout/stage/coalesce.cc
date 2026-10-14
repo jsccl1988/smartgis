@@ -1,11 +1,17 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/component/map/layout/coalesce.h"
+#include "vista/component/map/layout/stage/coalesce.h"
 
 namespace vista {
 namespace detail {
 namespace {
+
+// Must stay at or below place_frame's kMaxPlaceVerts / kMaxPlaceIndices.
+// Unbounded coalesce of china land fills produced one mesh that place_frame
+// silently dropped → black clear + line-only GPU present.
+constexpr size_t kMaxCoalesceVerts = 1u << 20;
+constexpr size_t kMaxCoalesceIndices = 2u << 20;
 
 bool same_style(const DrawItem& a, const DrawItem& b) {
   if (a.kind != b.kind || a.kind == DrawKind::kRaster ||
@@ -17,6 +23,11 @@ bool same_style(const DrawItem& a, const DrawItem& b) {
          a.halo_width_px == b.halo_width_px && a.halo_rgba == b.halo_rgba &&
          a.text_size_px == b.text_size_px && a.codepoint == b.codepoint &&
          a.cache_key == b.cache_key;
+}
+
+bool can_append(const DrawItem& dst, const DrawItem& src) {
+  return dst.vertices.size() + src.vertices.size() <= kMaxCoalesceVerts &&
+         dst.indices.size() + src.indices.size() <= kMaxCoalesceIndices;
 }
 
 void append_mesh(DrawItem* dst, const DrawItem& src) {
@@ -38,7 +49,8 @@ void coalesce_draw_items(std::vector<DrawItem>* items) {
   std::vector<DrawItem> out;
   out.reserve(items->size());
   for (DrawItem& item : *items) {
-    if (!out.empty() && same_style(out.back(), item)) {
+    if (!out.empty() && same_style(out.back(), item) &&
+        can_append(out.back(), item)) {
       append_mesh(&out.back(), item);
       continue;
     }

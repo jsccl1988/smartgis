@@ -4,6 +4,8 @@
 #include "render/rhi/flycube/command/command_list.h"
 #include "render/rhi/flycube/resource/resources.h"
 
+#include "base/core/log.h"
+
 namespace render {
 namespace rhi {
 namespace detail {
@@ -95,7 +97,14 @@ void FlycubeCommandList::bind_index_buffer(Buffer* buffer, uint32_t offset) {
 }
 
 void FlycubeCommandList::bind_texture(Texture* texture, uint32_t slot) {
-  recorder.bind_texture(slot, as_gpu_texture(texture));
+  GpuTexture* gpu = as_gpu_texture(texture);
+  if (texture != nullptr && gpu == nullptr) {
+    LOGGING(LOG_WARNING,
+            "rhi.flycube bind_texture: dynamic_cast miss slot=%u tex=%p "
+            "%ux%u (draw will skip SRV)",
+            slot, texture, texture->width(), texture->height());
+  }
+  recorder.bind_texture(slot, gpu);
   StubCommandList::bind_texture(texture, slot);
 }
 

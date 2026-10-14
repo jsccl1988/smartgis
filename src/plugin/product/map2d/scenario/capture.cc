@@ -5,7 +5,7 @@
 
 #include "plugin/product/map2d/scenario/progress.h"
 #include "plugin/runtime/host/capability/shell.h"
-#include "content/browser/present/map2d/map2d_phase_profile.h"
+#include "content/browser/present/map2d/profile/map2d_phase_profile.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 
 #include <chrono>
@@ -22,12 +22,9 @@ void log_map2d_phase_sample(const char* tag) {
   const content::Map2dPhaseSample s = content::map2d_last_phase_sample();
   std::fprintf(stderr,
                "map2d-showcase: %s layout_ms=%lld hillshade_ms=%lld "
-               "software_paint_ms=%lld paint_ms=%lld bmp_io_ms=%lld "
-               "gpu_upload_ms=%lld gpu_present_ms=%lld\n",
+               "bmp_io_ms=%lld gpu_upload_ms=%lld gpu_present_ms=%lld\n",
                tag, static_cast<long long>(s.layout_ms),
                static_cast<long long>(s.hillshade_ms),
-               static_cast<long long>(s.software_paint_ms),
-               static_cast<long long>(s.software_paint_ms),
                static_cast<long long>(s.bmp_io_ms),
                static_cast<long long>(s.gpu_upload_ms),
                static_cast<long long>(s.gpu_present_ms));
@@ -98,10 +95,8 @@ int export_map2d_showcase_bmp(content::Map2dPresenter* map2d,
           std::chrono::steady_clock::now() - t0)
           .count();
   const content::Map2dPhaseSample export_ph = content::map2d_last_phase_sample();
-  std::fprintf(stderr,
-               "map2d-showcase: export_ms=%lld paint_ms=%lld bmp_io_ms=%lld\n",
-               export_ms, static_cast<long long>(export_ph.software_paint_ms),
-               static_cast<long long>(export_ph.bmp_io_ms));
+  std::fprintf(stderr, "map2d-showcase: export_ms=%lld bmp_io_ms=%lld\n",
+               export_ms, static_cast<long long>(export_ph.bmp_io_ms));
   log_map2d_phase_sample("phase_export");
   map2d_mark("bmp-wrote");
   return 0;

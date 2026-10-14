@@ -196,11 +196,11 @@ bool read_geochem_active_layer(content::GisScene* doc,
   out->element_names.clear();
   out->element_names.push_back(element.empty() ? "value" : element);
   const std::string& active = doc->active_layer_id();
-  for (const content::detail::GisLayer& layer : doc->layers()) {
+  for (const content::detail::MapLayer& layer : doc->layers()) {
     if (!active.empty() && layer.id != active && layer.name != active) {
       continue;
     }
-    for (const content::detail::GisFeature& f : layer.features) {
+    for (const content::detail::MapFeature& f : layer.features) {
       if (f.kind != content::detail::GeomKind::kPoint || f.points.empty()) {
         continue;
       }

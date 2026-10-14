@@ -15,7 +15,8 @@
 #include <cstring>
 #include <vector>
 
-#include "app/views/ui/pages/detail/seh_workspace.h"
+#include "app/views/browser/nav/detail/seh_workspace.h"
+#include "app/views/ui/pages/detail/viewport_hdc.h"
 #include "base/core/log.h"
 #include "base/process/switches.h"
 #include "content/browser/session/browser_session.h"
@@ -23,6 +24,7 @@
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
 #include "ui/views/map/viewport/draw_host.h"
+#include "ui/views/map/viewport/paint_policy.h"
 
 namespace app {
 
@@ -31,19 +33,15 @@ void MapPagesComposer::wire_map_scene() {
     return [this, pane](HDC hdc, const RECT& rc) {
       const int w = rc.right - rc.left;
       const int h = rc.bottom - rc.top;
-      // Product default 2D SoT = FlyCube present_gpu (DXGI). GDI overlay is
-      // annotation/flash only once the present HWND is visible and carto drew.
-      // ContentMapView / FORCE_GDI_MAP_OVERLAY remain harness opt-in fallbacks.
-      const bool force_gdi = []() {
-        if (const char* env = base::switch_cstr("force-gdi-map-overlay")) {
-          return env[0] == '1' && env[1] == '\0';
-        }
-        return false;
-      }();
+      // Product default 2D SoT = FlyCube present_gpu (DXGI). Selection/flash
+      // strokes live on MapPass (MapIR overlay). Embed HDC is cold-fill only
+      // while waiting for present HWND; full MapIR->GDI is harness opt-in.
+      const bool force_gdi = ui::views::detail::force_gdi_map_overlay();
       const bool content_map =
           pane &&
           pane->attach_mode() ==
               ui::views::DrawHost::AttachMode::kContentMapView;
+      const bool scenic_2d = ui::views::detail::prefer_map2d_scenic_engine();
       // StretchBlt pan/zoom preview is for FlyCube debounce. Under
       // ContentMapView + FORCE_GDI the preview DIB is often empty/cream.
       if (!force_gdi && !content_map &&
@@ -52,36 +50,29 @@ void MapPagesComposer::wire_map_scene() {
         return;
       }
       content::BrowserSession& session = host_->browser_->session();
-      // input_hwnd() returns the present popup only while it is visible �?      // skip full GDI only then, else the embed stays navy/ocean until reveal.
-      const bool flycube_present_visible =
+      const bool gpu_present_mode =
           pane &&
-          pane->attach_mode() == ui::views::DrawHost::AttachMode::kGpuPresent &&
-          pane->input_hwnd() != nullptr &&
+          pane->attach_mode() == ui::views::DrawHost::AttachMode::kGpuPresent;
+      const bool flycube_present_visible =
+          gpu_present_mode && pane->input_hwnd() != nullptr &&
           pane->input_hwnd() != pane->native_view();
+      // StaticReuse leaves last_gpu_present_drew() false even when the DXGI
+      // swapchain still holds carto. Requiring drew here filled the embed with
+      // ocean + request_frame forever and raced WaitFirstMapPresent resets.
       const bool flycube_sot =
           flycube_present_visible && pane->last_gpu_present_ok() &&
-          session.map2d_last_gpu_present_drew() &&
           session.map2d_layout_build_count() > 0;
-      const bool scenic_2d = []() {
-        const char* map_eng = base::switch_cstr("map2d-engine");
-        return map_eng && map_eng[0] && _stricmp(map_eng, "scenic") == 0;
-      }();
-      if (!force_gdi && flycube_sot && !scenic_2d) {
-        session.map2d_paint_annotation(hdc, w, h);
-      } else {
-        // Fallback: ContentMapView, GDI force, or GPU not yet revealed/drew.
+      if (force_gdi || scenic_2d || content_map) {
         session.map2d_paint(hdc, w, h, true);
         session.blit_capture(hdc, w, h);
-      }
-      content::ToolSession* host = host_->active_tool_session();
-      // Showcase first Widget::show paints before BrowserSession hosts are live;
-      // flashing() then follows a dangling Workspace pimpl (cdb: tool_d
-      // Workspace::flashing INVALID_POINTER_READ). Skip until after export.
-      const bool showcase =
-          base::switch_cstr("map2d-showcase") != nullptr;
-      if (!showcase && host_->browser_->flash_lit() &&
-          detail::seh_tool_session_flashing(host)) {
-        host_->browser_->session().map2d_paint_flash(hdc, w, h);
+      } else if (flycube_sot) {
+        // Selection/flash are on the DXGI present path -- nothing on embed HDC.
+      } else if (gpu_present_mode) {
+        detail::fill_hdc_and_request_frame(hdc, w, h, detail::kMap2dColdFillRgb,
+                                           pane);
+      } else {
+        session.map2d_paint(hdc, w, h, true);
+        session.blit_capture(hdc, w, h);
       }
     };
   };
@@ -93,19 +84,19 @@ void MapPagesComposer::wire_map_scene() {
     }
     const auto mode = host_->map_scene_ ? host_->map_scene_->attach_mode()
                                  : ui::views::DrawHost::AttachMode::kNone;
-    // Priority: FlyCube �?(opt-in) leftover GL stereo �?ContentMapView �?GDI DEM.
+    // Priority: FlyCube -> (opt-in) leftover GL stereo -> ContentMapView.
+    // No FORCE_GDI / soft DEM SoT -- HUD is vista HudPass on present_gpu.
     const bool flycube = mode == ui::views::DrawHost::AttachMode::kGpuPresent;
     const bool content_map =
         mode == ui::views::DrawHost::AttachMode::kContentMapView;
     const bool gpu_ok =
         flycube && host_->map_scene_ && host_->map_scene_->last_gpu_present_ok();
     if (gpu_ok) {
-      host_->browser_->session().scene3d_paint_hud(hdc, w, h);
+      // Swapchain already holds WorldPass + HudPass; HDC overlay is a no-op.
       return;
     }
     // When FlyCube is the product SoT (default), never re-attach leftover GL
-    // on the same HWND. try_present_sot would race the DX12 swapchain and
-    // permanently stamp the HUD badge as Stereo/GL even after RHI recovers.
+    // on the same HWND. try_present_sot would race the DX12 swapchain.
     // Stereo/GL is only allowed when the user selected that engine.
     const bool allow_stereo_fallback =
         content::BrowserSession::prefers_scene3d_stereo_gl() && !flycube;
@@ -113,42 +104,33 @@ void MapPagesComposer::wire_map_scene() {
     if (allow_stereo_fallback &&
         host_->browser_->session().try_present_scene3d_stereo(hwnd, hdc, w, h)) {
       host_->browser_->session().scene3d_set_render_engine_name("Stereo/GL");
-      host_->browser_->session().scene3d_paint_hud(hdc, w, h);
       return;
     }
     if (content_map && host_->map_scene_ &&
         host_->map_scene_->last_content_present_ok()) {
-      // SharedSurface actually blitted �?HUD only. Empty ContentMapView
-      // (no GPU frames) must fall through to Scene3dPresenter::paint or the
-      // 3D tab stays navy (scenic / GDI product HWND SoT).
-      host_->browser_->session().scene3d_set_render_engine_name("ContentMapView");
-      host_->browser_->session().scene3d_paint_hud(hdc, w, h);
+      host_->browser_->session().scene3d_set_render_engine_name(
+          "ContentMapView");
       return;
     }
-    // Product FlyCube: never bake soft DEM on the UI thread while waiting for
-    // GpuPresent / first present_gpu. Soft paint holds present_mu_ and can
-    // starve Display reveal (Engine:GDI Fps~0.02). Opaque + HUD only.
+    // Product FlyCube waiting for first present_gpu: placeholder only.
+    // Soft DEM removed -- fail closed and request another frame.
     if (content::BrowserSession::prefers_scene3d_flycube() && !gpu_ok) {
       host_->browser_->session().scene3d_set_render_engine_name("FlyCube/DX12");
-      HBRUSH bg = CreateSolidBrush(RGB(120, 165, 210));
-      RECT full = {0, 0, w, h};
-      FillRect(hdc, &full, bg);
-      DeleteObject(bg);
-      host_->browser_->session().scene3d_paint_hud(hdc, w, h);
-      if (host_->map_scene_) {
-        host_->map_scene_->request_frame();
-      }
+      detail::fill_hdc_and_request_frame(hdc, w, h, detail::kScene3dColdFillRgb,
+                                         host_->map_scene_);
       return;
     }
-    // Explicit GDI / scenic / Content fallbacks: software DEM SoT.
+    // Scenic MemFrame (no soft DEM). GDI engine is placeholder only.
     if (content::BrowserSession::prefers_scene3d_scenic()) {
       host_->browser_->session().scene3d_set_render_engine_name("scenic");
-    } else if (content::BrowserSession::prefers_scene3d_gdi()) {
-      host_->browser_->session().scene3d_set_render_engine_name("GDI");
+      host_->browser_->session().scene3d_paint(hdc, w, h,
+                                               /*fill_background=*/true);
+      return;
     }
-    // paint() already draws HUD under present_mu_; do not call paint_hud after
-    // (nested lock was abort/exit 3 before present_mu_ became recursive).
-    host_->browser_->session().scene3d_paint(hdc, w, h, /*fill_background=*/true);
+    if (content::BrowserSession::prefers_scene3d_gdi()) {
+      host_->browser_->session().scene3d_set_render_engine_name("GDI");
+      detail::fill_hdc_rgb(hdc, w, h, detail::kScene3dGdiPlaceholderRgb);
+    }
   };
   for (ui::views::DrawHost* pane : {host_->map_edit_}) {
     if (!pane) {
@@ -163,13 +145,16 @@ void MapPagesComposer::wire_map_scene() {
           if (pane->consume_gpu_surface_dirty()) {
             host_->browser_->session().note_map2d_surface_reset();
           }
+          content::ToolSession* tool = host_->active_tool_session();
+          const bool flash_pulse =
+              host_->browser_->flash_lit() &&
+              detail::seh_tool_session_flashing(tool);
+          host_->browser_->session().map2d().set_flash_pulse(flash_pulse);
           std::vector<uint8_t> shell_copy;
           ui::gfx::ShellRaster shell{};
           uint64_t gen = 0;
-          const ui::gfx::ShellRaster* shell_ptr = nullptr;
-          if (pane->snapshot_shell_overlay(&shell_copy, &shell, &gen)) {
-            shell_ptr = &shell;
-          }
+          const ui::gfx::ShellRaster* shell_ptr =
+              detail::borrow_pane_shell(pane, &shell_copy, &shell, &gen);
           return host_->browser_->session().map2d_present_gpu(
               static_cast<render::rhi::Device*>(device), w, h, shell_ptr, gen);
         });
@@ -184,12 +169,16 @@ void MapPagesComposer::wire_map_scene() {
           std::vector<uint8_t> shell_copy;
           ui::gfx::ShellRaster shell{};
           uint64_t gen = 0;
-          const ui::gfx::ShellRaster* shell_ptr = nullptr;
-          if (host_->map_scene_->snapshot_shell_overlay(&shell_copy, &shell, &gen)) {
-            shell_ptr = &shell;
-          }
-          return host_->browser_->session().scene3d_present_gpu(
+          const ui::gfx::ShellRaster* shell_ptr = detail::borrow_pane_shell(
+              host_->map_scene_, &shell_copy, &shell, &gen);
+          const bool ok = host_->browser_->session().scene3d_present_gpu(
               static_cast<render::rhi::Device*>(device), w, h, shell_ptr, gen);
+          if (ok && host_->map_scene_) {
+            // Align title / yellow identity bar with Engine HUD present FPS.
+            host_->map_scene_->publish_present_fps(
+                host_->browser_->session().scene3d().gpu().last_fps);
+          }
+          return ok;
         });
   }
   // Seed shell overlay Commit for FlyCube / PresentMailbox (generation skip).
@@ -200,6 +189,5 @@ void MapPagesComposer::wire_map_scene() {
   // init_shell AVd on skewed/stale panel* (heap corruption). init_shell and
   // session/plugin paths call sync_inspectors_from_scene after horizon is up.
 }
-
 
 }  // namespace app

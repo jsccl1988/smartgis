@@ -29,16 +29,18 @@ void put_px(std::vector<uint8_t>* rgba, int cols, int rows, int x, int y,
 
 void stamp_px(std::vector<uint8_t>* rgba, int cols, int rows, int x, int y,
               bool thick) {
-  // Dark charcoal isolines on the jet sheet. Origin white (248,252,255)
-  // bilinearily washed low-res ContourSheet / DEM drapes near-solid white
-  // (ui.scene). Dark strokes stay thin and readable after GPU upscale.
-  constexpr uint8_t kR = 28;
-  constexpr uint8_t kG = 34;
-  constexpr uint8_t kB = 52;
+  // Tiny ContourSheet atlases: dark charcoal (white Origin stamps bilinearily
+  // washed the whole cell). DEM-sized atlases (≥256px edge): bright ink so
+  // isolines stay visible under FlyCube soft lighting on china_dem (HWND land
+  // captures showed jet fill but charcoal curves vanished into the shade).
+  const bool dem_sized = cols >= 256 || rows >= 256;
+  const uint8_t kR = dem_sized ? 245 : 28;
+  const uint8_t kG = dem_sized ? 248 : 34;
+  const uint8_t kB = dem_sized ? 252 : 52;
   put_px(rgba, cols, rows, x, y, kR, kG, kB, 255);
   // Widen index contours on ContourSheet-sized+ grids. Skip 2x2 on tiny
   // atlases (≤64x48) where coverage washed the drape.
-  if (!thick || cols * rows < 96 * 64) {
+  if (!thick || cols * rows < 64 * 48) {
     return;
   }
   put_px(rgba, cols, rows, x + 1, y, kR, kG, kB, 255);

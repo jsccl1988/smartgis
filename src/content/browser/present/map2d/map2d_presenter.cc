@@ -6,12 +6,26 @@
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
 #include "content/browser/camera/view_frame.h"
-#include "content/browser/present/host/scenic_scene_bind.h"
+#include "content/browser/present/host/gdi/gdi_primitives.h"
+#include "content/browser/present/host/scenic/scenic_scene_bind.h"
+#include "content/browser/present/map2d/frame/export/map2d_mapir_export.h"
 
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 
 namespace content {
+namespace {
+
+void fill_ocean(HDC hdc, int width_px, int height_px) {
+  if (!hdc || width_px <= 0 || height_px <= 0) {
+    return;
+  }
+  RECT rc{0, 0, width_px, height_px};
+  detail::gdi_fill_rect(hdc, rc, detail::rgba_to_colorref(0xFFAAD3DFu));
+}
+
+}  // namespace
 
 bool prefer_map2d_scenic() {
   const char* raw = base::switch_cstr("map2d-engine");
@@ -50,8 +64,6 @@ void Map2dPresenter::ensure_scenic() const {
 }
 
 bool Map2dPresenter::hosts_scenic_present() const {
-  // Product path never enables scenic; skip scenic_mu_ so a skewed
-  // BrowserSession layout cannot unlock a non-mutex blob during WM_PAINT.
   if (!prefer_map2d_scenic()) {
     return false;
   }
@@ -65,7 +77,6 @@ void Map2dPresenter::bind(const GisScene* scene, const ViewFrame* frame) {
   frame_ = frame;
   cache_.bind(scene, frame);
   gpu_.bind(scene, frame, &cache_);
-  hdc_.bind(scene, frame, &cache_);
 }
 
 void Map2dPresenter::invalidate_frame_cache() {
@@ -76,7 +87,10 @@ void Map2dPresenter::invalidate_frame_cache() {
     return;
   }
   gpu_.invalidate_frame_cache();
-  hdc_.invalidate_present_cache();
+}
+
+void Map2dPresenter::force_invalidate_frame_cache() {
+  gpu_.invalidate_frame_cache();
 }
 
 void Map2dPresenter::sync_scenic(uint32_t width_px, uint32_t height_px) const {
@@ -107,7 +121,11 @@ bool Map2dPresenter::present_gpu(render::rhi::Device* device, uint32_t width_px,
       (void)shell;
       (void)shell_generation;
       sync_scenic(width_px, height_px);
-      return scenic_->present();
+      const bool ok = scenic_->present();
+      if (ok) {
+        ++scenic_present_count_;
+      }
+      return ok;
     }
   }
   return gpu_.present(device, width_px, height_px, shell, shell_generation);
@@ -128,7 +146,7 @@ void Map2dPresenter::note_surface_reset() {
 }
 
 uint64_t Map2dPresenter::layout_build_count() const {
-  return scenic_ ? 0 : cache_.layout_build_count();
+  return scenic_ ? scenic_present_count_ : cache_.layout_build_count();
 }
 
 bool Map2dPresenter::last_present_reused_layout() const {
@@ -141,9 +159,6 @@ void Map2dPresenter::paint(HDC hdc, int width_px, int height_px) const {
 
 void Map2dPresenter::paint(HDC hdc, int width_px, int height_px,
                            bool fill_background) const {
-  // Nested UpdateWindow→WM_PAINT can re-enter while scenic sync holds the
-  // mutex; recursive_mutex covers that. Product (non-scenic) skips the lock
-  // entirely so layout skew cannot treat an adjacent field as a mutex.
   if (prefer_map2d_scenic()) {
     std::lock_guard<std::recursive_mutex> lock(scenic_mu_);
     ensure_scenic();
@@ -151,41 +166,79 @@ void Map2dPresenter::paint(HDC hdc, int width_px, int height_px,
       (void)fill_background;
       sync_scenic(static_cast<uint32_t>(width_px),
                   static_cast<uint32_t>(height_px));
-      scenic_->paint_hdc(hdc, static_cast<uint32_t>(width_px),
-                         static_cast<uint32_t>(height_px));
+      if (scenic_->paint_hdc(hdc, static_cast<uint32_t>(width_px),
+                             static_cast<uint32_t>(height_px))) {
+        ++scenic_present_count_;
+      }
       return;
     }
   }
-  hdc_.paint(hdc, width_px, height_px, fill_background);
+  // Soft MapIR→HDC is not used. Product carto is DXGI MapPass; HWND fill is
+  // ocean while waiting for present.
+  if (fill_background) {
+    fill_ocean(hdc, width_px, height_px);
+  }
 }
 
 void Map2dPresenter::paint_annotation_overlay(HDC hdc, int width_px,
                                               int height_px) const {
-  // Product selection strokes are MapPass overlays. HDC annotation remains
-  // for FORCE_GDI / ContentMapView harness faces only.
-  if (!scenic_) {
-    hdc_.paint_annotation_overlay(hdc, width_px, height_px);
-  }
+  (void)hdc;
+  (void)width_px;
+  (void)height_px;
 }
 
 void Map2dPresenter::paint_flash_overlay(HDC hdc, int width_px,
                                          int height_px) const {
-  if (!scenic_) {
-    hdc_.paint_flash_overlay(hdc, width_px, height_px);
+  (void)hdc;
+  (void)width_px;
+  (void)height_px;
+}
+
+bool Map2dPresenter::export_bmp_via_scenic(const std::string& path, int width_px,
+                                           int height_px) const {
+  std::unique_ptr<scenic::Engine> eng(scenic::create_map2d_engine());
+  if (!eng || path.empty() || width_px <= 0 || height_px <= 0) {
+    return false;
   }
+  scenic::SessionDesc desc;
+  desc.width_px = static_cast<uint32_t>(width_px);
+  desc.height_px = static_cast<uint32_t>(height_px);
+  eng->initialize(desc);
+  const double scale = frame_ ? frame_->scale() : 1.0;
+  std::vector<scenic::Vertex2> xy;
+  std::vector<scenic::DrawItem> items;
+  detail::fill_scenic_draw_items(scene_, scale, &xy, &items);
+  eng->bind_view(detail::scenic_view_from_frame(frame_));
+  eng->bind_draw_items(items.data(), static_cast<uint32_t>(items.size()));
+  return eng->export_bmp(path.c_str(), static_cast<uint32_t>(width_px),
+                         static_cast<uint32_t>(height_px));
+}
+
+bool Map2dPresenter::export_bmp_via_mapir(const std::string& path, int width_px,
+                                          int height_px) const {
+  if (path.empty() || width_px <= 0 || height_px <= 0) {
+    return false;
+  }
+  // export_bmp is const for callers; layout bake mutates the shared cache.
+  Map2dFrameCache& cache = const_cast<Map2dFrameCache&>(cache_);
+  vista::MapIR frame_snap;
+  Map2dFrameCache::CameraKey cam{};
+  if (!cache.ensure_full(static_cast<uint32_t>(width_px),
+                         static_cast<uint32_t>(height_px), &frame_snap,
+                         &cam)) {
+    return false;
+  }
+  return detail::export_mapir_bmp(
+      frame_snap, cam,
+      [&cache](uint32_t key, std::vector<uint8_t>* rgba, int* w, int* h) {
+        return cache.load_raster(key, rgba, w, h);
+      },
+      path);
 }
 
 bool Map2dPresenter::export_bmp(const std::string& path, int width_px,
                                 int height_px) const {
-  // Product carto / hillshade gates (map2d.china, browse soft score) use the
-  // MapIR+GDI path. Scenic Map2dEngine fill is a matrix cell — flat green +
-  // black strokes without hillshade/gold roads — and must not overwrite the
-  // showcase BMP when FORCE_GDI_MAP_OVERLAY (browser_main showcase default).
-  const bool force_gdi_carto = []() {
-    const char* e = base::switch_cstr("force-gdi-map-overlay");
-    return e && e[0] == '1' && e[1] == '\0';
-  }();
-  if (prefer_map2d_scenic() && !force_gdi_carto) {
+  if (prefer_map2d_scenic()) {
     std::lock_guard<std::recursive_mutex> lock(scenic_mu_);
     ensure_scenic();
     if (scenic_) {
@@ -195,11 +248,12 @@ bool Map2dPresenter::export_bmp(const std::string& path, int width_px,
                                  static_cast<uint32_t>(height_px));
     }
   }
-  return hdc_.export_bmp(path, width_px, height_px);
+  // Product / FlyCube SoT: MapIR with hillshade (not scenic flat fill).
+  return export_bmp_via_mapir(path, width_px, height_px);
 }
 
 size_t Map2dPresenter::basemap_tiles_drawn() const {
-  return scenic_ ? 0 : hdc_.basemap_tiles_drawn();
+  return 0;
 }
 
 }  // namespace content

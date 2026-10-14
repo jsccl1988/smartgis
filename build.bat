@@ -216,11 +216,22 @@ REM te / harness runners use Debug binaries only (unlocked when PHASE=compile+te
 if /I "!SMARTGIS_BUILD_PHASE!"=="compile" goto :finish
 if "!BUILD_DEBUG!"=="1" (
   if /I "!NINJA_TARGET!"=="harness" (
+    call :check_out_artifacts harness
+    if errorlevel 1 (
+      set "ERR=1"
+      goto :finish
+    )
     call :run_harness_gate
   ) else if /I "!NINJA_TARGET!"=="test_all" (
+    call :check_out_artifacts te
+    if errorlevel 1 (
+      set "ERR=1"
+      goto :finish
+    )
     set "UNIT_ERR=0"
     REM leftover_session_test / leftover_record_test / leftover rhi2d-gdi/gl/dem_stereo
     REM PEs removed with src/legacy; run scenic_* twins instead.
+    REM Presence of ninja-target exes is enforced by check_out_artifacts --mode te.
     for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_tool_session_test.exe feature_attrs_test.exe content_catalog_layers_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe gis_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe scenic_gdi_map_paint_test.exe scenic_map_carto2d_test.exe scenic_gl_map_paint_test.exe scenic_dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe plugin_builtins_test.exe views_launch_options_test.exe) do (
       if exist ".\out\Debug\%%T" (
         echo Running out\Debug\%%T
@@ -271,13 +282,24 @@ if "!BUILD_DEBUG!"=="0" (
   goto :finish
 )
 if /I "!NINJA_TARGET!"=="harness" (
+  call :check_out_artifacts harness
+  if errorlevel 1 (
+    set "ERR=1"
+    goto :finish
+  )
   call :run_harness_gate
   goto :finish
 )
 if /I "!NINJA_TARGET!"=="test_all" (
+  call :check_out_artifacts te
+  if errorlevel 1 (
+    set "ERR=1"
+    goto :finish
+  )
   set "UNIT_ERR=0"
   REM leftover_session_test / leftover_record_test / leftover rhi2d-gdi/gl/dem_stereo
   REM PEs removed with src/legacy; run scenic_* twins instead.
+  REM Presence of ninja-target exes is enforced by check_out_artifacts --mode te.
   for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_tool_session_test.exe feature_attrs_test.exe content_catalog_layers_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe gis_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe scenic_gdi_map_paint_test.exe scenic_map_carto2d_test.exe scenic_gl_map_paint_test.exe scenic_dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe plugin_builtins_test.exe views_launch_options_test.exe) do (
     if exist ".\out\Debug\%%T" (
       echo Running out\Debug\%%T
@@ -290,6 +312,40 @@ if /I "!NINJA_TARGET!"=="test_all" (
 )
 echo WARNING: SMARTGIS_BUILD_PHASE=tests but target is not te/harness; nothing to run.
 goto :finish
+
+REM ---------------------------------------------------------------------------
+REM Artifact gate (build/tools/check_out_artifacts.py)
+REM %1 = writable | product | harness | te
+REM %2 = Debug | Release  (default Debug)
+REM Extra flags via CHECK_OUT_EXTRA (optional).
+REM ---------------------------------------------------------------------------
+:check_out_artifacts
+set "CHECK_OUT_CFG=%~2"
+if "!CHECK_OUT_CFG!"=="" set "CHECK_OUT_CFG=Debug"
+echo === check_out_artifacts --out !CHECK_OUT_CFG! --mode %~1 !CHECK_OUT_EXTRA! ===
+if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
+  if defined CHECK_OUT_EXTRA (
+    "%LocalAppData%\Programs\Python\Python312\python.exe" "%~dp0build\tools\check_out_artifacts.py" --out !CHECK_OUT_CFG! --mode %~1 !CHECK_OUT_EXTRA!
+  ) else (
+    "%LocalAppData%\Programs\Python\Python312\python.exe" "%~dp0build\tools\check_out_artifacts.py" --out !CHECK_OUT_CFG! --mode %~1
+  )
+) else (
+  if defined CHECK_OUT_EXTRA (
+    py -3 "%~dp0build\tools\check_out_artifacts.py" --out !CHECK_OUT_CFG! --mode %~1 !CHECK_OUT_EXTRA!
+  ) else (
+    py -3 "%~dp0build\tools\check_out_artifacts.py" --out !CHECK_OUT_CFG! --mode %~1
+  )
+)
+if errorlevel 1 (
+  echo ERROR: out artifact gate failed ^(mode %~1 / !CHECK_OUT_CFG!^).
+  if /I "%~1"=="writable" (
+    echo Tip: stop SmartGIS.exe locking out\!CHECK_OUT_CFG!, then rebuild.
+  ) else (
+    echo Rebuild: build.bat !CHECK_OUT_CFG! %~1
+  )
+  exit /b 1
+)
+goto :eof
 
 REM ---------------------------------------------------------------------------
 REM Product runtime gate: testing/tools loop_runner --gate (gpu + --harness)
@@ -325,6 +381,11 @@ echo === gn gen %OUT_DIR% ^(is_debug=%IS_DEBUG%^) ===
 "%GN_PATH%gn.exe" gen "%OUT_DIR%" --root=./ --ide=vs2019 --args="!GN_ARGS!"
 if errorlevel 1 exit /b 1
 
+REM L0: refuse ninja when SmartGIS.exe / import DLLs are locked (avoids LNK1168 half-link).
+set "CHECK_OUT_EXTRA="
+call :check_out_artifacts writable %OUT_NAME%
+if errorlevel 1 exit /b 1
+
 echo === ninja -C %OUT_DIR% !NINJA_TARGET! ===
 if defined NINJA_TARGET (
   ninja -j 16 -C "./%OUT_DIR%" !NINJA_TARGET! > "./%OUT_DIR%/build.log"
@@ -337,4 +398,16 @@ if !CFG_ERR! NEQ 0 (
   echo ERROR: ninja failed for %OUT_DIR% ^(exit !CFG_ERR!^). See !LAST_LOG!
   exit /b !CFG_ERR!
 )
+
+REM L1+L2: ninja closure + PE import / mtime skew for SmartGIS product.
+REM Partial targets without a prior SmartGIS.exe may skip via --allow-missing-product.
+set "CHECK_OUT_EXTRA="
+if defined NINJA_TARGET (
+  if /I not "!NINJA_TARGET!"=="SmartGIS.exe" if /I not "!NINJA_TARGET!"=="harness" if /I not "!NINJA_TARGET!"=="test_all" (
+    if not exist ".\%OUT_DIR%\SmartGIS.exe" set "CHECK_OUT_EXTRA=--allow-missing-product"
+  )
+)
+call :check_out_artifacts product %OUT_NAME%
+if errorlevel 1 exit /b 1
+set "CHECK_OUT_EXTRA="
 exit /b 0

@@ -18,7 +18,7 @@
 #include "content/browser/camera/view_navigation.h"
 #include "content/browser/document/gis_scene.h"
 #include "content/browser/session/gis_hwnd_gestures.h"
-#include "content/browser/present/host/blit_frame_cache.h"
+#include "content/browser/present/host/blit/blit_frame_cache.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/session/scene3d_stereo_session.h"
@@ -149,7 +149,7 @@ class BrowserSession {
   bool copy_feature_xy(const content::FeatureId& id,
                        std::vector<std::pair<double, double>>* out) const;
 
-  bool document_has_china_extent() const;
+  bool document_has_land_surface() const;
   std::size_t document_layer_count() const;
   std::size_t document_feature_count() const;
   bool document_last_open_was_ogr() const;
@@ -215,11 +215,11 @@ class BrowserSession {
   void blit_capture(HDC src, int w, int h);
 
   void invalidate_map2d_frame_cache();
+  // Unconditional MapIR drop (bypasses fingerprint-stable no-op).
+  void force_invalidate_map2d_frame_cache();
   void note_map2d_surface_reset();
   void map2d_paint(HDC hdc, int width_px, int height_px,
                    bool fill_background) const;
-  void map2d_paint_annotation(HDC hdc, int width_px, int height_px) const;
-  void map2d_paint_flash(HDC hdc, int width_px, int height_px) const;
   bool map2d_export_bmp(const std::string& path, int width_px,
                         int height_px) const;
   bool map2d_present_gpu(render::rhi::Device* device, std::uint32_t width_px,
@@ -237,7 +237,6 @@ class BrowserSession {
   void scene3d_apply_draft(const tool::Draft& draft);
   void scene3d_paint(HDC hdc, int width_px, int height_px,
                      bool fill_background) const;
-  void scene3d_paint_hud(HDC hdc, int width_px, int height_px) const;
   void scene3d_set_render_engine_name(const char* name);
   bool scene3d_present_gpu(render::rhi::Device* device, std::uint32_t width_px,
                            std::uint32_t height_px,

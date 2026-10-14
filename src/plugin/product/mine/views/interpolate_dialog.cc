@@ -3,13 +3,13 @@
 
 #include "plugin/product/mine/views/interpolate_dialog.h"
 
-#include <cstdlib>
 #include <memory>
 #include <string>
 #include <utility>
 
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/resource_roots.h"
+#include "plugin/runtime/widgets/dialog_fields.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/markup/loader/markup_loader.h"
@@ -18,7 +18,6 @@
 
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-#include "base/process/switches.h"
 
 namespace plugin {
 
@@ -60,24 +59,12 @@ InterpolateDialog::InterpolateDialog(content::PluginHost* host) : host_(host) {
   loaded.root->set_preferred_size({kW, kH});
   add_child(std::move(loaded.root));
 
-  const char* sample_dir = base::switch_cstr("plugin-sample-dir");
-  const std::string base =
-      sample_dir && *sample_dir ? std::string(sample_dir) : "../data/plugin";
-  if (csv_path_ && csv_path_->text().empty()) {
-    csv_path_->set_text(base + "/mine_boreholes.csv");
-  }
-  if (output_path_ && output_path_->text().empty()) {
-    output_path_->set_text(base + "/mine_stratum_tin.json");
-  }
-  if (stratum_id_ && stratum_id_->text().empty()) {
-    stratum_id_->set_text("clay");
-  }
-  if (top_stratum_ && top_stratum_->text().empty()) {
-    top_stratum_->set_text("clay");
-  }
-  if (bottom_stratum_ && bottom_stratum_->text().empty()) {
-    bottom_stratum_->set_text("sand");
-  }
+  const std::string base = plugin_sample_dir();
+  set_textfield_if_empty(csv_path_, base + "/mine_boreholes.csv");
+  set_textfield_if_empty(output_path_, base + "/mine_stratum_tin.json");
+  set_textfield_if_empty(stratum_id_, "clay");
+  set_textfield_if_empty(top_stratum_, "clay");
+  set_textfield_if_empty(bottom_stratum_, "sand");
 
   if (host_) {
     host_->present_dataset("smartgis.mine", "", 1);

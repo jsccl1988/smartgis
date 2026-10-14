@@ -22,6 +22,7 @@ namespace {
 
 thread_local HarnessShell* g_plugin_shell = nullptr;
 thread_local HarnessShell* g_atmosphere_shell = nullptr;
+thread_local HarnessShell* g_map2d_shell = nullptr;
 
 bool exe_dir_with_slash(wchar_t* path, size_t path_cch) {
   if (!path || path_cch == 0) {
@@ -71,6 +72,20 @@ HarnessShell* atmosphere_scenario_shell() {
 void atmosphere_mark(const char* step) {
   if (g_atmosphere_shell) {
     g_atmosphere_shell->mark_named(kMarkAtmosphere, step, false);
+  }
+}
+
+void bind_map2d_scenario_shell(HarnessShell* shell) {
+  g_map2d_shell = shell;
+}
+
+HarnessShell* map2d_scenario_shell() {
+  return g_map2d_shell;
+}
+
+void map2d_mark(const char* step) {
+  if (g_map2d_shell) {
+    g_map2d_shell->mark_named(kMarkMap2d, step, false);
   }
 }
 

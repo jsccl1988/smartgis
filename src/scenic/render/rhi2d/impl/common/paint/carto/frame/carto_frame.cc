@@ -20,17 +20,38 @@ using ::base::rad_to_deg;
 
 namespace {
 
+// OpenMapTiles / MapLibre road class ranks. Legacy expressway/highway kept
+// as aliases. Bare "road" is a kind tag, not a rank (handled in
+// carto2d_road_class).
 int road_class_from_tag(const char* tag) {
   if (!tag || !tag[0]) {
     return 0;
   }
-  if (std::strcmp(tag, "expressway") == 0) {
+  if (std::strcmp(tag, "motorway") == 0 ||
+      std::strcmp(tag, "expressway") == 0) {
     return 3;
   }
-  if (std::strcmp(tag, "highway") == 0) {
+  if (std::strcmp(tag, "trunk") == 0 || std::strcmp(tag, "highway") == 0) {
     return 2;
   }
-  if (std::strcmp(tag, "road") == 0) {
+  if (std::strcmp(tag, "primary") == 0) {
+    return 1;
+  }
+  return 0;
+}
+
+// OMT waterway class: river > canal > stream.
+int river_class_from_tag(const char* tag) {
+  if (!tag || !tag[0]) {
+    return 0;
+  }
+  if (std::strcmp(tag, "river") == 0) {
+    return 3;
+  }
+  if (std::strcmp(tag, "canal") == 0) {
+    return 2;
+  }
+  if (std::strcmp(tag, "stream") == 0) {
     return 1;
   }
   return 0;
@@ -236,8 +257,21 @@ unsigned carto2d_admin_stroke() {
 }
 
 unsigned carto2d_river_color() {
-  // Clear but not neon; hydrography stays behind labels.
-  return 0x00d0a064;  // RGB(100, 160, 208)
+  return carto2d_river_color_class(3);
+}
+
+unsigned carto2d_river_color_class(int river_class) {
+  // Clear but not neon; majors slightly deeper than streams.
+  switch (river_class) {
+    case 3:
+      return 0x00d0a064;  // RGB(100, 160, 208)
+    case 2:
+      return 0x00c89870;  // RGB(112, 152, 200)
+    case 1:
+      return 0x00c0a080;  // RGB(128, 160, 192)
+    default:
+      return 0x00d0a064;
+  }
 }
 
 unsigned carto2d_road_color() {
@@ -246,19 +280,65 @@ unsigned carto2d_road_color() {
 
 bool carto2d_is_river_kind(const char* kind) {
   return kind &&
-         (std::strcmp(kind, "river") == 0 || std::strcmp(kind, "water") == 0);
+         (std::strcmp(kind, "river") == 0 || std::strcmp(kind, "water") == 0 ||
+          std::strcmp(kind, "stream") == 0 || std::strcmp(kind, "canal") == 0 ||
+          std::strcmp(kind, "lake") == 0);
+}
+
+int carto2d_river_class(const char* kind, const char* cls) {
+  const int from_cls = river_class_from_tag(cls);
+  if (from_cls != 0) {
+    return from_cls;
+  }
+  const int from_kind = river_class_from_tag(kind);
+  if (from_kind != 0) {
+    return from_kind;
+  }
+  if (carto2d_is_river_kind(kind)) {
+    // kind=lake / water without class → treat as major water stroke.
+    return 3;
+  }
+  return 0;
+}
+
+int carto2d_river_width_px(float fblc, int river_class) {
+  if (river_class <= 0) {
+    return carto2d_stroke_px_kind(fblc, true, false);
+  }
+  int base = carto2d_stroke_px_kind(fblc, true, false);
+  switch (river_class) {
+    case 3:
+      return base + 1;
+    case 2:
+      return base;
+    case 1:
+      return (std::max)(1, base - 1);
+    default:
+      return base;
+  }
 }
 
 int carto2d_road_class(const char* kind, const char* cls) {
+  // Prefer OMT class over kind so kind=road + class=motorway ranks correctly.
+  const int from_cls = road_class_from_tag(cls);
+  if (from_cls != 0) {
+    return from_cls;
+  }
   const int from_kind = road_class_from_tag(kind);
   if (from_kind != 0) {
     return from_kind;
   }
-  return road_class_from_tag(cls);
+  if (kind && std::strcmp(kind, "road") == 0) {
+    return 1;  // bare road kind → primary
+  }
+  return 0;
 }
 
 bool carto2d_is_road_kind(const char* kind, const char* cls) {
-  return carto2d_road_class(kind, cls) != 0;
+  if (carto2d_road_class(kind, cls) != 0) {
+    return true;
+  }
+  return kind && std::strcmp(kind, "road") == 0;
 }
 
 unsigned carto2d_road_casing_color(int road_class) {

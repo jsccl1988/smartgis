@@ -20,7 +20,7 @@ namespace content {
 enum class Scene3dEngine : uint32_t {
   kFlyCube = 0,   // DX12 RHI (default product SoT)
   kStereoGl = 1,  // Leftover stereo (OpenGL or D3D11 via STEREO_API)
-  kGdi = 2,       // HDC DEM paint (product HWND / Scene3dPresenter)
+  kGdi = 2,       // Legacy enum; soft DEM removed — startup maps to FlyCube
   kScenic = 3,    // Content-hosted scenic::Engine (scenic.dll)
 };
 
@@ -29,8 +29,8 @@ CONTENT_EXPORT Scene3dEngine scene3d_engine();
 
 // Apply `--scene3d-engine` or SCENE3D_ENGINE when set. Values (case-insensitive):
 //   flycube | dx12
-//   stereo_gl | opengl | gl   → kStereoGl + force STEREO_API=OpenGL
-//   stereo_d3d | d3d | direct3d → kStereoGl + force STEREO_API=Direct3D
+//   stereo_gl | opengl | gl   -> kStereoGl + force STEREO_API=OpenGL
+//   stereo_d3d | d3d | direct3d -> kStereoGl + force STEREO_API=Direct3D
 //   gdi
 //   scenic
 // Returns true when the switch or env selected an engine (callers should not
@@ -64,7 +64,7 @@ CONTENT_EXPORT bool prefer_scene3d_scenic();
 CONTENT_EXPORT bool load_scene3d_scenic_dll();
 
 // True only for leftover stereo (ContentMapView HWND). Scenic/GDI use the
-// product HWND + Scene3dPresenter — not a SharedSurface fallback.
+// product HWND + Scene3dPresenter  - not a SharedSurface fallback.
 CONTENT_EXPORT bool force_content_mapview_3d();
 
 }  // namespace content

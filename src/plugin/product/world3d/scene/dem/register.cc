@@ -217,15 +217,6 @@ bool heightmap_from_raster(content::PluginHost* host, std::string_view args_json
   return true;
 }
 
-void show_dialog(const wchar_t* title, std::unique_ptr<ui::views::View> body) {
-  if (!body) {
-    return;
-  }
-  const int width = body->preferred_size().width;
-  const int height = body->preferred_size().height;
-  show_owned_dialog(title, width, height, std::move(body));
-}
-
 }  // namespace
 
 namespace detail {
@@ -262,27 +253,29 @@ bool register_world3d_dem(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kWorld3dPluginId, {"world3d.trimesh_loader", "离散点生成DEM"},
           [host](content::PluginHost*) {
-            show_dialog(L"离散点生成DEM",
-                        wrap_with_present_surface(
-                            host, std::make_unique<TrimeshLoaderDialog>(host)));
+            show_view_dialog(
+                L"离散点生成DEM",
+                wrap_with_present_surface(
+                    host, std::make_unique<TrimeshLoaderDialog>(host)));
           })) {
     return false;
   }
   if (!host->contribute_dialog(
           kWorld3dPluginId, {"world3d.heightmap_loader", "高度图生成DEM"},
           [host](content::PluginHost*) {
-            show_dialog(L"高度图生成DEM",
-                        wrap_with_present_surface(
-                            host,
-                            std::make_unique<HeightmapLoaderDialog>(host)));
+            show_view_dialog(
+                L"高度图生成DEM",
+                wrap_with_present_surface(
+                    host, std::make_unique<HeightmapLoaderDialog>(host)));
           })) {
     return false;
   }
   if (!host->contribute_dialog(
           kWorld3dPluginId, {"world3d.about", "关于"},
           [](content::PluginHost*) {
-            show_dialog(L"关于", std::make_unique<AboutDialog>(
-                                     "DEM Creater\nSmartGIS builtin plugin"));
+            show_view_dialog(
+                L"关于", std::make_unique<AboutDialog>(
+                             "DEM Creater\nSmartGIS builtin plugin"));
           })) {
     return false;
   }

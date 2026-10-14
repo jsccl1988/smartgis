@@ -33,6 +33,8 @@ namespace detail {
 // and texture binding but differ in color/opacity.
 struct UploadedDraw {
   bool textured = false;
+  // True for DEM / hillshade rasters (painter: solids -> dem -> glyphs).
+  bool dem_raster = false;
   render::rhi::Buffer* vertices = nullptr;
   render::rhi::Buffer* indices = nullptr;
   uint32_t index_count = 0;

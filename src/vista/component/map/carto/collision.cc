@@ -18,13 +18,15 @@ int road_class_from_tag(const char* tag) {
   if (!tag || !tag[0]) {
     return 0;
   }
-  if (std::strcmp(tag, "expressway") == 0) {
+  // Align with Scenic OMT ranks (motorway > trunk > primary).
+  if (std::strcmp(tag, "motorway") == 0 ||
+      std::strcmp(tag, "expressway") == 0) {
     return 3;
   }
-  if (std::strcmp(tag, "highway") == 0) {
+  if (std::strcmp(tag, "trunk") == 0 || std::strcmp(tag, "highway") == 0) {
     return 2;
   }
-  if (std::strcmp(tag, "road") == 0) {
+  if (std::strcmp(tag, "primary") == 0 || std::strcmp(tag, "road") == 0) {
     return 1;
   }
   return 0;

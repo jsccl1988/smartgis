@@ -10,6 +10,7 @@ source_set("util") {
     "charset.h",
     "find_named.cc",
     "find_named.h",
+    "view_tree.h",
   ]
   include_dirs += [ "//src" ]
 }

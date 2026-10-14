@@ -35,8 +35,6 @@ int main() {
     auto o = parse_vec({L"SmartGIS.exe"});
     expect(o.ok, "default ok");
     expect(o.process_type == content::ProcessType::kBrowser, "default browser");
-    expect(o.scenario_id.empty(), "CLI does not pick a scenario");
-    expect(!app::is_harness_launch(o), "default not harness");
     expect(o.shell_canvas.empty(), "default shell_canvas empty");
   }
   {
@@ -49,18 +47,18 @@ int main() {
            "type renderer");
   }
   {
+    // Retired showcase flags are argv extras — must not fail parse or select
+    // a cold-start scenario (CLI no longer maps them).
     auto o = parse_vec({L"SmartGIS.exe", L"--plugin-showcase=flood"});
-    expect(o.ok && o.scenario_id == "plugin.flood",
-           "plugin-showcase=flood → plugin.flood");
+    expect(o.ok, "retired plugin-showcase is allowed extra");
   }
   {
-    auto o = parse_vec({L"SmartGIS.exe", L"--plugin-showcase=world3d"});
-    expect(o.ok && o.scenario_id == "plugin.world3d",
-           "plugin-showcase=world3d → plugin.world3d");
+    auto o = parse_vec({L"SmartGIS.exe", L"--map2d-showcase=china"});
+    expect(o.ok, "retired map2d-showcase is allowed extra");
   }
   {
     auto o = parse_vec({L"SmartGIS.exe", L"--harness"});
-    expect(o.ok && o.scenario_id.empty(), "harness extra ignored");
+    expect(o.ok, "harness extra ignored");
   }
   {
     auto o = parse_vec({L"SmartGIS.exe", L"--shell-canvas=skia"});

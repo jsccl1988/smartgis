@@ -56,25 +56,36 @@ int main() {
              scenic::detail::carto2d_stroke_px(22.f, false),
          "rivers at least as wide as admin");
   expect(scenic::detail::carto2d_is_river_kind("river"), "river kind");
+  expect(scenic::detail::carto2d_is_river_kind("stream"), "stream kind");
   expect(scenic::detail::carto2d_is_road_kind("road"), "road kind");
   expect(!scenic::detail::carto2d_is_road_kind("area"), "area is not a road");
-  expect(scenic::detail::carto2d_is_road_kind("line", "highway"),
+  expect(scenic::detail::carto2d_is_road_kind("line", "trunk"),
          "road class from cls when kind generic");
-  expect(scenic::detail::carto2d_road_class("expressway", "") == 3, "expressway class");
-  expect(scenic::detail::carto2d_road_class("area", "road") == 1, "road from cls");
+  expect(scenic::detail::carto2d_road_class("road", "motorway") == 3,
+         "cls motorway wins over kind road");
+  expect(scenic::detail::carto2d_road_class("motorway", "") == 3, "motorway class");
+  expect(scenic::detail::carto2d_road_class("area", "primary") == 1,
+         "primary from cls");
+  expect(scenic::detail::carto2d_river_class("river", "stream") == 1,
+         "stream class from cls");
+  expect(scenic::detail::carto2d_river_class("river", "river") == 3,
+         "major river class");
   {
     const float fblc = 40.f;
     const int w_road = scenic::detail::carto2d_road_width_px(fblc, 1);
     const int w_hwy = scenic::detail::carto2d_road_width_px(fblc, 2);
     const int w_exp = scenic::detail::carto2d_road_width_px(fblc, 3);
     expect(w_exp > w_hwy && w_hwy > w_road,
-           "road width expressway > highway > road");
+           "road width motorway > trunk > primary");
     expect(scenic::detail::carto2d_road_fill_color(3) !=
                scenic::detail::carto2d_road_fill_color(1),
-           "expressway yellow fill vs road white");
+           "motorway yellow fill vs primary white");
     expect(scenic::detail::carto2d_road_casing_color(3) !=
                scenic::detail::carto2d_road_casing_color(1),
-           "expressway dark casing vs road gray");
+           "motorway dark casing vs primary gray");
+    const int w_stream = scenic::detail::carto2d_river_width_px(fblc, 1);
+    const int w_major = scenic::detail::carto2d_river_width_px(fblc, 3);
+    expect(w_major > w_stream, "major river wider than stream");
   }
   expect(std::strcmp(scenic::detail::carto2d_label_text("anno", "name", "text"),
                      "anno") == 0,

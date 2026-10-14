@@ -259,13 +259,29 @@ def score_ui_shell_dark(path: Path) -> dict:
     # text / log ink passes.
     diag_content_ok = diag_signal_f >= 0.003
 
-    # chrome_readable (checklist): hard floor on light label mass. Tuned on
-    # out/Debug/captures/ui/*.bmp — near-zero ~0.0012 (catalog/data/scene) and
-    # low-contrast shell ~0.0034 both stayed green when accent_or_text ORed on
-    # blue alone. 0.007 rejects those while allowing inspector overflow tabs to
-    # collapse (leading titles only) instead of painting "A"/"S" stubs that
-    # previously inflated light_text above 0.05 without being readable.
-    chrome_readable = text_f >= 0.007
+    # chrome_readable: light labels in chrome only. Global text_f drops when
+    # MapIR hillshade replaces cream DXGI smear (those cream pixels counted
+    # as "text" and inflated the whole-frame fraction).
+    chrome_light = 0
+    chrome_n = 0
+    for i, (r, g, b) in enumerate(pixels):
+        x = i % w
+        y = i // w
+        if (w // 6) <= x < ((w * 78) // 100) and (h // 8) <= y < (
+            (h * 78) // 100
+        ):
+            continue
+        chrome_n += 1
+        if (
+            r > 170
+            and g > 170
+            and b > 170
+            and abs(r - g) < 30
+            and abs(g - b) < 30
+        ):
+            chrome_light += 1
+    chrome_text_f = chrome_light / max(1, chrome_n)
+    chrome_readable = chrome_text_f >= 0.007
 
     # Work-area hollow metrics (visual_review #2/#9). Reported for agents; hard
     # fail stays on no_panel_collapse + catalog_strip until map carto is stable
@@ -403,6 +419,28 @@ def score_ui_shell_dark(path: Path) -> dict:
     lower_map_ok = hero_map_f >= 0.28
     chrome_density_ok = dark_f < 0.58
 
+    # DXGI tear: cream↔black scanline jumps. Hillshade/carto is smoother.
+    work_y0 = h // 8
+    work_y1 = (h * 78) // 100
+    work_x0 = w // 6
+    work_x1 = (w * 78) // 100
+    row_means = []
+    for y in range(work_y0, work_y1, 2):
+        acc = 0
+        rn = 0
+        row = y * w
+        for x in range(work_x0, work_x1, 4):
+            r, g, b = pixels[row + x]
+            acc += r + g + b
+            rn += 1
+        if rn:
+            row_means.append(acc / (3 * rn))
+    jumps = sum(
+        1 for a, b in zip(row_means, row_means[1:]) if abs(a - b) > 28
+    )
+    band_jump_f = jumps / max(1, len(row_means) - 1)
+    map_not_banded = band_jump_f < 0.22
+
     ok = (
         black_f < 0.25
         and magenta_f < 0.08
@@ -429,6 +467,7 @@ def score_ui_shell_dark(path: Path) -> dict:
         and map_nav_toolbar_ok
         and lower_map_ok
         and chrome_density_ok
+        and map_not_banded
     )
     return {
         "bmp": str(path),
@@ -439,6 +478,7 @@ def score_ui_shell_dark(path: Path) -> dict:
         "dark_chrome_frac": round(dark_f, 4),
         "accent_blue_frac": round(accent_f, 4),
         "light_text_frac": round(text_f, 4),
+        "chrome_text_frac": round(chrome_text_f, 4),
         "top_chrome_frac": round(top_f, 4),
         "color_buckets": bucket_n,
         "tab_band_map_bleed": tab_bleed,
@@ -455,6 +495,7 @@ def score_ui_shell_dark(path: Path) -> dict:
         "map_nav_toolbar_text_frac": round(ambox_text_f, 4),
         "diag_content_signal_frac": round(diag_signal_f, 4),
         "lower_map_frac": round(hero_map_f, 4),
+        "map_band_jump_frac": round(band_jump_f, 4),
         "ok": ok,
         "gates": {
             "near_black_frac<0.25": black_f < 0.25,
@@ -481,6 +522,7 @@ def score_ui_shell_dark(path: Path) -> dict:
             "map_nav_toolbar_text>=0.012": map_nav_toolbar_ok,
             "lower_map_frac>=0.28": lower_map_ok,
             "dark_chrome_frac<0.58": chrome_density_ok,
+            "map_not_banded": map_not_banded,
         },
     }
 

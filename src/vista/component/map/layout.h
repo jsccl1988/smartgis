@@ -50,6 +50,15 @@ class SliceCache {
   virtual const std::vector<DrawItem>* find(uint64_t cache_key) const = 0;
 };
 
+// Optional heatmap density bake written by emit_heatmap (same module as
+// Layout::build). Host copies into Map2dFrameCache for load_raster — do not
+// hang std::vector on MapIR (cross-DLL destroy is fragile).
+struct HeatmapBake {
+  std::vector<uint8_t> rgba;
+  int width = 0;
+  int height = 0;
+};
+
 // Inputs that are not per-feature. symbols is matched by id.
 // hillshade_tiles: host-baked DEM shade underlay (texture_key + lon/lat).
 // dem_clip: DEM lon/lat AABB for land clip / jet cream suppression when the
@@ -74,6 +83,9 @@ struct LayoutInput {
   // Non-owning. When set, workers compare load() to layout_gen at emit batch
   // boundaries and skip remaining tess. The host must not publish a stale gen.
   const std::atomic<uint64_t>* live_layout_gen = nullptr;
+  // Append-only: keep prior field offsets stable across DLL boundaries.
+  // Non-owning. When set, emit_heatmap writes density RGBA here.
+  HeatmapBake* heatmap_bake = nullptr;
 };
 
 class Layout {

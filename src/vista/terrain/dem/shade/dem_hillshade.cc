@@ -134,7 +134,11 @@ void compose_elevation_sheet(uint8_t* pixels, int w, int h, const float* lod,
   }
   const size_t n = static_cast<size_t>(w) * static_cast<size_t>(h);
   std::vector<uint8_t> overlay;
-  if (!bake_elevation_overlay_rgba(lod, w, h, true, true, 0.f, &overlay) ||
+  // Map2d overview: jet hypsometric only. DEM-sized isoline stamps use bright
+  // near-white ink (contour/paint.cc) that reads as salt-and-pepper over cream
+  // land when layers are on; ContourSheet/3D keeps curves via its own bake.
+  if (!bake_elevation_overlay_rgba(lod, w, h, /*surface=*/true,
+                                   /*curves=*/false, 0.f, &overlay) ||
       overlay.size() < n * 4u) {
     return;
   }

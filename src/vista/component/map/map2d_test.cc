@@ -9,9 +9,10 @@
 #include <string>
 #include <vector>
 
+#include "vista/component/map/batch.h"
 #include "vista/component/map/carto/filter.h"
 #include "vista/component/map/carto/collision.h"
-#include "vista/component/map/layout/slice_key.h"
+#include "vista/component/map/layout/policy/slice_key.h"
 #include "vista/component/map/shade/multiply.h"
 #include "vista/component/map/ir.h"
 #include "gis/style/paint_resolve.h"
@@ -67,11 +68,16 @@ int count_kind(const vista::MapIR& frame, vista::DrawKind kind) {
 }  // namespace
 
 int main() {
+  using vista::BatchFeature;
+  using vista::BatchGeomKind;
+  using vista::BatchLayer;
   using vista::DrawKind;
   using vista::LayerBatch;
+  using vista::LayerBatchSet;
   using vista::Layout;
   using vista::LayoutInput;
   using vista::TileSlot;
+  using vista::build_layer_batches;
 
   const Layout layout;
   const FixedAdvance metrics;
@@ -207,6 +213,46 @@ int main() {
     expect(!frame.items.empty() && frame.items[0].kind == DrawKind::kText &&
                frame.items[0].codepoint == static_cast<uint32_t>('C'),
            "overlapping labels keep higher priority");
+  }
+
+  // text-color paint reaches glyph DrawItems (CJK along-line still places).
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style(
+               "{"
+               "\"version\":8,\"layers\":[{"
+               "\"id\":\"city\",\"type\":\"symbol\",\"source-layer\":\"label\","
+               "\"layout\":{\"symbol-placement\":\"line\",\"text-field\":\"{name}\","
+               "\"text-size\":16,\"text-anchor\":\"center\"},"
+               "\"paint\":{\"text-color\":\"#336699\"}"
+               "}]}",
+               &doc),
+           "text-color along-line");
+    OGRLineString line;
+    line.addPoint(1, 5);
+    line.addPoint(9, 5);
+    LayerBatch labels;
+    labels.source_layer = "label";
+    labels.geoms.push_back(&line);
+    gis::style::AttrMap attrs;
+    // Beijing UTF-8 — product metrics path uses YaHei; tests use FixedAdvance.
+    attrs["name"] = "\xe5\x8c\x97\xe4\xba\xac";
+    attrs["class"] = "title";
+    labels.attrs.push_back(attrs);
+    LayoutInput in;
+    in.view = square_view(200, 10);
+    in.style = &doc;
+    in.zoom = 10;
+    in.metrics = &metrics;
+    const vista::MapIR frame = layout.build(in, {labels});
+    expect(count_kind(frame, DrawKind::kText) >= 1, "text-color along-line");
+    bool colored = false;
+    for (const auto& item : frame.items) {
+      if (item.kind == DrawKind::kText && item.rgba == 0xFF336699u) {
+        colored = true;
+      }
+    }
+    expect(colored, "text-color along-line");
   }
 
   // Line placement takes the midpoint tangent in screen space (y down).
@@ -747,7 +793,7 @@ int main() {
     const vista::MapIR frame = layout.build(in, {land});
     expect(!frame.items.empty() && frame.items[0].kind == DrawKind::kRaster &&
                frame.items[0].codepoint == 0x48534844u &&
-               frame.items[0].blend == vista::DrawBlend::kMultiply,
+               frame.items[0].blend == vista::DrawBlend::kOver,
            "hillshade underlay first");
     expect(count_kind(frame, DrawKind::kFill) >= 1, "fill after hillshade");
   }
@@ -789,14 +835,16 @@ int main() {
     expect(!frame.items.empty() && frame.items[0].kind == DrawKind::kRaster &&
                frame.items[0].blend == vista::DrawBlend::kOver,
            "jet hillshade overpaints land");
+    // Cream under a land-masked jet sheet showed through ocean A=0 cells.
+    // Product china keeps the DEM as the land surface once tiles attach.
     expect(count_kind(frame, DrawKind::kFill) == 0,
-           "jet hillshade suppresses cream land");
+           "jet hillshade skips cream land under sheet");
     expect(!frame.items.empty() && frame.items[0].vertices.size() == 4 &&
                frame.items[0].vertices[0].y >
                    frame.items[0].vertices[2].y &&
-               frame.items[0].vertices[0].v == 1.f &&
-               frame.items[0].vertices[2].v == 0.f,
-           "hillshade v=1 at north (FlyCube)");
+               frame.items[0].vertices[0].v == 0.f &&
+               frame.items[0].vertices[2].v == 1.f,
+           "hillshade v=0 at north (FlyCube/export AABB)");
   }
 
   // Land that sits outside the DEM slot is clipped (no cream fringe).
@@ -951,7 +999,7 @@ int main() {
     expect(saw_lifted, "extrusion roof has height z");
   }
 
-  // Heatmap v1: Style constants 鈫?circle splat DrawItems (zoom-matched).
+  // Heatmap density: Style → RGBA8 + kRaster ('HEAT') (zoom-matched).
   {
     gis::style::StyleDocument doc;
     expect(parse_style("{\"version\":8,\"layers\":["
@@ -969,20 +1017,30 @@ int main() {
     in.view = square_view(100, 10);
     in.style = &doc;
     in.zoom = 8;
+    vista::HeatmapBake bake;
+    in.heatmap_bake = &bake;
     OGRPoint a(3, 3);
     OGRPoint b(7, 7);
     LayerBatch batch;
     batch.source_layer = "heatmap";
     batch.geoms = {&a, &b};
     const vista::MapIR frame = layout.build(in, {batch});
-    expect(count_kind(frame, DrawKind::kCircle) == 1,
-           "heatmap coalesces same-style splats");
-    expect(!frame.items.empty() && frame.items[0].rgba == 0xFFFF6400u &&
-               almost_eq(frame.items[0].opacity, 0.5f) &&
-               frame.items[0].vertices.size() > 4,
-           "heatmap splat color and opacity");
+    expect(count_kind(frame, DrawKind::kRaster) == 1,
+           "heatmap density emits kRaster");
+    expect(count_kind(frame, DrawKind::kCircle) == 0,
+           "heatmap density is not circle splat");
+    expect(bake.width > 0 && bake.height > 0 && !bake.rgba.empty() &&
+               bake.rgba.size() == static_cast<size_t>(bake.width) *
+                                       static_cast<size_t>(bake.height) * 4u,
+           "heatmap density bake rgba");
+    expect(!frame.items.empty() &&
+               frame.items[0].kind == DrawKind::kRaster &&
+               frame.items[0].codepoint == vista::kHeatmapTextureKey &&
+               frame.items[0].vertices.size() == 4,
+           "heatmap density raster key and quad");
 
     in.zoom = 3;
+    bake = {};
     const vista::MapIR miss = layout.build(in, {batch});
     expect(miss.items.empty(), "heatmap respects minzoom");
   }
@@ -1244,6 +1302,47 @@ int main() {
     in.layout_gen = 0;
     const vista::MapIR never = layout.build(in, {land});
     expect(!never.items.empty(), "layout_gen 0 never aborts");
+  }
+
+  // china_city lines: kind="line" + line_kind/class → carto road/river slots.
+  {
+    BatchLayer lines;
+    lines.id = "china.line";
+    lines.name = "line";
+    lines.visible = true;
+    BatchFeature road;
+    road.kind = BatchGeomKind::kLine;
+    road.points = {{100.0, 30.0}, {101.0, 30.0}, {102.0, 31.0}};
+    road.fields = {{"kind", "line"},
+                   {"line_kind", "road"},
+                   {"class", "motorway"}};
+    BatchFeature river;
+    river.kind = BatchGeomKind::kLine;
+    river.points = {{110.0, 25.0}, {111.0, 25.5}, {112.0, 26.0}};
+    river.fields = {{"kind", "line"}, {"line_kind", "river"}};
+    BatchFeature ghost;
+    ghost.kind = BatchGeomKind::kLine;
+    ghost.points = {{120.0, 40.0}, {121.0, 40.0}};
+    ghost.fields = {{"kind", "line"}};
+    lines.features = {std::move(road), std::move(river), std::move(ghost)};
+    // scale=0 keeps all probes that have a carto source (skip length gates).
+    const LayerBatchSet batched =
+        build_layer_batches({lines}, /*use_carto_slots=*/true, 0.0);
+    bool saw_road = false;
+    bool saw_river = false;
+    bool saw_empty = false;
+    for (const LayerBatch& batch : batched.batches) {
+      if (batch.source_layer == "road" && !batch.geoms.empty()) {
+        saw_road = true;
+      } else if (batch.source_layer == "river" && !batch.geoms.empty()) {
+        saw_river = true;
+      } else if (batch.source_layer.empty() && !batch.geoms.empty()) {
+        saw_empty = true;
+      }
+    }
+    expect(saw_road, "china line_kind=road maps to carto road");
+    expect(saw_river, "china line_kind=river maps to carto river");
+    expect(!saw_empty, "generic unlabeled line stays dropped");
   }
 
   if (g_fails) {

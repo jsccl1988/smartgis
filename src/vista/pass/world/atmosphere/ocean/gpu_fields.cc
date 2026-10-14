@@ -423,6 +423,9 @@ bool OceanGpuFields::upload_height(render::rhi::Device* owner_device, render::rh
   if (n < 2) {
     return false;
   }
+  // Warm in-place path: same Device + resolution keeps the height SRV and only
+  // re-uploads texels. Recreate only on cold / resize / Device swap (never on
+  // every Gerstner frame — that recycled FlyCube heap under DEM albedo).
   if (!height_ || height_n_ != n || owner_device != device) {
     if (height_ && owner_device) {
       owner_device->destroy_texture(height_);

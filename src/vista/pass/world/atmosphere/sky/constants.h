@@ -10,8 +10,8 @@
 namespace vista {
 
 // GPU byte layout of the sky graphics cbuffer (SkyCB in vs/ps_sky.hlsl,
-// register b1). Matches sample_sky_rgb knobs plus camera eye for view-ray
-// sampling.
+// register b3). Matches sample_sky_rgb knobs plus camera eye for view-ray
+// sampling. Slot 3 avoids colliding with programs::kColorSlot (b1).
 struct SkyConstants {
   float sun_x;
   float sun_y;

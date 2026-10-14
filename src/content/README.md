@@ -17,7 +17,7 @@ content/
   app/             # ContentMain + process-type switch
   browser/         # C11: contents/session/document/camera/present/capability/debug/child
   renderer/        # --type=renderer child
-  view/            # in-process ToolSession + LocalToolRouter
+  tool/            # in-process ToolSession + LocalToolRouter
   common/          # host pipe + frame ABI
 ```
 
@@ -53,4 +53,4 @@ build.bat debug debug_agent_test
 
 ---
 
-**最后更新：** 2026-10-07
+**最后更新：** 2026-10-10

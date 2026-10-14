@@ -223,10 +223,10 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 | P0-3 | **P0** | 无页布局出图 | **已关闭：** `PrintComposer`（地图+比例尺+图例）→ BMP；`PrintPreviewDialog` Save 走页布局；`print_composer_test` PASS；self-test `m1-layout-ok` | — | mark + 一页可读 | gap-pin P0-3 |
 | P0-4 | **P0** | 新栈无顶点/边捕捉 | **已关闭：** `feature_edit` `snap_to_features` / `snap_point`（vertex 优先 + edge 投影）；`move_selected_vertex` 吸附他要素；`feature_edit_test` | — | 命中误差 ≤ 容差 | gap-pin P0-4 |
 | P1-1 | **P1** | 栅格瓦片缓存未成产品默认 | `TileCache` / `TileDiskCache` 有实现；主路径未必默认开 | Views 打开 XYZ/WMTS 默认挂磁盘缓存 | 二次打开同 extent 无全量重拉（日志/计数可证 hit） | gdal-layer tile；gap-pin P1-1 |
-| P1-2 | **P1** | Style 表达式缺算术族 | `src/gis/style/README.md` / `eval/expression.*`：有 interpolate/match；无 `+`/`*` 等 | 扩 mini eval；`style_test` 覆盖 data-driven width/color | `style_test` PASS；china Style 可用 zoom×attr 驱动线宽 | render-rhi §Mini expression；gap-pin P1-2 |
-| P1-3 | **P1** | 注记产品化（字体/沿线） | `collision.cc` slots landed；`m1-labels-ok`；CJK 路径仍脆 | 稳定 CJK 字体；showcase/self-test 断言沿线注记可见 | china showcase BMP 或 self-test 注记计数 ≥ N | china-city + render-rhi §Symbol collision；gap-pin P1-3 |
+| P1-2 | **P1** | Style 表达式缺算术族 | **已关闭：** `+`/`-`/`*`/`/`/`to-number`；`style_test` data-driven `line-width` / `heatmap-weight` | — | `style_test` PASS | render-rhi §Mini expression；gap-pin P1-2 |
+| P1-3 | **P1** | 注记产品化（字体/沿线） | **已关闭：** `text-color` resolve；YaHei UI metrics；along-line + collision；`map2d_test` CJK text-color | — | unit 绿；CJK 产品路径可读 | china-city + render-rhi §Symbol；gap-pin P1-3 |
 | P1-4 | **P1** | 基础拓扑校验缺失 | EditSession 有；无叠盖/缝隙规则 | 叠盖/缝隙（或等价）挂会话；失败可查 | 自造叠盖 fixture → 校验失败 mark / FeatureInfo | tool + M4 编辑下限；gap-pin P1-4 |
-| P1-5 | **P1** | Heatmap/extrusion 仍 CPU 观感 | layout CPU splat / prism（render-rhi §） | 可选 GPU 密度或 lit extrusion（禁 mln） | 对比 BMP：密度/立体可读性高于 CPU splat；unit 绿 | render-rhi §Map2d richness；gap-pin P1-5 |
+| P1-5 | **P1** | Heatmap/extrusion 仍 CPU 观感 | **已关闭（heatmap）：** density fill-buckets（GPU solid）；splat 可回退；extrusion 仍 v1 prism | — | `map2d_test` density fills；禁 mln | render-rhi §Heatmap；gap-pin P1-5 |
 | P2-1 | **P2** | 无 SDF 线/字形 | richness Non-goals | 自研 SDF atlas（不移植 mln） | 细线抗锯齿 + GPU text 抽样门禁 | render-rhi；gap-pin P2-1 |
 | P2-2 | **P2** | 非完整 expression VM | README「仍不做」列表 | `let`/`var`/feature-state/cubic-bezier 等 | 规格用例集绿；仍不链 Native | render-rhi §Mini expression；gap-pin P2-2 |
 | P2-3 | **P2** | 无地图册/多页 | 仅一页目标（P0-3） | multi-page / atlas | ≥2 页导出一致性 | plugin print；gap-pin P2-3 |

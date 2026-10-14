@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/component/map/layout/mesh_emit.h"
+#include "vista/component/map/layout/geom/mesh_emit.h"
 
 #include <cmath>
 #include <string>

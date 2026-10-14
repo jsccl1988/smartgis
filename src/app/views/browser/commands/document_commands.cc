@@ -89,12 +89,6 @@ bool Browser::run_tool_command(std::string_view command_id) {
         } else if (_stricmp(api, "Direct3D") == 0) {
           d3d = true;
         }
-      } else if (const char* flag = base::switch_cstr("scene3d-showcase-d3d")) {
-        if (flag[0] == '0' || flag[0] == 'n' || flag[0] == 'N') {
-          d3d = false;
-        } else if (flag[0] == '1' || flag[0] == 'y' || flag[0] == 'Y') {
-          d3d = true;
-        }
       }
       label = d3d ? "Legacy Scene3D (D3D11)" : "Legacy Scene3D (OpenGL)";
     } else if (id == "view.engine.gdi") {
@@ -178,7 +172,7 @@ void Browser::on_open() {
   // China sample packs: null style → default carto + carto_source_layer
   // (matches --map2d-showcase=china). open_path already refuses
   // china_city.style.json; still clear in case a prior doc had a style.
-  if (session_->document_has_china_extent()) {
+  if (session_->document_has_land_surface()) {
     session_->clear_style_document();
   } else {
     // Sibling Style JSON only (path.style.json / stem.style.json).

@@ -50,7 +50,15 @@ void DrawHost::handle_present_timer(HWND hwnd) {
   if (present_paused_.load(std::memory_order_acquire)) {
     return;
   }
-  note_hud_frame();
+  // Scene3D GPU present publishes engine FPS via publish_present_fps.
+  // Sampling the 16ms WM_TIMER here inflated the title bar (~40) vs Engine HUD.
+  const bool scene3d_gpu_fps =
+      role_ == Role::kScene3d &&
+      (mode_ == AttachMode::kGpuPresent ||
+       mode_ == AttachMode::kContentMapView);
+  if (!scene3d_gpu_fps) {
+    note_hud_frame();
+  }
   maybe_sync_identity_hud();
   if (mode_ == AttachMode::kContentMapView) {
 #ifdef HAS_CONTENT_MAP_SESSION

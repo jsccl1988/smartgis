@@ -34,13 +34,14 @@ std::vector<ui::views::MenuItem> navigation_menu_items(
     const std::function<void(std::string_view id, int bookmark_index)>&
         invoke);
 
-// File / Edit / View / Layer rows. View is the navigation table, a separator,
-// then Refresh / RHI / MapLibre. One invoke serves every row.
+// File / Edit / View / Layer / Plugins rows. View is the navigation table, a
+// separator, then Refresh / RHI / MapLibre. One invoke serves every row.
 struct ShellMenus {
   std::vector<ui::views::MenuItem> file;
   std::vector<ui::views::MenuItem> edit;
   std::vector<ui::views::MenuItem> view;
   std::vector<ui::views::MenuItem> layer;
+  std::vector<ui::views::MenuItem> plugins;
 };
 
 ShellMenus build_shell_menus(

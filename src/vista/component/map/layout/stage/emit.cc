@@ -1,18 +1,18 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/component/map/layout/emit.h"
+#include "vista/component/map/layout/stage/emit.h"
 
 #include "base/trace/event/process_trace.h"
 #include "gis/style/style_types.h"
-#include "vista/component/map/layout/fill.h"
-#include "vista/component/map/layout/line.h"
-#include "vista/component/map/layout/point.h"
-#include "vista/component/map/layout/raster.h"
-#include "vista/component/map/layout/symbol.h"
-#include "vista/component/map/layout/gen.h"
-#include "vista/component/map/layout/slice_key.h"
-#include "vista/component/map/layout/view_metrics.h"
+#include "vista/component/map/layout/paint/fill.h"
+#include "vista/component/map/layout/paint/line.h"
+#include "vista/component/map/layout/paint/point.h"
+#include "vista/component/map/layout/paint/raster.h"
+#include "vista/component/map/layout/paint/symbol.h"
+#include "vista/component/map/layout/policy/gen.h"
+#include "vista/component/map/layout/policy/slice_key.h"
+#include "vista/component/map/layout/policy/view_metrics.h"
 
 namespace vista {
 namespace detail {
@@ -163,10 +163,11 @@ void emit_visible_layers(const LayoutInput& in,
         break;
       case gis::style::LayerType::kHeatmap:
         if (!symbols_only) {
+          // Density underlay is view-sized (not AABB-sliced). One emit keeps
+          // gaussian accumulation correct; splat fallback still clips to view.
           BASE_TRACE_EVENT("emit_heatmap", "map2d.layout");
-          emit_tiled_layer(*layer, in, frame, [&](const LayoutTile* tile) {
-            emit_heatmap(*layer, in, layers, wupp, frame, tile);
-          });
+          const LayoutTile view_clip = make_view_clip_tile(in.view);
+          emit_heatmap(*layer, in, layers, wupp, frame, &view_clip);
         }
         break;
       case gis::style::LayerType::kFill:

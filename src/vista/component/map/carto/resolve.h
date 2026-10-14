@@ -17,13 +17,14 @@ struct StyleLayer;
 
 namespace vista {
 
-VISTA_EXPORT bool style_is_china_city_pack(const gis::style::StyleDocument* doc);
+VISTA_EXPORT bool style_uses_area_point_line_slots(
+    const gis::style::StyleDocument* doc);
 VISTA_EXPORT bool style_has_carto_slots(const gis::style::StyleDocument* doc);
 
 // Parsed default_carto_style_json(), process-lifetime, call_once.
 VISTA_EXPORT const gis::style::StyleDocument* default_carto_style();
 
-// China city packs and a null document fall back to default_carto_style().
+// Area/point/line packs and a null document fall back to default_carto_style().
 // |use_carto| is true when batches should use carto source-layer slots.
 VISTA_EXPORT const gis::style::StyleDocument* resolve_present_style(
     const gis::style::StyleDocument* scene_style, bool* use_carto);

@@ -20,7 +20,7 @@
 
 namespace plugin {
 
-// Local hex XYZ â†’ small geo pad so Scene3D lon/lat/elev overlay pipeline works
+// Local hex XYZ â†?small geo pad so Scene3D lon/lat/elev overlay pipeline works
 // (peer mine/stormsurge). Showcase frames this box after create_hex_grid.
 constexpr double kHexLabOriginLon = 116.40;
 constexpr double kHexLabOriginLat = 39.90;
@@ -227,7 +227,7 @@ bool present_hex_grid_mesh(content::GisDocument* doc,
   }
 
   // Scene3D: closed orthogonal hex volume (outer cell faces + dark grid
-  // ribbons). FlyCube has no line PSO â€” grid ink is textured dark quads.
+  // ribbons). FlyCube has no line PSO â€?grid ink is textured dark quads.
   if (scene3d || sink) {
     // Keep quarry Z (meters). attach_tin fits hex albedo into the DEM orbit
     // box; inflating elev here only stretched Y into a rainbow needle when
@@ -515,7 +515,7 @@ bool present_hex_grid_mesh(content::GisDocument* doc,
         atlas[p + 2] = 0x5a;
         atlas[p + 3] = 0xff;
       }
-      // Amber shell so Scene3dHdcPainter hex_like / score stick_or_stratum
+      // Amber shell so hex_like / score stick_or_stratum
       // recognize the volume (green albedo was misclassified as DEM pad).
       constexpr uint8_t kHexAlbedo[4] = {0xe0, 0xa0, 0x40, 0xf0};
       if (scene3d) {

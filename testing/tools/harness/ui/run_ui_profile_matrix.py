@@ -336,8 +336,7 @@ def run_showcase(row_id: str, mode: str, surface: str, role: str) -> dict:
                 pass
     env = _apply_env(
         {
-            "UI_SHOWCASE_LINGER_MS": "0",
-            "UI_FORENSICS": "1",
+                        "UI_FORENSICS": "1",
             "UI_THEME": "dark",
             "SMARTGIS_NO_ALWAYS_ON_DIAG": "1",
         }

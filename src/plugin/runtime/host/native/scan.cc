@@ -5,7 +5,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstddef>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -89,6 +91,28 @@ std::vector<DiscoveredPlugin> scan_plugins_dir(const std::string& root,
     }
     return out;
   }
+  // #region agent log
+  {
+    FILE* f = nullptr;
+    if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
+        f) {
+      const auto ms =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::system_clock::now().time_since_epoch())
+              .count();
+      std::fprintf(
+          f,
+          "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"C\","
+          "\"location\":\"scan.cc:scan_plugins_dir\",\"message\":\"scan "
+          "enter\",\"data\":{\"root\":\"%s\",\"sizeof_Manifest\":%zu,"
+          "\"sizeof_Discovered\":%zu,\"sizeof_Processing\":%zu},\"timestamp\":%"
+          "lld}\n",
+          root.c_str(), sizeof(Manifest), sizeof(DiscoveredPlugin),
+          sizeof(ProcessingContrib), static_cast<long long>(ms));
+      std::fclose(f);
+    }
+  }
+  // #endregion
   for (const auto& entry : std::filesystem::directory_iterator(root_path, ec)) {
     if (ec || !entry.is_directory()) {
       continue;
@@ -97,6 +121,27 @@ std::vector<DiscoveredPlugin> scan_plugins_dir(const std::string& root,
     DiscoveredPlugin d;
     d.directory = dir.string();
     const std::filesystem::path json_path = dir / "plugin.json";
+    const std::string folder = dir.filename().string();
+    // #region agent log
+    {
+      FILE* f = nullptr;
+      if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
+          f) {
+        const auto ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch())
+                .count();
+        std::fprintf(
+            f,
+            "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"A\","
+            "\"location\":\"scan.cc:before_parse\",\"message\":\"before "
+            "parse_manifest\",\"data\":{\"folder\":\"%s\",\"out_n\":%zu},"
+            "\"timestamp\":%lld}\n",
+            folder.c_str(), out.size(), static_cast<long long>(ms));
+        std::fclose(f);
+      }
+    }
+    // #endregion
     if (std::filesystem::is_regular_file(json_path, ec)) {
       const std::string body = read_file(json_path);
       std::string parse_err;
@@ -113,6 +158,29 @@ std::vector<DiscoveredPlugin> scan_plugins_dir(const std::string& root,
       d.manifest.version = "1.0.0";
       d.manifest.kind = PluginKind::kNative;
     }
+    // #region agent log
+    {
+      FILE* f = nullptr;
+      if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
+          f) {
+        const auto ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch())
+                .count();
+        std::fprintf(
+            f,
+            "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"B\","
+            "\"location\":\"scan.cc:after_parse\",\"message\":\"after "
+            "parse_manifest\",\"data\":{\"folder\":\"%s\",\"id\":\"%s\","
+            "\"proc_n\":%zu,\"cmd_n\":%zu},\"timestamp\":%lld}\n",
+            folder.c_str(), d.manifest.id.c_str(),
+            d.manifest.contributes.processing.size(),
+            d.manifest.contributes.commands.size(),
+            static_cast<long long>(ms));
+        std::fclose(f);
+      }
+    }
+    // #endregion
     if (d.manifest.kind == PluginKind::kNative) {
       if (!d.manifest.library.empty()) {
         d.dll_path = join_dll(dir, d.manifest.library);
@@ -123,8 +191,46 @@ std::vector<DiscoveredPlugin> scan_plugins_dir(const std::string& root,
     if (d.manifest.id.empty()) {
       continue;
     }
+    // #region agent log
+    {
+      FILE* f = nullptr;
+      if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
+          f) {
+        const auto ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch())
+                .count();
+        std::fprintf(
+            f,
+            "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"B\","
+            "\"location\":\"scan.cc:before_push\",\"message\":\"before "
+            "out.push_back\",\"data\":{\"folder\":\"%s\",\"out_n\":%zu},"
+            "\"timestamp\":%lld}\n",
+            folder.c_str(), out.size(), static_cast<long long>(ms));
+        std::fclose(f);
+      }
+    }
+    // #endregion
     out.push_back(std::move(d));
   }
+  // #region agent log
+  {
+    FILE* f = nullptr;
+    if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
+        f) {
+      const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                          std::chrono::system_clock::now().time_since_epoch())
+                          .count();
+      std::fprintf(
+          f,
+          "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"C\","
+          "\"location\":\"scan.cc:scan_exit\",\"message\":\"scan "
+          "ok\",\"data\":{\"n\":%zu},\"timestamp\":%lld}\n",
+          out.size(), static_cast<long long>(ms));
+      std::fclose(f);
+    }
+  }
+  // #endregion
   return out;
 }
 

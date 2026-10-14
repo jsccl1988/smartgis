@@ -406,13 +406,17 @@ int main() {
     expect(vista::detail::accept_label_count(apart, 2) == 2,
            "separated labels both accepted");
 
+    // Gates use zoom=8+log2(scale). Mainland 1280px frame is scale≈26
+    // (zoom≈12.7) and must stay on the national tier (importance 2).
     expect(vista::detail::label_min_importance(12.0) == 2,
            "country scale keeps capitals and prefectures");
-    expect(vista::detail::label_min_importance(30.0) == 1,
+    expect(vista::detail::label_min_importance(26.0) == 2,
+           "1280 mainland frame stays national tier");
+    expect(vista::detail::label_min_importance(64.0) == 1,
            "mid scale adds counties");
-    expect(vista::detail::label_min_importance(70.0) == 0,
+    expect(vista::detail::label_min_importance(256.0) == 0,
            "closer scale allows POI text");
-    expect(vista::detail::label_min_importance(120.0) == 0,
+    expect(vista::detail::label_min_importance(512.0) == 0,
            "close scale allows POI text");
     expect(vista::detail::place_name_importance("北京市") == 3,
            "municipality is country rank");
@@ -463,7 +467,7 @@ int main() {
     expect(road != river, "road ink differs from river");
     expect(vista::detail::line_stroke_px(vista::detail::LineRole::kWater, 8.0, 12.0) !=
                vista::detail::line_stroke_px(vista::detail::LineRole::kWater, 8.0,
-                                            60.0),
+                                            64.0),
            "river width changes with scale");
     expect(vista::detail::line_stroke_px(vista::detail::LineRole::kRoad, 8.0, 12.0) >= 1,
            "road stroke is positive");

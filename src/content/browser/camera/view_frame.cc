@@ -80,17 +80,9 @@ void ViewFrame::fit_extent(const GisScene& scene, int view_w, int view_h) {
   if (view_h <= 0) {
     view_h = 600;
   }
-  // China prefecture packs: Natural Earth rivers that only touch the loose
-  // China bbox keep foreign stubs (Siberia / Central Asia), and area layers
-  // include South China Sea vertices near ~4N. Framing on all vertices zooms
-  // out so rivers appear to "spill" past provincial land. Match maplibre_align
-  // mainland envelope (equirectangular; Mercator remains a known gap).
-  if (scene.has_china_extent()) {
-    apply_world_extent(kChinaMap2dFrameExtent, view_w, view_h);
-    return;
-  }
-
   // Prefer land polygons when present so line/point outliers do not dominate.
+  // Product China mainland framing lives in china_product_defaults /
+  // frame_china_map2d (fixed envelope), not in this generic fit.
   // Plugin product docs (traffic path, geochem points) are often line/point
   // only — fall back to full vertex envelope in map space.
   double minx = 0;

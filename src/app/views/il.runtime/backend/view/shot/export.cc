@@ -11,7 +11,7 @@
 #include "app/views/il.runtime/backend/view/shot/paint.h"
 #include "app/views/il.runtime/backend/view/shot/scene_capture.h"
 #include "app/views/il.runtime/backend/horizon/atom/pump.h"
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/camera/view_frame.h"
 #include "content/public/plugin_host.h"

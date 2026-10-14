@@ -35,6 +35,11 @@ PLUGIN_HOST_EXPORT void bind_atmosphere_scenario_shell(HarnessShell* shell);
 PLUGIN_HOST_EXPORT HarnessShell* atmosphere_scenario_shell();
 PLUGIN_HOST_EXPORT void atmosphere_mark(const char* step);
 
+// Separate TLS binder for map2d showcase marks (kMarkMap2d).
+PLUGIN_HOST_EXPORT void bind_map2d_scenario_shell(HarnessShell* shell);
+PLUGIN_HOST_EXPORT HarnessShell* map2d_scenario_shell();
+PLUGIN_HOST_EXPORT void map2d_mark(const char* step);
+
 // First existing relative path under the running exe directory (UTF-8 out).
 PLUGIN_HOST_EXPORT bool resolve_rel_under_exe(const wchar_t* const* rels,
                                               size_t count, char* out_utf8,

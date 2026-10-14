@@ -12,6 +12,8 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+
+#include "gis/tile/protocol/mercator_math.h"
 #include <map>
 #include <memory>
 #include <string>
@@ -42,6 +44,7 @@ std::string ascii_lower(std::string text) {
 
 struct FeatureFields {
   const char* kind = nullptr;
+  const char* line_kind = nullptr;
   const char* cls = nullptr;
   const char* fclass = nullptr;
   const char* anno = nullptr;
@@ -55,6 +58,8 @@ FeatureFields probe_fields(const BatchFeature& f) {
   for (const BatchField& field : f.fields) {
     if (!out.kind && field.name == "kind") {
       out.kind = field.value.c_str();
+    } else if (!out.line_kind && field.name == "line_kind") {
+      out.line_kind = field.value.c_str();
     } else if (!out.cls && field.name == "class") {
       out.cls = field.value.c_str();
     } else if (!out.fclass && field.name == "fclass") {
@@ -138,11 +143,33 @@ int feature_label_importance(const FeatureFields& fields) {
   return 0;
 }
 
+bool kind_token_is_generic_line(const std::string& kind) {
+  return kind.empty() || kind == "line" || kind == "corridor";
+}
+
+// Match river/road/admin tokens across china_city fields. kind is often the
+// generic OGR stem ("line"); semantics live on line_kind / class / fclass.
+bool fields_have_token(const FeatureFields& fields, const char* token) {
+  if (!token || !token[0]) {
+    return false;
+  }
+  const auto hit = [token](const char* raw) {
+    if (!raw || !raw[0]) {
+      return false;
+    }
+    return ascii_lower(raw).find(token) != std::string::npos;
+  };
+  return hit(fields.kind) || hit(fields.line_kind) || hit(fields.type) ||
+         hit(fields.cls) || hit(fields.fclass);
+}
+
 std::string carto_source_layer(const BatchFeature& feature,
                                const FeatureFields& fields) {
   std::string kind;
   if (fields.kind && fields.kind[0]) {
     kind = ascii_lower(fields.kind);
+  } else if (fields.line_kind && fields.line_kind[0]) {
+    kind = ascii_lower(fields.line_kind);
   } else if (fields.type && fields.type[0]) {
     kind = ascii_lower(fields.type);
   } else if (fields.cls && fields.cls[0]) {
@@ -151,7 +178,13 @@ std::string carto_source_layer(const BatchFeature& feature,
     kind = ascii_lower(fields.fclass);
   }
   const auto has = [&](const char* token) {
-    return kind.find(token) != std::string::npos;
+    // Prefer the primary kind string; when it is a generic "line" stem, also
+    // scan line_kind/class so china_city roads/rivers map to carto slots.
+    if (!kind_token_is_generic_line(kind) &&
+        kind.find(token) != std::string::npos) {
+      return true;
+    }
+    return fields_have_token(fields, token);
   };
   if (feature.kind == BatchGeomKind::kPolygon) {
     if (has("water") || has("lake") || has("sea") || has("ocean")) {
@@ -287,7 +320,10 @@ bool should_keep_probe(const FeatureProbe& p, double scale, bool use_carto_slots
       }
     }
     bool major = p.major;
-    if (p.role == detail::LineRole::kRoad && scale < 16.0) {
+    // Demote secondary arterials on national overview (zoom<14), matching
+    // line_visible_at_scale — absolute scale grows with viewport width.
+    if (p.role == detail::LineRole::kRoad &&
+        gis::tile::zoom_from_scale(scale) < 14.0) {
       auto is_secondary = [](const char* s) {
         if (!s || !s[0]) {
           return false;
@@ -365,8 +401,14 @@ FeatureProbe make_probe(const BatchFeature& f, const std::string& layer_slot,
                  ? layer_slot
                  : (layer_is_slot ? layer_slot : carto_source_layer(f, p.fields));
   const char* cls = feature_class_cstr(p.fields);
-  p.role = detail::line_role(p.fields.kind, cls);
-  p.major = detail::line_is_major_class(p.fields.kind, cls);
+  // china_city stores geom stem on kind ("line") and semantics on line_kind.
+  const char* role_kind = p.fields.kind;
+  if (kind_token_is_generic_line(role_kind ? ascii_lower(role_kind) : "") &&
+      p.fields.line_kind && p.fields.line_kind[0]) {
+    role_kind = p.fields.line_kind;
+  }
+  p.role = detail::line_role(role_kind, cls);
+  p.major = detail::line_is_major_class(role_kind, cls);
   if (f.kind == BatchGeomKind::kLine && f.points.size() >= 2) {
     p.len_deg = detail::length_as_degrees(polyline_length(f), kExtentLonlat);
     p.stem_water =
@@ -566,15 +608,18 @@ void emit_kept_probes(const std::vector<FeatureProbe>& probes, double scale,
       break;
     }
   }
-  // Overview / first WaitFirstMapPresent: land-ring → admin edge hashing
-  // dominated batches wall; provincial strokes are not readable at this
-  // scale (same gate as dedupe_admin_boundary_edges in map2d_batches).
-  const bool skip_land_admin_synth = has_admin_lines || scale < 14.0;
+  // Full undirected-edge admin synth is expensive on national overview
+  // (hash wall). zoom>=14 keeps the precise path; overview emits one
+  // coarsened ring LineString per land polygon (shared borders may double
+  // stroke — invisible at that scale, enough for admin_gray).
+  const double zoom = gis::tile::zoom_from_scale(scale);
+  const bool overview = zoom < 14.0;
+  const bool full_admin_synth = !has_admin_lines && !overview;
+  const bool overview_admin_rings = !has_admin_lines && overview;
   BatchSourceIndex batch_index;
   batch_index.reserve(8);
   AdminEdgeSet land_admin_edges;
-  AdminEdgeSet* edges =
-      skip_land_admin_synth ? nullptr : &land_admin_edges;
+  AdminEdgeSet* edges = full_admin_synth ? &land_admin_edges : nullptr;
   if (edges) {
     land_admin_edges.reserve(4096);
   }
@@ -583,7 +628,40 @@ void emit_kept_probes(const std::vector<FeatureProbe>& probes, double scale,
       continue;
     }
     append_probe_geometry(probe, scale, out, &batch_index, edges,
-                          skip_land_admin_synth);
+                          /*skip_land_admin_synth=*/!full_admin_synth);
+    if (!overview_admin_rings || probe.source != "land" || !probe.feature ||
+        probe.feature->kind != BatchGeomKind::kPolygon) {
+      continue;
+    }
+    const BatchFeature& f = *probe.feature;
+    const int n = static_cast<int>(f.points.size());
+    if (n < 3) {
+      continue;
+    }
+    const int step = overview_vertex_step(n, scale);
+    const int safe_step =
+        (n / (std::max)(step, 1) < 3) ? 1 : step;
+    auto line = std::make_unique<OGRLineString>();
+    for (int i = 0; i < n; i += safe_step) {
+      line->addPoint(f.points[static_cast<size_t>(i)].x,
+                     f.points[static_cast<size_t>(i)].y);
+    }
+    if ((n - 1) % safe_step != 0) {
+      line->addPoint(f.points.back().x, f.points.back().y);
+    }
+    if (line->getNumPoints() < 2) {
+      continue;
+    }
+    // Close ring for a continuous coastline stroke.
+    line->addPoint(line->getX(0), line->getY(0));
+    LayerBatch* admin = batch_for(out, "admin", &batch_index);
+    std::map<std::string, std::string> attrs;
+    for (const BatchField& field : f.fields) {
+      attrs.emplace(field.name, field.value);
+    }
+    admin->geoms.push_back(line.get());
+    out->owned.push_back(std::move(line));
+    admin->attrs.push_back(std::move(attrs));
   }
 }
 

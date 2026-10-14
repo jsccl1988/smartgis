@@ -92,7 +92,7 @@ All rights reserved.
 - Modify: `src/plugin/product/world3d/commands.h` / `scene_commands.cc` / `manifest/plugin.json` / `README.md` / `BUILD.gn`
 - Modify: `src/app/views/browser/plugin/analysis_writer_world3d.cc`
 - Modify: `src/vista/component/world/terrain/dem/dem_raster.{h,cc}` (`set_sample_dem_path_override`)
-- Modify: `src/content/browser/present/scene3d/frame/terrain_mesh.cc`
+- Modify: `src/content/browser/present/scene3d/frame/terrain/terrain_mesh.cc`
 - Modify: living § under plugin-host + render-rhi-scene
 
 - [x] Step 1: `World3dSceneWriter::{load_global_dem,set_satellite_cloud,set_atmosphere}` + command/processing ids

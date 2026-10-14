@@ -108,7 +108,7 @@ browser.mark("layers-ok");
         return 26;
       }
     }
-    if (!browser.document()->has_china_extent()) {
+    if (!browser.document()->has_land_surface()) {
       std::fprintf(stderr, "OGR China extent not in China lon/lat\n");
       browser.detach_views();
       return 39;
@@ -270,14 +270,14 @@ browser.mark("layers-ok");
         return 72;
       }
       HGDIOBJ old = SelectObject(mem, dib);
+      // Soft MapIR->HDC basemap draw removed; bind + scenic/GPU export is SoT.
       browser.map2d()->paint(mem, 256, 256);
-      const size_t tiles = browser.map2d()->basemap_tiles_drawn();
       SelectObject(mem, old);
       DeleteObject(dib);
       DeleteDC(mem);
       ReleaseDC(nullptr, screen);
-      if (tiles == 0) {
-        std::fprintf(stderr, "M1: basemap drew zero tiles\n");
+      if (!browser.document()->has_basemap_provider()) {
+        std::fprintf(stderr, "M1: basemap provider not bound\n");
         browser.detach_views();
         return 72;
       }

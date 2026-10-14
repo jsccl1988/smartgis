@@ -28,7 +28,8 @@ bool is_expr_op(const std::string& op) {
   return op == "get" || op == "literal" || op == "zoom" || op == "==" ||
          op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=" ||
          op == "interpolate" || op == "step" || op == "match" ||
-         op == "case" || op == "coalesce";
+         op == "case" || op == "coalesce" || op == "+" || op == "-" ||
+         op == "*" || op == "/" || op == "to-number";
 }
 
 double expr_as_number(const ExprValue& v, bool* ok) { return v.as_number(ok); }
@@ -541,6 +542,90 @@ bool eval_json(const rapidjson::Value& v, const AttrMap& attrs, double zoom,
   }
   if (op == "coalesce") {
     return eval_coalesce(v, attrs, zoom, out);
+  }
+  if (op == "to-number") {
+    // ["to-number", value] — MapLibre-shaped; strings parse via as_number.
+    if (v.Size() < 2) {
+      return false;
+    }
+    ExprValue arg;
+    if (!eval_json(v[1], attrs, zoom, &arg)) {
+      return false;
+    }
+    bool ok = false;
+    const double n = expr_as_number(arg, &ok);
+    if (!ok) {
+      out->kind = ExprValue::Kind::kNull;
+      return true;
+    }
+    out->kind = ExprValue::Kind::kNumber;
+    out->n = n;
+    return true;
+  }
+  if (op == "+" || op == "*" || op == "/" || op == "-") {
+    // Arithmetic: binary ["+", a, b] (also n-ary for +/*). Unary ["-", x].
+    if (op == "-" && v.Size() == 2) {
+      ExprValue arg;
+      if (!eval_json(v[1], attrs, zoom, &arg)) {
+        return false;
+      }
+      bool ok = false;
+      const double n = expr_as_number(arg, &ok);
+      if (!ok) {
+        return false;
+      }
+      out->kind = ExprValue::Kind::kNumber;
+      out->n = -n;
+      return true;
+    }
+    if (v.Size() < 3) {
+      return false;
+    }
+    if (op == "+" || op == "*") {
+      double acc = (op == "+") ? 0.0 : 1.0;
+      for (rapidjson::SizeType i = 1; i < v.Size(); ++i) {
+        ExprValue arg;
+        if (!eval_json(v[i], attrs, zoom, &arg)) {
+          return false;
+        }
+        bool ok = false;
+        const double n = expr_as_number(arg, &ok);
+        if (!ok) {
+          return false;
+        }
+        if (op == "+") {
+          acc += n;
+        } else {
+          acc *= n;
+        }
+      }
+      out->kind = ExprValue::Kind::kNumber;
+      out->n = acc;
+      return true;
+    }
+    ExprValue left;
+    ExprValue right;
+    if (!eval_json(v[1], attrs, zoom, &left) ||
+        !eval_json(v[2], attrs, zoom, &right)) {
+      return false;
+    }
+    bool lok = false;
+    bool rok = false;
+    const double ln = expr_as_number(left, &lok);
+    const double rn = expr_as_number(right, &rok);
+    if (!lok || !rok) {
+      return false;
+    }
+    out->kind = ExprValue::Kind::kNumber;
+    if (op == "-") {
+      out->n = ln - rn;
+    } else {
+      if (rn == 0.0) {
+        return false;
+      }
+      out->n = ln / rn;
+    }
+    return true;
   }
 
   // Binary comparisons (reuse filter-style numeric/string rules).

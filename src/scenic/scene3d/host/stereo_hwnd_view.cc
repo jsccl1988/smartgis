@@ -344,14 +344,6 @@ void* stereo_hwnd_create(HWND hwnd) {
         return true;
       }
     }
-    if (const char* d3d = base::switch_cstr("scene3d-showcase-d3d")) {
-      if (d3d[0] == '0' || d3d[0] == 'n' || d3d[0] == 'N') {
-        return false;
-      }
-      if (d3d[0] == '1' || d3d[0] == 'y' || d3d[0] == 'Y') {
-        return true;
-      }
-    }
     return true;
   }();
 

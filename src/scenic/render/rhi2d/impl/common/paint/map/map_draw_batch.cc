@@ -49,6 +49,7 @@ void bind_carto_fields(Rhi2dCartoDraw* draw, const PreparedFeature& prep,
   draw->feature_type() = prep.feature_type;
   draw->label_priority() = prep.label_priority;
   draw->is_river() = prep.is_river;
+  draw->river_class() = prep.river_class;
   draw->road_class() = prep.road_class;
   draw->anno_angle() = prep.anno_angle;
   if (with_anno && prep.anno[0]) {

@@ -5,10 +5,7 @@
 // content::content_main to browser / gpu / renderer.
 
 #include <windows.h>
-#include <imm.h>
 #include <shellapi.h>
-
-#pragma comment(lib, "imm32.lib")
 
 #include <cstdio>
 #include <string>
@@ -16,7 +13,7 @@
 
 #include "app/views/app/host/content_host.h"
 #include "app/views/app/cmdline/views_launch_options.h"
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "base/core/log.h"
 #include "base/process/switches.h"
 #include "base/trace/diag/diagnostic_bootstrap.h"
@@ -24,30 +21,6 @@
 #include "base/trace/event/process_trace.h"
 #include "content/public/gis_contents_client.h"
 #include "ui/gfx/canvas/shell_canvas_backend.h"
-
-namespace {
-
-// Showcase / self-test / interact harness must not load third-party TSF IMEs
-// (Sogou etc.): their uncaught C++ EH becomes STATUS_FATAL_USER_CALLBACK_EXCEPTION
-// or a null-call AV during CreateWindow / ShowWindow / present.
-
-// Call before any CreateWindow. ImmDisableIME after Widget.init is too late.
-void disable_ime_for_harness() {
-  ::ImmDisableIME(static_cast<DWORD>(-1));
-  using ImmDisableTextFrameServiceFn = BOOL(WINAPI*)(DWORD);
-  if (HMODULE imm = ::GetModuleHandleW(L"imm32.dll")) {
-    if (auto* fn = reinterpret_cast<ImmDisableTextFrameServiceFn>(
-            ::GetProcAddress(imm, "ImmDisableTextFrameService"))) {
-      fn(static_cast<DWORD>(-1));
-    }
-  }
-  // Prefer US English so Chinese TSF profiles are less likely to activate.
-  if (HKL us = ::LoadKeyboardLayoutW(L"00000409", KLF_ACTIVATE)) {
-    ::ActivateKeyboardLayout(us, KLF_SETFORPROCESS);
-  }
-}
-
-}  // namespace
 
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
   int argc = 0;
@@ -84,22 +57,14 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
 
   {
     BASE_TRACE_EVENT("PeekPluginStartup", "startup");
-    // CLI --plugin-showcase wins when set; plugin.json startup.scenario fills
-    // only when the argv scenario is empty (interactive / pack-default).
-    std::string peeked_scenario;
-    app::peek_plugin_startup(options.plugins_dir, &peeked_scenario,
+    // Peek present/fields only — never elevate a ScenarioRegistry id from
+    // plugin.json (cold start is always product_startup_policy + run_loop).
+    std::string ignored_scenario;
+    app::peek_plugin_startup(options.plugins_dir, &ignored_scenario,
                              &options.plugin_present,
                              &options.atmosphere_fields);
-    if (options.scenario_id.empty()) {
-      options.scenario_id = std::move(peeked_scenario);
-    }
   }
 
-  if (app::is_harness_launch(options)) {
-    BASE_TRACE_EVENT("DisableImeForHarness", "startup");
-    disable_ime_for_harness();
-    LOGGING(LOG_INFO, "startup: ImmDisableIME+TextFrame+US layout (harness)");
-  }
   // Product always-on diagnostics start after Browser::init (PluginShell).
   // Starting the memory sampler here raced debug CRT malloc in CommandCatalog.
 

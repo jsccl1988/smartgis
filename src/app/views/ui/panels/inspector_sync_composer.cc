@@ -25,7 +25,7 @@
 
 #include "app/views/browser/commands/app_commands.h"
 #include "content/browser/session/browser_session.h"
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "app/views/browser/commands/view_commands.h"
 #include "plugin/runtime/host/catalog/registry.h"
 #include "content/public/types.h"

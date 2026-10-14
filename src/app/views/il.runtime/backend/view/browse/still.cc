@@ -58,7 +58,7 @@ void frame_map2d_still(Browser& browser, content::GisScene* doc, int w, int h) {
   if (!frame) {
     return;
   }
-  if (doc && doc->has_china_extent()) {
+  if (doc && doc->has_land_surface()) {
     frame->apply_world_extent(content::kChinaMap2dFrameExtent, w, h);
   } else if (doc) {
     frame->fit_extent(*doc, w, h);

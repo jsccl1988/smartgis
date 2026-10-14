@@ -61,6 +61,7 @@ class InspectorHostComposer;
 class InspectorSyncComposer;
 class MapPagesComposer;
 class MenuComposer;
+class PluginCatalogView;
 class ProcessingComposer;
 class ReportPanel;
 class ShellLayoutComposer;
@@ -300,6 +301,10 @@ class BrowserView : public BrowserUiDelegate {
   std::unique_ptr<MenuComposer> menu_composer_;
   std::unique_ptr<AmboxComposer> ambox_composer_;
   std::unique_ptr<InspectorHostComposer> inspector_host_;
+
+  // Append-only: right-dock Plugins catalog tab (do not insert above map_*).
+  PluginCatalogView* plugin_catalog_ = nullptr;
+  int plugins_tab_ = -1;
 };
 
 }  // namespace app

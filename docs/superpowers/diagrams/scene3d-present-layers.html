@@ -49,7 +49,7 @@ All rights reserved.
 <div class="wrap">
   <header class="hero">
     <h1>Scene3d present — 分层</h1>
-    <p>Facade 只做绑定与分发。<code>frame/</code> 拥有地理帧与 overlay。<code>gpu/</code> 只合成 1 CL。<code>software/</code> 是 GDI 出口。Scenic Engine 是并列车道，不是 GpuPresent 的成员。</p>
+    <p>Facade 只做绑定与分发。<code>frame/{orbit,terrain,tileset,overlay}/</code> 拥有地理帧。<code>gpu/present/</code> 只合成 1 CL。软 <code>software/</code> 已删除。Scenic Engine 在 <code>scenic/</code>，不是 GpuPresent 的成员。目录锁：<a href="./content-present-subdirectory-layers.html">content-present-subdirectory-layers</a>。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Content present/scene3d slim</a>
       · Map2d 对照：<a href="./map2d-present-frame.html">map2d-present-frame</a>

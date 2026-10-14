@@ -1,0 +1,287 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>content present — 子目录分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --host: #2563a8; --frame: #2f7d62; --gpu: #b06a1a; --facade: #6b5ea8;
+    --chrome: #3d5a80; --sg: #2563a8; --reject: #9a3412;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  @media (max-width: 960px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2); min-height: 200px;
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.78rem; color: var(--muted); }
+  .lane.host { border-top: 3px solid var(--host); }
+  .lane.frame { border-top: 3px solid var(--frame); }
+  .lane.gpu { border-top: 3px solid var(--gpu); }
+  .lane.facade { border-top: 3px solid var(--facade); }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 11px; }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .note { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .flow .s, .swim .s { opacity: 0.35; }
+  .flow .s1 { animation: beat 6.5s 0s infinite; }
+  .flow .s2 { animation: beat 6.5s 1.1s infinite; }
+  .flow .s3 { animation: beat 6.5s 2.2s infinite; }
+  .flow .s4 { animation: beat 6.5s 3.3s infinite; }
+  .swim .s1 { animation: beat 7.2s 0s infinite; }
+  .swim .s2 { animation: beat 7.2s 1.2s infinite; }
+  .swim .s3 { animation: beat 7.2s 2.4s infinite; }
+  .swim .s4 { animation: beat 7.2s 3.6s infinite; }
+  @keyframes beat {
+    0%, 10% { opacity: 0.35; }
+    8%, 22% { opacity: 1; }
+    30%, 100% { opacity: 0.35; }
+  }
+  .reject {
+    margin-top: 10px; padding: 8px 10px; border-radius: 6px;
+    border: 1px solid #f0c9b8; background: #fef6f2; color: var(--reject);
+    font-size: 0.82rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>content present — 子目录分层</h1>
+    <p>按职责加深 <code>host/</code> · <code>map2d/</code> · <code>scene3d/</code>。Facade 留在车道根；CPU IR 进 <code>frame/&lt;role&gt;/</code>；GPU 进 <code>gpu/present|selection/</code>。软 present（<code>software/</code> · <code>scene3d_cpu/</code>）已删除。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Content present subdirectory layers</a>
+      · <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Content present ↔ Chromium mapping</a>
+      · 模块：<a href="../../../src/content/browser/present/README.md">present/README.md</a>
+    </div>
+    <div class="rel">相关图：
+      <a href="./map2d-present-frame.html">map2d present</a>
+      <a href="./scene3d-present-layers.html">scene3d present</a>
+      <a href="./content-present-accelerate.html">present accelerate（C/G/E）</a>
+      <a href="./vista-subdirectory-layers.html">vista 子目录</a>
+      <a href="./render-accelerate-topology.html">A×B 拓扑</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层</h2>
+    <div class="lanes">
+      <div class="lane host">
+        <h3>host/ — 共享表面</h3>
+        <ul>
+          <li><code>blit/</code> — BlitFrameCache</li>
+          <li><code>overlay/</code> — ShellOverlayEffect</li>
+          <li><code>scenic/</code> — GisScene → scenic POD</li>
+          <li><code>gdi/</code> — 薄 Win32 助手（非 SoT）</li>
+        </ul>
+      </div>
+      <div class="lane facade">
+        <h3>facade — 车道根</h3>
+        <ul>
+          <li><code>map2d_presenter.*</code></li>
+          <li><code>scene3d_presenter.*</code></li>
+          <li><code>*/profile/*_phase_profile.*</code></li>
+          <li><code>scene3d/session/</code> · <code>atmosphere/</code></li>
+          <li><code>scene3d/scenic/</code> — Engine host</li>
+        </ul>
+      </div>
+      <div class="lane frame">
+        <h3>frame/&lt;role&gt;/ — CPU IR</h3>
+        <ul>
+          <li>map2d：<code>cache</code> · <code>carto</code> · <code>batches</code> · <code>layout</code> · <code>tile</code></li>
+          <li>scene3d：<code>orbit</code> · <code>terrain</code> · <code>tileset</code> · <code>overlay</code></li>
+          <li>只产 MapIR / World 输入，不录 CommandList</li>
+        </ul>
+      </div>
+      <div class="lane gpu">
+        <h3>gpu/ — 设备出口</h3>
+        <ul>
+          <li><code>present/</code> — MapPass / WorldPass</li>
+          <li>map2d <code>selection/</code> — flash / pick MapIR</li>
+          <li>无 soft HDC 出口</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原则流（一帧）</h2>
+    <svg class="diagram flow" viewBox="0 0 1040 220" role="img" aria-label="present 一帧：bind → frame → gpu → HWND">
+      <rect class="s s1" x="12" y="40" width="230" height="120" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="28" y="68" fill="#2563a8">1 Facade bind</text>
+      <text class="box-sub" x="28" y="92">Presenter 绑 GisScene / ViewFrame / Orbit</text>
+      <text class="box-sub" x="28" y="112">可选 scenic ensure（prefer_*）</text>
+      <text class="box-sub" x="28" y="132">shell overlay generation</text>
+
+      <rect class="s s2" x="274" y="40" width="230" height="120" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="290" y="68" fill="#1d6b4f">2 frame/&lt;role&gt;</text>
+      <text class="box-sub" x="290" y="92">cache / layout / batches / tile</text>
+      <text class="box-sub" x="290" y="112">或 terrain / tileset / overlay</text>
+      <text class="box-sub" x="290" y="132">StaticReuse 可跳过 rebuild</text>
+
+      <rect class="s s3" x="536" y="40" width="230" height="120" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="552" y="68" fill="#8a5a12">3 gpu/present</text>
+      <text class="box-sub" x="552" y="92">graph::present / MapPass / WorldPass</text>
+      <text class="box-sub" x="552" y="112">selection MapIR（map2d）</text>
+      <text class="box-sub" x="552" y="132">1 CommandList</text>
+
+      <rect class="s s4" x="798" y="40" width="230" height="120" rx="8" fill="#f3eef8" stroke="#d8dee6"/>
+      <text class="lane-label" x="814" y="68" fill="#6b5ea8">4 HWND / export</text>
+      <text class="box-sub" x="814" y="92">DXGI SoT；paint = scenic 或 ocean</text>
+      <text class="box-sub" x="814" y="112">blit/ 仅预览 StretchBlt</text>
+      <text class="box-sub" x="814" y="132">无 software/ 目录</text>
+
+      <path d="M242 100 H274" stroke="#94a3b8" stroke-width="2" marker-end="url(#a)"/>
+      <path d="M504 100 H536" stroke="#94a3b8" stroke-width="2" marker-end="url(#a)"/>
+      <path d="M766 100 H798" stroke="#94a3b8" stroke-width="2" marker-end="url(#a)"/>
+      <defs>
+        <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+    </svg>
+    <p class="note">动画按阶段点亮：谁准备 IR、谁录 CL、谁碰 HWND。GPU 车道从不回写 soft HDC。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 目录对照</h2>
+    <table class="map">
+      <thead>
+        <tr><th>旧（扁平）</th><th>新（角色子目录）</th><th>备注</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>host/blit_frame_cache.*</code></td><td><code>host/blit/</code></td><td>表面预览</td></tr>
+        <tr><td><code>host/shell_overlay_effect.h</code></td><td><code>host/overlay/</code></td><td>壳 HUD</td></tr>
+        <tr><td><code>host/scenic_scene_bind.*</code></td><td><code>host/scenic/</code></td><td>共享 scenic bind</td></tr>
+        <tr><td><code>map2d/frame/map2d_*.*</code></td><td><code>map2d/frame/{cache,carto,batches,layout,tile}/</code></td><td>对标 vista layout 角色拆分</td></tr>
+        <tr><td><code>map2d/gpu/*</code></td><td><code>map2d/gpu/{present,selection}/</code></td><td>present vs overlay</td></tr>
+        <tr><td><code>{lane}/*_phase_profile.*</code></td><td><code>{lane}/profile/</code></td><td>时钟不进 facade</td></tr>
+        <tr><td><code>scene3d/scenic_engine_host.*</code></td><td><code>scene3d/scenic/</code></td><td>并列车道，非 facade 成员 API</td></tr>
+        <tr><td><code>scene3d/frame/*</code></td><td><code>scene3d/frame/{orbit,terrain,tileset,overlay}/</code></td><td>地理帧角色</td></tr>
+        <tr><td><code>*/software/</code> · <code>host/scene3d_cpu/</code></td><td><em>删除</em></td><td>软 present 已切除</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel" id="chromium-swimlanes">
+    <h2>4. Chromium ↔ SmartGIS 泳道（Topology A）</h2>
+    <p class="note" style="margin-top:0">语义对照，不是 Mojo Viz 移植。产品默认 Topology A：in-process Views + FlyCube RHI，一帧一条 CommandList。</p>
+    <svg class="diagram swim" viewBox="0 0 1040 280" role="img" aria-label="Chromium 与 SmartGIS Topology A 泳道对照">
+      <!-- Chromium lane -->
+      <text class="lane-label" x="12" y="22" fill="#3d5a80">Chromium（参照）</text>
+      <rect class="s s1" x="12" y="32" width="230" height="72" rx="8" fill="#e8eef5" stroke="#d8dee6"/>
+      <text class="lane-label" x="28" y="56" fill="#3d5a80">1 RWHV</text>
+      <text class="box-sub" x="28" y="78">hosted surface / view</text>
+
+      <rect class="s s2" x="274" y="32" width="230" height="72" rx="8" fill="#e8eef5" stroke="#d8dee6"/>
+      <text class="lane-label" x="290" y="56" fill="#3d5a80">2 cc Commit / Activate</text>
+      <text class="box-sub" x="290" y="78">generation · layer activate</text>
+
+      <rect class="s s3" x="536" y="32" width="230" height="72" rx="8" fill="#e8eef5" stroke="#d8dee6"/>
+      <text class="lane-label" x="552" y="56" fill="#3d5a80">3 CompositorFrame</text>
+      <text class="box-sub" x="552" y="78">IR → display path</text>
+
+      <rect class="s s4" x="798" y="32" width="230" height="72" rx="8" fill="#e8eef5" stroke="#d8dee6"/>
+      <text class="lane-label" x="814" y="56" fill="#3d5a80">4 Viz Display Present</text>
+      <text class="box-sub" x="814" y="78">OutputSurface / swap</text>
+
+      <path d="M242 68 H274" stroke="#94a3b8" stroke-width="2" marker-end="url(#b)"/>
+      <path d="M504 68 H536" stroke="#94a3b8" stroke-width="2" marker-end="url(#b)"/>
+      <path d="M766 68 H798" stroke="#94a3b8" stroke-width="2" marker-end="url(#b)"/>
+
+      <!-- SmartGIS lane -->
+      <text class="lane-label" x="12" y="140" fill="#2563a8">SmartGIS Topology A</text>
+      <rect class="s s1" x="12" y="150" width="230" height="88" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="28" y="174" fill="#2563a8">1 DrawHost</text>
+      <text class="box-sub" x="28" y="196">ShellRaster generation</text>
+      <text class="box-sub" x="28" y="216">→ Presenter bind</text>
+
+      <rect class="s s2" x="274" y="150" width="230" height="88" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="290" y="174" fill="#1d6b4f">2 FrameCache / Action</text>
+      <text class="box-sub" x="290" y="196">PresentAction · StaticReuse</text>
+      <text class="box-sub" x="290" y="216">C lane · mailbox E</text>
+
+      <rect class="s s3" x="536" y="150" width="230" height="88" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="552" y="174" fill="#8a5a12">3 Pass (Map/World)</text>
+      <text class="box-sub" x="552" y="196">MapFrame / World 输入</text>
+      <text class="box-sub" x="552" y="216">CompositorFrame 语义</text>
+
+      <rect class="s s4" x="798" y="150" width="230" height="88" rx="8" fill="#f3eef8" stroke="#d8dee6"/>
+      <text class="lane-label" x="814" y="174" fill="#6b5ea8">4 graph::present</text>
+      <text class="box-sub" x="814" y="196">1 CommandList · DXGI</text>
+      <text class="box-sub" x="814" y="216">G lane · 非 FrameSink</text>
+
+      <path d="M242 194 H274" stroke="#94a3b8" stroke-width="2" marker-end="url(#b)"/>
+      <path d="M504 194 H536" stroke="#94a3b8" stroke-width="2" marker-end="url(#b)"/>
+      <path d="M766 194 H798" stroke="#94a3b8" stroke-width="2" marker-end="url(#b)"/>
+
+      <!-- vertical map ticks -->
+      <line x1="127" y1="104" x2="127" y2="150" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="389" y1="104" x2="389" y2="150" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="651" y1="104" x2="651" y2="150" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="913" y1="104" x2="913" y2="150" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3 3"/>
+
+      <defs>
+        <marker id="b" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+    </svg>
+    <table class="map">
+      <thead>
+        <tr><th>Chromium</th><th>SmartGIS Topology A</th><th>优化落点</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>RWHV</td><td><code>DrawHost</code> → <code>*_Presenter</code></td><td>壳 / bind（非 Viz）</td></tr>
+        <tr><td>cc Commit / Activate</td><td><code>Map2dFrameCache</code> + <code>PresentAction</code></td><td><strong>C</strong> Cache · <strong>E</strong> mailbox</td></tr>
+        <tr><td>CompositorFrame</td><td>vista Pass + published <code>MapFrame</code></td><td>POD / IR，不进 Mojo</td></tr>
+        <tr><td>Viz Display Present</td><td><code>graph::present</code> 1CL</td><td><strong>G</strong> GPU compose</td></tr>
+      </tbody>
+    </table>
+    <div class="reject">
+      拒绝：FrameSink / SurfaceId / Mojo Viz / 再造第二套 Display。热路径只在
+      <a href="./content-present-accelerate.html">§content present accelerate</a>
+      的 C / G / E（C0·G0·E1 等以代码 + living § 为准，勿信虚假 checklist <code>[x]</code>）。
+    </div>
+  </section>
+</div>
+</body>
+</html>

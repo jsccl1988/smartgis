@@ -24,7 +24,7 @@ MapLibre-subset `StyleDocument`、外置符号库、属性/比例尺规则引擎
 
 - fill: `fill-color`, `fill-opacity`, `fill-pattern`
 - line: `line-color`, `line-width`, `line-opacity`, `line-dasharray`, `line-cap`, `line-join`
-- symbol: `icon-image`, `text-field`, `icon-size`, `text-size`, `text-anchor`, `icon-offset`
+- symbol: `icon-image`, `text-field`, `icon-size`, `text-size`, `text-anchor`, `icon-offset`, `text-color`, `text-halo-*`
 - circle: `circle-color`, `circle-radius`, `circle-opacity`
 - heatmap: `heatmap-radius`, `heatmap-weight`, `heatmap-intensity`, `heatmap-color`, `heatmap-opacity`
 - background: `background-color`, `background-opacity`
@@ -36,9 +36,10 @@ paint/layout 值为 JSON 数组且首元为算子时，在 `fill_resolved_paint`
 
 | 类别 | 算子 |
 | --- | --- |
-| 数据 / 字面 | `get`, `literal`, `zoom` |
+| 数据 / 字面 | `get`, `literal`, `zoom`, `to-number` |
 | 比较 | `==`, `!=`, `<`, `<=`, `>`, `>=` |
+| 算术 | `+`, `-`, `*`, `/`（`+`/`*` 可 n-ary；一元 `-`） |
 | 分段 / 插值 | `interpolate`（`linear` / `exponential`；颜色 stop 按通道 lerp）、`step` |
 | 分支 | `match`（标量或标签数组）、`case`、`coalesce` |
 
-仍不做：`cubic-bezier`、`let`/`var`、`*`/`+` 算术族、feature-state、完整类型转换与格式化、heatmap/SDF 专用表达式。
+仍不做：`cubic-bezier`、`let`/`var`、feature-state、完整格式化族、`heatmap-density` 输入表达式、SDF。

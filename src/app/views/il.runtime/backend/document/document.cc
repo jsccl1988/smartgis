@@ -8,6 +8,8 @@
 #include <string>
 
 #include "app/views/browser/browser.h"
+#include "app/views/browser/china_product_defaults.h"
+#include "app/views/browser/ui_delegate.h"
 #include "app/views/il.runtime/backend/view/probe.h"
 #include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
@@ -54,7 +56,18 @@ bool apply_style_file(Browser& browser, const std::string& path_utf8) {
 }
 
 bool open_document(Browser& browser, const std::string& path_utf8) {
-  return open_path_on(browser.document(), path_utf8);
+  if (!open_path_on(browser.document(), path_utf8)) {
+    return false;
+  }
+  // ui.shell / --ui-showcase: china opens after skip-ambox empty start. Drop
+  // the pre-china FlyCube latch so the next present rebuilds carto (otherwise
+  // StaticReuse leaves a hollow black map hole while Layers still check).
+  if (note_product_map2d_surface_after_show(browser)) {
+    if (BrowserUiDelegate* ui = browser.ui()) {
+      ui->invalidate_native_map();
+    }
+  }
+  return true;
 }
 
 bool open_document(plugin::HarnessShell& host, const std::string& path_utf8) {
@@ -71,6 +84,12 @@ bool clear_map_document(Browser& browser) {
 
 bool fit_map_document(Browser& browser) {
   browser.fit_map_extent();
+  // Same latch drop after late china fit (open_map → fit_extent in ui.shell).
+  if (note_product_map2d_surface_after_show(browser)) {
+    if (BrowserUiDelegate* ui = browser.ui()) {
+      ui->invalidate_native_map();
+    }
+  }
   return true;
 }
 

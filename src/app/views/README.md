@@ -111,25 +111,23 @@ Open：`GisScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 carto）、mainland 取景、`kChinaLonLatExtent` + orbit `distance=2.55`、3D 大气
 ocean/cloud/sky/**fog**（`SCENE3D_ATMO=0` / `SCENE3D_LAND_ONLY=1` 可关）。
 产品默认 2D = Vista/FlyCube GPU SoT（`product_startup_policy`）；harness /
-ContentGdi / `FORCE_*` 才钉 ContentMapView/GDI。
+ContentGdi / `FORCE_CONTENT_MAPVIEW_2D` 钉 ContentMapView（无 soft MapIR→HDC）。
 
 **2D 主路径 = RHI**：Map/Data 页默认 `kGpuPresent`；`Map2dPresenter::present_gpu`
-→ Vista `Layout`/`MapPass`。成功且 present HWND 可见时，shell overlay 只画
-`paint_annotation_overlay`；失败或 `FORCE_GDI_MAP_OVERLAY=1` 时回退全量 GDI
-`Map2dPresenter::paint`。
+→ Vista `Layout`/`MapPass`（选中/闪烁为 MapIR overlay）。软 MapIR→HDC /
+`paint_annotation_overlay` 已删除；HWND `paint()` 仅为 scenic MemFrame 或
+ocean fill。导出走 scenic `export_bmp`。
 
 ```bat
-rem 强制 2D 走 ContentMapView / 跳过 Vista：
+rem 强制 2D 走 ContentMapView（仍以 GPU present 为 SoT；无 soft carto）：
 set FORCE_CONTENT_MAPVIEW_2D=1
 rem 或: set PREFER_FLYCUBE_2D=0
-rem 强制 GDI 全量 overlay（仍可挂 Vista HWND，但不以 present_gpu 为 SoT）：
-set FORCE_GDI_MAP_OVERLAY=1
 out\Debug\SmartGisViews.exe
 ```
 
 3D 页：`view3d.trackball` 更新 `OrbitFrame` / `Scene3dPresenter`。默认
-**Vista RHI**（`present_gpu`；成功时 shell 只叠 `paint_hud`）。挂接失败时
-回退 ContentMapView / GDI `Scene3dPresenter::paint()`。**不会**在 Vista
+**Vista RHI**（`present_gpu`；HUD 为 vista HudPass）。软 DEM /
+`paint_hud` HDC 已删除；`paint()` 仅为 scenic MemFrame。**不会**在 Vista
 SoT 下再挂 leftover OpenGL（同 HWND 抢 swapchain 会把徽章永久钉成
 `Stereo/GL`）。
 

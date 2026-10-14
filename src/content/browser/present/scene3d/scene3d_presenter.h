@@ -14,9 +14,8 @@
 
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
-#include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
-#include "content/browser/present/scene3d/scenic_engine_host.h"
-#include "content/browser/present/scene3d/hdc/scene3d_hdc_painter.h"
+#include "content/browser/present/scene3d/gpu/present/scene3d_gpu_present.h"
+#include "content/browser/present/scene3d/scenic/scenic_engine_host.h"
 #include "content/public/types.h"
 #include "render/rhi/rhi.h"
 #include "tool/draft/draft.h"
@@ -28,7 +27,8 @@ class GisContents;
 class GisScene;
 class ViewFrame;
 
-// Thin 3D present facade: Atmosphere + GPU/HDC, or hosted scenic::Engine.
+// Thin 3D present facade: Atmosphere + GPU (Vista WorldPass + HudPass), or
+// hosted scenic::Engine. Soft DEM / FORCE_GDI removed — GPU fail is fail.
 class Scene3dPresenter {
  public:
   // Heap-allocate in this TU so BrowserSession (exe source_set) does not
@@ -51,8 +51,6 @@ class Scene3dPresenter {
   const AtmosphereSession& atmosphere_session() const { return *atmosphere_; }
   Scene3dGpuPresent& gpu() { return gpu_; }
   const Scene3dGpuPresent& gpu() const { return gpu_; }
-  Scene3dHdcPainter& hdc() { return hdc_; }
-  const Scene3dHdcPainter& hdc() const { return hdc_; }
 
   bool hosts_scenic_present() const;
 
@@ -95,10 +93,9 @@ class Scene3dPresenter {
   render::rhi::CameraMatrices camera_matrices_ortho(float width_px,
                                                     float height_px) const;
 
+  // Scenic MemFrame only. Soft DEM removed — otherwise no paint.
   void paint(HDC hdc, int width_px, int height_px,
              bool fill_background = true) const;
-  void paint_hud(HDC hdc, int width_px, int height_px) const;
-  void paint_legacy_place_labels(HDC hdc, int width_px, int height_px) const;
 
   bool present_gpu(render::rhi::Device* device, uint32_t width_px,
                    uint32_t height_px,
@@ -112,12 +109,9 @@ class Scene3dPresenter {
   void set_render_engine_name(const char* name) const;
 
  private:
-  void rebind_hdc();
-
   // Heap Ptr — do not embed AtmosphereSession by value (sizeof skew / exe bloat).
   AtmosphereSession::Ptr atmosphere_;
   Scene3dGpuPresent gpu_;
-  Scene3dHdcPainter hdc_;
   mutable detail::ScenicScene3dHost scenic_host_;
 
   const ViewFrame* label_frame_ = nullptr;

@@ -3,13 +3,13 @@
 
 #include "plugin/product/geochem/views/analyze_dialog.h"
 
-#include <cstdlib>
 #include <memory>
 #include <string>
 #include <utility>
 
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/resource_roots.h"
+#include "plugin/runtime/widgets/dialog_fields.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/markup/loader/markup_loader.h"
@@ -18,21 +18,8 @@
 
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-#include "base/process/switches.h"
 
 namespace plugin {
-namespace {
-
-double parse_double(const std::string& text, double fallback) {
-  if (text.empty()) {
-    return fallback;
-  }
-  char* end = nullptr;
-  const double v = std::strtod(text.c_str(), &end);
-  return end != text.c_str() ? v : fallback;
-}
-
-}  // namespace
 
 AnalyzeDialog::AnalyzeDialog(content::PluginHost* host) : host_(host) {
   constexpr int kW = 540;
@@ -85,15 +72,9 @@ AnalyzeDialog::AnalyzeDialog(content::PluginHost* host) : host_(host) {
   loaded.root->set_preferred_size({kW, kH});
   add_child(std::move(loaded.root));
 
-  const char* sample_dir = base::switch_cstr("plugin-sample-dir");
-  const std::string base =
-      sample_dir && *sample_dir ? std::string(sample_dir) : "../data/plugin";
-  if (input_path_ && input_path_->text().empty()) {
-    input_path_->set_text(base + "/geochem/geochem_samples.csv");
-  }
-  if (output_path_ && output_path_->text().empty()) {
-    output_path_->set_text(base + "/geochem_idw.tif");
-  }
+  const std::string base = plugin_sample_dir();
+  set_textfield_if_empty(input_path_, base + "/geochem/geochem_samples.csv");
+  set_textfield_if_empty(output_path_, base + "/geochem_idw.tif");
 
   if (host_) {
     host_->present_dataset("smartgis.geochem", "", 0);
@@ -140,13 +121,14 @@ std::string AnalyzeDialog::build_analyze_json() const {
   w.Key("output");
   w.String(output_path_ ? output_path_->text().c_str() : "");
   w.Key("cells");
-  w.Int(static_cast<int>(parse_double(cells_ ? cells_->text() : "", 64.0)));
+  w.Int(static_cast<int>(
+      parse_field_double(cells_ ? cells_->text() : "", 64.0)));
   w.Key("classes");
   w.Int(static_cast<int>(
-      parse_double(classes_ ? classes_->text() : "", 5.0)));
+      parse_field_double(classes_ ? classes_->text() : "", 5.0)));
   if (threshold_ && !threshold_->text().empty()) {
     w.Key("threshold");
-    w.Double(parse_double(threshold_->text(), 0.0));
+    w.Double(parse_field_double(threshold_->text(), 0.0));
   }
   w.EndObject();
   return buf.GetString();
@@ -173,7 +155,7 @@ std::string AnalyzeDialog::build_stats_json() const {
   }
   w.Key("classes");
   w.Int(static_cast<int>(
-      parse_double(classes_ ? classes_->text() : "", 5.0)));
+      parse_field_double(classes_ ? classes_->text() : "", 5.0)));
   w.EndObject();
   return buf.GetString();
 }

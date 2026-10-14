@@ -50,11 +50,11 @@ bool compute_extent(const LayerStore& store, double* min_x, double* min_y,
   double miny = 0;
   double maxx = 0;
   double maxy = 0;
-  for (const GisLayer& layer : store.layers()) {
+  for (const MapLayer& layer : store.layers()) {
     if (!layer.visible) {
       continue;
     }
-    for (const GisFeature& f : layer.features) {
+    for (const MapFeature& f : layer.features) {
       for (const Vertex& p : f.points) {
         if (!have) {
           minx = maxx = p.x;
@@ -79,62 +79,47 @@ bool compute_extent(const LayerStore& store, double* min_x, double* min_y,
   return true;
 }
 
-bool has_china_extent(const LayerStore& store) {
+bool has_drawable_extent(const LayerStore& store) {
   double minx = 0;
   double miny = 0;
   double maxx = 0;
   double maxy = 0;
-  if (!compute_extent(store, &minx, &miny, &maxx, &maxy)) {
-    return false;
-  }
-  if (minx < 60.0 || maxx > 145.0 || minx > maxx) {
-    return false;
-  }
-  const double south = -maxy;
-  const double north = -miny;
-  size_t regions = 0;
-  size_t lines = 0;
-  size_t points = 0;
-  size_t texts = 0;
-  for (const GisLayer& layer : store.layers()) {
-    for (const GisFeature& f : layer.features) {
-      switch (f.kind) {
-        case GeomKind::kPolygon:
-          ++regions;
-          break;
-        case GeomKind::kLine:
-          ++lines;
-          break;
-        case GeomKind::kPoint:
-          ++points;
-          break;
-        case GeomKind::kText:
-          ++texts;
-          break;
-      }
+  return compute_extent(store, &minx, &miny, &maxx, &maxy);
+}
+
+bool has_land_surface(const LayerStore& store) {
+  for (const MapLayer& layer : store.layers()) {
+    if (layer.role == LayerRole::kLandSurface) {
+      return true;
     }
   }
-  // City names may live on point features alone (no parallel text layer).
-  const size_t place_marks = points + texts;
-  return south >= 3.0 && north <= 60.0 && south < north && regions >= 3 &&
-         lines >= 2 && place_marks >= 3;
+  return false;
+}
+
+bool land_surface_visible(const LayerStore& store) {
+  for (const MapLayer& layer : store.layers()) {
+    if (layer.role == LayerRole::kLandSurface && layer.visible) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool active_layer_world_extent(const LayerStore& store,
                                content::Extent2* out) {
-  const GisLayer* layer = store.find_layer(store.active_layer_id());
+  const MapLayer* layer = store.find_layer(store.active_layer_id());
   if (!layer) {
     return false;
   }
   std::vector<Vertex> points;
-  for (const GisFeature& feature : layer->features) {
+  for (const MapFeature& feature : layer->features) {
     points.insert(points.end(), feature.points.begin(), feature.points.end());
   }
   return envelope_world(points, out);
 }
 
 bool selection_world_extent(const LayerStore& store, content::Extent2* out) {
-  const GisFeature* feature = store.selected_feature();
+  const MapFeature* feature = store.selected_feature();
   if (!feature) {
     return false;
   }
@@ -158,8 +143,8 @@ void export_land_rings(const LayerStore& store,
     return;
   }
   out->clear();
-  auto append_layer = [&](const GisLayer& layer) {
-    for (const GisFeature& f : layer.features) {
+  auto append_layer = [&](const MapLayer& layer) {
+    for (const MapFeature& f : layer.features) {
       if (f.kind != GeomKind::kPolygon || f.points.size() < 3) {
         continue;
       }
@@ -173,21 +158,22 @@ void export_land_rings(const LayerStore& store,
       out->push_back(std::move(ring));
     }
   };
-  bool used_area = false;
-  for (const GisLayer& layer : store.layers()) {
+  bool used_land = false;
+  for (const MapLayer& layer : store.layers()) {
+    if (!layer.visible || layer.role != LayerRole::kLandSurface) {
+      continue;
+    }
+    append_layer(layer);
+    used_land = true;
+  }
+  if (used_land && !out->empty()) {
+    return;
+  }
+  for (const MapLayer& layer : store.layers()) {
     if (!layer.visible) {
       continue;
     }
-    if (layer.name == "area") {
-      append_layer(layer);
-      used_area = true;
-    }
-  }
-  if (used_area && !out->empty()) {
-    return;
-  }
-  for (const GisLayer& layer : store.layers()) {
-    if (!layer.visible) {
+    if (layer.role != LayerRole::kNone) {
       continue;
     }
     if (layer.name == "line" || layer.name == "point" ||
@@ -210,8 +196,8 @@ bool polygon_fit_box(const LayerStore& store, double* min_x, double* min_y,
   double maxy = 0;
   auto accumulate = [&](GeomKind only_kind, bool filter_kind) {
     have = false;
-    for (const GisLayer& layer : store.layers()) {
-      for (const GisFeature& f : layer.features) {
+    for (const MapLayer& layer : store.layers()) {
+      for (const MapFeature& f : layer.features) {
         if (filter_kind && f.kind != only_kind) {
           continue;
         }

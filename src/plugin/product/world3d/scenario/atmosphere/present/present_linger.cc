@@ -60,15 +60,7 @@ AtmospherePresentLingerResult run_atmosphere_present_linger(
   bool captured = early_bmp_ok;
   // Timed CI: do not sleep 33ms between presents (that capped ~30fps and
   // hid present cost). Interactive until-close still paces for readability.
-  // ATMOSPHERE_SHOWCASE_PUMP_MS overrides (e.g. 16 ≈ 60Hz interactive).
-  int pump_ms = linger.until_close ? 16 : 0;
-  if (const char* pump_env = base::switch_cstr("atmosphere-showcase-pump-ms");
-      pump_env && *pump_env) {
-    pump_ms = std::atoi(pump_env);
-    if (pump_ms < 0) {
-      pump_ms = 0;
-    }
-  }
+  const int pump_ms = linger.until_close ? 16 : 0;
   uint32_t pw = kAtmosphereShowcaseW;
   uint32_t ph = kAtmosphereShowcaseH;
   atmosphere_hwnd_present_size(

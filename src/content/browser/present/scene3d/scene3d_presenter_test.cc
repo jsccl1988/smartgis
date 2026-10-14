@@ -5,7 +5,6 @@
 #include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/document/gis_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "content/browser/present/scene3d/hdc/scene3d_hdc_painter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "vista/terrain/dem/dem_frame.h"
 #include "render/rhi/rhi.h"
@@ -97,13 +96,13 @@ int main() {
     base::set_switch("scene3d-engine", "stereo_gl");
     expect(content::apply_scene3d_engine_from_env(), "env stereo_gl applies");
     expect(content::prefer_scene3d_stereo_gl(), "env stereo_gl engine");
-    expect(content::prefer_scene3d_stereo_opengl(), "env stereo_gl �?OpenGL");
+    expect(content::prefer_scene3d_stereo_opengl(), "env stereo_gl -OpenGL");
     expect(!content::prefer_scene3d_stereo_d3d(), "env stereo_gl not D3D");
 
     base::set_switch("scene3d-engine", "stereo_d3d");
     expect(content::apply_scene3d_engine_from_env(), "env stereo_d3d applies");
     expect(content::prefer_scene3d_stereo_gl(), "env stereo_d3d still stereo");
-    expect(content::prefer_scene3d_stereo_d3d(), "env stereo_d3d �?D3D");
+    expect(content::prefer_scene3d_stereo_d3d(), "env stereo_d3d -D3D");
     expect(!content::prefer_scene3d_stereo_opengl(), "env stereo_d3d not GL");
 
     base::set_switch("scene3d-engine", "scenic");
@@ -135,7 +134,7 @@ int main() {
                      std::cos(orbit->yaw());
     expect(ez < 0.f, "default eye south of origin (north-up)");
   }
-  // RH lookAt looking +Z �?camera right = -X; mesh X=-lon puts east on right.
+  // RH lookAt looking +Z -camera right = -X; mesh X=-lon puts east on right.
   expect(vista::dem_lon_to_x(121.0) < vista::dem_lon_to_x(88.0),
          "east X < west X (screen-right looking north)");
   expect(orbit->camera_matrices(1.333f).kind ==
@@ -147,6 +146,28 @@ int main() {
     const float visible =
         orbit->distance() * std::tan(content::kScene3dFovY * 0.5f);
     expect(visible + 1e-3f >= half_diag, "orbit frames full DEM");
+  }
+  // Product China orbit must not park inside the DEM sphere (half-cut), and
+  // must keep FlyCube clip planes at (0.1, 100) — adaptive near washed DEM.
+  {
+    expect(std::fabs(orbit->distance() - content::kScene3dDefaultDistance) <
+               1e-4f,
+           "default distance frames DEM");
+    expect(orbit->distance() + 1e-4f >= content::kScene3dDollyMinLocal,
+           "default distance above local dolly floor");
+    orbit->set_distance(1.45f);
+    expect(orbit->distance() + 1e-4f >= content::kScene3dDollyMinLocal,
+           "set_distance(1.45) clamps outside DEM sphere");
+    const float dem_radius = content::kScene3dDefaultDistance * 0.55f;
+    expect(orbit->distance() > dem_radius + 0.2f,
+           "clamped eye outside DEM radius");
+    const auto mats = orbit->camera_matrices(1.333f);
+    constexpr float kNear = 0.1f;
+    constexpr float kFar = 100.f;
+    const float expect_p14 = (kNear * kFar) / (kNear - kFar);
+    expect(std::fabs(mats.proj[14] - expect_p14) < 1e-4f,
+           "orbit clip near=0.1 far=100");
+    orbit->reset();
   }
   expect(orbit->camera_matrices_ortho(800.f, 600.f).kind ==
              render::rhi::CameraKind::kOrtho,
@@ -183,7 +204,7 @@ int main() {
   {
     tool::Draft d;
     d.kind = tool::DraftKind::kRect;
-    d.flags = 0x0002;  // MK_RBUTTON �?orbit
+    d.flags = 0x0002;  // MK_RBUTTON -orbit
     d.points.push_back({0, 0});
     d.points.push_back({0, -5000});
     orbit->apply_draft(d);
@@ -199,7 +220,7 @@ int main() {
   expect(content::extent_nonempty(orbit->world_extent()), "bound map has extent");
 
   // Seeded GisScene (China PLP) must still present DEM via World and WorldPass.
-  // Heap-allocate Scene3dPresenter — stack frame + WorldPass exceeds Debug RTC
+  // Heap-allocate Scene3dPresenter  -stack frame + WorldPass exceeds Debug RTC
   // comfort and has hung te on _RTC_StackFailure MessageBox.
   {
     content::GisScene seeded;
@@ -218,61 +239,9 @@ int main() {
                dem_device->initialize(render::rhi::DeviceDesc()),
            "null device for seeded DEM");
     expect(dem_cam->present_gpu(dem_device.get(), 64, 64),
-           "present_gpu after seed_default");
-    // GDI DEM wireframe path (Views placeholder / late DIB).
-    HDC screen = GetDC(nullptr);
-    expect(screen != nullptr, "screen DC for GDI paint");
-    if (screen) {
-      HDC mem = CreateCompatibleDC(screen);
-      BITMAPINFO bi = {};
-      bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-      bi.bmiHeader.biWidth = 64;
-      bi.bmiHeader.biHeight = -64;
-      bi.bmiHeader.biPlanes = 1;
-      bi.bmiHeader.biBitCount = 32;
-      bi.bmiHeader.biCompression = BI_RGB;
-      void* bits = nullptr;
-      HBITMAP dib =
-          CreateDIBSection(mem, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
-      expect(mem && dib && bits, "GDI DIB for paint");
-      if (mem && dib) {
-        HGDIOBJ old = SelectObject(mem, dib);
-        dem_cam->reset();
-        dem_cam->paint(mem, 64, 64, /*fill_background=*/true);
-        // Stride paint must cover the China AABB, not only the first mesh
-        // rows (regression: thin green ribbon from first-N tris).
-        if (bits) {
-          const auto* px = static_cast<const std::uint32_t*>(bits);
-          int min_x = 64, max_x = -1, min_y = 64, max_y = -1, hits = 0;
-          for (int y = 0; y < 64; ++y) {
-            for (int x = 0; x < 64; ++x) {
-              const unsigned c = px[y * 64 + x];
-              const unsigned r = c & 0xff;
-              const unsigned g = (c >> 8) & 0xff;
-              const unsigned b = (c >> 16) & 0xff;
-              // Background clear is black; DEM fills are hypsometric (green /
-              // yellow / pink). Count any non-black land-like pixel.
-              if ((r + g + b) > 80 && !(r < 20 && g < 20 && b < 20)) {
-                ++hits;
-                min_x = (std::min)(min_x, x);
-                max_x = (std::max)(max_x, x);
-                min_y = (std::min)(min_y, y);
-                max_y = (std::max)(max_y, y);
-              }
-            }
-          }
-          expect(hits > 80, "GDI DEM paints many land pixels");
-          expect(max_x - min_x > 20 && max_y - min_y > 12,
-                 "GDI DEM spans China AABB (not a ribbon)");
-        }
-        dem_cam->paint(mem, 64, 64, /*fill_background=*/false);
-        dem_cam->paint_hud(mem, 64, 64);
-        SelectObject(mem, old);
-        DeleteObject(dib);
-        DeleteDC(mem);
-      }
-      ReleaseDC(nullptr, screen);
-    }
+           "present_gpu after seed_default (WorldPass + HudPass)");
+    // Soft DEM removed — paint() is scenic MemFrame only / no-op.
+    dem_cam->paint(nullptr, 64, 64, /*fill_background=*/true);
     dem_cam->abandon_mesh();
   }
 
@@ -287,7 +256,7 @@ int main() {
   expect(env.sky_enabled() && env.fog_enabled(), "demo enables sky/fog");
   expect(env.field_store().layer_count() > 0, "demo seeded fields");
 
-  // Wind overlay: sample seeded WindU/V into GDI arrows (CPU path).
+  // Wind overlay: seeded WindU/V fed into vista HudPass on present_gpu.
   {
     auto wind_orbit = std::make_unique<content::OrbitFrame>();
     auto wind_cam = std::make_unique<content::Scene3dPresenter>();
@@ -295,30 +264,18 @@ int main() {
     wind_cam->bind_scene(&scene);
     wind_cam->atmosphere_session().seed_procedural();
     wind_cam->atmosphere_session().set_wind_overlay_enabled(true);
-    expect(wind_cam->atmosphere_session().wind_overlay_enabled(), "wind overlay on");
+    expect(wind_cam->atmosphere_session().wind_overlay_enabled(),
+           "wind overlay on");
     wind_cam->atmosphere_session().set_time_sec(12.5);
-    expect(std::abs(wind_cam->atmosphere_session().time_sec() - 12.5) < 1e-9, "time scrub");
-    HDC screen = GetDC(nullptr);
-    if (screen) {
-      HDC mem = CreateCompatibleDC(screen);
-      BITMAPINFO bi = {};
-      bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-      bi.bmiHeader.biWidth = 64;
-      bi.bmiHeader.biHeight = -64;
-      bi.bmiHeader.biPlanes = 1;
-      bi.bmiHeader.biBitCount = 32;
-      void* bits = nullptr;
-      HBITMAP dib =
-          CreateDIBSection(mem, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
-      if (dib) {
-        HGDIOBJ old = SelectObject(mem, dib);
-        wind_cam->paint_hud(mem, 64, 64);
-        SelectObject(mem, old);
-        DeleteObject(dib);
-      }
-      DeleteDC(mem);
-      ReleaseDC(nullptr, screen);
-    }
+    expect(std::abs(wind_cam->atmosphere_session().time_sec() - 12.5) < 1e-9,
+           "time scrub");
+    std::unique_ptr<render::rhi::Device> wind_device(
+        render::rhi::create_device(render::rhi::Backend::kNull));
+    expect(wind_device != nullptr &&
+               wind_device->initialize(render::rhi::DeviceDesc()),
+           "null device for wind HUD");
+    expect(wind_cam->present_gpu(wind_device.get(), 64, 64),
+           "present_gpu with wind HudPass");
     wind_cam->abandon_mesh();
   }
 
@@ -336,7 +293,7 @@ int main() {
     expect(oenv->field_store().layer_count() > 0, "ocean-only seeded");
   }
 
-  // Null RHI present: ocean �?land �?clouds must not crash.
+  // Null RHI present: ocean -land -clouds must not crash.
   {
     std::unique_ptr<render::rhi::Device> device(
         render::rhi::create_device(render::rhi::Backend::kNull));
@@ -367,7 +324,7 @@ int main() {
     expect(m3_err.empty(), "m3 hooks no error tag");
   }
 
-  // Engine logo badge: bottom-right dark box with light text on a mem DC.
+  // Engine display names (HUD badge text comes from these on HudPass).
   {
     expect(std::strcmp(render::rhi::backend_display_name(
                            render::rhi::Backend::kDx12),
@@ -385,43 +342,6 @@ int main() {
                            render::rhi::Backend::kNull),
                        "Null") == 0,
            "Null display name");
-
-    HDC screen = GetDC(nullptr);
-    expect(screen != nullptr, "screen DC for logo");
-    if (screen) {
-      HDC mem = CreateCompatibleDC(screen);
-      BITMAPINFO bi = {};
-      bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-      bi.bmiHeader.biWidth = 160;
-      bi.bmiHeader.biHeight = -120;
-      bi.bmiHeader.biPlanes = 1;
-      bi.bmiHeader.biBitCount = 32;
-      void* bits = nullptr;
-      HBITMAP dib =
-          CreateDIBSection(mem, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
-      expect(dib != nullptr && bits != nullptr, "logo DIB");
-      if (dib && bits) {
-        HGDIOBJ old = SelectObject(mem, dib);
-        auto* px = static_cast<uint32_t*>(bits);
-        for (int i = 0; i < 160 * 120; ++i) {
-          px[i] = 0xFF808080u;  // mid gray so the dark badge is distinct
-        }
-        content::Scene3dHdcPainter::paint_engine_logo(mem, 160, 120,
-                                                    "ContentMapView");
-        // Sample bottom-right margin (badge sits ~14px inset).
-        const int sx = 160 - 20;
-        const int sy = 120 - 20;
-        const uint32_t sample = px[sy * 160 + sx];
-        const uint8_t b = static_cast<uint8_t>(sample & 0xFFu);
-        const uint8_t g = static_cast<uint8_t>((sample >> 8) & 0xFFu);
-        const uint8_t r = static_cast<uint8_t>((sample >> 16) & 0xFFu);
-        expect(r < 40 && g < 50 && b < 60, "logo badge is dark bottom-right");
-        SelectObject(mem, old);
-        DeleteObject(dib);
-      }
-      DeleteDC(mem);
-      ReleaseDC(nullptr, screen);
-    }
   }
 
   if (g_fails != 0) {

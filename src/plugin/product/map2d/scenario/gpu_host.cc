@@ -8,21 +8,12 @@
 #include "render/rhi/rhi.h"
 #include "ui/views/map/viewport/draw_host.h"
 
-#include <cstdlib>
-#include "base/process/switches.h"
-
 namespace plugin {
 namespace detail {
 
 bool map2d_want_gpu_present() {
-  if (base::switch_is_one("map2d-showcase-gpu")) {
-    return true;
-  }
-  if (const char* ev = std::getenv("MAP2D_SHOWCASE_GPU");
-      ev && ev[0] == '1' && ev[1] == '\0') {
-    return true;
-  }
-  return false;
+  // Scenario Run always exercises present_gpu (no sticky MAP2D_SHOWCASE_GPU).
+  return true;
 }
 
 HWND create_map2d_showcase_gpu_hwnd(int showcase_w, int showcase_h) {
@@ -38,10 +29,10 @@ HWND create_map2d_showcase_gpu_hwnd(int showcase_w, int showcase_h) {
       return nullptr;
     }
   }
-  const int w = showcase_w > 0 ? showcase_w : 1280;
-  const int h = showcase_h > 0 ? showcase_h : 720;
+  const int w = showcase_w > 0 ? showcase_w : kMap2dDefaultW;
+  const int h = showcase_h > 0 ? showcase_h : kMap2dDefaultH;
   return CreateWindowExW(
-      WS_EX_TOOLWINDOW, L"SmartGisMap2dShowcaseGpu", L"map2d-showcase-gpu",
+      WS_EX_TOOLWINDOW, L"SmartGisMap2dShowcaseGpu", L"map2d-scenario-gpu",
       WS_POPUP, 0, 0, w, h, nullptr, nullptr, GetModuleHandleW(nullptr),
       nullptr);
 }

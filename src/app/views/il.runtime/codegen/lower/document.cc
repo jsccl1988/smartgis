@@ -40,6 +40,7 @@ std::optional<Action> lower_open_document(const CallStmt& c, VarMap* vars) {
 
 std::optional<Action> lower_session(const CallStmt& c, VarMap* vars) {
   return lower_ops(c, vars, op(lower_open_document, "open_document"),
+                   op(lower_open_document, "open_map"),
                    op(lower_host<ir::doc_clear>, "doc_clear"));
 }
 

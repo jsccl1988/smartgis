@@ -115,21 +115,24 @@ bool FlycubeDevice::copy_bgra_to_imported_shared(const uint8_t* bgra,
     return false;
   }
 
-  size_t num_bytes = 0;
-  size_t row_bytes = 0;
-  size_t num_rows = 0;
-  GetFormatInfo(width_px, height_px, gli::FORMAT_BGRA8_UNORM_PACK8, num_bytes,
-                row_bytes, num_rows);
+  // Tight BGRA8 source pitch (caller stride may be larger). Do not ask
+  // GetFormatInfo to size the memcpy — a pre-aligned row_bytes larger than
+  // stride_bytes over-reads each row and shears the shell overlay.
+  const size_t src_row = static_cast<size_t>(width_px) * 4u;
+  if (stride_bytes < src_row) {
+    return false;
+  }
   const uint64_t aligned_row =
-      Align(row_bytes, fc_device_->GetTextureDataPitchAlignment());
-  const uint64_t buffer_size = aligned_row * num_rows;
+      Align(src_row, fc_device_->GetTextureDataPitchAlignment());
+  const uint64_t buffer_size = aligned_row * static_cast<uint64_t>(height_px);
 
-  // Pack tightly or with source stride into a contiguous staging image.
-  std::vector<uint8_t> packed(static_cast<size_t>(row_bytes) * num_rows);
+  // Pack source rows (honoring stride) into a tightly addressed staging image
+  // so UpdateUploadBufferWithTextureData can pad to aligned_row safely.
+  std::vector<uint8_t> packed(src_row * static_cast<size_t>(height_px));
   for (uint32_t y = 0; y < height_px; ++y) {
     const uint8_t* src = bgra + static_cast<size_t>(y) * stride_bytes;
-    uint8_t* dst = packed.data() + static_cast<size_t>(y) * row_bytes;
-    std::memcpy(dst, src, row_bytes);
+    uint8_t* dst = packed.data() + static_cast<size_t>(y) * src_row;
+    std::memcpy(dst, src, src_row);
   }
 
   ::BufferDesc upload_desc;
@@ -147,8 +150,8 @@ bool FlycubeDevice::copy_bgra_to_imported_shared(const uint8_t* bgra,
       .texture_extent = {.width = width_px, .height = height_px, .depth = 1},
   };
   upload->UpdateUploadBufferWithTextureData(
-      0, aligned_row, buffer_size, packed.data(), row_bytes,
-      row_bytes * num_rows, row_bytes, static_cast<uint32_t>(num_rows), 1);
+      0, aligned_row, buffer_size, packed.data(), src_row,
+      src_row * height_px, src_row, height_px, 1);
 
   wait_for_idle();
   auto fc_list = fc_device_->CreateCommandList(::CommandListType::kGraphics);

@@ -18,8 +18,9 @@ browser/
   contents/     # GisContents + gis_bootstrap + catalog_layers + plugin_host
   session/      # BrowserSession + GisHwndGestures
   document/
-    gis_scene.* / gis_document.*   # scene core + GisDocument adapter (root)
-    store/ edit/ ingest/ query/ style/
+    gis_scene.* / gis_document.*   # scene core (PIMPL) + GisDocument adapter
+    store/   map_layer.h + layer_store.*
+    edit/ ingest/ query/ style/    # ingest: ogr + seed (+ path_looks_like_china_city)
   camera/       # ViewFrame, OrbitFrame, ViewNavigation
   present/      # C3 nest (see present/README.md)
   capability/   # IL Host (header-only)
@@ -48,4 +49,4 @@ browser/
 
 ---
 
-**最后更新：** 2026-10-07
+**最后更新：** 2026-10-08

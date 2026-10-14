@@ -66,7 +66,7 @@ LRESULT CALLBACK ShellLifecycleComposer::shell_wheel_subclass_proc(HWND hwnd, UI
                                                        UINT_PTR id,
                                                        DWORD_PTR data) {
   auto* self = reinterpret_cast<BrowserView*>(data);
-  // Posted by deferred China seed when VIEWS_START_MAP_TAB is set — must
+  // Posted by deferred China seed when VIEWS_START_MAP_TAB is set -- must
   // not nest select_view_tab inside the seed timer / switch_map_tab wait.
   constexpr UINT kReselectTab = WM_APP + 0x5354;  // 'ST'
   constexpr UINT kExtentChangedUi = WM_APP + 0x5253;  // 'RS'
@@ -145,7 +145,7 @@ bool ShellLifecycleComposer::init_shell() {
       return false;
     }
   }
-  // Mid snapshots → *.partial-*.txt; final dump is after first show only.
+  // Mid snapshots -- *.partial-*.txt; final dump is after first show only.
   base::trace::dump_startup_profile_partial("post-widget");
   host_->widget_.set_will_close([this]() {
     if (host_->browser_) {
@@ -184,19 +184,16 @@ bool ShellLifecycleComposer::init_shell() {
         std::fprintf(stderr, "startup: SeedDocument clear SEH fail\n");
       }
     } else {
-      // Match --ui-showcase=shell: open china_city before first paint. Skip
-      // O(n×m) land-clip on this sync path so bare launch stays interactive;
-      // hillshade still bakes on the first settled MapIR after show.
-      base::set_switch("skip-china-land-clip", "1");
+      // Match --ui-showcase=shell: open china_city before first paint.
+      // Land-mask / bbox clip are offline (testing/data/carto_prep).
       {
         BASE_TRACE_EVENT("SeedDocument.Default", "startup");
         if (!detail::seh_seed_default(host_->browser_, /*allow_china=*/true)) {
           std::fprintf(stderr, "startup: SeedDocument china SEH fail\n");
         }
       }
-      base::set_switch("skip-china-land-clip", "");
       std::fprintf(stderr, "startup: SeedDocument china=%d layers=%zu feats=%zu\n",
-                   host_->browser_->session().document_has_china_extent() ? 1 : 0,
+                   host_->browser_->session().document_has_land_surface() ? 1 : 0,
                    host_->browser_->session().document_layer_count(),
                    host_->browser_->session().document_feature_count());
     }
@@ -219,11 +216,11 @@ bool ShellLifecycleComposer::init_shell() {
         std::fprintf(stderr, "startup: fit/push_shared_extent SEH fail\n");
       }
     }
-    // Showcase SKIP_AMBOX_CATALOG: skip push_shared_extent too — under
+    // Showcase SKIP_AMBOX_CATALOG: skip push_shared_extent too -- under
     // parallel gis_d rebuilds it AVd after SeedDocument (exit 3, no marks).
     host_->wire_map_scene();
   }
-  // Snapshot before FlyCube attach — often the slowest / hangiest startup step.
+  // Snapshot before FlyCube attach -- often the slowest / hangiest startup step.
   base::trace::dump_startup_profile_partial("pre-attach");
   {
     BASE_TRACE_EVENT("AttachViewports", "startup");
@@ -238,7 +235,7 @@ bool ShellLifecycleComposer::init_shell() {
   {
     BASE_TRACE_EVENT("WireShell", "startup");
     // Re-fit after HWND sizes settle (layout may change client rect post-attach).
-    // Same showcase skip as BindPresenters — demo-only seed AVs in fit_map_extent
+    // Same showcase skip as BindPresenters -- demo-only seed AVs in fit_map_extent
     // / push_shared_extent (ui_ offset freefill under parallel ninja + SKIP_AMBOX).
     // ui.shell china seed later calls fit_map_extent (which pushes extent).
     const bool skip_fit_push = []() {
@@ -253,8 +250,8 @@ bool ShellLifecycleComposer::init_shell() {
     // Catalog, inspector sync, tool seams, and HWND gestures run in
     // finish_deferred_shell_wiring() after WaitFirstMapPresent (show_shell).
     // China 3D atmosphere (same defaults as --atmosphere-showcase=full) is
-    // seeded on first switch to the 3D tab — see apply_china_scene3d_* in
-    // switch_map_tab — so init_shell does not pay DEM/atmosphere cost before
+    // seeded on first switch to the 3D tab -- see apply_china_scene3d_* in
+    // switch_map_tab -- so init_shell does not pay DEM/atmosphere cost before
     // the Map pane is interactive.
   }
   return true;
@@ -279,9 +276,9 @@ void ShellLifecycleComposer::show_shell() {
     host_->widget_.show();
   }
   // ShowWindow may present an empty compositor front (async raster). Re-layout
-  // and schedule shell paint only — do not call host_->invalidate_map_overlays() here:
+  // and schedule shell paint only -- do not call host_->invalidate_map_overlays() here:
   // that syncs paint_map_content while ContentMapView / Map2dPresenter are
-  // still settling and has AVd in Map2dHdcPainter (STL orphan) under
+  // still settling and has AVd in Map2dPresenter paint (STL orphan) under
   // --self-test. Kick the active map HWND asynchronously (InvalidateRect,
   // no UpdateWindow).
   host_->widget_.layout_contents();
@@ -296,7 +293,7 @@ void ShellLifecycleComposer::show_shell() {
             host_->map_tabs_ ? host_->map_tabs_->bounds().x : -1);
   }
   // Work splitter: re-pin inspector 320 and reseed so map_column stays flex
-  // primary (SecondaryFixed) — proportional seed crushed Map beside Feature.
+  // primary (SecondaryFixed) -- proportional seed crushed Map beside Feature.
   if (host_->inspector_tabs_ && host_->catalog_map_) {
     if (ui::views::View* insp_host = host_->inspector_tabs_->parent()) {
       insp_host->set_preferred_size({320, 0});
@@ -314,14 +311,14 @@ void ShellLifecycleComposer::show_shell() {
     }
   }
   if (host_->menu_bar_) {
-    // Re-measure File/Edit/View/Layer after DPI / font attach (DIP→px height).
+    // Re-measure File/Edit/View/Layer after DPI / font attach (DIP px height).
     host_->menu_bar_->clear();
     host_->rebuild_menus();
     host_->widget_.layout_contents();
     host_->menu_bar_->schedule_paint();
   }
   // Re-seed main_split after the HWND client is final so Diagnostic Tools
-  // preferred (DIP→px) is not locked against a create-time tiny inner height.
+  // preferred (DIP px) is not locked against a create-time tiny inner height.
   if (host_->diagnostic_tools_) {
     for (ui::views::View* p = host_->diagnostic_tools_->parent(); p;
          p = p->parent()) {
@@ -385,7 +382,7 @@ void ShellLifecycleComposer::show_shell() {
     // deferred) refreshes after show. Opt-in sync wait for harness / agents
     // that need a deterministic first carto frame before continuing:
     //   SYNC_FIRST_MAP_PRESENT=1
-    // Showcase skips Map Edit present attach (SKIP_AMBOX_CATALOG) — never
+    // Showcase skips Map Edit present attach (SKIP_AMBOX_CATALOG) -- never
     // spin waiting for a frame that will never arrive.
     const bool skip_wait = []() {
       const char* skip = base::switch_cstr("skip-ambox-catalog");
@@ -401,29 +398,31 @@ void ShellLifecycleComposer::show_shell() {
       uint32_t want = pane->frame_request();
       HWND shell_hwnd = host_->widget_.hwnd();
       const DWORD t0 = GetTickCount();
-      const bool content_sot =
+      // FlyCube alone owns DXGI tokens. Scenic/product HWND and ContentMapView
+      // paint carto on the overlay path — layout/scenic present count is SoT.
+      const bool gpu_sot =
           pane->attach_mode() ==
-          ui::views::DrawHost::AttachMode::kContentMapView;
+          ui::views::DrawHost::AttachMode::kGpuPresent;
       while (shell_hwnd && IsWindow(shell_hwnd) &&
              GetTickCount() - t0 < 15000u) {
-        if (content_sot) {
-          // GDI overlay / SharedSurface SoT: layout rebuild or content blit.
+        if (!gpu_sot) {
           if (pane->last_content_present_ok() ||
-              (host_->browser_->session().map2d_layout_build_count() > 0)) {
+              host_->browser_->session().map2d_layout_build_count() > 0 ||
+              host_->browser_->session().map2d_last_gpu_present_drew()) {
             break;
           }
         } else {
           const bool token_ok = pane->last_gpu_present_ok() &&
                                 pane->frame_presented() >= want;
-          const bool drew_carto =
-              host_->browser_->session().map2d_last_gpu_present_drew() &&
+          const bool layout_ready =
               host_->browser_->session().map2d_layout_build_count() > 0;
-          if (token_ok && drew_carto) {
+          // StaticReuse sets drew=false while keeping the last swapchain image.
+          // Treat ok+layout as carto-ready; only force a rebuild when the
+          // token advanced with an empty MapIR (never built).
+          if (token_ok && layout_ready) {
             break;
           }
-          if (token_ok && !drew_carto) {
-            // Skip (or empty layout) satisfied the token — force a real Pass
-            // submit before leaving the pump.
+          if (token_ok && !layout_ready) {
             host_->browser_->session().note_map2d_surface_reset();
             pane->invalidate_native();
             want = pane->frame_request();
@@ -435,6 +434,34 @@ void ShellLifecycleComposer::show_shell() {
           DispatchMessageW(&msg);
         }
         Sleep(10);
+      }
+    }
+    // Opt-in scenic/product present dump for bare-launch pixel verify.
+    if (const char* dump = base::switch_cstr("map2d-dump-bmp")) {
+      if (dump[0]) {
+        if (host_->browser_->session().map2d_layout_build_count() == 0) {
+          pane->invalidate_native();
+          HWND shell_hwnd = host_->widget_.hwnd();
+          const DWORD t_dump = GetTickCount();
+          while (shell_hwnd && IsWindow(shell_hwnd) &&
+                 GetTickCount() - t_dump < 2000u) {
+            if (host_->browser_->session().map2d_layout_build_count() > 0) {
+              break;
+            }
+            MSG msg = {};
+            while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+              TranslateMessage(&msg);
+              DispatchMessageW(&msg);
+            }
+            Sleep(10);
+          }
+        }
+        const bool ok = host_->browser_->session().map2d_export_bmp(
+            dump, 1280, 720);
+        std::fprintf(stderr, "map2d-dump-bmp: %s path=%s layout=%llu\n",
+                     ok ? "ok" : "fail", dump,
+                     static_cast<unsigned long long>(
+                         host_->browser_->session().map2d_layout_build_count()));
       }
     }
   }

@@ -37,6 +37,7 @@ Rhi2dCartoDraw::Rhi2dCartoDraw(HINSTANCE h_inst)
       feature_type_(0),
       label_priority_(5),
       is_river_(false),
+      river_class_(0),
       road_class_(0),
       device_draw_(this),
       ogr_draw_(this),
@@ -79,6 +80,8 @@ int& Rhi2dCartoDraw::label_priority() { return label_priority_; }
 
 bool& Rhi2dCartoDraw::is_river() { return is_river_; }
 
+int& Rhi2dCartoDraw::river_class() { return river_class_; }
+
 int& Rhi2dCartoDraw::road_class() { return road_class_; }
 
 bool& Rhi2dCartoDraw::lock_style() { return lock_style_; }
@@ -101,7 +104,8 @@ int Rhi2dCartoDraw::drect_to_lrect(const lRect& lrect, fRect& frect) const {
 
 int Rhi2dCartoDraw::prepare_for_drawing(const Style* style, int draw_mode) {
   return style_.prepare_for_drawing(h_cur_dc_, is_recording(), h_inst_, rc_,
-                                    is_river_, road_class_, style, draw_mode);
+                                    is_river_, river_class_, road_class_, style,
+                                    draw_mode);
 }
 
 int Rhi2dCartoDraw::end_drawing() { return style_.end_drawing(h_cur_dc_); }

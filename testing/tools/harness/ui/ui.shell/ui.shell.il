@@ -16,6 +16,8 @@ script "ui.shell" {
     require_var(name="china", fail_mark="china-seed-miss");
     open_map(var="china");
     fit_extent();
+    // Wait for post-china FlyCube rebuild (surface reset + invalidate).
+    pump(ms=500);
     mark("interact-pre");
     apply_scenario_panels("shell");
     mark("interact-post");

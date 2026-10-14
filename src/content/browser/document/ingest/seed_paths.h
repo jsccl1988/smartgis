@@ -11,7 +11,6 @@ namespace content {
 namespace detail {
 
 std::string path_stem(const std::string& path);
-std::vector<std::string> style_seed_relative_paths();
 
 }  // namespace detail
 

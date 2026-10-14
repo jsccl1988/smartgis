@@ -5,16 +5,16 @@
 """Dual stills: SmartGisViews StyleDocument vs MapLibre Native headless.
 
 Shared Style: third_party/maplibre/example/style_align.json (copied to
-out/*/maplibre/example/). Data: out/data/china_city.* ï¿?same pack as the
+out/*/maplibre/example/). Data: out/data/china_city.* ï¿½?same pack as the
 main app (//testing/data:china_map_samples). Product never links mbgl.
 
     python testing/tools/harness/_shared/case/align/maplibre_align.py
     python testing/tools/harness/_shared/case/align/maplibre_align.py --skip-native
 
 Outputs under out/Debug/maplibre/align/:
-  product.bmp   ï¿?SmartGIS.exe --map2d-showcase=align (china_city + style_align)
-  native.png    ï¿?maplibre_headless_example (when built)
-  report.json   ï¿?paths + sizes
+  product.bmp   ï¿½?SmartGIS.exe --map2d-showcase=align (china_city + style_align)
+  native.png    ï¿½?maplibre_headless_example (when built)
+  report.json   ï¿½?paths + sizes
 """
 
 from __future__ import annotations
@@ -121,8 +121,8 @@ def run_product() -> Path:
         raise FileNotFoundError(f"missing {EXE}; build SmartGisViews first")
     ensure_china_data()
     env = os.environ.copy()
-    env["MAP2D_SHOWCASE_LINGER_MS"] = "0"
-    cmd = [str(EXE), "--map2d-showcase=align"]
+        env["HARNESS_SUITE"] = "browser.map2d.align"
+    cmd = [str(EXE)]
     print(" ".join(cmd), flush=True)
     completed = subprocess.run(cmd, cwd=str(OUT), env=env)
     if completed.returncode != 0:
@@ -204,7 +204,7 @@ def main() -> int:
                     "w": size[0] if size else None,
                     "h": size[1] if size else None,
                 }
-    except Exception as exc:  # noqa: BLE001 ï¿?CLI report surface
+    except Exception as exc:  # noqa: BLE001 ï¿½?CLI report surface
         report["error"] = str(exc)
         ALIGN_DIR.mkdir(parents=True, exist_ok=True)
         (ALIGN_DIR / "report.json").write_text(

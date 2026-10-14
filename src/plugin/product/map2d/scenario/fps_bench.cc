@@ -5,7 +5,7 @@
 
 #include "plugin/runtime/host/capability/shell.h"
 #include "plugin/product/map2d/scenario/progress.h"
-#include "content/browser/present/map2d/gpu/map2d_gpu_present.h"
+#include "content/browser/present/map2d/gpu/present/map2d_gpu_present.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "ui/views/map/viewport/draw_host.h"
 

@@ -44,15 +44,22 @@ void GisHwndGestures::configure_hwnd(HWND hwnd, PinchFn on_pinch,
   on_pan_ = std::move(on_pan);
   has_callbacks_ = true;
   reset_state();
-  // Pinch zoom + two-finger pan (left/right/any direction). Do not enable
-  // single-finger pan flags — those would steal the mouse / one-finger path.
+  // Pinch zoom always. Two-finger pan only when on_pan is wired (Scene3d).
+  // Map2d omits on_pan so left/right trackpad gestures do not move the map;
+  // LMB click-drag still pans via view.pan. Do not enable single-finger pan
+  // flags — those would steal the mouse / one-finger path.
   GESTURECONFIG gc[2] = {};
   gc[0].dwID = GID_ZOOM;
   gc[0].dwWant = GC_ZOOM;
   gc[0].dwBlock = 0;
   gc[1].dwID = GID_PAN;
-  gc[1].dwWant = GC_PAN | GC_PAN_WITH_INERTIA;
-  gc[1].dwBlock = 0;
+  if (on_pan_) {
+    gc[1].dwWant = GC_PAN | GC_PAN_WITH_INERTIA;
+    gc[1].dwBlock = 0;
+  } else {
+    gc[1].dwWant = 0;
+    gc[1].dwBlock = GC_PAN | GC_PAN_WITH_INERTIA;
+  }
   SetGestureConfig(hwnd_, 0, 2, gc, sizeof(GESTURECONFIG));
 }
 
@@ -260,7 +267,7 @@ bool GisHwndGestures::handle_gesture(LPARAM lparam) {
   }
 
   if (gi.dwID == GID_PAN) {
-    // Two-finger drag (including left/right) → map pan.
+    // Two-finger drag (including left/right) → map pan when on_pan_ is set.
     if (gi.dwFlags & GF_BEGIN) {
       last_pan_x_ = pt.x;
       last_pan_y_ = pt.y;

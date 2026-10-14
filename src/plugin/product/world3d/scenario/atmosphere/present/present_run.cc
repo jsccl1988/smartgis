@@ -12,7 +12,7 @@
 #include "plugin/product/world3d/scenario/atmosphere/session/session_finish.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "content/browser/camera/orbit_frame.h"
-#include "content/browser/present/scene3d/scene3d_phase_profile.h"
+#include "content/browser/present/scene3d/profile/scene3d_phase_profile.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "render/rhi/rhi.h"
 
@@ -84,15 +84,8 @@ int run_atmosphere_present(HarnessShell& browser,
   uint32_t kW = kAtmosphereShowcaseW;
   uint32_t kH = kAtmosphereShowcaseH;
   atmosphere_hwnd_present_size(size_hwnd, &kW, &kH);
-  // Default 3 warmup frames; raise via ATMOSPHERE_SHOWCASE_PRESENT_COUNT
-  // for equal-profile benches vs leftover scene3d (same 640x480 HWND).
-  int present_count = 3;
-  if (const char* pc = base::switch_cstr("atmosphere-showcase-present-count")) {
-    const int v = std::atoi(pc);
-    if (v > 0 && v <= 600) {
-      present_count = v;
-    }
-  }
+  // Fixed warmup present count (no sticky ATMOSPHERE_SHOWCASE_PRESENT_COUNT).
+  constexpr int present_count = 3;
   // Timed benches must not sleep between presents (50ms pump dominated wall).
   // present_pump_ms==0 also skips PeekMessage: draining the thread queue can
   // dispatch the main Browser map2d GDI paint (~100–200ms) and wreck equal-
@@ -248,6 +241,10 @@ int run_atmosphere_present(HarnessShell& browser,
     std::fprintf(stderr, "atmosphere-showcase: FAIL mode=%s (exit 54)\n", name);
     return 54;
   }
+  // Suite gates (browser.world3d.full) require these alongside bmp-ok/pass.
+  // China / coast orbits already applied in seed_atmosphere_mode.
+  atmosphere_mark("fit-box-ok");
+  atmosphere_mark("camera-fly-ok");
   atmosphere_mark("pass");
   std::fprintf(stderr, "atmosphere-showcase: PASS mode=%s\n", name);
   return 0;

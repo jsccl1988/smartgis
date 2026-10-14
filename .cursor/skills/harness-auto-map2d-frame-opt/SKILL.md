@@ -183,6 +183,6 @@ Debug china 1280×720:
 - Scene3d frame sibling: `.cursor/skills/harness-auto-scene3d-frame-opt/SKILL.md`
 - Visual review: `.cursor/skills/harness-visual-review/SKILL.md`
 - FPS bench: `src/plugin/product/map2d/scenario/fps_bench.*`
-- Phase clocks: `src/content/browser/present/map2d/map2d_phase_profile.*`
+- Phase clocks: `src/content/browser/present/map2d/profile/map2d_phase_profile.*`
 - Bake profile (CPU vs Thrust): `testing/tools/harness/browser/run_hillshade_bake_bench.py`
 - Detail: [reference.md](reference.md)

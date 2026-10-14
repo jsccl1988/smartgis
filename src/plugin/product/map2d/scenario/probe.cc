@@ -48,7 +48,7 @@ bool try_open_china_sample(HarnessShell& browser, bool* city_pack) {
   // Only reuse an already-loaded China pack. edit_m0 clears seed data and
   // leaves a small round-trip layer 鈥?that must not short-circuit reload.
   if (doc->layer_count() > 0 && doc->feature_count() >= 3 &&
-      doc->has_china_extent()) {
+      doc->has_land_surface()) {
     if (city_pack && doc->layer_count() >= 3 && doc->feature_count() >= 200) {
       *city_pack = true;
     }

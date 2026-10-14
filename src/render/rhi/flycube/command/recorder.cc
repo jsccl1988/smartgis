@@ -101,7 +101,9 @@ std::vector<ConstantBytes> Recorder::snapshot_constants() const {
     }
     if (program) {
       const uint32_t declared = program->constant_slot_size(slot.slot);
-      if (slot.bytes.size() > declared) {
+      // declared==0 means the slot is unknown on this PSO — keep the bytes so
+      // replay can still attempt upload (SkyCB was dropped → black dome).
+      if (declared > 0 && slot.bytes.size() > declared) {
         continue;
       }
     }

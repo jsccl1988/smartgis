@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-#include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
+#include "content/browser/present/scene3d/frame/orbit/orbit_geo_frame.h"
 #include "content/public/types.h"
 #include "vista/pass/world/atmosphere/cloud/cloud_pass.h"
 #include "vista/pass/world/atmosphere/fog/fog_pass.h"
@@ -103,7 +103,7 @@ class AtmosphereSession {
   void advance_sim_time();
 
   // Project GIS samples onto pass POD (no CommandList). Uses bound gpu geo.
-  // Does not call OceanPass::prepare_gpu �?that stays cold-once in present.
+  // Does not call OceanPass::prepare_gpu -?that stays cold-once in present.
   bool prepare_for_present();
   void release_passes();
 
@@ -148,7 +148,7 @@ class AtmosphereSession {
   const GisScene* scene_ = nullptr;
   Scene3dGpuPresent* gpu_ = nullptr;
 
-  // Flags first �?pass POD sizes shift often; keep enable bits at stable
+  // Flags first -?pass POD sizes shift often; keep enable bits at stable
   // offsets so inlined getters in other TUs cannot read a stale layout.
   bool wind_overlay_enabled_ = false;
   bool globe_enabled_ = false;
@@ -177,7 +177,7 @@ class AtmosphereSession {
   int cached_sea_mask_n_ = 0;
   bool sea_mask_cache_valid_ = false;
 
-  // Idempotent seed_procedural across Map↔Scene3D tab switches.
+  // Idempotent seed_procedural across Map->Scene3D tab switches.
   bool procedural_seeded_ = false;
   bool procedural_seed_with_rings_ = false;
   const GisScene* procedural_seed_scene_ = nullptr;

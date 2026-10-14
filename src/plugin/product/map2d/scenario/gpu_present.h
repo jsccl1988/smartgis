@@ -12,7 +12,7 @@ namespace plugin {
 class HarnessShell;
 namespace detail {
 
-// Optional FlyCube present_gpu cold+warm smoke (MAP2D_SHOWCASE_GPU=1).
+// Optional FlyCube present_gpu cold+warm smoke (always on for scenario Run).
 // Skips quietly when unset or when no Device is available.
 void run_optional_map2d_gpu_present(HarnessShell& browser,
                                     content::Map2dPresenter* map2d,

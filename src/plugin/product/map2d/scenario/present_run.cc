@@ -34,12 +34,12 @@ int run_map2d_present(HarnessShell& browser,
     return 57;
   }
   // frame_china_map2d / orthogrid already invalidated when size/extent changed.
-  // Do not invalidate again immediately before timed present ï¿½?that forces a
+  // Do not invalidate again immediately before timed present ï¿?that forces a
   // cold layout+upload into the present_gpu wall clock.
   map2d_mark("cache-ready");
 
-  // Capture uses software export_bmp ï¿½?do NOT UpdateWindow here. Sync GDI
-  // paint through the HWND has AVd in Map2dHdcPainter / ContentMapView
+  // Capture uses software export_bmp ï¿?do NOT UpdateWindow here. Sync GDI
+  // paint through the HWND has AVd in ContentMapView
   // under parallel harness (mark stops at bmp-path). Async InvalidateRect is
   // enough so the live HWND may refresh; BMP does not depend on it.
   if (ui::views::DrawHost* pane = browser.draw_host()) {
@@ -70,7 +70,7 @@ int run_map2d_present(HarnessShell& browser,
     map2d_mark("layout-warm-scenic-skip");
   }
 
-  // Software BMP first ï¿½?carto gates / review-prep must not depend on optional
+  // Software BMP first ï¿?carto gates / review-prep must not depend on optional
   // FlyCube smoke. Prior order (GPU then export) left bmp_missing when
   // present_gpu AVd on a second DXGI chain (ContentMapView HWND).
   if (const int rc =

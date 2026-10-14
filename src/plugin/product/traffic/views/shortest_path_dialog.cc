@@ -3,13 +3,13 @@
 
 #include "plugin/product/traffic/views/shortest_path_dialog.h"
 
-#include <cstdlib>
 #include <memory>
 #include <string>
 #include <utility>
 
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/resource_roots.h"
+#include "plugin/runtime/widgets/dialog_fields.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/markup/loader/markup_loader.h"
@@ -18,21 +18,8 @@
 
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-#include "base/process/switches.h"
 
 namespace plugin {
-namespace {
-
-double parse_double(const std::string& text, double fallback) {
-  if (text.empty()) {
-    return fallback;
-  }
-  char* end = nullptr;
-  const double v = std::strtod(text.c_str(), &end);
-  return end != text.c_str() ? v : fallback;
-}
-
-}  // namespace
 
 ShortestPathDialog::ShortestPathDialog(content::PluginHost* host)
     : host_(host) {
@@ -73,28 +60,13 @@ ShortestPathDialog::ShortestPathDialog(content::PluginHost* host)
   loaded.root->set_preferred_size({kW, kH});
   add_child(std::move(loaded.root));
 
-  // Sample import defaults.
-  const char* sample_dir = base::switch_cstr("plugin-sample-dir");
-  const std::string base =
-      sample_dir && *sample_dir ? std::string(sample_dir) : "../data/plugin";
-  if (network_path_ && network_path_->text().empty()) {
-    network_path_->set_text(base + "/traffic_network_sample.geojson");
-  }
-  if (output_path_ && output_path_->text().empty()) {
-    output_path_->set_text(base + "/traffic_path.geojson");
-  }
-  if (start_x_ && start_x_->text().empty()) {
-    start_x_->set_text("116.35");
-  }
-  if (start_y_ && start_y_->text().empty()) {
-    start_y_->set_text("39.90");
-  }
-  if (end_x_ && end_x_->text().empty()) {
-    end_x_->set_text("116.45");
-  }
-  if (end_y_ && end_y_->text().empty()) {
-    end_y_->set_text("39.95");
-  }
+  const std::string base = plugin_sample_dir();
+  set_textfield_if_empty(network_path_, base + "/traffic_network_sample.geojson");
+  set_textfield_if_empty(output_path_, base + "/traffic_path.geojson");
+  set_textfield_if_empty(start_x_, "116.35");
+  set_textfield_if_empty(start_y_, "39.90");
+  set_textfield_if_empty(end_x_, "116.45");
+  set_textfield_if_empty(end_y_, "39.95");
 
   if (host_ && network_path_ && !network_path_->text().empty()) {
     host_->present_dataset("smartgis.traffic", network_path_->text(), 0);
@@ -129,20 +101,20 @@ std::string ShortestPathDialog::build_json() const {
   w.Key("output");
   w.String(output_path_ ? output_path_->text().c_str() : "");
   w.Key("start_x");
-  w.Double(parse_double(start_x_ ? start_x_->text() : "", 0.0));
+  w.Double(parse_field_double(start_x_ ? start_x_->text() : "", 0.0));
   w.Key("start_y");
-  w.Double(parse_double(start_y_ ? start_y_->text() : "", 0.0));
+  w.Double(parse_field_double(start_y_ ? start_y_->text() : "", 0.0));
   w.Key("end_x");
-  w.Double(parse_double(end_x_ ? end_x_->text() : "", 1.0));
+  w.Double(parse_field_double(end_x_ ? end_x_->text() : "", 1.0));
   w.Key("end_y");
-  w.Double(parse_double(end_y_ ? end_y_->text() : "", 1.0));
+  w.Double(parse_field_double(end_y_ ? end_y_->text() : "", 1.0));
   if (weight_field_ && !weight_field_->text().empty()) {
     w.Key("weight_field");
     w.String(weight_field_->text().c_str());
   }
   w.Key("frames");
   w.Int(static_cast<int>(
-      parse_double(frames_ ? frames_->text() : "", 24.0)));
+      parse_field_double(frames_ ? frames_->text() : "", 24.0)));
   w.EndObject();
   return buf.GetString();
 }

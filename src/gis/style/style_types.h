@@ -112,6 +112,7 @@ struct ResolvedPaint {
   float icon_offset_y = 0.f;
   // Constant layout key. "point" or "line".
   std::string symbol_placement = "point";
+  uint32_t text_color = 0xFF141820u;
   uint32_t text_halo_color = 0;
   float text_halo_width = 0.f;
   uint32_t background_color = 0xFF000000;

@@ -65,7 +65,11 @@ bool WorldPass::record_draws(render::rhi::Device* device,
   resolve_view_envelope(width, height, &minx, &miny, &maxx, &maxy);
 
   const bool external_camera = bound_camera != nullptr;
-  bool pass_opened = color_load_op_ == render::rhi::ColorLoadOp::kLoad;
+  // Always start closed so the first kind honors pass.depth_load_op
+  // (OpaqueEffect clears depth after atmosphere pre). Initializing from
+  // color Load pretended a pass was already open and forced depth Load,
+  // dropping the intentional Clear.
+  bool pass_opened = false;
   const FrustumPlanes* cull_frustum = nullptr;
   FrustumPlanes cull_planes_storage;
   const float* cull_view = nullptr;

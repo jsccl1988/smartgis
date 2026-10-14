@@ -57,45 +57,45 @@ int main() {
   // Production fill: LayerStore emits kind + china PLPT group nesting.
   {
     content::detail::LayerStore store;
-    content::detail::GisLayer area;
+    content::detail::MapLayer area;
     area.id = "china.area";
     area.name = "area";
     area.visible = true;
     area.kind = content::LayerKind::kVector;
-    content::detail::GisFeature poly;
+    content::detail::MapFeature poly;
     poly.kind = content::detail::GeomKind::kPolygon;
     poly.points = {{0, 0}, {1, 0}, {1, 1}, {0, 0}};
     area.features.push_back(std::move(poly));
 
-    content::detail::GisLayer line;
+    content::detail::MapLayer line;
     line.id = "china.line";
     line.name = "line";
     line.visible = true;
     line.kind = content::LayerKind::kVector;
-    content::detail::GisFeature road;
+    content::detail::MapFeature road;
     road.kind = content::detail::GeomKind::kLine;
     road.points = {{0, 0}, {2, 2}};
     line.features.push_back(std::move(road));
 
-    content::detail::GisLayer point;
+    content::detail::MapLayer point;
     point.id = "china.point";
     point.name = "point";
     point.visible = true;
     point.kind = content::LayerKind::kVector;
 
-    content::detail::GisLayer text;
+    content::detail::MapLayer text;
     text.id = "china.text";
     text.name = "text";
     text.visible = true;
     text.kind = content::LayerKind::kVector;
 
-    content::detail::GisLayer basemap;
+    content::detail::MapLayer basemap;
     basemap.id = "Basemap";
     basemap.name = "Basemap";
     basemap.visible = true;
     basemap.kind = content::LayerKind::kRaster;
 
-    std::vector<content::detail::GisLayer> loaded;
+    std::vector<content::detail::MapLayer> loaded;
     loaded.push_back(std::move(area));
     loaded.push_back(std::move(line));
     loaded.push_back(std::move(point));
@@ -143,11 +143,11 @@ int main() {
   // Feature-bearing unknown kind still exports as vector.
   {
     content::detail::LayerStore store;
-    content::detail::GisLayer layer;
+    content::detail::MapLayer layer;
     layer.id = "path.shp#0";
     layer.name = "parcels";
     layer.visible = true;
-    content::detail::GisFeature f;
+    content::detail::MapFeature f;
     f.kind = content::detail::GeomKind::kPolygon;
     f.points = {{0, 0}, {1, 0}, {1, 1}, {0, 0}};
     layer.features.push_back(std::move(f));

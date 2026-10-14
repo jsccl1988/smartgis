@@ -199,6 +199,16 @@ void WorldPass::set_solid_color(float r, float g, float b, float a) {
     if (i < instances_.size() && instances_[i].has_paint) {
       continue;
     }
+    // Olive-gate 1x1 already stores land RGB; multiplying by olive ColorCB
+    // crushed mid-band landish scores to near-black.
+    if (terrain_.solid_terrain_forced() &&
+        mesh.kind == vista::NodeKind::kTerrain && mesh.texture != nullptr) {
+      mesh.solid_r = 1.f;
+      mesh.solid_g = 1.f;
+      mesh.solid_b = 1.f;
+      mesh.solid_a = 1.f;
+      continue;
+    }
     mesh.solid_r = r;
     mesh.solid_g = g;
     mesh.solid_b = b;
@@ -211,8 +221,13 @@ void WorldPass::clear_solid_terrain_cache() {
 }
 
 void WorldPass::update_solid_terrain(uint64_t generation, bool gate) {
+  const bool was_forced = terrain_.solid_terrain_forced();
   terrain_.update_solid_terrain(instances_, generation, gate);
   if (!gate) {
+    // Leave solid force: re-upload hypsometric albedo + UV stride.
+    if (was_forced) {
+      mark_meshes_dirty();
+    }
     return;
   }
   if (terrain_.solid_terrain_forced()) {
@@ -221,6 +236,24 @@ void WorldPass::update_solid_terrain(uint64_t generation, bool gate) {
     float b = 0.f;
     terrain_.forced_solid_rgb(&r, &g, &b);
     set_solid_color(r, g, b, 1.f);
+    // Olive gate draws solid PSO (position-only). Remesh when entering the
+    // gate or when a leftover textured VB still carries a dead SRV.
+    bool need_remesh = !was_forced;
+    if (!need_remesh) {
+      for (const GpuMesh& mesh : meshes_) {
+        if (mesh.kind != vista::NodeKind::kTerrain) {
+          continue;
+        }
+        if (mesh.texture != nullptr ||
+            mesh.stride > detail::kPositionStride) {
+          need_remesh = true;
+          break;
+        }
+      }
+    }
+    if (need_remesh) {
+      mark_meshes_dirty();
+    }
   }
 }
 void WorldPass::set_solid_color_from_colorref(long colorref) {

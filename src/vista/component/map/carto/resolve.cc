@@ -11,7 +11,7 @@
 
 namespace vista {
 
-bool style_is_china_city_pack(const gis::style::StyleDocument* doc) {
+bool style_uses_area_point_line_slots(const gis::style::StyleDocument* doc) {
   if (!doc || doc->layers.empty()) {
     return false;
   }
@@ -55,14 +55,14 @@ const gis::style::StyleDocument* default_carto_style() {
 
 const gis::style::StyleDocument* resolve_present_style(
     const gis::style::StyleDocument* scene_style, bool* use_carto) {
-  const bool china_city_pack = style_is_china_city_pack(scene_style);
+  const bool area_point_line = style_uses_area_point_line_slots(scene_style);
   const bool carto_slots = style_has_carto_slots(scene_style);
-  const bool carto = scene_style == nullptr || china_city_pack || carto_slots;
+  const bool carto = scene_style == nullptr || area_point_line || carto_slots;
   if (use_carto) {
     *use_carto = carto;
   }
   const gis::style::StyleDocument* style = scene_style;
-  if (china_city_pack) {
+  if (area_point_line) {
     style = nullptr;
   }
   if (!style) {

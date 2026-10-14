@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/component/map/layout/geom_walk.h"
+#include "vista/component/map/layout/geom/geom_walk.h"
 
 namespace vista {
 namespace detail {

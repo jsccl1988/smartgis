@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "vista/component/map/ir.h"
-#include "vista/component/map/layout/slice_key.h"
+#include "vista/component/map/layout/policy/slice_key.h"
 
 namespace vista {
 namespace detail {

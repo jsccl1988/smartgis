@@ -4,6 +4,7 @@
 #include "app/views/ui/horizon/inspector_host_composer.h"
 
 #include "app/views/ui/browser_view.h"
+#include "app/views/ui/panels/plugin_catalog_view.h"
 #include "app/views/ui/panels/report_panel.h"
 
 #include <functional>
@@ -13,7 +14,7 @@
 #include <utility>
 
 #include "app/views/browser/browser.h"
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "ui/gis/analysis/processing_panel.h"
@@ -97,6 +98,19 @@ void InspectorHostComposer::ensure_inspector_tab(int index) {
         (void)host->open_dock("world3d.atmosphere");
       }
     }
+  } else if (index == host_->plugins_tab_ && !host_->plugin_catalog_) {
+    PluginShell* shell = host_->browser_->plugins();
+    if (!shell) {
+      return;
+    }
+    (void)shell->ensure_builtins();
+    if (!shell->registry() || !shell->host()) {
+      return;
+    }
+    auto panel = std::make_unique<PluginCatalogView>(
+        shell->registry(), shell->host(), host_->browser_);
+    host_->plugin_catalog_ = panel.get();
+    host_->inspector_tabs_->replace_page(index, std::move(panel));
   }
 }
 
@@ -209,6 +223,10 @@ void InspectorHostComposer::attach_plugin_shell_ui() {
         }
         if (panel == "atmosphere") {
           host_->show_inspector_tab_index(host_->atmosphere_tab_);
+          return true;
+        }
+        if (panel == "plugins") {
+          host_->show_inspector_tab_index(host_->plugins_tab_);
           return true;
         }
         return false;

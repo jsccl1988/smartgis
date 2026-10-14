@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/component/map/layout/attrs.h"
+#include "vista/component/map/layout/geom/attrs.h"
 
 #include <string>
 

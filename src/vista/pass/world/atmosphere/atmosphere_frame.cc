@@ -98,7 +98,12 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
     sky_pass.load_op = render::rhi::ColorLoadOp::kClear;
     sky_pass.enable_depth = false;
     list->begin_render_pass(sky_pass);
-    ok = sky_pass_->record(device, list, width, height, camera) && ok;
+    // Globe starfield. Flat DEM: clear-only for now — SkyPass::record still
+    // ghosts the solid olive DEM even with SkyCB on slot 3 (PSO/depth). Slot 3
+    // + hardcoded day PS remain for the globe / next flat re-enable.
+    if (globe_enabled_) {
+      ok = sky_pass_->record(device, list, width, height, camera) && ok;
+    }
     list->end_render_pass();
   }
 

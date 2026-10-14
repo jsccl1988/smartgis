@@ -14,8 +14,8 @@
 #include <windows.h>
 
 #include "app/views/browser/ui_delegate.h"
-#include "app/views/browser/plugin/playback.h"
-#include "app/views/browser/plugin/preview_host.h"
+#include "app/views/browser/plugin/present/playback.h"
+#include "app/views/browser/plugin/present/preview_host.h"
 #include "content/public/event_bus.h"
 #include "content/public/gis_contents.h"
 #include "content/public/types.h"
@@ -203,6 +203,7 @@ class Browser : public content::GisContentsObserver {
   void install_plugin_host_bridges();
   void wire_plugin_present_dataset();
   void schedule_deferred_china_seed();
+  void cancel_deferred_china_seed();
 
   std::unique_ptr<content::BrowserSession> session_;
   // GisDocument adapter is owned by GisContents (see install_plugin_host_bridges).

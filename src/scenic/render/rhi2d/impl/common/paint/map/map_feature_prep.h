@@ -31,6 +31,7 @@ struct PreparedFeature {
   int feature_type = 0;
   int label_priority = 5;
   bool is_river = false;
+  int river_class = 0;
   int road_class = 0;
   float anno_angle = 0.f;
   char anno[2000]{};
@@ -43,7 +44,7 @@ struct PreparedFeature {
   }
   // Unlabeled roads of the same class share casing+fill PolyPolyline.
   bool is_plain_road() const {
-    return kind == PrepKind::Line && road_class > 0 && !anno[0];
+    return kind == PrepKind::Line && road_class > 0 && !is_river && !anno[0];
   }
   bool needs_style() const {
     return kind != PrepKind::Point && kind != PrepKind::Anno;
@@ -51,7 +52,8 @@ struct PreparedFeature {
   bool same_line_stroke(const PreparedFeature& o) const {
     const PenDesc& a = style.get_pen_desc();
     const PenDesc& b = o.style.get_pen_desc();
-    return is_river == o.is_river && road_class == o.road_class &&
+    return is_river == o.is_river && river_class == o.river_class &&
+           road_class == o.road_class &&
            style.get_style_type() == o.style.get_style_type() &&
            a.lPenColor == b.lPenColor && a.lPenStyle == b.lPenStyle &&
            a.fPenWidth == b.fPenWidth;

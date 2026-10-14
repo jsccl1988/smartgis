@@ -7,7 +7,7 @@ Scenic GDI / GDI+ / Skia: scenic_gdi_map_paint_test LoadLibrary
 scenic_rhi2d_{gdi,gdiplus,skia} x RHI2D_PARALLEL. Same Scenic engine.
 src/legacy/ is frozen and is not a matrix axis.
 
-Vista (codename): SmartGIS.exe --map2d-showcase=china — Map2dPresenter +
+Vista (codename): SmartGIS.exe + HARNESS_SUITE=browser.map2d.china — Map2dPresenter +
 gis/vista Layout + effect/map + optional FlyCube present_gpu, same 1280x720
 china frame. Engine id in CSV/JSON: ``vista``.
 
@@ -205,11 +205,7 @@ def run_vista() -> dict:
     log_path = MATRIX / "vista_china.log"
     bmp_dst = MATRIX / "vista-china.bmp"
     env = os.environ.copy()
-    env["MAP2D_SHOWCASE_W"] = "1280"
-    env["MAP2D_SHOWCASE_H"] = "720"
-    env["MAP2D_SHOWCASE_LINGER_MS"] = "0"
-    # Exercise src/render FlyCube present when adapter is available.
-    env["MAP2D_SHOWCASE_GPU"] = "1"
+    env["HARNESS_SUITE"] = "browser.map2d.china"
     # Equal-latitude vs Scenic rhi2d IR: no DEM hillshade (IR has none).
     # Override with MAP2D_NO_HILLSHADE=0 to measure shade-on product path.
     if env.get("MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
@@ -229,10 +225,6 @@ def run_vista() -> dict:
     started = time.time()
     vista_cmd = [
         str(VIEWS),
-        "--map2d-showcase=china",
-        "--map2d-showcase-w=1280",
-        "--map2d-showcase-h=720",
-        "--map2d-showcase-gpu=1",
         f"--vista-layout-parallel={layout_parallel}",
     ]
     if env.get("MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
@@ -405,10 +397,7 @@ def run_scenic() -> dict:
     log_path = MATRIX / "scenic_china.log"
     bmp_dst = MATRIX / "scenic-china.bmp"
     env = os.environ.copy()
-    env["MAP2D_SHOWCASE_W"] = "1280"
-    env["MAP2D_SHOWCASE_H"] = "720"
-    env["MAP2D_SHOWCASE_LINGER_MS"] = "0"
-    env["MAP2D_SHOWCASE_GPU"] = "1"
+    env["HARNESS_SUITE"] = "browser.map2d.china"
     env["MAP2D_ENGINE"] = "scenic"
     env["SCENE3D_ENGINE"] = env.get("SCENE3D_ENGINE") or "scenic"
     if env.get("MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
@@ -437,10 +426,6 @@ def run_scenic() -> dict:
         started = time.time()
         scenic_cmd = [
             str(views_exe),
-            "--map2d-showcase=china",
-            "--map2d-showcase-w=1280",
-            "--map2d-showcase-h=720",
-            "--map2d-showcase-gpu=1",
             "--map2d-engine=scenic",
         ]
         if env.get("MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):

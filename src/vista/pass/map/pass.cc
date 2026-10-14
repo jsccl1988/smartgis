@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
 #include "vista/pass/map/detail/atlas.h"
 #include "vista/pass/map/detail/encode.h"
@@ -108,8 +109,15 @@ bool MapPass::ensure_pipelines() {
     multiply_desc.blend = render::rhi::BlendMode::kMultiply;
     multiply_pipeline_ = device_->create_graphics_pipeline(multiply_desc);
   }
-  return solid_pipeline_ != nullptr && textured_pipeline_ != nullptr &&
-         multiply_pipeline_ != nullptr;
+  // Multiply is optional for china map2d (HSHD stays SrcAlpha). Do not fail
+  // the whole present when only the multiply PSO is missing.
+  if (!solid_pipeline_ || !textured_pipeline_) {
+    LOGGING(LOG_ERROR,
+            "map2d: ensure_pipelines fail solid=%p textured=%p multiply=%p",
+            solid_pipeline_, textured_pipeline_, multiply_pipeline_);
+    return false;
+  }
+  return true;
 }
 
 void MapPass::abandon() {

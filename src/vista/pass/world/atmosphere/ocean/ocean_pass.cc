@@ -199,8 +199,19 @@ float OceanPass::sample_sea_mask(float u, float v) const {
   if (!mask_cpu_.empty()) {
     return detail::sample_bilinear(mask_cpu_, mask_cols_, mask_rows_, u, v);
   }
-  // No mask ??treat as open sea.
+  // No mask — treat as open sea.
   return 1.0f;
+}
+
+float OceanPass::sea_mask_mean() const {
+  if (mask_cpu_.empty()) {
+    return 1.0f;
+  }
+  double acc = 0.0;
+  for (float v : mask_cpu_) {
+    acc += static_cast<double>(v);
+  }
+  return static_cast<float>(acc / static_cast<double>(mask_cpu_.size()));
 }
 
 void OceanPass::rebuild_mesh_grid() {
@@ -566,25 +577,22 @@ bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* li
     used_gpu_fft_ = true;
   }
 
-  // Gerstner / CPU FFT: remesh (cheap when topology matches) then advance sim.
-  // Do not fold a second full bake when prepare_gpu already reserved the map.
-  if (!height_prepared_ && !want_gpu) {
-    remesh_topology_if_needed();
-    advance_wave_fields();
-  } else if (!height_prepared_ && want_gpu && !gpu_fft_staged) {
-    // Direct record() without prepare_gpu (unit tests / Null): CPU FFT bake.
-    remesh_topology_if_needed();
+  // Topology check once per record. Gerstner / CPU FFT advance waves into the
+  // already-allocated height map; warm frames must not destroy/recreate it.
+  remesh_topology_if_needed();
+  if (!height_prepared_ && (!want_gpu || !gpu_fft_staged)) {
+    // Gerstner (product warm) or CPU-FFT fallback without staged GPU FFT.
     advance_wave_fields();
   }
-
-  remesh_topology_if_needed();
   if (index_count_ == 0) {
     height_prepared_ = false;
     return true;
   }
-  // After prepare_gpu(), mesh/height GPU objects must stay stable - realloc
+  // After prepare_gpu(), mesh/height GPU objects must stay stable — realloc
   // here would destroy height and FlyCube can recycle the live DEM albedo.
   if (!height_prepared_) {
+    // Warm StaticReuse: ensure_resources keeps VB/IB when mesh_n + Device match;
+    // upload_height writes into the existing Rgba8 texture (in-place).
     if (!ensure_resources(device)) {
       return false;
     }

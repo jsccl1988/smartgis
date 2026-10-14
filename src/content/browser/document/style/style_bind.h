@@ -13,7 +13,7 @@
 #endif
 #include <windows.h>
 
-#include "content/browser/document/store/gis_layer.h"
+#include "content/browser/document/store/map_layer.h"
 #include "gis/style/style_types.h"
 #include "gis/tile/provider/tile_provider.h"
 
@@ -45,7 +45,7 @@ class StyleBind {
                               const gis::style::AttrMap& attrs, double zoom,
                               gis::style::ResolvedPaint* out) const;
 
-  bool style_colors_for_feature(const GisLayer& layer, const GisFeature& f,
+  bool style_colors_for_feature(const MapLayer& layer, const MapFeature& f,
                                 double scale, COLORREF* fill, COLORREF* stroke,
                                 int* stroke_width) const;
 

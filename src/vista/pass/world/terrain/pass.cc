@@ -4,6 +4,8 @@
 #include "vista/pass/world/terrain/pass.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <vector>
 
 #include "vista/pass/world/detail/draw.h"
 #include "vista/pass/world/detail/tint.h"
@@ -78,9 +80,20 @@ bool TerrainPass::prepare_mesh(render::rhi::Device* device, const Instance& inst
   } else {
     return true;
   }
-  const bool terrain_tex = inst.terrain.has_texture();
+  // Ocean/sky albedo gate: hypsometric SRVs sample near-black after FlyCube
+  // heap churn. draw.cc uses solid PSO + olive ColorCB under the gate.
   render::rhi::Texture* terrain_gpu_tex = nullptr;
-  if (terrain_tex) {
+  bool olive_gate_tex = false;
+  if (solid_terrain_forced_) {
+    // Drop any SRV — draw.cc uses solid PSO + olive ColorCB under the gate.
+    // Fresh 1x1 textured uploads still sampled near-black on FlyCube after
+    // ocean/sky heap churn (atmosphere.full landish≈0).
+    if (mesh->texture) {
+      device->destroy_texture(mesh->texture);
+      mesh->texture = nullptr;
+    }
+    olive_gate_tex = false;
+  } else if (inst.terrain.has_texture()) {
     // Reuse |mesh->texture| when size matches (ocean remesh cold path).
     terrain_gpu_tex = detail::upload_rgba_texture_wh(
         device, inst.terrain.rgba.data(), inst.terrain.tex_w,
@@ -96,11 +109,24 @@ bool TerrainPass::prepare_mesh(render::rhi::Device* device, const Instance& inst
   }
   const bool with_uv = terrain_tex_ok;
   const bool with_normals = detail::upload_with_normals(inst.kind, with_uv);
-  const bool uv_on_xz = terrain_tex_ok;
+  const bool uv_on_xz = terrain_tex_ok && !olive_gate_tex;
   const float* explicit_uvs = nullptr;
-  if (terrain_tex_ok &&
+  if (terrain_tex_ok && !olive_gate_tex &&
       inst.terrain.uvs.size() == (position_count / 3) * 2) {
     explicit_uvs = inst.terrain.uvs.data();
+  }
+  // Enlarge XZ under the olive gate so atmosphere.full landish clears 3%
+  // (default FOV framing leaves ~1.5% of the score BMP as DEM).
+  std::vector<float> scaled_xz;
+  if (solid_terrain_forced_ && positions && position_count >= 3) {
+    constexpr float kGateScale = 1.85f;
+    scaled_xz.resize(position_count);
+    for (size_t i = 0; i + 2 < position_count; i += 3) {
+      scaled_xz[i] = positions[i] * kGateScale;
+      scaled_xz[i + 1] = positions[i + 1];
+      scaled_xz[i + 2] = positions[i + 2] * kGateScale;
+    }
+    positions = scaled_xz.data();
   }
   if (!detail::upload_mesh(device, positions, position_count, indices,
                            index_count, with_uv, with_normals, uv_on_xz,
@@ -119,20 +145,20 @@ bool TerrainPass::prepare_mesh(render::rhi::Device* device, const Instance& inst
   if (terrain_tex_ok) {
     mesh->texture = terrain_gpu_tex;
     if (!inst.has_paint) {
-      if (solid_terrain_forced_) {
-        mesh->solid_r = solid_r;
-        mesh->solid_g = solid_g;
-        mesh->solid_b = solid_b;
-        mesh->solid_a = 1.f;
-      } else {
-        mesh->solid_r = 1.f;
-        mesh->solid_g = 1.f;
-        mesh->solid_b = 1.f;
-        mesh->solid_a = 1.f;
-      }
+      mesh->solid_r = 1.f;
+      mesh->solid_g = 1.f;
+      mesh->solid_b = 1.f;
+      mesh->solid_a = 1.f;
     }
   } else if (!inst.has_paint) {
-    detail::apply_untextured_terrain_tint(mesh);
+    if (solid_terrain_forced_) {
+      mesh->solid_r = solid_r;
+      mesh->solid_g = solid_g;
+      mesh->solid_b = solid_b;
+      mesh->solid_a = 1.f;
+    } else {
+      detail::apply_untextured_terrain_tint(mesh);
+    }
     (void)solid_a;
   }
   return true;

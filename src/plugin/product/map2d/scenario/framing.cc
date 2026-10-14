@@ -23,7 +23,7 @@ void frame_china_map2d(HarnessShell& browser, int view_w, int view_h) {
   if (!doc || !frame) {
     return;
   }
-  if (doc->has_china_extent()) {
+  if (doc->has_land_surface()) {
     frame->apply_world_extent(content::kChinaMap2dFrameExtent, view_w, view_h);
     if (content::OrbitFrame* orbit = browser.orbit_frame()) {
       orbit->apply_world_extent(content::kChinaLonLatExtent);

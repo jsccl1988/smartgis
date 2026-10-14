@@ -99,8 +99,9 @@ struct ExprValue {
 
 // Evaluate a JSON array expression (or bare literal) to a constant.
 // Mini subset (MapLibre-shaped, not a full expression VM):
-//   get, literal, zoom,
+//   get, literal, zoom, to-number,
 //   ==, !=, <, <=, >, >=,
+//   +, -, *, / (n-ary +/*; unary -; binary -/),
 //   interpolate (linear | exponential), step, match, case, coalesce.
 // Color stops in interpolate lerp #RGB / #RRGGBB / #AARRGGBB / rgb().
 // Nested arrays evaluate recursively. Uses AttrMap + zoom.

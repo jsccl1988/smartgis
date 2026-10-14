@@ -19,7 +19,10 @@ Layers (GPKG):
 
   area   MultiPolygon  name, adcode   (NE admin_1: CHN/TWN/HKG/MAC)
   line   MultiLineString name, kind[, class]
-         kind=river|lake|road; class=motorway|trunk|primary for roads
+         kind=river|lake|stream|canal|road
+         class (OMT): roads motorway|trunk|primary;
+         hydro river|canal|stream|lake
+         Offline carto_prep: bbox clip + road land-mask + class normalize.
   point  Point         name, kind=city  (NE populated places)
   text   Point         anno, name, angle, color
 
@@ -47,6 +50,19 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+
+# Sibling package: testing/data/carto_prep/
+_DATA_DIR_FOR_PATH = Path(__file__).resolve().parent
+if str(_DATA_DIR_FOR_PATH) not in sys.path:
+    sys.path.insert(0, str(_DATA_DIR_FOR_PATH))
+
+from carto_prep import (  # noqa: E402
+    clip_line_to_land_rings,
+    clip_segment_to_bbox,
+    normalize_hydro_props,
+    normalize_road_props,
+    rings_from_polygons,
+)
 
 REPO = Path(__file__).resolve().parents[2]
 CACHE = REPO / "out" / "data" / "cache" / "china_city_src"
@@ -665,25 +681,6 @@ def _pt_in_bbox(
     return bbox[0] <= x <= bbox[2] and bbox[1] <= y <= bbox[3]
 
 
-def _clip_segment_to_bbox(
-    coords: list, bbox: tuple[float, float, float, float] = CHINA_BBOX
-) -> list[list]:
-    """Keep contiguous runs of vertices inside bbox; drop foreign stubs."""
-    runs: list[list] = []
-    cur: list = []
-    for pt in coords:
-        x, y = float(pt[0]), float(pt[1])
-        if _pt_in_bbox(x, y, bbox):
-            cur.append([x, y])
-        else:
-            if len(cur) >= 2:
-                runs.append(cur)
-            cur = []
-    if len(cur) >= 2:
-        runs.append(cur)
-    return runs
-
-
 def _folded_token(s: str) -> str:
     return "".join(ch for ch in (s or "").lower() if ch.isalnum())
 
@@ -760,7 +757,7 @@ def _load_china_line_extract(path: Path) -> list[dict]:
         props = feat.get("properties") or {}
         segments: list[list] = []
         for seg in _segments_from_geom(geom):
-            segments.extend(_clip_segment_to_bbox(seg))
+            segments.extend(clip_segment_to_bbox(seg, CHINA_BBOX))
         if not segments:
             continue
         kind = str(props.get("kind") or "river")
@@ -785,12 +782,12 @@ def build_line_features(src: Path) -> list[dict]:
         canon = _canonicalize_water_name(name)
         if canon:
             f["properties"]["name"] = canon
-        kind = f["properties"].get("kind") or "river"
-        if kind not in ("river", "lake"):
-            f["properties"]["kind"] = "river"
+        f["properties"] = normalize_hydro_props(f["properties"])
     lines = _merge_lines_named(lines, "长江")
     lines = _merge_lines_named(lines, "黄河")
     lines = _merge_lines_named(lines, "珠江")
+    for f in lines:
+        f["properties"] = normalize_hydro_props(f["properties"])
     return lines
 
 
@@ -798,16 +795,32 @@ def build_road_features(src: Path) -> list[dict]:
     """China roads from china_roads.src.geojson — not the global NE roads zip."""
     roads = _load_china_line_extract(src)
     for f in roads:
-        f["properties"]["kind"] = "road"
-        cls = f["properties"].get("class") or "primary"
-        if cls not in ("motorway", "trunk", "primary"):
-            f["properties"]["class"] = "primary"
+        f["properties"] = normalize_road_props(f["properties"])
     if len(roads) > 1500:
         motorway = [f for f in roads if f["properties"]["class"] == "motorway"]
         trunk = [f for f in roads if f["properties"]["class"] == "trunk"]
         primary = [f for f in roads if f["properties"]["class"] == "primary"]
         roads = motorway[:700] + trunk[:500] + primary[:300]
     return roads
+
+
+def apply_road_land_mask(roads: list[dict], areas: list[dict]) -> list[dict]:
+    """Drop ocean stubs on roads using admin land rings (hydro mouths kept)."""
+    rings = rings_from_polygons(areas)
+    if not rings:
+        return roads
+    out: list[dict] = []
+    for f in roads:
+        segs = _segments_from_geom(f["geometry"])
+        kept: list[list] = []
+        for seg in segs:
+            kept.extend(clip_line_to_land_rings(seg, rings))
+        if not kept:
+            continue
+        nf = dict(f)
+        nf["geometry"] = _geom_from_segments(kept)
+        out.append(nf)
+    return out
 
 
 def sha256_file(path: Path) -> str:
@@ -932,7 +945,9 @@ def main() -> int:
     print(f"  river/lake features: {len(lines)}", flush=True)
     print("Building lines from China roads extract…", flush=True)
     roads = build_road_features(CHINA_ROADS_SRC)
-    print(f"  road features: {len(roads)}", flush=True)
+    print(f"  road features (pre land-mask): {len(roads)}", flush=True)
+    roads = apply_road_land_mask(roads, areas)
+    print(f"  road features (land-masked): {len(roads)}", flush=True)
     lines = lines + roads
     print(f"  line features total: {len(lines)}", flush=True)
 

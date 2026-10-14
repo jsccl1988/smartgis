@@ -7,7 +7,7 @@
 #include <string_view>
 
 #include "app/views/browser/browser.h"
-#include "app/views/browser/plugin/plugin_shell.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "app/views/il.runtime/backend/view/host/capture_host.h"
 #include "app/views/il.runtime/backend/horizon/atom/mark.h"
 #include "app/views/il.runtime/backend/view/pixel/gate.h"

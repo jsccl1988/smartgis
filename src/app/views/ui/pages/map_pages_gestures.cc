@@ -6,6 +6,8 @@
 
 #include "app/views/browser/browser.h"
 
+#include <utility>
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -13,6 +15,7 @@
 
 #include "base/process/switches.h"
 #include "content/browser/session/browser_session.h"
+#include "content/browser/session/gis_hwnd_gestures.h"
 #include "content/public/tool_session.h"
 #include "ui/views/map/viewport/draw_host.h"
 
@@ -33,14 +36,16 @@ void MapPagesComposer::attach_hwnd_gestures() {
   auto on_pinch = [this](int x, int y, double scale) {
     host_->browser_->handle_pinch(x, y, scale);
   };
-  auto on_pan = [this](int dx, int dy) {
+  auto on_pan_3d = [this](int dx, int dy) {
     host_->browser_->handle_gesture_pan(dx, dy);
   };
   // Only wire gestures for panes that already own a present device. Data/3D
   // are HWND-only until first tab focus (see attach_viewports / switch_map_tab).
-  // Prefer input_hwnd() (FlyCube DXGI popup when visible) �?subclassing the
+  // Prefer input_hwnd() (FlyCube DXGI popup when visible) — subclassing the
   // embed alone leaves pan/pinch/right-click dead under the present surface.
-  auto try_attach = [&](ui::views::DrawHost* pane, content::GisHwndGestures* g) {
+  // Map2d: pinch + right-click only (no GID_PAN). Scene3d keeps two-finger pan.
+  auto try_attach = [&](ui::views::DrawHost* pane, content::GisHwndGestures* g,
+                        content::GisHwndGestures::PanFn on_pan) {
     if (!pane || !g || !host_->browser_) {
       return;
     }
@@ -51,11 +56,12 @@ void MapPagesComposer::attach_hwnd_gestures() {
     if (pane->attach_mode() == ui::views::DrawHost::AttachMode::kNone) {
       return;
     }
-    host_->browser_->session().attach_gestures(g, hwnd, on_pinch, on_pan);
+    host_->browser_->session().attach_gestures(g, hwnd, on_pinch,
+                                               std::move(on_pan));
     host_->configure_gestures(g);
   };
-  try_attach(host_->map_edit_, host_->browser_->edit_gestures());
-  try_attach(host_->map_scene_, host_->browser_->scene_gestures());
+  try_attach(host_->map_edit_, host_->browser_->edit_gestures(), {});
+  try_attach(host_->map_scene_, host_->browser_->scene_gestures(), on_pan_3d);
 }
 
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Layout policies for circle marks and heatmap splat stand-ins.
+// Layout policies for circle marks and heatmap density (kRaster) underlays.
 
 #ifndef VISTA_COMPONENT_MAP_LAYOUT_POINT_H_
 #define VISTA_COMPONENT_MAP_LAYOUT_POINT_H_
@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "vista/component/map/ir.h"
-#include "vista/component/map/layout/slice_key.h"
+#include "vista/component/map/layout/policy/slice_key.h"
 
 namespace vista {
 namespace detail {

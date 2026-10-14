@@ -376,6 +376,56 @@ int main() {
   expect(approx_eq(rich_sym.text_size, 16.f), "rich text-size interpolate");
   expect(approx_eq(rich_sym.icon_size, 1.5f), "rich icon-size step");
 
+  // Arithmetic + to-number → data-driven line-width / heatmap-weight.
+  expr_attrs["lanes"] = "3";
+  ExprValue arith_ev;
+  expect(eval_expression(
+             "[\"*\",[\"to-number\",[\"get\",\"lanes\"]],[\"literal\",2]]",
+             expr_attrs, 10.0, &arith_ev),
+         "eval lanes*2");
+  expect(approx_eq(static_cast<float>(arith_ev.as_number()), 6.f),
+         "lanes*2 value");
+  ExprValue unary_ev;
+  expect(eval_expression("[\"-\",[\"literal\",4]]", expr_attrs, 10.0, &unary_ev),
+         "eval unary minus");
+  expect(approx_eq(static_cast<float>(unary_ev.as_number()), -4.f),
+         "unary minus");
+  ExprValue div_ev;
+  expect(eval_expression(
+             "[\"/\",[\"+\",[\"literal\",2],[\"literal\",6]],[\"literal\",2]]",
+             expr_attrs, 10.0, &div_ev),
+         "eval div");
+  expect(approx_eq(static_cast<float>(div_ev.as_number()), 4.f), "div value");
+
+  StyleDocument dd_doc;
+  expect(parse_style_document(
+             "{\"version\":8,\"layers\":["
+             "{\"id\":\"dd-line\",\"type\":\"line\",\"paint\":{"
+             "\"line-width\":[\"*\",[\"to-number\",[\"get\",\"lanes\"]],2],"
+             "\"line-color\":\"#112233\"}},"
+             "{\"id\":\"dd-heat\",\"type\":\"heatmap\",\"paint\":{"
+             "\"heatmap-weight\":[\"to-number\",[\"get\",\"pop\"]],"
+             "\"heatmap-radius\":12,\"heatmap-color\":\"#ff6400\","
+             "\"heatmap-opacity\":0.8}},"
+             "{\"id\":\"dd-sym\",\"type\":\"symbol\",\"layout\":{"
+             "\"text-field\":\"{name}\"},\"paint\":{"
+             "\"text-color\":\"#224466\"}}"
+             "]}",
+             &dd_doc),
+         "parse data-driven style");
+  AttrMap dd_attrs;
+  dd_attrs["lanes"] = "2.5";
+  dd_attrs["pop"] = "0.4";
+  ResolvedPaint dd_line;
+  fill_resolved_paint(dd_doc.layers[0], nullptr, dd_attrs, 10.0, &dd_line);
+  expect(approx_eq(dd_line.line_width, 5.f), "data-driven line-width");
+  ResolvedPaint dd_heat;
+  fill_resolved_paint(dd_doc.layers[1], nullptr, dd_attrs, 10.0, &dd_heat);
+  expect(approx_eq(dd_heat.heatmap_weight, 0.4f), "data-driven heatmap-weight");
+  ResolvedPaint dd_sym;
+  fill_resolved_paint(dd_doc.layers[2], nullptr, dd_attrs, 10.0, &dd_sym);
+  expect(dd_sym.text_color == 0xFF224466u, "text-color paint");
+
   ResolvedPaint zoom_miss;
   expect(!resolve(doc, &lib, attrs, 3.0, "transport", &zoom_miss),
          "zoom miss roads");

@@ -7,6 +7,7 @@
 #include "app/views/il.runtime/backend/view/host/capture_host.h"
 #include "app/views/il.runtime/backend/horizon/atom/mark.h"
 #include "app/views/util/exe_sidecar_path.h"
+#include "app/views/util/view_tree.h"
 #include "content/browser/debug/debug_agent.h"
 #include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
@@ -34,41 +35,6 @@
 namespace app {
 namespace detail {
 namespace {
-
-const ui::views::View* find_view_by_paint_role(const ui::views::View* root,
-                                               std::string_view name) {
-  if (!root) {
-    return nullptr;
-  }
-  if (root->paint_role() == name) {
-    return root;
-  }
-  for (size_t i = 0; i < root->child_count(); ++i) {
-    if (const ui::views::View* hit =
-            find_view_by_paint_role(root->child_at(i), name)) {
-      return hit;
-    }
-  }
-  return nullptr;
-}
-
-void append_view_tree_lines(const ui::views::View* view,
-                            int depth,
-                            std::ostringstream& oss) {
-  if (!view) {
-    return;
-  }
-  for (int i = 0; i < depth; ++i) {
-    oss << ' ';
-  }
-  const std::string_view role = view->paint_role();
-  const ui::views::Rect b = view->bounds();
-  oss << (role.empty() ? "view" : role) << " [" << b.x << ',' << b.y << ' '
-      << b.width << 'x' << b.height << "]\n";
-  for (size_t i = 0; i < view->child_count(); ++i) {
-    append_view_tree_lines(view->child_at(i), depth + 1, oss);
-  }
-}
 
 double elapsed_ms(LARGE_INTEGER freq, LARGE_INTEGER t0, LARGE_INTEGER t1) {
   return (static_cast<double>(t1.QuadPart - t0.QuadPart) * 1000.0) /
@@ -313,8 +279,9 @@ int console_pan_bench(Browser& browser, const wchar_t* mark_leaf) {
   QueryPerformanceCounter(&t1);
   pan_samples.push_back(elapsed_ms(freq, t0, t1));
   const double pan_frame_p50_ms = median_ms(&pan_samples);
+  // Soft basemap_tiles_drawn removed; provider bind is the harness signal.
   bool tiles_ok = false;
-  if (browser.map2d() && browser.map2d()->basemap_tiles_drawn() > 0) {
+  if (browser.document() && browser.document()->has_basemap_provider()) {
     tiles_ok = true;
     write_mark(mark_leaf && mark_leaf[0] ? mark_leaf : kHarnessMarkLeaf,
                "tiles-ok", false);

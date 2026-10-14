@@ -71,20 +71,24 @@ bool apply_terrain_albedo_texture(World* world, uint64_t node_id,
   std::vector<uint8_t> rgba;
   int tw = 0;
   int th = 0;
+  // Prefer hypsometric + jet/isolines for the Scene3D China DEM Contour face.
+  // china_rs map-drape first left a dark photo slab; even with an elevation
+  // stamp the Contour curves washed out under FlyCube lighting (HWND land).
+  if (dem.bake_hypsometric_rgba(edge, &rgba, &tw, &th) && tw >= 2 && th >= 2) {
+    world->set_terrain_texture(node_id, rgba.data(), rgba.size(),
+                               static_cast<uint32_t>(tw),
+                               static_cast<uint32_t>(th));
+    apply_elevation_overlay_texture(world, node_id, dem, edge, &rgba, tw, th);
+    return true;
+  }
   if (dem.bake_map_drape_rgba(edge, &rgba, &tw, &th) && tw > 0 && th > 0) {
     world->set_terrain_texture(node_id, rgba.data(), rgba.size(),
                                static_cast<uint32_t>(tw),
                                static_cast<uint32_t>(th));
+    apply_elevation_overlay_texture(world, node_id, dem, edge, &rgba, tw, th);
     return true;
   }
-  if (!dem.bake_hypsometric_rgba(edge, &rgba, &tw, &th) || tw < 2 || th < 2) {
-    return false;
-  }
-  world->set_terrain_texture(node_id, rgba.data(), rgba.size(),
-                             static_cast<uint32_t>(tw),
-                             static_cast<uint32_t>(th));
-  apply_elevation_overlay_texture(world, node_id, dem, edge, &rgba, tw, th);
-  return true;
+  return false;
 }
 
 // Keep every |stride|-th triangle from a TessMesh (discrete TIN LOD).

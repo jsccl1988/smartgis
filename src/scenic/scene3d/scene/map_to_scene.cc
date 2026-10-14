@@ -703,11 +703,7 @@ void clear_leftover_dem_frame() {
 }
 
 const char* showcase_mode_from_env() {
-  if (const char* mode = base::switch_cstr("scene3d-showcase-mode")) {
-    if (mode[0]) {
-      return mode;
-    }
-  }
+  // Default china seed — no sticky SCENE3D_SHOWCASE_MODE / scene3d-showcase-mode.
   return "china";
 }
 

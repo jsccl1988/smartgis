@@ -2,9 +2,9 @@
 // All rights reserved.
 
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
-#include "content/browser/present/scene3d/frame/tileset_stream.h"
+#include "content/browser/present/scene3d/frame/tileset/tileset_stream.h"
 #include "content/browser/camera/gis_host_extent.h"
-#include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
+#include "content/browser/present/scene3d/gpu/present/scene3d_gpu_present.h"
 
 #include "content/browser/document/gis_scene.h"
 #include "vista/component/world/atmosphere/atmosphere_params.h"
@@ -98,13 +98,14 @@ bool AtmosphereSession::prepare_for_present() {
   if (!prepare_globe() || !prepare_sat_clouds()) {
     return false;
   }
-  // Globe stack owns land/ocean/weather on the sphere �?skip flat ocean/cloud.
+  // Globe stack owns land/ocean/weather on the sphere — skip flat ocean/cloud.
   if (globe_enabled_) {
     return prepare_sky() && prepare_fog();
   }
   // POD prep only. OceanPass::prepare_gpu stays cold-once in Scene3dGpuPresent
   // (need_ocean_height_before_dem / dem_gpu_synced_after_ocean_); warm frames
-  // must not call prepare_gpu from here.
+  // must not call prepare_gpu from here — that would serialize GPU present on
+  // height alloc and risk FlyCube SRV recycle under DEM albedo.
   return prepare_ocean() && prepare_clouds() && prepare_sky() && prepare_fog();
 }
 
@@ -142,7 +143,7 @@ void AtmosphereSession::advance_sim_time() {
   set_time_sec(atmosphere_->time_sec() + dt);
   // Dynamic sun: ~full azimuth revolution every ~120s; mild elevation bob so
   // DEM Lambert and ocean/sky specular read as living daylight.
-  // Do not touch sea_mask_cache_* / overlay dirty �?coast mask is extent-keyed
+  // Do not touch sea_mask_cache_* / overlay dirty -?coast mask is extent-keyed
   // and wave animation is OceanPass::record time, not a FieldStore resample.
   vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
   const double t = atmosphere_->time_sec();
@@ -246,31 +247,131 @@ bool AtmosphereSession::apply_contour_suite_defaults() {
   p.contour_curves = true;
   p.contour_surface = true;
   p.contour_color_scale = true;
-  // Mild elev scale: China-orbit DEM relief is ~0.3; keep the stacked sheet
-  // readable without cliff-like undulation (see attach_tin contour slab).
-  p.contour_dem_offset_m = 500.f;
-  p.contour_value_to_meters = 160.f;
-  p.contour_dem_vert_exag = 0.35f;
-  // Opaque enough that ring ContourSheet hides wrinkled DEM facets beneath.
-  p.contour_surface_alpha = 0.90f;
 
-  vista::atmosphere::FieldGrid grid = field_grid();
-  // Denser sample so the stacked sheet reads as smooth concentric bands.
-  grid.cols = (std::max)(grid.cols, 96);
-  grid.rows = (std::max)(grid.rows, 72);
-  if (!env.rebuild_contour_sheet(vista::atmosphere::FieldChannel::kWaveHs, grid,
-                                 nullptr)) {
+  // National DEM window only. field_grid() follows orbit/document extent, and
+  // bare-launch ContourSheet used to bake before apply_china_scene3d_orbit —
+  // a regional china_city / map2d box shrank the sheet (log: Contour xz ~half
+  // of DEM) so the camera saw a wavy WaveHs patch instead of China DEM curves.
+  vista::atmosphere::FieldGrid grid;
+  grid.min_lon = kChinaLonLatExtent.xmin;
+  grid.min_lat = kChinaLonLatExtent.ymin;
+  grid.max_lon = kChinaLonLatExtent.xmax;
+  grid.max_lat = kChinaLonLatExtent.ymax;
+  // Mesh density for the land Contour TIN. Atlas bakes denser (below) so
+  // charcoal isolines stay readable after GPU bilinear upscale.
+  grid.cols = 128;
+  grid.rows = 96;
+
+  auto sample_dem_grid = [](vista::DemRaster& dem, int cols, int rows,
+                            double min_lon, double min_lat, double max_lon,
+                            double max_lat, std::vector<float>* out) {
+    if (!out || dem.empty() || cols < 2 || rows < 2) {
+      return false;
+    }
+    out->assign(static_cast<std::size_t>(cols) * static_cast<std::size_t>(rows),
+                0.f);
+    const double dlon =
+        (max_lon - min_lon) / static_cast<double>((std::max)(1, cols - 1));
+    const double dlat =
+        (max_lat - min_lat) / static_cast<double>((std::max)(1, rows - 1));
+    for (int row = 0; row < rows; ++row) {
+      // Row 0 = north / max-lat (matches ContourSheet::rebuild_from_store).
+      const double lat = max_lat - static_cast<double>(row) * dlat;
+      for (int col = 0; col < cols; ++col) {
+        const double lon = min_lon + static_cast<double>(col) * dlon;
+        (*out)[static_cast<std::size_t>(row) * static_cast<std::size_t>(cols) +
+               static_cast<std::size_t>(col)] = dem.sample_meters(lon, lat);
+      }
+    }
+    return true;
+  };
+
+  // Sample china_dem on the national grid. Land-masked Contour TIN + jet/isoline
+  // atlas is the product Scene3D face. WaveHs-only rectangular sheets (no DEM)
+  // keep the historical stacked ContourSheet path below.
+  std::vector<float> dem_meters;
+  vista::DemRaster dem_raster;
+  {
+    const std::string path = vista::find_sample_dem_path();
+    if (!path.empty() && dem_raster.load_gdal_raster(path.c_str()) &&
+        !dem_raster.empty()) {
+      (void)sample_dem_grid(dem_raster, grid.cols, grid.rows, grid.min_lon,
+                            grid.min_lat, grid.max_lon, grid.max_lat,
+                            &dem_meters);
+    }
+  }
+  const bool have_dem = !dem_meters.empty();
+  p.contour_dem_offset_m = have_dem ? 0.f : 500.f;
+  p.contour_value_to_meters = have_dem ? 0.f : 160.f;
+  p.contour_dem_vert_exag = have_dem ? 1.f : 0.35f;
+  p.contour_surface_alpha = have_dem ? 0.88f : 0.90f;
+
+  if (have_dem) {
+    // Product Contour face is elevation (not WaveHs). Field=DEM so color-scale
+    // ticks and ContourSheet curves follow china_dem isolines.
+    vista::atmosphere::ContourSheetOptions opts;
+    opts.curves = true;
+    opts.surface = true;
+    opts.color_scale = true;
+    opts.dem_offset_m = p.contour_dem_offset_m;
+    opts.value_to_meters = p.contour_value_to_meters;
+    opts.dem_vert_exag = p.contour_dem_vert_exag;
+    opts.surface_alpha = p.contour_surface_alpha;
+    opts.scale_title = "Elevation";
+    if (!env.contour_sheet().rebuild(dem_meters.data(), dem_meters.data(),
+                                     grid.cols, grid.rows, grid.min_lon,
+                                     grid.min_lat, grid.max_lon, grid.max_lat,
+                                     opts)) {
+      return false;
+    }
+  } else if (!env.rebuild_contour_sheet(
+                 vista::atmosphere::FieldChannel::kWaveHs, grid, nullptr)) {
     return false;
   }
 
-  // ContourSheet carries jet+curves; do not stamp either onto globe albedo
-  // (isoline/jet wash DEM facets under soft lighting �?chrome glare).
+  // ContourSheet / DEM drape carry jet+curves. Keep globe albedo clean
+  // (isoline/jet wash DEM facets under soft lighting -> chrome glare).
   set_elevation_overlay(false, false);
 
   if (globe_enabled_ || !gpu_) {
     return env.contour_sheet().has_color_scale() ||
            env.contour_sheet().has_surface();
   }
+
+  if (have_dem) {
+    // Product China DEM face: jet + charcoal isolines live on the DEM terrain
+    // texture (apply_terrain_albedo_texture). A Contour overlay TIN here either
+    // drew a WaveHs rectangle, dual spiked islands, or a periwinkle wash that
+    // hid the DEM. ContourSheet IR still holds elevation curves/color-scale.
+    // Run before hex/mine protect — leftover Contour periwinkle must not block.
+    gpu_->clear_dem_drape();
+    gpu_->clear_overlay_tin_mesh();
+    return env.contour_sheet().has_color_scale() ||
+           env.contour_sheet().has_curves() ||
+           env.contour_sheet().has_surface();
+  }
+
+  // Do not clobber product overlay TINs (hex amber / mine lithology / cyan
+  // stormsurge). Contour sheet is a diagnostic drape for bare China frames.
+  if (gpu_->overlay_tin_has_albedo()) {
+    const uint8_t* a = gpu_->overlay_tin_albedo();
+    const bool hex_like =
+        a[0] >= 160 && a[1] >= 100 && a[2] < 140 && a[0] > a[2] + 40;
+    const bool water_like =
+        a[2] >= 140 && a[1] >= 100 && a[0] < 90 && a[2] > a[0] + 40;
+    const bool mine_like =
+        a[0] >= 80 && a[1] >= 40 && a[2] >= 40 &&
+        !(a[0] == 210 && a[1] == 220 && a[2] == 255);
+    if (hex_like || water_like || mine_like) {
+      return env.contour_sheet().has_color_scale() ||
+             env.contour_sheet().has_surface();
+    }
+  }
+
+  // Alpha must stay at most 200 so attach_tin picks the soft ContourSheet
+  // slab (0.16-0.38). Alpha>200 falls through to the hard 1.05-1.65 cliff
+  // slab and the jet sheet reads as wrinkled folds (ui.scene).
+  constexpr uint8_t kAlbedo[4] = {210, 220, 255, 190};
 
   const vista::atmosphere::ContourSheet& sheet = env.contour_sheet();
   if (!sheet.has_surface()) {
@@ -289,25 +390,6 @@ bool AtmosphereSession::apply_contour_suite_defaults() {
     geo[i * 3u + 2] = vert[1];
   }
   std::vector<unsigned> idx(mesh.indices.begin(), mesh.indices.end());
-  // Do not clobber product overlay TINs (hex amber / mine lithology / cyan
-  // stormsurge). Contour sheet is a diagnostic drape for bare China frames.
-  if (gpu_->overlay_tin_has_albedo()) {
-    const uint8_t* a = gpu_->overlay_tin_albedo();
-    const bool hex_like =
-        a[0] >= 160 && a[1] >= 100 && a[2] < 140 && a[0] > a[2] + 40;
-    const bool water_like =
-        a[2] >= 140 && a[1] >= 100 && a[0] < 90 && a[2] > a[0] + 40;
-    const bool mine_like =
-        a[0] >= 80 && a[1] >= 40 && a[2] >= 40 &&
-        !(a[0] == 210 && a[1] == 220 && a[2] == 255);
-    if (hex_like || water_like || mine_like) {
-      return sheet.has_color_scale() || sheet.has_surface();
-    }
-  }
-  // Alpha must stay at most 200 so attach_tin picks the soft ContourSheet
-  // slab (0.16-0.38). Alpha>200 falls through to the hard 1.05-1.65 cliff
-  // slab and the jet sheet reads as wrinkled folds (ui.scene).
-  constexpr uint8_t kAlbedo[4] = {210, 220, 255, 190};
   gpu_->set_overlay_tin_mesh(geo.data(), static_cast<int>(nverts), idx.data(),
                              static_cast<int>(idx.size()), kAlbedo);
 
@@ -702,7 +784,7 @@ bool seed_sea_mask_from_dem(vista::atmosphere::Environment& env,
           static_cast<std::size_t>(col);
       const bool inside = lon >= dem_minx && lon <= dem_maxx &&
                           lat >= dem_miny && lat <= dem_maxy;
-      // Match DemRaster land rebuild: elev > 1 m �?land (sea mask 0).
+      // Match DemRaster land rebuild: elev > 1 m -?land (sea mask 0).
       const bool land = inside && dem.sample_meters(lon, lat) > 1.f;
       sea[idx] = land ? 0.f : 1.f;
     }
@@ -713,7 +795,7 @@ bool seed_sea_mask_from_dem(vista::atmosphere::Environment& env,
   layer.priority = 1;  // Prefer over empty-ring fail-closed layer.
   layer.grid = grid;
   layer.values = std::move(sea);
-  // Timeless procedural mask �?default time_sec=0 would invent a timed range
+  // Timeless procedural mask -?default time_sec=0 would invent a timed range
   // and clamp AtmosphereSession::set_time_sec (scene3d time scrub).
   layer.time_sec = std::numeric_limits<double>::quiet_NaN();
   env.field_store().set_layer(layer);
@@ -995,7 +1077,7 @@ bool AtmosphereSession::prepare_ocean() {
             cached_sea_mask_.size())) {
       // Fail closed: no sea_mask layer means do not cover the DEM with a
       // full-screen ocean (mask=1). Interactive 3D used to open blank cyan
-      // when seed_procedural was skipped (has_china_extent false).
+      // when seed_procedural was skipped (has_land_surface false).
       std::fill(cached_sea_mask_.begin(), cached_sea_mask_.end(), 0.f);
     }
     cached_sea_mask_extent_ = frame_extent;
@@ -1055,8 +1137,13 @@ bool AtmosphereSession::prepare_sky() {
   const float sun_el =
       vista::atmosphere::project_sky_sun_elevation(p.sun_elevation_rad);
   sky_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad, sun_el);
+  // Rayleigh unless the globe *surface* is loaded for this session. Frame flag
+  // alone was true during flat full presents (sticky) and selected deep-space.
+  const bool space_sky =
+      globe_enabled_ && globe_surface_loaded_ &&
+      atmosphere_frame_.globe_enabled();
   sky_pass_.set_params(
-      vista::atmosphere::project_sky_draw_params(globe_enabled_));
+      vista::atmosphere::project_sky_draw_params(space_sky));
   return true;
 }
 
@@ -1115,7 +1202,7 @@ bool AtmosphereSession::load_china_globe_detail() {
   }
   china_globe_detail_loaded_ = true;
   if (!globe_pass_.dem_is_global()) {
-    // Base surface is already the China window �?no second overlay.
+    // Base surface is already the China window -?no second overlay.
     return false;
   }
   vista::DemRaster dem;
@@ -1140,7 +1227,7 @@ bool AtmosphereSession::load_china_globe_detail() {
     maxy = 54.0;
   }
   dem.fit_vertical_exaggeration();
-  // Hypsometric from china_dem heights — global_terrain in the China window
+  // Hypsometric from china_dem heights  - global_terrain in the China window
   // painted the DEM-hug BMP as solid ocean cyan (no land read). Soft Lambert
   // in ps_globe keeps peaks matte (no chrome). Space orbit still uses
   // global_terrain via the base equirect (detail_blend=0 above ~2.4 R).
@@ -1157,7 +1244,7 @@ bool AtmosphereSession::load_china_globe_detail() {
     return false;
   }
   // Drop sampled albedo so GlobePass bakes hypsometric land (green/tan) from
-  // detail heights; empty albedo triggers the height→color path.
+  // detail heights; empty albedo triggers the height->color path.
   rgba.clear();
   tw = 0;
   th = 0;
@@ -1242,7 +1329,7 @@ bool AtmosphereSession::prepare_globe() {
       maxy = 90.0;
     }
 
-    // Terrain / satellite equirect only when DEM is global �?otherwise a
+    // Terrain / satellite equirect only when DEM is global -?otherwise a
     // full-earth PNG would be UV-mapped into the China window incorrectly.
     imagery_path = dem_looks_global ? vista::find_sample_global_imagery_path()
                                     : vista::find_sample_imagery_path();

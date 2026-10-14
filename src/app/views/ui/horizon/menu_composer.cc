@@ -128,6 +128,10 @@ void MenuComposer::rebuild_menus() {
           }
           return;
         }
+        if (id == "view.plugins") {
+          host_->on_plugins();
+          return;
+        }
         if (id.starts_with("catalog.")) {
           host_->browser_->on_catalog_command(std::string(id));
           return;
@@ -139,6 +143,7 @@ void MenuComposer::rebuild_menus() {
   host_->menu_bar_->add_menu("Edit", std::move(menus.edit));
   host_->menu_bar_->add_menu("View", std::move(menus.view));
   host_->menu_bar_->add_menu("Layer", std::move(menus.layer));
+  host_->menu_bar_->add_menu("Plugins", std::move(menus.plugins));
 }
 
 

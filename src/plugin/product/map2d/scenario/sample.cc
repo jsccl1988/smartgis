@@ -15,7 +15,7 @@ namespace plugin {
 namespace detail {
 
 bool try_open_china_sample(HarnessShell& browser) {
-  if (browser.document() && browser.document()->has_china_extent() &&
+  if (browser.document() && browser.document()->has_land_surface() &&
       browser.document()->feature_count() >= 200) {
     return true;
   }
