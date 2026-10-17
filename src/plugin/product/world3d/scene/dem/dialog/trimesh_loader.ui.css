@@ -10,15 +10,14 @@ All rights reserved.
   flex-direction: column;
   gap: 6px;
   padding: 10px;
-  width: 640px;
-  height: 520px;
+  width: 100%;
 }
 
 .row {
   display: flex;
   flex-direction: row;
   gap: 8px;
-  width: 620px;
+  width: 100%;
 }
 
 .field {
@@ -56,11 +55,11 @@ All rights reserved.
 #col_z,
 #trimesh_layer {
   height: 28px;
-  width: 180px;
+  flex-grow: 1;
 }
 
 #preview {
   height: 120px;
-  width: 620px;
+  width: 100%;
   flex-grow: 1;
 }

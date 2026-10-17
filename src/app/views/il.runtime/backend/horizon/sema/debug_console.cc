@@ -5,6 +5,7 @@
 
 #include "app/views/browser/browser.h"
 #include "app/views/il.runtime/backend/view/host/capture_host.h"
+#include "content/browser/session/browser_session.h"
 #include "app/views/il.runtime/backend/horizon/atom/mark.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "app/views/util/view_tree.h"
@@ -241,6 +242,11 @@ int console_pan_bench(Browser& browser, const wchar_t* mark_leaf) {
   LARGE_INTEGER t0{};
   LARGE_INTEGER t1{};
   QueryPerformanceFrequency(&freq);
+  // Document :extent is the layer bbox. A drag moves ViewFrame::pan_*,
+  // which is what app_pan_live was trying to observe.
+  const content::ViewFrame& frame = browser.session().view_frame();
+  const double pan_x0 = frame.pan_x();
+  const double pan_y0 = frame.pan_y();
   std::vector<double> pan_samples;
   for (int i = 0; i < 5; ++i) {
     const int x0 = 40 + i * 4;
@@ -269,6 +275,14 @@ int console_pan_bench(Browser& browser, const wchar_t* mark_leaf) {
     QueryPerformanceCounter(&t1);
     pan_samples.push_back(elapsed_ms(freq, t0, t1));
   }
+  const content::ViewFrame& frame_after = browser.session().view_frame();
+  if (frame_after.pan_x() == pan_x0 && frame_after.pan_y() == pan_y0) {
+    std::fprintf(stderr, "console harness: view pan did not move the frame\n");
+    detach_views(browser);
+    return 43;
+  }
+  write_mark(mark_leaf && mark_leaf[0] ? mark_leaf : kHarnessMarkLeaf,
+             "pan-moved", false);
   content::InputEvent wheel{};
   wheel.kind = content::InputEvent::Kind::kWheel;
   wheel.x_px = 40;

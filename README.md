@@ -13,7 +13,7 @@ All rights reserved.
 
 所以才重写。不是要把实验室抹掉，也不是要把地形和点云再清点一遍。旧栈太倔。换手，只为让那张还能干活的图活下去。树还在长，新旧叠在同一棵树上。这不是陈列柜，是一份一起住过的代码还没说完的话。
 
-同一份故事和目录在 [`docs/README.md`](docs/README.md)；树怎么分，在 [`docs/superpowers/src-layout.md`](docs/superpowers/src-layout.md)。**官方产品壳是 `SmartGIS.exe`**（Views + Skia，`build.bat app` / `views`）。`src/legacy/` 已删除，不要再加回来。构建产物在 **`out/Debug`** / **`out/Release`**（`build.bat` 默认两套；`build.bat debug|release` 只编一套），见 [`build/README.md`](build/README.md)。编译锁默认关；不要给 agent 开 `out/.build.lock.on`。
+同一份故事和目录在 [`docs/README.md`](docs/README.md)；树怎么分，在 [`docs/superpowers/src-layout.md`](docs/superpowers/src-layout.md)。**官方产品壳是 `SmartGIS.exe`**（Views + Skia，`build.bat app` / `views`）。`src/legacy/` 已删除，不要再加回来。构建产物在 **`out/Debug`** / **`out/Release`**（`build.bat` 默认两套；`build.bat debug|release` 只编一套），见 [`build/README.md`](build/README.md)。`SmartGIS.exe` 在 `out/<config>/`。`build.bat debug sdk` / `build.bat release sdk` 直接把该配置收成 `out/sdk/<Config>/{include,lib,bin,pdb,data,ui}` 和 `third_party/`（含 `share/proj`、`share/gdal`）。`bin` 下的 exe 用 `../data`、`../ui` 找启动地图和界面。编译过程不先在 gen 根铺这些子目录。编译锁默认关；不要给 agent 开 `out/.build.lock.on`。
 
 mogu 对齐 foundation 真源仅在 [`src/base/`](src/base/)（`//src/base:foundation`，多为 header-only / 静态聚合，**不是**产品 DLL；兼容别名 `//:base` / `//:core` 在根 `BUILD.gn`）。仓库根**无**物理 `base/`、`core/` 目录。GIS / UI / render / vista 等产品代码同在 [`src/`](src/)。产品平台 DLL 含 **`vista.dll` / `vista_d.dll`**（GN `//src/vista:vista`，`dll_stem=vista`；树 [`src/vista/`](src/vista/README.md)）。产品平台 DLL 另有 **`base.dll` / `base_d.dll`**（GN 标签 `//src/base:base`，`dll_stem=base`）。场景数学在 `src/base/math`（`//src/base/math:math`、`:bounds`，C++ 命名空间仍为 `render`），不链进 `base.dll`。设计见 [`docs/superpowers/specs/2026-09-14-base-root-hybrid-design.md`](docs/superpowers/specs/2026-09-14-base-root-hybrid-design.md)。
 
@@ -44,4 +44,4 @@ out\Debug\SmartGIS.exe --self-test
 
 ---
 
-**最后更新：** 2026-10-04
+**最后更新：** 2026-10-17

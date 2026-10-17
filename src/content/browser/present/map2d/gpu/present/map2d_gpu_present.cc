@@ -9,9 +9,15 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #include <exception>
 #include <memory>
 #include <mutex>
@@ -149,7 +155,7 @@ bool Map2dGpuPresent::last_present_reused_layout() const {
 bool Map2dGpuPresent::present_frame(render::rhi::Device* device,
                                     const vista::MapIR& frame_ir,
                                     const Map2dFrameCache::CameraKey& cam,
-                                    bool record_all,
+                                    bool record_all, bool draw_overlays,
                                     const ui::gfx::ShellRaster* shell,
                                     uint64_t shell_generation) {
   BASE_TRACE_EVENT("present_frame", "map2d.present");
@@ -161,8 +167,10 @@ bool Map2dGpuPresent::present_frame(render::rhi::Device* device,
   }
 
   vista::WindowsGlyphRasterizer windows_rasterizer;
+  // CameraKey Y is already +lat (ViewFrame::view_world_extent). MapIR verts
+  // and DEM slots use the same space — do not negate again.
   vista::View view{cam.width_px, cam.height_px, cam.min_x, cam.min_y,
-                        cam.max_x,    cam.max_y};
+                   cam.max_x, cam.max_y};
   const render::rhi::CameraMatrices camera = render::rhi::make_ortho_camera(
       static_cast<float>(cam.min_x), static_cast<float>(cam.max_x),
       static_cast<float>(cam.min_y), static_cast<float>(cam.max_y), -1.f, 1.f);
@@ -173,7 +181,7 @@ bool Map2dGpuPresent::present_frame(render::rhi::Device* device,
       [this](uint32_t texture_key, std::vector<uint8_t>* rgba, int* w, int* h) {
         return cache_ && cache_->load_raster(texture_key, rgba, w, h);
       },
-      {}, record_all);
+      {}, record_all, draw_overlays);
   // Map2d GpuPresent: identity HUD is a layered popup on the Present HWND
   // (WS_EX_NOREDIRECTIONBITMAP), not pixels in the widget shell crop. The crop
   // is only Theme placeholder fills — src-over of unpunched (30,30,30) /
@@ -216,9 +224,11 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
 
   // prepare_for_present / load_raster / note_present_outcome take mu_ briefly.
   // Do not hold cache mu_ across china tess or Pass record (UI hang).
+  const char* phase = "enter";
   try {
     Map2dFrameCache::PresentAction action =
         Map2dFrameCache::PresentAction::kRebuildFull;
+    phase = "prepare";
     if (!cache_->prepare_for_present(width_px, height_px, &action)) {
       // Drop the StaticReuse latch  - a failed prepare after Resize clear must
       // not leave last_present_ok_ true for a later hollow skip.
@@ -244,12 +254,18 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     }();
     // Shell presence + generation must match the last drew frame. gen==0 with
     // pixels is treated as unstable (DrawHost uses 0 as "always copy").
+    // Product present does not composite the shell crop unless
+    // MAP2D_SHELL_OVERLAY=1. A widget repaint still publishes a new
+    // generation and request_frame; treating that as a map invalidation
+    // re-records china every tick and can replay halo glyphs over the clear.
+    const bool shell_affects_present = base::switch_is_one("map2d-shell-overlay");
     const bool shell_stable =
-        fps_bench ||
+        fps_bench || !shell_affects_present ||
         (shell_present == last_had_shell_ &&
          (!shell_present ||
           (shell_generation != 0 &&
            shell_generation == last_shell_generation_)));
+    phase = "selection";
     const uint64_t selection_sig =
         detail::map2d_selection_signature(scene_, flash_pulse_);
     const bool selection_dirty = selection_sig != last_selection_sig_;
@@ -271,11 +287,16 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
 
     // G0/G1: Interactive never invalidate_uploaded (kReuseIfCached).
     // Settle = kIncremental. RebuildFull = invalidate + kReplace.
-    // Selection-only dirty still re-records (overlay items have no cache_key).
+    // Interactive is world-only. river-label / label quads are pixel-space
+    // glyphs baked into lon/lat; replaying them under the live camera paints
+    // white-halo navy smears (text-halo #ffffff, text-color #1a4a6a).
+    // Selection and labels wait for SettleRebuild / RebuildFull.
+    const bool interactive =
+        action == Map2dFrameCache::PresentAction::kInteractiveReuse;
     const bool record_all =
         action == Map2dFrameCache::PresentAction::kRebuildFull ||
         action == Map2dFrameCache::PresentAction::kSettleRebuild ||
-        !last_present_ok_ || selection_dirty;
+        (!interactive && (!last_present_ok_ || selection_dirty));
     const bool full_replace =
         action == Map2dFrameCache::PresentAction::kRebuildFull;
     if (!map2d_pass_) {
@@ -294,6 +315,7 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     }
 
     // C0: snap shared_ptr handles only — Pass record never holds cache mu_.
+    phase = "snap";
     Map2dFrameCache::PresentSnapshot snap;
     if (!cache_->snap(&snap) || !snap.frame) {
       last_present_ok_ = false;
@@ -302,16 +324,61 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       return false;
     }
     vista::MapIR frame_snap = *snap.frame;
-    const Map2dFrameCache::CameraKey cam = snap.camera;
+    // Encode against the live HWND camera. A settle snapshot can still be
+    // the pre-resize extent (1664 inside a 2334 swapchain): the viewport
+    // then fills only a corner and glyph quads stretch over the clear.
+    Map2dFrameCache::CameraKey cam = snap.camera;
+    const Map2dFrameCache::CameraKey live =
+        cache_->live_camera_key(width_px, height_px);
+    if (live.width_px == width_px && live.height_px == height_px &&
+        live.max_x > live.min_x && live.max_y > live.min_y) {
+      cam = live;
+    }
     const uint64_t builds = snap.layout_build_count;
     detail::append_map2d_selection_overlay(scene_, frame_, width_px, height_px,
                                            flash_pulse_, &frame_snap);
 
     vista::reset_last_pass_record_ms();
     const auto gpu_t0 = std::chrono::steady_clock::now();
-    const bool ok =
-        present_frame(device, frame_snap, cam, record_all, shell,
-                      shell_generation);
+    size_t text_items = 0;
+    for (const vista::DrawItem& item : frame_snap.items) {
+      if (item.kind == vista::DrawKind::kText) {
+        ++text_items;
+      }
+    }
+    const bool defer_labels = cache_->gesture_defer_labels();
+    // Labels are placed in the layout camera. A live pan/resize that changed
+    // the span would replay those quads as a white halo over the clear.
+    const bool label_camera_ok = [&] {
+      if (snap.camera.width_px != cam.width_px ||
+          snap.camera.height_px != cam.height_px) {
+        return false;
+      }
+      const double ax = snap.camera.max_x - snap.camera.min_x;
+      const double bx = cam.max_x - cam.min_x;
+      const double ay = snap.camera.max_y - snap.camera.min_y;
+      const double by = cam.max_y - cam.min_y;
+      if (!(ax > 0.0) || !(bx > 0.0) || !(ay > 0.0) || !(by > 0.0)) {
+        return false;
+      }
+      constexpr double kRel = 1.0e-4;
+      return std::fabs(ax - bx) <= kRel * ax && std::fabs(ay - by) <= kRel * ay;
+    }();
+    const bool draw_labels =
+        !interactive && !defer_labels && label_camera_ok &&
+        (action == Map2dFrameCache::PresentAction::kRebuildFull ||
+         action == Map2dFrameCache::PresentAction::kSettleRebuild);
+    if (defer_labels || draw_labels ||
+        action == Map2dFrameCache::PresentAction::kRebuildFull) {
+      LOGGING(LOG_INFO,
+              "map2d.present action=%d size=%ux%u text=%zu labels=%d "
+              "defer=%d",
+              static_cast<int>(action), width_px, height_px, text_items,
+              draw_labels ? 1 : 0, defer_labels ? 1 : 0);
+    }
+    phase = "present_frame";
+    const bool ok = present_frame(device, frame_snap, cam, record_all,
+                                  draw_labels, shell, shell_generation);
     const int64_t gpu_wall_ms =
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - gpu_t0)
@@ -319,6 +386,7 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     const int64_t upload_ms = vista::last_pass_record_ms();
     const int64_t present_ms =
         gpu_wall_ms > upload_ms ? (gpu_wall_ms - upload_ms) : 0;
+    phase = "note_outcome";
     note_map2d_phase_gpu(upload_ms, present_ms);
     cache_->note_present_outcome(action);
     last_present_ok_ = ok;
@@ -382,7 +450,18 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     }
     return ok;
   } catch (const std::exception& ex) {
-    LOGGING(LOG_ERROR, "map2d.present exception: %s", ex.what());
+    void* frames[16] = {};
+    const USHORT n = CaptureStackBackTrace(0, 16, frames, nullptr);
+    LOGGING(LOG_ERROR, "map2d.present exception phase=%s: %s", phase, ex.what());
+    const HMODULE self = GetModuleHandleW(nullptr);
+    for (USHORT i = 0; i < n; ++i) {
+      const auto addr = reinterpret_cast<uintptr_t>(frames[i]);
+      const auto base = reinterpret_cast<uintptr_t>(self);
+      std::fprintf(stderr, "map2d.present stack[%u] %p exe+%llx\n",
+                   static_cast<unsigned>(i), frames[i],
+                   static_cast<unsigned long long>(addr - base));
+    }
+    std::fflush(stderr);
     map2d_pass_.reset();
     shell_overlay_.abandon_gpu();
     shell_overlay_.clear();

@@ -244,10 +244,16 @@ class UI_EXPORT DrawHost : public View {
   // Top-level DXGI present HWND for GPU present (flip-model is unreliable on
   // WS_CHILD embed panes). Sized/moved over native_view().
   HWND ensure_gpu_present_hwnd(uint32_t width_px, uint32_t height_px);
+  // Live popup, or a replacement when the previous one was destroyed.
+  // Never returns the child embed — flip DXGI on WS_CHILD stays navy.
+  HWND gpu_present_target(uint32_t width_px, uint32_t height_px);
   void sync_gpu_present_hwnd(uint32_t width_px, uint32_t height_px);
   void destroy_gpu_present_hwnd();
   // Show the DXGI popup only after Init has cleared the NOREDIRECTION hole.
   void reveal_gpu_present_if_ready();
+  // Scene3d flip popup can vanish after the first Present. Rebuild it on the
+  // UI thread and point the existing device at the new HWND.
+  void recreate_gpu_present_surface();
 
   static LRESULT CALLBACK child_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,
                                          LPARAM lparam);
@@ -258,6 +264,7 @@ class UI_EXPORT DrawHost : public View {
   // Display thread posts this to the embed HWND; reveal must run on the UI
   // thread that owns the DXGI present popup (cross-thread SetWindowPos hangs).
   static constexpr UINT kMsgRevealGpuPresent = WM_APP + 0x5256;  // 'RV'
+  static constexpr UINT kMsgRecreateGpuPresent = WM_APP + 0x5257;
 
   AttachMode mode_ = AttachMode::kNone;
   Role role_ = Role::kMapEdit;

@@ -32,6 +32,11 @@ script "browser.map2d.china" {
     export_bmp(leaf="map2d-showcase-china.bmp", frame="china_product");
     mark("fit-ok");
     mark("extent-ok");
+    // Export pauses present so MapIR and the display thread do not race.
+    // The FPS window must see FlyCube presents; otherwise gpu_skip/full stay 0.
+    resume_map_timers();
+    pump(ms=200);
+    fps_bench();
     mark("pass");
     stop_map_timers();
     detach_maps();

@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "app/views/app/startup/policy.h"
 #include "app/views/il.runtime/backend/plugin/dispatch.h"
 #include "app/views/il.runtime/codegen/session/run_script.h"
 #include "base/process/switches.h"
@@ -84,6 +85,9 @@ std::size_t list_scenarios(const char** out, std::size_t cap) {
 }
 
 int run_scenario(Browser& browser, const Scenario& scenario) {
+  // Re-pin suite LaunchPolicy (cold start already applied harness-suite when
+  // set; keep force-gdi / ContentGdi switches honest if product face leaked).
+  apply_startup_policy(scenario.policy);
   if (scenario.policy.force_gdi_overlay) {
     base::set_switch("force-gdi-map-overlay", "1");
   }

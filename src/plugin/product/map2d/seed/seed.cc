@@ -318,7 +318,9 @@ bool seed_map2d_from_json(content::PluginHost* host, std::string_view args_json)
     mode.assign(args_json);
   }
   Map2dSeedMode parsed = Map2dSeedMode::kChina;
-  if (!parse_map2d_seed_mode(mode, &parsed)) {
+  // Plugins panel Run calls execute() with an empty payload. Empty mode is
+  // the china sample; only a non-empty unknown token is bad_mode.
+  if (!mode.empty() && !parse_map2d_seed_mode(mode, &parsed)) {
     set_operation_result("{\"error\":\"bad_mode\"}");
     return false;
   }

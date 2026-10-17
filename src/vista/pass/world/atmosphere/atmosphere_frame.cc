@@ -163,6 +163,31 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
     list->end_render_pass();
   }
 
+  // Ocean before opaque DEM. Post-ocean kTestOnly covers the whole bake: the
+  // DEM depth-off draw does not update the cleared depth, so the sea plane
+  // passes everywhere. Drawing the sea first lets the DEM color replace it
+  // on land; gaps around the mesh stay water.
+  if (ocean_enabled_ && !globe_enabled_) {
+    if (!ocean_pass_) {
+      return false;
+    }
+    render::rhi::RenderPassDesc ocean_pass;
+    ocean_pass.width = width;
+    ocean_pass.height = height;
+    ocean_pass.load_op = render::rhi::ColorLoadOp::kLoad;
+    ocean_pass.enable_depth = true;
+    ocean_pass.depth_load_op = render::rhi::DepthLoadOp::kLoad;
+    list->begin_render_pass(ocean_pass);
+    if (camera) {
+      list->bind_camera(*camera);
+    }
+    if (!ocean_pass_->record(device, list, width, height, camera)) {
+      list->end_render_pass();
+      return false;
+    }
+    list->end_render_pass();
+  }
+
   return ok;
 }
 
@@ -175,9 +200,9 @@ bool AtmosphereFrame::record_post_opaque(render::rhi::Device* device,
     return false;
   }
 
-  // Flat ocean after opaque DEM, before cloud / fog / sat. Globe near-earth
-  // may overlay a tangent Gerstner patch on the East China Sea.
-  if (ocean_enabled_) {
+  // Flat ocean is drawn in record_pre_opaque (before DEM). Globe near-earth
+  // still overlays a tangent Gerstner patch after the sphere.
+  if (ocean_enabled_ && globe_enabled_) {
     if (!ocean_pass_) {
       return false;
     }

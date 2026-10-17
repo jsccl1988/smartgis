@@ -3,6 +3,7 @@
 
 #include "vista/pass/world/detail/draw.h"
 
+#include "base/core/log.h"
 #include "vista/component/world/space/cull/prep_cull.h"
 #include "vista/pass/world/detail/upload.h"
 
@@ -52,6 +53,34 @@ void record_kind(render::rhi::CommandList* list,
       break;
     }
   }
+  if (kind == vista::NodeKind::kTerrain) {
+    static int terrain_draw_log = 0;
+    if (terrain_draw_log < 6) {
+      ++terrain_draw_log;
+      size_t terrain_meshes = 0;
+      size_t drawn = 0;
+      uint32_t indices = 0;
+      int textured = 0;
+      for (size_t i = 0; i < meshes.size(); ++i) {
+        const GpuMesh& mesh = meshes[i];
+        if (mesh.kind != kind) {
+          continue;
+        }
+        ++terrain_meshes;
+        if (is_drawn(i, mesh)) {
+          ++drawn;
+          indices += mesh.index_count;
+          if (mesh.texture) {
+            textured = 1;
+          }
+        }
+      }
+      LOGGING(LOG_INFO,
+              "scene3d.terrain.draw meshes=%zu drawn=%zu idx=%u tex=%d "
+              "visible_list=%d",
+              terrain_meshes, drawn, indices, textured, use_visible ? 1 : 0);
+    }
+  }
   if (!any) {
     return;
   }
@@ -95,8 +124,9 @@ void record_kind(render::rhi::CommandList* list,
     const render::programs::Color color{mesh.solid_r, mesh.solid_g, mesh.solid_b,
                                 mesh.solid_a};
     // Albedo gate: FlyCube textured SRVs sample near-black after ocean/sky heap
-    // churn (atmosphere.full dark-red DEM silhouette). Solid PSO + olive
-    // ColorCB with DepthMode::kWrite is the score face.
+    // churn. Solid PSO + olive ColorCB is the score face. The position-only
+    // solid PSO must stay on kWrite: depth-off returns DrawIndexed success on
+    // the interactive swapchain and still leaves the navy clear.
     if (force_solid_terrain && kind == vista::NodeKind::kTerrain && solid) {
       if (pass.enable_depth) {
         list->set_depth_mode(render::rhi::DepthMode::kWrite);
@@ -107,11 +137,10 @@ void record_kind(render::rhi::CommandList* list,
     } else if (mesh.texture && lit && lit_textured_pipeline &&
         kind == vista::NodeKind::kTerrain) {
       // DEM hypsometric / draped imagery / olive gate. Prefer unlit textured so
-      // authored bake RGB reaches the swapchain.
-      // Write DEM depth so post-opaque ocean/cloud/fog depth-test correctly.
-      // (Ocean must record *after* this draw — see Scene3dGpuPresent::present.)
+      // authored bake RGB reaches the swapchain. Depth-off: kWrite on this
+      // pass rasterizes nothing (clear stays 0,0.2,0.4).
       if (pass.enable_depth) {
-        list->set_depth_mode(render::rhi::DepthMode::kWrite);
+        list->set_depth_mode(render::rhi::DepthMode::kDisabled);
       }
       if (lit_terrain) {
         list->set_pipeline(lit_textured_pipeline);

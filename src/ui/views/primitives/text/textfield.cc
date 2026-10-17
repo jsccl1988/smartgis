@@ -148,6 +148,7 @@ void Textfield::set_text(std::string text) {
   caret_ = text_.size();
   sel_anchor_ = caret_;
   composition_.clear();
+  invalidate_commands();
   schedule_paint();
 }
 
@@ -160,6 +161,7 @@ void Textfield::set_placeholder(std::string placeholder) {
     return;
   }
   placeholder_ = std::move(placeholder);
+  invalidate_commands();
   schedule_paint();
 }
 
@@ -168,6 +170,7 @@ void Textfield::set_invalid(bool invalid) {
     return;
   }
   invalid_ = invalid;
+  invalidate_commands();
   schedule_paint();
 }
 
@@ -184,6 +187,7 @@ void Textfield::set_key_hook(std::function<bool(const KeyEvent&)> fn) {
 }
 
 void Textfield::notify_change() {
+  invalidate_commands();
   schedule_paint();
   if (change_) {
     change_();
@@ -211,6 +215,7 @@ void Textfield::set_caret(size_t utf8_offset, bool extend_selection) {
   if (!extend_selection) {
     sel_anchor_ = caret_;
   }
+  invalidate_commands();
   schedule_paint();
 }
 
@@ -287,6 +292,7 @@ void Textfield::move_caret(int utf8_delta, bool extend_selection) {
 void Textfield::select_all() {
   sel_anchor_ = 0;
   caret_ = text_.size();
+  invalidate_commands();
   schedule_paint();
 }
 
@@ -359,6 +365,7 @@ void Textfield::disarm_caret_timer() {
 
 void Textfield::on_focus() {
   arm_caret_timer();
+  invalidate_commands();
   schedule_paint();
 }
 
@@ -366,6 +373,7 @@ void Textfield::on_blur() {
   disarm_caret_timer();
   composition_.clear();
   selecting_drag_ = false;
+  invalidate_commands();
   schedule_paint();
 }
 
@@ -378,11 +386,13 @@ bool Textfield::on_ime_composition(std::wstring_view text, bool is_result) {
     if (!text.empty()) {
       insert_utf8(wide_to_utf8(std::wstring(text).c_str()));
     } else {
-      schedule_paint();
+      invalidate_commands();
+  schedule_paint();
     }
     return true;
   }
   composition_.assign(text.begin(), text.end());
+  invalidate_commands();
   schedule_paint();
   return true;
 }

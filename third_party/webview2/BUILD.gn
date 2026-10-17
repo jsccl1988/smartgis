@@ -8,6 +8,10 @@ import("//build/smartgis.gni")
 config("webview2_config") {
   include_dirs += [ "include" ]
   libs = [ rebase_path("bin/x64/WebView2Loader.dll.lib", root_build_dir) ]
+  if (is_win) {
+    libs += [ "delayimp.lib" ]
+    ldflags = [ "/DELAYLOAD:WebView2Loader.dll" ]
+  }
 }
 
 copy("webview2_loader_dll") {
@@ -17,5 +21,8 @@ copy("webview2_loader_dll") {
 
 group("webview2") {
   public_configs = [ ":webview2_config" ]
-  deps = [ ":webview2_loader_dll" ]
+  public_deps = [ ":webview2_loader_dll" ]
+  if (is_win) {
+    public_deps += [ "//third_party/gn:dll_search" ]
+  }
 }

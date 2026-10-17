@@ -22,6 +22,7 @@
 #include "content/public/plugin_host.h"
 #include "tool/command/command.h"
 
+#include "base/core/log.h"
 #include "base/ipc/handle/handle.h"
 #include "base/ipc/invitation/invitation.h"
 #include "base/ipc/receiver/receiver.h"
@@ -269,7 +270,11 @@ class PipeDocument final : public GisDocument {
 
 class GisContentsImpl final : public GisContents, public ContentsHostPipe {
  public:
-  GisContentsImpl() = default;
+  GisContentsImpl() {
+    // Member ctors (Pipe events, maps) run before this. If the next log
+    // alloc faults, those ctors already damaged the NT heap.
+    LOGGING(LOG_INFO, "startup: GisContentsImpl members ready");
+  }
   ~GisContentsImpl() override { Shutdown(); }
 
   bool StartRenderProcess() override;

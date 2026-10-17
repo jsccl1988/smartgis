@@ -3,15 +3,26 @@
 
 #include "content/browser/document/query/inspector.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 #include "content/public/types.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/eval/style_rules.h"
+#include "base/core/log.h"
 #include "base/process/switches.h"
 
 namespace content {
@@ -191,18 +202,43 @@ void fill_feature_info_fields(
   }
 }
 
-void fill_attribute_rows(const LayerStore& store,
-                         std::vector<std::string>* columns,
-                         std::vector<std::vector<std::string>>* rows,
-                         std::vector<std::string>* tokens) {
-  if (!columns || !rows || !tokens) {
-    return;
-  }
+namespace {
+
+// Separate TU-local body so MSVC __try can wrap without C++ dtors in-frame.
+void fill_attribute_rows_body(const LayerStore& store,
+                              std::vector<std::string>* columns,
+                              std::vector<std::vector<std::string>>* rows,
+                              std::vector<std::string>* tokens) {
   columns->assign({"FID", "Name", "Type", "Layer"});
   rows->clear();
   tokens->clear();
-  for (const MapLayer& layer : store.layers()) {
-    for (const MapFeature& f : layer.features) {
+  constexpr size_t kMaxLayers = 1u << 16;
+  constexpr size_t kMaxFeaturesPerLayer = 1u << 20;
+  const std::vector<MapLayer>& layers = store.layers();
+  const size_t layer_n = layers.size();
+  if (layer_n == 0 || layer_n > kMaxLayers || layers.data() == nullptr) {
+    LOGGING(LOG_INFO,
+            "[fill_attribute_rows] empty_or_invalid layer_n=%zu data=%p",
+            layer_n, static_cast<const void*>(layers.data()));
+    return;
+  }
+  for (size_t li = 0; li < layer_n; ++li) {
+    const MapLayer& layer = layers[li];
+    // Near-null MapLayer* (ABI skew / half-link) shows up as features this≈0x60.
+    const uintptr_t layer_addr = reinterpret_cast<uintptr_t>(&layer);
+    if (layer_addr < 0x1000u) {
+      LOGGING(LOG_ERROR,
+              "[fill_attribute_rows] skip corrupt layer ptr=%p li=%zu n=%zu",
+              static_cast<const void*>(&layer), li, layer_n);
+      continue;
+    }
+    const size_t feat_n = layer.features.size();
+    if (feat_n == 0 || feat_n > kMaxFeaturesPerLayer ||
+        layer.features.data() == nullptr) {
+      continue;
+    }
+    for (size_t fi = 0; fi < feat_n; ++fi) {
+      const MapFeature& f = layer.features[fi];
       std::string name = f.fields.empty()
                              ? content::encode_feature_token(f.id)
                              : f.fields[0].value;
@@ -228,6 +264,48 @@ void fill_attribute_rows(const LayerStore& store,
       tokens->push_back(content::encode_feature_token(f.id));
     }
   }
+}
+
+#if defined(_MSC_VER)
+int fill_attribute_rows_seh(const LayerStore& store,
+                            std::vector<std::string>* columns,
+                            std::vector<std::vector<std::string>>* rows,
+                            std::vector<std::string>* tokens) {
+  __try {
+    fill_attribute_rows_body(store, columns, rows, tokens);
+    return 1;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return 0;
+  }
+}
+#endif
+
+}  // namespace
+
+void fill_attribute_rows(const LayerStore& store,
+                         std::vector<std::string>* columns,
+                         std::vector<std::vector<std::string>>* rows,
+                         std::vector<std::string>* tokens) {
+  if (!columns || !rows || !tokens) {
+    return;
+  }
+  std::lock_guard<std::recursive_mutex> lock(store.mutex());
+#if defined(_MSC_VER)
+  // Defense: store can still be mid-destroy from a prior race; mutex stops
+  // new races. Soft-fail the table rather than take down the shell.
+  if (!fill_attribute_rows_seh(store, columns, rows, tokens)) {
+    LOGGING(LOG_ERROR,
+            "[fill_attribute_rows] SEH soft-fail (AV during table fill); "
+            "returning empty table. Check ABI closure / LayerStore races.");
+    columns->assign({"FID", "Name", "Type", "Layer"});
+    rows->clear();
+    tokens->clear();
+  } else {
+    LOGGING(LOG_INFO, "[fill_attribute_rows] ok rows=%zu", rows->size());
+  }
+#else
+  fill_attribute_rows_body(store, columns, rows, tokens);
+#endif
 }
 
 }  // namespace detail

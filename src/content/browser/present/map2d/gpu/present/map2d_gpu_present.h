@@ -88,7 +88,7 @@ class Map2dGpuPresent {
   // |frame_ir| is a snapped MapIR (present holds no cache mu_ across Pass).
   bool present_frame(render::rhi::Device* device, const vista::MapIR& frame_ir,
                      const Map2dFrameCache::CameraKey& cam, bool record_all,
-                     const ui::gfx::ShellRaster* shell,
+                     bool draw_overlays, const ui::gfx::ShellRaster* shell,
                      uint64_t shell_generation);
 
   const GisScene* scene_ = nullptr;

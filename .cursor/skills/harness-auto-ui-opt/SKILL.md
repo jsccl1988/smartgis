@@ -20,7 +20,7 @@ All rights reserved.
 
 Closed loop: build → run matrix → inspect PNGs → performance table → **recommendations** → (optional) optimize against chrome budgets → re-run.
 
-Sibling of `harness-auto-world3d-opt` (Scene3D GPU peers). This skill owns **`src/ui` Views/Skia chrome** (`ui::views` / `ui::gfx` / `ui::gis` panels) plus product `--ui-showcase`. Do **not** rank leftover MFC, map2d GPU, or Scene3D `ms_per_present` as UI chrome peers.
+Sibling of `harness-auto-world3d-port-matrix` (Scene3D GPU peers). This skill owns **`src/ui` Views/Skia chrome** (`ui::views` / `ui::gfx` / `ui::gis` panels) plus product `--ui-showcase`. Do **not** rank leftover MFC, map2d GPU, or Scene3D `ms_per_present` as UI chrome peers.
 
 ## Authorization
 
@@ -108,7 +108,7 @@ Lead with hottest **chrome** phase, then hottest **L1b** bench. Map to §Shell p
 | `present_ms` / `begin_frame_to_shell_present_ms` | U5 | `ShellCompositor::present` / vblank |
 | `create_font` / `create_brush` | cache | `kernel/shell/theme.*`, painters |
 | `layout_count` | layout | `markup/layout/yoga_layout_manager.cc` |
-| `hud_fps` / `map_paint_ms` | **out of scope** | `harness-auto-map2d-frame-opt` / scene3d-frame-opt |
+| `hud_fps` / `map_paint_ms` | **out of scope** | `harness-auto-map2d-phase-loop` / `harness-auto-scene3d-phase-loop` |
 | cold `wall_ms` to first map | **out of scope** | `harness-auto-bootstrap` |
 
 Do not invent Chrome FPS SLA. Soft Debug guidance only: if `raster_ms` ≫ `commit_ms` on shell, prefer dirty-rect / U4 before rewriting Theme.

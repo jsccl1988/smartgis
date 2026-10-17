@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
 #include <format>
 #include <string>
 #include <string_view>
@@ -42,84 +43,96 @@ namespace app {
 // View menu / map context navigation commands.
 
 void Browser::identify_at(int view_x, int view_y) {
-  content::FeatureId saved{};
-  bool had = false;
-  if (const content::GisScene::Feature* current = session_->document().selected_feature()) {
-    saved = current->id;
-    had = true;
-  }
   double map_x = 0;
   double map_y = 0;
   session_->view_to_map(view_x, view_y, &map_x, &map_y);
   const double scale = session_->view_scale() > 1e-9 ? session_->view_scale() : 1.0;
   const double tol_map = 12.0 / scale;
-  const std::vector<const content::GisScene::Feature*> candidates =
-      session_->document().hit_test_all(map_x, map_y, tol_map);
-  if (candidates.empty()) {
-    if (had) {
-      session_->select_feature(saved);
+  content::FeatureId saved{};
+  bool had = false;
+  content::FeatureId id{};
+  std::vector<ui::views::FeatureInfo::Hit> hits;
+  bool any = false;
+  {
+    // Copy feature fields before dropping the lock. hit_test_all's pointers
+    // alias LayerStore storage that present/ingest may reallocate.
+    std::lock_guard<std::recursive_mutex> lock(session_->document().layer_mutex());
+    if (const content::GisScene::Feature* current =
+            session_->document().selected_feature()) {
+      saved = current->id;
+      had = true;
     }
+    const std::vector<const content::GisScene::Feature*> candidates =
+        session_->document().hit_test_all(map_x, map_y, tol_map);
+    if (candidates.empty()) {
+      if (had) {
+        session_->document().select_feature(saved);
+      }
+    } else {
+      any = true;
+      id = candidates.front()->id;
+      const double map_scale = session_->view_scale();
+      hits.reserve(candidates.size());
+      for (const content::GisScene::Feature* feature : candidates) {
+        if (!feature) {
+          continue;
+        }
+        ui::views::FeatureInfo::Hit hit;
+        hit.feature_id = content::GisScene::feature_token(feature->id);
+        for (const content::GisScene::Layer& layer : session_->document().layers()) {
+          for (const content::GisScene::Feature& candidate : layer.features) {
+            if (std::memcmp(candidate.id.bytes, feature->id.bytes,
+                            sizeof(feature->id.bytes)) == 0 &&
+                candidate.id.len == feature->id.len) {
+              hit.layer_name = layer.name;
+              break;
+            }
+          }
+          if (!hit.layer_name.empty()) {
+            break;
+          }
+        }
+        switch (feature->kind) {
+          case content::GisScene::GeomKind::kLine:
+            hit.geometry_type = "Line";
+            break;
+          case content::GisScene::GeomKind::kPolygon:
+            hit.geometry_type = "Polygon";
+            break;
+          case content::GisScene::GeomKind::kText:
+            hit.geometry_type = "Text";
+            break;
+          case content::GisScene::GeomKind::kPoint:
+          default:
+            hit.geometry_type = "Point";
+            break;
+        }
+        std::vector<std::pair<std::string, std::string>> pairs;
+        session_->document().fill_feature_info_fields(*feature, &pairs,
+                                                     hit.layer_name, map_scale);
+        hit.fields.reserve(pairs.size());
+        for (auto& pair : pairs) {
+          hit.fields.push_back(
+              {std::move(pair.first), std::move(pair.second)});
+        }
+        hits.push_back(std::move(hit));
+      }
+    }
+  }
+  if (!any) {
     session_->navigation_note_no_feature();
     ui_->set_status_message(session_->navigation_status());
     return;
   }
-  // hit_test_all already selected the nearest feature.
-  const content::FeatureId id = candidates.front()->id;
   ui_->sync_inspectors_from_scene();
+  const size_t hit_count = hits.size();
   if (ui::views::FeatureInfo* info = ui_->feature_info()) {
-    const double map_scale = session_->view_scale();
-    std::vector<ui::views::FeatureInfo::Hit> hits;
-    hits.reserve(candidates.size());
-    for (const content::GisScene::Feature* feature : candidates) {
-      if (!feature) {
-        continue;
-      }
-      ui::views::FeatureInfo::Hit hit;
-      hit.feature_id = content::GisScene::feature_token(feature->id);
-      for (const content::GisScene::Layer& layer : session_->document().layers()) {
-        for (const content::GisScene::Feature& candidate : layer.features) {
-          if (std::memcmp(candidate.id.bytes, feature->id.bytes,
-                          sizeof(feature->id.bytes)) == 0 &&
-              candidate.id.len == feature->id.len) {
-            hit.layer_name = layer.name;
-            break;
-          }
-        }
-        if (!hit.layer_name.empty()) {
-          break;
-        }
-      }
-      switch (feature->kind) {
-        case content::GisScene::GeomKind::kLine:
-          hit.geometry_type = "Line";
-          break;
-        case content::GisScene::GeomKind::kPolygon:
-          hit.geometry_type = "Polygon";
-          break;
-        case content::GisScene::GeomKind::kText:
-          hit.geometry_type = "Text";
-          break;
-        case content::GisScene::GeomKind::kPoint:
-        default:
-          hit.geometry_type = "Point";
-          break;
-      }
-      std::vector<std::pair<std::string, std::string>> pairs;
-      session_->document().fill_feature_info_fields(*feature, &pairs,
-                                                   hit.layer_name, map_scale);
-      hit.fields.reserve(pairs.size());
-      for (auto& pair : pairs) {
-        hit.fields.push_back(
-            {std::move(pair.first), std::move(pair.second)});
-      }
-      hits.push_back(std::move(hit));
-    }
     info->set_hits(std::move(hits), 0);
   }
   ui_->show_feature_info_tab();
   ui_->invalidate_map_overlays();
-  if (candidates.size() > 1) {
-    ui_->set_status_message("Identified " + std::to_string(candidates.size()) +
+  if (hit_count > 1) {
+    ui_->set_status_message("Identified " + std::to_string(hit_count) +
                             " features (" + content::GisScene::feature_token(id) + ")");
   } else {
     ui_->set_status_message("Selected " + content::GisScene::feature_token(id));

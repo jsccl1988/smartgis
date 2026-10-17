@@ -32,6 +32,16 @@ product_shared_library("vista") {
     "//third_party:gdal",
   ]
   libs = [ "gdiplus.lib" ]
+  if (has_pdal) {
+    # pdalcpp.dll is in the SDK third_party/bin. Delay-load so the exe can
+    # SetDllDirectory before the loader resolves it.
+    libs += [ "delayimp.lib" ]
+    if (is_debug) {
+      ldflags = [ "/DELAYLOAD:pdalcppd.dll" ]
+    } else {
+      ldflags = [ "/DELAYLOAD:pdalcpp.dll" ]
+    }
+  }
 }
 
 group("vista_test_all") {

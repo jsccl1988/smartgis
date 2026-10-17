@@ -205,6 +205,39 @@ void raise_owned_widget_above_owner(HWND hwnd, HWND owner) {
                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
+HWND primary_unowned_widget_hwnd() {
+  HWND found = nullptr;
+  LONG best_area = -1;
+  const DWORD self = GetCurrentProcessId();
+  for (HWND hwnd = nullptr;
+       (hwnd = FindWindowExW(nullptr, hwnd, kWidgetClass, nullptr)) !=
+       nullptr;) {
+    DWORD pid = 0;
+    GetWindowThreadProcessId(hwnd, &pid);
+    if (pid != self || !IsWindowVisible(hwnd)) {
+      continue;
+    }
+    if (GetWindow(hwnd, GW_OWNER) != nullptr) {
+      continue;
+    }
+    RECT rc = {};
+    if (!GetWindowRect(hwnd, &rc)) {
+      continue;
+    }
+    const LONG w = rc.right - rc.left;
+    const LONG h = rc.bottom - rc.top;
+    if (w <= 0 || h <= 0) {
+      continue;
+    }
+    const LONG area = w * h;
+    if (area > best_area) {
+      best_area = area;
+      found = hwnd;
+    }
+  }
+  return found;
+}
+
 LRESULT hit_test_custom_frame(HWND hwnd,
                               int screen_x,
                               int screen_y,
@@ -304,6 +337,49 @@ LRESULT Widget::handle_message(HWND hwnd, UINT msg, WPARAM wparam,
         // would re-apply WS_CAPTION insets and show a second OS title bar.
         // kPopup also collapses NC so WS_BORDER is drawn by DWM as a thin edge
         // while client size matches InitParams.
+        // Maximized CSD must sit on the work area. Returning the proposed
+        // monitor rect unchanged covers the taskbar and can leave SW_MAXIMIZE
+        // looking like a no-op next to a thick-frame inset.
+        if (IsZoomed(hwnd)) {
+          HMONITOR mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+          MONITORINFO mi = {};
+          mi.cbSize = sizeof(mi);
+          if (mon && GetMonitorInfoW(mon, &mi)) {
+            if (wparam) {
+              auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lparam);
+              if (params) {
+                params->rgrc[0] = mi.rcWork;
+              }
+            } else if (auto* rect = reinterpret_cast<RECT*>(lparam)) {
+              *rect = mi.rcWork;
+            }
+          }
+        }
+        return 0;
+      }
+      break;
+    case WM_GETMINMAXINFO:
+      if (frame_kind_ == FrameKind::kCustom && lparam) {
+        // DefWindowProc sizes a borderless popup from the collapsed NC frame,
+        // so ptMaxSize stays at the restored box and the caption maximize
+        // button cannot grow the window.
+        auto* mmi = reinterpret_cast<MINMAXINFO*>(lparam);
+        DefWindowProcW(hwnd, msg, wparam, lparam);
+        HMONITOR mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO mi = {};
+        mi.cbSize = sizeof(mi);
+        if (mon && GetMonitorInfoW(mon, &mi)) {
+          mmi->ptMaxPosition.x = mi.rcWork.left - mi.rcMonitor.left;
+          mmi->ptMaxPosition.y = mi.rcWork.top - mi.rcMonitor.top;
+          mmi->ptMaxSize.x = mi.rcWork.right - mi.rcWork.left;
+          mmi->ptMaxSize.y = mi.rcWork.bottom - mi.rcWork.top;
+          if (mmi->ptMaxTrackSize.x < mmi->ptMaxSize.x) {
+            mmi->ptMaxTrackSize.x = mmi->ptMaxSize.x;
+          }
+          if (mmi->ptMaxTrackSize.y < mmi->ptMaxSize.y) {
+            mmi->ptMaxTrackSize.y = mmi->ptMaxSize.y;
+          }
+        }
         return 0;
       }
       break;
@@ -426,6 +502,9 @@ LRESULT Widget::handle_message(HWND hwnd, UINT msg, WPARAM wparam,
     case WM_TIMER:
       // Caret blink: Textfield arms this id while focused.
       if (wparam == 0x43415245u /* 'CARE' */ && focused_) {
+        // Blink phase is sampled while recording; a pixel invalidate alone
+        // replays the previous display list and the caret never moves.
+        focused_->invalidate_commands();
         focused_->schedule_paint();
         return 0;
       }

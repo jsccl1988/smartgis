@@ -38,6 +38,9 @@ int main() {
   test_splitter_layout();
   test_splitter_host_resize_grows_flex_pane();
   test_splitter_drag_keeps_capture();
+  test_splitter_secondary_fixed_drag_moves_primary();
+  test_splitter_drag_survives_reseed();
+  test_splitter_grip_is_hit_target();
   test_layer_tree_add_while_hidden();
   test_ambox_in_view_tree();
   test_ambox_populate_from_commands();
@@ -46,6 +49,7 @@ int main() {
   test_tree_view_send_mouse_hits_rows();
   test_tree_view_dpi_row_height();
   test_scroll_view_wheel();
+  test_scroll_view_uses_layout_preferred_height();
   test_scroll_wheel_over_content_via_widget();
   test_scroll_track_seek();
   test_menu_bar_click();
@@ -59,6 +63,8 @@ int main() {
   test_ambox_buttons_not_collapsed();
   test_forensics_dump_writes_manifest();
   test_tab_strip_page_bounds_align();
+  test_tab_strip_keeps_active_visible_on_overflow();
+  test_tab_strip_included_tabs_hide_other_groups();
   test_box_layout_insets_and_spacing();
   test_box_layout_flex_keeps_preferred();
   test_box_layout_flex_share_no_stack();
@@ -70,6 +76,8 @@ int main() {
   test_layout_center_helper();
   test_widget_hwnd_and_draw_host();
   test_custom_frame_hides_os_caption();
+  test_custom_frame_maximizes_to_work_area();
+  test_owned_dialog_stays_above_shell();
   test_touch_multitouch_midpoint();
   test_dpi_scale_math();
   test_device_scale_recomputes_preferred();
@@ -77,6 +85,7 @@ int main() {
   test_status_bar_dpi_height();
   test_paint_fingerprint_locked_scene();
   test_ambox_scroll_content_taller_than_pane();
+  test_ambox_horizontal_chip_row_not_dock_height();
   test_dialog_host_clamps_to_work_area();
   test_hover_paint_skips_unrelated_views();
   test_paint_commit_snapshot_isolation();

@@ -92,6 +92,7 @@ set "NINJA_TARGET="
 set "BUILD_APP=false"
 set "BUILD_RENDER=false"
 set "BUILD_VIEWS=false"
+set "PUBLISH_SDK=0"
 if /I "!TARGET_ARG!"=="sln" (
   echo ERROR: MSBuild/sln is not an engineering entry. Use build.bat ^(GN^).>&2
   echo vs2008\ and branches\ were removed; engineering entry is GN only.>&2
@@ -179,6 +180,11 @@ if not "!TARGET_ARG!"=="" (
     set "NINJA_TARGET=harness"
     set "BUILD_VIEWS=true"
     set "BUILD_RENDER=true"
+  ) else if /I "!TARGET_ARG!"=="sdk" (
+    REM Product graph, then out/sdk/Debug and/or out/sdk/Release.
+    set "NINJA_TARGET=views"
+    set "BUILD_VIEWS=true"
+    set "PUBLISH_SDK=1"
   ) else (
     set "NINJA_TARGET=!TARGET_ARG!"
   )
@@ -210,6 +216,12 @@ if "!BUILD_RELEASE!"=="1" (
     set "ERR=!CFG_RC!"
     goto :finish
   )
+)
+
+if "!PUBLISH_SDK!"=="1" (
+  if "!BUILD_DEBUG!"=="1" call :publish_sdk Debug
+  if "!BUILD_RELEASE!"=="1" call :publish_sdk Release
+  if !ERR! NEQ 0 goto :finish
 )
 
 REM te / harness runners use Debug binaries only (unlocked when PHASE=compile+tests split).
@@ -411,3 +423,16 @@ call :check_out_artifacts product %OUT_NAME%
 if errorlevel 1 exit /b 1
 set "CHECK_OUT_EXTRA="
 exit /b 0
+
+REM ---------------------------------------------------------------------------
+REM :publish_sdk <Debug|Release>
+REM ---------------------------------------------------------------------------
+:publish_sdk
+echo === publish_sdk --out %~1 ===
+if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
+  "%LocalAppData%\Programs\Python\Python312\python.exe" "%~dp0build\tools\publish_sdk.py" --out %~1
+) else (
+  py -3 "%~dp0build\tools\publish_sdk.py" --out %~1
+)
+if errorlevel 1 set "ERR=1"
+goto :eof

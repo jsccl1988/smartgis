@@ -34,6 +34,10 @@
 namespace app {
 namespace {
 constexpr UINT_PTR kShellWheelSubclassId = 0x57484C45u;  // 'WHLE'
+constexpr UINT_PTR kDeferPluginPanelTimer = 0x504C4750u;  // 'PLGP'
+constexpr wchar_t kDeferPluginPanelProp[] = L"SmartGisDeferPluginPanel";
+// Let the first map frame paint before the plugin catalog scan.
+constexpr UINT kDeferPluginPanelMs = 400;
 }  // namespace
 
 ShellLifecycleComposer::ShellLifecycleComposer(BrowserView* host) : host_(host) {}
@@ -70,6 +74,8 @@ LRESULT CALLBACK ShellLifecycleComposer::shell_wheel_subclass_proc(HWND hwnd, UI
   // not nest select_view_tab inside the seed timer / switch_map_tab wait.
   constexpr UINT kReselectTab = WM_APP + 0x5354;  // 'ST'
   constexpr UINT kExtentChangedUi = WM_APP + 0x5253;  // 'RS'
+  constexpr UINT kOpenPanelUi = WM_APP + 0x4F50;      // 'OP'
+  constexpr UINT kUiFn = WM_APP + 0x5546;             // 'UF'
   if (self && id == kShellWheelSubclassId && msg == kReselectTab) {
     const int idx = static_cast<int>(wparam);
     if (idx >= 0 && idx <= 2) {
@@ -88,6 +94,22 @@ LRESULT CALLBACK ShellLifecycleComposer::shell_wheel_subclass_proc(HWND hwnd, UI
       delete extent;
     }
     return 0;
+  }
+  if (self && id == kShellWheelSubclassId && msg == kOpenPanelUi) {
+    // LPARAM → stack OpenPanelUiRequest owned by DebugAgent caller (SendMessage).
+    auto* req = reinterpret_cast<BrowserView::OpenPanelUiRequest*>(lparam);
+    if (req) {
+      req->result = self->open_named_panel(req->panel);
+    }
+    return 1;
+  }
+  if (self && id == kShellWheelSubclassId && msg == kUiFn) {
+    // LPARAM → stack UiFnRequest. Invoke before SendMessageTimeout returns.
+    auto* req = reinterpret_cast<BrowserView::UiFnRequest*>(lparam);
+    if (req && req->body && *req->body) {
+      req->result = (*req->body)();
+    }
+    return 1;
   }
   if (self && id == kShellWheelSubclassId &&
       (msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL)) {
@@ -116,6 +138,7 @@ LRESULT CALLBACK ShellLifecycleComposer::shell_wheel_subclass_proc(HWND hwnd, UI
 
 
 void ShellLifecycleComposer::prepare_shell_close() {
+  cancel_deferred_plugin_panel();
   host_->remove_shell_wheel_forward();
   if (host_->map_edit_) {
     host_->map_edit_->detach();
@@ -258,6 +281,44 @@ bool ShellLifecycleComposer::init_shell() {
 }
 
 
+void ShellLifecycleComposer::cancel_deferred_plugin_panel() {
+  HWND shell = host_->widget_.hwnd();
+  if (!shell || !IsWindow(shell)) {
+    return;
+  }
+  KillTimer(shell, kDeferPluginPanelTimer);
+  RemovePropW(shell, kDeferPluginPanelProp);
+}
+
+void ShellLifecycleComposer::schedule_deferred_plugin_panel() {
+  HWND shell = host_->widget_.hwnd();
+  if (!shell || !IsWindow(shell) || host_->plugins_tab_ < 0) {
+    return;
+  }
+  if (host_->plugin_catalog_) {
+    return;
+  }
+  SetPropW(shell, kDeferPluginPanelProp, reinterpret_cast<HANDLE>(host_));
+  SetTimer(shell, kDeferPluginPanelTimer, kDeferPluginPanelMs,
+           &ShellLifecycleComposer::on_deferred_plugin_panel);
+}
+
+void CALLBACK ShellLifecycleComposer::on_deferred_plugin_panel(HWND timer_hwnd,
+                                                              UINT,
+                                                              UINT_PTR id,
+                                                              DWORD) {
+  KillTimer(timer_hwnd, id);
+  auto* view = reinterpret_cast<BrowserView*>(
+      GetPropW(timer_hwnd, kDeferPluginPanelProp));
+  RemovePropW(timer_hwnd, kDeferPluginPanelProp);
+  if (!view || !IsWindow(timer_hwnd) || view->plugins_tab_ < 0 ||
+      view->plugin_catalog_) {
+    return;
+  }
+  LOGGING(LOG_INFO, "ui.plugin_panel: deferred load tab=%d", view->plugins_tab_);
+  view->ensure_inspector_tab(view->plugins_tab_);
+}
+
 void ShellLifecycleComposer::finish_deferred_shell_wiring() {
   BASE_TRACE_EVENT("WireShell.deferred", "startup");
   host_->wire_catalog();
@@ -266,6 +327,7 @@ void ShellLifecycleComposer::finish_deferred_shell_wiring() {
   host_->sync_inspectors_from_scene();
   host_->sync_status();
   host_->attach_hwnd_gestures();
+  schedule_deferred_plugin_panel();
 }
 
 
@@ -286,7 +348,7 @@ void ShellLifecycleComposer::show_shell() {
   // settle (grey slab + squeezed map). Re-assert Catalog 288 DIP and reseed.
   if (host_->catalog_ && host_->catalog_map_) {
     host_->catalog_->set_preferred_size({288, 0});
-    host_->catalog_map_->reseed();
+    host_->catalog_map_->reseed(/*force=*/true);
     host_->widget_.layout_contents();
     LOGGING(LOG_INFO, "layout: catalog_map reseed catalog_w=%d map_tabs_x=%d",
             host_->catalog_->bounds().width,
@@ -305,7 +367,7 @@ void ShellLifecycleComposer::show_shell() {
     }
     if (map_col) {
       if (auto* work = dynamic_cast<ui::views::Splitter*>(map_col->parent())) {
-        work->reseed();
+        work->reseed(/*force=*/true);
         host_->widget_.layout_contents();
       }
     }
@@ -323,7 +385,7 @@ void ShellLifecycleComposer::show_shell() {
     for (ui::views::View* p = host_->diagnostic_tools_->parent(); p;
          p = p->parent()) {
       if (auto* split = dynamic_cast<ui::views::Splitter*>(p)) {
-        split->reseed();
+        split->reseed(/*force=*/true);
         host_->widget_.layout_contents();
         LOGGING(LOG_INFO,
                 "layout: main_split reseed diagnostic_h=%d work_h=%d",

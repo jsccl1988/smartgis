@@ -27,6 +27,20 @@ PLUGIN_HOST_EXPORT ui::views::Dialog::Result show_view_dialog(
     const wchar_t* title,
     std::unique_ptr<ui::views::View> body);
 
+// Shell panel host. |fn| must take ownership by moving out of |body|.
+// The newest non-null registration wins; clear with a null |fn| for |context|.
+using DialogPresentFn = void (*)(void* context,
+                                 const wchar_t* title,
+                                 std::unique_ptr<ui::views::View>* body);
+
+PLUGIN_HOST_EXPORT void set_dialog_presenter(void* context, DialogPresentFn fn);
+
+// Hands |body| to the active presenter. With no presenter, falls back to
+// show_view_dialog so tests and harness keep a modal.
+PLUGIN_HOST_EXPORT ui::views::Dialog::Result present_dialog(
+    const wchar_t* title,
+    std::unique_ptr<ui::views::View> body);
+
 }  // namespace plugin
 
 #endif  // PLUGIN_WIDGETS_OWNED_DIALOG_H_

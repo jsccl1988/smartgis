@@ -15,6 +15,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/kernel/widget/widget.h"
+#include "ui/views/kernel/widget/widget_window.h"
 #include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/map/input/touch_multitouch.h"
 #include "ui/views/primitives/button/button.h"
@@ -97,6 +98,74 @@ void test_custom_frame_hides_os_caption() {
   expect((wr.bottom - wr.top) == (cr.bottom - cr.top),
          "custom frame client height == window");
   // Destructor sets destroying_ before DestroyWindow (avoids PostQuitMessage).
+}
+
+void test_custom_frame_maximizes_to_work_area() {
+  Widget widget;
+  Widget::InitParams params;
+  params.title = L"CSD max";
+  params.width = 640;
+  params.height = 480;
+  params.size_in_dips = true;
+  params.frame_kind = Widget::FrameKind::kCustom;
+  expect(widget.init(params), "max frame init");
+  widget.show();
+  ShowWindow(widget.hwnd(), SW_MAXIMIZE);
+
+  RECT wr = {};
+  GetWindowRect(widget.hwnd(), &wr);
+  HMONITOR mon = MonitorFromWindow(widget.hwnd(), MONITOR_DEFAULTTONEAREST);
+  MONITORINFO mi = {};
+  mi.cbSize = sizeof(mi);
+  expect(GetMonitorInfoW(mon, &mi) != FALSE, "monitor info");
+  const int ww = wr.right - wr.left;
+  const int wh = wr.bottom - wr.top;
+  const int work_w = mi.rcWork.right - mi.rcWork.left;
+  const int work_h = mi.rcWork.bottom - mi.rcWork.top;
+  expect(ww >= work_w - 16 && ww <= work_w + 16, "maximized width");
+  expect(wh >= work_h - 16 && wh <= work_h + 16, "maximized height");
+  WINDOWPLACEMENT wp = {};
+  wp.length = sizeof(wp);
+  GetWindowPlacement(widget.hwnd(), &wp);
+  expect(wp.showCmd == SW_SHOWMAXIMIZED, "placement maximized");
+}
+
+void test_owned_dialog_stays_above_shell() {
+  Widget shell;
+  Widget::InitParams shell_params;
+  shell_params.title = L"SmartGIS Views";
+  shell_params.width = 640;
+  shell_params.height = 480;
+  shell_params.frame_kind = Widget::FrameKind::kCustom;
+  expect(shell.init(shell_params), "shell init");
+  shell.show();
+
+  const HWND owner = primary_unowned_widget_hwnd();
+  expect(owner == shell.hwnd(), "primary owner is the visible shell");
+
+  Widget dialog;
+  Widget::InitParams dialog_params;
+  dialog_params.title = L"flood";
+  dialog_params.width = 420;
+  dialog_params.height = 280;
+  dialog_params.owner = owner;
+  dialog_params.frame_kind = Widget::FrameKind::kCustom;
+  expect(dialog.init(dialog_params), "owned dialog init");
+  expect(GetWindow(dialog.hwnd(), GW_OWNER) == shell.hwnd(),
+         "dialog owner is the shell");
+  dialog.show();
+
+  SetWindowPos(shell.hwnd(), HWND_TOP, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+  bool dialog_above = false;
+  for (HWND hwnd = dialog.hwnd(); hwnd != nullptr;
+       hwnd = GetWindow(hwnd, GW_HWNDNEXT)) {
+    if (hwnd == shell.hwnd()) {
+      dialog_above = true;
+      break;
+    }
+  }
+  expect(dialog_above, "owned dialog stays above shell");
 }
 
 void test_touch_multitouch_midpoint() {

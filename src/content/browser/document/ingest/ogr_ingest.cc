@@ -362,6 +362,10 @@ void split_layers_by_kind_field(LayerStore* store) {
   if (!store) {
     return;
   }
+  // Hold the store mutex for the whole split. Moving features out of
+  // store->layers() without a lock races Display layout fingerprint
+  // (scene_layers_fingerprint bit_cast AV on 0xDD freed point buffers).
+  std::lock_guard<std::recursive_mutex> lock(store->mutex());
   bool has_kind = false;
   for (const MapLayer& layer : store->layers()) {
     for (const MapFeature& f : layer.features) {
@@ -431,6 +435,7 @@ void split_layers_by_kind_field(LayerStore* store) {
   if (next.empty()) {
     return;
   }
+  // Recursive: replace_layers takes the same mutex.
   store->replace_layers(std::move(next));
 }
 

@@ -4,5 +4,6 @@
   <vbox id="root" class="page">
     <label id="stats" text="Memory: —"/>
     <panel id="chart_host" class="chart_host"/>
+    <panel id="flame_host" class="flame_host"/>
   </vbox>
 </ui>

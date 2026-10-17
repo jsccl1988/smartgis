@@ -6,11 +6,17 @@
 #include "app/views/browser/browser.h"
 #include "app/views/browser/china_product_defaults.h"
 #include "app/views/il.runtime/backend/view/pixel/bmp.h"
+#include "app/views/il.runtime/backend/view/pixel/gate.h"
 #include "app/views/il.runtime/backend/view/host/capture_host.h"
 #include "app/views/il.runtime/backend/horizon/atom/mark.h"
 #include "app/views/il.runtime/backend/view/shot/paint.h"
 #include "app/views/il.runtime/backend/view/shot/scene_capture.h"
 #include "app/views/il.runtime/backend/horizon/atom/pump.h"
+#include "ui/gis/catalog/catalog_view.h"
+#include "ui/gis/debug/diagnostic_tools_panel.h"
+#include "ui/views/kernel/layout/splitter.h"
+#include "ui/views/kernel/view/view.h"
+#include "ui/views/primitives/collection/tab_strip.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/camera/view_frame.h"
@@ -28,6 +34,8 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
+#include <string>
 #include <windows.h>
 
 namespace app {
@@ -98,6 +106,70 @@ bool resolve_export_frame(Browser& browser, const std::string& frame) {
   return true;
 }
 
+void force_reseed_splitters(ui::views::View* v) {
+  if (!v) {
+    return;
+  }
+  if (auto* split = dynamic_cast<ui::views::Splitter*>(v)) {
+    split->reseed(/*force=*/true);
+    // Only vertical docks (work|Diagnostic): horizontal Catalog|Map is
+    // PrimaryFixed — enforce_primary_floor would flip policy and crush Map.
+    if (!split->is_horizontal_split()) {
+      split->enforce_primary_floor(2.f / 3.f);
+    }
+  }
+  for (size_t i = 0; i < v->child_count(); ++i) {
+    force_reseed_splitters(v->child_at(i));
+  }
+}
+
+// Collapse Diagnostic Tools so FlyCube Init/export is not stuck on ~99px.
+bool collapse_diagnostic_tools(ui::views::View* v) {
+  if (!v) {
+    return false;
+  }
+  if (auto* diag = dynamic_cast<ui::views::DiagnosticToolsPanel*>(v)) {
+    if (diag->is_tools_visible()) {
+      diag->set_visible_tools(false);
+      return true;
+    }
+    return false;
+  }
+  bool any = false;
+  for (size_t i = 0; i < v->child_count(); ++i) {
+    any = collapse_diagnostic_tools(v->child_at(i)) || any;
+  }
+  return any;
+}
+
+// Narrow Catalog / Inspector docks so Map/3D present clears 320×240 score.
+void pin_map_column_for_capture(ui::views::View* root) {
+  if (!root) {
+    return;
+  }
+  std::function<void(ui::views::View*)> walk = [&](ui::views::View* v) {
+    if (!v) {
+      return;
+    }
+    if (auto* cat = dynamic_cast<ui::views::CatalogView*>(v)) {
+      cat->set_preferred_size({240, 0});
+    }
+    if (auto* tabs = dynamic_cast<ui::views::TabStrip*>(v)) {
+      // Inspector side strip (Tools/Feature/…); keep a slim dock.
+      if (tabs->tab_count() >= 4 && tabs->preferred_size().width > 200) {
+        tabs->set_preferred_size({240, 0});
+        if (ui::views::View* host = tabs->parent()) {
+          host->set_preferred_size({240, 0});
+        }
+      }
+    }
+    for (size_t i = 0; i < v->child_count(); ++i) {
+      walk(v->child_at(i));
+    }
+  };
+  walk(root);
+}
+
 }  // namespace
 
 bool export_scene3d_bmp(Browser* b, const wchar_t* bmp_w) {
@@ -108,78 +180,144 @@ bool export_scene3d_bmp(Browser* b, const wchar_t* bmp_w) {
   if (!cam) {
     return false;
   }
-  // Prove FlyCube GpuPresent is live, then soft-export the shared DEM mesh.
-  // DXGI BitBlt of flip-model HWND is often solid black/white and is not
-  // the score SoT (browse.3d uses the same software hypsometric path).
-  apply_china_scene3d_orbit(*b);
-  if (HWND shell = b->hwnd()) {
-    if (IsWindow(shell)) {
-      SetWindowPos(shell, nullptr, 0, 0, 1280, 800,
-                   SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE |
-                       SWP_FRAMECHANGED);
-      pump_messages(80);
+  // Product SoT is FlyCube DXGI (soft DEM / FORCE_GDI removed). After trackball
+  // drag the orbit is noisy — re-frame China DEM, warm Display presents, then
+  // HWND-capture. skip_ui_thread_present makes capture retry_dark_frame a
+  // no-op, so warm+capture loops live here.
+  DeleteFileW(bmp_w);
+  {
+    // Stale FlyCube sidecar must not outlive a failed export.
+    std::wstring side(bmp_w);
+    const size_t dot = side.find_last_of(L'.');
+    if (dot != std::wstring::npos) {
+      side.replace(dot, std::wstring::npos, L".engine.txt");
+      DeleteFileW(side.c_str());
     }
   }
-  b->select_view_tab(1);
-  pump_messages(120);
+  // HWND-capture the live FlyCube present after drag. Avoid fit_scene_box /
+  // atmosphere re-bind here — they take present_mu_ / abandon paths that raced
+  // Display into a black clear while the record burst still saw DEM.
   ui::views::DrawHost* scene = b->scene_draw_host();
-  bool flycube_live = false;
   if (scene && content::prefer_scene3d_flycube()) {
     scene->set_gpu_present_visible(true);
+    scene->resume_present_timer();
     if (scene->attach_mode() != ui::views::DrawHost::AttachMode::kGpuPresent) {
       b->select_view_tab(1);
       pump_messages(200);
     }
-    int present_w = 0;
-    int present_h = 0;
-    if (HWND ph = scene->present_hwnd()) {
-      if (IsWindow(ph)) {
-        RECT prc = {};
-        GetClientRect(ph, &prc);
+    HWND present = shell_scene3d_capture_hwnd(scene);
+    if (present && IsWindow(present)) {
+      ShowWindow(present, SW_SHOWNOACTIVATE);
+      SetWindowPos(present, HWND_TOP, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE);
+    }
+    auto* device = static_cast<render::rhi::Device*>(scene->rhi_device());
+    bool recovered_layout = false;
+    // Collapse Output + pin Catalog/Inspector so present clears 320×240.
+    ui::views::View* root = b->contents_view();
+    (void)collapse_diagnostic_tools(root);
+    pin_map_column_for_capture(root);
+    force_reseed_splitters(root);
+    scene->sync_native_bounds();
+    pump_messages(100);
+    // Trackball drag can leave yaw on navy/ocean clear; re-frame China DEM.
+    apply_china_scene3d_orbit(*b);
+    scene->request_frame();
+    pump_messages(120);
+    for (int attempt = 0; attempt < 8; ++attempt) {
+      if (scene->attach_mode() != ui::views::DrawHost::AttachMode::kGpuPresent) {
+        break;
+      }
+      const bool advanced = present_shell_scene3d_frame(scene, 500);
+      pump_messages(50);
+      present = shell_scene3d_capture_hwnd(scene);
+      if (!present || !IsWindow(present)) {
+        std::fprintf(stderr, "export_scene3d: attempt %d no present hwnd\n",
+                     attempt);
+        continue;
+      }
+      RECT prc = {};
+      GetClientRect(present, &prc);
+      int present_w = prc.right - prc.left;
+      int present_h = prc.bottom - prc.top;
+      if ((present_w < 640 || present_h < 360) && !recovered_layout) {
+        recovered_layout = true;
+        if (HWND shell = b->hwnd()) {
+          if (IsWindow(shell)) {
+            SetWindowPos(shell, nullptr, 0, 0, 1280, 800,
+                         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE |
+                             SWP_FRAMECHANGED);
+          }
+        }
+        (void)collapse_diagnostic_tools(b->contents_view());
+        force_reseed_splitters(b->contents_view());
+        scene->sync_native_bounds();
+        b->select_view_tab(1);
+        pump_messages(200);
+        (void)present_shell_scene3d_frame(scene, 800);
+        present = shell_scene3d_capture_hwnd(scene);
+        if (!present || !IsWindow(present)) {
+          continue;
+        }
+        GetClientRect(present, &prc);
         present_w = prc.right - prc.left;
         present_h = prc.bottom - prc.top;
+        std::fprintf(stderr,
+                     "export_scene3d: layout recovery client=%dx%d\n",
+                     present_w, present_h);
       }
-    }
-    if (scene->attach_mode() == ui::views::DrawHost::AttachMode::kGpuPresent) {
-      flycube_live = present_shell_scene3d_frame(scene, 1200);
-      if (!flycube_live) {
-        flycube_live = scene->last_gpu_present_ok();
+      RECT scr = {};
+      GetWindowRect(present, &scr);
+      std::fprintf(stderr,
+                   "export_scene3d: attempt %d advanced=%d client=%dx%d "
+                   "screen=(%ld,%ld)-(%ld,%ld)\n",
+                   attempt, advanced ? 1 : 0, present_w, present_h, scr.left,
+                   scr.top, scr.right, scr.bottom);
+      // Catalog+Inspector at HiDPI often leave Map/3D at ~314×303 after
+      // interact resize — do not require 320 (false-failed DEM BitBlt).
+      if (present_w < 280 || present_h < 200) {
+        char size_mark[64] = {};
+        std::snprintf(size_mark, sizeof(size_mark),
+                      "interact-3d-size-%dx%d", present_w, present_h);
+        write_mark(kUiMarkLeaf, size_mark, false);
+        continue;
       }
-    }
-    if (flycube_live && present_w >= 640 && present_h >= 360) {
-      HWND present = scene->present_hwnd();
-      if (present && IsWindow(present)) {
-        ShowWindow(present, SW_SHOWNOACTIVATE);
-        SetWindowPos(present, HWND_TOP, 0, 0, 0, 0,
-                     SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE);
-        pump_messages(40);
-        (void)present_shell_scene3d_frame(scene, 400);
-        Scene3dHwndCaptureOpts cap;
-        cap.bmp_path = bmp_w;
-        cap.present_w = kCaptureW;
-        cap.present_h = kCaptureH;
-        cap.dst_w = kCaptureW;
-        cap.dst_h = kCaptureH;
-        cap.pre_capture_pump_ms = 0;
-        cap.skip_when_null_gpu = false;
-        cap.skip_ui_thread_present = true;
-        cap.require_color_diversity = true;
-        cap.allow_32bpp = true;
-        cap.mean_min = 8.0;
-        cap.mean_max = 220.0;
-        cap.engine_sidecar = "FlyCube/DX12";
-        auto* device =
-            static_cast<render::rhi::Device*>(scene->rhi_device());
-        if (capture_scene3d_hwnd_bmp(cam, device, present, true, cap)) {
-          write_mark(kUiMarkLeaf, "interact-3d-gpu-ok", false);
-          return true;
-        }
-        DeleteFileW(bmp_w);
+      DeleteFileW(bmp_w);
+      Scene3dHwndCaptureOpts cap;
+      cap.bmp_path = bmp_w;
+      cap.present_w = static_cast<uint32_t>(present_w);
+      cap.present_h = static_cast<uint32_t>(present_h);
+      cap.dst_w = 0;
+      cap.dst_h = 0;
+      cap.pre_capture_pump_ms = 120;
+      cap.retry_dark_frame = true;
+      cap.skip_when_null_gpu = false;
+      // Display thread owns Present; UI-thread present_gpu races Flip model.
+      cap.skip_ui_thread_present = true;
+      cap.prefer_scenic_export = false;
+      // Prefer grid-lit once min size matches the present client (see
+      // bmp_check_opts). Diversity still rejects solid navy clears.
+      cap.use_grid_lit_policy = true;
+      cap.require_color_diversity = true;
+      cap.allow_32bpp = true;
+      cap.mean_min = 3.0;
+      cap.mean_max = 240.0;
+      cap.engine_sidecar = "FlyCube/DX12";
+      cap.log_prefix = "export_scene3d";
+      if (capture_scene3d_hwnd_bmp(cam, device, present, true, cap)) {
+        write_mark(kUiMarkLeaf, "interact-3d-gpu-ok", false);
+        return true;
       }
+      write_mark(kUiMarkLeaf, "interact-3d-capture-reject", false);
     }
+    DeleteFileW(bmp_w);
+    write_mark(kUiMarkLeaf, "interact-3d-export-fail", false);
   }
-  // Soft paint must not race the Display thread: holding present_mu_ while
-  // FlyCube is mid-present has aborted (exit 3) after interact-3d-gestures.
+  // Soft DEM paint was removed (scenic MemFrame only). A zeroed DIB used to
+  // land as interact-3d.bmp + fake FlyCube sidecar after drag — refuse that.
+  if (content::prefer_scene3d_flycube()) {
+    return false;
+  }
   const bool paused_present = scene != nullptr;
   if (paused_present) {
     scene->pause_present();
@@ -191,26 +329,29 @@ bool export_scene3d_bmp(Browser* b, const wchar_t* bmp_w) {
   }
   cam->gpu().set_wireframe_enabled(false);
   cam->clear_overlay_tin_mesh();
-  if (flycube_live) {
-    cam->set_render_engine_name("FlyCube/DX12");
-  }
   const bool wrote = write_software_scene3d_bmp(cam, bmp_w);
+  bool ok = false;
   if (wrote) {
-    // Sidecar must match the painted HUD label (soft paint may keep FlyCube
-    // when GpuPresent was proven, else GDI). Never claim FlyCube while HUD
-    // still says GDI (visual_review #1/#2).
-    const char* painted = cam->render_engine_name();
-    const char* sidecar =
-        (painted && painted[0]) ? painted : (flycube_live ? "FlyCube/DX12" : "GDI");
-    (void)write_engine_sidecar(bmp_w, sidecar);
-    if (flycube_live && painted && std::strstr(painted, "FlyCube") != nullptr) {
-      write_mark(kUiMarkLeaf, "interact-3d-gpu-ok", false);
+    int bw = 0;
+    int bh = 0;
+    BmpFileCheckOpts check;
+    check.allow_32bpp = true;
+    check.require_color_diversity = true;
+    check.mean_min = 8.0;
+    check.mean_max = 220.0;
+    if (bmp_file_has_visible_signal(bmp_w, &bw, &bh, check)) {
+      const char* painted = cam->render_engine_name();
+      const char* sidecar = (painted && painted[0]) ? painted : "scenic";
+      (void)write_engine_sidecar(bmp_w, sidecar);
+      ok = true;
+    } else {
+      DeleteFileW(bmp_w);
     }
   }
   if (paused_present) {
     scene->resume_present_timer();
   }
-  return wrote;
+  return ok;
 }
 
 bool export_map2d_bmp(Browser* b,

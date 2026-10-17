@@ -21,6 +21,7 @@
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/gis_scene.h"
+#include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "plugin/runtime/host/capability/scenario_shell.h"
 #include "plugin/product/world3d/scenario/seed/world3d_seed.h"
@@ -43,7 +44,9 @@ constexpr wchar_t kMap2dBmpLeaf[] = L"browse-showcase-2d.bmp";
 constexpr wchar_t kScene3dBmpLeaf[] = L"browse-showcase-3d.bmp";
 
 void mark_still(const wchar_t* leaf, const char* step) {
-  write_mark(leaf, step, /*truncate=*/true);
+  // Append only. truncate=true would wipe hwnd-ok / show already written by
+  // Horizon IL before capture_browse_still (same leaf as suite mark_leaf).
+  write_mark(leaf, step, /*truncate=*/false);
 }
 
 bool still_signal(const wchar_t* path, bool allow_32bpp, int* w, int* h) {
@@ -62,6 +65,11 @@ void frame_map2d_still(Browser& browser, content::GisScene* doc, int w, int h) {
     frame->apply_world_extent(content::kChinaMap2dFrameExtent, w, h);
   } else if (doc) {
     frame->fit_extent(*doc, w, h);
+  }
+  // Match frame_china_map2d: extent change must drop StaticReuse MapIR so DEM
+  // hillshade quads and vector meshes stay registered to the same view.
+  if (content::Map2dPresenter* map2d = browser.map2d()) {
+    map2d->invalidate_frame_cache();
   }
 }
 
@@ -177,7 +185,9 @@ bool capture_browse_map2d(Browser& browser, const wchar_t* mark_leaf) {
   mark_still(mark_leaf, "bmp-export-paint");
   Map2dExportOpts opts;
   opts.apply_frame = false;
-  opts.invalidate_cache = false;
+  // frame_map2d_still already invalidates; keep true so a skipped frame path
+  // cannot export a fit_extent StaticReuse sheet under the China ortho.
+  opts.invalidate_cache = true;
   opts.kick_paint = false;
   opts.pump_ms = 0;
   opts.require_features = false;
@@ -209,6 +219,25 @@ bool capture_browse_map2d(Browser& browser, const wchar_t* mark_leaf) {
   std::fprintf(stderr, "browse: export_bmp ok (%dx%d features=%zu)\n",
                bw, bh, doc ? doc->feature_count() : 0u);
   mark_still(mark_leaf, "bmp-ok");
+  // Still framed ViewFrame at 1280×720 for export. Restore embed client size
+  // and sync-warm MapIR while present timers are stopped (IL stop_map_timers
+  // around capture) so FORCE_GDI HWND paint does not ensure_full on WM_PAINT.
+  if (ui::views::DrawHost* pane = browser.draw_host()) {
+    RECT rc = {};
+    if (HWND hwnd = pane->native_view(); hwnd && ::GetClientRect(hwnd, &rc)) {
+      const int cw = rc.right > 0 ? rc.right : 0;
+      const int ch = rc.bottom > 0 ? rc.bottom : 0;
+      if (cw > 0 && ch > 0) {
+        frame_map2d_still(browser, doc, cw, ch);
+        if (content::Map2dPresenter* map2d = browser.map2d()) {
+          (void)map2d->warm_frame_cache(static_cast<uint32_t>(cw),
+                                        static_cast<uint32_t>(ch));
+        }
+      }
+    }
+  } else if (content::Map2dPresenter* map2d = browser.map2d()) {
+    map2d->force_invalidate_frame_cache();
+  }
   return true;
 }
 

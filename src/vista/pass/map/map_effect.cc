@@ -18,7 +18,7 @@ MapEffect::MapEffect(
     std::function<bool(const std::string& symbol_id, std::vector<uint8_t>* rgba,
                        int* w, int* h)>
         load_icon,
-    bool record_all)
+    bool record_all, bool draw_overlays)
     : slot_(slot),
       pass_(pass),
       frame_(frame),
@@ -26,7 +26,8 @@ MapEffect::MapEffect(
       glyphs_(glyphs),
       load_raster_(std::move(load_raster)),
       load_icon_(std::move(load_icon)),
-      record_all_(record_all) {}
+      record_all_(record_all),
+      draw_overlays_(draw_overlays) {}
 
 render::graph::EffectSlot MapEffect::slot() const {
   if (record_all_) {
@@ -45,7 +46,10 @@ bool MapEffect::record(const render::graph::RecordContext& ctx) {
     return false;
   }
   const bool world = record_all_ || slot_ == render::graph::EffectSlot::kOpaque;
-  const bool overlay = record_all_ || slot_ == render::graph::EffectSlot::kOverlay;
+  // record_all rebuilds world meshes. Pixel labels are separate: a coverage
+  // rebuild mid-drag still has record_all set, but must not draw river-label.
+  const bool overlay = draw_overlays_ ||
+                       slot_ == render::graph::EffectSlot::kOverlay;
   return pass_->record(ctx.device, ctx.list, *frame_, *view_, glyphs_,
                        load_raster_, load_icon_, ctx.camera, world, overlay,
                        ctx.color_op);

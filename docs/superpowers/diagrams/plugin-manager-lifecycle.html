@@ -75,7 +75,7 @@ All rights reserved.
     <div class="lanes">
       <div class="lane ui">
         <h3>Horizon UI</h3>
-        <p><code>app::PluginCatalogView</code>：列表 + 悬停 tooltip</p>
+        <p><code>app::PluginCatalogView</code>：搜索 + 插件列表 + 工具列表。双击工具或 Run → <code>PluginHost::execute</code> / <code>open_dialog</code> / <code>run_processing</code></p>
         <p><code>PluginShell::show_manager</code> 模态框</p>
         <p>扫描根：<code>&lt;exe&gt;/plugins</code>（<code>out/Debug/plugins</code> 或 <code>out/Release/plugins</code>）</p>
         <p>产品 / harness 启动只读 <code>plugin.json</code> 的 <code>startup</code>（含 <code>scenario</code>）。差异化测试改 <code>out/Debug/plugins/flood/plugin.json</code></p>
@@ -126,7 +126,7 @@ All rights reserved.
       <span class="arrow">→</span>
       <div class="step active"><strong>3 Startup</strong><code>startup</code> viewport / scenario / commands</div>
       <span class="arrow">→</span>
-      <div class="step"><strong>4 Run</strong>catalog execute / <code>run()</code></div>
+      <div class="step"><strong>4 Run</strong>选中工具 → <code>execute</code> / dialog / processing</div>
       <span class="arrow">→</span>
       <div class="step"><strong>5 Destroy</strong>shutdown <code>destroy()</code></div>
     </div>

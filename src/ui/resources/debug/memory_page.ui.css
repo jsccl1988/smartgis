@@ -5,7 +5,7 @@
   flex-direction: column;
   gap: 4px;
   width: 620px;
-  height: 140px;
+  height: 220px;
 }
 
 #stats {
@@ -15,6 +15,12 @@
 
 .chart_host {
   width: 620px;
-  height: 120px;
+  height: 88px;
+  flex-grow: 1;
+}
+
+.flame_host {
+  width: 620px;
+  height: 88px;
   flex-grow: 1;
 }

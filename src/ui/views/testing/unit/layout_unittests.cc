@@ -236,6 +236,87 @@ void test_splitter_drag_keeps_capture() {
   expect(widget.send_mouse(mouse_up(bar_x + 80, 80)), "split release");
 }
 
+void test_splitter_secondary_fixed_drag_moves_primary() {
+  // work / main_split seed: flex primary + fixed secondary. Drag must move
+  // the seam — clamp must not re-pin primary from fixed_secondary every layout.
+  Widget widget;
+  auto split = std::make_unique<Splitter>(Splitter::Orientation::kHorizontal);
+  Splitter* host = split.get();
+  host->set_bounds({0, 0, 800, 400});
+  auto map_side = std::make_unique<View>();
+  auto inspector = std::make_unique<View>();
+  View* primary = map_side.get();
+  View* secondary = inspector.get();
+  map_side->set_preferred_size({0, 0});
+  inspector->set_preferred_size({200, 0});
+  host->add_child(std::move(map_side));
+  host->add_child(std::move(inspector));
+  widget.set_contents_view(std::move(split));
+  host->layout();
+  expect(secondary->bounds().width == 200, "secondary-fixed seed width");
+  const int bar_x = primary->bounds().right() + 3;
+  const int start_w = primary->bounds().width;
+  expect(widget.send_mouse(mouse_down(bar_x, 100)), "secondary-fixed press");
+  expect(widget.send_mouse(mouse_move(bar_x - 60, 100)),
+         "secondary-fixed drag");
+  expect(primary->bounds().width < start_w, "secondary-fixed drag shrinks map");
+  expect(widget.send_mouse(mouse_up(bar_x - 60, 100)), "secondary-fixed up");
+  const int after_drag = primary->bounds().width;
+  host->layout();
+  expect(primary->bounds().width == after_drag,
+         "secondary-fixed keeps drag after layout");
+}
+
+void test_splitter_drag_survives_reseed() {
+  Widget widget;
+  auto split = std::make_unique<Splitter>(Splitter::Orientation::kHorizontal);
+  Splitter* host = split.get();
+  host->set_bounds({0, 0, 400, 200});
+  auto a = std::make_unique<View>();
+  auto b = std::make_unique<View>();
+  View* left = a.get();
+  left->set_preferred_size({120, 0});
+  b->set_preferred_size({280, 0});
+  host->add_child(std::move(a));
+  host->add_child(std::move(b));
+  widget.set_contents_view(std::move(split));
+  host->layout();
+  const int bar_x = left->bounds().right() + 3;
+  expect(widget.send_mouse(mouse_down(bar_x, 80)), "reseed press");
+  expect(widget.send_mouse(mouse_move(bar_x + 80, 80)), "reseed drag");
+  expect(widget.send_mouse(mouse_up(bar_x + 80, 80)), "reseed up");
+  const int dragged = left->bounds().width;
+  expect(dragged > 120, "reseed drag grew primary");
+  host->reseed();
+  expect(left->bounds().width == dragged, "reseed keeps user drag");
+}
+
+void test_splitter_grip_is_hit_target() {
+  Widget widget;
+  auto split = std::make_unique<Splitter>(Splitter::Orientation::kHorizontal);
+  Splitter* host = split.get();
+  host->set_bounds({0, 0, 400, 200});
+  auto a = std::make_unique<View>();
+  auto b = std::make_unique<View>();
+  View* left = a.get();
+  View* right = b.get();
+  left->set_preferred_size({120, 0});
+  right->set_preferred_size({280, 0});
+  host->add_child(std::move(a));
+  host->add_child(std::move(b));
+  widget.set_contents_view(std::move(split));
+  host->layout();
+  const int bar_x = left->bounds().right() + Splitter::kBarPx / 2;
+  View* hit = host->get_view_at(bar_x, 80);
+  expect(hit != nullptr, "grip hit non-null");
+  expect(hit != host, "grip is not the Splitter host");
+  expect(hit != left && hit != right, "grip is not a pane");
+  expect(widget.send_mouse(mouse_down(bar_x, 80)), "grip press");
+  expect(hit->is_pressed() || host->get_view_at(bar_x, 80) == hit,
+         "grip receives press");
+  expect(widget.send_mouse(mouse_up(bar_x, 80)), "grip up");
+}
+
 void test_layout_invariants_smoke() {
   View root;
   root.set_bounds({0, 0, 400, 300});

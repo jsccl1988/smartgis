@@ -223,12 +223,14 @@ bool line_visible_at_scale(LineRole role, double length, bool major_class,
   }
   double min_len = 0.0;
   if (role == LineRole::kWater) {
+    // National frame (~zoom 11): keep Yangtze + major tributaries readable
+    // against the land/jet sheet (reference belt maps stroke rivers boldly).
     if (zoom < 14.0) {
-      min_len = 0.8;
+      min_len = 0.12;
     } else if (zoom < 16.0) {
-      min_len = 0.4;
+      min_len = 0.25;
     } else if (zoom < 18.0) {
-      min_len = 0.15;
+      min_len = 0.12;
     }
   } else if (role == LineRole::kRoad) {
     if (zoom < 16.0) {
@@ -243,7 +245,17 @@ bool line_visible_at_scale(LineRole role, double length, bool major_class,
 int line_stroke_px(LineRole role, double length, double scale) {
   const bool trunk = length >= (role == LineRole::kRoad ? 3.0 : 4.0);
   const double zoom = gis::tile::zoom_from_scale(scale);
-  if (role == LineRole::kWater || role == LineRole::kRoad) {
+  if (role == LineRole::kWater) {
+    // Wider water at overview so the Yangtze reads as the hierarchy focus.
+    if (zoom < 14.0) {
+      return trunk ? 4 : 2;
+    }
+    if (zoom < 18.0) {
+      return trunk ? 5 : 3;
+    }
+    return trunk ? 6 : 3;
+  }
+  if (role == LineRole::kRoad) {
     if (zoom < 14.0) {
       return trunk ? 2 : 1;
     }

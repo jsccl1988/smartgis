@@ -10,8 +10,14 @@ source_set("map_pass_sources") {
   sources = [
     "detail/atlas.cc",
     "detail/atlas.h",
+    "detail/draw_cache.cc",
+    "detail/draw_cache.h",
     "detail/encode.cc",
     "detail/encode.h",
+    "detail/keyed_slices.cc",
+    "detail/keyed_slices.h",
+    "detail/place_upload.cc",
+    "detail/place_upload.h",
     "detail/upload.cc",
     "detail/upload.h",
     "glyph_windows.cc",
@@ -39,7 +45,10 @@ test("map_effect_test") {
   output_name = "map2d_pass_test"
   sources = [
     "detail/atlas.cc",
+    "detail/draw_cache.cc",
     "detail/encode.cc",
+    "detail/keyed_slices.cc",
+    "detail/place_upload.cc",
     "detail/upload.cc",
     "../../component/map/place/place.cc",
     "glyph_windows.cc",

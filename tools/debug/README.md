@@ -20,6 +20,9 @@ DAP config under `vscode/launch.json`.
 | `agent_methods.json` | Machine-readable Agent method catalog (also `rpc.methods` / `:help json`) |
 | `smartgis/*.pyi` | Pyright / LSP stubs (incl. edit-time `ui/` / `gis/` façades) |
 | `vscode/launch.json` | Sample attach to debugpy on port **5678** |
+| `vscode-ext/` | VS Code / Cursor extension (catalog, console, Cursor SDK chat) |
+| `mcp/` | Stdio MCP server (`python -m debug.mcp`) for SDK / tools |
+| `console_prefixes.json` | Editor catalog of `:cmd` prefixes (sync with `agent_schema.cc`) |
 | `tests/` | pytest + shared `mock_agent` |
 | `scripts/ui_smoke.py` | Live Agent ui.* smoke via discovery |
 
@@ -50,6 +53,14 @@ python -m debug.worker --agent tcp://127.0.0.1:PORT --job-timeout 30
 
 Copy or merge `vscode/launch.json` into your workspace `.vscode/launch.json` to
 attach VS Code to that port. Do not clobber an existing user launch config blindly.
+The extension command **SmartGIS Debug: Merge Sample launch.json** merges by
+`name` only.
+
+## VS Code / Cursor extension
+
+See [`vscode-ext/README.md`](vscode-ext/README.md). Install from location
+`tools/debug/vscode-ext` after `npm install`. Conversational debug uses
+`@cursor/sdk` + `python -m debug.mcp` (same Agent discovery / policy).
 
 ## Protocol (v1 persistent worker)
 

@@ -64,19 +64,44 @@ bool seh_nav_reset_or_commit(content::BrowserSession* session,
 // Extent fit / history / shared GisContents sync.
 
 void Browser::fit_map_extent() {
-  // Prefer Widget client size. Access HWND via Browser::hwnd() (browser.cc)
-  // so this TU never loads ui_ at a possibly stale unique_ptr offset.
+  // Frame the map pane. The horizon client includes catalog and chrome, so
+  // using it zoomed China into the northwest corner of the 2D GPU surface.
+  // draw_host() is out-of-line in browser.cc (same reason as hwnd()).
   int w = 800;
   int h = 600;
-  if (HWND horizon = hwnd()) {
-    if (IsWindow(horizon)) {
-      RECT rc = {};
-      GetClientRect(horizon, &rc);
-      if (rc.right > 32) {
-        w = rc.right;
+  bool have_pane = false;
+  if (ui::views::DrawHost* map = draw_host()) {
+    if (HWND present = map->present_hwnd()) {
+      if (IsWindow(present)) {
+        RECT pane = {};
+        GetClientRect(present, &pane);
+        if (pane.right > 32 && pane.bottom > 32) {
+          w = pane.right;
+          h = pane.bottom;
+          have_pane = true;
+        }
       }
-      if (rc.bottom > 32) {
-        h = rc.bottom;
+    }
+    if (!have_pane) {
+      const ui::views::Rect& pane_bounds = map->bounds();
+      if (pane_bounds.width > 32 && pane_bounds.height > 32) {
+        w = pane_bounds.width;
+        h = pane_bounds.height;
+        have_pane = true;
+      }
+    }
+  }
+  if (!have_pane) {
+    if (HWND horizon = hwnd()) {
+      if (IsWindow(horizon)) {
+        RECT rc = {};
+        GetClientRect(horizon, &rc);
+        if (rc.right > 32) {
+          w = rc.right;
+        }
+        if (rc.bottom > 32) {
+          h = rc.bottom;
+        }
       }
     }
   }

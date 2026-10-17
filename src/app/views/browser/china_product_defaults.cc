@@ -156,10 +156,9 @@ ChinaScene3dAtmoFlags apply_china_scene3d_atmosphere(Browser& browser) {
 }
 
 void apply_china_scene3d_orbit(Browser& browser) {
-  // Frame China DEM at kScene3dDefaultDistance + FOV 1.35 (fills the HWND).
-  // The old 1.45 "fill" distance parked the eye inside the DEM sphere so
-  // near-plane clipped close orbits. Trackball activate historically left
-  // yaw~0.42 (sky/navy); keep default DEM yaw (π-0.55) after reset.
+  // Frame the flat China DEM at kScene3dDefaultDistance (FOV 1.35).
+  // Trackball activate historically left yaw~0.42 (sky/navy); keep default
+  // DEM yaw (π-0.55) after reset.
   browser.session().apply_china_scene3d_orbit();
   browser.push_shared_extent();
 }

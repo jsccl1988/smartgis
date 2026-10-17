@@ -22,6 +22,7 @@
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
+#include "ui/views/kernel/widget/widget.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/button/checkbox.h"
@@ -33,9 +34,40 @@ namespace {
 
 ui::gfx::Color lane_color(std::size_t i) {
   static const ui::gfx::Color kColors[] = {
-      0xff4c8bf5u, 0xff3db88cu, 0xffe6a23cu, 0xfff56c6cu,
-      0xff909399u, 0xff9b59b6u, 0xff1abc9cu, 0xffe67e22u};
+      0xff4c8bf5u, 0xff2f9d78u, 0xffd4922au, 0xffe05a5au,
+      0xff7d8590u, 0xff8e6bb0u, 0xff1aa38au, 0xffd4782au};
   return kColors[i % (sizeof(kColors) / sizeof(kColors[0]))];
+}
+
+ui::gfx::Color bar_ink(ui::gfx::Color fill) {
+  const int r = static_cast<int>((fill >> 16) & 0xffu);
+  const int g = static_cast<int>((fill >> 8) & 0xffu);
+  const int b = static_cast<int>(fill & 0xffu);
+  const int y = (r * 299 + g * 587 + b * 114) / 1000;
+  return y >= 150 ? ui::gfx::color_rgb(22, 26, 32)
+                  : ui::gfx::color_rgb(255, 255, 255);
+}
+
+std::string fit_label(const std::string& text, int max_px, float scale) {
+  if (text.empty() || max_px <= 0) {
+    return {};
+  }
+  if (measure_text_utf8(text, scale).width <= max_px) {
+    return text;
+  }
+  std::string kept;
+  for (unsigned char c : text) {
+    std::string next = kept;
+    next.push_back(static_cast<char>(c));
+    if (measure_text_utf8(next + "...", scale).width > max_px) {
+      break;
+    }
+    kept = std::move(next);
+  }
+  if (kept.empty()) {
+    return "...";
+  }
+  return kept + "...";
 }
 
 bool cat_is_map2d(std::string_view cat, std::string_view name) {
@@ -480,8 +512,15 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
       lanes.push_back(key);
     }
   }
-  const int axis_h = 16;
-  const int lane_bottom = b.bottom() - 6 - axis_h;
+  const float scale =
+      widget() ? widget()->device_scale_factor() : 1.f;
+  // Nominal face size underestimates Skia ink (ascent + descenders). Centering
+  // and clipping on font_px shears 'y'/'g' against the row edge and bar stroke.
+  const int font_px = shell_body_font_px(scale);
+  const int ink_h =
+      (std::max)(font_px, measure_text_utf8("Agjy", scale).height);
+  const int axis_h = ink_h + 4;
+  const int lane_bottom = b.bottom() - 4 - axis_h;
   const int lane_top = horizon_bottom;
   if (lane_bottom <= lane_top + 8 || lanes.empty()) {
     canvas->draw_text(
@@ -492,9 +531,22 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
         t.text);
     return;
   }
-  const int lane_h =
-      (std::max)(16, (lane_bottom - lane_top) /
-                         (std::max)(1, static_cast<int>(lanes.size())));
+  const int lane_count = (std::max)(1, static_cast<int>(lanes.size()));
+  const int view_h = lane_bottom - lane_top;
+  const int natural_h = ink_h + 6;
+  // Stretch only when every lane fits. Otherwise keep a readable row and scroll.
+  const int fit_h = view_h > 0 ? view_h / lane_count : natural_h;
+  const int lane_h = fit_h > natural_h ? fit_h : natural_h;
+  const int content_h = lane_h * lane_count;
+  const int max_scroll = (std::max)(0, content_h - view_h);
+  if (scroll_y_ < 0) {
+    scroll_y_ = 0;
+  } else if (scroll_y_ > max_scroll) {
+    scroll_y_ = max_scroll;
+  }
+  const bool scrollable = max_scroll > 0;
+  constexpr int kTrackW = 12;
+  const int track_w = view_h > 12 ? kTrackW : 0;
 
   int64_t min_ts = 0;
   int64_t max_ts = 1;
@@ -518,40 +570,63 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
   const double span =
       static_cast<double>((std::max)(max_ts - min_ts, int64_t{1}));
 
-  const int label_w = 96;
+  int label_need = 72;
+  for (const std::string& lane : lanes) {
+    label_need = (std::max)(label_need, measure_text_utf8(lane, scale).width + 20);
+  }
+  const int label_cap = (std::max)(96, (b.width * 32) / 100);
+  const int label_w = (std::min)(label_need, label_cap);
   const int left = b.x + label_w;
-  const int right = b.right() - 8;
+  const int right = b.right() - 8 - track_w;
   const int width = (std::max)(1, right - left);
   const int plot_h = lane_bottom - lane_top;
+  const ui::gfx::Color grid = t.control_border;
 
   canvas->save();
-  canvas->clip_rect(b.x + 4, lane_top, b.width - 8, plot_h + axis_h);
-  canvas->fill_rect(b.x + 4, lane_top, b.width - 8, plot_h, t.control_bg);
-  canvas->stroke_rect(left, lane_top, width, plot_h, t.panel_header, 1);
+  canvas->clip_rect(b.x + 2, lane_top, b.width - 4, plot_h + axis_h);
+  canvas->fill_rect(b.x + 2, lane_top, label_w - 4, plot_h, t.panel_bg);
+  canvas->fill_rect(left, lane_top, width, plot_h, t.control_bg);
+  canvas->stroke_rect(left, lane_top, width, plot_h, grid, 1);
 
-  // Vertical time grid (Chrome Trace style).
   for (int tick = 0; tick <= 4; ++tick) {
     const int x = left + (width * tick) / 4;
-    canvas->draw_line(x, lane_top, x, lane_bottom, t.panel_header, 1);
-    const double ms =
-        (span * static_cast<double>(tick) / 4.0) / 1000.0;
-    const std::wstring label = utf8_to_wide(std::format("{:.1f}ms", ms));
-    canvas->draw_text(x + 2, lane_bottom + 2, label.c_str(), t.text_muted);
+    canvas->draw_line(x, lane_top, x, lane_bottom, grid, 1);
+    const double ms = (span * static_cast<double>(tick) / 4.0) / 1000.0;
+    const std::string label_u8 =
+        ms >= 1000.0 ? std::format("{:.2f}s", ms / 1000.0)
+                     : std::format("{:.1f}ms", ms);
+    const int label_px = measure_text_utf8(label_u8, scale).width;
+    int tx = x - label_px / 2;
+    if (tick == 0) {
+      tx = x + 2;
+    } else if (tick == 4) {
+      tx = (std::min)(tx, right - label_px);
+    }
+    canvas->draw_text(tx, lane_bottom + 2, utf8_to_wide(label_u8).c_str(),
+                      t.text);
   }
 
   for (std::size_t i = 0; i < lanes.size(); ++i) {
-    const int y = lane_top + static_cast<int>(i) * lane_h;
-    if ((i % 2) == 1) {
-      canvas->fill_rect(left, y, width, lane_h, t.panel_bg);
+    const int y = lane_top + static_cast<int>(i) * lane_h - scroll_y_;
+    if (y >= lane_bottom || y + lane_h <= lane_top) {
+      continue;
     }
+    const int row_h = lane_h;
+    if ((i % 2) == 1) {
+      canvas->fill_rect(left, y, width, row_h, t.row_alt);
+      canvas->fill_rect(b.x + 2, y, label_w - 4, row_h, t.row_alt);
+    }
+    const int text_y = y + (std::max)(0, (row_h - ink_h) / 2);
+    // Text starts at +6; leave ~10px before the lane divider, plus AA slack.
+    const int label_text_w = (std::max)(8, label_w - 20);
+    const std::string shown = fit_label(lanes[i], label_text_w, scale);
     canvas->save();
-    canvas->clip_rect(b.x + 4, y, label_w - 6, lane_h);
-    canvas->draw_text(b.x + 6, y + std::max(0, (lane_h - 14) / 2),
-                      utf8_to_wide(lanes[i]).c_str(), t.text_muted);
+    canvas->clip_rect(b.x + 4, y, (std::max)(1, label_w - 14), row_h);
+    canvas->draw_text(b.x + 6, text_y, utf8_to_wide(shown).c_str(), t.text);
     canvas->restore();
-    canvas->draw_line(left, y + lane_h - 1, right, y + lane_h - 1,
-                      t.panel_header, 1);
+    canvas->draw_line(left, y + row_h - 1, right, y + row_h - 1, grid, 1);
   }
+  canvas->draw_line(left, lane_top, left, lane_bottom, grid, 1);
 
   for (const auto& e : vis) {
     const auto ts = std::chrono::duration_cast<base::trace::Trace::duration>(
@@ -561,28 +636,139 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
         std::chrono::duration_cast<base::trace::Trace::duration>(e.end - e.begin)
             .count();
     const std::size_t li = lane_of[lane_key(e)];
-    const int y = lane_top + static_cast<int>(li) * lane_h + 2;
-    const int bar_h = std::max(4, lane_h - 4);
+    const int row_y = lane_top + static_cast<int>(li) * lane_h - scroll_y_;
+    if (row_y >= lane_bottom || row_y + lane_h <= lane_top) {
+      continue;
+    }
+    const int row_h = lane_h;
+    // Keep the bar a fraction of the row. Pull the inset in only when the
+    // remaining height cannot hold full ink above the stroke.
+    int inset = (std::max)(2, row_h / 6);
+    if (row_h - inset * 2 < ink_h) {
+      inset = (std::max)(0, (row_h - ink_h) / 2);
+    }
+    const int y = row_y + inset;
+    const int bar_h = (std::max)(ink_h, row_h - inset * 2);
     const int x0 =
         left + static_cast<int>((static_cast<double>(ts - min_ts) / span) *
                                 width);
-    const int w = (std::max)(
-        2, static_cast<int>((static_cast<double>((std::max)(dur, int64_t{1})) /
+    int w = (std::max)(
+        3, static_cast<int>((static_cast<double>((std::max)(dur, int64_t{1})) /
                              span) *
                             width));
+    if (x0 + w > right) {
+      w = (std::max)(3, right - x0);
+    }
     const ui::gfx::Color c = lane_color(li);
     canvas->fill_rect(x0, y, w, bar_h, c);
-    canvas->stroke_rect(x0, y, w, bar_h, t.panel_header, 1);
-    // Name when the bar is wide enough to read (DevTools / Perfetto habit).
-    if (w > 48) {
+    canvas->stroke_rect(x0, y, w, bar_h, grid, 1);
+    const int name_pad = 6;
+    if (w > name_pad * 2 + 8 && !e.name.empty()) {
+      const std::string name =
+          fit_label(e.name, w - name_pad * 2, scale);
+      const int name_y = y + (std::max)(0, (bar_h - ink_h) / 2);
       canvas->save();
-      canvas->clip_rect(x0 + 2, y, w - 4, bar_h);
-      canvas->draw_text(x0 + 3, y + std::max(0, (bar_h - 12) / 2),
-                        utf8_to_wide(e.name).c_str(), t.text_bright);
+      // Inset past the stroke so glyphs stay inside the filled bar.
+      canvas->clip_rect(x0 + 2, y + 1, (std::max)(1, w - 4),
+                        (std::max)(1, bar_h - 2));
+      canvas->draw_text(x0 + name_pad, name_y, utf8_to_wide(name).c_str(),
+                        bar_ink(c));
       canvas->restore();
     }
   }
   canvas->restore();
+
+  plot_content_h_ = content_h;
+  plot_view_h_ = view_h;
+  plot_lane_h_ = lane_h;
+  plot_scrollable_ = scrollable && track_w > 0;
+  if (track_w <= 0) {
+    plot_track_ = {};
+    plot_thumb_ = {};
+    return;
+  }
+  const int track_h = view_h + axis_h;
+  plot_track_ = {b.right() - 8 - kTrackW, lane_top, kTrackW, track_h};
+  int thumb_h = scrollable ? track_h * view_h / (std::max)(1, content_h) : track_h;
+  if (thumb_h < 12) {
+    thumb_h = 12;
+  }
+  if (thumb_h > track_h) {
+    thumb_h = track_h;
+  }
+  const int travel = (std::max)(0, track_h - thumb_h);
+  const int thumb_y =
+      max_scroll > 0 ? plot_track_.y + travel * scroll_y_ / max_scroll
+                     : plot_track_.y;
+  plot_thumb_ = {plot_track_.x, thumb_y, plot_track_.width, thumb_h};
+  canvas->fill_rect(plot_track_.x, plot_track_.y, plot_track_.width,
+                    plot_track_.height, t.panel_header);
+  canvas->fill_rect(plot_thumb_.x + 2, plot_thumb_.y,
+                    (std::max)(1, plot_thumb_.width - 4), plot_thumb_.height,
+                    scrollable ? t.control_hover : t.control_border);
+}
+
+bool RenderTracePanel::on_mouse_event(const MouseEvent& event) {
+  if (!is_enabled()) {
+    return false;
+  }
+  const int max_scroll = (std::max)(0, plot_content_h_ - plot_view_h_);
+  auto apply_scroll = [this](int next) {
+    const int capped = std::clamp(
+        next, 0, (std::max)(0, plot_content_h_ - plot_view_h_));
+    if (capped == scroll_y_) {
+      return;
+    }
+    scroll_y_ = capped;
+    schedule_paint();
+  };
+  auto seek_from_y = [&](int y) {
+    if (!plot_scrollable_ || plot_track_.height <= 0) {
+      return;
+    }
+    int thumb_h =
+        plot_track_.height * plot_view_h_ / (std::max)(1, plot_content_h_);
+    if (thumb_h < 12) {
+      thumb_h = 12;
+    }
+    if (thumb_h > plot_track_.height) {
+      thumb_h = plot_track_.height;
+    }
+    const int travel = (std::max)(1, plot_track_.height - thumb_h);
+    const int rel = std::clamp(y - plot_track_.y - thumb_h / 2, 0, travel);
+    apply_scroll(max_scroll > 0 ? rel * max_scroll / travel : 0);
+  };
+
+  if (scroll_drag_ && (event.type == MouseEvent::Type::kMove ||
+                       event.type == MouseEvent::Type::kUp)) {
+    if (event.type == MouseEvent::Type::kUp) {
+      scroll_drag_ = false;
+    }
+    seek_from_y(event.y);
+    return true;
+  }
+  if (!bounds().contains(event.x, event.y)) {
+    return false;
+  }
+  if (event.type == MouseEvent::Type::kWheel) {
+    if (!plot_scrollable_) {
+      return false;
+    }
+    int steps = event.wheel_delta / 120;
+    if (steps == 0 && event.wheel_delta != 0) {
+      steps = event.wheel_delta > 0 ? 1 : -1;
+    }
+    const int step = (std::max)(plot_lane_h_, 24);
+    apply_scroll(scroll_y_ - steps * step);
+    return true;
+  }
+  if (event.type == MouseEvent::Type::kDown && event.button == 1 &&
+      plot_scrollable_ && plot_track_.contains(event.x, event.y)) {
+    scroll_drag_ = true;
+    seek_from_y(event.y);
+    return true;
+  }
+  return false;
 }
 
 }  // namespace views

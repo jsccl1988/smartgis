@@ -3,7 +3,7 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# harness-auto-scene3d-frame-opt — reference
+# harness-auto-scene3d-phase-loop — reference
 
 Progressive disclosure. Read when parsing perf JSON, diagnosing remesh churn, or comparing to leftover.
 
@@ -67,7 +67,7 @@ Do **not** “helpfully” add sleeps or pumps into the timed loop.
 
 ## vs matrix skill
 
-| Concern | This skill | `harness-auto-world3d-opt` |
+| Concern | This skill | `harness-auto-world3d-port-matrix` |
 | --- | --- | --- |
 | GL / D3D leftover rows | Optional A/B only | Primary (bare; `gl_leftover` / `d3d_leftover`) |
 | Every-frame phases | Primary | Secondary on bare; primary on M4 full-materials table |

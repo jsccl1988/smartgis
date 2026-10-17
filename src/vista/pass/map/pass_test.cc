@@ -34,7 +34,10 @@ void expect(bool ok, const char* msg) {
 // Opaque 4x4 white glyph. advance_px = text_size_px * 0.5. No window.
 class StubGlyphRasterizer : public vista::GlyphRasterizer {
  public:
+  int rasterize_calls = 0;
+
   bool rasterize(uint32_t, float text_size_px, Bitmap* out) override {
+    ++rasterize_calls;
     if (!out) {
       return false;
     }
@@ -377,6 +380,195 @@ void expect_borrow_upload_without_seal(render::rhi::Device* device) {
   }
 }
 
+// Interactive zoom: world-only record after a full place must not latch
+// placed_view, or the next world+overlay reuse replays pixel_space glyphs
+// at the old extent (huge labels over hillshade).
+void expect_reuse_skips_stale_overlays_after_zoom(render::rhi::Device* device) {
+  if (!device) {
+    expect(false, "stale overlay reuse needs device");
+    return;
+  }
+  vista::MapPass pass;
+  pass.set_upload_policy(vista::MapPass::UploadPolicy::kReuseIfCached);
+  StubGlyphRasterizer glyphs;
+  vista::View wide = view_64();
+  vista::MapIR frame;
+  frame.background_rgba = 0xFF1B3A4Cu;
+  frame.background_opacity = 1.f;
+  frame.items.push_back(fill_triangle());
+  frame.items.push_back(text_quad());
+  {
+    render::rhi::CommandList* list = device->create_command_list();
+    expect(pass.record(device, list, frame, wide, &glyphs, reject_raster,
+                       reject_icon),
+           "full place at wide view");
+  }
+  // Zoom in (smaller world extent) — world-only Interactive opaque slot.
+  vista::View zoomed = wide;
+  zoomed.min_x = 4;
+  zoomed.max_x = 6;
+  zoomed.min_y = 4;
+  zoomed.max_y = 6;
+  {
+    render::rhi::CommandList* list = device->create_command_list();
+    expect(pass.record(device, list, frame, zoomed, &glyphs, reject_raster,
+                       reject_icon, nullptr, /*world_items=*/true,
+                       /*overlay_items=*/false),
+           "world-only after zoom");
+  }
+  {
+    render::rhi::CommandList* list = device->create_command_list();
+    expect(pass.record(device, list, frame, zoomed, &glyphs, reject_raster,
+                       reject_icon, nullptr, /*world_items=*/true,
+                       /*overlay_items=*/true),
+           "world+overlay after zoom must not stick on stale full_draws");
+    auto* stub = static_cast<render::rhi::StubCommandList*>(list);
+    // fill feather+core + glyph (halo is in the atlas) — proves overlays
+    // were re-encoded (stale full_draws stripped of overlays would draw fill).
+    expect(stub->draw_indexed_calls == 3,
+           "re-placed overlays after zoom still draw glyphs");
+  }
+}
+
+// Settle after pan: Incremental world+overlay must re-place glyphs at the
+// new view without sticking on scrubbed full_draws (flash of huge labels).
+void expect_settle_replaces_overlays_after_pan(render::rhi::Device* device) {
+  if (!device) {
+    expect(false, "settle after pan needs device");
+    return;
+  }
+  vista::MapPass pass;
+  pass.set_upload_policy(vista::MapPass::UploadPolicy::kReuseIfCached);
+  StubGlyphRasterizer glyphs;
+  vista::View view = view_64();
+  vista::MapIR frame;
+  frame.background_rgba = 0xFF1B3A4Cu;
+  frame.background_opacity = 1.f;
+  frame.items.push_back(fill_triangle());
+  frame.items.push_back(text_quad());
+  {
+    render::rhi::CommandList* list = device->create_command_list();
+    expect(pass.record(device, list, frame, view, &glyphs, reject_raster,
+                       reject_icon),
+           "full place before settle pan");
+  }
+  vista::View panned = view;
+  panned.min_x += 2.0;
+  panned.max_x += 2.0;
+  {
+    render::rhi::CommandList* list = device->create_command_list();
+    expect(pass.record(device, list, frame, panned, &glyphs, reject_raster,
+                       reject_icon, nullptr, /*world_items=*/true,
+                       /*overlay_items=*/false),
+           "interactive pan world-only");
+  }
+  pass.set_upload_policy(vista::MapPass::UploadPolicy::kIncremental);
+  {
+    render::rhi::CommandList* list = device->create_command_list();
+    expect(pass.record(device, list, frame, panned, &glyphs, reject_raster,
+                       reject_icon, nullptr, /*world_items=*/true,
+                       /*overlay_items=*/true),
+           "settle world+overlay after pan");
+    auto* stub = static_cast<render::rhi::StubCommandList*>(list);
+    expect(stub->draw_indexed_calls == 3,
+           "settle re-places fill+glyph at panned view");
+  }
+}
+
+// Same-scale pan with overlays requested reuses placed glyphs (no second
+// rasterize). A zoom must not take that path — it re-places.
+void expect_same_scale_pan_reuses_glyphs(render::rhi::Device* device) {
+  if (!device) {
+    expect(false, "same-scale pan needs device");
+    return;
+  }
+  vista::MapPass pass;
+  pass.set_upload_policy(vista::MapPass::UploadPolicy::kReuseIfCached);
+  StubGlyphRasterizer glyphs;
+  vista::View view = view_64();
+  vista::MapIR frame;
+  frame.background_rgba = 0xFF1B3A4Cu;
+  frame.background_opacity = 1.f;
+  frame.items.push_back(fill_triangle());
+  frame.items.push_back(text_quad());
+  {
+    render::rhi::CommandList* list = device->create_command_list();
+    expect(pass.record(device, list, frame, view, &glyphs, reject_raster,
+                       reject_icon),
+           "full place before same-scale pan");
+  }
+  const int placed = glyphs.rasterize_calls;
+  vista::View panned = view;
+  panned.min_x += 1.5;
+  panned.max_x += 1.5;
+  panned.min_y += 0.25;
+  panned.max_y += 0.25;
+  {
+    render::rhi::CommandList* list = device->create_command_list();
+    expect(pass.record(device, list, frame, panned, &glyphs, reject_raster,
+                       reject_icon, nullptr, /*world_items=*/true,
+                       /*overlay_items=*/true),
+           "same-scale pan keeps overlays");
+    auto* stub = static_cast<render::rhi::StubCommandList*>(list);
+    expect(stub->draw_indexed_calls == 3,
+           "same-scale pan draws fill+glyph");
+    expect(glyphs.rasterize_calls == placed,
+           "same-scale pan does not re-rasterize glyphs");
+  }
+  vista::View zoomed = panned;
+  zoomed.min_x = 4;
+  zoomed.max_x = 6;
+  zoomed.min_y = 4;
+  zoomed.max_y = 6;
+  {
+    render::rhi::CommandList* list = device->create_command_list();
+    expect(pass.record(device, list, frame, zoomed, &glyphs, reject_raster,
+                       reject_icon, nullptr, /*world_items=*/true,
+                       /*overlay_items=*/true),
+           "zoom re-places overlays");
+    expect(glyphs.rasterize_calls > placed,
+           "zoom does not reuse pan-scale glyphs");
+  }
+}
+
+// Interactive pan: world-only camera reuse must not emit halo/glyph draws
+// that were uploaded with the prior full place (reads as huge chars on drag).
+void expect_pan_world_only_skips_glyphs(render::rhi::Device* device) {
+  if (!device) {
+    expect(false, "pan world-only needs device");
+    return;
+  }
+  vista::MapPass pass;
+  pass.set_upload_policy(vista::MapPass::UploadPolicy::kReuseIfCached);
+  StubGlyphRasterizer glyphs;
+  vista::View view = view_64();
+  vista::MapIR frame;
+  frame.background_rgba = 0xFF1B3A4Cu;
+  frame.background_opacity = 1.f;
+  frame.items.push_back(fill_triangle());
+  frame.items.push_back(text_quad());
+  {
+    render::rhi::CommandList* list = device->create_command_list();
+    expect(pass.record(device, list, frame, view, &glyphs, reject_raster,
+                       reject_icon),
+           "full place before pan");
+  }
+  vista::View panned = view;
+  panned.min_x += 1.5;
+  panned.max_x += 1.5;
+  {
+    render::rhi::CommandList* list = device->create_command_list();
+    expect(pass.record(device, list, frame, panned, &glyphs, reject_raster,
+                       reject_icon, nullptr, /*world_items=*/true,
+                       /*overlay_items=*/false),
+           "world-only pan reuse");
+    auto* stub = static_cast<render::rhi::StubCommandList*>(list);
+    // fill feather+core only — halo/glyph must not ride along on pan.
+    expect(stub->draw_indexed_calls == 2,
+           "pan world-only draws fill only, not glyphs");
+  }
+}
+
 // kReplace with cache_key items must one-shot place+upload (not per-slice
 // DrawItem assign). Two keyed fills share one solid mega buffer.
 void expect_replace_keyed_oneshot(render::rhi::Device* device) {
@@ -454,6 +646,79 @@ void expect_many_solid_pack_linear(render::rhi::Device* device) {
   }
 }
 
+// Pixel quads left in lon/lat cover tens of degrees: white halo, huge type.
+void expect_unplaced_pixel_text_is_dropped() {
+  vista::View view;
+  view.width_px = 1000;
+  view.height_px = 800;
+  view.min_x = 70;
+  view.min_y = 15;
+  view.max_x = 140;
+  view.max_y = 55;
+  vista::DrawItem item;
+  item.kind = vista::DrawKind::kText;
+  item.pixel_space = false;
+  item.text_size_px = 16.f;
+  item.halo_width_px = 2.f;
+  item.halo_rgba = 0xffffffffu;
+  item.codepoint = 65;
+  item.anchor_x = 16.f;
+  item.anchor_y = 16.f;
+  item.vertices = {
+      {8.f, 8.f, 0.f, 0.f, 0.f},
+      {24.f, 8.f, 0.f, 1.f, 0.f},
+      {24.f, 24.f, 0.f, 1.f, 1.f},
+      {8.f, 24.f, 0.f, 0.f, 1.f},
+  };
+  item.indices = {0, 1, 2, 0, 2, 3};
+  vista::MapIR frame;
+  frame.items.push_back(item);
+  const std::vector<vista::detail::PlacedMesh> meshes =
+      vista::detail::place_frame(frame, view);
+  // Coerce-to-pixels maps a 16px quad into ~1 degree, under the glyph cap.
+  expect(!meshes.empty(), "coerced 16px text still places");
+  if (!meshes.empty()) {
+    float min_x = meshes[0].vertex_list()[0].x;
+    float max_x = min_x;
+    for (const vista::Vertex& v : meshes[0].vertex_list()) {
+      min_x = (std::min)(min_x, v.x);
+      max_x = (std::max)(max_x, v.x);
+    }
+    expect(max_x - min_x < 5.f, "coerced glyph is not degree-sized");
+  }
+
+  item.vertices = {
+      {70.f, 15.f, 0.f, 0.f, 0.f},
+      {120.f, 15.f, 0.f, 1.f, 0.f},
+      {120.f, 50.f, 0.f, 1.f, 1.f},
+      {70.f, 50.f, 0.f, 0.f, 1.f},
+  };
+  item.pixel_space = false;
+  item.text_size_px = 16.f;
+  frame.items.clear();
+  frame.items.push_back(item);
+  const std::vector<vista::detail::PlacedMesh> huge =
+      vista::detail::place_frame(frame, view);
+  // Edge is tens of degrees while text-size is 16px — not a label.
+  // Coercion treats it as pixels and to_ortho shrinks it. A quad that is
+  // already world-sized far above 96px must be dropped: force pixel_space
+  // with a 400px body so to_ortho keeps it huge.
+  item.pixel_space = true;
+  item.text_size_px = 400.f;
+  item.vertices = {
+      {0.f, 0.f, 0.f, 0.f, 0.f},
+      {400.f, 0.f, 0.f, 1.f, 0.f},
+      {400.f, 400.f, 0.f, 1.f, 1.f},
+      {0.f, 400.f, 0.f, 0.f, 1.f},
+  };
+  frame.items.clear();
+  frame.items.push_back(item);
+  const std::vector<vista::detail::PlacedMesh> dropped =
+      vista::detail::place_frame(frame, view);
+  expect(dropped.empty(), "400px glyph on a 1000px view is dropped");
+  (void)huge;
+}
+
 void expect_pixel_quad_rotates_into_ortho() {
   constexpr float kRightAngle = 1.5707963267948966f;
   vista::View view;
@@ -507,6 +772,7 @@ int main() {
   setvbuf(stderr, nullptr, _IONBF, 0);
 
   expect_pixel_quad_rotates_into_ortho();
+  expect_unplaced_pixel_text_is_dropped();
 
   std::unique_ptr<render::rhi::Device> device(create_device(Backend::kNull));
   expect(device != nullptr, "create null device");
@@ -516,6 +782,10 @@ int main() {
   expect_solid_tint_coalesce(device.get());
   expect_borrow_upload_without_seal(device.get());
   expect_replace_keyed_oneshot(device.get());
+  expect_reuse_skips_stale_overlays_after_zoom(device.get());
+  expect_pan_world_only_skips_glyphs(device.get());
+  expect_same_scale_pan_reuses_glyphs(device.get());
+  expect_settle_replaces_overlays_after_pan(device.get());
   expect_many_solid_pack_linear(device.get());
 
   vista::MapPass pass;
@@ -646,11 +916,11 @@ int main() {
     auto* stub = static_cast<StubCommandList*>(list);
     expect(stub->clear_load_calls >= 1, "clear plus draws");
     expect(stub->draw_indexed_calls >= 1, "at least one draw");
-    // Failed raster/icon are skipped. Fill feather+core (3+3) + halo (6) + glyph (6).
-    expect(stub->draw_indexed_calls == 4, "fill feather, core, halo, glyph");
-    expect(stub->index_counts.size() == 4 && stub->index_counts[0] == 3 &&
-               stub->index_counts[1] == 3 && stub->index_counts[2] == 6 &&
-               stub->index_counts[3] == 6,
+    // Failed raster/icon are skipped. Fill feather+core (3+3) + glyph (6).
+    // Halo coverage lives in the atlas cell, not a second solid draw.
+    expect(stub->draw_indexed_calls == 3, "fill feather, core, glyph");
+    expect(stub->index_counts.size() == 3 && stub->index_counts[0] == 3 &&
+               stub->index_counts[1] == 3 && stub->index_counts[2] == 6,
            "index counts");
     expect(stub->bind_texture_calls >= 1, "glyph atlas bound");
     expect(stub->last_pipeline == pass.textured_pipeline(),

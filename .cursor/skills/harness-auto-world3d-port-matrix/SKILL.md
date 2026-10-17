@@ -1,13 +1,14 @@
 ---
-name: harness-auto-world3d-opt
+name: harness-auto-world3d-port-matrix
 description: >-
-  Runs the world3d equal-profile harness: same True-Earth Scene3D rendering
-  materials and effects across parallel strategies x image-driven backends
-  (Scenic/GL, Scenic/D3D11, Vista/DX12; Null smoke-only), then emits
-  screenshots and an execution performance comparison table. Use when the user
-  invokes /harness-auto-world3d-opt, or says world3d 矩阵, 同等渲染物料,
-  并行策略×图像驱动, GL/D3D/Vista 对比, world3d equal-profile, or asks for
-  world3d screenshots + performance comparison.
+  World3d port matrix: same True-Earth Scene3D materials across parallel
+  strategies x image-driven backends (Scenic/GL, Scenic/D3D11, Vista/DX12;
+  Null smoke-only), then screenshots and a comparison table. Not the product
+  per-frame phase-budget loop. Use when the user invokes
+  /harness-auto-world3d-port-matrix (formerly /harness-auto-world3d-opt), or
+  says world3d 矩阵, 同等渲染物料, 并行策略×图像驱动, GL/D3D/Vista 对比,
+  world3d equal-profile, or asks for world3d screenshots + performance
+  comparison.
 ---
 
 <!--
@@ -15,17 +16,17 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# Harness auto world3d opt（同等物料 × 并行×图像驱动）
+# Harness auto world3d port matrix（端口 × 并行对照表）
 
-**同等渲染物料及效果，并行策略×图像驱动（Scenic GL、Scenic D3D11、Vista），并给出截图及执行性能对比表**
+**同等渲染物料下，并行策略 × 图像驱动（Scenic GL、Scenic D3D11、Vista/DX12），并给出截图及执行性能对比表。**
+
+Sibling of `harness-auto-scene3d-phase-loop` (product Vista path phase clocks + fix-until-budget). This skill owns the **port grid** on `--plugin-showcase=world3d`: Vista/DX12 plus **scenic rhi3d GL and D3D11**. Warm phase budgets on `--atmosphere-showcase=legacy` belong to the phase-loop skill. Do **not** rank leftover GDI or `scenic.dll` software Engine as GPU peers.
 
 Closed loop: build → run matrix → inspect PNGs → performance table → (optional) optimize against equal-profile budgets → re-run.
 
-Sibling of `harness-auto-map2d-opt` (2D china). This skill owns **plugin.world3d / Scene3D** GPU peers: Vista/DX12 plus **scenic rhi3d GL and D3D11**. Do **not** rank leftover GDI or `scenic.dll` software Engine as GPU peers.
-
 ## Authorization
 
-When this skill is invoked, attached (`@harness-auto-world3d-opt` / `/harness-auto-world3d-opt`), or followed, the agent **MUST** run the matrix (and rebuild if binaries are missing) and deliver **screenshots + comparison table** — do not defer the harness to the user.
+When this skill is invoked, attached (`@harness-auto-world3d-port-matrix` / `/harness-auto-world3d-port-matrix`, formerly `harness-auto-world3d-opt`), or followed, the agent **MUST** run the matrix (and rebuild if binaries are missing) and deliver **screenshots + comparison table** — do not defer the harness to the user.
 
 ## Hard rules
 
@@ -113,13 +114,13 @@ Separate from bare peer table. Do **not** compare full-materials `ms_per_present
 | --- | --- |
 | Entry | `run_world3d_full_materials_matrix.py` (PERF_BARE unset) |
 | Rows | `flycube` · `prep_par_off` · `prep_par_on` (`role=full_materials`) |
-| Phases | Reuse scene3d-frame-opt fields: `ocean_prep_ms` / `record_ms` / `present_swap_ms` / `rebuild_count` |
+| Phases | Reuse scene3d-phase-loop fields: `ocean_prep_ms` / `record_ms` / `present_swap_ms` / `rebuild_count` |
 | Timed loop | Product non-bare: `pump_ms=50`, `discard_cold=0` (honest product path) |
 | null / scenic GL·D3D | Stay on bare matrix only (`null` smoke; `gl_scenic` / `d3d_scenic` = scenic rhi3d on Views) |
 
 ## Related
 
-- Per-frame profile + opt loop: `.cursor/skills/harness-auto-scene3d-frame-opt/SKILL.md`
+- Per-frame profile + opt loop: `.cursor/skills/harness-auto-scene3d-phase-loop/SKILL.md`
 - Bare runner: `testing/tools/harness/plugin/run_world3d_backend_matrix.py`
 - Full-materials runner: `testing/tools/harness/plugin/run_world3d_full_materials_matrix.py`
 - Policy: `src/content/browser/present/scene3d/session/scene3d_rhi_session.*`

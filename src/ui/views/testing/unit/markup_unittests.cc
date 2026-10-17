@@ -272,6 +272,33 @@ void test_text2ui_template_and_extract() {
   expect(!generate_text2ui(req, &out), "@llm without backend fails");
 }
 
+void test_inundate_form_preferred_height() {
+  const char* path =
+      "C:/Dev/src/gis/smartgis/src/plugin/product/flood/resources/inundate.ui.xml";
+  ui::views::MarkupRoot root;
+  ui::views::load_markup_into(path, {}, &root);
+  expect(root.ok(), "inundate markup ok");
+  if (!root.root) {
+    std::fprintf(stderr, "inundate error: %s\n", root.error.c_str());
+    return;
+  }
+  const ui::views::Size pref = root.root->get_preferred_size();
+  std::fprintf(stderr, "inundate pref %d x %d child_count=%zu\n", pref.width,
+               pref.height, root.root->child_count());
+  expect(pref.height > 200, "inundate form preferred height");
+  root.root->set_bounds({0, 0, pref.width > 0 ? pref.width : 520,
+                         pref.height > 0 ? pref.height : 380});
+  root.root->layout();
+  if (auto* dem = root.ids.find("dem_path")) {
+    const ui::views::Rect b = dem->bounds();
+    std::fprintf(stderr, "dem_path bounds %d,%d %dx%d\n", b.x, b.y, b.width,
+                 b.height);
+    expect(b.height > 8 && b.width > 8, "dem_path laid out");
+  } else {
+    expect(false, "dem_path id");
+  }
+}
+
 }  // namespace
 
 int main() {
@@ -284,6 +311,7 @@ int main() {
   std::fflush(stdout);
 
   test_css_parser_flex_subset();
+  test_inundate_form_preferred_height();
   test_yoga_layout_row_column_gap_grow();
   test_main_app_markup_no_sibling_overlap();
   test_text2ui_template_and_extract();

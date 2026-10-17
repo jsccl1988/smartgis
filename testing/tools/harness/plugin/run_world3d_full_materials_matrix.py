@@ -124,7 +124,7 @@ def _write_reports(rows: list[dict]) -> None:
         "`PLUGIN_WORLD3D_PERF_BARE` unset. Do **not** rank these rows",
         "against bare warm peers in `../MATRIX.md` Performance.",
         "",
-        "Phase columns align with atmosphere / scene3d-frame-opt",
+        "Phase columns align with atmosphere / scene3d-phase-loop",
         "(`ocean_prep_ms`, `record_ms`, `present_swap_ms`, …).",
         "",
         "Product timed loop (non-bare): `pump_ms=50`, `discard_cold=0`",

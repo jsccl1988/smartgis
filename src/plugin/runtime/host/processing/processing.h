@@ -61,6 +61,7 @@ class PLUGIN_HOST_EXPORT ProcessingPool {
     std::function<void(bool, std::string)> done;
   };
 
+  void ensure_started();
   void enqueue_done(std::function<void()> fn);
 
   ProcessingMode mode_;

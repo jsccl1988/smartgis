@@ -9,6 +9,12 @@
 #include <mutex>
 #include <thread>
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <psapi.h>
+
 #include "base/core/log.h"
 #include "base/memory/allocation_tracker.h"
 #include "base/memory/sample_trace.h"
@@ -49,6 +55,25 @@ void sampler_loop() {
 }
 
 }  // namespace
+
+ProcessMemorySnapshot process_memory_snapshot() {
+  ProcessMemorySnapshot out;
+  PROCESS_MEMORY_COUNTERS_EX counters{};
+  counters.cb = sizeof(counters);
+  if (GetProcessMemoryInfo(GetCurrentProcess(),
+                           reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&counters),
+                           sizeof(counters))) {
+    out.working_set = counters.WorkingSetSize;
+    out.peak_working_set = counters.PeakWorkingSetSize;
+    out.private_bytes = counters.PrivateUsage;
+  }
+  MEMORYSTATUSEX status{};
+  status.dwLength = sizeof(status);
+  if (GlobalMemoryStatusEx(&status)) {
+    out.physical_total = status.ullTotalPhys;
+  }
+  return out;
+}
 
 void start_always_on_diagnostics() {
   std::lock_guard<std::mutex> lock(bootstrap_mu());

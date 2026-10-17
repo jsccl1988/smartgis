@@ -10,6 +10,7 @@
   "required_marks": [
     "hwnd-ok",
     "console-ok",
+    "pan-moved",
     "console-bench-ok",
     "pass"
   ],

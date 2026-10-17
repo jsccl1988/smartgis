@@ -34,6 +34,7 @@ source_set("process_trace_sources") {
     "event/trace.cc",
   ]
   defines = [ "BASE_EXPORTS" ]
+  libs = [ "psapi.lib" ]
   public_deps = [ ":trace" ]
   public_configs = [ "//src/base:foundation_config" ]
 }

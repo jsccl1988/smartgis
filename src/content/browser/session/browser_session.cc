@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -45,6 +46,20 @@ std::unique_ptr<BrowserSession> BrowserSession::create() {
 }
 
 BrowserSession::BrowserSession() = default;
+
+Map2dPresenter& BrowserSession::map2d() {
+  if (!map2d_) {
+    map2d_ = Map2dPresenter::create();
+  }
+  return *map2d_;
+}
+
+Scene3dPresenter& BrowserSession::scene3d() {
+  if (!scene3d_) {
+    scene3d_ = Scene3dPresenter::create();
+  }
+  return *scene3d_;
+}
 
 BrowserSession::~BrowserSession() {
   prepare_close();
@@ -275,6 +290,9 @@ content::FeatureId BrowserSession::move_selected_vertex(double map_x,
 
 content::FeatureId BrowserSession::select_feature_at(double map_x, double map_y,
                                                      double tol_map) {
+  // hit_test's pointer is into LayerStore. Copy the id before the lock drops
+  // so a concurrent ingest cannot free the feature mid-read.
+  std::lock_guard<std::recursive_mutex> lock(document_.layer_mutex());
   const GisScene::Feature* hit = document_.hit_test(map_x, map_y, tol_map);
   return hit ? hit->id : content::FeatureId{};
 }
@@ -439,12 +457,12 @@ float BrowserSession::orbit_distance() const {
 void BrowserSession::apply_china_scene3d_orbit() {
   orbit_.reset();
   orbit_.apply_world_extent(kChinaLonLatExtent);
-  // Frame at kScene3dDefaultDistance (FOV 1.35). The old 1.45 fill distance
-  // parked the eye inside the DEM sphere and near-plane clipped close views.
-  orbit_.set_dolly_limits(kScene3dDollyMinLocal, 12.f);
-  orbit_.set_distance(kScene3dDefaultDistance);
-  // Steeper look-down so Local DEM fills landish/sky_delta score bands.
-  orbit_.set_pitch(0.78f);
+  // Flat sheet, not the DEM sphere. Wide default FOV left the country small;
+  // kScene3dChina* fills ~80% of a 1.7-aspect view without the 2.4 tile split.
+  orbit_.set_dolly_limits(kScene3dChinaDollyMin, 12.f);
+  orbit_.set_distance(kScene3dChinaDistance);
+  orbit_.set_fov_y(kScene3dChinaFovY);
+  orbit_.set_pitch(kScene3dChinaPitch);
   orbit_.set_yaw(kScene3dDefaultYaw);
 }
 
@@ -684,6 +702,28 @@ void BrowserSession::set_scene3d_atmosphere_layers(bool ocean, bool cloud,
   atmo.set_cloud_enabled(cloud);
   atmo.set_sky_enabled(sky);
   atmo.set_fog_enabled(fog);
+}
+
+void BrowserSession::scene3d_atmosphere_flags(bool* ocean, bool* cloud,
+                                              bool* sky, bool* fog,
+                                              bool* wind) const {
+  const AtmosphereSession& atmo = scene3d().atmosphere_session();
+  const vista::atmosphere::Environment* env = atmo.environment();
+  if (ocean) {
+    *ocean = env && env->ocean_enabled();
+  }
+  if (cloud) {
+    *cloud = env && env->cloud_enabled();
+  }
+  if (sky) {
+    *sky = env && env->sky_enabled();
+  }
+  if (fog) {
+    *fog = env && env->fog_enabled();
+  }
+  if (wind) {
+    *wind = atmo.wind_overlay_enabled();
+  }
 }
 
 void BrowserSession::set_scene3d_globe_enabled(bool on) {

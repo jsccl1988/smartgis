@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -90,6 +91,8 @@ class GisScene {
   const std::string& active_layer_id() const;
   size_t layer_count() const;
   size_t feature_count() const;
+  // Atomic layout identity; safe for Display-thread StaticReuse fingerprint.
+  uint64_t content_revision() const;
   bool last_open_was_ogr() const;
 
   // Envelope of visible feature vertices in map space (Y already flipped for
@@ -104,6 +107,8 @@ class GisScene {
                        double* max_y) const;
 
   const std::vector<Layer>& layers() const;
+  // Mutex for |layers()| walks shared with Display layout / inspector sync.
+  std::recursive_mutex& layer_mutex() const;
   gis::tile::TileProvider* basemap_provider() const;
 
   // Resolved style colors for one feature. False keeps the cartography defaults.
@@ -121,6 +126,8 @@ class GisScene {
   bool has_resolvable_dem() const;
   // Hillshade eligibility: drawable extent + visible land + resolvable DEM.
   bool can_attach_hillshade() const;
+  // Catalog toggle for the synthetic style.hillshade leaf (DEM bake underlay).
+  bool hillshade_visible() const;
 
   bool create_layer(const std::string& name, const std::string& geometry_type);
   bool remove_layer(const std::string& id);

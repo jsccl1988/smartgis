@@ -49,16 +49,19 @@ product_shared_library("gis") {
     "//third_party:gdal",
   ]
   lib_dirs += [ "//third_party/.install/lib" ]
-  # Prefer install static zlib by path. Bare "zlib.lib" resolves to
-  # out/<config>/zlib.lib (CxImage import lib) before LIBPATH and has no
-  # inflate* — Release then LNK2001 on mvt.obj. Debug uses zlibstaticd.lib
-  # which does not collide with that import name.
+  # Prefer the install static zlib. Bare "zlib.lib" resolves to
+  # out/<config>/zlib.lib (CxImage import lib) and has no inflate*.
+  # The install zlib.lib is the zlib1.dll import lib, which the SDK loader
+  # cannot see from bin/ before SetDllDirectory.
   if (is_debug) {
     libs += [ "zlibstaticd.lib" ]
   } else {
-    libs +=
-        [ rebase_path("//third_party/.install/lib/zlib.lib", root_build_dir) ]
+    libs += [ rebase_path("//third_party/.install/lib/zlibstatic.lib",
+                          root_build_dir) ]
   }
+  # CxImage.dll lives in the SDK third_party/bin, not beside this DLL.
+  libs += [ "delayimp.lib" ]
+  ldflags = [ "/DELAYLOAD:CxImage.dll" ]
 }
 
 group("gis_all") {

@@ -5,6 +5,7 @@
 #define UI_VIEWS_PRIMITIVES_COLLECTION_TAB_STRIP_H_
 
 #include "ui/ui_export.h"
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -46,22 +47,41 @@ class UI_EXPORT TabStrip : public View {
   int tab_height() const;
   // Absolute bounds of the clickable tab header band.
   Rect header_bounds() const;
-  // Content-sized tab cell (label + pad); packed left-to-right in the header.
-  // Shrinks proportionally when the natural sum exceeds the header width.
+  // Content-sized tab cell (label + pad), packed left-to-right.
+  // Mild overflow shrinks toward a readable floor. When the floor still does
+  // not fit, extra tabs move into the overflow menu (width 0 here).
   int tab_width_at(int i) const;
   int tab_x_at(int i) const;
+  // Tabs omitted from the header (another inspector group). Included by default.
+  void set_tab_included(int i, bool included);
+  bool tab_included(int i) const;
+  bool has_tab_overflow() const;
+  int overflow_count() const;
+  int overflow_tab_at(int i) const;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;
 
  private:
+  static constexpr int kMaxTabs = 32;
+
+  struct SlotLayout {
+    int width[kMaxTabs] = {};
+    int chevron_w = 0;
+    int overflow[kMaxTabs] = {};
+    int overflow_n = 0;
+  };
+
   void apply_page_visibility();
   int tab_at(int x, int y) const;
   int natural_tab_width_at(int i) const;
-  int tabs_natural_total_width() const;
+  void layout_slots(SlotLayout* out) const;
+  void open_overflow_menu();
 
   std::vector<std::string> titles_;
   std::vector<View*> pages_;
+  // 1 = shown in the header. Fixed capacity so the callback member stays put.
+  uint8_t included_[kMaxTabs] = {};
   int active_ = -1;
   HeaderPlacement header_placement_ = HeaderPlacement::kTop;
   std::function<void(int)> change_;

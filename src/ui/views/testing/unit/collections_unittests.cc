@@ -135,6 +135,37 @@ void test_tree_view_dpi_row_height() {
          "tree row fits shell body face");
 }
 
+void test_scroll_view_uses_layout_preferred_height() {
+  ScrollView sc;
+  sc.set_bounds({0, 0, 100, 40});
+  auto column = std::make_unique<View>();
+  column->set_layout_manager(
+      std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical));
+  auto tall = std::make_unique<View>();
+  tall->set_preferred_size({80, 200});
+  column->add_child(std::move(tall));
+  View* child = column.get();
+  expect(child->preferred_size().height == 0, "column stores no hint");
+  expect(child->get_preferred_size().height >= 200, "layout preferred tall");
+  sc.add_child(std::move(column));
+  sc.layout();
+  MouseEvent wheel;
+  wheel.type = MouseEvent::Type::kWheel;
+  wheel.x = 10;
+  wheel.y = 10;
+  wheel.wheel_delta = -120;
+  expect(sc.on_mouse_event(wheel), "layout content wheel");
+  expect(sc.scroll_offset() == 40, "layout-sized content scrolls");
+  View* track = nullptr;
+  for (size_t i = 0; i < sc.child_count(); ++i) {
+    View* ch = sc.child_at(i);
+    if (ch && ch->is_locally_visible() && ch->bounds().width == 12) {
+      track = ch;
+    }
+  }
+  expect(track != nullptr, "track visible for layout content");
+}
+
 void test_scroll_view_wheel() {
   ScrollView sc;
   sc.set_bounds({0, 0, 100, 40});
@@ -238,6 +269,60 @@ void test_tab_strip_page_bounds_align() {
   expect(pa->bounds().width == tabs.bounds().width, "page width matches");
   expect(pb->bounds().width == pa->bounds().width, "inactive page sized");
   expect(rect_contains_rect(tabs.bounds(), pa->bounds()), "page inside strip");
+}
+
+void test_tab_strip_keeps_active_visible_on_overflow() {
+  TabStrip tabs;
+  // Narrow header: floor widths cannot all fit, so the rest go to overflow.
+  tabs.set_bounds({0, 0, 100, 200});
+  tabs.add_tab("Selection", std::make_unique<View>());
+  tabs.add_tab("Measure", std::make_unique<View>());
+  tabs.add_tab("Legend", std::make_unique<View>());
+  tabs.add_tab("Layer", std::make_unique<View>());
+  tabs.add_tab("Plugins", std::make_unique<View>());
+  tabs.set_active(4);
+  tabs.layout();
+  expect(tabs.tab_width_at(4) >= 56, "active Plugins tab keeps the readable floor");
+  expect(tabs.tab_width_at(0) == 0, "leading tab leaves the strip when it does not fit");
+  expect(tabs.has_tab_overflow(), "cramped strip exposes an overflow menu");
+  bool leading_overflow = false;
+  for (int i = 0; i < tabs.overflow_count(); ++i) {
+    const int tab = tabs.overflow_tab_at(i);
+    expect(tab != 4, "active tab stays out of the overflow list");
+    if (tab == 0) {
+      leading_overflow = true;
+    }
+  }
+  expect(leading_overflow, "hidden leading tab is listed in the overflow menu");
+  expect(tabs.on_mouse_event(mouse_down(tabs.tab_x_at(4) + 2, 10)),
+         "active Plugins tab is hittable");
+  expect(tabs.active() == 4, "Plugins stays active after hit");
+  const int chevron_x = tabs.bounds().x + tabs.bounds().width - 2;
+  expect(tabs.on_mouse_event(mouse_down(chevron_x, 10)),
+         "overflow chevron accepts the click");
+  expect(tabs.active() == 4, "overflow click does not change the active tab");
+}
+
+void test_tab_strip_included_tabs_hide_other_groups() {
+  TabStrip tabs;
+  tabs.set_bounds({0, 0, 400, 200});
+  tabs.add_tab("Feature", std::make_unique<View>());
+  tabs.add_tab("Attrs", std::make_unique<View>());
+  tabs.add_tab("Layer", std::make_unique<View>());
+  tabs.add_tab("Legend", std::make_unique<View>());
+  tabs.set_tab_included(0, false);
+  tabs.set_tab_included(1, false);
+  tabs.set_active(2);
+  tabs.layout();
+  expect(!tabs.tab_included(0) && tabs.tab_width_at(0) == 0,
+         "excluded Feature tab is not on the strip");
+  expect(tabs.tab_width_at(2) >= 56 && tabs.tab_width_at(3) >= 56,
+         "included tabs keep a readable cell");
+  expect(!tabs.has_tab_overflow(), "two included tabs fit without overflow");
+  expect(tabs.tab_x_at(2) == tabs.bounds().x, "included tabs pack at the origin");
+  expect(!tabs.on_mouse_event(mouse_down(360, 10)),
+         "empty header is not a hidden tab");
+  expect(tabs.active() == 2, "empty header hit leaves Layer active");
 }
 
 void test_scroll_skips_layout_when_preferred_unchanged() {

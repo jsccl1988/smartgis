@@ -181,6 +181,53 @@ int main() {
     }
   }
 
+  // group.china checkbox propagates to PLPT leaves.
+  {
+    content::detail::LayerStore store;
+    content::detail::MapLayer area;
+    area.id = "china.area";
+    area.name = "area";
+    area.visible = true;
+    area.kind = content::LayerKind::kVector;
+    content::detail::MapLayer line;
+    line.id = "china.line";
+    line.name = "line";
+    line.visible = true;
+    line.kind = content::LayerKind::kVector;
+    store.replace_layers({std::move(area), std::move(line)});
+    expect(store.set_layer_visible("group.china", false), "hide china group");
+    expect(!store.find_layer("china.area")->visible, "area hidden via group");
+    expect(!store.find_layer("china.line")->visible, "line hidden via group");
+    expect(store.set_layer_visible("group.china", true), "show china group");
+    expect(store.find_layer("china.area")->visible, "area shown via group");
+  }
+
+  // Synthetic style.hillshade Catalog leaf + toggle (DEM path may be absent
+  // in bare unit runs — only assert when has_resolvable_dem()).
+  {
+    content::GisScene scene;
+    expect(scene.hillshade_visible(), "hillshade default on");
+    if (scene.has_resolvable_dem()) {
+      bool found = false;
+      for (const content::LayerDesc& d : scene.layer_descs()) {
+        if (d.id == "style.hillshade") {
+          found = true;
+          expect(d.kind == content::LayerKind::kRaster, "hillshade raster");
+          expect(d.visible, "hillshade leaf visible");
+        }
+      }
+      expect(found, "style.hillshade in layer_descs");
+      expect(scene.set_layer_visible("style.hillshade", false),
+             "hide hillshade");
+      expect(!scene.hillshade_visible(), "hillshade flag off");
+      for (const content::LayerDesc& d : scene.layer_descs()) {
+        if (d.id == "style.hillshade") {
+          expect(!d.visible, "hillshade leaf hidden");
+        }
+      }
+    }
+  }
+
   if (g_fails) {
     std::fprintf(stderr, "%d failure(s)\n", g_fails);
     return 1;

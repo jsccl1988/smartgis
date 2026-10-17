@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -34,6 +35,9 @@ namespace content {
 struct GisScene::Impl {
   detail::LayerStore store;
   detail::StyleBind style;
+  // Synthetic Catalog leaf style.hillshade — not a MapLayer. Default on so
+  // china product still attaches DEM jet under vectors.
+  bool hillshade_visible = true;
 };
 
 GisScene::GisScene() : impl_(std::make_unique<Impl>()) {}
@@ -42,6 +46,7 @@ GisScene::~GisScene() = default;
 
 void GisScene::clear() {
   impl_->store.clear();
+  impl_->hillshade_visible = true;
 }
 
 void GisScene::set_style_document(
@@ -231,17 +236,36 @@ std::vector<GisScene::LayerDesc> GisScene::layer_descs() const {
   // Tile basemap lives on StyleBind, not MapLayer. When the catalog command
   // path created a kRaster layer, skip; otherwise expose a synthetic leaf so
   // TOC can show kind without inventing extra business overlays.
-  if (!has_basemap_provider() || layer_descs_have_raster(out)) {
-    return out;
+  // Insert basemap before style.hillshade so the raster-kind check is not
+  // poisoned by the DEM leaf.
+  if (has_basemap_provider() && !layer_descs_have_raster(out)) {
+    LayerDesc basemap;
+    basemap.id = "basemap.tiles";
+    basemap.name = "Basemap";
+    basemap.visible = true;
+    basemap.active = false;
+    basemap.kind = LayerKind::kRaster;
+    basemap.expanded = true;
+    out.insert(out.begin(), std::move(basemap));
   }
-  LayerDesc basemap;
-  basemap.id = "basemap.tiles";
-  basemap.name = "Basemap";
-  basemap.visible = true;
-  basemap.active = false;
-  basemap.kind = LayerKind::kRaster;
-  basemap.expanded = true;
-  out.insert(out.begin(), std::move(basemap));
+  // DEM hillshade bake is style-driven (not MapLayer). Expose a Catalog leaf
+  // whenever a sample DEM resolves so users can hide the jet sheet and isolate
+  // vector carto without MAP2D_NO_HILLSHADE.
+  if (has_resolvable_dem()) {
+    LayerDesc hillshade;
+    hillshade.id = "style.hillshade";
+    hillshade.name = "hillshade";
+    hillshade.visible = impl_->hillshade_visible;
+    hillshade.active = false;
+    hillshade.kind = LayerKind::kRaster;
+    hillshade.expanded = true;
+    size_t at = 0;
+    if (!out.empty() && out[0].id == "basemap.tiles") {
+      at = 1;
+    }
+    out.insert(out.begin() + static_cast<std::ptrdiff_t>(at),
+               std::move(hillshade));
+  }
   return out;
 }
 
@@ -257,12 +281,20 @@ size_t GisScene::feature_count() const {
   return impl_->store.feature_count();
 }
 
+uint64_t GisScene::content_revision() const {
+  return impl_->store.content_revision();
+}
+
 bool GisScene::last_open_was_ogr() const {
   return impl_->store.last_open_was_ogr();
 }
 
 const std::vector<GisScene::Layer>& GisScene::layers() const {
   return impl_->store.layers();
+}
+
+std::recursive_mutex& GisScene::layer_mutex() const {
+  return impl_->store.mutex();
 }
 
 gis::tile::TileProvider* GisScene::basemap_provider() const {
@@ -283,7 +315,20 @@ bool GisScene::remove_layer(const std::string& id) {
   return impl_->store.remove_layer(id);
 }
 
+bool GisScene::hillshade_visible() const {
+  return impl_->hillshade_visible;
+}
+
 bool GisScene::set_layer_visible(const std::string& id, bool visible) {
+  if (id == "style.hillshade") {
+    if (impl_->hillshade_visible == visible) {
+      return true;
+    }
+    impl_->hillshade_visible = visible;
+    // Fingerprint / StaticReuse key off LayerStore::content_revision.
+    impl_->store.note_content_changed();
+    return true;
+  }
   return impl_->store.set_layer_visible(id, visible);
 }
 
@@ -381,6 +426,9 @@ void GisScene::fill_feature_info_fields(
 void GisScene::fill_attribute_rows(std::vector<std::string>* columns,
                                    std::vector<std::vector<std::string>>* rows,
                                    std::vector<std::string>* tokens) const {
+  if (!impl_) {
+    return;
+  }
   detail::fill_attribute_rows(impl_->store, columns, rows, tokens);
 }
 
@@ -395,11 +443,16 @@ content::FeatureId GisScene::feature_id_from_token(const std::string& token) {
 bool GisScene::update_feature_field(const std::string& token,
                                     const std::string& field,
                                     const std::string& value) {
+  std::lock_guard<std::recursive_mutex> lock(impl_->store.mutex());
   Feature* f = impl_->store.find_feature(feature_id_from_token(token));
   if (!f) {
     return false;
   }
-  return content::apply_named_field(&f->fields, field, value);
+  if (!content::apply_named_field(&f->fields, field, value)) {
+    return false;
+  }
+  impl_->store.note_content_changed();
+  return true;
 }
 
 void GisScene::ensure_active_layer() {

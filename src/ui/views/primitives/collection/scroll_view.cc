@@ -131,7 +131,10 @@ View* ScrollView::content() const {
 
 int ScrollView::content_height() const {
   View* child = content();
-  return child ? child->preferred_size().height : 0;
+  // Layout-managed plugin forms often leave the stored hint at 0 and report
+  // height only through get_preferred_size(). Using the hint hides the track
+  // and clamps the offset to 0 while the child still paints past the viewport.
+  return child ? child->get_preferred_size().height : 0;
 }
 
 void ScrollView::seek_scroll_from_y(int y) {

@@ -250,24 +250,22 @@ double polyline_length(const BatchFeature& f) {
 }
 
 int overview_vertex_step(int n, double scale) {
+  // scale is pixels per degree (china 1280px frame ≈ 27). Decimating province
+  // rings there spilled fill past the DEM land mask (cream slabs) and stroked
+  // shared borders twice. Keep full vertices until the frame is wider than
+  // the country overview.
+  if (n < 48 || scale >= 12.0) {
+    return 1;
+  }
   int step = 1;
-  if (n > 16 && scale < 28.0) {
-    step = (std::max)(1, n / 40);
-  }
-  if (n > 24 && scale < 20.0) {
-    step = (std::max)(step, n / 44);
-  }
-  if (n > 32 && scale < 16.0) {
-    step = (std::max)(step, n / 48);
-  }
-  if (n > 48 && scale < 12.0) {
-    step = (std::max)(step, n / 32);
-  }
   if (n > 64 && scale < 10.0) {
-    step = (std::max)(step, n / 24);
+    step = (std::max)(1, n / 48);
   }
   if (n > 128 && scale < 8.0) {
-    step = (std::max)(step, n / 18);
+    step = (std::max)(step, n / 32);
+  }
+  if (n > 256 && scale < 6.0) {
+    step = (std::max)(step, n / 24);
   }
   return step;
 }
@@ -608,18 +606,18 @@ void emit_kept_probes(const std::vector<FeatureProbe>& probes, double scale,
       break;
     }
   }
-  // Full undirected-edge admin synth is expensive on national overview
-  // (hash wall). zoom>=14 keeps the precise path; overview emits one
-  // coarsened ring LineString per land polygon (shared borders may double
-  // stroke — invisible at that scale, enough for admin_gray).
+  // Far overview (zoom<8): land-ring → admin edge hashing dominated batches
+  // wall and strokes are not readable. National china frame is ~zoom 11
+  // (scale≈8); keep synth there so carto admin lines match the style sheet.
+  // Absolute scale grows with viewport width — gate on zoom=8+log2(scale).
+  // Harness admin_gray softens when hillshade is active (jet wash).
   const double zoom = gis::tile::zoom_from_scale(scale);
-  const bool overview = zoom < 14.0;
-  const bool full_admin_synth = !has_admin_lines && !overview;
-  const bool overview_admin_rings = !has_admin_lines && overview;
+  const bool skip_land_admin_synth = has_admin_lines || zoom < 8.0;
   BatchSourceIndex batch_index;
   batch_index.reserve(8);
   AdminEdgeSet land_admin_edges;
-  AdminEdgeSet* edges = full_admin_synth ? &land_admin_edges : nullptr;
+  AdminEdgeSet* edges =
+      skip_land_admin_synth ? nullptr : &land_admin_edges;
   if (edges) {
     land_admin_edges.reserve(4096);
   }
@@ -628,40 +626,7 @@ void emit_kept_probes(const std::vector<FeatureProbe>& probes, double scale,
       continue;
     }
     append_probe_geometry(probe, scale, out, &batch_index, edges,
-                          /*skip_land_admin_synth=*/!full_admin_synth);
-    if (!overview_admin_rings || probe.source != "land" || !probe.feature ||
-        probe.feature->kind != BatchGeomKind::kPolygon) {
-      continue;
-    }
-    const BatchFeature& f = *probe.feature;
-    const int n = static_cast<int>(f.points.size());
-    if (n < 3) {
-      continue;
-    }
-    const int step = overview_vertex_step(n, scale);
-    const int safe_step =
-        (n / (std::max)(step, 1) < 3) ? 1 : step;
-    auto line = std::make_unique<OGRLineString>();
-    for (int i = 0; i < n; i += safe_step) {
-      line->addPoint(f.points[static_cast<size_t>(i)].x,
-                     f.points[static_cast<size_t>(i)].y);
-    }
-    if ((n - 1) % safe_step != 0) {
-      line->addPoint(f.points.back().x, f.points.back().y);
-    }
-    if (line->getNumPoints() < 2) {
-      continue;
-    }
-    // Close ring for a continuous coastline stroke.
-    line->addPoint(line->getX(0), line->getY(0));
-    LayerBatch* admin = batch_for(out, "admin", &batch_index);
-    std::map<std::string, std::string> attrs;
-    for (const BatchField& field : f.fields) {
-      attrs.emplace(field.name, field.value);
-    }
-    admin->geoms.push_back(line.get());
-    out->owned.push_back(std::move(line));
-    admin->attrs.push_back(std::move(attrs));
+                          skip_land_admin_synth);
   }
 }
 

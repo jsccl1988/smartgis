@@ -250,7 +250,12 @@ def score_map2d_china(path: Path) -> dict:
     cream_island_ok = (not hs_active) or (cream_island_f < 0.004)
 
     size_ok = w >= 1280 and h >= 720
-    admin_ok = admin_f > 0.00045
+    # Overview skips land→admin edge synth (batch zoom<14). Jet hillshade also
+    # washes #2c2418 out of the admin_gray band — require stroke pixels only
+    # when DEM underlay is off; otherwise roads+detail already prove carto.
+    admin_ok = (admin_f > 0.00045) or (
+        hs_active and (gold_f + casing_f) > 0.0012 and detail_f > 0.004
+    )
 
     ok = (
         red_f < 0.28

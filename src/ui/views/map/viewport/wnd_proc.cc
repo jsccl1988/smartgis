@@ -12,6 +12,7 @@
 #endif
 #include <windowsx.h>
 
+#include "base/core/log.h"
 #include "ui/gfx/raster/paint_stats.h"
 #include "ui/views/map/device/device_load.h"
 #include "ui/views/map/frame/embed_fill.h"
@@ -77,6 +78,14 @@ void DrawHost::handle_present_timer(HWND hwnd) {
   if (mode_ == AttachMode::kGpuPresent && IsWindowVisible(hwnd) &&
       (role_ == Role::kScene3d || role_ == Role::kMapEdit ||
        role_ == Role::kMapData)) {
+    if (role_ == Role::kScene3d &&
+        (!gpu_present_hwnd_ || !IsWindow(gpu_present_hwnd_))) {
+      RECT rc = {};
+      GetClientRect(hwnd, &rc);
+      if (rc.right > 1 && rc.bottom > 1) {
+        handle_size(hwnd, rc.right, rc.bottom);
+      }
+    }
     request_frame();
     return;
   }
@@ -265,14 +274,20 @@ void DrawHost::handle_size(HWND hwnd, int cx, int cy) {
     if (role_ == Role::kScene3d) {
       detail::clamp_scene3d_swapchain_size(&rw, &rh);
     }
-    HWND present = gpu_present_hwnd_;
-    if (present && IsWindow(present)) {
-      if (hwnd != present) {
-        sync_gpu_present_hwnd(rw, rh);
-      }
-    } else {
-      present = hwnd;
+    // Flip DXGI on the child embed clears navy and never shows DEM. If the
+    // popup was destroyed after the first Present, recreate it instead of
+    // rebinding the swapchain to the embed.
+    HWND present = gpu_present_target(rw, rh);
+    if (!present) {
+      return;
     }
+    if (hwnd != present) {
+      sync_gpu_present_hwnd(rw, rh);
+    }
+    // Do not SW_HIDE the flip popup around Resize. A hide that lands after
+    // the first DEM Present (display-thread async, or this UI thread) leaves
+    // China visible for one frame and then gone. Swapchain rebuild stays
+    // on the visible HWND; the following present_gpu replaces the clear.
     enqueue_display_task(DisplayTask{DisplayOp::kResize, present, rw, rh});
     signal_display();
   } else if (cx > 0 && cy > 0) {
@@ -332,12 +347,21 @@ LRESULT CALLBACK DrawHost::child_wnd_proc(HWND hwnd, UINT msg,
   if (!self) {
     return DefWindowProcW(hwnd, msg, wparam, lparam);
   }
+  if (msg == WM_DESTROY && hwnd == self->gpu_present_hwnd_) {
+    LOGGING(LOG_WARNING, "rhi.gpu_present popup WM_DESTROY hwnd=%p role=%d",
+            hwnd, static_cast<int>(self->role_));
+    self->gpu_present_hwnd_ = nullptr;
+  }
   if (msg == WM_TIMER && wparam == kPresentTimerId) {
     self->handle_present_timer(hwnd);
     return 0;
   }
   if (msg == kMsgRevealGpuPresent) {
     self->reveal_gpu_present_if_ready();
+    return 0;
+  }
+  if (msg == kMsgRecreateGpuPresent) {
+    self->recreate_gpu_present_surface();
     return 0;
   }
   if (msg == WM_PAINT) {

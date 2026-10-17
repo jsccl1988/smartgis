@@ -13,6 +13,15 @@
 
 namespace ui {
 namespace views {
+namespace {
+
+// A destroyed view's widget_ is the debug fill (0xDD..). Hover and press must
+// not call into that object.
+bool owned_view(const Widget* widget, const View* view) {
+  return view && view->widget() == widget;
+}
+
+}  // namespace
 
 void collect_focusable_views(View* root, std::vector<View*>* out) {
   if (!root || !out || !root->is_visible()) {
@@ -167,7 +176,13 @@ bool Widget::send_mouse(const MouseEvent& event) {
   if (!contents_) {
     return false;
   }
+  if (!owned_view(this, pressed_)) {
+    pressed_ = nullptr;
+  }
   View* hit = contents_->get_view_at(event.x, event.y);
+  if (!owned_view(this, hit)) {
+    hit = nullptr;
+  }
   if (event.type == MouseEvent::Type::kMove) {
     update_hover(hit);
   }
@@ -198,6 +213,16 @@ bool Widget::send_mouse(const MouseEvent& event) {
   } else {
     target = hit;
   }
+  // Drop the press before the handler. A click often destroys the pressed
+  // view (plugin form swap). Touching pressed_ after on_mouse_event is a
+  // use-after-free: the debug heap fill shows up in set_pressed.
+  if (event.type == MouseEvent::Type::kUp && event.button == 1 && pressed_) {
+    View* was_pressed = pressed_;
+    pressed_ = nullptr;
+    if (owned_view(this, was_pressed)) {
+      was_pressed->set_pressed(false);
+    }
+  }
   if (target) {
     handled = target->on_mouse_event(event);
   }
@@ -206,12 +231,6 @@ bool Widget::send_mouse(const MouseEvent& event) {
   if (!handled && event.type == MouseEvent::Type::kWheel && hit) {
     for (View* p = hit->parent(); p && !handled; p = p->parent()) {
       handled = p->on_mouse_event(event);
-    }
-  }
-  if (event.type == MouseEvent::Type::kUp && event.button == 1) {
-    if (pressed_) {
-      pressed_->set_pressed(false);
-      pressed_ = nullptr;
     }
   }
   return handled;
@@ -266,6 +285,12 @@ void Widget::track_mouse_leave() {
 }
 
 void Widget::update_hover(View* hit) {
+  if (!owned_view(this, hovered_)) {
+    hovered_ = nullptr;
+  }
+  if (!owned_view(this, hit)) {
+    hit = nullptr;
+  }
   if (hovered_ == hit) {
     return;
   }

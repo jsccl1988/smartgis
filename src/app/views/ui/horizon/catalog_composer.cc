@@ -56,6 +56,9 @@ void CatalogComposer::wire_catalog() {
         // the hash moved (stale Land/jet must not StaticReuse).
         host_->browser_->session().invalidate_map2d_frame_cache();
         host_->invalidate_map_overlays();
+        // group.china / style.hillshade mutate multiple leaves — refresh TOC
+        // checkboxes so Catalog matches LayerStore / synthetic flags.
+        host_->sync_catalog_from_scene();
         host_->sync_inspectors_from_scene();
         if (host_->status_bar_) {
           host_->status_bar_->set_message(std::string("Layer ") + id +
@@ -109,6 +112,8 @@ void CatalogComposer::sync_catalog_from_scene() {
           row.name = "Points";
         } else if (d.name == "text") {
           row.name = "Labels";
+        } else if (d.name == "hillshade" || d.id == "style.hillshade") {
+          row.name = "Hillshade";
         } else {
           row.name = d.name;
         }

@@ -144,5 +144,17 @@ $analyzeScript = Join-Path $scriptDir 'analyze_dump.ps1'
 & $analyzeScript -DumpPath $dumpPath -PdbDir $PdbDir -OutDir $OutDir -CdbPath $CdbPath -RepoRoot $RepoRoot
 $analyzeExit = $LASTEXITCODE
 
+# Persist console / cdb breadcrumbs for the next diagnose session.
+$archiveScript = Join-Path $scriptDir 'archive_console_diag.ps1'
+$analyzeLogs = @(Get-ChildItem -LiteralPath $OutDir -Filter '*-analyze.log' |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+$inputJoined = $catchLog
+if ($analyzeLogs) { $inputJoined = "$catchLog;$($analyzeLogs[0].FullName)" }
+try {
+  & $archiveScript -InputLog $inputJoined -OutDir $OutDir -Label 'catch' -RepoRoot $RepoRoot
+} catch {
+  Write-Warning "archive_console_diag failed: $_"
+}
+
 Write-Output $dumpPath
 exit $analyzeExit

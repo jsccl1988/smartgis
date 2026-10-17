@@ -70,6 +70,8 @@ source_set("views_kernel") {
     "kernel/layout/layout_check.h",
     "kernel/layout/splitter.cc",
     "kernel/layout/splitter.h",
+    "kernel/layout/splitter_grip.cc",
+    "kernel/layout/splitter_grip.h",
     "kernel/layout/view_traits.h",
     "kernel/paint/paint_commit.cc",
     "kernel/paint/paint_commit.h",

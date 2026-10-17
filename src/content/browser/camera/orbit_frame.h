@@ -16,19 +16,26 @@ namespace content {
 // Alias of vista::kDemDefaultOrbitYaw (south-of-target, north toward screen top).
 inline constexpr float kScene3dDefaultYaw = vista::kDemDefaultOrbitYaw;
 
-// Vertical FOV for the orbit camera. The DEM is normalized to a 3.2 span
-// (XZ diagonal ~4.5) and the default distance is 3.2. 45° only covers ~2.65
-// world units at that distance, so FlyCube clipped the country to a patch.
-// ~77° fits the diagonal with margin for the pitched ground plane.
+// Vertical FOV for a fresh orbit (globe / tests). ~77° contains the
+// normalized DEM diagonal (~4.5) at kScene3dDefaultDistance.
 inline constexpr float kScene3dFovY = 1.35f;
 
 // Framing distance for look-at-origin local DEM (matches vista kTargetSpan).
 inline constexpr float kScene3dDefaultDistance = 3.2f;
 
-// Dolly floor so the eye stays outside the normalized DEM sphere
-// (~kTargetSpan * 0.9). Closer values (1.2–1.45) parked the camera inside
-// the mesh and near-plane clipped half the country when zooming in.
+// Dolly floor so a fresh orbit stays outside the normalized DEM sphere.
+// Product China overrides this; 1.2–1.45 parked the eye inside that sphere.
 inline constexpr float kScene3dDollyMinLocal = 2.9f;
+
+// Flat China sheet from a live present: x≈±1.58, z≈±0.92, y≈±0.14.
+// At pitch 1.05 and distance 2.55, FOV 0.86 puts that X span at ~80% of a
+// 1.69-aspect view and the foreshortened Z span at ~70% of the height.
+// Eye height stays ~2.2, outside the 0.1 near plane. Distance stays above
+// the 2.4 full-China tile split.
+inline constexpr float kScene3dChinaFovY = 0.86f;
+inline constexpr float kScene3dChinaPitch = 1.05f;
+inline constexpr float kScene3dChinaDistance = 2.55f;
+inline constexpr float kScene3dChinaDollyMin = 1.70f;
 
 // Orbit camera for a 3D view: yaw, pitch, distance, and the lon/lat extent
 // used for ortho framing and geographic projection.
@@ -77,6 +84,11 @@ class OrbitFrame {
   // Dolly distance in world units (clamped to the wheel / dolly range).
   void set_distance(float distance);
 
+  // Vertical FOV in radians. Product China uses kScene3dChinaFovY; reset
+  // restores kScene3dFovY.
+  void set_fov_y(float fov_y);
+  float fov_y() const { return fov_y_; }
+
   // Override dolly clamp (default [kScene3dDollyMinLocal, 12]). Globe skim
   // uses a lower floor so the camera can hug DEM relief without piercing peaks.
   void set_dolly_limits(float min_distance, float max_distance);
@@ -99,6 +111,7 @@ class OrbitFrame {
   float yaw_ = kScene3dDefaultYaw;
   float pitch_ = 0.4f;
   float distance_ = kScene3dDefaultDistance;
+  float fov_y_ = kScene3dFovY;
   float dolly_min_ = kScene3dDollyMinLocal;
   float dolly_max_ = 12.f;
   int last_x_ = 0;

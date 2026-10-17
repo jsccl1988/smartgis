@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <mutex>
 
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/gis_scene.h"
@@ -153,22 +154,25 @@ uint64_t map2d_selection_signature(const GisScene* scene, bool flash_pulse) {
   if (!scene) {
     return h;
   }
-  for (const GisScene::Layer& layer : scene->layers()) {
-    if (!layer.visible) {
-      continue;
-    }
-    for (const GisScene::Feature& f : layer.features) {
-      if (!f.selected) {
+  {
+    std::lock_guard<std::recursive_mutex> lock(scene->layer_mutex());
+    for (const GisScene::Layer& layer : scene->layers()) {
+      if (!layer.visible) {
         continue;
       }
-      mix_bytes(&h, f.id.bytes, f.id.len);
-      mix_u64(&h, static_cast<uint64_t>(f.kind));
-      mix_u64(&h, static_cast<uint64_t>(f.points.size()));
+      for (const GisScene::Feature& f : layer.features) {
+        if (!f.selected) {
+          continue;
+        }
+        mix_bytes(&h, f.id.bytes, f.id.len);
+        mix_u64(&h, static_cast<uint64_t>(f.kind));
+        mix_u64(&h, static_cast<uint64_t>(f.points.size()));
+      }
     }
-  }
-  if (const GisScene::Feature* flash = scene->selected_feature()) {
-    mix_bytes(&h, flash->id.bytes, flash->id.len);
-    mix_u64(&h, 0xF1A5ull);
+    if (const GisScene::Feature* flash = scene->selected_feature()) {
+      mix_bytes(&h, flash->id.bytes, flash->id.len);
+      mix_u64(&h, 0xF1A5ull);
+    }
   }
   return h;
 }
@@ -186,6 +190,7 @@ void append_map2d_selection_overlay(const GisScene* scene,
   const double half_w = 0.5 * static_cast<double>(kStrokePx) * wupp;
   const double point_r = static_cast<double>(kPointRadiusPx) * wupp;
 
+  std::lock_guard<std::recursive_mutex> lock(scene->layer_mutex());
   for (const GisScene::Layer& layer : scene->layers()) {
     if (!layer.visible) {
       continue;

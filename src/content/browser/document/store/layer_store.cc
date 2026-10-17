@@ -42,10 +42,12 @@ content::LayerDesc make_leaf_desc(const MapLayer& layer,
 }  // namespace
 
 void LayerStore::clear() {
+  std::lock_guard<std::recursive_mutex> lock(mu_);
   layers_.clear();
   active_layer_id_.clear();
   selected_id_ = {};
   last_open_was_ogr_ = false;
+  note_content_changed();
 }
 
 MapLayer* LayerStore::find_layer(const std::string& id) {
@@ -181,6 +183,7 @@ bool LayerStore::create_layer(const std::string& name,
   if (name.empty()) {
     return false;
   }
+  std::lock_guard<std::recursive_mutex> lock(mu_);
   std::string id = name;
   int suffix = 1;
   while (find_layer(id)) {
@@ -194,10 +197,12 @@ bool LayerStore::create_layer(const std::string& name,
   layer.role = infer_layer_role(name);
   active_layer_id_ = id;
   layers_.push_back(std::move(layer));
+  note_content_changed();
   return true;
 }
 
 bool LayerStore::remove_layer(const std::string& id) {
+  std::lock_guard<std::recursive_mutex> lock(mu_);
   const auto it =
       std::find_if(layers_.begin(), layers_.end(),
                    [&](const MapLayer& l) { return l.id == id; });
@@ -209,19 +214,46 @@ bool LayerStore::remove_layer(const std::string& id) {
     active_layer_id_ = layers_.empty() ? std::string() : layers_.front().id;
   }
   selected_id_ = {};
+  note_content_changed();
   return true;
 }
 
 bool LayerStore::set_layer_visible(const std::string& id, bool visible) {
+  std::lock_guard<std::recursive_mutex> lock(mu_);
+  // Catalog group.china is synthetic (layer_descs nesting). Propagate to the
+  // china_city PLPT leaves so the group checkbox actually isolates vectors.
+  if (id == "group.china") {
+    bool touched = false;
+    bool found = false;
+    for (MapLayer& layer : layers_) {
+      if (!is_china_plpt_id(layer.id)) {
+        continue;
+      }
+      found = true;
+      if (layer.visible != visible) {
+        layer.visible = visible;
+        touched = true;
+      }
+    }
+    if (touched) {
+      note_content_changed();
+    }
+    return found;
+  }
   MapLayer* layer = find_layer(id);
   if (!layer) {
     return false;
   }
+  if (layer->visible == visible) {
+    return true;
+  }
   layer->visible = visible;
+  note_content_changed();
   return true;
 }
 
 bool LayerStore::select_layer(const std::string& id) {
+  std::lock_guard<std::recursive_mutex> lock(mu_);
   if (!find_layer(id)) {
     return false;
   }
@@ -230,6 +262,7 @@ bool LayerStore::select_layer(const std::string& id) {
 }
 
 bool LayerStore::move_layer(const std::string& id, int delta) {
+  std::lock_guard<std::recursive_mutex> lock(mu_);
   if (delta == 0 || layers_.size() < 2) {
     return false;
   }
@@ -249,10 +282,12 @@ bool LayerStore::move_layer(const std::string& id, int delta) {
   }
   std::swap(layers_[static_cast<size_t>(index)],
             layers_[static_cast<size_t>(target)]);
+  note_content_changed();
   return true;
 }
 
 void LayerStore::clear_selection() {
+  std::lock_guard<std::recursive_mutex> lock(mu_);
   for (MapLayer& layer : layers_) {
     for (MapFeature& f : layer.features) {
       f.selected = false;
@@ -262,7 +297,13 @@ void LayerStore::clear_selection() {
 }
 
 bool LayerStore::select_feature(const content::FeatureId& id) {
-  clear_selection();
+  std::lock_guard<std::recursive_mutex> lock(mu_);
+  for (MapLayer& layer : layers_) {
+    for (MapFeature& f : layer.features) {
+      f.selected = false;
+    }
+  }
+  selected_id_ = {};
   MapFeature* f = find_feature(id);
   if (!f) {
     return false;
@@ -277,10 +318,12 @@ const MapFeature* LayerStore::selected_feature() const {
 }
 
 void LayerStore::replace_layers(std::vector<MapLayer> loaded) {
+  std::lock_guard<std::recursive_mutex> lock(mu_);
   layers_.clear();
   layers_.swap(loaded);
   active_layer_id_ = layers_.empty() ? std::string() : layers_.front().id;
   selected_id_ = {};
+  note_content_changed();
 }
 
 }  // namespace detail

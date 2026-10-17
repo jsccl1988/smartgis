@@ -19,10 +19,16 @@ bool register_world3d_scene(content::PluginHost* host) {
   if (!host) {
     return false;
   }
-  return register_world3d_dem(host) && register_world3d_orthogrid(host) &&
-         register_world3d_hexgrid(host) && register_world3d_earth(host) &&
-         register_world3d_model(host) && register_world3d_pointcloud(host) &&
-         contribute_atmosphere_panel(host);
+  // Atmosphere dock must still register when a sibling scene register fails.
+  // Otherwise the inspector Atmosphere page has no factory to mount.
+  const bool dem = register_world3d_dem(host);
+  const bool ortho = register_world3d_orthogrid(host);
+  const bool hex = register_world3d_hexgrid(host);
+  const bool earth = register_world3d_earth(host);
+  const bool model = register_world3d_model(host);
+  const bool cloud = register_world3d_pointcloud(host);
+  const bool atmo = contribute_atmosphere_panel(host);
+  return dem && ortho && hex && earth && model && cloud && atmo;
 }
 
 }  // namespace detail

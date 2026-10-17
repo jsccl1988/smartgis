@@ -7,9 +7,20 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
+#include "base/core/log.h"
 
 namespace content {
 namespace detail {
@@ -44,7 +55,11 @@ double dist2(double ax, double ay, double bx, double by) {
 
 double feature_pick_dist2(const MapFeature& feature, double map_x,
                           double map_y) {
-  if (feature.points.empty()) {
+  // A corrupt size (racy realloc / torn vector) must miss, not walk off the
+  // allocation and AV the select-point tool.
+  constexpr size_t kMaxPickPoints = 1u << 20;
+  if (feature.points.empty() || feature.points.data() == nullptr ||
+      feature.points.size() > kMaxPickPoints) {
     return 1e300;
   }
   if (feature.kind == GeomKind::kPoint || feature.kind == GeomKind::kText) {
@@ -73,6 +88,7 @@ content::FeatureId append_from_draft(
   if (!store || draft.points.empty()) {
     return {};
   }
+  std::lock_guard<std::recursive_mutex> lock(store->mutex());
   store->ensure_active_layer_or_front();
   MapLayer* layer = store->find_layer(store->active_layer_id());
   if (!layer) {
@@ -105,6 +121,7 @@ content::FeatureId append_from_draft(
                            : (f.kind == GeomKind::kPolygon ? "polygon"
                                                            : "point")}};
   layer->features.push_back(std::move(f));
+  store->note_content_changed();
   return layer->features.back().id;
 }
 
@@ -113,6 +130,7 @@ content::FeatureId move_selected_vertex(LayerStore* store, double map_x,
   if (!store) {
     return {};
   }
+  std::lock_guard<std::recursive_mutex> lock(store->mutex());
   MapFeature* feature = store->find_feature(store->selected_id());
   if (!feature || feature->points.empty()) {
     return {};
@@ -141,6 +159,7 @@ content::FeatureId move_selected_vertex(LayerStore* store, double map_x,
     return {};
   }
   feature->points[static_cast<size_t>(best)] = {sx, sy};
+  store->note_content_changed();
   return feature->id;
 }
 
@@ -172,6 +191,7 @@ bool add_triangle_layer(LayerStore* store, const std::string& name,
       triangle_count < 1) {
     return false;
   }
+  std::lock_guard<std::recursive_mutex> lock(store->mutex());
   if (!store->create_layer(name)) {
     return false;
   }
@@ -209,6 +229,7 @@ bool add_triangle_layer(LayerStore* store, const std::string& name,
     store->remove_layer(layer->id);
     return false;
   }
+  store->note_content_changed();
   return true;
 }
 
@@ -218,6 +239,7 @@ bool add_point_cloud_layer(LayerStore* store, const std::string& name,
   if (!store || name.empty() || !xyz || point_count < 1) {
     return false;
   }
+  std::lock_guard<std::recursive_mutex> lock(store->mutex());
   if (!store->create_layer(name)) {
     return false;
   }
@@ -254,18 +276,16 @@ bool add_point_cloud_layer(LayerStore* store, const std::string& name,
     store->remove_layer(layer->id);
     return false;
   }
+  store->note_content_changed();
   return true;
 }
 
-std::vector<const MapFeature*> hit_test_all(LayerStore* store, double map_x,
-                                           double map_y, double tol_map) {
-  std::vector<const MapFeature*> out;
-  if (!store) {
-    return out;
-  }
-  store->clear_selection();
+namespace {
+
+void hit_test_all_body(LayerStore* store, double map_x, double map_y,
+                       double tol_map, std::vector<const MapFeature*>* out) {
   if (tol_map < 0.0) {
-    return out;
+    return;
   }
   const double tol2 = tol_map * tol_map;
   struct Candidate {
@@ -274,9 +294,19 @@ std::vector<const MapFeature*> hit_test_all(LayerStore* store, double map_x,
   };
   std::vector<Candidate> candidates;
   auto& layers = store->layers();
+  constexpr size_t kMaxLayers = 1u << 16;
+  constexpr size_t kMaxFeaturesPerLayer = 1u << 20;
+  if (layers.size() > kMaxLayers ||
+      (layers.size() > 0 && layers.data() == nullptr)) {
+    return;
+  }
   // Top-most layers / features first so equal-distance ties prefer draw order.
   for (auto it = layers.rbegin(); it != layers.rend(); ++it) {
     if (!it->visible) {
+      continue;
+    }
+    if (it->features.size() > kMaxFeaturesPerLayer ||
+        (it->features.size() > 0 && it->features.data() == nullptr)) {
       continue;
     }
     for (auto fit = it->features.rbegin(); fit != it->features.rend(); ++fit) {
@@ -293,15 +323,57 @@ std::vector<const MapFeature*> hit_test_all(LayerStore* store, double map_x,
                    [](const Candidate& a, const Candidate& b) {
                      return a.dist2 < b.dist2;
                    });
-  out.reserve(candidates.size());
+  out->reserve(candidates.size());
   for (const Candidate& cand : candidates) {
-    out.push_back(cand.feature);
+    out->push_back(cand.feature);
   }
   if (!candidates.empty()) {
     MapFeature* best = candidates.front().feature;
     best->selected = true;
     store->set_selected_id(best->id);
   }
+}
+
+#if defined(_MSC_VER)
+int hit_test_all_seh(LayerStore* store, double map_x, double map_y,
+                     double tol_map, std::vector<const MapFeature*>* out) {
+  __try {
+    hit_test_all_body(store, map_x, map_y, tol_map, out);
+    return 1;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return 0;
+  }
+}
+#endif
+
+}  // namespace
+
+std::vector<const MapFeature*> hit_test_all(LayerStore* store, double map_x,
+                                           double map_y, double tol_map) {
+  std::vector<const MapFeature*> out;
+  if (!store) {
+    return out;
+  }
+  // Hold the store lock across clear + walk. clear_selection() used to drop
+  // the lock before the scan, so a present-thread replace could free the
+  // feature the pointer still named (select-point AV).
+  std::lock_guard<std::recursive_mutex> lock(store->mutex());
+  for (MapLayer& layer : store->layers()) {
+    for (MapFeature& f : layer.features) {
+      f.selected = false;
+    }
+  }
+  store->set_selected_id({});
+#if defined(_MSC_VER)
+  if (!hit_test_all_seh(store, map_x, map_y, tol_map, &out)) {
+    LOGGING(LOG_ERROR,
+            "[hit_test_all] SEH soft-fail during point select; selection cleared");
+    out.clear();
+    store->set_selected_id({});
+  }
+#else
+  hit_test_all_body(store, map_x, map_y, tol_map, &out);
+#endif
   return out;
 }
 

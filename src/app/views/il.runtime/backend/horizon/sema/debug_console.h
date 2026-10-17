@@ -24,7 +24,9 @@ int debug_exec(Browser& browser,
                const std::string& reject,
                int fail_rc);
 
-// Time view.pan drags + one wheel; write console_bench.json. 40–42 / 55.
+// Time view.pan drags + one wheel; write console_bench.json.
+// 43 when the view frame pan does not move (document :extent is the data
+// bbox and stays put). Other failures: 40–42 / 55.
 int console_pan_bench(Browser& browser, const wchar_t* mark_leaf);
 
 }  // namespace detail

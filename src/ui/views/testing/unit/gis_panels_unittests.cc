@@ -83,9 +83,11 @@ void test_debug_console_and_diagnostic_tools() {
 
   auto tools = make_diagnostic_tools_panel();
   expect(tools != nullptr, "diagnostic tools factory");
-  tools->set_bounds({0, 0, 640, 200});
+  tools->set_bounds({0, 0, 640, 320});
   tools->set_visible_tools(true);
   expect(tools->is_tools_visible(), "tools visible");
+  // title+status+toolbar+tab header+Output toolbar+four log rows.
+  expect(tools->preferred_size().height >= 220, "diag dock shows log rows");
   if (tools->output_pane()) {
     tools->set_active_tab(0);
     expect(tools->active_tab() == 0, "tools output tab");

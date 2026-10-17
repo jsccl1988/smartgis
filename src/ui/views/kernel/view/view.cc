@@ -175,6 +175,9 @@ Size View::get_preferred_size() const {
 }
 
 void View::set_widget(Widget* widget) {
+  if (widget_ && widget_ != widget) {
+    widget_->clear_view_refs(this);
+  }
   widget_ = widget;
   for (auto& child : children_) {
     child->set_widget(widget);
@@ -199,7 +202,14 @@ void View::set_visible(bool visible) {
   // is_visible() walks ancestors, so only updating this node leaks natives.
   sync_native_tree();
   commands_dirty_ = true;
-  mark_needs_layout();
+  // View::layout skips hidden children. A later set_bounds with the same rect
+  // returns without laying out, so a tab page shown after the strip was sized
+  // stays a blank panel. Place children at the moment it becomes visible.
+  if (visible_ && !in_layout_ && bounds_.width > 0 && bounds_.height > 0) {
+    layout();
+  } else {
+    mark_needs_layout();
+  }
   schedule_paint();
 }
 

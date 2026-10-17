@@ -46,8 +46,19 @@ void stop_present_timers(Browser& browser) {
 }
 
 void resume_present_timers(Browser& browser) {
-  for_each_draw_host(browser, [](ui::views::DrawHost* pane) {
+  ui::views::DrawHost* active =
+      browser.ui() ? browser.ui()->active_map() : browser.draw_host();
+  for_each_draw_host(browser, [active](ui::views::DrawHost* pane) {
     if (!pane) {
+      return;
+    }
+    if (pane != active) {
+      pane->pause_present();
+      if (HWND present = pane->present_hwnd()) {
+        if (IsWindow(present)) {
+          ShowWindow(present, SW_HIDE);
+        }
+      }
       return;
     }
     pane->set_gpu_present_visible(true);

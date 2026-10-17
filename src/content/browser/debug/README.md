@@ -5,7 +5,12 @@ All rights reserved.
 
 # `src/content/browser/debug` — DebugAgent (loopback console)
 
-Opt-in NDJSON debug agent for Diagnostic Tools / `tools/debug` workers.
+NDJSON debug agent for Diagnostic Tools / `tools/debug` workers /
+VS Code extension (`tools/debug/vscode-ext`) + MCP (`tools/debug/mcp`).
+Debug builds (`!NDEBUG` / `out/Debug`) start it by default so discovery
+(`%TEMP%/smartgis-debug.json`) is written without `SG_DEBUG=1`; set
+`SG_DEBUG=0` to disable. Release stays opt-in (`--debug-console` /
+`SG_DEBUG=1`).
 Public include surface stays at the module root; internals split by
 responsibility (same colocation style as `../present/`).
 

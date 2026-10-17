@@ -106,6 +106,8 @@ source_set("shell_ui") {
     "ui/horizon/ambox_composer.h",
     "ui/horizon/catalog_composer.cc",
     "ui/horizon/catalog_composer.h",
+    "ui/horizon/inspector_group_bar.cc",
+    "ui/horizon/inspector_group_bar.h",
     "ui/horizon/inspector_host_composer.cc",
     "ui/horizon/inspector_host_composer.h",
     "ui/horizon/menu_composer.cc",
@@ -222,6 +224,8 @@ win32_app("views") {
     "//third_party:CLI11",
     "//third_party:gdal",
     "//third_party:rapidjson",
+    # wWinMain calls prepare_dll_search_path() (SDK third_party/bin).
+    "//third_party/gn:dll_search",
   ]
   data_deps = [
     "//testing/data:china_map_samples",

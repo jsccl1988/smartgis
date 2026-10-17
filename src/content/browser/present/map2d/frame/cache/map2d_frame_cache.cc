@@ -11,6 +11,7 @@
 
 #include <cmath>
 #include <chrono>
+#include <cstdio>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -19,7 +20,9 @@
 #include <utility>
 #include <vector>
 
+#include "base/core/log.h"
 #include "vista/component/map/ir.h"
+#include "vista/component/map/layout/policy/slice_key.h"
 
 namespace content {
 namespace {
@@ -102,6 +105,7 @@ void Map2dFrameCache::bind(const GisScene* scene, const ViewFrame* frame) {
   pending_job_.reset();
   cached_fp_ = ContentFingerprint{};
   cached_cam_ = CameraKey{};
+  mesh_cam_ = CameraKey{};
   clear_hillshade_bake();
   clear_heatmap_bake();
   cv_.notify_all();
@@ -118,6 +122,7 @@ void Map2dFrameCache::invalidate() {
   pending_job_.reset();
   cached_fp_ = ContentFingerprint{};
   cached_cam_ = CameraKey{};
+  mesh_cam_ = CameraKey{};
   clear_hillshade_bake();
   clear_heatmap_bake();
   cv_.notify_all();
@@ -237,57 +242,15 @@ Map2dFrameCache::ContentFingerprint Map2dFrameCache::make_fingerprint(
   if (!scene) {
     return fp;
   }
-  fp.feature_count = scene->feature_count();
-  fp.layer_count = scene->layer_count();
+  // Display prepare_for_present races UI ingest/edit. Never walk live
+  // Layer/Feature vectors here (AV in make_fingerprint on endpoint mix).
+  // LayerStore::content_revision bumps on layout-affecting mutations.
+  fp.content_hash = scene->content_revision();
   fp.style_ptr = scene->style_document();
-  fp.use_carto = scene->style_document() == nullptr;
-
-  // FNV-1a over layer identity so StaticReuse survives count-stable edits and
-  // still invalidates on visibility / id / endpoint swaps without a full
-  // geometry walk.
-  uint64_t h = 14695981039346656037ull;
-  auto mix = [&h](uint64_t v) {
-    h ^= v;
-    h *= 1099511628211ull;
-  };
-  auto mix_bytes = [&](const void* p, size_t n) {
-    const auto* b = static_cast<const unsigned char*>(p);
-    for (size_t i = 0; i < n; ++i) {
-      mix(b[i]);
-    }
-  };
-  for (const GisScene::Layer& layer : scene->layers()) {
-    mix_bytes(layer.id.data(), layer.id.size());
-    mix(layer.visible ? 1ull : 0ull);
-    mix(static_cast<uint64_t>(layer.features.size()));
-    mix(static_cast<uint64_t>(layer.kind));
-    if (!layer.features.empty()) {
-      const GisScene::Feature& first = layer.features.front();
-      const GisScene::Feature& last = layer.features.back();
-      mix(static_cast<uint64_t>(first.kind));
-      mix(static_cast<uint64_t>(first.points.size()));
-      mix_bytes(first.id.bytes, first.id.len);
-      mix(static_cast<uint64_t>(last.kind));
-      mix(static_cast<uint64_t>(last.points.size()));
-      mix_bytes(last.id.bytes, last.id.len);
-      auto mix_coord = [&](double v) {
-        mix(static_cast<uint64_t>(static_cast<int64_t>(v * 1e6)));
-      };
-      // Display-thread fingerprint can race a scene rebuild; skip coord mix
-      // when the vector looks empty after size was sampled (stale Feature).
-      if (!first.points.empty()) {
-        const GisScene::Vertex& a = first.points.front();
-        mix_coord(a.x);
-        mix_coord(a.y);
-      }
-      if (!last.points.empty()) {
-        const GisScene::Vertex& b = last.points.back();
-        mix_coord(b.x);
-        mix_coord(b.y);
-      }
-    }
-  }
-  fp.content_hash = h;
+  fp.use_carto = fp.style_ptr == nullptr;
+  // Counts are folded into content_revision; do not sample live sizes.
+  fp.feature_count = 0;
+  fp.layer_count = 0;
   return fp;
 }
 
@@ -309,6 +272,57 @@ Map2dFrameCache::CameraKey Map2dFrameCache::make_camera_key(
   const double zoom = detail::zoom_from_scale(frame->scale());
   key.zoom_bucket = static_cast<int>(std::floor(zoom));
   return key;
+}
+
+Map2dFrameCache::CameraKey Map2dFrameCache::live_camera_key(
+    uint32_t width_px, uint32_t height_px) const {
+  const ViewFrame* view_frame = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(mu_);
+    view_frame = frame_;
+  }
+  return make_camera_key(view_frame, width_px, height_px);
+}
+
+namespace {
+
+bool camera_span_matches(const Map2dFrameCache::CameraKey& mesh,
+                         const Map2dFrameCache::CameraKey& live) {
+  if (mesh.width_px == 0 || live.width_px == 0 ||
+      mesh.width_px != live.width_px || mesh.height_px != live.height_px) {
+    return false;
+  }
+  const double ax = mesh.max_x - mesh.min_x;
+  const double bx = live.max_x - live.min_x;
+  const double ay = mesh.max_y - mesh.min_y;
+  const double by = live.max_y - live.min_y;
+  if (!(ax > 0.0) || !(ay > 0.0) || !(bx > 0.0) || !(by > 0.0)) {
+    return false;
+  }
+  constexpr double kRel = 1.0e-4;
+  return std::fabs(ax - bx) <= kRel * ax && std::fabs(ay - by) <= kRel * ay;
+}
+
+double pan_pixels(const Map2dFrameCache::CameraKey& mesh,
+                  const Map2dFrameCache::CameraKey& live) {
+  const double span_x = mesh.max_x - mesh.min_x;
+  const double span_y = mesh.max_y - mesh.min_y;
+  if (!(span_x > 0.0) || !(span_y > 0.0) || live.width_px == 0 ||
+      live.height_px == 0) {
+    return 1.0e9;
+  }
+  const double dx = (live.min_x - mesh.min_x) / span_x *
+                    static_cast<double>(live.width_px);
+  const double dy = (live.min_y - mesh.min_y) / span_y *
+                    static_cast<double>(live.height_px);
+  return std::hypot(dx, dy);
+}
+
+}  // namespace
+
+bool Map2dFrameCache::gesture_defer_labels() const {
+  std::lock_guard<std::mutex> lock(mu_);
+  return gesture_defer_labels_;
 }
 
 void Map2dFrameCache::publish_job(LayoutJob& job) {
@@ -358,6 +372,7 @@ void Map2dFrameCache::publish_job(LayoutJob& job) {
   }
   cached_fp_ = job.fp;
   cached_cam_ = job.cam;
+  mesh_cam_ = job.cam;
   has_frame_cache_ = true;
   layout_build_count_.fetch_add(1, std::memory_order_acq_rel);
   last_present_reused_layout_.store(false, std::memory_order_release);
@@ -621,13 +636,17 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
     // Pin cleared with or without a frame — fall through for HWND-sized dirty.
   }
 
-  const bool fp_or_zoom_dirty =
-      !has_frame || !(fp == cached_fp) ||
-      cam.zoom_bucket != cached_cam.zoom_bucket;
+  // Zoom-bucket changes stay off the sync present path. A wheel notch used
+  // to tessellate china inline (~seconds) and, if labels were replayed under
+  // the new span, stretched halo glyphs into a white field of huge type.
+  const bool fp_dirty = !has_frame || !(fp == cached_fp);
+  const bool zoom_dirty =
+      has_frame && cam.zoom_bucket != cached_cam.zoom_bucket;
   const bool pixels_dirty = has_frame && !cam.same_pixels(cached_cam);
-  const bool content_dirty = fp_or_zoom_dirty || pixels_dirty;
+  const bool content_dirty = fp_dirty || pixels_dirty;
   const bool camera_changed = has_frame && !cam.same_camera(cached_cam);
-  const bool reuse_slices_on_rebuild = has_frame && !fp_or_zoom_dirty;
+  const bool reuse_slices_on_rebuild =
+      has_frame && !fp_dirty && !zoom_dirty;
 
   if (job_inflight && has_frame) {
     // Worker still tessellating ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ present published; never join.
@@ -670,15 +689,56 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
         return true;
       }
       settle_rebuild = true;
+      {
+        std::lock_guard<std::mutex> lock(mu_);
+        gesture_defer_labels_ = false;
+      }
     } else {
       *action = PresentAction::kStaticReuse;
       last_present_reused_layout_.store(true, std::memory_order_release);
       pending_interactive_clock_refresh_ = false;
       return true;
     }
-  } else if (camera_changed && !content_dirty) {
-    std::lock_guard<std::mutex> lock(mu_);
-    cached_cam_ = cam;
+  } else if ((camera_changed || zoom_dirty) && !content_dirty) {
+    CameraKey mesh;
+    {
+      std::lock_guard<std::mutex> lock(mu_);
+      mesh = mesh_cam_;
+    }
+    const double moved = pan_pixels(mesh, cam);
+    const bool scale_changed = !camera_span_matches(mesh, cam);
+    // Inside half the skirt at constant scale the published mesh still
+    // covers the window. Past that, or on any zoom, still present the mesh
+    // with the live camera and omit labels. A sync tess here froze the map
+    // for seconds; drawing the old glyph quads under the new span painted
+    // a white halo and oversized type. One settle after the quiet window
+    // rebuilds coverage and places labels on the matching camera.
+    const double rebuild_at =
+        static_cast<double>(vista::detail::kPanCoveragePx) * 0.5;
+    if (!scale_changed && !zoom_dirty && moved <= rebuild_at) {
+      std::lock_guard<std::mutex> lock(mu_);
+      cached_cam_ = cam;
+      *action = PresentAction::kInteractiveReuse;
+      last_present_reused_layout_.store(true, std::memory_order_release);
+      pending_interactive_clock_refresh_ = true;
+      return true;
+    }
+    bool entered_defer = false;
+    {
+      std::lock_guard<std::mutex> lock(mu_);
+      cached_cam_ = cam;
+      if (zoom_dirty) {
+        pending_zoom_rebuild_ = true;
+      }
+      entered_defer = !gesture_defer_labels_;
+      gesture_defer_labels_ = true;
+    }
+    if (entered_defer) {
+      LOGGING(LOG_INFO,
+              "map2d: gesture reuse pan_px=%.0f scale_changed=%d "
+              "zoom_dirty=%d (defer labels until settle)",
+              moved, scale_changed ? 1 : 0, zoom_dirty ? 1 : 0);
+    }
     *action = PresentAction::kInteractiveReuse;
     last_present_reused_layout_.store(true, std::memory_order_release);
     pending_interactive_clock_refresh_ = true;
@@ -689,6 +749,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
     {
       std::lock_guard<std::mutex> lock(mu_);
       last_present_was_interactive_ = false;
+      pending_zoom_rebuild_ = false;
     }
     // Display-tick mailbox: stage + drain for G0/G1 action. HWND never calls.
     stage_frame(cam, fp, reuse_slices_on_rebuild, /*force_publish=*/false,
@@ -705,18 +766,28 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
   }
 
   if (settle_rebuild) {
+    bool zoom_rebuild = false;
     {
       std::lock_guard<std::mutex> lock(mu_);
-      last_present_was_interactive_ = false;
+      zoom_rebuild = pending_zoom_rebuild_;
+      pending_zoom_rebuild_ = false;
+      if (!gesture_defer_labels_) {
+        last_present_was_interactive_ = false;
+      }
     }
-    stage_frame(cam, fp, /*reuse_slices=*/true, /*force_publish=*/false,
-                PresentAction::kSettleRebuild);
-    PresentAction drained = PresentAction::kSettleRebuild;
+    // Bucket change cannot splice the previous zoom's slices; labels and
+    // zoom-gated strokes would be the wrong size.
+    const bool reuse_slices = !zoom_rebuild;
+    const PresentAction staged = zoom_rebuild
+                                     ? PresentAction::kRebuildFull
+                                     : PresentAction::kSettleRebuild;
+    stage_frame(cam, fp, reuse_slices, /*force_publish=*/false, staged);
+    PresentAction drained = staged;
     if (!drain_layout_jobs(/*wait_if_empty=*/!has_frame, &drained) &&
         !has_frame) {
       return false;
     }
-    *action = PresentAction::kSettleRebuild;
+    *action = staged;
     last_present_reused_layout_.store(false, std::memory_order_release);
     pending_interactive_clock_refresh_ = false;
     return this->has_frame();
@@ -731,6 +802,14 @@ void Map2dFrameCache::note_present_outcome(PresentAction action) {
       last_interactive_tp_ = std::chrono::steady_clock::now();
     }
     last_present_was_interactive_ = true;
+  } else if (action == PresentAction::kSettleRebuild &&
+             gesture_defer_labels_) {
+    // Coverage rebuild while the pointer is still down. Leave defer set so
+    // the next settle (hillshade follow-up, another pan past the skirt)
+    // cannot place labels — those quads read as a white halo and oversized
+    // type over a half-updated mesh. The quiet branch clears the flag.
+    last_present_was_interactive_ = true;
+    last_interactive_tp_ = std::chrono::steady_clock::now();
   } else {
     last_present_was_interactive_ = false;
   }

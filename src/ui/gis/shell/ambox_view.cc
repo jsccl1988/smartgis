@@ -32,6 +32,9 @@ namespace ui {
 namespace views {
 namespace {
 
+// Glyph + label chip. Shared with .tool_bar in main_app.ui.css.
+constexpr int kHorizontalChipDip = 48;
+
 bool starts_with(std::string_view text, std::string_view prefix) {
   return text.size() >= prefix.size() &&
          text.compare(0, prefix.size(), prefix) == 0;
@@ -386,9 +389,11 @@ void AmboxView::set_orientation(Orientation orientation) {
   }
   orientation_ = orientation;
   const float s = scale_factor();
-  set_preferred_size(orientation_ == Orientation::kHorizontal
-                         ? Size{0, dip_to_px(40, s)}
-                         : Size{dip_to_px(180, s), dip_to_px(240, s)});
+  if (orientation_ == Orientation::kHorizontal) {
+    pin_horizontal_shell(s);
+  } else {
+    set_preferred_size({dip_to_px(180, s), dip_to_px(240, s)});
+  }
   rebuild();
   schedule_paint();
 }
@@ -572,20 +577,40 @@ void AmboxView::on_device_scale_factor_changed(float old_scale,
                                               float new_scale) {
   View::on_device_scale_factor_changed(old_scale, new_scale);
   const float s = new_scale > 0.f ? new_scale : 1.f;
-  set_preferred_size(orientation_ == Orientation::kHorizontal
-                         ? Size{0, dip_to_px(40, s)}
-                         : Size{dip_to_px(180, s), dip_to_px(240, s)});
+  if (orientation_ == Orientation::kHorizontal) {
+    pin_horizontal_shell(s);
+  } else {
+    set_preferred_size({dip_to_px(180, s), dip_to_px(240, s)});
+  }
   layout();
   schedule_paint();
 }
 
+int AmboxView::horizontal_row_px(float scale) const {
+  return dip_to_px(kHorizontalChipDip, scale);
+}
+
+void AmboxView::pin_horizontal_shell(float scale) {
+  const int row = horizontal_row_px(scale);
+  // FillLayout reports the markup child, whose CSS is the 240 DIP dock.
+  // Keep this view's own hint on one chip row, and do not copy bounds height
+  // back — that is how a stretched band became permanent.
+  set_preferred_size({0, row});
+  if (View* shell = child_count() > 0 ? child_at(0) : nullptr) {
+    shell->set_preferred_size({0, row});
+  }
+  if (scroll_) {
+    scroll_->set_preferred_size({0, row});
+  }
+  if (content_) {
+    const int width = std::max(content_->preferred_size().width, 0);
+    content_->set_preferred_size({width, row});
+  }
+}
+
 int AmboxView::measure_content_height(float scale) const {
   if (orientation_ == Orientation::kHorizontal) {
-    const int host_h = bounds().height;
-    if (host_h > 0) {
-      return host_h;
-    }
-    return dip_to_px(36, scale);
+    return horizontal_row_px(scale);
   }
   const int p = pad(scale);
   const int header_h = dip_to_px(28, scale);
@@ -677,12 +702,13 @@ void AmboxView::layout_horizontal(float scale) {
   const int p = pad(scale);
   const int gap = chip_gap(scale);
   const int ggap = group_gap(scale);
-  const int host_h = b.height > 0 ? b.height : dip_to_px(40, scale);
-  const int pad_y = std::max(dip_to_px(2, scale), host_h / 8);
+  // Never adopt bounds().height. A tall host (shared 240 DIP dock CSS, or a
+  // previous pass that wrote the stretched size back) must not stick.
+  pin_horizontal_shell(scale);
+  const int row_h = horizontal_row_px(scale);
   const int btn_h =
-      std::min(dip_to_px(28, scale), std::max(dip_to_px(14, scale),
-                                              host_h - pad_y * 2));
-  const int row_h = host_h;
+      std::min(dip_to_px(28, scale),
+               std::max(dip_to_px(14, scale), row_h - dip_to_px(8, scale)));
   const bool icon_only = effective_chip_style() == ChipStyle::kIconOnly;
   const int icon = icon_slot(scale);
   // Content may be wider than the host; ScrollView scrolls inside the clipped
@@ -691,17 +717,14 @@ void AmboxView::layout_horizontal(float scale) {
   const int content_w = measure_content_width(scale);
 
   if (content_) {
-    content_->set_preferred_size({content_w, measure_content_height(scale)});
+    content_->set_preferred_size({content_w, row_h});
   }
   if (scroll_) {
     scroll_->layout();
   }
-  // Width 0 → Yoga flex-fill of tool_bar_host; never prefer content width.
-  set_preferred_size({0, host_h});
 
-  const Rect area = content_ ? content_->bounds() : b;
-  const int y = area.y + (area.height > row_h ? (area.height - row_h) / 2 : 0);
-  int x = area.x + p;
+  const int y = b.y;
+  int x = b.x + p;
   for (auto& block : blocks_) {
     if (!block) {
       continue;

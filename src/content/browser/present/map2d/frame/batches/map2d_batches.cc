@@ -14,6 +14,7 @@
 #endif
 #include <windows.h>
 
+#include "base/core/log.h"
 #include "gis/datasource/ogr/ogr_text_encoding.h"
 #include "gis/tile/protocol/mercator_math.h"
 
@@ -29,14 +30,32 @@ uint64_t hash_string(uint64_t hash, const std::string& text) {
   return fnv1a_mix(hash, std::hash<std::string>{}(text));
 }
 
-// Fields vista::probe_fields / carto labels actually read. Hashing and
-// copying every OGR column on china_city dominated the first `batches` span
-// (~1.4s Debug) without changing the drawn MapIR.
+// Fields vista::probe_fields / carto labels actually read, plus plugin
+// paint keys (heat / color). Hashing and copying every OGR column on
+// china_city dominated the first `batches` span (~1.4s Debug).
 bool is_carto_batch_field(const std::string& name) {
   // line_kind carries china_city road/river semantics (kind is often "line").
+  // heat/color drive plugin interpolate / coalesce fills (flood, traffic,
+  // geochem, orthogrid). Dropping them leaves fill-color at opaque black.
   return name == "kind" || name == "line_kind" || name == "class" ||
          name == "fclass" || name == "anno" || name == "name" ||
-         name == "adcode" || name == "type" || name == "text";
+         name == "adcode" || name == "type" || name == "text" ||
+         name == "heat" || name == "color";
+}
+
+// Reject null / MSVC debug-heap poison / low canonical addresses before
+// bit_cast endpoint mixes. Keep this cheap — VirtualQuery false-negatives
+// wiped china batches (ocean-only showcase). Store mutex is the real fix.
+bool points_buffer_looks_live(const GisScene::Vertex* data, size_t n) {
+  if (n == 0 || data == nullptr) {
+    return false;
+  }
+  const auto addr = reinterpret_cast<uintptr_t>(data);
+  if (addr < 0x10000u) {
+    return false;
+  }
+  const uint32_t low = static_cast<uint32_t>(addr & 0xffffffffu);
+  return low != 0xddddddddu && low != 0xcdcdcdcdu && low != 0xccccccccu;
 }
 
 // Stable fingerprint for GisScene layers; used to reuse POD + batch builds.
@@ -53,26 +72,45 @@ uint64_t scene_layers_fingerprint(
     hash = fnv1a_mix(hash, layer.features.size());
     for (const GisScene::Feature& feature : layer.features) {
       ++total_features;
-      total_points += feature.points.size();
+      const size_t point_n = feature.points.size();
+      const GisScene::Vertex* point_data = feature.points.data();
+      total_points += point_n;
       hash = fnv1a_mix(hash, static_cast<uint64_t>(feature.kind));
-      hash = fnv1a_mix(hash, feature.points.size());
-      if (!feature.points.empty()) {
-        hash = fnv1a_mix(
-            hash, std::bit_cast<uint64_t>(feature.points.front().x));
-        hash = fnv1a_mix(
-            hash, std::bit_cast<uint64_t>(feature.points.front().y));
-        if (feature.points.size() > 1) {
-          hash = fnv1a_mix(
-              hash, std::bit_cast<uint64_t>(feature.points.back().x));
-          hash = fnv1a_mix(
-              hash, std::bit_cast<uint64_t>(feature.points.back().y));
+      hash = fnv1a_mix(hash, point_n);
+      // Defend half-link / race: size()>0 with null or freed data() made
+      // bit_cast AV (0xDD INVALID_POINTER_READ) during china present.
+      if (points_buffer_looks_live(point_data, point_n)) {
+        const double x0 = point_data[0].x;
+        const double y0 = point_data[0].y;
+        hash = fnv1a_mix(hash, std::bit_cast<uint64_t>(x0));
+        hash = fnv1a_mix(hash, std::bit_cast<uint64_t>(y0));
+        if (point_n > 1) {
+          const double xn = point_data[point_n - 1].x;
+          const double yn = point_data[point_n - 1].y;
+          hash = fnv1a_mix(hash, std::bit_cast<uint64_t>(xn));
+          hash = fnv1a_mix(hash, std::bit_cast<uint64_t>(yn));
         }
+      } else if (point_n > 0) {
+        LOGGING(LOG_ERROR,
+                "[scene_layers_fingerprint] corrupt points size=%zu data=%p "
+                "layer=%s",
+                point_n, static_cast<const void*>(point_data),
+                layer.name.c_str());
+        hash = fnv1a_mix(hash, 0xC0FFEEULL);
       }
       // Line/polygon carto attrs (kind/class) are stable after China seed;
       // hashing every string on the first batches span dominated wall.
       // Point/text still fingerprint label fields (name/anno) for cache.
+      // Polygon heat/color change after append and must invalidate.
       if (feature.kind != GisScene::GeomKind::kPoint &&
           feature.kind != GisScene::GeomKind::kText) {
+        for (const GisScene::Field& field : feature.fields) {
+          if (field.name != "heat" && field.name != "color") {
+            continue;
+          }
+          hash = hash_string(hash, field.name);
+          hash = hash_string(hash, field.value);
+        }
         continue;
       }
       for (const GisScene::Field& field : feature.fields) {
@@ -219,12 +257,9 @@ vista::LayerBatchSet visible_layer_batches(
 
   vista::LayerBatchSet built =
       vista::build_layer_batches(cache.pod, use_carto_slots, scale);
-  // Provincial land->admin edge collapse is settle polish. On china overview
-  // (first WaitFirstMapPresent) the undirected edge hash dominated batches
-  // wall after carto-field filtering; ghost doubles are invisible at that
-  // zoom. Absolute scale tracks viewport width — use zoom (see batch.cc).
-  // Re-enable when the user zooms in (scale bucket changes rebuild).
-  if (gis::tile::zoom_from_scale(scale) >= 14.0) {
+  // Collapse land→admin ghost doubles once synth is active (zoom≥8). Far
+  // overview skips synth entirely (see emit_kept_probes).
+  if (gis::tile::zoom_from_scale(scale) >= 8.0) {
     vista::dedupe_admin_boundary_edges(&built);
   }
   cache.batch = vista::clone_layer_batch_set(built);

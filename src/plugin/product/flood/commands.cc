@@ -238,7 +238,7 @@ bool register_flood(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"flood.inundate", "洪水淹没分析"},
           [host](content::PluginHost*) {
-            show_view_dialog(L"洪水淹没分析",
+            present_dialog(L"洪水淹没分析",
                              std::make_unique<InundateDialog>(host));
           })) {
     return false;
@@ -246,7 +246,7 @@ bool register_flood(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"flood.about", "关于"},
           [](content::PluginHost*) {
-            show_view_dialog(L"关于",
+            present_dialog(L"关于",
                              std::make_unique<AboutDialog>(
                                  "Flood\nDEM inundation (native.flood_fill)"));
           })) {

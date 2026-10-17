@@ -20,9 +20,14 @@
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
 #include "content/public/gis_contents_client.h"
+#include "third_party/gn/dll_search.h"
 #include "ui/gfx/canvas/shell_canvas_backend.h"
 
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
+  // SDK layout: product images in bin/, third-party DLLs in ../third_party/bin.
+  // SetDllDirectory only replaces the cwd slot. Do not call
+  // SetDefaultDllDirectories — that has remapped ucrtbased twice on this SDK.
+  prepare_dll_search_path();
   int argc = 0;
   wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
   // Before any GDALAllRegister: AutoLoadDrivers LoadLibrary's every DLL in

@@ -14,6 +14,7 @@
 #include "gis/style/paint_resolve.h"
 #include "gis/style/eval/style_rules.h"
 #include "gis/style/style_types.h"
+#include "vista/component/map/layout.h"
 #include "vista/component/map/layout/geom/attrs.h"
 #include "vista/component/map/layout/geom/clip.h"
 #include "vista/component/map/layout/geom/geom_walk.h"
@@ -179,10 +180,10 @@ void emit_heatmap_density(const gis::style::StyleLayer& layer,
     }
   }
 
-  if (in.heatmap_bake) {
-    in.heatmap_bake->rgba = std::move(rgba);
-    in.heatmap_bake->width = gw;
-    in.heatmap_bake->height = gh;
+  if (HeatmapBake* bake = layout_heatmap_bake()) {
+    bake->rgba = std::move(rgba);
+    bake->width = gw;
+    bake->height = gh;
   }
 
   DrawItem item;

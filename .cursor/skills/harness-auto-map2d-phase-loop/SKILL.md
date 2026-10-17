@@ -1,10 +1,11 @@
 ---
-name: harness-auto-map2d-frame-opt
+name: harness-auto-map2d-phase-loop
 description: >-
-  Profiles every Map2d / src_render frame (phase clocks + FPS bench) then
-  loop-drives optimizations in content present, effect/map, and src/render
-  until equal-profile budgets. Use when the user invokes
-  /harness-auto-map2d-frame-opt, or says map2d 逐帧 profile, 每一帧性能,
+  Product Map2d phase-budget loop: profile every frame (phase clocks + FPS
+  bench) and fix content present / effect/map / src/render until warm
+  present_gpu and paint budgets. Not the Scenic port matrix. Use when the
+  user invokes /harness-auto-map2d-phase-loop (formerly
+  /harness-auto-map2d-frame-opt), or says map2d 逐帧 profile, 每一帧性能,
   src/render 2d 优化 loop, present_gpu warm, StaticReuse, layout_ms /
   hillshade_ms, MAP2D_FPS_BENCH_MS, or asks to profile-then-optimize
   Map2d frame by frame.
@@ -15,17 +16,17 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# Harness auto map2d frame opt（逐帧 profile → loop 优化）
+# Harness auto map2d phase loop（产品路径逐帧相位 → 修到预算）
 
-**对 Map2d / `src/render` 端到端渲染的每一帧做性能 profile，并 loop 驱动优化直至 equal-profile 预算。**
+**对产品 Map2d 每一帧做相位 profile，并 loop 驱动优化直至相位预算。**
 
-Sibling of `harness-auto-map2d-opt` (Scenic rhi2d GDI/GDI+/Skia × parallel **matrix**). This skill owns the **per-frame** profile + fix loop on the product path, not the port grid.
+Sibling of `harness-auto-map2d-port-matrix` (Scenic rhi2d GDI/GDI+/Skia × parallel **matrix**). This skill owns the **per-frame** profile + fix loop on the product path (`SmartGIS.exe --map2d-showcase=china`). Port-grid screenshots and `execute_ms` belong to the matrix skill.
 
 Closed loop: build → locked-profile bench → parse hot phase → CBM → root-cause fix → rebuild → re-bench → until done bar / hard stop.
 
 ## Authorization
 
-When this skill is invoked, attached (`@harness-auto-map2d-frame-opt` / `/harness-auto-map2d-frame-opt`), or followed, the agent **MUST** run the frame bench, iterate fixes, and re-bench — do not defer the loop to the user.
+When this skill is invoked, attached (`@harness-auto-map2d-phase-loop` / `/harness-auto-map2d-phase-loop`, formerly `harness-auto-map2d-frame-opt`), or followed, the agent **MUST** run the frame bench, iterate fixes, and re-bench — do not defer the loop to the user.
 
 ## Hard rules
 
@@ -91,7 +92,7 @@ Artifacts (typical):
 Copy and track:
 
 ```
-Map2d frame-opt progress:
+Map2d phase-loop progress:
 - [ ] 1. Build SmartGIS
 - [ ] 2. Baseline: china 1280×720 GPU + FPS bench
 - [ ] 3. Parse phases + fps-bench.txt → pick hottest phase
@@ -113,7 +114,7 @@ Missing `out\Debug\SmartGIS.exe` → rebuild; do not skip.
 
 Run the entry commands above. Capture stderr + `map2d-fps-bench.txt` + BMP.
 
-If only matrix A/B is needed without FPS loop, also run sibling skill `harness-auto-map2d-opt` — do **not** confuse matrix wall with every-frame StaticReuse.
+If only the port-grid table is needed without an FPS loop, run sibling skill `harness-auto-map2d-port-matrix`. Matrix wall and Scenic `execute_ms` are a different measurement from every-frame StaticReuse.
 
 ### Step 3 — Parse hot phase
 
@@ -179,8 +180,8 @@ Debug china 1280×720:
 
 ## Related
 
-- Matrix sibling: `.cursor/skills/harness-auto-map2d-opt/SKILL.md`
-- Scene3d frame sibling: `.cursor/skills/harness-auto-scene3d-frame-opt/SKILL.md`
+- Port-matrix sibling: `.cursor/skills/harness-auto-map2d-port-matrix/SKILL.md`
+- Scene3d phase-loop sibling: `.cursor/skills/harness-auto-scene3d-phase-loop/SKILL.md`
 - Visual review: `.cursor/skills/harness-visual-review/SKILL.md`
 - FPS bench: `src/plugin/product/map2d/scenario/fps_bench.*`
 - Phase clocks: `src/content/browser/present/map2d/profile/map2d_phase_profile.*`

@@ -38,6 +38,15 @@ uint32_t darken_argb(uint32_t argb, float factor) {
   return (a << 24) | (r << 16) | (g << 8) | b;
 }
 
+bool tile_intersects_view(const LayoutInput& in, double min_x, double min_y,
+                          double max_x, double max_y) {
+  const double x0 = (std::max)(min_x, in.view.min_x);
+  const double x1 = (std::min)(max_x, in.view.max_x);
+  const double y0 = (std::max)(min_y, in.view.min_y);
+  const double y1 = (std::min)(max_y, in.view.max_y);
+  return x1 > x0 && y1 > y0;
+}
+
 bool dem_land_clip_tile(const LayoutInput& in, LayoutTile* hs) {
   if (!hs) {
     return false;
@@ -53,9 +62,18 @@ bool dem_land_clip_tile(const LayoutInput& in, LayoutTile* hs) {
       hs->max_x = (std::max)(hs->max_x, slot.max_x);
       hs->max_y = (std::max)(hs->max_y, slot.max_y);
     }
+    // A DEM slot that misses the view must not clip land to empty — that
+    // pairs with emit_hillshade dropping the sheet and leaves ocean-only.
+    if (!tile_intersects_view(in, hs->min_x, hs->min_y, hs->max_x, hs->max_y)) {
+      return false;
+    }
     return true;
   }
   if (in.have_dem_clip) {
+    if (!tile_intersects_view(in, in.dem_clip.min_x, in.dem_clip.min_y,
+                              in.dem_clip.max_x, in.dem_clip.max_y)) {
+      return false;
+    }
     hs->min_x = in.dem_clip.min_x;
     hs->min_y = in.dem_clip.min_y;
     hs->max_x = in.dem_clip.max_x;
@@ -240,28 +258,10 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
       return;
     }
     const gis::style::StyleLayer& layer = *fill_layers[li];
-    // Jet hillshade is kOver and land-masked (ocean A=0). Cream land under
-    // that sheet leaked through ocean cells as beige spill — layers-off DEM
-    // looked clean, layers-on looked broken. Skip land fill when the jet
-    // tile is already attached. Deferred first layout (no tiles) still
-    // paints cream so the viewport is not a black clear while bake runs.
-    if (layer.source_layer == "land" && !in.hillshade_tiles.empty() &&
-        in.style) {
-      bool jet_sheet = false;
-      for (const gis::style::StyleLayer& sl : in.style->layers) {
-        if (sl.type != gis::style::LayerType::kHillshade) {
-          continue;
-        }
-        const auto ramp = sl.paint.find("hillshade-color-ramp");
-        if (ramp != sl.paint.end() && ramp->second == "jet") {
-          jet_sheet = true;
-          break;
-        }
-      }
-      if (jet_sheet) {
-        continue;
-      }
-    }
+    // Keep cream/admin land under jet. Ocean spill is handled by dem_land_clip
+    // (land clipped to the DEM footprint). Skipping land when jet tiles attach
+    // left fill=0 — if the HSHD GPU sheet fails to composite, the map is
+    // ocean-only and vectors have no land hierarchy (Yangtze-belt look).
     batches.visit(layer, layers, [&](const LayerBatch& batch) {
       for (size_t i = 0; i < batch.geoms.size(); ++i) {
         if (layout_gen_stale(in)) {
@@ -269,22 +269,24 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
         }
         const OGRGeometry* raw = batch.geoms[i];
         const OGRGeometry* geom = nullptr;
-        if (!prepare_tile_clip(raw, clip_tile, &clip_store, &geom) || !geom) {
-          continue;
-        }
-        // Hillshade / dem_clip is the DEM footprint. Land polygons that
-        // extend past it (Korea / Mongolia cream slab) stay unshaded —
-        // clip land so ocean background shows instead of a hole.
-        if (layer.source_layer == "land") {
-          LayoutTile hs;
-          if (dem_land_clip_tile(in, &hs)) {
-            const OGRGeometry* clipped = nullptr;
-            if (!prepare_tile_clip(geom, &hs, &clip_store, &clipped) ||
-                !clipped) {
-              continue;
-            }
-            geom = clipped;
+        // Cream land stays under the jet sheet. Clip it to the DEM footprint
+        // so the fill does not spill past the hillshade as a second body,
+        // and so a missing sheet still has a land polygon.
+        LayoutTile land_clip;
+        const LayoutTile* use_tile = clip_tile;
+        LayoutTile hs;
+        if (layer.source_layer == "land" && dem_land_clip_tile(in, &hs)) {
+          land_clip = hs;
+          if (clip_tile) {
+            land_clip.min_x = (std::max)(land_clip.min_x, clip_tile->min_x);
+            land_clip.min_y = (std::max)(land_clip.min_y, clip_tile->min_y);
+            land_clip.max_x = (std::min)(land_clip.max_x, clip_tile->max_x);
+            land_clip.max_y = (std::min)(land_clip.max_y, clip_tile->max_y);
           }
+          use_tile = &land_clip;
+        }
+        if (!prepare_tile_clip(raw, use_tile, &clip_store, &geom) || !geom) {
+          continue;
         }
         const gis::style::AttrMap& attrs = attrs_at(batch, i);
         if (!gis::style::eval_filter(layer.filter, attrs)) {

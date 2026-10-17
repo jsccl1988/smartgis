@@ -19,6 +19,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/kernel/widget/widget.h"
+#include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/collection/scroll_view.h"
 #include "ui/views/primitives/collection/tab_strip.h"
@@ -395,6 +396,44 @@ void test_status_bar_dpi_height() {
   widget.set_device_scale_factor(1.5f);
   expect(b->preferred_size().height == dip_to_px(32, 1.5f),
          "status 150% height");
+}
+
+void test_ambox_horizontal_chip_row_not_dock_height() {
+  Widget widget;
+  auto owned = std::make_unique<AmboxView>();
+  AmboxView* ambox = owned.get();
+  widget.set_contents_view(std::move(owned));
+  ambox->set_orientation(AmboxView::Orientation::kHorizontal);
+  // Hostile host: layout used to copy this height into the preferred size,
+  // so the shared 240 DIP dock CSS stuck as a tall black map band.
+  ambox->set_bounds({0, 0, 1400, 420});
+  ambox->layout();
+  const int h = ambox->get_preferred_size().height;
+  expect(h > 0 && h < 420, "horizontal layout does not adopt the tall host");
+  View* top = ambox->get_view_at(36, 12);
+  expect(top && top != ambox, "chip hit in the top row");
+  expect(dynamic_cast<Button*>(top) != nullptr, "top row is a tool button");
+  View* gap = ambox->get_view_at(36, 200);
+  expect(dynamic_cast<Button*>(gap) == nullptr, "no chip in the old tall band");
+
+  MarkupRoot shell = load_markup("shell/main_app.ui.xml", {});
+  expect(shell.ok(), "main_app markup");
+  View* column = shell.ids.find("map_column");
+  View* bar = shell.ids.find("tool_bar_host");
+  expect(column && bar, "map column and tool bar");
+  if (column && bar) {
+    column->set_bounds({0, 0, 1400, 900});
+    column->layout();
+    const int row = dip_to_px(48, 1.f);
+    expect(bar->bounds().height > 0 && bar->bounds().height <= row + 2,
+           "tool bar band is one chip row");
+  }
+
+  widget.set_device_scale_factor(2.f);
+  ambox->set_bounds({0, 0, 1600, 800});
+  ambox->layout();
+  const int h2 = ambox->get_preferred_size().height;
+  expect(h2 > 0 && h2 < 800, "DPI layout does not adopt the tall host");
 }
 
 void test_ambox_scroll_content_taller_than_pane() {

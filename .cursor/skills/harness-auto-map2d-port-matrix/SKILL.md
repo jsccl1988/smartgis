@@ -1,13 +1,14 @@
 ---
-name: harness-auto-map2d-opt
+name: harness-auto-map2d-port-matrix
 description: >-
-  Runs the map2d equal-profile harness: same china 1280x720 rendering materials
-  and effects across parallel strategies x image-driven backends (Scenic rhi2d
-  GDI / GDI+ / Skia, plus Vista), then emits screenshots and an
-  execution performance comparison table. Use when the user invokes
-  /harness-auto-map2d-opt, or says map2d 矩阵, 同等渲染物料, 并行策略×图像驱动,
-  GDI/GDI+/Skia/Vista 对比, scenic 同等对比, map2d equal-profile, or asks for
-  map2d screenshots + performance comparison.
+  Scenic rhi2d port matrix: same china 1280x720 across parallel strategies x
+  image-driven backends (GDI / GDI+ / Skia), plus one Vista row and one Scenic
+  Map2dEngine row, then screenshots and a comparison table. Not the product
+  per-frame phase-budget loop. Use when the user invokes
+  /harness-auto-map2d-port-matrix (formerly /harness-auto-map2d-opt), or says
+  map2d 矩阵, 同等渲染物料, 并行策略×图像驱动, GDI/GDI+/Skia/Vista 对比,
+  scenic 同等对比, map2d equal-profile, or asks for map2d screenshots +
+  performance comparison.
 ---
 
 <!--
@@ -15,9 +16,11 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# Harness auto map2d opt（同等物料 × 并行×图像驱动）
+# Harness auto map2d port matrix（Scenic 端口 × 并行对照表）
 
-**同等渲染物料及效果，并行策略×图像驱动（Scenic 引擎 GDI / GDI+ / Skia，再加 Vista），并给出截图及执行性能对比表**
+**同等渲染物料下，并行策略 × 图像驱动（Scenic rhi2d GDI / GDI+ / Skia，再加 Vista 与 Scenic Map2dEngine），并给出截图及执行性能对比表。**
+
+Sibling of `harness-auto-map2d-phase-loop` (product path phase clocks + FPS bench + fix-until-budget). This skill owns the **port grid**. Warm `present_gpu_ms` budgets on `SmartGIS.exe` alone belong to the phase-loop skill.
 
 GDI / GDI+ / Skia **must** run on the **Scenic** rhi2d engine (`scenic_gdi_map_paint_test` + `scenic_rhi2d_{gdi,gdiplus,skia}`). Product matrix only — `src/legacy/` is frozen and is not an axis.
 
@@ -38,7 +41,7 @@ When closing equal-profile budgets, follow plan phases — do **not** treat Scen
 
 ## Authorization
 
-When this skill is invoked, attached (`@harness-auto-map2d-opt` / `/harness-auto-map2d-opt`), or followed, the agent **MUST** run the matrix (and rebuild if binaries are missing) and deliver **screenshots + comparison table** — do not defer the harness to the user.
+When this skill is invoked, attached (`@harness-auto-map2d-port-matrix` / `/harness-auto-map2d-port-matrix`, formerly `harness-auto-map2d-opt`), or followed, the agent **MUST** run the matrix (and rebuild if binaries are missing) and deliver **screenshots + comparison table** — do not defer the harness to the user.
 
 ## Hard rules
 
@@ -83,7 +86,7 @@ Artifacts root: `out/Debug/captures/browser/matrix/`
 Copy and track:
 
 ```
-Map2d opt progress:
+Map2d port-matrix progress:
 - [ ] 1. Build scenic_gdi_map_paint_test + scenic_rhi2d ports + SmartGisViews
 - [ ] 2. Run run_parallel_port_matrix.py
 - [ ] 3. Emit *.inspect.png for every matrix BMP
@@ -197,7 +200,7 @@ Non-goals (do not): delete hillshade/MapFrame to match IR; MapLibre Native port;
 
 ## Related
 
-- Per-frame profile + opt loop: `.cursor/skills/harness-auto-map2d-frame-opt/SKILL.md`
+- Product phase-budget loop: `.cursor/skills/harness-auto-map2d-phase-loop/SKILL.md`
 - Runner: `testing/tools/harness/browser/run_parallel_port_matrix.py`
 - Suites: `testing/tools/harness/browser/browser.map2d.china/`
 - Inspect: `testing/tools/loop/review/inspect_png.py`

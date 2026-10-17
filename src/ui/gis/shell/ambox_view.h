@@ -104,6 +104,10 @@ class UI_EXPORT AmboxView : public View {
 
   void rebuild();
   void fire_command(const std::string& id);
+  // Horizontal map bar shares the vertical dock markup. Pin one chip row so
+  // the 240 DIP toolbox height cannot become the map band.
+  void pin_horizontal_shell(float scale);
+  int horizontal_row_px(float scale) const;
   int measure_content_height(float scale) const;
   int measure_content_width(float scale) const;
   void layout_vertical(float scale);

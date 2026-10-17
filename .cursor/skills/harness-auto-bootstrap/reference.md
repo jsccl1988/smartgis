@@ -57,6 +57,6 @@ From living §Startup profile: `wWinMain`, `ParseLaunchOptions`, `ContentMain` /
 
 | Want | Use |
 | --- | --- |
-| Warm map2d frame / FPS | `harness-auto-map2d-frame-opt` |
-| Backend×parallel matrix | `harness-auto-map2d-opt` |
-| Scene3d timed presents | `harness-auto-scene3d-frame-opt` |
+| Warm map2d frame / FPS | `harness-auto-map2d-phase-loop` |
+| Backend×parallel matrix | `harness-auto-map2d-port-matrix` |
+| Scene3d timed presents | `harness-auto-scene3d-phase-loop` |

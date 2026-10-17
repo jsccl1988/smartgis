@@ -4,6 +4,7 @@
 #include "plugin/product/world3d/commands.h"
 
 #include "content/public/plugin_host.h"
+#include "plugin/product/world3d/scene/atmosphere/panel.h"
 #include "plugin/product/world3d/scene/register.h"
 #include "tool/command/command.h"
 
@@ -20,8 +21,10 @@ bool register_world3d(content::PluginHost* host) {
   constexpr const char* kPluginId = "smartgis.world3d";
   if (tool::CommandCatalog* catalog = host->commands()) {
     // Scene registration owns create_hex_grid; treat as already wired.
+    // Scene commands may already exist (DLL pack or a prior ensure). That used
+    // to return before contribute_atmosphere_panel, so the dock never landed.
     if (catalog->contains("orthogrid3d.create_hex_grid")) {
-      return true;
+      return detail::contribute_atmosphere_panel(host);
     }
   }
   // TIN / trimesh sample window used by plugin.world3d harness export_bmp.

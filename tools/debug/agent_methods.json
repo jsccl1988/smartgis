@@ -43,6 +43,10 @@
       "params": {"path": "string?", "confirm": "boolean?"},
       "result": {"text": "string"}
     },
+    "ui.open_panel": {
+      "params": {"panel": "string"},
+      "result": {"text": "string"}
+    },
     "script.run": {"params": {"path": "string"}, "result": {"text": "string"}},
     "record.enable": {"params": {"on": "boolean"}, "result": {"on": "boolean"}},
     "record.poll": {"params": {}, "result": {"events": "array"}},

@@ -14,8 +14,10 @@
 #include <utility>
 
 #include "app/views/browser/browser.h"
+#include "content/browser/session/browser_session.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "content/public/plugin_host.h"
+#include "plugin/product/world3d/scene/atmosphere/panel.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "ui/gis/analysis/processing_panel.h"
 #include "ui/gis/analysis/result_playback_panel.h"
@@ -28,6 +30,7 @@
 #include "ui/gis/shell/atmosphere_panel.h"
 #include "ui/gis/style/layer_properties_panel.h"
 #include "ui/gis/style/legend_panel.h"
+#include "ui/gis/shell/ambox_view.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 
@@ -92,11 +95,34 @@ void InspectorHostComposer::ensure_inspector_tab(int index) {
     // P1-3: WebView2 ReportBrowser is created inside wire_report_panel.
     host_->wire_report_panel();
   } else if (index == host_->atmosphere_tab_ && !host_->atmosphere_panel_) {
-    if (host_->browser_->plugins()) {
+    // The dock factory lives in the world3d DLL and often never mounts into
+    // this tab, leaving the placeholder. Build the panel in the shell.
+    auto panel = std::make_unique<ui::views::AtmospherePanel>();
+    host_->atmosphere_panel_ = panel.get();
+    if (host_->browser_ && host_->browser_->plugins()) {
       (void)host_->browser_->plugins()->ensure_builtins();
-      if (content::PluginHost* host = host_->browser_->plugins()->host()) {
-        (void)host->open_dock("world3d.atmosphere");
+      if (content::PluginHost* plugin_host = host_->browser_->plugins()->host()) {
+        plugin::detail::wire_atmosphere_panel(panel.get(), plugin_host);
       }
+    }
+    host_->inspector_tabs_->replace_page(index, std::move(panel));
+    // wire_atmosphere_panel forces the boxes off and does not notify. Mirror
+    // the live session so Ocean/Cloud/Sky/Fog/Wind match the 3D draw.
+    if (host_->browser_ && host_->atmosphere_panel_) {
+      bool ocean = false;
+      bool cloud = false;
+      bool sky = false;
+      bool fog = false;
+      bool wind = false;
+      host_->browser_->session().scene3d_atmosphere_flags(
+          &ocean, &cloud, &sky, &fog, &wind);
+      host_->atmosphere_panel_->set_ocean_checked(ocean);
+      host_->atmosphere_panel_->set_cloud_checked(cloud);
+      host_->atmosphere_panel_->set_sky_checked(sky);
+      host_->atmosphere_panel_->set_fog_checked(fog);
+      host_->atmosphere_panel_->set_wind_checked(wind);
+      host_->atmosphere_panel_->set_time_sec(
+          host_->browser_->session().scene3d_time_sec());
     }
   } else if (index == host_->plugins_tab_ && !host_->plugin_catalog_) {
     PluginShell* shell = host_->browser_->plugins();
@@ -116,6 +142,13 @@ void InspectorHostComposer::ensure_inspector_tab(int index) {
 
 
 void InspectorHostComposer::show_inspector_tab_index(int index) {
+  if (host_->inspector_tabs_ && index >= 0) {
+    const InspectorGroupBar::Group group = group_for_tab(index);
+    if (group != group_ || !host_->inspector_tabs_->tab_included(index)) {
+      apply_group(group, index, false);
+    }
+    note_tab_activated(index);
+  }
   host_->ensure_inspector_tab(index);
   if (host_->inspector_tabs_ && index >= 0) {
     host_->inspector_tabs_->set_active(index);
@@ -194,6 +227,7 @@ void InspectorHostComposer::attach_plugin_shell_ui() {
         }
         (void)title;
         host_->inspector_tabs_->add_tab(std::string(title), std::move(page));
+        sync_included_mask();
         return true;
       },
       [this](int tab) {
@@ -233,5 +267,108 @@ void InspectorHostComposer::attach_plugin_shell_ui() {
       });
 }
 
+
+void InspectorHostComposer::bind_group_bar(InspectorGroupBar* bar) {
+  group_bar_ = bar;
+  if (group_bar_) {
+    group_bar_->set_selected(group_);
+  }
+}
+
+void InspectorHostComposer::show_inspector_group(InspectorGroupBar::Group group,
+                                                 bool materialize) {
+  const int slot = static_cast<int>(group);
+  const int prefer =
+      slot >= 0 && slot < static_cast<int>(InspectorGroupBar::Group::kCount)
+          ? last_tab_[slot]
+          : -1;
+  apply_group(group, prefer, materialize);
+}
+
+void InspectorHostComposer::note_tab_activated(int index) {
+  if (index < 0) {
+    return;
+  }
+  const int slot = static_cast<int>(group_for_tab(index));
+  if (slot >= 0 && slot < static_cast<int>(InspectorGroupBar::Group::kCount)) {
+    last_tab_[slot] = index;
+  }
+}
+
+void InspectorHostComposer::sync_included_mask() {
+  ui::views::TabStrip* tabs = host_->inspector_tabs_;
+  if (!tabs) {
+    return;
+  }
+  for (int i = 0; i < tabs->tab_count(); ++i) {
+    tabs->set_tab_included(i, group_for_tab(i) == group_);
+  }
+}
+
+void InspectorHostComposer::set_group_bar_extent(int width_px, int height_px) {
+  if (!group_bar_ || width_px <= 0 || height_px <= 0) {
+    return;
+  }
+  group_bar_->set_preferred_size({width_px, height_px});
+}
+
+InspectorGroupBar::Group InspectorHostComposer::group_for_tab(int index) const {
+  if (host_->inspector_tabs_ && host_->side_ambox_ &&
+      host_->inspector_tabs_->page_at(index) == host_->side_ambox_) {
+    return InspectorGroupBar::Group::kMap;
+  }
+  if (host_->feature_info_tab_ >= 0 &&
+      (index == host_->feature_info_tab_ ||
+       index == host_->feature_info_tab_ + 1)) {
+    return InspectorGroupBar::Group::kInspect;
+  }
+  if (index == host_->measure_tab_ || index == host_->selection_tab_) {
+    return InspectorGroupBar::Group::kInspect;
+  }
+  if (index == host_->layer_props_tab_ || index == host_->legend_tab_) {
+    return InspectorGroupBar::Group::kMap;
+  }
+  if (index == host_->spatial_analysis_tab_ || index == host_->processing_tab_ ||
+      index == host_->playback_tab_ || index == host_->report_tab_) {
+    return InspectorGroupBar::Group::kProcess;
+  }
+  return InspectorGroupBar::Group::kExtend;
+}
+
+void InspectorHostComposer::apply_group(InspectorGroupBar::Group group,
+                                       int prefer, bool materialize) {
+  group_ = group;
+  if (group_bar_) {
+    group_bar_->set_selected(group);
+  }
+  sync_included_mask();
+  ui::views::TabStrip* tabs = host_->inspector_tabs_;
+  if (!tabs) {
+    return;
+  }
+  int show = prefer;
+  if (show < 0 || group_for_tab(show) != group) {
+    show = -1;
+    for (int i = 0; i < tabs->tab_count(); ++i) {
+      if (group_for_tab(i) == group) {
+        show = i;
+        break;
+      }
+    }
+  }
+  if (show < 0) {
+    return;
+  }
+  note_tab_activated(show);
+  if (tabs->active() != show) {
+    tabs->set_active(show);
+  }
+  // Plugins stays deferred (materialize=false) so first-map does not scan the
+  // catalog. Atmosphere is a local markup panel — fill it whenever it is the
+  // page on screen, otherwise the dock stays a blank placeholder.
+  if (materialize || show == host_->atmosphere_tab_) {
+    host_->ensure_inspector_tab(show);
+  }
+}
 
 }  // namespace app

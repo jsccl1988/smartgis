@@ -11,6 +11,7 @@
 #include "CommandList/CommandList.h"
 #include "Utilities/Common.h"
 
+#include <cstdio>
 #include <cstring>
 #include <exception>
 #include <string>
@@ -415,6 +416,26 @@ bool FlycubeProgram::replay_draw(::CommandList* list, const Draw& draw,
     return false;
   }
   std::shared_ptr<::Pipeline> pso = select_depth(pass_depth, draw.depth);
+  // #region agent log
+  {
+    static int agent_n = 0;
+    if (agent_n < 6) {
+      ++agent_n;
+      if (FILE* agent_log = std::fopen("debug-7df9f1.log", "a")) {
+        std::fprintf(agent_log,
+                     "{\"sessionId\":\"7df9f1\",\"runId\":\"pre-fix\","
+                     "\"hypothesisId\":\"PSO\",\"location\":\"program.cc:replay_draw\","
+                     "\"message\":\"replay_draw\",\"data\":{\"has_pso\":%d,"
+                     "\"pass_depth\":%d,\"depth_mode\":%d,\"index_count\":%u},"
+                     "\"timestamp\":%llu}\n",
+                     pso ? 1 : 0, pass_depth ? 1 : 0,
+                     static_cast<int>(draw.depth), draw.index_count,
+                     static_cast<unsigned long long>(agent_n));
+        std::fclose(agent_log);
+      }
+    }
+  }
+  // #endregion
   if (!pso) {
     LOGGING(LOG_WARNING,
             "rhi.flycube replay_draw skip: no PSO pass_depth=%d mode=%d",

@@ -777,13 +777,14 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   const bool skip_ocean_for_dem_albedo =
       ocean_on && !skip_ocean &&
       look_preset_ != Scene3dLookPreset::kLegacyStereo && !dem_bake_usable;
-  // Olive solid gate when bake is missing/unusable, or when ocean+sky both
-  // run: FlyCube still blacks textured DEM SRVs after heap churn even when
-  // the CPU bake looks healthy (tex_mean>=16). atmosphere.full landish score
-  // needs solid PSO + olive ColorCB (see TerrainPass / draw.cc).
-  const bool flycube_ocean_sky_churn = ocean_on && sky_on;
+  // Olive solid gate when bake is missing/unusable, or whenever ocean runs:
+  // FlyCube recycles the DEM albedo SRV during ocean height alloc (alpha 0)
+  // even when the CPU bake looks healthy (tex_mean>=16) and sky is off.
+  // SrcAlpha then keeps the navy clear. atmosphere.full landish score needs
+  // solid PSO + olive ColorCB (see TerrainPass / draw.cc).
+  const bool flycube_ocean_churn = ocean_on;
   const bool need_albedo_gate =
-      (!dem_bake_usable || flycube_ocean_sky_churn) &&
+      (!dem_bake_usable || flycube_ocean_churn) &&
       (sky_on || ocean_on ||
        look_preset_ == Scene3dLookPreset::kLegacyStereo);
   base::ElapsedTimer ocean_prep_timer;
@@ -895,11 +896,32 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
           ++tex_nodes;
         }
       }
+      unsigned alpha_mean = 0;
+      unsigned landish = 0;
+      unsigned samples = 0;
+      for (size_t ni = 0; ni < terrain_world_.node_count(); ++ni) {
+        const vista::Node* n = terrain_world_.node_at(ni);
+        if (!n || n->terrain.rgba.size() < 4) {
+          continue;
+        }
+        const auto& rgba = n->terrain.rgba;
+        const size_t step = (std::max)(size_t{4}, rgba.size() / 256);
+        for (size_t o = 0; o + 3 < rgba.size(); o += step) {
+          alpha_mean += rgba[o + 3];
+          if (rgba[o + 1] > rgba[o] + 8 && rgba[o + 1] > 40) {
+            ++landish;
+          }
+          ++samples;
+        }
+      }
+      if (samples > 0) {
+        alpha_mean /= samples;
+      }
       LOGGING(LOG_INFO,
               "scene3d.present dem nodes=%zu textured=%zu size=%ux%u "
-              "yaw=%.2f pitch=%.2f dist=%.2f",
+              "yaw=%.2f pitch=%.2f dist=%.2f alpha_mean=%u landish=%u/%u",
               terrain_world_.node_count(), tex_nodes, width_px, height_px,
-              yaw(), pitch(), distance());
+              yaw(), pitch(), distance(), alpha_mean, landish, samples);
       if (!local_xyz_.empty() && local_xyz_.size() >= 3) {
         float mn_x = local_xyz_[0];
         float mn_y = local_xyz_[1];
@@ -982,6 +1004,20 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   const bool ocean_draw =
       ocean_on && !skip_ocean && !skip_ocean_for_solid_gate;
   atmosphere.frame().set_ocean_enabled(ocean_draw);
+  {
+    // One-shot: Hs must stay well below DEM peak (~0.14) or ocean hides land.
+    static bool ocean_diag_once = false;
+    if (!ocean_diag_once && ocean_on) {
+      ocean_diag_once = true;
+      const auto& op = atmosphere.ocean_pass();
+      LOGGING(LOG_INFO,
+              "scene3d.present ocean_draw=%d bake=%d albedo_gate=%d "
+              "Hs=%.3f mask_mean=%.3f idx=%u",
+              ocean_draw ? 1 : 0, dem_bake_usable ? 1 : 0,
+              need_albedo_gate ? 1 : 0, op.params().significant_wave_height,
+              op.sea_mask_mean(), op.index_count());
+    }
+  }
   if (!skip_post) {
     atmosphere.frame().set_cloud_enabled(cloud_on);
     atmosphere.frame().set_fog_enabled(fog_on);

@@ -31,6 +31,15 @@ bool exec_gis_command(const std::string& line,
     *output = "no host.extent_string";
     return true;
   }
+  if (line.rfind(":tool ", 0) == 0) {
+    const std::string id = line.substr(6);
+    if (!host.run_tool) {
+      *output = "no host.run_tool";
+      return true;
+    }
+    *output = host.run_tool(id);
+    return true;
+  }
   if (line == ":layers") {
     if (!host.layer_names) {
       *output = "no host.layer_names";

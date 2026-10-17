@@ -41,11 +41,15 @@
   gap: 0px;
 }
 
-/* Compact chip row above Catalog|Map. Do not pin width:100% — unused
-   horizon was a full-column dark strip (ui.shell toolbar gate). Packed
-   chips paint only content width; leftover is map_placeholder. */
+/* One chip row above Catalog|Map. Height is DIP (Yoga scales it).
+   min-height alone is not enough: AmboxView markup is the 240 DIP vertical
+   dock, FillLayout reports that height, and a later layout used to copy the
+   stretched bounds back into preferred size — the black band grew back.
+   height + max-height pin the row. Do not pin width:100%. */
 .tool_bar {
+  height: 48px;
   min-height: 48px;
+  max-height: 48px;
   flex-grow: 0;
   flex-shrink: 0;
 }
@@ -76,11 +80,12 @@
   flex-grow: 0;
 }
 
-/* Bottom Diagnostic Tools. Prefer C++ preferred_size (DIP→px); a fixed
-   CSS height fought Splitter seed and HiDPI measure. */
+/* Bottom Diagnostic Tools. Height is DiagnosticToolsPanel preferred_size
+   (260 DIP → px). Do not pin a CSS height: Yoga treats px as physical and
+   that fought Splitter seed under HiDPI. min-height is only a floor. */
 .diagnostics {
   width: 100%;
-  min-height: 140px;
+  min-height: 160px;
   flex-grow: 0;
 }
 

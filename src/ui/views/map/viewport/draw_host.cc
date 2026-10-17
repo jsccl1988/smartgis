@@ -241,6 +241,9 @@ bool DrawHost::attach() {
     return true;
   }
   // Map Edit fallbacks: OOP / GPU present / LoadLibrary. Scene3d: GPU present again.
+  // Do not retry DXGI when FORCE_CONTENT_MAPVIEW_2D pinned ContentMapView — that
+  // path is for browse BitBlt / motion_gate; a late FlyCube Present HWND steals
+  // the recorder and shows pan smear.
   if (role_ == Role::kMapEdit) {
     if (try_oop_render()) {
       mode_ = AttachMode::kOopRender;
@@ -250,7 +253,7 @@ bool DrawHost::attach() {
       sync_identity_frame();
       return true;
     }
-    if (try_gpu_present_device()) {
+    if (prefer_gpu_present_2d && try_gpu_present_device()) {
       mode_ = AttachMode::kGpuPresent;
       status_ = L"2D map GPU present (DX12)";
       start_present_timer();
@@ -267,7 +270,7 @@ bool DrawHost::attach() {
       return true;
     }
   } else if (role_ == Role::kMapData) {
-    if (try_gpu_present_device()) {
+    if (prefer_gpu_present_2d && try_gpu_present_device()) {
       mode_ = AttachMode::kGpuPresent;
       status_ = L"2D data GPU present (DX12)";
       start_present_timer();
@@ -495,12 +498,11 @@ void DrawHost::on_device_scale_factor_changed(float old_scale,
 
 bool DrawHost::try_content_map_view() {
 #ifdef HAS_CONTENT_MAP_SESSION
+  // A private GisContents + StartRenderProcess during shell init races the
+  // later PluginHost ctor (DockRec vector alloc → STATUS_HEAP_CORRUPTION).
+  // Browser::init owns the session and calls set_gis_contents before attach.
   if (!session_) {
-    session_ = content::create_gis_contents();
-    if (!session_) {
-      return false;
-    }
-    owns_session_ = true;
+    return false;
   }
   // Shared BrowserSession may own GisContents without StartRenderProcess
   // (deferred until ensure_oop_render_process / ENABLE_OOP_RENDER).

@@ -12,6 +12,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <atomic>
 #include <string>
 
 #include "app/views/browser/china_product_defaults.h"
@@ -22,6 +23,7 @@
 #include "ui/gis/catalog/catalog_view.h"
 #include "ui/gis/shell/atmosphere_panel.h"
 #include "ui/views/kernel/layout/splitter.h"
+#include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "ui/views/kernel/view/view.h"
@@ -32,18 +34,19 @@ void MapPagesComposer::switch_map_tab(int i) {
   if (i < 0) {
     return;
   }
-  // Nested entry (shell publish pump Dispatching TabStrip input, or
-  // plugin select_view_tab during lazy attach) must not start another
-  // pump_until_shell_published — that hung plain no-arg launch.
-  static thread_local bool in_switch = false;
-  if (in_switch) {
+  // Nested entry (shell publish pump, plugin select_view_tab, or a second
+  // thread during the 2s present pump) must not start another switch.
+  // thread_local missed the cross-thread select_view_tab(0) from plugin
+  // startup, which paused Scene3d after the first DEM present (flash, then
+  // the embed hole).
+  static std::atomic<int> switch_depth{0};
+  if (switch_depth.fetch_add(1, std::memory_order_acq_rel) != 0) {
+    switch_depth.fetch_sub(1, std::memory_order_acq_rel);
     return;
   }
   struct SwitchGuard {
-    bool& flag;
-    explicit SwitchGuard(bool& f) : flag(f) { flag = true; }
-    ~SwitchGuard() { flag = false; }
-  } switch_guard(in_switch);
+    ~SwitchGuard() { switch_depth.fetch_sub(1, std::memory_order_acq_rel); }
+  } switch_guard;
   if (host_->map_tabs_) {
     if (i >= host_->map_tabs_->tab_count()) {
       return;
@@ -70,15 +73,31 @@ void MapPagesComposer::switch_map_tab(int i) {
           // Fall through to lazy attach below.
         }
         if (mode == ui::views::DrawHost::AttachMode::kGpuPresent) {
-          // Enforce visibility then return.
-          auto sync_hwnd = [](ui::views::DrawHost* pane, bool show) {
+          // Same-tab reselect: async set_gpu_present_visible alone left Map
+          // FlyCube above Scene3d. Sync-hide the inactive present HWND.
+          auto hide_face = [](ui::views::DrawHost* pane) {
             if (!pane) {
               return;
             }
-            pane->set_gpu_present_visible(show);
+            pane->pause_present();
+            pane->set_gpu_present_visible(false);
+            if (HWND present = pane->present_hwnd()) {
+              if (IsWindow(present)) {
+                ShowWindow(present, SW_HIDE);
+              }
+            }
+            if (HWND hud = pane->identity_hud_hwnd()) {
+              if (IsWindow(hud)) {
+                ShowWindow(hud, SW_HIDE);
+              }
+            }
           };
-          sync_hwnd(host_->map_edit_, false);
-          sync_hwnd(host_->map_scene_, true);
+          hide_face(host_->map_edit_);
+          if (host_->map_scene_) {
+            host_->map_scene_->set_gpu_present_visible(true);
+            host_->map_scene_->resume_present_timer();
+            host_->map_scene_->request_frame();
+          }
           host_->map_tabs_->schedule_paint();
           host_->widget_.schedule_paint();
           return;
@@ -86,11 +105,34 @@ void MapPagesComposer::switch_map_tab(int i) {
       } else {
         // Mouse can flip active_ before change_ while the other GPU present
         // stays visible — sync faces to the chrome index (visual_review #6).
-        if (host_->map_edit_) {
-          host_->map_edit_->set_gpu_present_visible(i == 0);
-        }
-        if (host_->map_scene_) {
-          host_->map_scene_->set_gpu_present_visible(i == 1);
+        if (i == 0) {
+          if (host_->map_scene_) {
+            host_->map_scene_->pause_present();
+            host_->map_scene_->set_gpu_present_visible(false);
+            if (HWND present = host_->map_scene_->present_hwnd()) {
+              if (IsWindow(present)) {
+                ShowWindow(present, SW_HIDE);
+              }
+            }
+          }
+          if (host_->map_edit_) {
+            host_->map_edit_->set_gpu_present_visible(true);
+            host_->map_edit_->resume_present_timer();
+          }
+        } else {
+          if (host_->map_edit_) {
+            host_->map_edit_->pause_present();
+            host_->map_edit_->set_gpu_present_visible(false);
+            if (HWND present = host_->map_edit_->present_hwnd()) {
+              if (IsWindow(present)) {
+                ShowWindow(present, SW_HIDE);
+              }
+            }
+          }
+          if (host_->map_scene_) {
+            host_->map_scene_->set_gpu_present_visible(true);
+            host_->map_scene_->resume_present_timer();
+          }
         }
         host_->map_tabs_->schedule_paint();
         host_->widget_.schedule_paint();
@@ -112,9 +154,21 @@ void MapPagesComposer::switch_map_tab(int i) {
   // Entering 3D: stop Map Edit present + drain queued WM_TIMER before lazy
   // Scene attach. KillTimer-only / set_gpu_present_visible(false) leaves
   // present ticks that race the shared GPU process (self-test exit 3 after
-  // data-ready under exe_smoke).
+  // data-ready under exe_smoke). Also sync-hide the top-level FlyCube popup
+  // so it cannot cover the first Scene3d DEM frame (flash-then-ocean).
   if (i == 1 && host_->map_edit_) {
     host_->map_edit_->pause_present();
+    host_->map_edit_->set_gpu_present_visible(false);
+    if (HWND present = host_->map_edit_->present_hwnd()) {
+      if (IsWindow(present)) {
+        ShowWindow(present, SW_HIDE);
+      }
+    }
+    if (HWND hud = host_->map_edit_->identity_hud_hwnd()) {
+      if (IsWindow(hud)) {
+        ShowWindow(hud, SW_HIDE);
+      }
+    }
   }
   if (host_->map_tabs_) {
     host_->map_tabs_->set_active(i);
@@ -219,13 +273,15 @@ void MapPagesComposer::switch_map_tab(int i) {
           host_->catalog_->set_preferred_size({288, 0});
         }
         if (host_->catalog_map_) {
-          host_->catalog_map_->reseed();
+          // Force: OS resize / map_client drag can set user_adjusted_ on a
+          // seam and leave Map/3D at ~40–99px (FlyCube stub present).
+          host_->catalog_map_->reseed(/*force=*/true);
         }
         if (host_->diagnostic_tools_) {
           ui::views::View* diag_view = host_->diagnostic_tools_;
           for (ui::views::View* p = diag_view->parent(); p; p = p->parent()) {
             if (auto* split = dynamic_cast<ui::views::Splitter*>(p)) {
-              split->reseed();
+              split->reseed(/*force=*/true);
               break;
             }
           }
@@ -268,6 +324,56 @@ void MapPagesComposer::switch_map_tab(int i) {
               GetClientRect(hwnd, &rc);
             }
           }
+          // Open the Output dock before FlyCube Init. Doing it after the
+          // first DEM Present resized 2144x1095 down to the docked client,
+          // rebuilt the swapchain onto the navy clear, and the popup did
+          // not stay up (China flashed once).
+          if (restore_diagnostic && host_->diagnostic_tools_) {
+            const float scale = host_->widget_.device_scale_factor();
+            const int diag_h = ui::views::dip_to_px(260, scale);
+            host_->diagnostic_tools_->set_preferred_size({0, diag_h});
+            if (ui::views::View* diag_host =
+                    host_->diagnostic_tools_->parent()) {
+              diag_host->set_preferred_size({0, diag_h});
+            }
+            host_->diagnostic_tools_->set_visible_tools(true);
+            ui::views::Splitter* main_split = nullptr;
+            for (ui::views::View* p = host_->diagnostic_tools_->parent(); p;
+                 p = p->parent()) {
+              if (auto* split = dynamic_cast<ui::views::Splitter*>(p)) {
+                main_split = split;
+                split->reseed(/*force=*/true);
+                split->enforce_primary_floor(2.f / 3.f);
+                break;
+              }
+            }
+            if (host_->catalog_) {
+              host_->catalog_->set_preferred_size({288, 0});
+            }
+            if (host_->catalog_map_) {
+              host_->catalog_map_->reseed(/*force=*/true);
+            }
+            host_->widget_.layout_contents();
+            if (main_split) {
+              main_split->enforce_primary_floor(2.f / 3.f);
+            }
+            pane->sync_native_bounds();
+            GetClientRect(hwnd, &rc);
+            if (rc.right < 640 || rc.bottom < 360) {
+              host_->diagnostic_tools_->set_visible_tools(false);
+              if (main_split) {
+                main_split->reseed(/*force=*/true);
+              }
+              host_->widget_.layout_contents();
+              pane->sync_native_bounds();
+              GetClientRect(hwnd, &rc);
+              LOGGING(LOG_INFO,
+                      "rhi.switch_map_tab keep diagnostic collapsed "
+                      "client=%dx%d",
+                      static_cast<int>(rc.right),
+                      static_cast<int>(rc.bottom));
+            }
+          }
           LOGGING(LOG_INFO,
                   "rhi.switch_map_tab pre-attach client=%dx%d bounds=%dx%d",
                   static_cast<int>(rc.right), static_cast<int>(rc.bottom),
@@ -279,10 +385,6 @@ void MapPagesComposer::switch_map_tab(int i) {
       }
       pane->attach();
       pane->sync_native_bounds();
-      if (restore_diagnostic && host_->diagnostic_tools_) {
-        host_->diagnostic_tools_->set_visible_tools(true);
-        host_->widget_.layout_contents();
-      }
       // Gestures: wait for attach_hwnd_gestures() at the end of this function.
       // Wiring mid-lazy-attach AVd in GisHwndGestures::detach/_Tidy
       // (0xCDCDCDCD) under browse.3d before orbit/tool activate settled.
@@ -364,13 +466,53 @@ void MapPagesComposer::switch_map_tab(int i) {
   }
   sync_hwnd(host_->map_edit_, i == 0);
   sync_hwnd(host_->map_scene_, i == 1);
+  // Shell pump / soft_hide / async SWP_HIDEWINDOW can leave Map-Edit's
+  // top-level FlyCube popup (and its Map2D identity HUD) visible above a
+  // live Scene3d face — DEM paints once then the ocean hole covers it.
+  // Soft-hide uses sync ShowWindow after pause; mirror that for the inactive
+  // tab here (post-pump) so the active DXGI SoT stays on top.
+  auto hide_present_face = [](ui::views::DrawHost* pane) {
+    if (!pane) {
+      return;
+    }
+    pane->pause_present();
+    pane->set_gpu_present_visible(false);
+    if (HWND present = pane->present_hwnd()) {
+      if (IsWindow(present)) {
+        ShowWindow(present, SW_HIDE);
+      }
+    }
+    if (HWND hud = pane->identity_hud_hwnd()) {
+      if (IsWindow(hud)) {
+        ShowWindow(hud, SW_HIDE);
+      }
+    }
+  };
+  if (i == 1) {
+    hide_present_face(host_->map_edit_);
+  } else {
+    hide_present_face(host_->map_scene_);
+    // Phase C (interact): export may leave Scene3d tab underline while Map2d
+    // paints — force chrome + Map face again after hide.
+    if (host_->map_tabs_) {
+      host_->map_tabs_->set_active(0);
+      host_->map_tabs_->schedule_paint();
+    }
+    if (host_->browser_ && host_->map_edit_) {
+      const ui::views::Rect& eb = host_->map_edit_->bounds();
+      frame_china_map2d(*host_->browser_, eb.width, eb.height);
+    }
+  }
   if (ui::views::DrawHost* pane = host_->active_map()) {
     pane->sync_native_bounds();
     pane->invalidate_native();
     // Active pane must show its present surface. Using (i == 1) wrongly hid
     // Map-Edit GPU present on 3D→Map (Phase C) when FlyCube-2D was attached.
-    pane->set_gpu_present_visible(true);
+    // reveal_gpu_present_if_ready no-ops while paused. Clear pause first or
+    // the Scene3d popup stays SW_HIDE after the one DEM frame.
     pane->resume_present_timer();
+    pane->set_gpu_present_visible(true);
+    pane->request_frame();
   }
   // Rebind both tabs: 3D lazy attach needs input_hwnd(); 3D→Map must restore
   // Map-Edit subclass or pan/wheel after interact Phase C hits a dead HWND.
@@ -379,6 +521,69 @@ void MapPagesComposer::switch_map_tab(int i) {
   if (host_->map_tabs_) {
     LOGGING(LOG_INFO, "rhi.switch_map_tab chrome active=%d want=%d",
             host_->map_tabs_->active(), i);
+  }
+  // First Scene3d Present often completes after the faces log above. Pump
+  // until DEM Present lifts the DXGI popup (or 2s), then re-hide Map-Edit so
+  // a late async show cannot cover textured DEM.
+  if (i == 1 && host_->map_scene_) {
+    HWND shell = host_->widget_.hwnd();
+    const DWORD t0 = GetTickCount();
+    while (shell && IsWindow(shell) && GetTickCount() - t0 < 2000u) {
+      if (host_->map_scene_->last_gpu_present_ok()) {
+        if (HWND present = host_->map_scene_->present_hwnd()) {
+          if (IsWindow(present) && IsWindowVisible(present)) {
+            break;
+          }
+        }
+      }
+      MSG msg = {};
+      while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+      }
+      if (host_->map_scene_->last_gpu_present_ok()) {
+        host_->map_scene_->resume_present_timer();
+        host_->map_scene_->set_gpu_present_visible(true);
+        if (HWND present = host_->map_scene_->present_hwnd()) {
+          if (IsWindow(present)) {
+            ShowWindow(present, SW_SHOWNA);
+            SetWindowPos(present, HWND_TOP, 0, 0, 0, 0,
+                         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE |
+                             SWP_SHOWWINDOW);
+          }
+        }
+      }
+      hide_present_face(host_->map_edit_);
+      Sleep(10);
+    }
+    // The pump can observe last_gpu_present_ok only after the timeout, or a
+    // pumped select_view_tab(0) can SW_HIDE the popup on the last iteration.
+    // Re-show once so the China DEM frame is the surface the user keeps.
+    host_->map_scene_->resume_present_timer();
+    host_->map_scene_->set_gpu_present_visible(true);
+    if (HWND present = host_->map_scene_->present_hwnd()) {
+      if (IsWindow(present)) {
+        ShowWindow(present, SW_SHOWNA);
+        SetWindowPos(present, HWND_TOP, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+      }
+    }
+    host_->map_scene_->request_frame();
+  }
+  if (i == 1 && host_->map_edit_) {
+    const bool map_present_vis =
+        host_->map_edit_->present_hwnd() &&
+        IsWindowVisible(host_->map_edit_->present_hwnd());
+    const bool scene_present_vis =
+        host_->map_scene_ && host_->map_scene_->present_hwnd() &&
+        IsWindowVisible(host_->map_scene_->present_hwnd());
+    LOGGING(LOG_INFO,
+            "rhi.switch_map_tab faces map_present=%d scene_present=%d "
+            "scene_ok=%d",
+            map_present_vis ? 1 : 0, scene_present_vis ? 1 : 0,
+            (host_->map_scene_ && host_->map_scene_->last_gpu_present_ok())
+                ? 1
+                : 0);
   }
 }
 

@@ -3,6 +3,7 @@
 
 #include "content/public/plugin_host.h"
 
+#include "base/core/log.h"
 #include "content/public/gis_contents.h"
 
 #include <algorithm>
@@ -58,7 +59,9 @@ class PluginHostImpl final : public PluginHost {
   PluginHostImpl(tool::CommandCatalog* catalog,
                  EventBus* events,
                  GisContents* contents)
-      : catalog_(catalog), events_(events), contents_(contents) {}
+      : catalog_(catalog), events_(events), contents_(contents) {
+    LOGGING(LOG_INFO, "startup: PluginHostImpl members ready");
+  }
 
   GisContents* gis_contents() override { return contents_; }
   void set_gis_contents(GisContents* contents) override { contents_ = contents; }

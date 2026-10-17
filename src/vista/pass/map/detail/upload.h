@@ -33,8 +33,12 @@ namespace detail {
 // and texture binding but differ in color/opacity.
 struct UploadedDraw {
   bool textured = false;
-  // True for DEM / hillshade rasters (painter: solids -> dem -> glyphs).
+  // True for DEM / hillshade rasters (painter: fill -> dem -> stroke -> glyphs).
   bool dem_raster = false;
+  // Line/circle solids drawn after DEM so rivers/admin sit above hillshade.
+  bool stroke = false;
+  // Pixel-mapped text/icon — invalidate when the view extent changes.
+  bool overlay = false;
   render::rhi::Buffer* vertices = nullptr;
   render::rhi::Buffer* indices = nullptr;
   uint32_t index_count = 0;

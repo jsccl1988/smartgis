@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/core/log.h"
 #include "vista/component/map/shade/multiply.h"
 #include "render/rhi/rhi.h"
 
@@ -40,6 +41,8 @@ struct MeshBucket {
 struct PendingDraw {
   bool textured = false;
   bool dem_raster = false;
+  bool stroke = false;
+  bool overlay = false;
   size_t bucket_index = 0;
   render::rhi::Texture* texture = nullptr;
   uint32_t first_index = 0;
@@ -134,6 +137,7 @@ void push_or_coalesce(std::vector<PendingDraw>* pending, PendingDraw draw) {
   if (!pending->empty()) {
     PendingDraw& last = pending->back();
     if (last.textured == draw.textured && last.dem_raster == draw.dem_raster &&
+        last.stroke == draw.stroke && last.overlay == draw.overlay &&
         last.texture == draw.texture && last.bucket_index == draw.bucket_index &&
         last.blend == draw.blend && last.r == draw.r && last.g == draw.g &&
         last.b == draw.b && last.a == draw.a &&
@@ -325,6 +329,24 @@ std::vector<UploadedDraw> upload_draws(
           }
         }
         texture = upload_rgba_checked(device, &rgba, w, h, textures);
+        if (!texture) {
+          constexpr uint32_t kHillshadeKey = 0x48534844u;
+          LOGGING(LOG_ERROR,
+                  "map2d: HSHD/raster upload failed key=0x%08x %dx%d bytes=%zu",
+                  key, w, h, rgba.size());
+          if (key == kHillshadeKey) {
+            LOGGING(LOG_ERROR,
+                    "map2d: hillshade bake present but GPU texture missing — "
+                    "jet land fill was skipped; expect ocean/cream only");
+          }
+        }
+      } else {
+        constexpr uint32_t kHillshadeKey = 0x48534844u;
+        if (key == kHillshadeKey) {
+          LOGGING(LOG_ERROR,
+                  "map2d: HSHD load_raster miss key=0x%08x (cache empty)",
+                  key);
+        }
       }
     }
     raster_cache.emplace(cache_key, texture);
@@ -395,6 +417,8 @@ std::vector<UploadedDraw> upload_draws(
     bool skip = true;
     bool textured = false;
     bool dem_raster = false;
+    bool stroke = false;
+    bool overlay = false;
     bool uv = false;
     size_t bucket_index = 0;
     render::rhi::Texture* texture = nullptr;
@@ -419,6 +443,8 @@ std::vector<UploadedDraw> upload_draws(
 
     ResolvedMesh item;
     item.skip = false;
+    item.stroke = mesh.stroke;
+    item.overlay = mesh.overlay;
     item.r = mesh.r;
     item.g = mesh.g;
     item.b = mesh.b;
@@ -522,6 +548,8 @@ std::vector<UploadedDraw> upload_draws(
     PendingDraw draw;
     draw.textured = item.textured;
     draw.dem_raster = item.dem_raster;
+    draw.stroke = item.stroke;
+    draw.overlay = item.overlay;
     draw.bucket_index = item.bucket_index;
     draw.texture = item.texture;
     draw.first_index = first_index;
@@ -566,6 +594,8 @@ std::vector<UploadedDraw> upload_draws(
     UploadedDraw draw;
     draw.textured = p.textured;
     draw.dem_raster = p.dem_raster;
+    draw.stroke = p.stroke;
+    draw.overlay = p.overlay;
     draw.vertices = bucket.vb;
     draw.indices = bucket.ib;
     draw.index_count = p.index_count;

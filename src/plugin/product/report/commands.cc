@@ -90,51 +90,40 @@ bool register_report(content::PluginHost* host) {
   if (!host) {
     return false;
   }
-  tool::CommandCatalog* catalog = host->commands();
-  if (catalog && catalog->contains("report.scenario.showcase")) {
-    return true;
-  }
-  const bool have_open = catalog && catalog->contains("report.open");
-  if (!have_open) {
-    if (!host->contribute_command(
-            kPluginId, "report.open", "打开报告", "tools",
-            [host](const tool::CommandArgs& args) {
-              return process_open(host, args.payload);
-            })) {
-      return false;
-    }
-    if (!host->contribute_command(
-            kPluginId, "report.post", "推送报告数据", "tools",
-            [host](const tool::CommandArgs& args) {
-              return process_post(host, args.payload);
-            })) {
-      return false;
-    }
-  }
-  if (!host->contribute_command(
-          kPluginId, "report.scenario.showcase", "Harness report scenario",
-          "tools",
-          [host](const tool::CommandArgs& args) {
-            const bool ok = process_scenario(host, args.payload);
-            set_harness_scenario_exit(ok ? 0 : 1);
-            return ok;
-          })) {
+  // contribute_command is idempotent on handlers_. Do not probe
+  // CommandCatalog first: a smashed id string AVs in contains()
+  // (_Large_mode_engaged) before the report pack can install.
+  auto contribute = [&](const char* id, const char* title,
+                        tool::CommandHandler handler) {
+    return host->contribute_command(kPluginId, id, title, "tools",
+                                    std::move(handler));
+  };
+  if (!contribute("report.open", "打开报告",
+                  [host](const tool::CommandArgs& args) {
+                    return process_open(host, args.payload);
+                  }) ||
+      !contribute("report.post", "推送报告数据",
+                  [host](const tool::CommandArgs& args) {
+                    return process_post(host, args.payload);
+                  }) ||
+      !contribute("report.scenario.showcase", "Harness report scenario",
+                  [host](const tool::CommandArgs& args) {
+                    const bool ok = process_scenario(host, args.payload);
+                    set_harness_scenario_exit(ok ? 0 : 1);
+                    return ok;
+                  })) {
     return false;
   }
-  if (!have_open) {
-    if (!host->contribute_processing(
-            kPluginId, {"report.open", "Open local HTML report directory"},
-            process_open) ||
-        !host->contribute_processing(
-            kPluginId, {"report.post", "Post JSON to the report dock"},
-            process_post)) {
-      return false;
-    }
-  }
   return host->contribute_processing(
-      kPluginId,
-      {"report.scenario.showcase", "Open sample report and post series"},
-      process_scenario);
+             kPluginId, {"report.open", "Open local HTML report directory"},
+             process_open) &&
+         host->contribute_processing(
+             kPluginId, {"report.post", "Post JSON to the report dock"},
+             process_post) &&
+         host->contribute_processing(
+             kPluginId,
+             {"report.scenario.showcase", "Open sample report and post series"},
+             process_scenario);
 }
 
 }  // namespace plugin

@@ -38,6 +38,7 @@ class UI_EXPORT RenderTracePanel : public View {
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;
+  bool on_mouse_event(const MouseEvent& event) override;
 
  private:
   void on_record();
@@ -66,6 +67,15 @@ class UI_EXPORT RenderTracePanel : public View {
 
   std::unique_ptr<State> state_;
   bool embedded_ = false;
+  // Vertical lane scroll. Geometry is refreshed in paint_self for hit-testing.
+  int scroll_y_ = 0;
+  bool scroll_drag_ = false;
+  Rect plot_track_{};
+  Rect plot_thumb_{};
+  int plot_content_h_ = 0;
+  int plot_view_h_ = 0;
+  int plot_lane_h_ = 0;
+  bool plot_scrollable_ = false;
 };
 
 // Factory: allocate in ui_views.dll (required for cross-module View ownership).

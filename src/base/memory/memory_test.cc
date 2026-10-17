@@ -1,6 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include "base/memory/allocation_tracker.h"
 #include "base/memory/allocator.h"
 #include "base/memory/arena.h"
 #include "base/memory/object_pool.h"
@@ -18,6 +19,19 @@ struct PooledInt {
   int value = 0;
   using _DestructorSkippable = void;
 };
+
+bool flame_has_type(const base::AllocationTracker::FlameNode& node,
+                    const char* needle) {
+  if (node.type && std::string(node.type).find(needle) != std::string::npos) {
+    return true;
+  }
+  for (const base::AllocationTracker::FlameNode& child : node.children) {
+    if (flame_has_type(child, needle)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 }  // namespace
 
@@ -51,6 +65,22 @@ int main() {
   {
     int* n = base::create<int>(42);
     assert(n && *n == 42);
+  }
+
+  {
+    struct FlameProbe {
+      int n = 1;
+    };
+    base::AllocationTracker::reset();
+    base::AllocationTracker::enable();
+    FlameProbe* probe = base::create<FlameProbe>();
+    assert(probe && probe->n == 1);
+    const auto tree = base::AllocationTracker::flame_snapshot();
+    assert(!tree.empty());
+    assert(tree.front().bytes >= sizeof(FlameProbe));
+    assert(flame_has_type(tree.front(), "FlameProbe"));
+    base::AllocationTracker::disable();
+    base::AllocationTracker::reset();
   }
 
   {

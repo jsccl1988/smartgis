@@ -16,6 +16,17 @@ if (is_debug) {
   _proj_d = "_d"
 }
 
+if (is_win) {
+  # Delay-load hook: SetDllDirectory(<exe>/../third_party/bin) before GDAL/GEOS/PROJ.
+  static_library("dll_search") {
+    sources = [ "dll_search.cc" ]
+    output_dir = target_out_dir
+  }
+} else {
+  group("dll_search") {
+  }
+}
+
 config("tp_common") {
   include_dirs += [ "$_tp/include" ]
   lib_dirs = [ "$_tp/lib" ]
@@ -59,10 +70,32 @@ config("geos_cfg") {
     "$_tp/lib/geos$_d.lib",
     "$_tp/lib/geos_c$_d.lib",
   ]
+  if (is_win) {
+    libs += [ "delayimp.lib" ]
+    if (is_debug) {
+      ldflags = [
+        "/DELAYLOAD:geosd.dll",
+        "/DELAYLOAD:geos_cd.dll",
+      ]
+    } else {
+      ldflags = [
+        "/DELAYLOAD:geos.dll",
+        "/DELAYLOAD:geos_c.dll",
+      ]
+    }
+  }
 }
 
 config("proj_cfg") {
   libs += [ "$_tp/lib/proj$_proj_d.lib" ]
+  if (is_win) {
+    libs += [ "delayimp.lib" ]
+    if (is_debug) {
+      ldflags = [ "/DELAYLOAD:proj_9_4_d.dll" ]
+    } else {
+      ldflags = [ "/DELAYLOAD:proj_9_4.dll" ]
+    }
+  }
 }
 
 config("gdal_cfg") {
@@ -73,6 +106,22 @@ config("gdal_cfg") {
   ]
   defines = []
   defines += [ "SUPPRESS_DEPRECATION_WARNINGS" ]
+  if (is_win) {
+    libs += [ "delayimp.lib" ]
+    if (is_debug) {
+      ldflags = [
+        "/DELAYLOAD:gdald.dll",
+        "/DELAYLOAD:geos_cd.dll",
+        "/DELAYLOAD:proj_9_4_d.dll",
+      ]
+    } else {
+      ldflags = [
+        "/DELAYLOAD:gdal.dll",
+        "/DELAYLOAD:geos_c.dll",
+        "/DELAYLOAD:proj_9_4.dll",
+      ]
+    }
+  }
 }
 
 config("pdal_cfg") {
@@ -84,6 +133,14 @@ config("pdal_cfg") {
   # PDAL endian helpers pull Winsock htonl/htons/ntohl/ntohs.
   libs += [ "ws2_32.lib" ]
   defines += [ "has_PDAL=1" ]
+  if (is_win) {
+    libs += [ "delayimp.lib" ]
+    if (is_debug) {
+      ldflags = [ "/DELAYLOAD:pdalcppd.dll" ]
+    } else {
+      ldflags = [ "/DELAYLOAD:pdalcpp.dll" ]
+    }
+  }
 }
 
 config("spatialindex_cfg") {
@@ -129,6 +186,13 @@ config("openssl_cfg") {
     "user32.lib",
     "bcrypt.lib",
   ]
+  if (is_win) {
+    libs += [ "delayimp.lib" ]
+    ldflags = [
+      "/DELAYLOAD:libssl-4-x64.dll",
+      "/DELAYLOAD:libcrypto-4-x64.dll",
+    ]
+  }
 }
 
 if (!is_debug) {
@@ -142,6 +206,9 @@ if (!is_debug) {
 
   group("openssl") {
     public_deps = [ ":openssl_runtime_dlls" ]
+    if (is_win) {
+      public_deps += [ ":dll_search" ]
+    }
     public_configs = [
       ":tp_common",
       ":openssl_cfg",
@@ -230,6 +297,9 @@ group("geos") {
     ":tp_common",
     ":geos_cfg",
   ]
+  if (is_win) {
+    public_deps = [ ":dll_search" ]
+  }
 }
 
 copy("proj_runtime_data") {
@@ -245,6 +315,9 @@ group("PROJ") {
     ":sqlite3",
     ":proj_runtime_data",
   ]
+  if (is_win) {
+    public_deps += [ ":dll_search" ]
+  }
   public_configs = [
     ":tp_common",
     ":proj_cfg",
@@ -275,6 +348,9 @@ group("gdal") {
     ":PROJ",
     ":gdal_runtime_dlls",
   ]
+  if (is_win) {
+    public_deps += [ ":dll_search" ]
+  }
   public_configs = [
     ":tp_common",
     ":gdal_cfg",
@@ -296,6 +372,9 @@ if (has_pdal) {
       ":gdal",
       ":pdal_runtime_dlls",
     ]
+    if (is_win) {
+      public_deps += [ ":dll_search" ]
+    }
     public_configs = [
       ":tp_common",
       ":pdal_cfg",

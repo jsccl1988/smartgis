@@ -9,6 +9,7 @@
 #include <yoga/Yoga.h>
 
 #include "ui/views/kernel/view/view.h"
+#include "ui/views/kernel/widget/widget.h"
 
 namespace ui {
 namespace views {
@@ -53,7 +54,24 @@ YGAlign to_yg_align(FlexStyle::Align a) {
   }
 }
 
-void apply_flex_style(YGNodeRef node, const FlexStyle& style, bool is_host) {
+// Markup lengths are DIP. View bounds and Skia text are physical pixels.
+float style_scale(const View* view) {
+  float scale = 1.f;
+  if (view && view->widget()) {
+    scale = view->widget()->device_scale_factor();
+  }
+  if (!(scale > 0.f)) {
+    scale = 1.f;
+  }
+  return scale;
+}
+
+float dip_len(float dip, float scale) {
+  return dip * scale;
+}
+
+void apply_flex_style(YGNodeRef node, const FlexStyle& style, bool is_host,
+                      float scale) {
   if (style.display.has_value()) {
     YGNodeStyleSetDisplay(
         node, *style.display == FlexStyle::Display::kNone ? YGDisplayNone
@@ -73,16 +91,17 @@ void apply_flex_style(YGNodeRef node, const FlexStyle& style, bool is_host) {
       YGNodeStyleSetAlignItems(node, YGAlignStretch);
     }
     if (style.gap.has_value()) {
-      YGNodeStyleSetGap(node, YGGutterAll, *style.gap);
+      YGNodeStyleSetGap(node, YGGutterAll, dip_len(*style.gap, scale));
     }
     const float pad = style.padding.value_or(0.f);
     YGNodeStyleSetPadding(node, YGEdgeLeft,
-                          style.padding_left.value_or(pad));
-    YGNodeStyleSetPadding(node, YGEdgeTop, style.padding_top.value_or(pad));
+                          dip_len(style.padding_left.value_or(pad), scale));
+    YGNodeStyleSetPadding(node, YGEdgeTop,
+                          dip_len(style.padding_top.value_or(pad), scale));
     YGNodeStyleSetPadding(node, YGEdgeRight,
-                          style.padding_right.value_or(pad));
+                          dip_len(style.padding_right.value_or(pad), scale));
     YGNodeStyleSetPadding(node, YGEdgeBottom,
-                          style.padding_bottom.value_or(pad));
+                          dip_len(style.padding_bottom.value_or(pad), scale));
   }
 
   if (style.flex_grow.has_value()) {
@@ -98,29 +117,32 @@ void apply_flex_style(YGNodeRef node, const FlexStyle& style, bool is_host) {
   }
 
   const float margin = style.margin.value_or(0.f);
-  YGNodeStyleSetMargin(node, YGEdgeLeft, style.margin_left.value_or(margin));
-  YGNodeStyleSetMargin(node, YGEdgeTop, style.margin_top.value_or(margin));
-  YGNodeStyleSetMargin(node, YGEdgeRight, style.margin_right.value_or(margin));
+  YGNodeStyleSetMargin(node, YGEdgeLeft,
+                       dip_len(style.margin_left.value_or(margin), scale));
+  YGNodeStyleSetMargin(node, YGEdgeTop,
+                       dip_len(style.margin_top.value_or(margin), scale));
+  YGNodeStyleSetMargin(node, YGEdgeRight,
+                       dip_len(style.margin_right.value_or(margin), scale));
   YGNodeStyleSetMargin(node, YGEdgeBottom,
-                       style.margin_bottom.value_or(margin));
+                       dip_len(style.margin_bottom.value_or(margin), scale));
 
   if (style.width.has_value()) {
-    YGNodeStyleSetWidth(node, *style.width);
+    YGNodeStyleSetWidth(node, dip_len(*style.width, scale));
   }
   if (style.height.has_value()) {
-    YGNodeStyleSetHeight(node, *style.height);
+    YGNodeStyleSetHeight(node, dip_len(*style.height, scale));
   }
   if (style.min_width.has_value()) {
-    YGNodeStyleSetMinWidth(node, *style.min_width);
+    YGNodeStyleSetMinWidth(node, dip_len(*style.min_width, scale));
   }
   if (style.min_height.has_value()) {
-    YGNodeStyleSetMinHeight(node, *style.min_height);
+    YGNodeStyleSetMinHeight(node, dip_len(*style.min_height, scale));
   }
   if (style.max_width.has_value()) {
-    YGNodeStyleSetMaxWidth(node, *style.max_width);
+    YGNodeStyleSetMaxWidth(node, dip_len(*style.max_width, scale));
   }
   if (style.max_height.has_value()) {
-    YGNodeStyleSetMaxHeight(node, *style.max_height);
+    YGNodeStyleSetMaxHeight(node, dip_len(*style.max_height, scale));
   }
 }
 
@@ -175,9 +197,10 @@ void build_tree(const View* host,
                 const FlexStyle& host_style,
                 const std::unordered_map<const View*, FlexStyle>& child_styles,
                 YogaTree* tree,
-                bool set_host_size) {
+                bool set_host_size,
+                float scale) {
   tree->root = YGNodeNew();
-  apply_flex_style(tree->root, host_style, /*is_host=*/true);
+  apply_flex_style(tree->root, host_style, /*is_host=*/true, scale);
   if (set_host_size) {
     YGNodeStyleSetWidth(tree->root,
                         static_cast<float>(host->bounds().width));
@@ -194,7 +217,7 @@ void build_tree(const View* host,
     YGNodeSetContext(yn, child);
     const FlexStyle* cs = find_child_style(child_styles, child);
     FlexStyle style = cs ? *cs : FlexStyle{};
-    apply_flex_style(yn, style, /*is_host=*/false);
+    apply_flex_style(yn, style, /*is_host=*/false, scale);
     const bool has_fixed_w = style.width.has_value();
     const bool has_fixed_h = style.height.has_value();
     // Flex-grow children are sized by the flex algorithm. Attaching a measure
@@ -337,8 +360,9 @@ void YogaLayoutManager::layout_impl(View* host) {
     return;
   }
   const Rect host_bounds = host->bounds();
+  const float scale = style_scale(host);
   std::vector<ChildSnap> snaps = capture_child_snaps(host);
-  if (layout_valid_ && layout_host_ == host &&
+  if (layout_valid_ && layout_host_ == host && layout_scale_ == scale &&
       layout_host_bounds_.x == host_bounds.x &&
       layout_host_bounds_.y == host_bounds.y &&
       layout_host_bounds_.width == host_bounds.width &&
@@ -347,7 +371,8 @@ void YogaLayoutManager::layout_impl(View* host) {
     return;
   }
   YogaTree tree;
-  build_tree(host, host_style_, child_styles_, &tree, /*set_host_size=*/true);
+  build_tree(host, host_style_, child_styles_, &tree, /*set_host_size=*/true,
+             scale);
   YGNodeCalculateLayout(tree.root, static_cast<float>(host_bounds.width),
                         static_cast<float>(host_bounds.height),
                         YGDirectionLTR);
@@ -364,6 +389,7 @@ void YogaLayoutManager::layout_impl(View* host) {
   // Recapture after measure_view so a follow-up pass sees stable preferred
   // sizes and can skip instead of remaking the Yoga tree.
   layout_host_ = host;
+  layout_scale_ = scale;
   layout_host_bounds_ = host_bounds;
   layout_snaps_ = capture_child_snaps(host);
   layout_valid_ = true;
@@ -373,15 +399,18 @@ Size YogaLayoutManager::preferred_impl(const View* host) const {
   if (!host) {
     return {};
   }
+  const float scale = style_scale(host);
   std::vector<ChildSnap> snaps = capture_child_snaps(host);
-  if (pref_valid_ && pref_host_ == host &&
+  if (pref_valid_ && pref_host_ == host && pref_scale_ == scale &&
       child_snaps_equal(pref_snaps_, snaps)) {
     return pref_size_;
   }
   YogaTree tree;
-  build_tree(host, host_style_, child_styles_, &tree, /*set_host_size=*/false);
+  build_tree(host, host_style_, child_styles_, &tree, /*set_host_size=*/false,
+             scale);
   YGNodeCalculateLayout(tree.root, YGUndefined, YGUndefined, YGDirectionLTR);
   pref_host_ = host;
+  pref_scale_ = scale;
   pref_snaps_ = capture_child_snaps(host);
   pref_size_ = {round_px(YGNodeLayoutGetWidth(tree.root)),
                 round_px(YGNodeLayoutGetHeight(tree.root))};

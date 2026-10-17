@@ -11,6 +11,8 @@ import socket
 from typing import Any, Callable, Mapping, Optional
 from urllib.parse import urlparse
 
+from smartgis.cursor_session import cursor_conversation_name
+
 
 class AgentError(RuntimeError):
     """Raised when the Agent returns ok=false or the transport fails."""
@@ -22,7 +24,10 @@ EventHandler = Callable[[dict[str, Any]], None]
 class AgentClient:
     """Newline-delimited JSON client talking to DebugAgent over loopback TCP.
 
-    Request:  {"id": N, "method": "...", "params": {...}}
+    Request:  {"id": N, "method": "...", "params": {...}, "session": "..."}
+    ``session`` is the Cursor conversation title when this process is an
+    agent (or ``SMARTGIS_DEBUG_SESSION`` when that is set) so the Diagnostic
+    Tools Agent tab can split conversations by chat name.
     Response: {"id": N, "ok": true, "result": {...}}
            or {"id": N, "ok": false, "error": "..."}
     Event:    {"event": "log", "entry": {...}}
@@ -32,6 +37,7 @@ class AgentClient:
         self._sock = sock
         self._file = sock.makefile("rwb", buffering=0)
         self._next_id = 1
+        self._session = ""
         self._event_handler: Optional[EventHandler] = None
         self._pending_events: list[dict[str, Any]] = []
 
@@ -44,7 +50,9 @@ class AgentClient:
         except OSError as exc:
             raise AgentError(f"connect failed: {host}:{port}: {exc}") from exc
         sock.settimeout(timeout)
-        return cls(sock)
+        client = cls(sock)
+        client.set_session(cursor_conversation_name())
+        return client
 
     def close(self) -> None:
         try:
@@ -61,6 +69,10 @@ class AgentClient:
 
     def __exit__(self, *args: object) -> None:
         self.close()
+
+    def set_session(self, name: str) -> None:
+        """Label this connection on the Agent tab. Empty keeps the server id."""
+        self._session = (name or "").strip()
 
     def set_event_handler(self, handler: Optional[EventHandler]) -> None:
         """Optional callback invoked for server-push events during call/read."""
@@ -129,13 +141,14 @@ class AgentClient:
         """Send a request and return the ``result`` dict on success."""
         req_id = self._next_id
         self._next_id += 1
-        self.send_raw(
-            {
-                "id": req_id,
-                "method": method,
-                "params": dict(params) if params else {},
-            }
-        )
+        body: dict[str, Any] = {
+            "id": req_id,
+            "method": method,
+            "params": dict(params) if params else {},
+        }
+        if self._session:
+            body["session"] = self._session
+        self.send_raw(body)
         while True:
             msg = self.read_raw()
             # Skip server push events (no matching id).

@@ -9,12 +9,15 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <unordered_map>
 #include <vector>
 
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <objidl.h>
+#include <gdiplus.h>
 
 namespace content {
 namespace detail {
@@ -42,6 +45,7 @@ struct WorldToPixel {
 
 WorldToPixel make_xform(const Map2dFrameCache::CameraKey& cam) {
   WorldToPixel x;
+  // CameraKey Y is already +lat (same space as MapIR layout vertices).
   x.min_x = cam.min_x;
   x.min_y = cam.min_y;
   x.span_x = cam.max_x - cam.min_x;
@@ -104,11 +108,131 @@ void paint_fill(HDC hdc, const vista::DrawItem& item, const WorldToPixel& x) {
   ::DeleteObject(pen);
 }
 
+bool gdiplus_ready() {
+  struct State {
+    ULONG_PTR token = 0;
+    bool ok = false;
+    State() {
+      Gdiplus::GdiplusStartupInput input;
+      ok = Gdiplus::GdiplusStartup(&token, &input, nullptr) == Gdiplus::Ok;
+    }
+  };
+  static State state;
+  return state.ok;
+}
+
+// Stroke meshes are thin triangles. GDI Polygon is aliased; GDI+ smooths them
+// so national-scale roads (the yellow network) read as continuous casings.
+void paint_mesh_aa(HDC hdc, const vista::DrawItem& item, const WorldToPixel& x) {
+  if (!gdiplus_ready() || item.indices.empty() || item.vertices.size() < 3) {
+    paint_fill(hdc, item, x);
+    return;
+  }
+  Gdiplus::Graphics graphics(hdc);
+  if (graphics.GetLastStatus() != Gdiplus::Ok) {
+    paint_fill(hdc, item, x);
+    return;
+  }
+  graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+  graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+  const COLORREF c = rgba_opaque(item.rgba);
+  const BYTE alpha = static_cast<BYTE>(std::lround(
+      (std::max)(0.f, (std::min)(1.f, item.opacity)) * 255.f));
+  Gdiplus::SolidBrush brush(
+      Gdiplus::Color(alpha, GetRValue(c), GetGValue(c), GetBValue(c)));
+  std::vector<Gdiplus::Point> pts(3);
+  for (size_t i = 0; i + 2 < item.indices.size(); i += 3) {
+    bool ok = true;
+    for (int k = 0; k < 3; ++k) {
+      const uint32_t vi = item.indices[i + static_cast<size_t>(k)];
+      if (vi >= item.vertices.size()) {
+        ok = false;
+        break;
+      }
+      const POINT p = x.to_point(item.vertices[vi].x, item.vertices[vi].y);
+      pts[static_cast<size_t>(k)] = Gdiplus::Point(p.x, p.y);
+    }
+    if (ok) {
+      graphics.FillPolygon(&brush, pts.data(), 3);
+    }
+  }
+}
+
+int utf16_from_codepoint(uint32_t cp, wchar_t out[3]) {
+  if (cp == 0 || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) {
+    return 0;
+  }
+  if (cp < 0x10000) {
+    out[0] = static_cast<wchar_t>(cp);
+    return 1;
+  }
+  cp -= 0x10000;
+  out[0] = static_cast<wchar_t>(0xd800 + ((cp >> 10) & 0x3ff));
+  out[1] = static_cast<wchar_t>(0xdc00 + (cp & 0x3ff));
+  return 2;
+}
+
+HFONT font_for_px(int px) {
+  static std::unordered_map<int, HFONT> fonts;
+  const int key = (std::max)(8, (std::min)(px, 64));
+  const auto found = fonts.find(key);
+  if (found != fonts.end()) {
+    return found->second;
+  }
+  HFONT font = ::CreateFontW(-key, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                             CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                             DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei UI");
+  fonts.emplace(key, font);
+  return font;
+}
+
+// Layout already collision-keeps labels and sets text_size_px from zoom.
+// Quads are screen pixels (north-up world, y down). GDI gold used to skip
+// kText, so point names never reached the showcase BMP.
+void paint_text(HDC hdc, const vista::DrawItem& item) {
+  if (!item.pixel_space || item.vertices.empty() || item.text_size_px <= 0.f ||
+      item.codepoint == 0) {
+    return;
+  }
+  wchar_t chars[3] = {};
+  const int n = utf16_from_codepoint(item.codepoint, chars);
+  if (n <= 0) {
+    return;
+  }
+  const int size_px = (std::max)(8, static_cast<int>(std::lround(item.text_size_px)));
+  HFONT font = font_for_px(size_px);
+  if (!font) {
+    return;
+  }
+  const float left = item.vertices[0].x;
+  const float top = item.vertices[0].y;
+  HGDIOBJ old = ::SelectObject(hdc, font);
+  const int old_mode = ::SetBkMode(hdc, TRANSPARENT);
+  // Eight 1px offsets. A filled disk of TextOut copies turns CJK into a blob
+  // and hides the glyph at country scale.
+  if (item.halo_width_px > 0.f && item.halo_rgba != 0) {
+    ::SetTextColor(hdc, rgba_opaque(item.halo_rgba));
+    static constexpr int kHalo[8][2] = {
+        {-1, 0}, {1, 0}, {0, -1}, {0, 1}, {-1, -1}, {1, -1}, {-1, 1}, {1, 1},
+    };
+    for (const int* d : kHalo) {
+      ::TextOutW(hdc, static_cast<int>(std::lround(left + d[0])),
+                 static_cast<int>(std::lround(top + d[1])), chars, n);
+    }
+  }
+  ::SetTextColor(hdc, rgba_opaque(item.rgba));
+  ::TextOutW(hdc, static_cast<int>(std::lround(left)),
+             static_cast<int>(std::lround(top)), chars, n);
+  ::SetBkMode(hdc, old_mode);
+  ::SelectObject(hdc, old);
+}
+
 void paint_line(HDC hdc, const vista::DrawItem& item, const WorldToPixel& x) {
   // Thick strokes are triangle meshes (same as fill). Polyline over those
   // verts draws random chords across China.
   if (!item.indices.empty() && item.vertices.size() >= 3) {
-    paint_fill(hdc, item, x);
+    paint_mesh_aa(hdc, item, x);
     return;
   }
   if (item.vertices.size() < 2) {
@@ -241,22 +365,6 @@ void paint_raster(HDC hdc, const vista::DrawItem& item, const WorldToPixel& x,
   }
   std::memcpy(bits, bgra.data(), bgra.size());
   HGDIOBJ old = ::SelectObject(mem, dib);
-  // #region agent log
-  if (FILE* f = std::fopen("C:/Dev/src/gis/smartgis/debug-6e0a8e.log", "a")) {
-    std::fprintf(
-        f,
-        "{\"sessionId\":\"6e0a8e\",\"runId\":\"post-fix\","
-        "\"hypothesisId\":\"F\",\"location\":\"map2d_mapir_export.cc:"
-        "paint_raster\","
-        "\"message\":\"raster uv blit\","
-        "\"data\":{\"uv\":[%.4f,%.4f,%.4f,%.4f],\"src\":[%d,%d,%d,%d],"
-        "\"dst\":[%d,%d,%d,%d],\"tex\":[%d,%d]},"
-        "\"timestamp\":%llu}\n",
-        u0, v0, u1, v1, src_x, src_y, src_w, src_h, tl.x, tl.y, dx, dy, rw, rh,
-        static_cast<unsigned long long>(::GetTickCount64()));
-    std::fclose(f);
-  }
-  // #endregion
   ::AlphaBlend(hdc, tl.x, tl.y, dx, dy, mem, src_x, src_y, src_w, src_h,
                blend);
   ::SelectObject(mem, old);
@@ -297,6 +405,40 @@ bool write_dib_bmp(const std::string& path, int w, int h, const void* bgra) {
 
 }  // namespace
 
+bool paint_mapir_hdc(HDC hdc,
+                     const vista::MapIR& frame,
+                     const Map2dFrameCache::CameraKey& cam,
+                     const MapIrRasterLoader& load_raster) {
+  if (!hdc || cam.width_px == 0 || cam.height_px == 0) {
+    return false;
+  }
+  const int w = static_cast<int>(cam.width_px);
+  const int h = static_cast<int>(cam.height_px);
+  fill_background(hdc, w, h, frame.background_rgba);
+  const WorldToPixel xform = make_xform(cam);
+  ::SetBkMode(hdc, TRANSPARENT);
+  for (const vista::DrawItem& item : frame.items) {
+    switch (item.kind) {
+      case vista::DrawKind::kFill:
+        paint_fill(hdc, item, xform);
+        break;
+      case vista::DrawKind::kLine:
+        paint_line(hdc, item, xform);
+        break;
+      case vista::DrawKind::kRaster:
+        paint_raster(hdc, item, xform, load_raster);
+        break;
+      case vista::DrawKind::kCircle:
+      case vista::DrawKind::kIcon:
+        break;
+      case vista::DrawKind::kText:
+        paint_text(hdc, item);
+        break;
+    }
+  }
+  return true;
+}
+
 bool export_mapir_bmp(const vista::MapIR& frame,
                       const Map2dFrameCache::CameraKey& cam,
                       const MapIrRasterLoader& load_raster,
@@ -331,29 +473,8 @@ bool export_mapir_bmp(const vista::MapIR& frame,
     return false;
   }
   HGDIOBJ old = ::SelectObject(mem, dib);
-  fill_background(mem, w, h, frame.background_rgba);
-  const WorldToPixel xform = make_xform(cam);
-  ::SetBkMode(mem, TRANSPARENT);
-  for (const vista::DrawItem& item : frame.items) {
-    switch (item.kind) {
-      case vista::DrawKind::kFill:
-        paint_fill(mem, item, xform);
-        break;
-      case vista::DrawKind::kLine:
-        paint_line(mem, item, xform);
-        break;
-      case vista::DrawKind::kRaster:
-        paint_raster(mem, item, xform, load_raster);
-        break;
-      case vista::DrawKind::kCircle:
-      case vista::DrawKind::kIcon:
-      case vista::DrawKind::kText:
-        // Labels / circles stay on MapPass for interactive; BMP gold is
-        // land + jet + roads (align carto).
-        break;
-    }
-  }
-  const bool ok = write_dib_bmp(path, w, h, bits);
+  const bool painted = paint_mapir_hdc(mem, frame, cam, load_raster);
+  const bool ok = painted && write_dib_bmp(path, w, h, bits);
   ::SelectObject(mem, old);
   ::DeleteObject(dib);
   ::DeleteDC(mem);

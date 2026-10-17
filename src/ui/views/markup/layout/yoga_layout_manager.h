@@ -59,11 +59,13 @@ class UI_EXPORT YogaLayoutManager : public LayoutCrtp<YogaLayoutManager> {
   std::unordered_map<const View*, FlexStyle> child_styles_;
 
   const View* layout_host_ = nullptr;
+  float layout_scale_ = 1.f;
   Rect layout_host_bounds_{};
   std::vector<ChildSnap> layout_snaps_;
   bool layout_valid_ = false;
 
   mutable const View* pref_host_ = nullptr;
+  mutable float pref_scale_ = 1.f;
   mutable std::vector<ChildSnap> pref_snaps_;
   mutable Size pref_size_{};
   mutable bool pref_valid_ = false;

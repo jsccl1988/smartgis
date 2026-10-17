@@ -4,6 +4,8 @@
 #include "app/views/ui/shell/shell_layout_composer.h"
 
 #include "app/views/ui/browser_view.h"
+#include "app/views/ui/horizon/inspector_group_bar.h"
+#include "app/views/ui/horizon/inspector_host_composer.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -148,8 +150,9 @@ bool ShellLayoutComposer::build_from_markup() {
 
   auto tool_bar = std::make_unique<ui::views::AmboxView>();
   tool_bar->set_orientation(ui::views::AmboxView::Orientation::kHorizontal);
-  // 48 DIP: glyph+label row must clear clip at 125–200% DPI (was 40).
+  // 48 DIP: glyph+label row must clear clip at 125–200% DPI.
   // Width 0 lets Yoga shrink-wrap packed chips on the map stack.
+  // .tool_bar CSS height caps the band; do not copy a stretched host height.
   tool_bar->set_preferred_size({0, 48});
   host_->ambox_ = tool_bar.get();
   host_->ambox_->set_command_handler([this](const std::string& id) {
@@ -192,11 +195,10 @@ bool ShellLayoutComposer::build_from_markup() {
   host_->atmosphere_tab_ =
       side->add_tab("Atmosphere", make_inspector_placeholder());
   host_->plugins_tab_ = side->add_tab("Plugins", make_inspector_placeholder());
-  side->set_change([this](int i) { host_->ensure_inspector_tab(i); });
   side->set_active(0);  // Tools. Identify switches to Feature.
   host_->inspector_tabs_ = side.get();
   inspector_host->set_preferred_size({kInspectorWDip, 0});
-  mount_fill(inspector_host, std::move(side));
+  mount_fill(inspector_host, wrap_inspector(std::move(side)));
   // After side_ambox_ is live — AmboxView ctor seeds Select/Edit; map bar keeps
   // them, right dock is cleared to plugin groups only (visual_review #3).
   host_->populate_ambox();
@@ -204,9 +206,8 @@ bool ShellLayoutComposer::build_from_markup() {
   work->set_preferred_size({0, 0});
   main_split->set_preferred_size({0, 0});
   // Flex map column absorbs growth; inspector stays preferred dock width.
-  // tool_bar CSS uses min-height (not fixed height) so Yoga measures from
-  // preferred_size — which scales with DPI — instead of locking 40 physical px
-  // that let Catalog paint through an undersized strip.
+  // .tool_bar height/max-height are 48 DIP (scaled). Do not drop the cap:
+  // the shared Ambox markup is a 240 DIP dock and will reopen the black band.
   if (ui::views::View* map_column = loaded.ids.find("map_column")) {
     map_column->set_preferred_size({0, 0});
   }
@@ -223,13 +224,20 @@ bool ShellLayoutComposer::build_from_markup() {
     const int kDiagH =
         host_->diagnostic_tools_->preferred_size().height > 0
             ? host_->diagnostic_tools_->preferred_size().height
-            : 200;
+            : 260;
     host_->diagnostic_tools_->set_preferred_size({0, kDiagH});
     diagnostic_host->set_preferred_size({0, kDiagH});
   }
   mount_fill(diagnostic_host, std::move(diagnostic_tools));
   host_->wire_debug_console();
   host_->attach_plugin_shell_ui();
+  if (host_->inspector_host_) {
+    // Plugins is the default dock page. Catalog fill is deferred until after
+    // the shell is up (see schedule_deferred_plugin_panel).
+    host_->inspector_host_->note_tab_activated(host_->plugins_tab_);
+    host_->inspector_host_->show_inspector_group(
+        InspectorGroupBar::Group::kExtend, /*materialize=*/false);
+  }
 
   auto status = std::make_unique<ui::views::StatusBar>();
   host_->status_bar_ = status.get();
@@ -264,6 +272,10 @@ bool ShellLayoutComposer::build_from_markup() {
   if (host_->inspector_tabs_) {
     host_->inspector_tabs_->set_preferred_size({inspector_w, 0});
   }
+  if (host_->inspector_host_) {
+    host_->inspector_host_->set_group_bar_extent(
+        inspector_w, ui::views::dip_to_px(26, scale));
+  }
   work->reseed();
   main_split->reseed();
   // Re-pin diagnostic dock after reseed — keep host+child aligned.
@@ -271,7 +283,7 @@ bool ShellLayoutComposer::build_from_markup() {
     const int kDiagH =
         host_->diagnostic_tools_->preferred_size().height > 0
             ? host_->diagnostic_tools_->preferred_size().height
-            : ui::views::dip_to_px(200, scale);
+            : ui::views::dip_to_px(260, scale);
     diagnostic_host->set_preferred_size({0, kDiagH});
     host_->diagnostic_tools_->set_preferred_size({0, kDiagH});
     main_split->reseed();
@@ -372,15 +384,15 @@ void ShellLayoutComposer::build_imperative() {
   host_->atmosphere_tab_ =
       side->add_tab("Atmosphere", make_inspector_placeholder());
   host_->plugins_tab_ = side->add_tab("Plugins", make_inspector_placeholder());
-  side->set_change([this](int i) { host_->ensure_inspector_tab(i); });
   side->set_active(0);  // Tools. Identify switches to Feature.
   host_->inspector_tabs_ = side.get();
+  auto inspector_column = wrap_inspector(std::move(side));
 
   auto work = std::make_unique<ui::views::Splitter>(
       ui::views::Splitter::Orientation::kHorizontal);
   work->set_preferred_size({0, 0});
   work->add_child(std::move(map_column));
-  work->add_child(std::move(side));
+  work->add_child(std::move(inspector_column));
 
   auto diagnostic_tools = ui::views::make_diagnostic_tools_panel();
   host_->diagnostic_tools_ = diagnostic_tools.get();
@@ -388,6 +400,11 @@ void ShellLayoutComposer::build_imperative() {
   host_->diagnostic_tools_->set_active_tab(0);
   host_->wire_debug_console();
   host_->attach_plugin_shell_ui();
+  if (host_->inspector_host_) {
+    host_->inspector_host_->note_tab_activated(host_->plugins_tab_);
+    host_->inspector_host_->show_inspector_group(
+        InspectorGroupBar::Group::kExtend, /*materialize=*/false);
+  }
 
   auto main_split = std::make_unique<ui::views::Splitter>(
       ui::views::Splitter::Orientation::kVertical);
@@ -415,6 +432,35 @@ void ShellLayoutComposer::build_imperative() {
   frame->set_can_maximize(true);
   frame->set_client(std::move(root));
   host_->widget_.set_contents_view(std::move(frame));
+}
+
+std::unique_ptr<ui::views::View> ShellLayoutComposer::wrap_inspector(
+    std::unique_ptr<ui::views::TabStrip> side) {
+  auto bar = std::make_unique<InspectorGroupBar>();
+  bar->set_preferred_size({kInspectorWDip, 26});
+  bar->set_change([this](InspectorGroupBar::Group group) {
+    if (host_->inspector_host_) {
+      host_->inspector_host_->show_inspector_group(group);
+    }
+  });
+  if (host_->inspector_host_) {
+    host_->inspector_host_->bind_group_bar(bar.get());
+  }
+  side->set_change([this](int index) {
+    if (host_->inspector_host_) {
+      host_->inspector_host_->note_tab_activated(index);
+    }
+    host_->ensure_inspector_tab(index);
+  });
+  auto column = std::make_unique<ui::views::View>();
+  auto box = std::make_unique<ui::views::BoxLayout>(
+      ui::views::BoxLayout::Orientation::kVertical);
+  box->set_flex_for_view(side.get(), 1);
+  column->set_layout_manager(std::move(box));
+  column->set_preferred_size({kInspectorWDip, 0});
+  column->add_child(std::move(bar));
+  column->add_child(std::move(side));
+  return column;
 }
 
 }  // namespace app

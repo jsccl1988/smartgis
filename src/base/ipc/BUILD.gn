@@ -23,7 +23,10 @@ source_set("ipc_sources") {
     "receiver/receiver.cc",
     "receiver/receiver.h",
   ]
-  public_deps = [ "//src/base/archive:archive" ]
+  public_deps = [
+    "//src/base/archive:archive",
+    "//src/base/concurrency:concurrency",
+  ]
   public_configs = [ "//src/base:foundation_config" ]
 }
 

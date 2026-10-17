@@ -21,6 +21,10 @@
 #include "content/public/plugin_host.h"
 #include "content/public/tool_session.h"
 
+#if defined(_DEBUG)
+#include <crtdbg.h>
+#endif
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -202,6 +206,20 @@ bool Browser::init() {
     }
   }
 
+  if (plugins_) {
+    // Build GisContents and PluginHost before the map display thread starts
+    // inside create_browser_ui. Those member maps race the display thread's
+    // first allocs and the next LogSink new reports 0xC0000374.
+    const bool have_contents = session_->ensure_gis_contents();
+    LOGGING(LOG_INFO, "startup: gis contents %s",
+            have_contents ? "created" : "missing");
+    if (!(have_contents &&
+          plugins_->attach_gis_contents(session_->gis_contents()))) {
+      LOGGING(LOG_WARNING,
+              "startup: GisContents/PluginHost attach failed; no bridges");
+    }
+  }
+
   {
     BASE_TRACE_EVENT("CreateBrowserUi", "startup");
     LOGGING(LOG_INFO, "startup: create_browser_ui");
@@ -210,18 +228,20 @@ bool Browser::init() {
       LOGGING(LOG_ERROR, "startup: create_browser_ui failed");
       return false;
     }
+#if defined(_DEBUG)
+    // NT heap damage during BrowserView member ctors is reported on the next
+    // LogSink alloc (gis contents created). Pin which side owns it.
+    if (!_CrtCheckMemory()) {
+      LOGGING(LOG_ERROR, "startup: heap corrupt after browser ui");
+    } else {
+      LOGGING(LOG_INFO, "startup: heap ok after browser ui");
+    }
+#endif
   }
 
-  if (plugins_) {
-    // Catalog first (PluginShell::init), then GisContents + owned PluginHost.
-    if (session_->ensure_gis_contents() &&
-        plugins_->attach_gis_contents(session_->gis_contents())) {
-      wire_plugin_present_dataset();
-      install_plugin_host_bridges();
-    } else {
-      LOGGING(LOG_WARNING,
-              "startup: GisContents/PluginHost attach failed; no bridges");
-    }
+  if (plugins_ && plugins_->host()) {
+    wire_plugin_present_dataset();
+    install_plugin_host_bridges();
   }
 
   BASE_TRACE_EVENT("InitShell", "startup");

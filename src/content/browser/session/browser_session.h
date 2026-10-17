@@ -72,19 +72,12 @@ class BrowserSession {
   const ViewFrame& view_frame() const { return view_frame_; }
   OrbitFrame& orbit_frame() { return orbit_; }
   const OrbitFrame& orbit_frame() const { return orbit_; }
-  Map2dPresenter& map2d() {
-    if (!map2d_) {
-      map2d_ = Map2dPresenter::create();
-    }
-    return *map2d_;
-  }
+  // Out of line: these touch map2d_/scene3d_ just after OrbitFrame. An inline
+  // COMDAT from a TU built against an older OrbitFrame size reads the pointer
+  // 8 bytes early (debug fill) and bind() AVs.
+  Map2dPresenter& map2d();
   const Map2dPresenter& map2d() const { return const_cast<BrowserSession*>(this)->map2d(); }
-  Scene3dPresenter& scene3d() {
-    if (!scene3d_) {
-      scene3d_ = Scene3dPresenter::create();
-    }
-    return *scene3d_;
-  }
+  Scene3dPresenter& scene3d();
   const Scene3dPresenter& scene3d() const {
     return const_cast<BrowserSession*>(this)->scene3d();
   }
@@ -251,6 +244,8 @@ class BrowserSession {
   void seed_scene3d_procedural(bool with_land_rings);
   void seed_scene3d_procedural_if_empty();
   void set_scene3d_atmosphere_layers(bool ocean, bool cloud, bool sky, bool fog);
+  void scene3d_atmosphere_flags(bool* ocean, bool* cloud, bool* sky, bool* fog,
+                                bool* wind) const;
   void set_scene3d_globe_enabled(bool on);
   void set_scene3d_cloud_enabled(bool on);
   void set_scene3d_wind_overlay(bool on);

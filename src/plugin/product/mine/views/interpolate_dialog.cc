@@ -30,7 +30,7 @@ InterpolateDialog::InterpolateDialog(content::PluginHost* host) : host_(host) {
   const std::string markup =
       plugin::resolve_resource("smartgis.mine", "interpolate.ui.xml");
   if (!markup.empty()) {
-    loaded = ui::views::load_markup(markup);
+    ui::views::load_markup_into(markup, {}, &loaded);
   }
   if (!loaded.ok()) {
     return;

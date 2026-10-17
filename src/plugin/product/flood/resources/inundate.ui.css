@@ -8,15 +8,14 @@ All rights reserved.
   flex-direction: column;
   gap: 6px;
   padding: 10px;
-  width: 520px;
-  height: 380px;
+  width: 100%;
 }
 
 .row {
   display: flex;
   flex-direction: row;
   gap: 8px;
-  width: 500px;
+  width: 100%;
 }
 
 .field {
@@ -52,5 +51,5 @@ All rights reserved.
 #water_depth,
 #frames {
   height: 28px;
-  width: 140px;
+  flex-grow: 1;
 }

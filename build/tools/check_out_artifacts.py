@@ -176,10 +176,15 @@ def _query_import_dlls(ninja: Path, out_dir: Path, exe_name: str) -> list[str]:
     dlls: list[str] = []
     for line in (proc.stdout or "").splitlines():
         tok = line.strip()
-        if tok.endswith(".dll.lib"):
-            dlls.append(tok[: -len(".lib")])
-        elif tok.endswith(".dll") and "/" not in tok and "\\" not in tok:
-            dlls.append(tok)
+        if tok.startswith("|"):
+            tok = tok[1:].strip()
+        # External import libs (WebView2Loader.dll.lib under third_party/) are
+        # not gen-root outputs. Keep only the filename of product *.dll.lib.
+        name = Path(tok).name
+        if name.endswith(".dll.lib"):
+            dlls.append(name[: -len(".lib")])
+        elif name.endswith(".dll") and ("/" not in tok and "\\" not in tok):
+            dlls.append(name)
     seen: set[str] = set()
     out: list[str] = []
     for d in dlls:
@@ -426,7 +431,7 @@ def _check_pe_imports(
         errors.append(f"PE parse failed for {exe_name}: {exc}")
         return
 
-    ninja_set = {d.lower() for d in ninja_dlls}
+    ninja_set = {Path(d).name.lower() for d in ninja_dlls}
     out_dlls = {p.name.lower() for p in out_dir.glob("*.dll")}
     missing_local: list[str] = []
     for dll in imported:

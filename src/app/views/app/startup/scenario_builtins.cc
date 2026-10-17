@@ -17,8 +17,15 @@ namespace {
 // interact / self-test chrome that must not open a 2D Display thread.
 constexpr LaunchPolicy k_content_map_skip_catalog{
     Scene3dStartup::kGdi, Map2dStartup::kContentGdi, true, false};
+// Browse stress: ContentMapView + MapIR→HDC overlay for HWND BitBlt.
+constexpr LaunchPolicy k_browse_map2d_gdi{
+    Scene3dStartup::kGdi, Map2dStartup::kContentGdi, true, true};
 constexpr LaunchPolicy k_map2d_flycube_skip_catalog{
     Scene3dStartup::kGdi, Map2dStartup::kProduct, true, false};
+// Plugin cartography: same face as bare SmartGIS.exe. kGdi Scene3d during
+// shell init heap-corrupts the next EXE alloc (HostCapabilities).
+constexpr LaunchPolicy k_plugin_product{
+    Scene3dStartup::kFlyCube, Map2dStartup::kProduct, true, false};
 constexpr LaunchPolicy k_content_map_horizon{
     Scene3dStartup::kGdi, Map2dStartup::kContentGdi, false, false};
 // UI shell chrome + china map hole: FlyCube MapPass (same carto as product /
@@ -27,9 +34,10 @@ constexpr LaunchPolicy k_ui_shell_flycube{
     Scene3dStartup::kGdi, Map2dStartup::kProduct, false, false};
 constexpr LaunchPolicy k_content_map_harness{
     Scene3dStartup::kGdi, Map2dStartup::kContentGdi, false, false};
-// Scene3D product / atmosphere: FlyCube RHI; Map Edit stays ContentMapView.
+// Scene3D product / atmosphere: FlyCube on both faces. ContentMapView on
+// Map Edit StartRenderProcess's during shell init and heap-corrupts PluginHost.
 constexpr LaunchPolicy k_plugin_scene3d{
-    Scene3dStartup::kFlyCube, Map2dStartup::kPluginScene3d, true, false};
+    Scene3dStartup::kFlyCube, Map2dStartup::kFlyCube2d, true, false};
 constexpr LaunchPolicy k_browse_3d{
     Scene3dStartup::kFlyCube, Map2dStartup::kFlyCube2d, true, false};
 constexpr LaunchPolicy k_ui_scene{
@@ -46,9 +54,12 @@ void ensure_builtin_scenarios() {
   std::call_once(once, [] {
     // Browser family — map2d / world3d share one IR shape (horizon→view→plugin);
     // *.browse are stress integration; sibling payloads are carto / atmosphere.
+    // Browse stress + HWND BitBlt / motion_gate need ContentMapView + GDI
+    // overlay (prepare_env FORCE_*). Product FlyCube Present smears under
+    // pan so unique-frame gates stay stuck at 1.
     add_row(Scenario{"browser.map2d.browse", detail::kHarnessMarkLeaf,
                      "browser.map2d.browse", nullptr, nullptr,
-                     k_map2d_flycube_skip_catalog});
+                     k_browse_map2d_gdi});
     add_row(Scenario{"browser.map2d.china", detail::kMap2dMarkLeaf,
                      "browser.map2d.china", "map2d.scenario.china", nullptr,
                      k_map2d_flycube_skip_catalog});
@@ -101,6 +112,11 @@ void ensure_builtin_scenarios() {
                      nullptr, k_ui_scene});
     add_row(Scenario{"ui.catalog", detail::kUiMarkLeaf, "ui.catalog", nullptr,
                      nullptr, k_ui_shell_flycube});
+    // Plugins dock only. Index 12 matches shell_layout_composer add order
+    // (Tools … Atmosphere, then Plugins). Own mark leaf so ui.catalog
+    // captures do not clobber it.
+    add_row(Scenario{"ui.plugins", L"ui-plugins-mark.txt", "ui.plugins",
+                     nullptr, nullptr, k_ui_shell_flycube});
     // ui.interact* share ui.interact.host.il chrome; gesture body is selected
     // by UI_INTERACT_GESTURE_SCRIPT (product / smoke / combo) or OS inject.
     add_row(Scenario{"ui.interact", detail::kUiMarkLeaf, "ui.interact.host",
@@ -121,19 +137,19 @@ void ensure_builtin_scenarios() {
                      nullptr, k_plugin_scene3d});
     add_row(Scenario{"plugin.print", detail::kPluginMarkLeaf, "plugin.print",
                      "map2d.scenario.print", nullptr,
-                     k_content_map_skip_catalog});
+                     k_plugin_product});
     add_row(Scenario{"plugin.orthogrid", detail::kPluginMarkLeaf,
                      "plugin.orthogrid", "orthogrid.scenario.showcase", nullptr,
-                     k_content_map_skip_catalog});
+                     k_plugin_product});
     add_row(Scenario{"plugin.orthogrid3d", detail::kPluginMarkLeaf,
                      "plugin.orthogrid3d", "orthogrid3d.scenario.showcase",
                      nullptr, k_plugin_scene3d});
     add_row(Scenario{"plugin.traffic", detail::kPluginMarkLeaf, "plugin.traffic",
                      "traffic.scenario.showcase", nullptr,
-                     k_content_map_skip_catalog});
+                     k_plugin_product});
     add_row(Scenario{"plugin.flood", detail::kPluginMarkLeaf, "plugin.flood",
                      "flood.scenario.showcase", nullptr,
-                     k_content_map_skip_catalog});
+                     k_plugin_product});
     add_row(Scenario{"plugin.stormsurge", detail::kPluginMarkLeaf,
                      "plugin.stormsurge", "stormsurge.scenario.showcase",
                      nullptr, k_plugin_scene3d});
@@ -141,9 +157,9 @@ void ensure_builtin_scenarios() {
                      "mine.scenario.showcase", nullptr, k_plugin_scene3d});
     add_row(Scenario{"plugin.geochem", detail::kPluginMarkLeaf, "plugin.geochem",
                      "geochem.scenario.showcase", nullptr,
-                     k_content_map_skip_catalog});
+                     k_plugin_product});
     add_row(Scenario{"plugin.report", detail::kPluginMarkLeaf, "plugin.report",
-                     nullptr, &run_report_suite, k_content_map_skip_catalog});
+                     nullptr, &run_report_suite, k_plugin_product});
   });
 }
 

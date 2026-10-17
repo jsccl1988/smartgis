@@ -33,8 +33,7 @@ enum class Map2dStartup {
 
 // Present / catalog gates for one registered suite entry. Applied before
 // Browser::init; suite selection itself is plugin.json `startup.scenario`.
-// |force_gdi_overlay| is obsolete (always cleared) — kept for LaunchPolicy
-// row layout / constexpr initializers.
+// |force_gdi_overlay| pins FORCE_GDI_MAP_OVERLAY for browse BitBlt / motion.
 struct LaunchPolicy {
   Scene3dStartup scene3d = Scene3dStartup::kGdi;
   Map2dStartup map2d = Map2dStartup::kContentGdi;

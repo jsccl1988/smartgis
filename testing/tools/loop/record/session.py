@@ -237,7 +237,9 @@ class HwndRecorder:
                 self._mode = "skipped"
                 self._error = "hwnd_died"
                 return self.status()
-            mapped, mapped_title = resolve_map_record_hwnd(int(self._hwnd))
+            mapped, mapped_title = resolve_map_record_hwnd(
+                int(self._hwnd), env=self._env
+            )
             if mapped and is_usable_map_record_hwnd(mapped):
                 if mapped_title:
                     self._title = mapped_title
@@ -247,7 +249,9 @@ class HwndRecorder:
 
         # Retarget shell → map client / FlyCube Present so BitBlt is not a
         # WS_CLIPCHILDREN black hole (browse / Views ContentMapView).
-        map_hwnd, map_title = resolve_map_record_hwnd(int(self._hwnd))
+        map_hwnd, map_title = resolve_map_record_hwnd(
+            int(self._hwnd), env=self._env
+        )
         if map_hwnd and map_hwnd != int(self._hwnd):
             self._hwnd = int(map_hwnd)
             if map_title:
@@ -289,12 +293,22 @@ class HwndRecorder:
                 root = parent if parent else shell
                 if not user32.IsWindow(root):
                     break
-                mapped, mapped_title = resolve_map_record_hwnd(root)
+                mapped, mapped_title = resolve_map_record_hwnd(
+                    root, env=self._env
+                )
                 cap = int(root)
                 if mapped and is_usable_map_record_hwnd(mapped):
                     # Map child that still fills the shell; otherwise the
                     # Views chrome resized and the child lagged.
-                    if window_area(mapped) >= max(1, int(window_area(root) * 0.45)):
+                    # Under FORCE_GDI prefer the viewport even when side
+                    # panels shrink it below 45% of the chrome frame.
+                    prefer_gdi = str(
+                        (self._env or {}).get("FORCE_GDI_MAP_OVERLAY", "")
+                    ).strip().lower() in ("1", "true", "yes", "on")
+                    min_frac = 0.20 if prefer_gdi else 0.45
+                    if window_area(mapped) >= max(
+                        1, int(window_area(root) * min_frac)
+                    ):
                         cap = int(mapped)
                         if mapped_title:
                             self._title = mapped_title

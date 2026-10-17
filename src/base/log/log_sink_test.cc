@@ -1,6 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include "base/log/agent_feed.h"
 #include "base/log/log_sink.h"
 
 #include <cassert>
@@ -77,6 +78,30 @@ int main() {
     assert(level == base::LogLevel::kDebug);
     assert(std::string(base::log_level_name(base::LogLevel::kError)) ==
            "ERROR");
+  }
+
+  {
+    base::AgentFeed& feed = base::agent_feed();
+    feed.clear();
+    int seen = 0;
+    const std::uint64_t id = feed.subscribe([&](const base::AgentFeedEntry& e) {
+      if (e.kind == base::AgentFeedKind::kCommand && e.text == "ping-cmd") {
+        ++seen;
+      }
+    });
+    feed.append(base::AgentFeedKind::kCommand, "ping-cmd", "agent-1");
+    feed.append(base::AgentFeedKind::kResult, "pong");
+    assert(seen == 1);
+    assert(feed.size() == 2u);
+    const auto snap = feed.snapshot();
+    assert(snap.size() == 2u);
+    assert(snap[0].session == "agent-1");
+    assert(snap[1].kind == base::AgentFeedKind::kResult);
+    assert(snap[1].text == "pong");
+    assert(snap[1].session.empty());
+    feed.unsubscribe(id);
+    feed.clear();
+    assert(feed.size() == 0u);
   }
 
   std::printf("log_sink_test OK\n");

@@ -3,7 +3,7 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# harness-auto-map2d-frame-opt — reference
+# harness-auto-map2d-phase-loop — reference
 
 Progressive disclosure. Read when parsing logs, picking a hot phase, or wiring TRACE.
 
@@ -74,7 +74,7 @@ Warm past dual-speed settle (~200–350 ms pump) before timed samples — alread
 
 ## vs matrix skill
 
-| Concern | This skill | `harness-auto-map2d-opt` |
+| Concern | This skill (`phase-loop`) | `harness-auto-map2d-port-matrix` |
 | --- | --- | --- |
 | Leftover×port grid | Optional A/B only | Primary |
 | Every-frame StaticReuse | Primary | Secondary (warm column) |

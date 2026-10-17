@@ -103,14 +103,12 @@ script "ui.interact" {
   }
   mark("interact-2d-b-ok") @inproc;
   // Reframe china before end-shell BMP — Phase C pan/wheel can leave a
-  // tiny empty extent that fails interact_map_land_frac.
+  // tiny empty extent that fails interact_map_land_frac. Do not wheel-zoom
+  // out after fit (that re-centered on ocean and landed land_frac~0.015).
   seq @inproc {
+    select_map_tab(0);
     fit_extent();
-    pump(200);
-  }
-  seq {
-    wheel_burst(map_client, count=2, x=400, y=400, delta=-120, pump_ms=40);
-    pump(200);
+    pump(400);
   }
   mark("interact-combo-ok") @inproc;
   mark("interact-script-ok") @inproc;

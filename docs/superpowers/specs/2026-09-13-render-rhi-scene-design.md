@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-13 — **§Content present ↔ Chromium mapping** deepened（Chromium RWHV→cc→CompositorFrame→Viz Display vs Topology A DrawHost→Presenter→FrameCache/PresentAction→Pass→`graph::present` 1CL；拒绝 FrameSink/Mojo Viz；优化只在 C/G/E；图 §4 泳道）。Prior 2026-10-10 — same § first lock + subdirectory diagram. Prior 2026-10-08 — **§Content present subdirectory layers**（`host/{blit,overlay,scenic,gdi}` · `map2d/frame/{cache,carto,batches,layout,tile}` · `map2d/gpu/{present,selection}` · `scene3d/frame/{orbit,terrain,tileset,overlay}` · `*/profile` · `scene3d/scenic`；软 `software/` 删除；图同）。Prior same day — **§Vista map component layers**（顶层五条：`carto` · `shade` · `place` · `mvt` · `layout`；collision 并入 carto；layout 套 policy/geom/paint/stage；图 [`vista-map-component-layers.html`](../diagrams/vista-map-component-layers.html)）。Prior same day — **§Vista map layout layers**（`layout/{policy,geom,paint,stage}/` 文件角色；图 [`vista-map-layout-layers.html`](../diagrams/vista-map-layout-layers.html)）。Prior same day �?**§Vista world space layers** · **§Vista world component layers**�?**Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；multiprocess [`../ui-shell-multiprocess.md`](../ui-shell-multiprocess.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)�? 
+**Updated:** 2026-10-15 — **§Vista map pass layers**（`pass/map` detail 拆 `draw_cache` / `place_upload` / `keyed_slices`；图 [`vista-map-pass-layers.html`](../diagrams/vista-map-pass-layers.html)）。Prior 2026-10-13 — **§Content present ↔ Chromium mapping** deepened（Chromium RWHV→cc→CompositorFrame→Viz Display vs Topology A DrawHost→Presenter→FrameCache/PresentAction→Pass→`graph::present` 1CL；拒绝 FrameSink/Mojo Viz；优化只在 C/G/E；图 §4 泳道）。Prior 2026-10-10 — same § first lock + subdirectory diagram. Prior 2026-10-08 — **§Content present subdirectory layers**（`host/{blit,overlay,scenic,gdi}` · `map2d/frame/{cache,carto,batches,layout,tile}` · `map2d/gpu/{present,selection}` · `scene3d/frame/{orbit,terrain,tileset,overlay}` · `*/profile` · `scene3d/scenic`；软 `software/` 删除；图同）。Prior same day — **§Vista map component layers**（顶层五条：`carto` · `shade` · `place` · `mvt` · `layout`；collision 并入 carto；layout 套 policy/geom/paint/stage；图 [`vista-map-component-layers.html`](../diagrams/vista-map-component-layers.html)）。Prior same day — **§Vista map layout layers**（`layout/{policy,geom,paint,stage}/` 文件角色；图 [`vista-map-layout-layers.html`](../diagrams/vista-map-layout-layers.html)）。Prior same day �?**§Vista world space layers** · **§Vista world component layers**�?**Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；multiprocess [`../ui-shell-multiprocess.md`](../ui-shell-multiprocess.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)�? 
 **Diagrams:** **World LOD terrain** [../diagrams/world-lod-terrain.html](../diagrams/world-lod-terrain.html) · **Vista scene octree** [`../diagrams/vista-scene-octree.html`](../diagrams/vista-scene-octree.html) · **Vista map/frame scenic-peer** [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html) · **DEM / hillshade bake** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html) · **Scene3d present** [`../diagrams/scene3d-present-layers.html`](../diagrams/scene3d-present-layers.html) · **content present subdirectory** [`../diagrams/content-present-subdirectory-layers.html`](../diagrams/content-present-subdirectory-layers.html) · **content present accelerate** [`../diagrams/content-present-accelerate.html`](../diagrams/content-present-accelerate.html) · **rhi2d frame-beat + map/layer/feature** [`../diagrams/rhi2d-paint-map-strategy.html`](../diagrams/rhi2d-paint-map-strategy.html) · **rhi3d public lanes** [`../diagrams/rhi3d-public-api-lanes.html`](../diagrams/rhi3d-public-api-lanes.html) · **Vista 子目录分�?* [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html) · **Scenic** [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · **RHI2D composition split** [`../diagrams/rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html) · **Map2d present** [`../diagrams/map2d-present-frame.html`](../diagrams/map2d-present-frame.html) · **A×B 规范�?* [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（含 **§8 Scene3d cold vs warm**�?· Views shell [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · GIS MapFrame [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)  
 **Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · **gpu accelerate（§GPU-process 唯一 checklist�?* [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · **vista parallel** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md) · suite/bench [`../plans/2026-09-28-render-rhi-suite-bench.md`](../plans/2026-09-28-render-rhi-suite-bench.md) · **Map2d hillshade + line casing** [`../plans/2026-09-30-map2d-hillshade-line-casing.md`](../plans/2026-09-30-map2d-hillshade-line-casing.md) · **world3d pointcloud LAS** [`../plans/2026-09-30-world3d-pointcloud-las.md`](../plans/2026-09-30-world3d-pointcloud-las.md) · **D3D leftover capability** [`../plans/2026-09-29-d3d-leftover-capability.md`](../plans/2026-09-29-d3d-leftover-capability.md) · **GL leftover capability** [`../plans/2026-09-29-gl-leftover-capability.md`](../plans/2026-09-29-gl-leftover-capability.md) · GDI leftover worker [`../plans/2026-09-29-gdi-leftover-worker.md`](../plans/2026-09-29-gdi-leftover-worker.md) · GDI carto math [`../plans/2026-09-29-gdi-carto-base-math.md`](../plans/2026-09-29-gdi-carto-base-math.md) · GDI layout/compose [`../plans/2026-09-29-gdi-layout-device-compose.md`](../plans/2026-09-29-gdi-layout-device-compose.md) · GDI profile [`../plans/2026-09-29-gdi-leftover-profile.md`](../plans/2026-09-29-gdi-leftover-profile.md) · **GDI internal RHI** [`../plans/2026-09-29-gdi-internal-rhi-reshape.md`](../plans/2026-09-29-gdi-internal-rhi-reshape.md) · **Legacy Pipeline+Arena** [`../plans/2026-09-30-legacy-render-pipeline-arena.md`](../plans/2026-09-30-legacy-render-pipeline-arena.md) · **rhi2d Chromium-cc** [`../plans/2026-10-01-rhi2d-chromium-cc-compose.md`](../archive/plans/2026-10-01-rhi2d-chromium-cc-compose.md) · **rhi2d leftover tile-raster** [`../plans/2026-10-01-rhi2d-leftover-tile-raster.md`](../plans/2026-10-01-rhi2d-leftover-tile-raster.md) · **rhi3d leftover parallel frame** [`../plans/2026-10-01-rhi3d-parallel-frame.md`](../archive/plans/2026-10-01-rhi3d-parallel-frame.md) · **rhi3d Eigen frustum** [`../plans/2026-10-01-rhi3d-eigen-base-math.md`](../archive/plans/2026-10-01-rhi3d-eigen-base-math.md)�? 
 **Scope:** Living RHI + dual scene + in-process frame graph + GPU-process compose. Vista DX12/Vulkan. Logical world in `gis`/`sdb`; GPU cache in `render/scene`. Do **not** open new dated RHI/layout twins �?revise sections below.
@@ -3160,7 +3160,7 @@ Locks the GpuScene god-type split. Public `GpuScene` stays the present seam (`sy
 | �?| 拥有 | 硬墙 |
 | --- | --- | --- |
 | `vista/component/map` | `Layout::build`、`emit_*`、`LabelGrid`、`place`、`SliceCache`、hillshade bake 编排 | `assert_no_deps` `//src/render:render` |
-| `vista/pass/map` | `MapPass::record`、atlas、upload、encode、`DrawCache`、`upload_keyed_slices` | 设备线程；不�?`parallel_for` |
+| `vista/pass/map` | `MapPass::record` 编排；`detail/{draw_cache,place_upload,keyed_slices,atlas,upload,encode}` | 设备线程；不做 `parallel_for`；见 **§Vista map pass layers** |
 | `content` Map2d | `stage_frame`、`layout_gen`、`layer_slices_`、`retained_slices` 注入 | UI �?join Emit / GPU |
 
 公开签名保持：`Layout::build`、`FramePass::record`。禁止第三公共命名空�?`vista::frame`�?
@@ -3758,6 +3758,49 @@ scenic scene_to_world �?space/coord
 - [x] `space/` 根只�?`coord` / `envelope`；cull �?index 在子目录
 - [x] `cull/prep_cull` �?`index` �?`cull/frustum`；foundation �?include cull/index
 - [ ] 外部 include �?`world_sources` 指向新路径；编译墙绿
+
+---
+
+## §Vista map pass layers（2026-10-15）
+
+**Status:** active  
+**Updated:** 2026-10-15  
+**Diagram:** [`../diagrams/vista-map-pass-layers.html`](../diagrams/vista-map-pass-layers.html)  
+**Hung off:** §Vista map/frame scenic-peer · §Vista map deep split  
+**Code:** `src/vista/pass/map/{pass,detail/*}`
+
+`MapPass::record` 仍是唯一公共编排入口（`UploadPolicy` / pipeline getters / `invalidate_uploaded` 不变）。把原先挤在 `pass.cc` 里的缓存、keyed 增量、place→upload 拼装拆成 `detail` 组合单元，便于单测与阅读；行为与拆前等价。
+
+### 目标分层
+
+| 单元 | 磁盘 | 拥有 | 不拥有 |
+| --- | --- | --- | --- |
+| 编排 | `pass.h` / `pass.cc` | `record` 状态机、`UploadPolicy`、pipeline / Device / Buffer 生命周期 | hash / keyed 细节 |
+| 缓存 | `detail/draw_cache.*` | `DrawCache`、world/overlay hash、`placed_view` latch、`world_only_draws` | RHI encode |
+| place→GPU | `detail/place_upload.*` | `place_frame` + atlas bind + `upload_draws` 一步 | cache 策略、encode |
+| keyed 增量 | `detail/keyed_slices.*` | `cache_key` runs、hit/miss/stale destroy、merge | pipeline / `color_op` |
+| 既有 | `detail/{atlas,upload,encode}.*` | atlas / mega upload / CL encode | （不变） |
+
+### 依赖方向
+
+```
+MapPass::record
+  → draw_cache (reuse / overlay latch)
+  → keyed_slices → place_upload → upload / atlas
+  → place_upload (overlay refresh / cold)
+  → encode_draws
+```
+
+### 不做
+
+- 不改 `MapPass` 公共签名，不拆第二公共类型到 `vista::map`。
+- 不把 `parallel_for` 引进 pass；不进 leftover HDC / `MapPainter`。
+- 不新开 dated spec。
+
+### Acceptance
+
+- [x] `detail/{draw_cache,place_upload,keyed_slices}` 落地；`pass.cc` 只编排
+- [x] `map2d_pass_test`（`map_effect_test`）绿（本变更编译墙）
 
 ---
 

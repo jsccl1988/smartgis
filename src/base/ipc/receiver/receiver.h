@@ -12,6 +12,7 @@
 #include <thread>
 #include <vector>
 
+#include "base/concurrency/queue.h"
 #include "base/ipc/channel/channel.h"
 #include "base/ipc/handle/handle.h"
 
@@ -55,8 +56,10 @@ class ScopedIpcSupport {
     std::function<void()> cb;
   };
 
+  // Watches are few and copied into WaitForMultipleObjects. Tasks are
+  // many-producer / one IO consumer, so they stay off this mutex.
   std::mutex mu_;
-  std::vector<std::function<void()>> queue_;
+  NonblockingQueue<std::function<void()>> queue_;
   std::vector<Watch> watches_;
   std::atomic<bool> stop_{false};
   HANDLE wake_ = nullptr;

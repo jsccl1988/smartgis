@@ -126,6 +126,7 @@ bool capture_hwnd_bmp(HWND hwnd,
     // Stay TOPMOST for the whole attempt loop so IDE chrome cannot cover the
     // DXGI present rect mid-CAPTUREBLT (Python capture_flycube_present_bmp).
     const HWND root = pin_capture_zorder(hwnd);
+    bool accepted = false;
     for (int attempt = 0; attempt < attempts; ++attempt) {
       pump_redraw(hwnd, opts, attempt);
       // DXGI flip-model swapchains often make PrintWindow return only the
@@ -134,16 +135,25 @@ bool capture_hwnd_bmp(HWND hwnd,
       if (client.blit_screen()) {
         got = client.read(&pixels, &header);
         if (frame_passes(pixels, got, width, height, opts)) {
+          accepted = true;
           break;
         }
       }
       client.print_window();
       got = client.read(&pixels, &header);
       if (frame_passes(pixels, got, width, height, opts)) {
+        accepted = true;
         break;
       }
     }
     unpin_capture_zorder(root, hwnd);
+
+    // WS_EX_NOREDIRECTIONBITMAP FlyCube: a single black BitBlt used to still
+    // write a full-size BMP; callers then lied with engine sidecars. Fail
+    // closed unless a lit frame was accepted.
+    if (!accepted) {
+      return false;
+    }
 
     if (opts.dst_w >= 8 && opts.dst_h >= 8 &&
         (opts.dst_w != width || opts.dst_h != height)) {

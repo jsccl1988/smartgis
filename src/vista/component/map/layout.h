@@ -83,10 +83,12 @@ struct LayoutInput {
   // Non-owning. When set, workers compare load() to layout_gen at emit batch
   // boundaries and skip remaining tess. The host must not publish a stale gen.
   const std::atomic<uint64_t>* live_layout_gen = nullptr;
-  // Append-only: keep prior field offsets stable across DLL boundaries.
-  // Non-owning. When set, emit_heatmap writes density RGBA here.
-  HeatmapBake* heatmap_bake = nullptr;
 };
+
+// Side channel for heatmap density RGBA (not on LayoutInput — keeps the
+// cross-DLL struct layout stable). Bind before Layout::build; clear after.
+VISTA_EXPORT void layout_bind_heatmap_bake(HeatmapBake* bake);
+VISTA_EXPORT HeatmapBake* layout_heatmap_bake();
 
 class Layout {
  public:

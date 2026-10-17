@@ -3,6 +3,10 @@
 
 """Plain-launch visual capture: SmartGIS.exe argv=[] 2D + 3D.
 
+This is the settled home of scratch verify_bare_loop.py and
+map2d_hollow_smoke.py: argv=[] china shell scored as map2d_china
+(not_chrome_admin_hollow / near-black) plus a scene3d tab shot.
+
 Fixes closed-loop review bugs:
   #1 Wheel without click — OS click at fixed client coords flipped Map|Data|3D.
   #2 Shell PrintWindow teal/navy embed — scored as views_shell_chrome (allowed).

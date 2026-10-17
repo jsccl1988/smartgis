@@ -4,7 +4,9 @@
 #ifndef CONTENT_BROWSER_DOCUMENT_STORE_LAYER_STORE_H_
 #define CONTENT_BROWSER_DOCUMENT_STORE_LAYER_STORE_H_
 
+#include <atomic>
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -18,6 +20,21 @@ namespace detail {
 class LayerStore {
  public:
   void clear();
+
+  // Serializes UI ingest/edit vs Display layout / inspector walks. Recursive so
+  // feature_edit can hold the lock across create_layer + feature push.
+  // Callers that return |layers()| references must hold this for that lifetime.
+  std::recursive_mutex& mutex() const { return mu_; }
+
+  // Monotonic layout identity for Map2d StaticReuse. Display threads must
+  // read this instead of walking |layers_| (UI ingest races present).
+  uint64_t content_revision() const {
+    return content_revision_.load(std::memory_order_acquire);
+  }
+  // Caller must already hold mutex() when mutating outside LayerStore methods.
+  void note_content_changed() {
+    content_revision_.fetch_add(1, std::memory_order_acq_rel);
+  }
 
   std::vector<MapLayer>& layers() { return layers_; }
   const std::vector<MapLayer>& layers() const { return layers_; }
@@ -62,11 +79,14 @@ class LayerStore {
   void replace_layers(std::vector<MapLayer> loaded);
 
  private:
+  mutable std::recursive_mutex mu_;
   std::vector<MapLayer> layers_;
   std::string active_layer_id_;
   content::FeatureId selected_id_{};
   uint32_t next_id_ = 1;
   bool last_open_was_ogr_ = false;
+  // Starts at 1 so a never-mutated empty store still differs from zeroed fp.
+  std::atomic<uint64_t> content_revision_{1};
 };
 
 }  // namespace detail

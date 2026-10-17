@@ -9,6 +9,11 @@
 #include <string>
 #include <vector>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 #include "content/browser/present/map2d/frame/cache/map2d_frame_cache.h"
 #include "vista/component/map/ir.h"
 
@@ -19,6 +24,13 @@ namespace detail {
 using MapIrRasterLoader =
     std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba, int* w,
                        int* h)>;
+
+// Faithful MapIR → HDC (same fill / line / raster path as export BMP).
+// Used when FORCE_GDI_MAP_OVERLAY pins ContentMapView BitBlt / motion_gate.
+bool paint_mapir_hdc(HDC hdc,
+                     const vista::MapIR& frame,
+                     const Map2dFrameCache::CameraKey& cam,
+                     const MapIrRasterLoader& load_raster);
 
 // Faithful MapIR → BMP for product export / showcase (not scenic flat fill).
 // Paints fill / line / raster under the same camera as MapPass.

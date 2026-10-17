@@ -55,14 +55,16 @@ OceanDrawParams project_ocean_draw_params(const OceanSpectrumParams& spectrum,
     draw.fresnel_bias = 0.04f;
     draw.fresnel_power = 5.0f;
   } else {
-    // China orbit span ~3.2: readable lip without swallowing DEM peaks.
-    // Prefer Gerstner for interactive full-China (GPU FFT energy is tiny).
+    // China orbit DEM peaks ~±0.14. The old *4.5 + floor 0.10 / cap 0.22
+    // painted a wall of water over the mainland (ocean visible, DEM gone).
+    // Cap Hs like kLegacyStereo so coastal DEM survives; mild floor keeps a
+    // readable lip. Prefer Gerstner (GPU FFT energy is tiny at this scale).
     draw.significant_wave_height =
-        (std::max)((std::min)(draw.significant_wave_height * 4.5f, 0.22f),
-                   0.10f);
+        (std::min)((std::max)(draw.significant_wave_height, 0.01f), 0.035f);
     draw.use_gerstner_fallback = true;
     draw.prefer_gpu_fft = false;
-    draw.chop = (std::max)(draw.chop, 1.15f);
+    // High chop laterally displaces verts over land quads; keep modest.
+    draw.chop = (std::min)((std::max)(draw.chop, 0.35f), 0.65f);
     draw.shininess = (std::max)(draw.shininess, 180.0f);
     draw.mesh_resolution = 33;
     draw.deep_r = 0.02f;

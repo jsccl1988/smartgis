@@ -1,0 +1,106 @@
+{
+  "name": "smartgis-debug",
+  "displayName": "SmartGIS Debug",
+  "description": "DebugAgent catalog, loopback console, and Cursor SDK conversational debug for SmartGIS.",
+  "version": "0.1.0",
+  "publisher": "mogu",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Debuggers",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "smartgisDebug.refreshDiscovery",
+        "title": "SmartGIS Debug: Refresh Discovery"
+      },
+      {
+        "command": "smartgisDebug.openCatalog",
+        "title": "SmartGIS Debug: Open Methods Catalog"
+      },
+      {
+        "command": "smartgisDebug.mergeLaunchJson",
+        "title": "SmartGIS Debug: Merge Sample launch.json"
+      },
+      {
+        "command": "smartgisDebug.ping",
+        "title": "SmartGIS Debug: Ping Agent"
+      },
+      {
+        "command": "smartgisDebug.confirm",
+        "title": "SmartGIS Debug: Confirm Dangerous Ops"
+      },
+      {
+        "command": "smartgisDebug.openConsole",
+        "title": "SmartGIS Debug: Open Console"
+      },
+      {
+        "command": "smartgisDebug.openChat",
+        "title": "SmartGIS Debug: Open Conversational Debug"
+      },
+      {
+        "command": "smartgisDebug.loginCursor",
+        "title": "SmartGIS Debug: Login Cursor (API key)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "smartgis-debug",
+          "title": "SmartGIS Debug",
+          "icon": "media/debug.svg"
+        }
+      ]
+    },
+    "views": {
+      "smartgis-debug": [
+        {
+          "type": "webview",
+          "id": "smartgisDebug.consoleView",
+          "name": "Console"
+        },
+        {
+          "type": "webview",
+          "id": "smartgisDebug.chatView",
+          "name": "Chat"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "SmartGIS Debug",
+      "properties": {
+        "smartgisDebug.discoveryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Override path to smartgis-debug.json (empty = %TEMP%/smartgis-debug.json)."
+        },
+        "smartgisDebug.modelId": {
+          "type": "string",
+          "default": "composer-2.5",
+          "description": "Cursor SDK model id for conversational debug."
+        },
+        "smartgisDebug.pythonPath": {
+          "type": "string",
+          "default": "C:\\Users\\LENOVO\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+          "description": "Python used to start tools/debug MCP (P2). Prefer absolute python.exe."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "@cursor/sdk": "^1.0.27"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.0.0"
+  }
+}

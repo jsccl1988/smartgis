@@ -33,8 +33,8 @@ struct GlyphId {
 };
 
 // One drawable mesh in the view lon/lat ortho. Pixel-space icon and text are
-// already rotated about the anchor. A text halo is a solid mesh that shares
-// glyph_group with its glyph quad so a missing atlas entry drops both.
+// already rotated about the anchor. Text halo is coverage in the glyph atlas
+// (same glyph_group), not a solid rectangle over the map.
 //
 // World-space solids may borrow DrawItem vertex/index vectors during
 // place_frame. Keep MapIR alive through upload_draws (packs from these
@@ -61,6 +61,11 @@ struct PlacedMesh {
   // Fill, line, and circle with a symbol id draw solid when the icon is
   // missing. Icons do not.
   bool solid_if_icon_missing = false;
+  // Line/circle strokes paint after DEM rasters (fill → hillshade → stroke).
+  bool stroke = false;
+  // Text/icon quads are placed in lon/lat from the current view's pixel
+  // mapping. Camera-only DrawCache reuse must not keep them across zooms.
+  bool overlay = false;
 
   const std::vector<vista::Vertex>& vertex_list() const {
     return vertices_src ? *vertices_src : vertices;
@@ -76,7 +81,7 @@ void seal_borrowed_meshes(std::vector<PlacedMesh>* meshes);
 
 // World fill/line/circle emit a one-pixel radial feather solid under the core
 // mesh (Phase 2a AA). Rotates pixel-space icon and text about anchor_x/y,
-// maps pixels into the lon/lat ortho, and emits halo quads. Raster/icon tint
+// maps pixels into the lon/lat ortho. Raster/icon tint
 // uses DrawItem rgba × opacity at encode time. A kMultiply raster keeps that
 // opacity for coverage baking and draws with tint alpha 1.
 // |world_items| keeps fill/line/circle/raster. |overlay_items| keeps icon/text.

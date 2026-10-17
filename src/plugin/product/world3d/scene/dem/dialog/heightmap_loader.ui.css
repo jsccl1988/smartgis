@@ -10,15 +10,14 @@ All rights reserved.
   flex-direction: column;
   gap: 6px;
   padding: 10px;
-  width: 480px;
-  height: 420px;
+  width: 100%;
 }
 
 .row {
   display: flex;
   flex-direction: row;
   gap: 8px;
-  width: 460px;
+  width: 100%;
 }
 
 .field {
@@ -54,5 +53,5 @@ All rights reserved.
 #z_start,
 #color_type {
   height: 28px;
-  width: 140px;
+  flex-grow: 1;
 }

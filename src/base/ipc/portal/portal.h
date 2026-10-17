@@ -4,15 +4,14 @@
 #ifndef BASE_IPC_PORTAL_PORTAL_H_
 #define BASE_IPC_PORTAL_PORTAL_H_
 
-#include <condition_variable>
 #include <cstdint>
-#include <deque>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 
+#include "base/concurrency/queue.h"
 #include "base/ipc/channel/channel.h"
 #include "base/ipc/handle/handle.h"
 #include "base/ipc/receiver/receiver.h"
@@ -99,9 +98,9 @@ class Node : public MessageListener {
   Channel* link_ = nullptr;
   std::unique_ptr<Receiver> receiver_;
   std::mutex mu_;
-  std::condition_variable cv_;
   std::map<uint32_t, std::shared_ptr<Portal::State>> table_;
-  std::deque<uint32_t> incoming_;
+  // Portal ids offered by the peer. Waiters block here, not on `mu_`.
+  BlockingQueue<uint32_t> incoming_;
   uint32_t next_id_ = 1;
 };
 

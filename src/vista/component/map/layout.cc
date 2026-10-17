@@ -19,6 +19,19 @@
 #include "vista/mesh/tessellate.h"
 
 namespace vista {
+namespace {
+
+thread_local HeatmapBake* g_heatmap_bake = nullptr;
+
+}  // namespace
+
+void layout_bind_heatmap_bake(HeatmapBake* bake) {
+  g_heatmap_bake = bake;
+}
+
+HeatmapBake* layout_heatmap_bake() {
+  return g_heatmap_bake;
+}
 
 MapIR Layout::build(const LayoutInput& in,
                        const std::vector<LayerBatch>& layers) const {

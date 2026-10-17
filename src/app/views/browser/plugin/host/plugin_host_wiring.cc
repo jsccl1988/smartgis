@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "app/views/browser/china_product_defaults.h"
 #include "app/views/browser/plugin/host/map2d_bridges.h"
@@ -26,6 +27,78 @@
 #include <windows.h>
 
 namespace app {
+namespace {
+
+constexpr UINT_PTR kDeferDatasetTimer = 0x50445231u;
+
+struct DeferredDataset {
+  Browser* browser = nullptr;
+  std::string plugin_id;
+  std::string path;
+  int face = 0;
+  int surface = 0;
+};
+
+std::vector<DeferredDataset>& deferred_datasets() {
+  static std::vector<DeferredDataset> queue;
+  return queue;
+}
+
+bool present_dataset_now(Browser* browser, std::string_view plugin_id,
+                         std::string_view path, int face, int surface) {
+  if (!browser) {
+    return false;
+  }
+  // Nested present_dataset (orthogrid commit, or for_each_processing walking
+  // the same vtable) must not re-enter.
+  static thread_local int depth = 0;
+  if (depth > 0) {
+    return true;
+  }
+  ++depth;
+  struct DepthGuard {
+    ~DepthGuard() { --depth; }
+  } guard;
+
+  const bool scene3d = face == 1;
+  if (!scene3d && !path.empty()) {
+    const size_t dot = path.find_last_of('.');
+    if (dot != std::string_view::npos) {
+      const std::string ext(path.substr(dot));
+      if (_stricmp(ext.c_str(), ".geojson") == 0 ||
+          _stricmp(ext.c_str(), ".gpkg") == 0 ||
+          _stricmp(ext.c_str(), ".shp") == 0 ||
+          _stricmp(ext.c_str(), ".kml") == 0 ||
+          _stricmp(ext.c_str(), ".gml") == 0) {
+        (void)browser->session().open_document(std::string(path));
+        browser->sync_catalog_from_scene();
+      }
+    }
+  }
+  if (browser->plugins() && browser->plugins()->host() &&
+      browser->plugins()->host()->playback()) {
+    const int n = static_cast<int>(
+        browser->plugins()->host()->playback()->frame_count());
+    if (n > 0 && !plugin_id.empty()) {
+      browser->plugin_playback().adopt_host_frames(std::string(plugin_id),
+                                                   std::string(), n);
+    }
+  }
+  return detail::present_plugin_dataset(
+      browser, [browser]() { browser->fit_map_extent(); }, path, face, surface);
+}
+
+void CALLBACK on_deferred_dataset(HWND hwnd, UINT, UINT_PTR id, DWORD) {
+  KillTimer(hwnd, id);
+  std::vector<DeferredDataset> batch = std::move(deferred_datasets());
+  deferred_datasets().clear();
+  for (const DeferredDataset& item : batch) {
+    (void)present_dataset_now(item.browser, item.plugin_id, item.path,
+                              item.face, item.surface);
+  }
+}
+
+}  // namespace
 
 void Browser::install_plugin_host_bridges() {
   if (!plugins_ || !plugins_->host() || !session_->gis_contents()) {
@@ -131,45 +204,16 @@ void Browser::wire_plugin_present_dataset() {
   plugins_->host()->set_present_dataset_bridge(
       [this](std::string_view plugin_id, std::string_view path, int face,
              int surface) {
-        // Nested present_dataset (orthogrid commit �?tab/fit/invalidate, or
-        // for_each_processing walking the same vtable) must not re-enter.
-        static thread_local int depth = 0;
-        if (depth > 0) {
-          return true;
+        // Dialog constructors call this under the plugin-panel click. Running
+        // open/fit/tab-switch on that stack frees the pressed view.
+        HWND shell = hwnd();
+        if (!shell) {
+          return present_dataset_now(this, plugin_id, path, face, surface);
         }
-        ++depth;
-        struct DepthGuard {
-          ~DepthGuard() { --depth; }
-        } guard;
-
-        const bool scene3d = face == 1;
-        if (!scene3d && !path.empty()) {
-          const size_t dot = path.find_last_of('.');
-          if (dot != std::string_view::npos) {
-            const std::string ext(path.substr(dot));
-            if (_stricmp(ext.c_str(), ".geojson") == 0 ||
-                _stricmp(ext.c_str(), ".gpkg") == 0 ||
-                _stricmp(ext.c_str(), ".shp") == 0 ||
-                _stricmp(ext.c_str(), ".kml") == 0 ||
-                _stricmp(ext.c_str(), ".gml") == 0) {
-              (void)session_->open_document(std::string(path));
-              sync_catalog_from_scene();
-            }
-          }
-        }
-        if (plugins_ && plugins_->host() && plugins_->host()->playback()) {
-          const int n = static_cast<int>(
-              plugins_->host()->playback()->frame_count());
-          if (n > 0 && !plugin_id.empty()) {
-            // Resolve *.present_frame lazily in present_plugin_frame. Looking
-            // it up here via for_each_processing re-entered present_dataset
-            // (0xC00000FD) on --plugin-showcase=orthogrid.
-            plugin_playback_.adopt_host_frames(std::string(plugin_id),
-                                               std::string(), n);
-          }
-        }
-        return detail::present_plugin_dataset(
-            this, [this]() { fit_map_extent(); }, path, face, surface);
+        deferred_datasets().push_back(DeferredDataset{
+            this, std::string(plugin_id), std::string(path), face, surface});
+        SetTimer(shell, kDeferDatasetTimer, 1, &on_deferred_dataset);
+        return true;
       });
 }
 

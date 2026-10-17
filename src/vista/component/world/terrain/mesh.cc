@@ -41,10 +41,10 @@ void apply_elevation_overlay_texture(World* world, uint64_t node_id,
   std::vector<uint8_t> overlay;
   int ow = 0;
   int oh = 0;
-  // Jet surface + dark charcoal isolines (paint.cc). White Origin stamps
-  // used to wash ui.scene; dark 1px strokes stay readable after bilinear
-  // upscale. ContourSheet overlay TIN uses the same bake for its atlas.
-  if (!dem.bake_elevation_overlay_rgba(edge, /*surface=*/true, /*curves=*/true,
+  // Isolines only. surface=true replaces hypsometric with a jet ramp; a
+  // collapsed height range paints the whole country the low stop (purple
+  // ~0.20,0,0.40) plus blown whites. Dark strokes stay on the material.
+  if (!dem.bake_elevation_overlay_rgba(edge, /*surface=*/false, /*curves=*/true,
                                        &overlay, &ow, &oh) ||
       ow != tw || oh != th || overlay.size() != rgba->size()) {
     return;
@@ -423,8 +423,10 @@ Node* seed_view_or_china(World* world, double xmin, double ymin, double xmax,
   const double span_lat = ymax - ymin;
   const bool regional =
       span_lon < 50.0 || span_lat < 30.0;  // full China is ~62° × 36°
-  // Close orbit → multi-tile; any regional frame → crop even when far.
-  if (orbit_distance < 2.4f || regional) {
+  // Full China stays one mesh. Splitting it at distance < 2.4 attached four
+  // tiles that each resampled the national atlas and read as a false-color
+  // quilt. Regional frames still crop.
+  if (regional) {
     // Budget matches DemRaster default: one dense china_dem national tile
     // (~512×320) plus headroom for 2×2 regional crops.
     const size_t tiles = seed_dem_view_tiles_into_world(

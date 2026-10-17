@@ -105,6 +105,7 @@ bool PluginShell::attach_gis_contents(content::GisContents* contents) {
     capabilities_ = std::make_unique<plugin::HostCapabilities>();
   }
   capabilities_->attach(host_);
+  LOGGING(LOG_INFO, "startup: PluginShell capabilities attached");
   // Keep PainterRegistry out of content/: wire withdraw here only.
   host_->set_ui_withdraw_hook([](std::string_view id) {
     ui::views::PainterRegistry::get().withdraw_plugin(id);

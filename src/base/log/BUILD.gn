@@ -7,12 +7,18 @@
 import("//testing/test.gni")
 
 source_set("log") {
-  sources = [ "log_sink.h" ]
+  sources = [
+    "agent_feed.h",
+    "log_sink.h",
+  ]
   public_configs = [ "//src/base:foundation_config" ]
 }
 
 source_set("log_sources") {
-  sources = [ "log_sink.cc" ]
+  sources = [
+    "agent_feed.cc",
+    "log_sink.cc",
+  ]
   defines = [ "BASE_EXPORTS" ]
   public_deps = [ ":log" ]
   public_configs = [ "//src/base:foundation_config" ]

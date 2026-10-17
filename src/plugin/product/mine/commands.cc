@@ -282,7 +282,7 @@ bool register_mine(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"mine.interpolate_stratum", "地层TIN插值"},
           [host](content::PluginHost*) {
-            show_view_dialog(
+            present_dialog(
                 L"地层TIN插值",
                 wrap_with_present_surface(
                     host, std::make_unique<InterpolateDialog>(host)));
@@ -292,7 +292,7 @@ bool register_mine(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"mine.about", "关于"},
           [](content::PluginHost*) {
-            show_view_dialog(
+            present_dialog(
                 L"关于",
                 std::make_unique<AboutDialog>(
                     "Mine\nBorehole CSV → stratum TIN + prism volume"));

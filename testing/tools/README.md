@@ -95,7 +95,7 @@ C++ `ScenarioRegistry` ids (must match `harness/<family>/<id>/`):
 | Family | Suite ids |
 | --- | --- |
 | `browser/` | `browser.map2d.{browse,china,align,orthogrid}` `browser.world3d.{browse,land,ocean,full,coast,legacy,globe}` `browser.harness` `browser.gpu` `browser.console` `browser.input` — one IR shape (`horizon`→`view`→`plugin`); `*.browse` = stress; siblings = carto/atmosphere payloads; all `kind=integration`. `browser.gpu` is `SmartGisRender.exe` only. |
-| `ui/` | `ui.shell` `ui.data` `ui.scene` `ui.catalog` `ui.interact` `ui.interact.os` `ui.interact.smoke` `ui.interact.combo` |
+| `ui/` | `ui.shell` `ui.data` `ui.scene` `ui.catalog` `ui.plugins` `ui.interact` `ui.interact.os` `ui.interact.smoke` `ui.interact.combo` |
 | `plugin/` | `plugin.world3d` `plugin.world3d.preview` `plugin.print` `plugin.orthogrid` `plugin.orthogrid3d` `plugin.traffic` `plugin.flood` `plugin.stormsurge` `plugin.mine` `plugin.geochem` `plugin.report` |
 
 Stop recording with **Ctrl+Shift+F9** or console **Enter** / **Ctrl+C**. Output under
@@ -148,9 +148,12 @@ py -3 testing\tools\loop_runner.py --suite browser.map2d.browse --no-build
 
 | Script | Role |
 | --- | --- |
+| `loop/plain_browse_capture.py` | argv=[] china shell + scene3d tab (bare launch / hollow pixels) |
 | `harness/_shared/case/align/maplibre_align.py` | Dual product BMP + MapLibre Native stills |
+| `harness/_shared/case/align/china_estuary.py` | Yangtze / Yellow mouth: land east edge vs river tip |
+| `harness/_shared/case/scene3d/orbit_pair.py` | Far/near `--scene3d-orbit-*` pair, `plugin_scene3d` score |
 | `harness/_shared/case/engine/run_engine_shots.py` / `_safe` / `resume_engine_shots.py` | Multi-engine matrix |
 | `harness/_shared/case/engine/relabel_engine_bmps.py` | Title-strip annotator |
 | `harness/_shared/case/util/kill_showcase.py` | Shim ÃÂ¢ÃÂÃÂ `loop.kill` |
 
-**ÃÂ¦ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°:** 2026-10-06
+**ÃÂ¦ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°:** 2026-10-17

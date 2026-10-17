@@ -93,6 +93,15 @@ void Map2dPresenter::force_invalidate_frame_cache() {
   gpu_.invalidate_frame_cache();
 }
 
+bool Map2dPresenter::warm_frame_cache(uint32_t width_px, uint32_t height_px) {
+  if (width_px == 0 || height_px == 0) {
+    return false;
+  }
+  vista::MapIR unused;
+  Map2dFrameCache::CameraKey cam{};
+  return cache_.ensure_full(width_px, height_px, &unused, &cam);
+}
+
 void Map2dPresenter::sync_scenic(uint32_t width_px, uint32_t height_px) const {
   ensure_scenic();
   if (!scenic_) {
@@ -173,8 +182,33 @@ void Map2dPresenter::paint(HDC hdc, int width_px, int height_px,
       return;
     }
   }
-  // Soft MapIR→HDC is not used. Product carto is DXGI MapPass; HWND fill is
-  // ocean while waiting for present.
+  // Harness BitBlt / motion_gate: FORCE_GDI_MAP_OVERLAY paints MapIR→HDC.
+  // HWND paint must not call ensure_full (sync rebuild) — it deadlocks the
+  // UI thread against still export / Display. Dual-speed prepare + snap only;
+  // still.cc re-frames the embed after 1280 export so pixels match.
+  if (base::switch_is_one("force-gdi-map-overlay") && hdc && width_px > 0 &&
+      height_px > 0) {
+    Map2dFrameCache& cache = const_cast<Map2dFrameCache&>(cache_);
+    const uint32_t w = static_cast<uint32_t>(width_px);
+    const uint32_t h = static_cast<uint32_t>(height_px);
+    Map2dFrameCache::PresentAction action =
+        Map2dFrameCache::PresentAction::kStaticReuse;
+    (void)cache.prepare_for_present(w, h, &action);
+    Map2dFrameCache::PresentSnapshot snap;
+    if (cache.snap(&snap) && snap.frame) {
+      const Map2dFrameCache::CameraKey live = cache.live_camera_key(w, h);
+      if (detail::paint_mapir_hdc(
+              hdc, *snap.frame, live,
+              [&cache](uint32_t key, std::vector<uint8_t>* rgba, int* rw,
+                       int* rh) {
+                return cache.load_raster(key, rgba, rw, rh);
+              })) {
+        return;
+      }
+    }
+  }
+  // Product DXGI MapPass is the interactive SoT; HWND fill is ocean while
+  // waiting for present when GDI overlay is off.
   if (fill_background) {
     fill_ocean(hdc, width_px, height_px);
   }

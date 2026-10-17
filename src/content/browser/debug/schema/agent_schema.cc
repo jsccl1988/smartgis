@@ -7,7 +7,8 @@ namespace content {
 namespace detail {
 namespace {
 
-// Keep in sync with dispatch_method / exec_line surfaces.
+// Keep in sync with dispatch_method / exec_line surfaces and
+// tools/debug/console_prefixes.json (VS Code extension catalog).
 constexpr const char* kConsolePrefixes[] = {
     ":help",
     ":help json",
@@ -17,6 +18,7 @@ constexpr const char* kConsolePrefixes[] = {
     ":refresh",
     ":extent",
     ":layers",
+    ":tool ",
     ":diag",
     ":ask ",
     ":ui find ",
@@ -25,6 +27,7 @@ constexpr const char* kConsolePrefixes[] = {
     ":ui tree",
     ":ui overlay",
     ":ui capture",
+    ":ui panel ",
     ":script ",
     ":record on",
     ":record off",
@@ -46,16 +49,18 @@ std::string agent_help_text() {
   return "commands:\n"
          "  :help | :help json\n"
          "  :clear :confirm :log.level <L>\n"
-         "  :refresh :extent :layers :diag [capture]\n"
-         "  :ask <text>   (local tool stub; no remote LLM)\n"
+         "  :refresh :extent :layers :tool <id> :diag [capture]\n"
+         "  :ask <text>   (local tool stub; remote LLM via tools/debug/vscode-ext)\n"
          "  :ui find <name>|click <x> <y>|type <text>|tree|overlay|capture [path]\n"
+         "  :ui panel <plugins|processing|measure|selection|legend|layer|atmosphere>\n"
          "  :script <path>  :record on|off|poll|clear\n"
          "  :gis test|bench  :rhi test|bench\n"
          "  :sdbd capabilities|sql <text>\n"
          "  :py <code>  :run <path>\n"
          "rpc: ping log.* cmd.exec py.* ui.* script.run record.* sdbd.* "
          "diag.pack rpc.methods rpc.confirm\n"
-         "dangerous ops need :confirm or SG_DEBUG_ALLOW=1 (debug builds auto)";
+         "dangerous ops need :confirm or SG_DEBUG_ALLOW=1 (debug builds auto)\n"
+         "leading ':' is optional (help == :help)";
 }
 
 std::string agent_methods_schema_json() {
@@ -87,6 +92,7 @@ std::string agent_methods_schema_json() {
       "\"ui.overlay_stats\":{\"params\":{},\"result\":{\"text\":\"string\"}},"
       "\"ui.capture_shell\":{\"params\":{\"path\":\"string?\",\"confirm\":\"boolean?\"},"
       "\"result\":{\"text\":\"string\"}},"
+      "\"ui.open_panel\":{\"params\":{\"panel\":\"string\"},\"result\":{\"text\":\"string\"}},"
       "\"script.run\":{\"params\":{\"path\":\"string\"},\"result\":{\"text\":\"string\"}},"
       "\"record.enable\":{\"params\":{\"on\":\"boolean\"},\"result\":{\"on\":\"boolean\"}},"
       "\"record.poll\":{\"params\":{},\"result\":{\"events\":\"array\"}},"

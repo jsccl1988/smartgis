@@ -67,12 +67,19 @@ void Button::set_click(std::function<void()> fn) {
   click_ = std::move(fn);
 }
 
+void Button::click() {
+  activate();
+}
+
 void Button::activate() {
   if (!is_enabled()) {
     return;
   }
-  if (click_) {
-    click_();
+  // Copy first. The handler may destroy this button (plugin form swap, map
+  // present). Invoking the member std::function in place is a use-after-free.
+  const std::function<void()> click = click_;
+  if (click) {
+    click();
   }
 }
 

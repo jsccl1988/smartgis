@@ -52,9 +52,8 @@ void ScopedIpcSupport::post(std::function<void()> fn) {
   if (!g_support || !fn || g_support->stop_) {
     return;
   }
-  {
-    std::lock_guard<std::mutex> lock(g_support->mu_);
-    g_support->queue_.push_back(std::move(fn));
+  if (!g_support->queue_.push(std::move(fn))) {
+    return;
   }
   SetEvent(g_support->wake_);
 }
@@ -126,12 +125,8 @@ void ScopedIpcSupport::run() {
       Sleep(1);
       continue;
     }
-    std::vector<std::function<void()>> batch;
-    {
-      std::lock_guard<std::mutex> lock(mu_);
-      batch.swap(queue_);
-    }
-    for (auto& fn : batch) {
+    std::function<void()> fn;
+    while (queue_.pop(fn)) {
       if (fn) {
         fn();
       }

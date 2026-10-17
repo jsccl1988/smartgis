@@ -7,8 +7,9 @@
 #include <cmath>
 
 #include "ui/gfx/canvas/canvas.h"
-#include "ui/views/kernel/shell/theme.h"
+#include "ui/views/kernel/layout/splitter_grip.h"
 #include "ui/views/kernel/layout/view_traits.h"
+#include "ui/views/kernel/shell/theme.h"
 
 namespace ui {
 namespace views {
@@ -42,6 +43,20 @@ Splitter::Splitter(Orientation orientation) : orientation_(orientation) {
   set_preferred_size({200, 200});
 }
 
+Splitter::~Splitter() = default;
+
+bool Splitter::is_collapsed() const {
+  return collapsed_;
+}
+
+bool Splitter::is_horizontal_split() const {
+  return orientation_ == Orientation::kHorizontal;
+}
+
+bool Splitter::is_grip_dragging() const {
+  return dragging_;
+}
+
 void Splitter::set_collapsed(bool collapsed) {
   if (collapsed_ == collapsed) {
     return;
@@ -51,7 +66,7 @@ void Splitter::set_collapsed(bool collapsed) {
   } else if (saved_primary_ > 0) {
     primary_extent_ = saved_primary_;
   } else {
-    // Collapsed before the first real layout 鈥?re-seed from preferred sizes.
+    // Collapsed before the first real layout — re-seed from preferred sizes.
     split_seeded_ = false;
   }
   collapsed_ = collapsed;
@@ -59,9 +74,60 @@ void Splitter::set_collapsed(bool collapsed) {
   schedule_paint();
 }
 
-void Splitter::reseed() {
+void Splitter::reseed(bool force) {
+  if (user_adjusted_ && !force) {
+    // Keep the user seam; only re-apply geometry (DPI / host size).
+    layout();
+    schedule_paint();
+    return;
+  }
+  user_adjusted_ = false;
   split_seeded_ = false;
   layout();
+  schedule_paint();
+}
+
+void Splitter::enforce_primary_floor(float min_primary_frac) {
+  if (pane_count() < 2 || collapsed_) {
+    return;
+  }
+  if (min_primary_frac < 0.5f) {
+    min_primary_frac = 0.5f;
+  }
+  if (min_primary_frac > 0.9f) {
+    min_primary_frac = 0.9f;
+  }
+  user_adjusted_ = false;
+  const int inner = std::max(0, main_extent() - kBarPx);
+  if (inner <= kBarPx) {
+    return;
+  }
+  const int min_primary =
+      std::max(kMinPanePx, static_cast<int>(inner * min_primary_frac));
+  const int max_secondary = std::max(0, inner - min_primary);
+  if (fixed_secondary_px_ <= 0) {
+    // Collapsed dock: keep primary full (Diagnostic hidden for FlyCube Init).
+    primary_extent_ = inner;
+  } else if (fixed_secondary_px_ > max_secondary ||
+             primary_extent_ < min_primary) {
+    fixed_secondary_px_ = std::min(fixed_secondary_px_, max_secondary);
+    primary_extent_ = inner - fixed_secondary_px_;
+  }
+  resize_policy_ = ResizePolicy::kSecondaryFixed;
+  split_seeded_ = true;
+  last_main_ = main_extent();
+  clamp_primary();
+  apply_child_bounds();
+  for (size_t i = 0; i < child_count(); ++i) {
+    View* child = child_at(i);
+    if (!child) {
+      continue;
+    }
+    if (child->is_visible()) {
+      child->layout();
+    }
+    child->sync_native_bounds();
+  }
   schedule_paint();
 }
 
@@ -99,16 +165,65 @@ Rect Splitter::bar_rect() const {
                          : split_bar<Axis::kVertical>(b, primary_extent_, kBarPx);
 }
 
+View* Splitter::pane_at(size_t index) const {
+  size_t n = 0;
+  for (size_t i = 0; i < child_count(); ++i) {
+    View* c = child_at(i);
+    if (!c || c == grip_) {
+      continue;
+    }
+    if (n == index) {
+      return c;
+    }
+    ++n;
+  }
+  return nullptr;
+}
+
+size_t Splitter::pane_count() const {
+  size_t n = 0;
+  for (size_t i = 0; i < child_count(); ++i) {
+    View* c = child_at(i);
+    if (c && c != grip_) {
+      ++n;
+    }
+  }
+  return n;
+}
+
+void Splitter::ensure_grip() {
+  if (pane_count() < 2) {
+    if (grip_) {
+      grip_->set_visible(false);
+    }
+    return;
+  }
+  if (!grip_) {
+    auto g = std::make_unique<SplitterGrip>(this);
+    grip_ = g.get();
+    add_child(std::move(g));
+  } else if (child_count() == 0 || child_at(child_count() - 1) != grip_) {
+    // Keep grip last so reverse hit-test wins over pane / HWND edges.
+    auto owned = remove_child(grip_);
+    grip_ = static_cast<SplitterGrip*>(owned.get());
+    add_child(std::move(owned));
+  }
+  grip_->set_visible(!collapsed_);
+}
+
 void Splitter::seed_split_if_needed() {
-  if (child_count() < 2) {
+  if (pane_count() < 2) {
     return;
   }
   // layout() can run before the host has a real size; do not lock a 0 split.
   if (main_extent() <= kBarPx) {
     return;
   }
-  View* a = child_at(0);
-  View* b = child_at(1);
+  View* a = pane_at(0);
+  View* b = pane_at(1);
+  if (!a || !b) {
+    return;
+  }
   // Prefer the larger of stored preferred_size() and layout-aware
   // get_preferred_size(). FillLayout hosts often keep a pinned stored hint
   // (diagnostic_host=140) while get_preferred_size() follows an inner child
@@ -174,8 +289,18 @@ void Splitter::seed_split_if_needed() {
   // get_preferred_size() often reports nested catalog width (>0), which used
   // to fall into Proportional and crush the map beside a wide inspector
   // TabStrip (ui.shell #2/#4 — Feature dock filled the work area).
+  // Do not require pb_stored>0: FillLayout diagnostic_host often keeps stored
+  // 0 while get_preferred_size() follows a tall Console child — the old guard
+  // fell into Proportional and left Map/3D at ~99px (ui.interact worldpass).
   const bool flex_primary_fixed_secondary =
-      pa_stored <= 0 && pb_stored > 0 && pb_hint > 0;
+      pa_stored <= 0 && pb_hint > 0;
+  auto seed_secondary_fixed = [&](int secondary_want) {
+    const int min_primary = std::max(kMinPanePx, (inner * 2) / 3);
+    const int max_secondary = std::max(kMinPanePx, inner - min_primary);
+    fixed_secondary_px_ = std::min(std::max(0, secondary_want), max_secondary);
+    primary_extent_ = inner - fixed_secondary_px_;
+    resize_policy_ = ResizePolicy::kSecondaryFixed;
+  };
   if (pa_hint <= 0 && pb_hint <= 0) {
     // Both flex / hidden: primary keeps the work area; secondary stays at 0
     // until preferred size or a user drag grows it (Diagnostic Tools starts
@@ -189,20 +314,22 @@ void Splitter::seed_split_if_needed() {
     // pb_hint (360 console) used to leave Map/FeatureInfo crushed in the
     // upper third (ui.shell vertical collapse / black dead zone).
     // Prefer stored secondary (inspector 320) over inflated TabStrip layout.
-    const int secondary_want =
-        pb_stored > 0 ? pb_stored : pb_hint;
-    const int min_primary = std::max(kMinPanePx, (inner * 2) / 3);
-    const int max_secondary = std::max(kMinPanePx, inner - min_primary);
-    fixed_secondary_px_ = std::min(secondary_want, max_secondary);
-    primary_extent_ = inner - fixed_secondary_px_;
-    resize_policy_ = ResizePolicy::kSecondaryFixed;
+    seed_secondary_fixed(pb_stored > 0 ? pb_stored : pb_hint);
   } else if (pb_hint <= 0) {
     // Catalog (fixed preferred) + map tabs (flex).
     primary_extent_ = pa_hint;
     resize_policy_ = ResizePolicy::kPrimaryFixed;
   } else {
-    primary_extent_ = inner * pa_hint / (pa_hint + pb_hint);
-    resize_policy_ = ResizePolicy::kProportional;
+    // Both sides report hints. If proportional would starve primary (<2/3),
+    // treat secondary as a dock (Diagnostic / Inspector) instead.
+    const int proportional = inner * pa_hint / (pa_hint + pb_hint);
+    const int min_primary = std::max(kMinPanePx, (inner * 2) / 3);
+    if (proportional < min_primary) {
+      seed_secondary_fixed(pb_stored > 0 ? pb_stored : pb_hint);
+    } else {
+      primary_extent_ = proportional;
+      resize_policy_ = ResizePolicy::kProportional;
+    }
   }
   split_seeded_ = true;
   last_main_ = main_extent();
@@ -226,11 +353,10 @@ void Splitter::adjust_for_host_resize() {
 
   const int inner = std::max(0, main - kBarPx);
   const int last_inner = std::max(0, last_main_ - kBarPx);
-  if (user_adjusted_ || resize_policy_ == ResizePolicy::kProportional) {
-    if (last_inner > 0) {
-      primary_extent_ = inner * primary_extent_ / last_inner;
-    }
-  } else if (resize_policy_ == ResizePolicy::kSecondaryFixed) {
+  // SecondaryFixed / PrimaryFixed docks keep policy caps even after a grip
+  // drag. map_client / OS-resize mis-hits used to set user_adjusted_ and then
+  // proportional-scale a ~99px Map/3D seam forever (ui.interact FlyCube stub).
+  if (resize_policy_ == ResizePolicy::kSecondaryFixed) {
     // Match seed_split_if_needed: keep primary ≥2/3 of inner. A raw
     // fixed_secondary_px_ (Diagnostic ~500) after window(resize) to 960x640
     // used to leave Map/3D at ~40x93 and FlyCube Init a stub swapchain
@@ -241,6 +367,10 @@ void Splitter::adjust_for_host_resize() {
       const int min_primary = std::max(kMinPanePx, (inner * 2) / 3);
       const int max_secondary = std::max(0, inner - min_primary);
       primary_extent_ = inner - std::min(fixed_secondary_px_, max_secondary);
+    }
+  } else if (user_adjusted_ || resize_policy_ == ResizePolicy::kProportional) {
+    if (last_inner > 0) {
+      primary_extent_ = inner * primary_extent_ / last_inner;
     }
   } else if (resize_policy_ == ResizePolicy::kPrimaryFixed) {
     // Catalog|Map: keep catalog preferred, but never leave Map at kMinPanePx
@@ -260,6 +390,20 @@ void Splitter::clamp_primary() {
   const int main = main_extent();
   if (collapsed_) {
     primary_extent_ = std::max(0, main - kBarPx);
+    return;
+  }
+  // Live grip drag: min panes only so the seam follows the pointer. After
+  // release (user_adjusted_), fall through to policy clamps — otherwise a
+  // mis-hit drag can lock Map/3D at kMinPanePx under Diagnostic/Inspector.
+  if (dragging_) {
+    const int inner = std::max(0, main - kBarPx);
+    if (main < kMinPanePx * 2 + kBarPx) {
+      primary_extent_ = std::max(0, std::min(primary_extent_, main - kBarPx));
+      return;
+    }
+    const int max_primary = inner - kMinPanePx;
+    primary_extent_ =
+        std::max(kMinPanePx, std::min(primary_extent_, max_primary));
     return;
   }
   // Preference-0 secondary (DiagnosticToolsPanel collapsed): keep secondary at
@@ -296,8 +440,8 @@ void Splitter::clamp_primary() {
 
 void Splitter::apply_child_bounds() {
   const Rect& b = bounds();
-  View* a = child_count() > 0 ? child_at(0) : nullptr;
-  View* sec = child_count() > 1 ? child_at(1) : nullptr;
+  View* a = pane_at(0);
+  View* sec = pane_at(1);
   const int main = is_horizontal() ? b.width : b.height;
   int primary = primary_extent_;
   if (main > kBarPx) {
@@ -310,9 +454,13 @@ void Splitter::apply_child_bounds() {
   } else {
     place_panes<Axis::kVertical>(a, sec, b, primary, kBarPx);
   }
+  if (grip_) {
+    grip_->set_bounds(bar_rect());
+  }
 }
 
 void Splitter::layout() {
+  ensure_grip();
   seed_split_if_needed();
   adjust_for_host_resize();
   clamp_primary();
@@ -329,6 +477,10 @@ void Splitter::layout() {
   }
 }
 
+bool Splitter::on_mouse_event(const MouseEvent& event) {
+  return View::on_mouse_event(event);
+}
+
 void Splitter::begin_drag(int pos) {
   dragging_ = true;
   user_adjusted_ = true;
@@ -343,6 +495,10 @@ void Splitter::begin_drag(int pos) {
 void Splitter::update_drag(int pos) {
   primary_extent_ = drag_primary_origin_ + (pos - drag_origin_);
   clamp_primary();
+  if (resize_policy_ == ResizePolicy::kSecondaryFixed) {
+    const int inner = std::max(0, main_extent() - kBarPx);
+    fixed_secondary_px_ = std::max(0, inner - primary_extent_);
+  }
   apply_child_bounds();
   for (size_t i = 0; i < child_count(); ++i) {
     View* child = child_at(i);
@@ -354,7 +510,15 @@ void Splitter::update_drag(int pos) {
   schedule_paint();
 }
 
-bool Splitter::on_mouse_event(const MouseEvent& event) {
+void Splitter::end_drag() {
+  dragging_ = false;
+  if (resize_policy_ == ResizePolicy::kSecondaryFixed) {
+    const int inner = std::max(0, main_extent() - kBarPx);
+    fixed_secondary_px_ = std::max(0, inner - primary_extent_);
+  }
+}
+
+bool Splitter::on_grip_mouse(const MouseEvent& event) {
   if (!is_enabled() || !is_visible()) {
     return false;
   }
@@ -364,22 +528,18 @@ bool Splitter::on_mouse_event(const MouseEvent& event) {
         event.type == MouseEvent::Type::kUp) {
       update_drag(pos);
       if (event.type == MouseEvent::Type::kUp) {
-        dragging_ = false;
+        end_drag();
       }
       return true;
     }
   }
-  if (bar_rect().contains(event.x, event.y)) {
-    SetCursor(LoadCursor(nullptr,
-                         is_horizontal() ? IDC_SIZEWE : IDC_SIZENS));
-    if (event.type == MouseEvent::Type::kDown && event.button == 1) {
-      begin_drag(pos);
-      return true;
-    }
-    return event.type == MouseEvent::Type::kMove ||
-           event.type == MouseEvent::Type::kDown;
+  SetCursor(LoadCursor(nullptr, is_horizontal() ? IDC_SIZEWE : IDC_SIZENS));
+  if (event.type == MouseEvent::Type::kDown && event.button == 1) {
+    begin_drag(pos);
+    return true;
   }
-  return View::on_mouse_event(event);
+  return event.type == MouseEvent::Type::kMove ||
+         event.type == MouseEvent::Type::kDown;
 }
 
 void Splitter::paint_self(ui::gfx::Canvas* canvas) {
@@ -389,30 +549,11 @@ void Splitter::paint_self(ui::gfx::Canvas* canvas) {
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
-  const Rect bar = bar_rect();
-  // Idle seam stays near panel horizon; accent only while dragging/hover.
-  ui::gfx::Color fill = t.panel_header;
-  if (dragging_ || is_pressed()) {
-    fill = t.accent;
-  } else if (is_hovered()) {
-    fill = t.control_hover;
-  }
-  canvas->fill_rect(bar.x, bar.y, bar.width, bar.height, fill);
-  // Center grip: muted rail (not a full-bar neon slab).
-  if (is_horizontal()) {
-    const int grip = std::min(2, std::max(1, bar.width));
-    canvas->fill_rect(bar.x + (bar.width - grip) / 2, bar.y + 2, grip,
-                      std::max(0, bar.height - 4), t.text_muted);
-  } else {
-    const int grip = std::min(2, std::max(1, bar.height));
-    canvas->fill_rect(bar.x + 2, bar.y + (bar.height - grip) / 2,
-                      std::max(0, bar.width - 4), grip, t.text_muted);
-  }
 }
-
 
 std::string_view Splitter::paint_role() const {
   return "splitter";
 }
+
 }  // namespace views
 }  // namespace ui

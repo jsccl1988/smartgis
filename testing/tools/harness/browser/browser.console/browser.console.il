@@ -33,7 +33,7 @@ script "browser.console" {
     debug_exec(line=":refresh", equals="refreshed", fail_rc=54);
     mark("console-ok");
 
-    // --- view: pan bench ---
+    // --- view: pan bench (frame pan_x/pan_y must change; mark pan-moved) ---
     tool(id="view.pan", fail_rc=40);
     console_pan_bench();
     mark("console-bench-ok");

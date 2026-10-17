@@ -3,55 +3,41 @@
 
 #include "vista/pass/map/pass.h"
 
-#include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <cstddef>
-#include <iterator>
 #include <memory>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
-#include "vista/pass/map/detail/atlas.h"
-#include "vista/pass/map/detail/encode.h"
-#include "vista/component/map/place/place.h"
-#include "vista/pass/map/detail/upload.h"
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
+#include "vista/pass/map/detail/draw_cache.h"
+#include "vista/pass/map/detail/encode.h"
+#include "vista/pass/map/detail/keyed_slices.h"
+#include "vista/pass/map/detail/place_upload.h"
 
 namespace vista {
 namespace {
 
 std::atomic<int64_t> g_last_pass_record_ms{0};
 
-uint64_t hash_items(const vista::MapIR& frame, bool overlay_slice) {
-  uint64_t h = 14695981039346656037ull;
-  auto mix = [&](uint64_t v) {
-    h ^= v;
-    h *= 1099511628211ull;
-  };
-  for (const vista::DrawItem& item : frame.items) {
-    const bool is_ov = item.kind == vista::DrawKind::kIcon ||
-                       item.kind == vista::DrawKind::kText;
-    if (is_ov != overlay_slice) {
-      continue;
-    }
-    mix(static_cast<uint64_t>(item.kind));
-    mix(item.rgba);
-    mix(item.cache_key);
-    mix(item.vertices.size());
-    mix(item.indices.size());
-    if (!item.vertices.empty()) {
-      mix(static_cast<uint64_t>(
-          static_cast<int32_t>(item.vertices.front().x * 1000.f)));
-      mix(static_cast<uint64_t>(
-          static_cast<int32_t>(item.vertices.back().y * 1000.f)));
-    }
+void latch_cache_after_encode(detail::DrawCache* cache,
+                              const std::vector<detail::UploadedDraw>& draws,
+                              const vista::View& view, bool world_items,
+                              bool overlay_items, uint64_t world_hash,
+                              uint64_t overlay_hash) {
+  if (world_items && overlay_items) {
+    cache->full_draws = draws;
+    cache->world_draws = detail::world_only_draws(draws);
+    cache->placed_view = view;
+  } else if (world_items) {
+    // World-only must not refresh placed_view — full_draws may still hold
+    // overlays from an older extent.
+    cache->world_draws = detail::world_only_draws(draws);
   }
-  return h;
+  cache->world_hash = world_hash;
+  cache->overlay_hash = overlay_hash;
 }
 
 }  // namespace
@@ -64,19 +50,7 @@ void reset_last_pass_record_ms() {
   g_last_pass_record_ms.store(0, std::memory_order_relaxed);
 }
 
-struct MapPass::DrawCache {
-  struct SliceGpu {
-    uint64_t hash = 0;
-    std::vector<detail::UploadedDraw> draws;
-  };
-  std::vector<detail::UploadedDraw> world_draws;
-  std::vector<detail::UploadedDraw> full_draws;
-  uint64_t world_hash = 0;
-  uint64_t overlay_hash = 0;
-  std::unordered_map<uint64_t, SliceGpu> slices;
-};
-
-MapPass::MapPass() : draw_cache_(std::make_unique<DrawCache>()) {}
+MapPass::MapPass() : draw_cache_(std::make_unique<detail::DrawCache>()) {}
 
 MapPass::~MapPass() { abandon(); }
 
@@ -127,11 +101,7 @@ void MapPass::abandon() {
   buffers_.clear();
   textures_.clear();
   if (draw_cache_) {
-    draw_cache_->world_draws.clear();
-    draw_cache_->full_draws.clear();
-    draw_cache_->world_hash = 0;
-    draw_cache_->overlay_hash = 0;
-    draw_cache_->slices.clear();
+    draw_cache_->clear_uploads();
   }
   device_ = nullptr;
 }
@@ -148,11 +118,7 @@ void MapPass::release_uploaded() {
   buffers_.clear();
   textures_.clear();
   if (draw_cache_) {
-    draw_cache_->world_draws.clear();
-    draw_cache_->full_draws.clear();
-    draw_cache_->world_hash = 0;
-    draw_cache_->overlay_hash = 0;
-    draw_cache_->slices.clear();
+    draw_cache_->clear_uploads();
   }
 }
 
@@ -187,7 +153,7 @@ bool MapPass::record(
     return true;
   }
   if (!draw_cache_) {
-    draw_cache_ = std::make_unique<DrawCache>();
+    draw_cache_ = std::make_unique<detail::DrawCache>();
   }
   BASE_TRACE_EVENT("upload", "map2d.upload");
   if (device_ != nullptr && device_ != device) {
@@ -196,12 +162,12 @@ bool MapPass::record(
   }
   device_ = device;
 
-  const uint64_t world_hash = hash_items(frame, false);
-  const uint64_t overlay_hash = hash_items(frame, true);
-  const bool hashes_match = world_hash == draw_cache_->world_hash &&
-                            overlay_hash == draw_cache_->overlay_hash &&
-                            (draw_cache_->world_hash != 0 ||
-                             draw_cache_->overlay_hash != 0);
+  detail::DrawCache* cache = draw_cache_.get();
+  const uint64_t world_hash = detail::hash_items(frame, false);
+  const uint64_t overlay_hash = detail::hash_items(frame, true);
+  const bool hashes_match =
+      world_hash == cache->world_hash && overlay_hash == cache->overlay_hash &&
+      (cache->world_hash != 0 || cache->overlay_hash != 0);
   // kReuseIfCached: camera-only encode (G0 pan). kIncremental: whole-frame
   // reuse when hashes match; otherwise upload only cache_key misses.
   // kReplace: never reuse.
@@ -209,35 +175,43 @@ bool MapPass::record(
       upload_policy_ == UploadPolicy::kReuseIfCached ||
       (upload_policy_ == UploadPolicy::kIncremental && hashes_match);
 
-  if (reuse_ok && world_items && overlay_items &&
-      !draw_cache_->full_draws.empty()) {
+  const bool overlays_view_ok = cache->ensure_overlays_for_view(view);
+
+  // Reuse full_draws only when overlays were placed for this view. After a
+  // scrub, full_draws is world-only — reusing it would skip labels for a frame.
+  if (reuse_ok && world_items && overlay_items && !cache->full_draws.empty() &&
+      overlays_view_ok &&
+      (!detail::frame_has_overlay_items(frame) ||
+       detail::has_overlay_draws(cache->full_draws))) {
     if (!ensure_pipelines()) {
       return false;
     }
-    detail::encode_draws(list, view, frame, draw_cache_->full_draws, camera,
-                         color_op, /*close_list=*/true, solid_pipeline_,
+    detail::encode_draws(list, view, frame, cache->full_draws, camera, color_op,
+                         /*close_list=*/true, solid_pipeline_,
                          textured_pipeline_, multiply_pipeline_);
     return true;
   }
-  if (reuse_ok && world_items && !overlay_items &&
-      !draw_cache_->world_draws.empty()) {
-    if (!ensure_pipelines()) {
-      return false;
+  if (reuse_ok && world_items && !overlay_items) {
+    // Interactive / world-only encode must not redraw cached overlays —
+    // they were placed for a prior view and read as huge glyphs on a clear.
+    // An empty filter must fall through and place world meshes; encoding
+    // nothing still clears the target (blank frame mid-drag).
+    std::vector<detail::UploadedDraw> world;
+    if (!cache->world_draws.empty()) {
+      world = detail::world_only_draws(cache->world_draws);
     }
-    detail::encode_draws(list, view, frame, draw_cache_->world_draws, camera,
-                         color_op, /*close_list=*/true, solid_pipeline_,
-                         textured_pipeline_, multiply_pipeline_);
-    return true;
-  }
-  if (reuse_ok && world_items && !overlay_items &&
-      !draw_cache_->full_draws.empty()) {
-    if (!ensure_pipelines()) {
-      return false;
+    if (world.empty() && !cache->full_draws.empty()) {
+      world = detail::world_only_draws(cache->full_draws);
     }
-    detail::encode_draws(list, view, frame, draw_cache_->full_draws, camera,
-                         color_op, /*close_list=*/true, solid_pipeline_,
-                         textured_pipeline_, multiply_pipeline_);
-    return true;
+    if (!world.empty()) {
+      if (!ensure_pipelines()) {
+        return false;
+      }
+      detail::encode_draws(list, view, frame, world, camera, color_op,
+                           /*close_list=*/true, solid_pipeline_,
+                           textured_pipeline_, multiply_pipeline_);
+      return true;
+    }
   }
 
   bool any_keyed = false;
@@ -256,12 +230,54 @@ bool MapPass::record(
   // copies). One place+upload fills full_draws; a later SettleRebuild with
   // matching hashes reuses them.
   const bool keyed_cache_warm =
-      !draw_cache_->slices.empty() || !draw_cache_->full_draws.empty();
+      !cache->slices.empty() || !cache->full_draws.empty();
+  // Slice hits keep prior place() verts — skip when the view moved so
+  // pixel_space overlays are not replayed at the wrong scale.
   if (any_keyed && upload_policy_ == UploadPolicy::kIncremental &&
-      keyed_cache_warm) {
-    return upload_keyed_slices(list, frame, view, glyphs, load_raster,
-                               load_icon, camera, world_items, overlay_items,
-                               color_op, world_hash, overlay_hash);
+      keyed_cache_warm && overlays_view_ok) {
+    std::vector<detail::UploadedDraw> merged;
+    if (!detail::upload_keyed_slices(device, cache, frame, view, glyphs,
+                                     world_items, overlay_items, load_raster,
+                                     load_icon, &buffers_, &textures_,
+                                     &merged)) {
+      return false;
+    }
+    if (!ensure_pipelines()) {
+      return false;
+    }
+    const render::rhi::ColorLoadOp load_op =
+        world_items ? color_op : render::rhi::ColorLoadOp::kLoad;
+    const bool close_list = world_items && overlay_items;
+    detail::encode_draws(list, view, frame, merged, camera, load_op, close_list,
+                         solid_pipeline_, textured_pipeline_,
+                         multiply_pipeline_);
+    latch_cache_after_encode(cache, merged, view, world_items, overlay_items,
+                             world_hash, overlay_hash);
+    return true;
+  }
+
+  // After Interactive pan/zoom the world GPU cache is still valid (lon/lat)
+  // but overlays are not. Re-place icons/text only — avoid release_uploaded()
+  // which destroys DEM/fill buffers and flashes the swapchain on Settle.
+  if (!overlays_view_ok && world_items && overlay_items &&
+      !cache->world_draws.empty() &&
+      upload_policy_ != UploadPolicy::kReplace) {
+    const std::vector<detail::UploadedDraw> overlay_draws =
+        detail::place_and_upload(device, frame, view, glyphs,
+                                 /*world_items=*/false, /*overlay_items=*/true,
+                                 load_raster, load_icon, &buffers_, &textures_);
+    if (!ensure_pipelines()) {
+      return false;
+    }
+    std::vector<detail::UploadedDraw> merged =
+        detail::world_only_draws(cache->world_draws);
+    merged.insert(merged.end(), overlay_draws.begin(), overlay_draws.end());
+    detail::encode_draws(list, view, frame, merged, camera, color_op,
+                         /*close_list=*/true, solid_pipeline_,
+                         textured_pipeline_, multiply_pipeline_);
+    latch_cache_after_encode(cache, merged, view, /*world_items=*/true,
+                             /*overlay_items=*/true, world_hash, overlay_hash);
+    return true;
   }
 
   // MapPass §2: MapIR only — no leftover, no palette in GPU. Background is
@@ -292,228 +308,21 @@ bool MapPass::record(
     detail::encode_draws(list, view, frame, empty, camera, load_op, close_list,
                          solid_pipeline_, textured_pipeline_,
                          multiply_pipeline_);
-    if (world_items && overlay_items) {
-      draw_cache_->full_draws = empty;
-    } else if (world_items) {
-      draw_cache_->world_draws = empty;
-    }
-    draw_cache_->world_hash = world_hash;
-    draw_cache_->overlay_hash = overlay_hash;
+    latch_cache_after_encode(cache, empty, view, world_items, overlay_items,
+                             world_hash, overlay_hash);
     return true;
   }
 
-  std::vector<detail::PlacedMesh> meshes =
-      detail::place_frame(frame, view, world_items, overlay_items);
-  GlyphRasterizer* atlas_glyphs = overlay_items ? glyphs : nullptr;
-  const detail::AtlasLayout layout = detail::pack_atlas(atlas_glyphs, frame);
-  detail::bind_glyph_layout(&meshes, layout);
-  // Move into upload_draws — seal happens once there; avoid double deep-copy.
-  const std::vector<detail::UploadedDraw> draws = detail::upload_draws(
-      device, std::move(meshes), layout, load_raster, load_icon, &buffers_,
-      &textures_);
+  const std::vector<detail::UploadedDraw> draws = detail::place_and_upload(
+      device, frame, view, glyphs, world_items, overlay_items, load_raster,
+      load_icon, &buffers_, &textures_);
   if (!ensure_pipelines()) {
     return false;
   }
   detail::encode_draws(list, view, frame, draws, camera, load_op, close_list,
                        solid_pipeline_, textured_pipeline_, multiply_pipeline_);
-  if (world_items && overlay_items) {
-    draw_cache_->full_draws = draws;
-  } else if (world_items) {
-    draw_cache_->world_draws = draws;
-  }
-  draw_cache_->world_hash = world_hash;
-  draw_cache_->overlay_hash = overlay_hash;
-  return true;
-}
-
-bool MapPass::upload_keyed_slices(
-    render::rhi::CommandList* list, const vista::MapIR& frame,
-    const vista::View& view, GlyphRasterizer* glyphs,
-    const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
-                             int* w, int* h)>& load_raster,
-    const std::function<bool(const std::string& symbol_id,
-                             std::vector<uint8_t>* rgba, int* w, int* h)>&
-        load_icon,
-    const render::rhi::CameraMatrices* camera, bool world_items,
-    bool overlay_items, render::rhi::ColorLoadOp color_op, uint64_t world_hash,
-    uint64_t overlay_hash) {
-  if (!draw_cache_) {
-    draw_cache_ = std::make_unique<DrawCache>();
-  }
-  struct Run {
-    uint64_t key = 0;
-    size_t begin = 0;
-    size_t end = 0;
-    uint64_t hash = 0;
-  };
-  auto hash_span = [&](size_t begin, size_t end) {
-    uint64_t h = 14695981039346656037ull;
-    auto mix = [&](uint64_t v) {
-      h ^= v;
-      h *= 1099511628211ull;
-    };
-    mix(static_cast<uint64_t>(end - begin));
-    for (size_t i = begin; i < end; ++i) {
-      const vista::DrawItem& item = frame.items[i];
-      mix(static_cast<uint64_t>(item.kind));
-      mix(item.cache_key);
-      mix(item.rgba);
-      mix(static_cast<uint64_t>(item.vertices.size()));
-      mix(static_cast<uint64_t>(item.indices.size()));
-      if (!item.vertices.empty()) {
-        mix(static_cast<uint64_t>(
-            static_cast<int32_t>(item.vertices.front().x * 1000.f)));
-        mix(static_cast<uint64_t>(
-            static_cast<int32_t>(item.vertices.back().y * 1000.f)));
-      }
-    }
-    return h;
-  };
-  std::vector<Run> runs;
-  for (size_t i = 0; i < frame.items.size();) {
-    const vista::DrawItem& item = frame.items[i];
-    const bool overlay = item.kind == vista::DrawKind::kIcon ||
-                         item.kind == vista::DrawKind::kText;
-    if (overlay ? !overlay_items : !world_items) {
-      ++i;
-      continue;
-    }
-    const uint64_t key = item.cache_key;
-    size_t end = i + 1;
-    while (end < frame.items.size() && frame.items[end].cache_key == key) {
-      const bool next_overlay = frame.items[end].kind == vista::DrawKind::kIcon ||
-                                frame.items[end].kind == vista::DrawKind::kText;
-      if (next_overlay ? !overlay_items : !world_items) {
-        break;
-      }
-      ++end;
-    }
-    Run run;
-    run.key = key;
-    run.begin = i;
-    run.end = end;
-    run.hash = key == 0 ? 0 : hash_span(i, end);
-    runs.push_back(run);
-    i = end;
-  }
-
-  std::unordered_set<uint64_t> needed;
-  for (const Run& run : runs) {
-    if (run.key != 0) {
-      needed.insert(run.key);
-    }
-  }
-  auto destroy_draws = [&](std::vector<detail::UploadedDraw> draws) {
-    std::unordered_set<render::rhi::Buffer*> drop_buffers;
-    std::unordered_set<render::rhi::Texture*> drop_textures;
-    for (const detail::UploadedDraw& draw : draws) {
-      if (draw.vertices) {
-        drop_buffers.insert(draw.vertices);
-      }
-      if (draw.indices) {
-        drop_buffers.insert(draw.indices);
-      }
-      if (draw.texture) {
-        drop_textures.insert(draw.texture);
-      }
-    }
-    for (const auto& entry : draw_cache_->slices) {
-      for (const detail::UploadedDraw& draw : entry.second.draws) {
-        drop_buffers.erase(draw.vertices);
-        drop_buffers.erase(draw.indices);
-        drop_textures.erase(draw.texture);
-      }
-    }
-    if (device_) {
-      for (render::rhi::Buffer* buffer : drop_buffers) {
-        device_->destroy_buffer(buffer);
-      }
-      for (render::rhi::Texture* texture : drop_textures) {
-        device_->destroy_texture(texture);
-      }
-    }
-    buffers_.erase(std::remove_if(buffers_.begin(), buffers_.end(),
-                                  [&](render::rhi::Buffer* buffer) {
-                                    return drop_buffers.count(buffer) != 0;
-                                  }),
-                   buffers_.end());
-    textures_.erase(std::remove_if(textures_.begin(), textures_.end(),
-                                   [&](render::rhi::Texture* texture) {
-                                     return drop_textures.count(texture) != 0;
-                                   }),
-                    textures_.end());
-  };
-  std::vector<uint64_t> stale;
-  for (const auto& entry : draw_cache_->slices) {
-    if (needed.count(entry.first) == 0) {
-      stale.push_back(entry.first);
-    }
-  }
-  for (uint64_t key : stale) {
-    auto found = draw_cache_->slices.find(key);
-    if (found == draw_cache_->slices.end()) {
-      continue;
-    }
-    std::vector<detail::UploadedDraw> old = std::move(found->second.draws);
-    draw_cache_->slices.erase(found);
-    destroy_draws(std::move(old));
-  }
-
-  std::vector<detail::UploadedDraw> merged;
-  for (const Run& run : runs) {
-    if (run.key != 0) {
-      auto found = draw_cache_->slices.find(run.key);
-      if (found != draw_cache_->slices.end() && found->second.hash == run.hash &&
-          !found->second.draws.empty()) {
-        merged.insert(merged.end(), found->second.draws.begin(),
-                      found->second.draws.end());
-        continue;
-      }
-      if (found != draw_cache_->slices.end()) {
-        std::vector<detail::UploadedDraw> old = std::move(found->second.draws);
-        draw_cache_->slices.erase(found);
-        destroy_draws(std::move(old));
-      }
-    }
-    vista::MapIR subset;
-    subset.background_rgba = frame.background_rgba;
-    subset.background_opacity = frame.background_opacity;
-    subset.items.assign(frame.items.begin() + static_cast<std::ptrdiff_t>(run.begin),
-                        frame.items.begin() + static_cast<std::ptrdiff_t>(run.end));
-    std::vector<detail::PlacedMesh> meshes =
-        detail::place_frame(subset, view, /*world_items=*/true,
-                            /*overlay_items=*/true);
-    GlyphRasterizer* atlas_glyphs = overlay_items ? glyphs : nullptr;
-    const detail::AtlasLayout layout = detail::pack_atlas(atlas_glyphs, subset);
-    detail::bind_glyph_layout(&meshes, layout);
-    std::vector<detail::UploadedDraw> draws = detail::upload_draws(
-        device_, std::move(meshes), layout, load_raster, load_icon, &buffers_,
-        &textures_);
-    if (run.key != 0) {
-      DrawCache::SliceGpu stored;
-      stored.hash = run.hash;
-      stored.draws = draws;
-      draw_cache_->slices[run.key] = std::move(stored);
-    }
-    merged.insert(merged.end(), std::make_move_iterator(draws.begin()),
-                  std::make_move_iterator(draws.end()));
-  }
-
-  if (!ensure_pipelines()) {
-    return false;
-  }
-  const render::rhi::ColorLoadOp load_op =
-      world_items ? color_op : render::rhi::ColorLoadOp::kLoad;
-  const bool close_list = world_items && overlay_items;
-  detail::encode_draws(list, view, frame, merged, camera, load_op, close_list,
-                       solid_pipeline_, textured_pipeline_, multiply_pipeline_);
-  if (world_items && overlay_items) {
-    draw_cache_->full_draws = merged;
-  } else if (world_items) {
-    draw_cache_->world_draws = merged;
-  }
-  draw_cache_->world_hash = world_hash;
-  draw_cache_->overlay_hash = overlay_hash;
+  latch_cache_after_encode(cache, draws, view, world_items, overlay_items,
+                           world_hash, overlay_hash);
   return true;
 }
 

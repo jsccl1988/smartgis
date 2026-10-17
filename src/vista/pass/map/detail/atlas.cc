@@ -4,8 +4,10 @@
 #include "vista/pass/map/detail/atlas.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -42,9 +44,13 @@ GlyphKey glyph_key(const GlyphId& id) {
   return glyph_key(id.codepoint, id.text_size_px, id.rgba, id.opacity);
 }
 
-void blit_tinted(std::vector<uint8_t>* atlas, int atlas_w, int dx, int dy,
-                 const GlyphRasterizer::Bitmap& bitmap, float r, float g,
-                 float b, float opacity) {
+// Must match the quad grow in place_frame. The pad holds a dilated glyph
+// halo so the plate follows the ink and src-alpha blends with the terrain.
+constexpr int kGlyphHaloPadPx = 2;
+
+void blit_ink_with_halo(std::vector<uint8_t>* atlas, int atlas_w, int dx,
+                        int dy, const GlyphRasterizer::Bitmap& bitmap, float r,
+                        float g, float b, float opacity) {
   if (!atlas || bitmap.width <= 0 || bitmap.height <= 0) {
     return;
   }
@@ -53,13 +59,63 @@ void blit_tinted(std::vector<uint8_t>* atlas, int atlas_w, int dx, int dy,
   if (bitmap.rgba.size() < need) {
     return;
   }
+  const int pad = kGlyphHaloPadPx;
+  const int pw = bitmap.width + pad * 2;
+  const int ph = bitmap.height + pad * 2;
+  std::vector<float> ink(static_cast<size_t>(pw) * static_cast<size_t>(ph),
+                         0.f);
+  std::vector<float> cover = ink;
   for (int y = 0; y < bitmap.height; ++y) {
     for (int x = 0; x < bitmap.width; ++x) {
       const size_t si =
           (static_cast<size_t>(y) * static_cast<size_t>(bitmap.width) +
            static_cast<size_t>(x)) *
           4u;
-      const float coverage = static_cast<float>(bitmap.rgba[si + 3]) / 255.f;
+      const float a = static_cast<float>(bitmap.rgba[si + 3]) / 255.f;
+      const size_t di = static_cast<size_t>(y + pad) * static_cast<size_t>(pw) +
+                        static_cast<size_t>(x + pad);
+      ink[di] = a;
+      cover[di] = a;
+    }
+  }
+  for (int y = 0; y < ph; ++y) {
+    for (int x = 0; x < pw; ++x) {
+      const float src = ink[static_cast<size_t>(y) * static_cast<size_t>(pw) +
+                            static_cast<size_t>(x)];
+      if (src <= 0.f) {
+        continue;
+      }
+      for (int oy = -pad; oy <= pad; ++oy) {
+        for (int ox = -pad; ox <= pad; ++ox) {
+          const int nx = x + ox;
+          const int ny = y + oy;
+          if (nx < 0 || ny < 0 || nx >= pw || ny >= ph) {
+            continue;
+          }
+          const int cheb = (std::max)(std::abs(ox), std::abs(oy));
+          const float falloff = 1.f - 0.35f * (static_cast<float>(cheb) /
+                                               static_cast<float>(pad));
+          float& dst = cover[static_cast<size_t>(ny) * static_cast<size_t>(pw) +
+                             static_cast<size_t>(nx)];
+          dst = (std::max)(dst, src * falloff);
+        }
+      }
+    }
+  }
+  const float op = clampf(opacity, 0.f, 1.f);
+  for (int y = 0; y < ph; ++y) {
+    for (int x = 0; x < pw; ++x) {
+      const size_t i = static_cast<size_t>(y) * static_cast<size_t>(pw) +
+                       static_cast<size_t>(x);
+      const float ink_a = ink[i];
+      const float halo_a = (std::max)(0.f, cover[i] - ink_a);
+      const float out_a = ink_a + halo_a * (1.f - ink_a);
+      if (out_a <= 0.f) {
+        continue;
+      }
+      const float cr = ink_a * r + (1.f - ink_a) * 1.f;
+      const float cg = ink_a * g + (1.f - ink_a) * 1.f;
+      const float cb = ink_a * b + (1.f - ink_a) * 1.f;
       const size_t di =
           (static_cast<size_t>(dy + y) * static_cast<size_t>(atlas_w) +
            static_cast<size_t>(dx + x)) *
@@ -67,14 +123,11 @@ void blit_tinted(std::vector<uint8_t>* atlas, int atlas_w, int dx, int dy,
       if (di + 3 >= atlas->size()) {
         continue;
       }
-      (*atlas)[di + 0] =
-          static_cast<uint8_t>(clampf(r * coverage, 0.f, 1.f) * 255.f);
-      (*atlas)[di + 1] =
-          static_cast<uint8_t>(clampf(g * coverage, 0.f, 1.f) * 255.f);
-      (*atlas)[di + 2] =
-          static_cast<uint8_t>(clampf(b * coverage, 0.f, 1.f) * 255.f);
-      (*atlas)[di + 3] = static_cast<uint8_t>(
-          clampf(coverage * clampf(opacity, 0.f, 1.f), 0.f, 1.f) * 255.f);
+      (*atlas)[di + 0] = static_cast<uint8_t>(clampf(cr, 0.f, 1.f) * 255.f);
+      (*atlas)[di + 1] = static_cast<uint8_t>(clampf(cg, 0.f, 1.f) * 255.f);
+      (*atlas)[di + 2] = static_cast<uint8_t>(clampf(cb, 0.f, 1.f) * 255.f);
+      (*atlas)[di + 3] =
+          static_cast<uint8_t>(clampf(out_a * op, 0.f, 1.f) * 255.f);
     }
   }
 }
@@ -142,7 +195,7 @@ AtlasLayout pack_atlas(GlyphRasterizer* glyphs,
   constexpr int kPad = 1;
   int limit = 64;
   for (const Pending& row : pending) {
-    limit = std::max(limit, row.bitmap.width + 2);
+    limit = std::max(limit, row.bitmap.width + kGlyphHaloPadPx * 2 + 2);
   }
   limit = std::min(limit, 2048);
 
@@ -153,8 +206,8 @@ AtlasLayout pack_atlas(GlyphRasterizer* glyphs,
   int used_h = kPad;
   std::vector<GlyphCell> cells(pending.size());
   for (size_t i = 0; i < pending.size(); ++i) {
-    const int w = pending[i].bitmap.width;
-    const int h = pending[i].bitmap.height;
+    const int w = pending[i].bitmap.width + kGlyphHaloPadPx * 2;
+    const int h = pending[i].bitmap.height + kGlyphHaloPadPx * 2;
     if (cx + w + kPad > limit) {
       cy += row_h + kPad;
       cx = kPad;
@@ -182,8 +235,9 @@ AtlasLayout pack_atlas(GlyphRasterizer* glyphs,
                                   static_cast<size_t>(used_h) * 4u,
                               0);
   for (size_t i = 0; i < pending.size(); ++i) {
-    blit_tinted(&pixels, used_w, cells[i].x, cells[i].y, pending[i].bitmap,
-                pending[i].r, pending[i].g, pending[i].b, pending[i].opacity);
+    blit_ink_with_halo(&pixels, used_w, cells[i].x, cells[i].y,
+                       pending[i].bitmap, pending[i].r, pending[i].g,
+                       pending[i].b, pending[i].opacity);
     atlas.cells.emplace(pending[i].key, cells[i]);
   }
   atlas.rgba = std::move(pixels);

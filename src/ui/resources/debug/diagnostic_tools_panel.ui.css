@@ -20,5 +20,8 @@
 .tabs_host {
   flex-grow: 1;
   flex-shrink: 1;
-  min-height: 120px;
+  /* 0 so SecondaryFixed caps (ui.interact resize) can shrink below the old
+   * 120px floor — Yoga min-height:120 left tabs_host outside the dock
+   * (child-outside-parent → layout-fail / exit 30). */
+  min-height: 0px;
 }

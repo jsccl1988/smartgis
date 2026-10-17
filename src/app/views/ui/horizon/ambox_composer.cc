@@ -20,6 +20,7 @@
 
 #include "app/views/browser/browser.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
+#include "base/core/log.h"
 #include "base/process/switches.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/registry.h"
@@ -138,22 +139,31 @@ void AmboxComposer::populate_ambox() {
 
 
 void AmboxComposer::on_plugins() {
+  LOGGING(LOG_INFO, "ui.on_plugins: begin tab=%d", host_->plugins_tab_);
   if (!host_->browser_->plugins()) {
+    LOGGING(LOG_WARNING, "ui.on_plugins: no PluginShell");
     return;
   }
   (void)host_->browser_->plugins()->ensure_builtins();
+  LOGGING(LOG_INFO, "ui.on_plugins: ensure_builtins done");
   // Right-dock Plugins only — do not materialize Report/WebView2 here
   // (that used to run on every Manage plugins… and could stall/crash).
   // Do not set ambox_include_plugins_: that pushes PluginShell::commands()
   // into populate_from_commands, and CommandCatalog::for_each AVs when the
   // catalog maps are mid-rebuild after ensure_builtins (0xC0000005).
+  // Do not call populate_ambox() here either: it re-enters ensure_builtins /
+  // enabled_plugin_groups and has freefilled heaps that later AV when the
+  // DebugAgent thread destroys its host copy after :ui panel plugins.
   host_->ensure_inspector_tab(host_->plugins_tab_);
+  LOGGING(LOG_INFO, "ui.on_plugins: catalog=%p",
+          static_cast<void*>(host_->plugin_catalog_));
   host_->show_inspector_tab_index(host_->plugins_tab_);
+  LOGGING(LOG_INFO, "ui.on_plugins: tab shown");
   if (host_->plugin_catalog_) {
     host_->plugin_catalog_->refresh();
+    LOGGING(LOG_INFO, "ui.on_plugins: catalog refresh done");
   }
-  // Refresh side Tools groups (enabled packs) without the map-bar catalog walk.
-  host_->populate_ambox();
+  LOGGING(LOG_INFO, "ui.on_plugins: done");
 }
 
 

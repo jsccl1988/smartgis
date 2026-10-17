@@ -46,7 +46,18 @@ def run_inproc_process(
         rc = 124
     finally:
         if rec_thread is not None:
-            rec_thread.join(timeout=8.0)
+            # Allow start_after_hwnd to finish find+burst arm (was 8s; Views
+            # shell settle + map-client retarget can exceed that).
+            rec_thread.join(timeout=45.0)
         if recorder is not None:
-            record_report = recorder.stop()
+            stopped = recorder.stop()
+            # stop() finalizes bmp_burst; if start never armed, keep its error.
+            if (
+                record_report
+                and str(stopped.get("mode") or "none") == "none"
+                and str(record_report.get("mode") or "none") != "none"
+            ):
+                record_report = {**record_report, **stopped}
+            else:
+                record_report = stopped
     return rc, record_report

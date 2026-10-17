@@ -42,8 +42,8 @@ class Map2dFrameCache {
   // Camera-only changes stay false � prepare_for_present handles extent.
   bool content_differs_from_cache() const;
 
-  // Scene identity for StaticReuse. Counts alone miss visibility toggles and
-  // same-count feature swaps; content_hash covers id/visible/count/endpoints.
+  // Scene identity for StaticReuse. content_hash is GisScene::content_revision
+  // (atomic); feature/layer counts stay 0 — Display must not sample live store.
   struct ContentFingerprint {
     size_t feature_count = 0;
     size_t layer_count = 0;
@@ -117,6 +117,14 @@ class Map2dFrameCache {
   bool snap(PresentSnapshot* out) const;
   std::shared_ptr<const vista::MapIR> share_frame() const;
 
+  // Live ViewFrame → CameraKey for HWND GDI paint (pan/zoom xform).
+  // Does not require a published frame; pixel size comes from the caller.
+  CameraKey live_camera_key(uint32_t width_px, uint32_t height_px) const;
+
+  // Coverage rebuild fired while the pointer was still moving. That present
+  // must skip pixel labels; the quiet settle after release draws them.
+  bool gesture_defer_labels() const;
+
   uint64_t layout_build_count() const {
     return layout_build_count_.load(std::memory_order_acquire);
   }
@@ -174,8 +182,15 @@ class Map2dFrameCache {
   std::shared_ptr<const vista::MapIR> published_frame_;
   ContentFingerprint cached_fp_;
   CameraKey cached_cam_;
+  // Camera the published MapIR was tessellated for. Interactive pan updates
+  // cached_cam_ without moving this, so coverage can be measured from the mesh.
+  CameraKey mesh_cam_;
   bool has_frame_cache_ = false;
   bool last_present_was_interactive_ = false;
+  bool gesture_defer_labels_ = false;
+  // Zoom bucket changed during a gesture. Quiet settle must full-rebuild
+  // slices; interactive presents keep the previous mesh and omit labels.
+  bool pending_zoom_rebuild_ = false;
   std::atomic<bool> last_present_reused_layout_{false};
   std::atomic<uint64_t> layout_build_count_{0};
   // Bumped on bind/invalidate/rebuild so in-flight Layout::build can see a

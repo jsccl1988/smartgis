@@ -6,6 +6,7 @@
 
 #include "ui/ui_export.h"
 
+#include <atomic>
 #include <chrono>
 #include <functional>
 #include <memory>
@@ -24,8 +25,10 @@ class Label;
 class RenderTracePanel;
 class TabStrip;
 
-// VS-style bottom Diagnostic Tools: Output | Console | Trace | Memory.
+// VS-style bottom Diagnostic Tools: Output | Console | Trace | Memory | Agent.
 // Trace = RenderTracePanel (UI Views paint/compositor + map/GDI filters).
+// Agent shows DebugAgent lines from base::agent_feed, one bottom sub-tab per
+// session (local console, or each remote connection).
 // Allocate via make_diagnostic_tools_panel() for cross-module View ownership.
 class UI_EXPORT DiagnosticToolsPanel : public View {
  public:
@@ -35,7 +38,7 @@ class UI_EXPORT DiagnosticToolsPanel : public View {
   void set_visible_tools(bool on);
   bool is_tools_visible() const { return visible_; }
 
-  // Select Output / Console / Trace / Memory (no-op if index invalid).
+  // Select Output / Console / Trace / Memory / Agent (no-op if index invalid).
   void set_active_tab(int index);
   int active_tab() const;
 
@@ -63,9 +66,14 @@ class UI_EXPORT DiagnosticToolsPanel : public View {
   void on_export();
   void on_refresh();
   void sample_memory();
+  void push_memory_sample(bool schedule);
   void refresh_memory_stats();
   void update_status();
   void maybe_auto_refresh();
+  void arm_memory_timer();
+  void disarm_memory_timer();
+  static void CALLBACK on_memory_timer(HWND hwnd, UINT msg, UINT_PTR id,
+                                       DWORD time);
 
   bool visible_ = false;
   View* panel_root_ = nullptr;
@@ -92,6 +100,8 @@ class UI_EXPORT DiagnosticToolsPanel : public View {
   int memory_tab_ = -1;
   std::function<void(const std::string&)> pending_console_submit_;
   std::chrono::steady_clock::time_point last_auto_refresh_{};
+  std::atomic<bool> alive_{true};
+  bool memory_timer_armed_ = false;
 };
 
 UI_EXPORT std::unique_ptr<DiagnosticToolsPanel>

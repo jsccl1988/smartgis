@@ -8,6 +8,7 @@
 #include "base/core/log.h"
 #include "gis/style/paint_resolve.h"
 #include "gis/style/style_types.h"
+#include "vista/component/map/layout/policy/slice_key.h"
 
 namespace vista {
 namespace detail {
@@ -77,18 +78,20 @@ void emit_hillshade(const gis::style::StyleLayer& layer, const LayoutInput& in,
     item.opacity = tile.opacity;
     item.rgba = 0xffffffffu;
     item.codepoint = tile.texture_key;
-    // Clip the DEM quad to the view and remap UVs so FlyCube does not
-    // clip a continent-sized triangle (large clip ranges corrupted UV
-    // interpolation on DX12 and read as horizontal gray streaks).
+    // Clip to the view plus the pan-coverage skirt, then remap UVs. The full
+    // DEM extent is a continent-sized triangle (DX12 UV streaks). The exact
+    // view leaves a cleared strip on the first pixels of a drag. The skirt
+    // stays inside kPanCoveragePx, which is the interactive reuse budget.
     const double tw = tile.max_x - tile.min_x;
     const double th = tile.max_y - tile.min_y;
     if (tw <= 0.0 || th <= 0.0) {
       continue;
     }
-    const double x0d = (std::max)(tile.min_x, in.view.min_x);
-    const double x1d = (std::min)(tile.max_x, in.view.max_x);
-    const double y0d = (std::max)(tile.min_y, in.view.min_y);
-    const double y1d = (std::min)(tile.max_y, in.view.max_y);
+    const double pad = layout_pan_coverage_world(in.view);
+    const double x0d = (std::max)(tile.min_x, in.view.min_x - pad);
+    const double x1d = (std::min)(tile.max_x, in.view.max_x + pad);
+    const double y0d = (std::max)(tile.min_y, in.view.min_y - pad);
+    const double y1d = (std::min)(tile.max_y, in.view.max_y + pad);
     if (x1d <= x0d || y1d <= y0d) {
       continue;
     }

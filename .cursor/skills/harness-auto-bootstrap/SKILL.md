@@ -20,7 +20,7 @@ All rights reserved.
 
 Closed loop: build → product cold launch with startup dump → parse hottest `cat=startup` span → CBM → one-hypothesis fix → rebuild → re-bench → until **done bar** / hard stop.
 
-Sibling of `harness-auto-map2d-frame-opt` (warm per-frame StaticReuse). This skill owns **process start → first china carto present**, not FPS / `present_gpu_warm_ms`.
+Sibling of `harness-auto-map2d-phase-loop` (warm per-frame StaticReuse). This skill owns **process start → first china carto present**, not FPS / `present_gpu_warm_ms`.
 
 ## Authorization
 
@@ -152,7 +152,7 @@ Fill from the table (`offset_ms` / `dur_ms`; `wall_ms` is the gate):
 | `PluginShell.*` | defer LoadLibrary; do not scan plugins “for the profile” |
 | `Browser.ctor` / `init` / `Widget.init` | shell assembly; lazy inspectors |
 
-Non-goals: strip China/hillshade; leftover MFC `SmartGIS-Legacy.exe` as the product bar; map2d warm FPS (use `harness-auto-map2d-frame-opt`); scene3d first present (out of scope).
+Non-goals: strip China/hillshade; leftover MFC `SmartGIS-Legacy.exe` as the product bar; map2d warm FPS (use `harness-auto-map2d-phase-loop`); scene3d first present (out of scope).
 
 ### Step 5 — Loop
 
@@ -188,5 +188,5 @@ Debug product cold start, sync China, sync first present:
 - Living §: `docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md` §Startup profile
 - Dump: `src/base/trace/diag/startup_profile.*`
 - Wait: `BrowserView::show_shell` (`SYNC_FIRST_MAP_PRESENT`)
-- Warm-frame sibling: `.cursor/skills/harness-auto-map2d-frame-opt/SKILL.md`
+- Warm-frame sibling: `.cursor/skills/harness-auto-map2d-phase-loop/SKILL.md`
 - Detail: [reference.md](reference.md)

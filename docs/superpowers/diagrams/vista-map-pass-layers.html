@@ -1,0 +1,156 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista MapPass — detail 分层组合</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+    --orch: #e7eef6; --cpu: #e8f3ee; --gpu: #f5eee6; --cache: #f0eef6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+  }
+  .hero h1 { margin: 0 0 4px; font-size: 1.22rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .arrow { fill: none; stroke: #8a96a8; stroke-width: 2; marker-end: url(#arr); }
+  .flow { stroke-dasharray: 6 4; animation: dash 1.2s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -20; } }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Vista <code>pass/map</code> — MapPass 分层组合</h1>
+    <p>
+      公共面 <code>MapPass::record</code> 不变。编排留在 <code>pass.cc</code>；
+      缓存 / place+upload / keyed slices / encode 落在 <code>detail/</code> 组合。
+    </p>
+    <p class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista map pass layers</a>
+      · 上游 CPU：<a href="vista-map-component-layers.html">component/map</a>
+    </p>
+  </header>
+
+  <section class="panel">
+    <h2>分层（谁拥有什么）</h2>
+    <svg class="diagram" viewBox="0 0 940 460" role="img" aria-label="MapPass detail 分层与 record 流向">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+
+      <rect x="30" y="16" width="880" height="56" rx="8" fill="var(--orch)" stroke="#c5d4e6"/>
+      <text class="box-title" x="46" y="40">MapPass（编排）· pass.cc / pass.h</text>
+      <text class="box-sub" x="46" y="58">record 状态机 · UploadPolicy · pipeline 生命周期 · Device/Buffer 拥有</text>
+
+      <rect x="30" y="96" width="200" height="100" rx="8" fill="var(--cache)" stroke="#d0cbe0"/>
+      <text class="box-title" x="46" y="122">detail/draw_cache</text>
+      <text class="box-sub" x="46" y="142">hash · world_only</text>
+      <text class="box-sub" x="46" y="160">placed_view latch</text>
+      <text class="box-sub" x="46" y="178">slices 索引</text>
+
+      <rect x="250" y="96" width="200" height="100" rx="8" fill="var(--cpu)" stroke="#c5d8cc"/>
+      <text class="box-title" x="266" y="122">detail/place_upload</text>
+      <text class="box-sub" x="266" y="142">place_frame</text>
+      <text class="box-sub" x="266" y="160">pack_atlas + bind</text>
+      <text class="box-sub" x="266" y="178">→ upload_draws</text>
+
+      <rect x="470" y="96" width="200" height="100" rx="8" fill="var(--gpu)" stroke="#e0d0c0"/>
+      <text class="box-title" x="486" y="122">detail/keyed_slices</text>
+      <text class="box-sub" x="486" y="142">cache_key runs</text>
+      <text class="box-sub" x="486" y="160">hit / miss / stale</text>
+      <text class="box-sub" x="486" y="178">merge UploadedDraw</text>
+
+      <rect x="690" y="96" width="220" height="100" rx="8" fill="#eef2f6" stroke="#d8dee6"/>
+      <text class="box-title" x="706" y="122">detail/encode · upload · atlas</text>
+      <text class="box-sub" x="706" y="142">encode_draws</text>
+      <text class="box-sub" x="706" y="160">mega VB/IB</text>
+      <text class="box-sub" x="706" y="178">glyph atlas</text>
+
+      <path class="arrow" d="M130 172 L130 220"/>
+      <path class="arrow" d="M350 196 L350 220"/>
+      <path class="arrow" d="M570 196 L570 220"/>
+      <path class="arrow" d="M800 196 L800 220"/>
+
+      <rect x="30" y="228" width="880" height="120" rx="8" fill="#fafbfc" stroke="#d8dee6"/>
+      <text class="box-title" x="46" y="254">record 原则流（设备线程，串行）</text>
+      <text class="box-sub" x="46" y="278">1 reuse? → encode(full/world)</text>
+      <text class="box-sub" x="46" y="296">2 incremental keyed? → keyed_slices → encode</text>
+      <text class="box-sub" x="46" y="314">3 overlay view stale? → place_upload(overlay) + world_only merge → encode</text>
+      <text class="box-sub" x="46" y="332">4 cold → release → place_upload → encode → latch cache</text>
+
+      <path class="arrow flow" d="M80 360 C 200 390, 400 390, 520 370 C 640 350, 760 350, 860 380"/>
+      <text class="box-sub" x="46" y="400">上游 CPU IR：component/map（Layout / place）· 下游：graph::present via MapEffect</text>
+      <text class="box-sub" x="46" y="420">硬墙：pass 不做 parallel_for；不进 leftover HDC；公共 API 稳定</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>组合表</h2>
+    <table class="map">
+      <thead>
+        <tr><th>单元</th><th>输入</th><th>输出</th><th>不拥有</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>draw_cache</code></td>
+          <td>MapIR · View · UploadedDraw</td>
+          <td>hash · 过滤 · latch</td>
+          <td>RHI encode / Device destroy</td>
+        </tr>
+        <tr>
+          <td><code>place_upload</code></td>
+          <td>MapIR · View · loaders</td>
+          <td><code>vector&lt;UploadedDraw&gt;</code></td>
+          <td>cache 策略 · encode</td>
+        </tr>
+        <tr>
+          <td><code>keyed_slices</code></td>
+          <td>DrawCache · cache_key runs</td>
+          <td>merged draws</td>
+          <td>pipeline · color_op</td>
+        </tr>
+        <tr>
+          <td><code>MapPass</code></td>
+          <td>Device · CommandList · policy</td>
+          <td>recorded CL</td>
+          <td>Layout / OGR</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

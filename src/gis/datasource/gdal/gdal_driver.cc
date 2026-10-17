@@ -59,6 +59,8 @@ void ensure_gdal_proj_data_env() {
 
   const char* gdal_candidates[] = {
       "\\share\\gdal",
+      // SDK drop: out/sdk/<Config>/bin → ../third_party/share/gdal.
+      "\\..\\third_party\\share\\gdal",
       "\\..\\third_party\\.install\\share\\gdal",
       "\\..\\..\\third_party\\.install\\share\\gdal",
   };
@@ -73,6 +75,8 @@ void ensure_gdal_proj_data_env() {
   const char* proj_candidates[] = {
       "\\share\\proj",
       "",  // proj.db may sit next to the exe (proj_runtime_data copy)
+      // SDK drop: proj.db under out/sdk/<Config>/third_party/share/proj.
+      "\\..\\third_party\\share\\proj",
       "\\..\\third_party\\.install\\share\\proj",
       "\\..\\..\\third_party\\.install\\share\\proj",
   };

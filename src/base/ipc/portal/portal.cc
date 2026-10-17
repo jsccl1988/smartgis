@@ -6,7 +6,7 @@
 #include "base/ipc/codec/codec.h"
 #include "base/ipc/invitation/invitation.h"
 
-#include <chrono>
+#include <cstdint>
 #include <map>
 
 namespace base {
@@ -21,9 +21,8 @@ struct Portal::State {
   Channel* link = nullptr;
   Channel dedicated;
   std::shared_ptr<State> local_peer;
-  std::mutex mu;
-  std::condition_variable cv;
-  std::deque<PortalInboxMsg> inbox;
+  // In-process mailbox. Cross-process bytes stay on `dedicated` / `link`.
+  BlockingQueue<PortalInboxMsg> inbox;
 };
 
 Portal::Portal(Portal&& other) noexcept : state_(std::move(other.state_)) {}
@@ -86,12 +85,7 @@ bool Portal::send(const void* data,
   if (!peer) {
     return false;
   }
-  {
-    std::lock_guard<std::mutex> lock(peer->mu);
-    peer->inbox.push_back(std::move(msg));
-  }
-  peer->cv.notify_one();
-  return true;
+  return peer->inbox.push(std::move(msg));
 }
 
 bool Portal::recv(std::vector<uint8_t>* bytes,
@@ -113,18 +107,15 @@ bool Portal::recv(std::vector<uint8_t>* bytes,
     }
     return true;
   }
-  std::unique_lock<std::mutex> lock(state_->mu);
-  if (!state_->cv.wait_for(lock, std::chrono::milliseconds(timeout_ms), [&] {
-        return !state_->inbox.empty() || state_->closed;
-      })) {
+  PortalInboxMsg msg;
+  const bool ready =
+      timeout_ms == 0
+          ? state_->inbox.pop(msg)
+          : state_->inbox.wait_pop_timed(
+                msg, static_cast<std::int64_t>(timeout_ms) * 1000);
+  if (!ready) {
     return false;
   }
-  if (state_->inbox.empty()) {
-    return false;
-  }
-  PortalInboxMsg msg = std::move(state_->inbox.front());
-  state_->inbox.pop_front();
-  lock.unlock();
   *bytes = std::move(msg.bytes);
   if (handles) {
     *handles = std::move(msg.handles);
@@ -219,13 +210,16 @@ bool Node::take_portal(Portal* out, uint32_t timeout_ms) {
   if (!out) {
     return false;
   }
-  std::unique_lock<std::mutex> lock(mu_);
-  if (!cv_.wait_for(lock, std::chrono::milliseconds(timeout_ms),
-                    [&] { return !incoming_.empty(); })) {
+  uint32_t id = 0;
+  const bool ready =
+      timeout_ms == 0
+          ? incoming_.pop(id)
+          : incoming_.wait_pop_timed(id, static_cast<std::int64_t>(timeout_ms) *
+                                             1000);
+  if (!ready) {
     return false;
   }
-  const uint32_t id = incoming_.front();
-  incoming_.pop_front();
+  std::lock_guard<std::mutex> lock(mu_);
   auto it = table_.find(id);
   if (it == table_.end()) {
     return false;
@@ -249,11 +243,7 @@ void Node::deliver(uint32_t dest_id,
   PortalInboxMsg msg;
   msg.bytes = std::move(bytes);
   msg.handles = std::move(handles);
-  {
-    std::lock_guard<std::mutex> lock(st->mu);
-    st->inbox.push_back(std::move(msg));
-  }
-  st->cv.notify_one();
+  st->inbox.push(std::move(msg));
 }
 
 void Node::on_message(const Frame& frame,
@@ -279,9 +269,8 @@ void Node::on_message(const Frame& frame,
     {
       std::lock_guard<std::mutex> lock(mu_);
       table_[st->id] = st;
-      incoming_.push_back(st->id);
     }
-    cv_.notify_one();
+    incoming_.push(st->id);
     return;
   }
   if (frame.type == k_msg_portal_bytes) {

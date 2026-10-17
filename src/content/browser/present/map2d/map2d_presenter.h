@@ -36,7 +36,7 @@ class ViewFrame;
 CONTENT_EXPORT bool prefer_map2d_scenic();
 
 // Map2d facade: FlyCube MapPass GPU present (+ optional scenic matrix cell).
-// Soft MapIR→HDC is not used.
+// FORCE_GDI_MAP_OVERLAY enables MapIR→HDC for harness BitBlt / motion_gate.
 class Map2dPresenter {
  public:
   // Same heap-owning factory as Scene3dPresenter::create — do not embed
@@ -73,6 +73,9 @@ class Map2dPresenter {
   // Fingerprint-stable invalidate_frame_cache is a no-op and cannot clear a
   // wrong first layout latched before final client fit.
   void force_invalidate_frame_cache();
+  // Sync MapIR bake for |width_px|×|height_px| (harness still→stress handoff).
+  // Call only when HWND paint is paused — not from WM_PAINT.
+  bool warm_frame_cache(uint32_t width_px, uint32_t height_px);
 
   bool present_gpu(render::rhi::Device* device, uint32_t width_px,
                    uint32_t height_px,
@@ -84,8 +87,8 @@ class Map2dPresenter {
   uint64_t layout_build_count() const;
   bool last_present_reused_layout() const;
 
-  // HWND path: scenic paint_hdc when MAP2D_ENGINE=scenic; otherwise ocean fill
-  // (product carto is DXGI MapPass).
+  // HWND path: scenic paint_hdc when MAP2D_ENGINE=scenic; MapIR→HDC when
+  // FORCE_GDI_MAP_OVERLAY; otherwise ocean fill (product SoT is DXGI MapPass).
   void paint(HDC hdc, int width_px, int height_px) const;
   void paint(HDC hdc, int width_px, int height_px, bool fill_background) const;
   // No-ops: selection/flash are MapPass MapIR overlays.

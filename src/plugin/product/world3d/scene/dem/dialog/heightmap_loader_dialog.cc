@@ -44,7 +44,7 @@ HeightmapLoaderDialog::HeightmapLoaderDialog(content::PluginHost* host) : host_(
   const std::string markup =
       plugin::resolve_resource("smartgis.world3d", "heightmap_loader.ui.xml");
   if (!markup.empty()) {
-    loaded = ui::views::load_markup(markup);
+    ui::views::load_markup_into(markup, {}, &loaded);
   }
   if (!loaded.ok()) {
     return;

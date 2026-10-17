@@ -15,6 +15,8 @@
 #include "plugin/runtime/host/catalog/signature.h"
 #include "plugin/runtime/host/catalog/signature_test_key.h"
 #include "plugin/runtime/host/catalog/store.h"
+#include "plugin/runtime/widgets/owned_dialog.h"
+#include "ui/views/kernel/view/view.h"
 #include "tool/command/command.h"
 #include "ui/views/dialogs/dialog.h"
 #include "ui/views/dialogs/file_picker.h"
@@ -23,6 +25,7 @@
 #include "httplib.h"
 
 #include <chrono>
+#include <memory>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -638,6 +641,37 @@ int main() {
     expect(gis.last == "heat", "layer name");
     expect(presented, "dataset from present");
     delete host;
+  }
+  {
+    struct Capture {
+      int hits = 0;
+      ui::views::View* raw = nullptr;
+      std::unique_ptr<ui::views::View> hold;
+    } capture;
+    plugin::set_dialog_presenter(
+        &capture,
+        [](void* context, const wchar_t* title,
+           std::unique_ptr<ui::views::View>* body) {
+          auto* slot = static_cast<Capture*>(context);
+          ++slot->hits;
+          expect(title != nullptr && std::wstring(title) == L"Panel",
+                 "present title");
+          if (body && *body) {
+            slot->raw = body->get();
+            slot->hold = std::move(*body);
+          }
+        });
+    auto body = std::make_unique<ui::views::View>();
+    ui::views::View* raw = body.get();
+    const ui::views::Dialog::Result presented =
+        plugin::present_dialog(L"Panel", std::move(body));
+    expect(!presented.accepted, "panel present is not a modal accept");
+    expect(capture.hits == 1, "presenter hit");
+    expect(capture.raw == raw && capture.hold != nullptr, "presenter owns view");
+    plugin::set_dialog_presenter(&capture, nullptr);
+    auto again = std::make_unique<ui::views::View>();
+    (void)plugin::present_dialog(L"Fallback", std::move(again));
+    expect(capture.hits == 1, "cleared presenter is not called");
   }
   if (g_fails) {
     std::fprintf(stderr, "plugin_host_test: %d fail(s)\n", g_fails);

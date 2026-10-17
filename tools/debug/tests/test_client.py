@@ -17,6 +17,7 @@ for path in (str(_PYTHON), str(_ROOT)):
     if path not in sys.path:
         sys.path.insert(0, path)
 
+from smartgis.cursor_session import composer_header_name  # noqa: E402
 from smartgis.client import (  # noqa: E402
     AgentClient,
     AgentError,
@@ -27,6 +28,15 @@ from smartgis.client import (  # noqa: E402
 from tests.mock_agent import MockAgentServer, MockStep  # noqa: E402
 
 class ParseAndFramingTests(unittest.TestCase):
+    def test_composer_header_name(self) -> None:
+        self.assertEqual(
+            composer_header_name('{"name":" Auto-agent console issue "}'),
+            "Auto-agent console issue",
+        )
+        self.assertEqual(composer_header_name('{"name":"地图会话"}'), "地图会话")
+        self.assertEqual(composer_header_name("{}"), "")
+        self.assertEqual(composer_header_name("not-json"), "")
+
     def test_parse_agent_url(self) -> None:
         self.assertEqual(parse_agent_url("tcp://127.0.0.1:9999"), ("127.0.0.1", 9999))
         self.assertEqual(parse_agent_url("127.0.0.1:8888"), ("127.0.0.1", 8888))

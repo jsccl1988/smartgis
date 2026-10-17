@@ -14,8 +14,10 @@
 
 #include "base/concurrency/queue.h"
 #include "base/core/log.h"
+#include "base/memory/allocation_tracker.h"
 #include "base/memory/arena.h"
 #include "base/memory/memory_resource.h"
+#include "base/util/type_utils.h"
 #include "base/memory/singleton.h"
 #include "base/synchronization/align.h"
 #include "base/traits/class_traits.h"
@@ -45,9 +47,12 @@ struct Deleter {
   void (*destructor)(void*);
   void (*array_destructor)(void*, size_t);
 
-  struct Visitor {
+    struct Visitor {
     MemoryResource* memory_resource;
     void operator()(const Deleter& deleter) {
+      if (AllocationTracker::is_enabled()) {
+        AllocationTracker::track_deallocation(deleter.p);
+      }
       if (!deleter.skip_destructor) {
         if (deleter.is_array && deleter.array_destructor) {
           deleter.array_destructor(deleter.p, deleter.array_count);
@@ -140,6 +145,11 @@ class alignas(hardware_destructive_interference_size) ObjectAllocator {
     Type* result = new (raw_ptr) Type(std::forward<Args>(args)...);
     _count.fetch_add(1, std::memory_order_relaxed);
     _total_bytes.fetch_add(aligned_size, std::memory_order_relaxed);
+    if (AllocationTracker::is_enabled()) {
+      AllocationTracker::track_allocation(
+          raw_ptr, aligned_size, __FILE__, __LINE__,
+          AllocationTracker::intern_type_name(type_name<Type>()));
+    }
 
     constexpr bool skip_destructor =
         std::is_trivially_destructible<Type>::value ||
@@ -188,6 +198,11 @@ class alignas(hardware_destructive_interference_size) ObjectAllocator {
 
     _count.fetch_add(count, std::memory_order_relaxed);
     _total_bytes.fetch_add(total_size, std::memory_order_relaxed);
+    if (AllocationTracker::is_enabled()) {
+      AllocationTracker::track_allocation(
+          raw_ptr, total_size, __FILE__, __LINE__,
+          AllocationTracker::intern_type_name(type_name<Type>()));
+    }
 
     constexpr bool skip_destructor =
         std::is_trivially_destructible<Type>::value ||

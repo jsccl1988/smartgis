@@ -107,7 +107,13 @@ product_shared_library("host") {
     "//src/tool:dispatch",
     "//src/ui/views:views",
   ]
-  public_configs = [ ":plugin_host_config" ]
+  # WebView2Loader is a static import of this DLL. Delay-load it so the
+  # exe's SetDllDirectory(<exe>/../third_party/bin) runs before the loader
+  # resolves that DLL (otherwise PATH wins, e.g. the WPT copy).
+  public_configs = [
+    ":plugin_host_config",
+    "//third_party/webview2:webview2_config",
+  ]
 }
 
 test("plugin_host_test") {

@@ -95,8 +95,21 @@ group("eigen") {
   public_deps = [ "//third_party/gn:eigen" ]
 }
 
+if (is_win) {
+  config("cximage_delayload") {
+    libs = [ "delayimp.lib" ]
+    ldflags = [ "/DELAYLOAD:CxImage.dll" ]
+  }
+}
+
 group("CxImage") {
   public_deps = [ "//third_party/gn:CxImage" ]
+  if (is_win) {
+    # gis_d.dll imports CxImage.dll. Delay-load so the preload hook can
+    # SetDllDirectory(<exe>/../third_party/bin) before the loader resolves it.
+    public_deps += [ "//third_party/gn:dll_search" ]
+    public_configs = [ ":cximage_delayload" ]
+  }
 }
 
 group("wtl8.0") {

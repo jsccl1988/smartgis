@@ -109,6 +109,9 @@ struct ConsoleMap {
     host.ui_type = [](const std::string& utf8) {
       return std::string("type:") + utf8;
     };
+    host.ui_open_panel = [](const std::string& panel) {
+      return std::string("opened:") + panel;
+    };
     agent->set_host(std::move(host));
   }
 };
@@ -167,6 +170,8 @@ void expect_ui_local(content::DebugAgent* agent) {
   expect(agent->exec_line(":ui type hi").find("type:hi") != std::string::npos,
          ":ui type");
   expect(agent->exec_line(":ui overlay") == "unavailable", ":ui overlay");
+  expect(agent->exec_line(":ui panel plugins") == "opened:plugins",
+         ":ui panel plugins");
 }
 
 // Soft note only — never hard-fail; daemon / Python may be absent offline.
@@ -183,6 +188,10 @@ void expect_local_commands(content::DebugAgent* agent, ConsoleMap* map) {
 
   const std::string help = agent->exec_line(":help");
   expect(help.find(":help") != std::string::npos, "help lists :help");
+  const std::string bare_help = agent->exec_line("help");
+  expect(bare_help.find(":help") != std::string::npos, "bare help");
+  expect(bare_help.find("python not compiled") == std::string::npos,
+         "bare help is not python");
   expect(help.find(":clear") != std::string::npos, "help lists :clear");
   expect(help.find(":log.level") != std::string::npos, "help lists :log.level");
   expect(help.find(":refresh") != std::string::npos, "help lists :refresh");
@@ -417,7 +426,17 @@ void expect_env_flag() {
   expect(content::debug_console_env_enabled(), "SG_DEBUG=1");
   base::set_switch("debug", "0");
   expect(!content::debug_console_env_enabled(), "SG_DEBUG=0");
-  base::set_switch("debug", saved.c_str());
+  base::clear_switch("debug");
+#if !defined(NDEBUG)
+  expect(content::debug_console_env_enabled(), "debug build default on");
+#else
+  expect(!content::debug_console_env_enabled(), "release default off");
+#endif
+  if (saved.empty()) {
+    base::clear_switch("debug");
+  } else {
+    base::set_switch("debug", saved.c_str());
+  }
 }
 
 }  // namespace

@@ -21,6 +21,8 @@ namespace content {
 struct DebugAgentHost {
   std::function<void()> refresh_gis;
   std::function<std::string()> extent_string;
+  // Activate a shell tool id (selection.point, edit.vertex, view.pan, …).
+  std::function<std::string(const std::string& id)> run_tool;
   std::function<std::vector<std::string>()> layer_names;
   std::function<std::string(const std::string& name)> ui_find;
   std::function<std::string(int x, int y, int button)> ui_click;
@@ -29,6 +31,8 @@ struct DebugAgentHost {
   std::function<std::string()> ui_overlay_stats;
   // Optional: capture shell horizon to a PNG/BMP path (forensics Mode C).
   std::function<std::string(const std::string& path)> ui_capture_shell;
+  // Open a named shell panel (plugins / processing / measure / …).
+  std::function<std::string(const std::string& panel)> ui_open_panel;
   // Prefer in-process CPython when set; else OOP spawn fallback.
   std::function<std::string(const std::string& code)> py_eval;
   // Run Interact DSL / capability script (path UTF-8). Thin wrap only.
@@ -52,7 +56,8 @@ class DebugAgent {
   void stop();
 
   bool is_running() const { return running_.load(); }
-  int port() const { return port_.load(); }
+  // Defined in .cc so callers share the DLL layout (host_ may grow).
+  int port() const;
 
   // Process one console line (builtin :commands or py one-liner).
   std::string exec_line(const std::string& line);
@@ -105,7 +110,8 @@ class DebugAgent {
 // Process-wide agent used by Views Console (created on first enable).
 DebugAgent& debug_agent();
 
-// True when --debug-console, SG_DEBUG=1, or explicit start requested.
+// True when debug builds (default), --debug-console / SG_DEBUG=1, or an
+// explicit start path. SG_DEBUG=0 disables the default in debug builds.
 bool debug_console_env_enabled();
 
 // Push a semantic event when recording is enabled (no-op otherwise).

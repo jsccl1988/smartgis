@@ -456,7 +456,7 @@ bool register_geochem(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"geochem.analyze", "地球化学分析"},
           [host](content::PluginHost*) {
-            show_view_dialog(
+            present_dialog(
                 L"地球化学分析",
                 wrap_with_present_surface(
                     host, std::make_unique<AnalyzeDialog>(host)));
@@ -466,7 +466,7 @@ bool register_geochem(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"geochem.about", "关于"},
           [](content::PluginHost*) {
-            show_view_dialog(
+            present_dialog(
                 L"关于",
                 std::make_unique<AboutDialog>(
                     "Geochem\nSample grades + IDW heat raster "

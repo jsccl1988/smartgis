@@ -30,6 +30,9 @@ class UI_EXPORT Button : public View {
   void set_style(Style style);
   Style style() const { return style_; }
   void set_click(std::function<void()> fn);
+  // Runs the click handler. Safe for a panel Run button to forward into a
+  // form OK button that stays inside the dock.
+  void click();
   bool on_mouse_event(const MouseEvent& e) override;
   bool on_key_event(const KeyEvent& e) override;
   void on_device_scale_factor_changed(float old_scale,

@@ -43,6 +43,10 @@ UI_EXPORT HWND create_widget_hwnd(const WidgetWindowCreate& create,
 // Owned popups stay above the owner without taking a taskbar slot.
 UI_EXPORT void raise_owned_widget_above_owner(HWND hwnd, HWND owner);
 
+// Largest visible unowned SmartGisViewsWidget in this process. Plugin
+// dialogs use it as the modal owner so the shell cannot cover them.
+UI_EXPORT HWND primary_unowned_widget_hwnd();
+
 // Custom-frame WM_NCHITTEST: resize borders + caption drag vs client controls.
 UI_EXPORT LRESULT hit_test_custom_frame(HWND hwnd,
                                         int screen_x,

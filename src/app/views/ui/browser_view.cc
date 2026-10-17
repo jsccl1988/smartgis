@@ -164,6 +164,39 @@ void BrowserView::on_processing() {
   inspector_host_->on_processing();
 }
 
+std::string BrowserView::open_named_panel(const std::string& panel) {
+  if (panel == "plugins") {
+    on_plugins();
+    return "opened:plugins";
+  }
+  if (panel == "processing") {
+    on_processing();
+    return "opened:processing";
+  }
+  if (panel == "measure") {
+    show_inspector_tab_index(measure_tab_);
+    return "opened:measure";
+  }
+  if (panel == "selection") {
+    show_inspector_tab_index(selection_tab_);
+    return "opened:selection";
+  }
+  if (panel == "legend") {
+    show_inspector_tab_index(legend_tab_);
+    return "opened:legend";
+  }
+  if (panel == "layer") {
+    show_inspector_tab_index(layer_props_tab_);
+    return "opened:layer";
+  }
+  if (panel == "atmosphere") {
+    show_inspector_tab_index(atmosphere_tab_);
+    return "opened:atmosphere";
+  }
+  return "unknown panel (plugins|processing|measure|selection|legend|layer|"
+         "atmosphere)";
+}
+
 void BrowserView::ensure_processing_panel() {
   inspector_host_->ensure_processing_panel();
 }
@@ -294,15 +327,32 @@ void BrowserView::pause_all_presents() {
 }
 
 void BrowserView::resume_all_presents() {
+  // Only the chrome-active map may run DXGI. Resuming every DrawHost after
+  // deferred China seed cleared present_paused_ on Map-Edit while the 3D tab
+  // was live — Map FlyCube then covered Scene3d DEM (flash-then-gone).
   ui::views::DrawHost* active = active_map();
   for_each_draw_host([active](ui::views::DrawHost* pane) {
     if (!pane) {
       return;
     }
-    pane->set_gpu_present_visible(pane == active);
+    if (pane != active) {
+      pane->pause_present();
+      if (HWND present = pane->present_hwnd()) {
+        if (IsWindow(present)) {
+          ShowWindow(present, SW_HIDE);
+        }
+      }
+      if (HWND hud = pane->identity_hud_hwnd()) {
+        if (IsWindow(hud)) {
+          ShowWindow(hud, SW_HIDE);
+        }
+      }
+      return;
+    }
     if (pane->attach_mode() == ui::views::DrawHost::AttachMode::kNone) {
       return;
     }
+    pane->set_gpu_present_visible(true);
     pane->resume_present_timer();
     pane->invalidate_native();
   });

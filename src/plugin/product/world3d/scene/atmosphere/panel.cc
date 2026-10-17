@@ -10,6 +10,7 @@
 #include "plugin/product/world3d/scene/detail/host.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/capability/contribute.h"
+#include "tool/command/command.h"
 #include "plugin/runtime/widgets/present_surface_picker.h"
 #include "ui/gis/shell/atmosphere_panel.h"
 
@@ -80,6 +81,11 @@ void wire_atmosphere_panel(ui::views::AtmospherePanel* panel,
 bool contribute_atmosphere_panel(content::PluginHost* host) {
   if (!host) {
     return false;
+  }
+  if (tool::CommandCatalog* catalog = host->commands()) {
+    if (catalog->contains("world3d.atmosphere_panel")) {
+      return true;
+    }
   }
   const content::DockContribution dock = {"world3d.atmosphere", "Atmosphere",
                                           "right"};

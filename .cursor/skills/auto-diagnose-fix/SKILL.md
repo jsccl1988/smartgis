@@ -92,12 +92,35 @@ Use `pwsh -NoProfile -File …` when available; otherwise `powershell -NoProfile
    `pwsh -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/run_and_hang.ps1 -ExePath out\Debug\SmartGIS.exe -ExeArgs '--harness' -TimeoutSec 180`
 6. **Hang dump offline:**  
    `pwsh -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/analyze_dump.ps1 -DumpPath <path.dmp> -Mode Hang`
+7. **Console digest (mandatory after analyze/catch):**  
+   `powershell -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/archive_console_diag.ps1 -InputLog <catch.log>,<analyze.log> -Label <tag>`  
+   Writes `out/crash/<stamp>-<tag>-console-digest.txt` and refreshes `out/crash/LATEST.md`.  
+   `run_and_catch.ps1` already calls this after a successful dump.
+
+## Console log diagnosis (with dump)
+
+Do **not** diagnose from stacks alone. Always cross-check **stderr / catch log product lines**:
+
+| Source | What to mine |
+| --- | --- |
+| `*-catch.log` / process stderr | `LOG_INFO` / `LOG_ERROR` / `LOG_WARNING`, `[sync_inspectors]`, `[fill_attribute_rows]`, `startup:` |
+| `*-analyze.log` | `ExceptionCode`, `FAULTING_IP`, `STACK_TEXT`, `FAILURE_BUCKET` |
+| `out/crash/*-console-digest.txt` | Filtered union of the above (use for the next session) |
+| `out/crash/LATEST.md` | Pointer to the newest digest |
+
+**Agent must:**
+
+1. After catch/analyze, run `archive_console_diag.ps1` (or rely on `run_and_catch` hook).
+2. Read the digest + cite matching `LOG_*` / startup lines next to the faulting frame.
+3. Prefer product breadcrumbs (`[fill_attribute_rows] SEH soft-fail`, ABI / lock notes) over guessing.
 
 ## Parse focus
 
 **Crash log:** `ExceptionCode`, `FAULTING_IP`, `STACK_TEXT`, frames with `file.cc @ line`.
 
 **Hang log:** `!analyze -v -hang` conclusion; threads blocked in `WaitFor*`, `NtWait*`, `MsgWait*`, lock wait; UI/main thread vs worker; `!runaway` (CPU hog vs idle wait); `!locks` owners when present.
+
+**Console:** last `startup:` / `[sync_inspectors]` / `[fill_attribute_rows]` before the fault; SEH soft-fail lines mean the AV was swallowed — still treat as a defect until root cause is fixed.
 
 ## Verify
 
@@ -145,12 +168,15 @@ Claim fixed **only** after a fresh analyze (or clean run) plus verification comm
 ## Example commands
 
 ```powershell
-pwsh -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/find_cdb.ps1
-pwsh -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/analyze_dump.ps1 -DumpPath out\crash\foo.dmp
-pwsh -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/analyze_dump.ps1 -DumpPath out\crash\foo.dmp -Mode Hang
-pwsh -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/run_and_catch.ps1 -ExePath out\Debug\SmartGIS.exe -ExeArgs '--self-test'
-pwsh -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/dump_hang.ps1 -ProcessName SmartGIS
-pwsh -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/run_and_hang.ps1 -ExePath out\Debug\SmartGIS.exe -TimeoutSec 180
+powershell -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/find_cdb.ps1
+powershell -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/analyze_dump.ps1 -DumpPath out\crash\foo.dmp
+powershell -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/analyze_dump.ps1 -DumpPath out\crash\foo.dmp -Mode Hang
+powershell -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/run_and_catch.ps1 -ExePath out\Debug\SmartGIS.exe -ExeArgs '--map2d-showcase-il=1'
+powershell -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/dump_hang.ps1 -ProcessName SmartGIS
+powershell -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/run_and_hang.ps1 -ExePath out\Debug\SmartGIS.exe -TimeoutSec 180
+powershell -NoProfile -File .cursor/skills/auto-diagnose-fix/scripts/archive_console_diag.ps1 -InputLog 'out/crash/a-catch.log;out/crash/a-analyze.log' -Label map2d-av
+# Redirected product stderr for live repro (no cdb):
+#   SmartGIS.exe --map2d-showcase-il=1 2> out\crash\verify-console.log
 .\build.bat debug harness
 .\build.bat debug te
 ```

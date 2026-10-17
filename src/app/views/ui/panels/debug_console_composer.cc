@@ -43,6 +43,27 @@ namespace app {
 // Diagnostic Tools / DebugAgent horizon wire.
 DebugConsoleComposer::DebugConsoleComposer(BrowserView* host) : host_(host) {}
 
+std::string DebugConsoleComposer::invoke_on_ui(
+    const std::function<std::string()>& body) {
+  if (!body) {
+    return {};
+  }
+  HWND shell = host_ ? host_->widget_.hwnd() : nullptr;
+  if (!shell || !IsWindow(shell) ||
+      GetWindowThreadProcessId(shell, nullptr) == GetCurrentThreadId()) {
+    return body();
+  }
+  BrowserView::UiFnRequest req;
+  req.body = &body;
+  constexpr UINT kUiFn = WM_APP + 0x5546;
+  DWORD_PTR send_rc = 0;
+  if (!SendMessageTimeoutW(shell, kUiFn, 0, reinterpret_cast<LPARAM>(&req),
+                           SMTO_ABORTIFHUNG, 15000, &send_rc)) {
+    return "ui thread busy";
+  }
+  return req.result;
+}
+
 void DebugConsoleComposer::bind_debug_agent_host() {
   if (!host_->browser_) {
     return;
@@ -50,11 +71,24 @@ void DebugConsoleComposer::bind_debug_agent_host() {
   host_->bind_gis_python_bridge();
   content::DebugAgentHost host;
   host.refresh_gis = [this] {
-    if (host_->browser_) {
-      host_->browser_->on_view_command("view.refresh", -1, false, 0, 0);
-    }
+    invoke_on_ui([this] {
+      if (host_->browser_) {
+        host_->browser_->on_view_command("view.refresh", -1, false, 0, 0);
+      }
+      return std::string();
+    });
+  };
+  host.run_tool = [this](const std::string& id) {
+    return invoke_on_ui([this, id] {
+      if (!host_->browser_) {
+        return std::string("no browser");
+      }
+      const bool ok = host_->browser_->run_tool_command(id);
+      return ok ? std::string("ok ") + id : std::string("fail ") + id;
+    });
   };
   host.extent_string = [this] {
+    return invoke_on_ui([this] {
     if (!host_->browser_) {
       return std::string("no browser");
     }
@@ -67,39 +101,44 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     std::snprintf(buf, sizeof(buf), "%.6f,%.6f,%.6f,%.6f", min_x, min_y, max_x,
                   max_y);
     return std::string(buf);
+    });
   };
   host.layer_names = [this] {
     std::vector<std::string> names;
-    if (!host_->browser_ || !host_->browser_->document()) {
-      return names;
-    }
-    std::function<void(const content::LayerDesc&)> walk =
-        [&](const content::LayerDesc& d) {
-          std::string row = d.name.empty() ? d.id : d.name;
-          if (row.empty()) {
-            row = "(unnamed)";
-          }
-          if (!d.visible) {
-            row += " [hidden]";
-          }
-          if (d.active) {
-            row += " [active]";
-          }
-          names.push_back(std::move(row));
-          for (const content::LayerDesc& child : d.children) {
-            walk(child);
-          }
-        };
-    for (const content::LayerDesc& d :
-         host_->browser_->session().document_layer_descs()) {
-      walk(d);
-    }
-    if (names.empty()) {
-      names.push_back("(no layers)");
-    }
+    invoke_on_ui([&] {
+      if (!host_->browser_ || !host_->browser_->document()) {
+        return std::string();
+      }
+      std::function<void(const content::LayerDesc&)> walk =
+          [&](const content::LayerDesc& d) {
+            std::string row = d.name.empty() ? d.id : d.name;
+            if (row.empty()) {
+              row = "(unnamed)";
+            }
+            if (!d.visible) {
+              row += " [hidden]";
+            }
+            if (d.active) {
+              row += " [active]";
+            }
+            names.push_back(std::move(row));
+            for (const content::LayerDesc& child : d.children) {
+              walk(child);
+            }
+          };
+      for (const content::LayerDesc& d :
+           host_->browser_->session().document_layer_descs()) {
+        walk(d);
+      }
+      if (names.empty()) {
+        names.push_back("(no layers)");
+      }
+      return std::string();
+    });
     return names;
   };
   host.ui_find = [this](const std::string& name) {
+    return invoke_on_ui([&] {
     ui::views::View* root = host_->widget_.contents_view();
     if (!root) {
       return std::string("not wired");
@@ -115,8 +154,10 @@ void DebugConsoleComposer::bind_debug_agent_host() {
         << ",\"y\":" << b.y << ",\"w\":" << b.width << ",\"h\":" << b.height
         << "}";
     return oss.str();
+    });
   };
   host.ui_click = [this](int x, int y, int button) {
+    return invoke_on_ui([&] {
     ui::views::MouseEvent down;
     down.type = ui::views::MouseEvent::Type::kDown;
     down.x = x;
@@ -127,8 +168,10 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     up.type = ui::views::MouseEvent::Type::kUp;
     host_->widget_.send_mouse(up);
     return std::string("clicked");
+    });
   };
   host.ui_type = [this](const std::string& utf8) {
+    return invoke_on_ui([&] {
     const std::wstring wide = detail::utf8_to_wide(utf8);
     for (wchar_t ch : wide) {
       ui::views::CharEvent ev;
@@ -136,8 +179,10 @@ void DebugConsoleComposer::bind_debug_agent_host() {
       host_->widget_.send_char(ev);
     }
     return std::string("typed ") + std::to_string(wide.size()) + " chars";
+    });
   };
   host.ui_dump_tree = [this]() {
+    return invoke_on_ui([&] {
     ui::views::View* root = host_->widget_.contents_view();
     if (!root) {
       return std::string("not wired");
@@ -145,8 +190,10 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     std::ostringstream oss;
     detail::append_view_tree_lines(root, 0, oss);
     return oss.str();
+    });
   };
   host.ui_overlay_stats = [this]() {
+    return invoke_on_ui([&] {
     std::ostringstream oss;
     oss << '{';
     ui::views::DrawHost* pane = host_->active_map();
@@ -175,8 +222,10 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     }
     oss << '}';
     return oss.str();
+    });
   };
   host.ui_capture_shell = [this](const std::string& path_utf8) {
+    return invoke_on_ui([&] {
     HWND hwnd = host_->widget_.hwnd();
     if (!hwnd || !IsWindow(hwnd)) {
       return std::string("error: no hwnd");
@@ -235,21 +284,58 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     file.write(reinterpret_cast<const char*>(pixels.data()),
                static_cast<std::streamsize>(pixels.size()));
     return out_path.string();
+    });
+  };
+  // Keep this lambda SBO-sized (capture `this` only). A large lambda allocates
+  // in the UI module heap; DebugAgentHost copies/destroys it inside content.dll
+  // and freefills → 0xC0000005 in std::function::_Tidy.
+  host.ui_open_panel = [this](const std::string& panel) {
+    return open_panel_for_agent(panel);
   };
   host.py_eval = [this](const std::string& code) {
+    return invoke_on_ui([&] {
     if (!host_->browser_ || !host_->browser_->plugins()) {
       return std::string("error: no plugin shell");
     }
     return host_->browser_->plugins()->eval_python(code);
+    });
   };
   host.script_run = [this](const std::string& path_utf8) {
+    return invoke_on_ui([&] {
     if (!host_->browser_) {
       return std::string("error: no browser");
     }
     return app::run_execution_script_utf8(*host_->browser_, path_utf8,
                                            app::detail::kUiMarkLeaf);
+    });
   };
   content::debug_agent().set_host(std::move(host));
+}
+
+std::string DebugConsoleComposer::open_panel_for_agent(const std::string& panel) {
+  // DebugAgent serves sockets off the UI thread. Mutating Views / TabStrip
+  // there races Browser::show (heap freefill / 0xC0000005) — same constraint
+  // as Browser::OnExtentChanged. Marshal onto the shell HWND.
+  HWND shell = host_->widget_.hwnd();
+  if (!shell || !IsWindow(shell)) {
+    return "shell not ready";
+  }
+  const DWORD ui_tid = GetWindowThreadProcessId(shell, nullptr);
+  if (ui_tid == GetCurrentThreadId()) {
+    return host_->open_named_panel(panel);
+  }
+  BrowserView::OpenPanelUiRequest req{panel, {}};
+  constexpr UINT kOpenPanelUi = WM_APP + 0x4F50;  // 'OP'
+  DWORD_PTR send_rc = 0;
+  if (!SendMessageTimeoutW(shell, kOpenPanelUi, 0,
+                           reinterpret_cast<LPARAM>(&req), SMTO_ABORTIFHUNG,
+                           15000, &send_rc)) {
+    return "open_panel timeout (ui busy)";
+  }
+  if (req.result.empty()) {
+    return "open_panel marshal failed";
+  }
+  return req.result;
 }
 
 

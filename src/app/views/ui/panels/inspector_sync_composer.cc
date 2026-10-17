@@ -13,10 +13,13 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#include "base/core/log.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -88,56 +91,80 @@ void InspectorSyncComposer::sync_inspectors_from_scene() {
     host_->ensure_inspector_tab(host_->feature_info_tab_);
     host_->ensure_inspector_tab(host_->feature_info_tab_ + 1);
   }
+  content::GisScene* doc =
+      (host_->browser_) ? host_->browser_->document() : nullptr;
+  if (!doc) {
+    LOGGING(LOG_WARNING,
+            "[sync_inspectors] skip attribute/feature sync: document=null");
+    host_->sync_selection_panel_from_scene();
+    host_->sync_legend_panel_from_scene();
+    host_->sync_layer_properties_from_scene();
+    host_->sync_result_playback_from_session();
+    return;
+  }
   if (host_->attribute_table_) {
     std::vector<std::string> cols;
     std::vector<std::vector<std::string>> rows;
     std::vector<std::string> tokens;
-    host_->browser_->document()->fill_attribute_rows(&cols, &rows, &tokens);
+    // fill_attribute_rows takes LayerStore::mutex internally.
+    doc->fill_attribute_rows(&cols, &rows, &tokens);
+    LOGGING(LOG_INFO,
+            "[sync_inspectors] attribute_table rows=%zu content_rev=%llu",
+            rows.size(),
+            static_cast<unsigned long long>(doc->content_revision()));
     host_->attribute_table_->set_columns(cols);
     host_->attribute_table_->set_rows(rows);
     host_->attribute_table_->set_row_tokens(std::move(tokens));
   }
   if (host_->feature_info_) {
-    if (const content::GisScene::Feature* f = host_->browser_->document()->selected_feature()) {
-      ui::views::FeatureInfo::Hit hit;
-      hit.feature_id = content::GisScene::feature_token(f->id);
-      for (const content::GisScene::Layer& layer : host_->browser_->document()->layers()) {
-        for (const content::GisScene::Feature& candidate : layer.features) {
-          if (std::memcmp(candidate.id.bytes, f->id.bytes,
-                          sizeof(f->id.bytes)) == 0 &&
-              candidate.id.len == f->id.len) {
-            hit.layer_name = layer.name;
+    // selected_feature() / layers() point into LayerStore; hold layer_mutex for
+    // the whole walk (Display layout / ingest can mutate concurrently).
+    ui::views::FeatureInfo::Hit hit;
+    bool have_hit = false;
+    {
+      std::lock_guard<std::recursive_mutex> lock(doc->layer_mutex());
+      const content::GisScene::Feature* f = doc->selected_feature();
+      if (f) {
+        have_hit = true;
+        hit.feature_id = content::GisScene::feature_token(f->id);
+        for (const content::GisScene::Layer& layer : doc->layers()) {
+          for (const content::GisScene::Feature& candidate : layer.features) {
+            if (std::memcmp(candidate.id.bytes, f->id.bytes,
+                            sizeof(f->id.bytes)) == 0 &&
+                candidate.id.len == f->id.len) {
+              hit.layer_name = layer.name;
+              break;
+            }
+          }
+          if (!hit.layer_name.empty()) {
             break;
           }
         }
-        if (!hit.layer_name.empty()) {
-          break;
+        switch (f->kind) {
+          case content::GisScene::GeomKind::kLine:
+            hit.geometry_type = "Line";
+            break;
+          case content::GisScene::GeomKind::kPolygon:
+            hit.geometry_type = "Polygon";
+            break;
+          case content::GisScene::GeomKind::kText:
+            hit.geometry_type = "Text";
+            break;
+          case content::GisScene::GeomKind::kPoint:
+          default:
+            hit.geometry_type = "Point";
+            break;
+        }
+        const double map_scale = host_->browser_->session().view_scale();
+        std::vector<std::pair<std::string, std::string>> pairs;
+        doc->fill_feature_info_fields(*f, &pairs, hit.layer_name, map_scale);
+        hit.fields.reserve(pairs.size());
+        for (auto& p : pairs) {
+          hit.fields.push_back({std::move(p.first), std::move(p.second)});
         }
       }
-      switch (f->kind) {
-        case content::GisScene::GeomKind::kLine:
-          hit.geometry_type = "Line";
-          break;
-        case content::GisScene::GeomKind::kPolygon:
-          hit.geometry_type = "Polygon";
-          break;
-        case content::GisScene::GeomKind::kText:
-          hit.geometry_type = "Text";
-          break;
-        case content::GisScene::GeomKind::kPoint:
-        default:
-          hit.geometry_type = "Point";
-          break;
-      }
-      const double map_scale =
-          host_->browser_->session().view_scale();
-      std::vector<std::pair<std::string, std::string>> pairs;
-      host_->browser_->document()->fill_feature_info_fields(*f, &pairs, hit.layer_name,
-                                                     map_scale);
-      hit.fields.reserve(pairs.size());
-      for (auto& p : pairs) {
-        hit.fields.push_back({std::move(p.first), std::move(p.second)});
-      }
+    }
+    if (have_hit) {
       // Single-selection sync; identify_at overwrites with multi-hit when needed.
       host_->feature_info_->set_hits({std::move(hit)}, 0);
     }

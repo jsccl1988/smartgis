@@ -7,6 +7,7 @@
 #include "plugin/product/map2d/scenario/progress.h"
 #include "content/browser/present/map2d/gpu/present/map2d_gpu_present.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
+#include "content/browser/present/map2d/profile/map2d_phase_profile.h"
 #include "ui/views/map/viewport/draw_host.h"
 
 #include "vista/component/map/shade/bake.h"
@@ -90,7 +91,16 @@ void run_optional_map2d_fps_bench(HarnessShell& browser,
                static_cast<long long>(bake.load_ms),
                static_cast<long long>(bake.shade_ms),
                static_cast<long long>(bake.store_ms), bake.mem_hit,
-               bake.disk_hit, bake.used_cuda, bake.width, bake.height);
+               bake.disk_hit,                bake.used_cuda, bake.width, bake.height);
+  const content::Map2dPhaseSample phase = content::map2d_last_phase_sample();
+  std::fprintf(stderr,
+               "map2d-showcase: phase_fps layout_ms=%lld hillshade_ms=%lld "
+               "bmp_io_ms=%lld gpu_upload_ms=%lld gpu_present_ms=%lld\n",
+               static_cast<long long>(phase.layout_ms),
+               static_cast<long long>(phase.hillshade_ms),
+               static_cast<long long>(phase.bmp_io_ms),
+               static_cast<long long>(phase.gpu_upload_ms),
+               static_cast<long long>(phase.gpu_present_ms));
   wchar_t bench_w[MAX_PATH] = {};
   if (browser.capture_path(bench_w, MAX_PATH, L"map2d-fps-bench.txt")) {
     FILE* bf = nullptr;
@@ -106,7 +116,9 @@ void run_optional_map2d_fps_bench(HarnessShell& browser,
                    "bake_load_ms=%lld\nbake_shade_ms=%lld\n"
                    "bake_store_ms=%lld\nbake_mem_hit=%d\n"
                    "bake_disk_hit=%d\nbake_used_cuda=%d\n"
-                   "bake_w=%d\nbake_h=%d\nbake_max_edge=%d\n",
+                   "bake_w=%d\nbake_h=%d\nbake_max_edge=%d\n"
+                   "layout_ms=%lld\nhillshade_ms=%lld\nbmp_io_ms=%lld\n"
+                   "gpu_upload_ms=%lld\ngpu_present_ms=%lld\n",
                    mean, peak, samples, bench_ms,
                    static_cast<unsigned long long>(map2d->layout_build_count()),
                    static_cast<unsigned long long>(builds_delta),
@@ -122,7 +134,11 @@ void run_optional_map2d_fps_bench(HarnessShell& browser,
                    static_cast<long long>(bake.shade_ms),
                    static_cast<long long>(bake.store_ms), bake.mem_hit,
                    bake.disk_hit, bake.used_cuda, bake.width, bake.height,
-                   bake.max_edge);
+                   bake.max_edge, static_cast<long long>(phase.layout_ms),
+                   static_cast<long long>(phase.hillshade_ms),
+                   static_cast<long long>(phase.bmp_io_ms),
+                   static_cast<long long>(phase.gpu_upload_ms),
+                   static_cast<long long>(phase.gpu_present_ms));
       std::fclose(bf);
     }
   }

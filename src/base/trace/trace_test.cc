@@ -1,6 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include "base/trace/diag/diagnostic_bootstrap.h"
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
 #include "base/trace/event/trace.h"
@@ -133,6 +134,13 @@ int main() {
     std::remove("startup_profile_test.json");
     base::trace::set_tracing_enabled(false);
     base::trace::process_trace().clear();
+  }
+
+  {
+    const base::trace::ProcessMemorySnapshot os =
+        base::trace::process_memory_snapshot();
+    assert(os.working_set > 0u);
+    assert(os.physical_total > os.working_set);
   }
 
   std::printf("trace_test OK\n");

@@ -835,16 +835,58 @@ int main() {
     expect(!frame.items.empty() && frame.items[0].kind == DrawKind::kRaster &&
                frame.items[0].blend == vista::DrawBlend::kOver,
            "jet hillshade overpaints land");
-    // Cream under a land-masked jet sheet showed through ocean A=0 cells.
-    // Product china keeps the DEM as the land surface once tiles attach.
-    expect(count_kind(frame, DrawKind::kFill) == 0,
-           "jet hillshade skips cream land under sheet");
+    // Land stays under jet (dem_land_clip stops ocean cream spill). Skipping
+    // fill left GPU-only HSHD — invisible sheet → ocean-only product map.
+    expect(count_kind(frame, DrawKind::kFill) >= 1,
+           "jet hillshade keeps cream land under sheet");
     expect(!frame.items.empty() && frame.items[0].vertices.size() == 4 &&
                frame.items[0].vertices[0].y >
                    frame.items[0].vertices[2].y &&
                frame.items[0].vertices[0].v == 0.f &&
                frame.items[0].vertices[2].v == 1.f,
            "hillshade v=0 at north (FlyCube/export AABB)");
+  }
+
+  // Jet tile that misses the view must not suppress land fill (otherwise the
+  // map becomes ocean-only when emit_hillshade drops the sheet).
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style("{\"version\":8,\"layers\":["
+                       "{\"id\":\"shade\",\"type\":\"hillshade\",\"paint\":{"
+                       "\"hillshade-color-ramp\":\"jet\"}},"
+                       "{\"id\":\"land\",\"type\":\"fill\",\"source-layer\":"
+                       "\"land\",\"paint\":{\"fill-color\":\"#f5f3e9\"}}"
+                       "]}",
+                       &doc),
+           "jet miss-view style parses");
+    vista::TileSlot hs;
+    hs.min_x = 100;
+    hs.min_y = 100;
+    hs.max_x = 120;
+    hs.max_y = 120;
+    hs.opacity = 1.f;
+    hs.texture_key = 0x48534844u;
+    LayoutInput in;
+    in.view = square_view(200, 20);
+    in.style = &doc;
+    in.zoom = 8;
+    in.hillshade_tiles = {hs};
+    OGRPolygon land_poly;
+    OGRLinearRing* ring = new OGRLinearRing();
+    ring->addPoint(2, 2);
+    ring->addPoint(18, 2);
+    ring->addPoint(18, 18);
+    ring->addPoint(2, 18);
+    ring->addPoint(2, 2);
+    land_poly.addRingDirectly(ring);
+    LayerBatch land;
+    land.source_layer = "land";
+    land.geoms = {&land_poly};
+    const vista::MapIR frame = layout.build(in, {land});
+    expect(count_kind(frame, DrawKind::kRaster) == 0,
+           "jet tile outside view emits no raster");
+    expect(count_kind(frame, DrawKind::kFill) >= 1,
+           "jet miss-view keeps cream land fill");
   }
 
   // Land that sits outside the DEM slot is clipped (no cream fringe).
@@ -1018,13 +1060,14 @@ int main() {
     in.style = &doc;
     in.zoom = 8;
     vista::HeatmapBake bake;
-    in.heatmap_bake = &bake;
+    vista::layout_bind_heatmap_bake(&bake);
     OGRPoint a(3, 3);
     OGRPoint b(7, 7);
     LayerBatch batch;
     batch.source_layer = "heatmap";
     batch.geoms = {&a, &b};
     const vista::MapIR frame = layout.build(in, {batch});
+    vista::layout_bind_heatmap_bake(nullptr);
     expect(count_kind(frame, DrawKind::kRaster) == 1,
            "heatmap density emits kRaster");
     expect(count_kind(frame, DrawKind::kCircle) == 0,
@@ -1095,11 +1138,15 @@ int main() {
                                           12.0),
            "road fill matches regional zoom");
     {
-      const float casing_w = std::stof(
-          doc.layers[static_cast<size_t>(casing)].paint.at("line-width"));
-      const float fill_w = std::stof(
-          doc.layers[static_cast<size_t>(fill)].paint.at("line-width"));
-      expect(casing_w > fill_w, "casing wider than fill");
+      // line-width is a zoom expression — resolve, do not stof the JSON.
+      gis::style::ResolvedPaint casing_paint;
+      gis::style::ResolvedPaint fill_paint;
+      gis::style::fill_resolved_paint(doc.layers[static_cast<size_t>(casing)],
+                                      nullptr, {}, 11, &casing_paint);
+      gis::style::fill_resolved_paint(doc.layers[static_cast<size_t>(fill)],
+                                      nullptr, {}, 11, &fill_paint);
+      expect(casing_paint.line_width > fill_paint.line_width,
+             "casing wider than fill");
     }
     expect(doc.layers[0].type == gis::style::LayerType::kBackground &&
                doc.layers[1].type == gis::style::LayerType::kFill &&
@@ -1111,27 +1158,29 @@ int main() {
            "default style layer order");
     gis::style::ResolvedPaint paint;
     gis::style::fill_resolved_paint(doc.layers[11], nullptr, {}, 10, &paint);
-    expect(paint.symbol_placement == "line" && almost_eq(paint.text_halo_width, 2.f) &&
-               paint.text_halo_color == 0xffffffffu,
-           "road-label paint");
+    expect(paint.symbol_placement == "line", "road-label placement");
+    expect(almost_eq(paint.text_halo_width, 2.f), "road-label halo width");
+    // Cream halo (#fff8e8) over parchment land / jet ridges.
+    expect(paint.text_halo_color == 0xfffff8e8u, "road-label halo color");
     gis::style::ResolvedPaint point_paint;
     gis::style::fill_resolved_paint(doc.layers[9], nullptr, {}, 10, &point_paint);
-    expect(almost_eq(point_paint.text_halo_width, 2.f),
+    expect(almost_eq(point_paint.text_halo_width, 1.5f),
            "label text-halo-width");
     gis::style::ResolvedPaint heat_paint;
     gis::style::fill_resolved_paint(doc.layers[static_cast<size_t>(heatmap)],
                                     nullptr, {}, 10, &heat_paint);
     expect(heat_paint.type == gis::style::LayerType::kHeatmap &&
-               almost_eq(heat_paint.heatmap_radius, 24.f),
+               almost_eq(heat_paint.heatmap_radius, 28.f),
            "default heatmap paint");
   }
 
   {
     using vista::detail::PointNudge;
+    // Gates use zoom=8+log2(scale): 12→~11.6, 64→14, 256→16.
     expect(vista::detail::label_min_importance(12.0) == 2,
            "country scale floor");
-    expect(vista::detail::label_min_importance(30.0) == 1, "mid scale floor");
-    expect(vista::detail::label_min_importance(70.0) == 0, "close scale floor");
+    expect(vista::detail::label_min_importance(64.0) == 1, "mid scale floor");
+    expect(vista::detail::label_min_importance(256.0) == 0, "close scale floor");
     expect(vista::detail::label_draw_budget(10.0) == 24, "budget country");
     expect(vista::detail::label_draw_budget(30.0) == 40, "budget mid");
     expect(vista::detail::label_draw_budget(80.0) == 80, "budget regional");
@@ -1302,6 +1351,39 @@ int main() {
     in.layout_gen = 0;
     const vista::MapIR never = layout.build(in, {land});
     expect(!never.items.empty(), "layout_gen 0 never aborts");
+  }
+
+  // National overview (~zoom 11, scale=8): land rings synth admin edges.
+  // Far overview (zoom<8) still skips synth for cold-batch cost.
+  {
+    BatchLayer area;
+    area.id = "china.area";
+    area.name = "area";
+    area.visible = true;
+    BatchFeature poly;
+    poly.kind = BatchGeomKind::kPolygon;
+    poly.points = {{100.0, 30.0}, {110.0, 30.0}, {110.0, 40.0},
+                   {100.0, 40.0}, {100.0, 30.0}};
+    poly.fields = {{"kind", "land"}};
+    area.features = {std::move(poly)};
+    const LayerBatchSet national =
+        build_layer_batches({area}, /*use_carto_slots=*/true, /*scale=*/8.0);
+    size_t admin_n = 0;
+    for (const LayerBatch& b : national.batches) {
+      if (b.source_layer == "admin") {
+        admin_n += b.geoms.size();
+      }
+    }
+    expect(admin_n > 0, "national overview synths land→admin edges");
+    const LayerBatchSet far =
+        build_layer_batches({area}, /*use_carto_slots=*/true, /*scale=*/0.5);
+    size_t far_admin = 0;
+    for (const LayerBatch& b : far.batches) {
+      if (b.source_layer == "admin") {
+        far_admin += b.geoms.size();
+      }
+    }
+    expect(far_admin == 0, "far overview skips land→admin synth");
   }
 
   // china_city lines: kind="line" + line_kind/class → carto road/river slots.

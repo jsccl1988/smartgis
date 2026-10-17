@@ -200,8 +200,9 @@ render::rhi::CameraMatrices OrbitFrame::camera_matrices(float aspect) const {
   // FlyCube-proven clip (0.1, 100). Do not raise near from clearance: that
   // washed the lit DEM to a flat ocean ghost. Close half-cuts are prevented
   // by kScene3dDollyMinLocal keeping the eye outside the DEM sphere.
-  return render::rhi::make_orbit_camera(yaw_, pitch_, distance_, kScene3dFovY,
-                                        asp, 0.1f, 100.f);
+  const float fov = fov_y_ > 0.2f ? fov_y_ : kScene3dFovY;
+  return render::rhi::make_orbit_camera(yaw_, pitch_, distance_, fov, asp, 0.1f,
+                                        100.f);
 }
 
 render::rhi::CameraMatrices OrbitFrame::camera_matrices_ortho(
@@ -259,8 +260,13 @@ void OrbitFrame::reset() {
   yaw_ = kScene3dDefaultYaw;
   pitch_ = 0.4f;
   distance_ = kScene3dDefaultDistance;
+  fov_y_ = kScene3dFovY;
   has_last_ = false;
   clear_forward_skim();
+}
+
+void OrbitFrame::set_fov_y(float fov_y) {
+  fov_y_ = fov_y > 0.2f ? fov_y : kScene3dFovY;
 }
 
 void OrbitFrame::set_dolly_limits(float min_distance, float max_distance) {

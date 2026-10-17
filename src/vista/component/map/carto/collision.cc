@@ -286,16 +286,18 @@ int point_label_nudges(int text_h, PointNudge* out, int max_out) {
 }
 
 int label_px(int priority, float fblc) {
+  // Floors stay under the style curve. National zoom (~13) resolves to
+  // about 44px; these only catch a missing text-size.
   if (priority <= 1) {
-    return fblc < 12.f ? 15 : 17;
+    return fblc < 12.f ? 28 : 36;
   }
   if (priority == 2) {
-    return fblc < 18.f ? 14 : 16;
+    return fblc < 18.f ? 24 : 32;
   }
   if (priority == 3) {
-    return 13;
+    return 22;
   }
-  return 12;
+  return 18;
 }
 
 // Exported: frame_test calls this across the gis DLL boundary.

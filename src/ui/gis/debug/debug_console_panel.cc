@@ -645,12 +645,11 @@ void DebugConsolePanel::enqueue_log_line(LogLine line) {
     }
     pending_logs_.push_back(std::move(line));
   }
-  HWND hwnd = widget() ? widget()->hwnd() : nullptr;
-  if (hwnd && GetWindowThreadProcessId(hwnd, nullptr) != GetCurrentThreadId()) {
-    arm_log_flush_timer();
-    return;
-  }
-  flush_pending_logs();
+  // LogSink::append invokes this on the logger's stack (often the UI thread
+  // inside Browser::init or a console submit). Flushing the log list here
+  // re-enters layout and smashes the NT heap; the next LogEntry alloc then
+  // raises 0xC0000374. Coalesce onto the shell timer instead.
+  arm_log_flush_timer();
 }
 
 void DebugConsolePanel::flush_pending_logs() {

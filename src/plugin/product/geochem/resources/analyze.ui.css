@@ -8,15 +8,14 @@ All rights reserved.
   flex-direction: column;
   gap: 6px;
   padding: 10px;
-  width: 540px;
-  height: 420px;
+  width: 100%;
 }
 
 .row {
   display: flex;
   flex-direction: row;
   gap: 8px;
-  width: 520px;
+  width: 100%;
 }
 
 .field {
@@ -53,5 +52,5 @@ All rights reserved.
 #cells,
 #classes {
   height: 28px;
-  width: 140px;
+  flex-grow: 1;
 }

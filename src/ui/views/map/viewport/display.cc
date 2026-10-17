@@ -319,6 +319,25 @@ void DrawHost::display_thread_main() {
       if (present_paused_.load(std::memory_order_acquire)) {
         continue;
       }
+      if (role_ == Role::kScene3d) {
+        HWND dead = nullptr;
+        {
+          std::lock_guard<std::mutex> lock(display_mu_);
+          if (display_hwnd_ && !IsWindow(display_hwnd_)) {
+            dead = display_hwnd_;
+            display_hwnd_ = nullptr;
+          }
+        }
+        if (dead) {
+          last_gpu_present_ok_.store(false, std::memory_order_release);
+          LOGGING(LOG_INFO, "rhi.gpu_present scene hwnd died %p — recreate",
+                  dead);
+          if (HWND embed = native_view()) {
+            PostMessageW(embed, kMsgRecreateGpuPresent, 0, 0);
+          }
+          continue;
+        }
+      }
       display_run_begin_frame();
       continue;
     }
@@ -412,21 +431,16 @@ void DrawHost::display_thread_main() {
           const uint32_t token =
               frame_request_.fetch_add(1, std::memory_order_acq_rel) + 1;
           display_run_present(desc.width, desc.height, token);
-        } else if (role_ != Role::kScene3d) {
+        } else if (role_ != Role::kScene3d &&
+                   !present_paused_.load(std::memory_order_acquire)) {
           reveal_gpu_present_if_ready();
         }
         display_cv_.notify_all();
         continue;
       }
       if (task.op == DisplayOp::kResize && rhi_device_) {
-        // Flip-model NOREDIRECTIONBITMAP shows the desktop while initialize()
-        // rebuilds the swapchain. Hide until Present restores opaque pixels.
-        if (gpu_present_hwnd_ && IsWindow(gpu_present_hwnd_)) {
-          // Display thread: must not block on UI (SWP_ASYNCWINDOWPOS).
-          SetWindowPos(gpu_present_hwnd_, nullptr, 0, 0, 0, 0,
-                       SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
-                           SWP_HIDEWINDOW | SWP_ASYNCWINDOWPOS);
-        }
+        // No SWP_HIDEWINDOW. Hiding the flip popup around initialize()
+        // raced the DEM reveal and left Scene3d visible for one frame.
         if (HWND embed = native_view()) {
           if (IsWindow(embed) && IsWindowVisible(embed)) {
             InvalidateRect(embed, nullptr, FALSE);
@@ -467,7 +481,11 @@ void DrawHost::display_thread_main() {
               frame_request_.fetch_add(1, std::memory_order_acq_rel) + 1;
           display_run_present(desc.width, desc.height, token);
         }
-        reveal_gpu_present_if_ready();
+        // Paused / inactive tabs must not lift DXGI after Resize hide — that
+        // re-showed Map-Edit above Scene3d (3D DEM flash-then-gone).
+        if (!present_paused_.load(std::memory_order_acquire)) {
+          reveal_gpu_present_if_ready();
+        }
         continue;
       }
       if (task.op == DisplayOp::kDestroy) {

@@ -9,6 +9,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
+#include "ui/views/primitives/menu/context_menu.h"
 
 namespace ui {
 namespace views {
@@ -17,6 +18,8 @@ namespace {
 constexpr int kTabHeightDip = 26;
 constexpr int kTabPadXDip = 12;
 constexpr int kTabMinWidthDip = 56;
+constexpr int kTabOverflowDip = 28;
+constexpr int kOverflowHit = -2;
 
 float view_scale(const View* view) {
   if (view && view->widget()) {
@@ -64,6 +67,10 @@ int TabStrip::add_tab(std::string title, std::unique_ptr<View> page) {
   add_child(std::move(page));
   titles_.push_back(std::move(title));
   pages_.push_back(raw);
+  const int index = static_cast<int>(pages_.size()) - 1;
+  if (index >= 0 && index < kMaxTabs) {
+    included_[index] = 1;
+  }
   if (active_ < 0) {
     active_ = 0;
   }
@@ -83,6 +90,11 @@ bool TabStrip::replace_page(int i, std::unique_ptr<View> page) {
     remove_child(old);
   }
   apply_page_visibility();
+  // apply may hide this page (not the active tab). Layout anyway so the first
+  // show is not an empty box: set_visible later sees unchanged bounds.
+  if (raw->bounds().width > 0 && raw->bounds().height > 0) {
+    raw->layout();
+  }
   schedule_paint();
   return true;
 }
@@ -128,55 +140,168 @@ int TabStrip::natural_tab_width_at(int i) const {
   return std::max(min_w, text.width + pad);
 }
 
-int TabStrip::tabs_natural_total_width() const {
-  int sum = 0;
-  for (int i = 0; i < static_cast<int>(titles_.size()); ++i) {
-    sum += natural_tab_width_at(i);
+void TabStrip::set_tab_included(int i, bool included) {
+  if (i < 0 || i >= static_cast<int>(titles_.size())) {
+    return;
   }
-  return sum;
+  if (i >= kMaxTabs) {
+    return;
+  }
+  const uint8_t next = included ? 1 : 0;
+  if (included_[i] == next) {
+    return;
+  }
+  included_[i] = next;
+  schedule_paint();
 }
 
-int TabStrip::tab_width_at(int i) const {
-  const int natural = natural_tab_width_at(i);
-  if (natural <= 0) {
-    return 0;
+bool TabStrip::tab_included(int i) const {
+  if (i < 0 || i >= static_cast<int>(titles_.size())) {
+    return false;
+  }
+  if (i >= kMaxTabs) {
+    return true;
+  }
+  return included_[i] != 0;
+}
+
+bool TabStrip::has_tab_overflow() const {
+  SlotLayout slots;
+  layout_slots(&slots);
+  return slots.chevron_w > 0;
+}
+
+int TabStrip::overflow_count() const {
+  SlotLayout slots;
+  layout_slots(&slots);
+  return slots.overflow_n;
+}
+
+int TabStrip::overflow_tab_at(int i) const {
+  SlotLayout slots;
+  layout_slots(&slots);
+  if (i < 0 || i >= slots.overflow_n) {
+    return -1;
+  }
+  return slots.overflow[i];
+}
+
+void TabStrip::layout_slots(SlotLayout* out) const {
+  SlotLayout slots;
+  const int n = std::min(static_cast<int>(titles_.size()), kMaxTabs);
+  int included_buf[kMaxTabs];
+  int included_n = 0;
+  for (int i = 0; i < n; ++i) {
+    if (tab_included(i)) {
+      included_buf[included_n++] = i;
+    }
   }
   const int avail = header_bounds().width;
-  const int total = tabs_natural_total_width();
-  // Fit titles into the header (visual_review #2 / ui.shell):
-  // 1) everything fits → natural widths
-  // 2) mild overflow → proportional shrink with a legibility floor
-  // 3) floor sum still overflows (inspector's many tabs) → keep leading
-  //    tabs at natural width and collapse the rest to 0 (no "A"/"S" stubs)
-  if (avail <= 0 || total <= avail) {
-    return natural;
+  if (included_n == 0 || avail <= 0) {
+    *out = slots;
+  return;
+  }
+  int total = 0;
+  for (int p = 0; p < included_n; ++p) {
+    total += natural_tab_width_at(included_buf[p]);
   }
   const float scale = view_scale(this);
   const int floor_w = std::max(1, dip_to_px(kTabMinWidthDip, scale));
-  const int n = static_cast<int>(titles_.size());
-  if (n > 0 && floor_w * n <= avail) {
-    const int scaled = std::max(1, (natural * avail) / total);
-    return std::max(floor_w, scaled);
-  }
-  int used = 0;
-  for (int j = 0; j < n; ++j) {
-    const int wj = natural_tab_width_at(j);
-    if (used + wj > avail) {
-      return 0;
+  // 1) natural widths fit
+  // 2) mild overflow: shrink, but not below the readable floor
+  // 3) floor still overflows: keep a window that includes the active tab and
+  //    list the rest in the overflow menu (every included tab stays reachable)
+  if (total <= avail) {
+    for (int p = 0; p < included_n; ++p) {
+      const int index = included_buf[p];
+      slots.width[index] = natural_tab_width_at(index);
     }
-    if (j == i) {
-      return wj;
-    }
-    used += wj;
+    *out = slots;
+  return;
   }
-  return natural;
+  const int count = included_n;
+  if (count == 1 || floor_w * count <= avail) {
+    if (count == 1) {
+      const int index = included_buf[0];
+      const int natural = natural_tab_width_at(index);
+      slots.width[index] = std::min(avail, natural);
+      *out = slots;
+  return;
+    }
+    for (int p = 0; p < included_n; ++p) {
+      const int index = included_buf[p];
+      const int natural = natural_tab_width_at(index);
+      const int scaled = std::max(1, (natural * avail) / std::max(1, total));
+      slots.width[index] = std::max(floor_w, scaled);
+    }
+    *out = slots;
+  return;
+  }
+  const int chevron = std::max(1, dip_to_px(kTabOverflowDip, scale));
+  slots.chevron_w = std::min(chevron, std::max(1, avail / 4));
+  const int body = std::max(1, avail - slots.chevron_w);
+  int max_k = std::max(1, body / floor_w);
+  if (max_k > count) {
+    max_k = count;
+  }
+  while (max_k > 1 && floor_w * max_k > body) {
+    --max_k;
+  }
+  int active_pos = 0;
+  bool active_in = false;
+  for (int p = 0; p < count; ++p) {
+    if (included_buf[p] == active_) {
+      active_pos = p;
+      active_in = true;
+      break;
+    }
+  }
+  int start = 0;
+  if (active_in) {
+    start = active_pos - max_k + 1;
+    if (start < 0) {
+      start = 0;
+    }
+  }
+  if (start > count - max_k) {
+    start = count - max_k;
+  }
+  if (start < 0) {
+    start = 0;
+  }
+  const int base = body / max_k;
+  const int rem = body - base * max_k;
+  for (int p = 0; p < max_k; ++p) {
+    const int index = included_buf[start + p];
+    slots.width[index] = base + (p < rem ? 1 : 0);
+  }
+  for (int p = 0; p < count; ++p) {
+    if (p < start || p >= start + max_k) {
+      if (slots.overflow_n < kMaxTabs) {
+        slots.overflow[slots.overflow_n++] = included_buf[p];
+      }
+    }
+  }
+  *out = slots;
+  return;
+}
+
+int TabStrip::tab_width_at(int i) const {
+  if (i < 0 || i >= kMaxTabs) {
+    return 0;
+  }
+  SlotLayout slots;
+  layout_slots(&slots);
+  return slots.width[i];
 }
 
 int TabStrip::tab_x_at(int i) const {
-  const Rect& b = bounds();
-  int x = b.x;
-  for (int j = 0; j < i && j < static_cast<int>(titles_.size()); ++j) {
-    x += tab_width_at(j);
+  SlotLayout slots;
+  layout_slots(&slots);
+  int x = bounds().x;
+  const int n = std::min(i, kMaxTabs);
+  for (int j = 0; j < n; ++j) {
+    x += slots.width[j];
   }
   return x;
 }
@@ -212,15 +337,60 @@ int TabStrip::tab_at(int x, int y) const {
       x < header.x || x >= header.x + header.width) {
     return -1;
   }
+  SlotLayout slots;
+  layout_slots(&slots);
+  if (slots.chevron_w > 0 &&
+      x >= header.x + header.width - slots.chevron_w) {
+    return kOverflowHit;
+  }
   int cursor = header.x;
-  for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {
-    const int w = tab_width_at(i);
-    if (x >= cursor && x < cursor + w) {
+  for (int i = 0; i < kMaxTabs; ++i) {
+    const int w = slots.width[i];
+    if (w > 0 && x >= cursor && x < cursor + w) {
       return i;
     }
     cursor += w;
   }
   return -1;
+}
+
+void TabStrip::open_overflow_menu() {
+  SlotLayout slots;
+  layout_slots(&slots);
+  if (slots.overflow_n <= 0) {
+    return;
+  }
+  std::vector<MenuItem> items;
+  items.reserve(static_cast<size_t>(slots.overflow_n));
+  for (int n = 0; n < slots.overflow_n; ++n) {
+    const int index = slots.overflow[n];
+    MenuItem item;
+    item.label = titles_[static_cast<size_t>(index)];
+    item.invoke = [this, index]() {
+      if (index == active_) {
+        return;
+      }
+      if (change_) {
+        change_(index);
+      }
+      if (active_ != index) {
+        set_active(index);
+      }
+    };
+    items.push_back(std::move(item));
+  }
+  const Rect header = header_bounds();
+  Point screen{header.x + header.width - slots.chevron_w,
+               header.y + header.height};
+  HWND owner = widget() ? widget()->hwnd() : nullptr;
+  if (owner) {
+    POINT pt{screen.x, screen.y};
+    if (ClientToScreen(owner, &pt)) {
+      screen.x = pt.x;
+      screen.y = pt.y;
+    }
+  }
+  show_context_menu(owner, screen, items);
 }
 
 bool TabStrip::on_mouse_event(const MouseEvent& e) {
@@ -234,6 +404,10 @@ bool TabStrip::on_mouse_event(const MouseEvent& e) {
   // (unit tests / stubs), fall back to set_active.
   if (e.type == MouseEvent::Type::kDown && e.button == 1) {
     const int i = tab_at(e.x, e.y);
+    if (i == kOverflowHit) {
+      open_overflow_menu();
+      return true;
+    }
     if (i >= 0) {
       if (i != active_) {
         if (change_) {
@@ -273,13 +447,17 @@ void TabStrip::paint_self(ui::gfx::Canvas* canvas) {
   if (pages_.empty()) {
     return;
   }
+  SlotLayout slots;
+  layout_slots(&slots);
   // Subtler active tab: muted plate + accent edge (not a flat neon slab).
   // Accent bar keeps ui_shell_dark score samples while matching QGIS horizon.
   const ui::gfx::Color accent_label = ui::gfx::color_rgb(255, 255, 255);
   const int accent_bar = std::max(2, dip_to_px(3, scale));
+  int cursor = header.x;
   for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {
-    const int x = tab_x_at(i);
-    const int w = tab_width_at(i);
+    const int w = i < kMaxTabs ? slots.width[i] : 0;
+    const int x = cursor;
+    cursor += w;
     if (w <= 0) {
       continue;
     }
@@ -306,6 +484,16 @@ void TabStrip::paint_self(ui::gfx::Canvas* canvas) {
     canvas->draw_text(text_x, text_y, utf8_to_wide(title_u8).c_str(),
                       on ? accent_label : t.text_bright);
     canvas->restore();
+  }
+  if (slots.chevron_w > 0) {
+    const int x = header.x + header.width - slots.chevron_w;
+    canvas->fill_rect(x, header.y, slots.chevron_w, th, t.panel_header);
+    canvas->fill_rect(x, header.y, 1, th, t.control_border);
+    const char* mark = "...";
+    const Size text = measure_text_utf8(mark, scale);
+    const int text_x = x + std::max(0, (slots.chevron_w - text.width) / 2);
+    const int text_y = header.y + std::max(0, (th - text.height) / 2);
+    canvas->draw_text(text_x, text_y, utf8_to_wide(mark).c_str(), t.text_bright);
   }
 }
 

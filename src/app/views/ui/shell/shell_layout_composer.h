@@ -4,6 +4,15 @@
 #ifndef APP_VIEWS_UI_SHELL_SHELL_LAYOUT_COMPOSER_H_
 #define APP_VIEWS_UI_SHELL_SHELL_LAYOUT_COMPOSER_H_
 
+#include <memory>
+
+namespace ui {
+namespace views {
+class TabStrip;
+class View;
+}  // namespace views
+}  // namespace ui
+
 namespace app {
 
 class BrowserView;
@@ -24,6 +33,8 @@ class ShellLayoutComposer {
  private:
   bool build_from_markup();
   void build_imperative();
+  std::unique_ptr<ui::views::View> wrap_inspector(
+      std::unique_ptr<ui::views::TabStrip> side);
 
   BrowserView* host_ = nullptr;
 };

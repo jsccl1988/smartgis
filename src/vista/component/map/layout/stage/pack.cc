@@ -15,7 +15,11 @@ namespace {
 
 gis::Envelope view_pack_envelope(const View& view) {
   gis::Envelope env;
-  const double outset = layout_tile_outset_world(view);
+  // Match make_view_clip_tile: stroke skirt plus the interactive pan margin.
+  // A 16px pack window dropped roads/labels while the camera was still inside
+  // the 512px reuse budget, so the drag showed a cleared strip.
+  const double outset =
+      layout_tile_outset_world(view) + layout_pan_coverage_world(view);
   env.MinX = view.min_x - outset;
   env.MinY = view.min_y - outset;
   env.MaxX = view.max_x + outset;

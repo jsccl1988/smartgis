@@ -27,6 +27,11 @@ class ShellLifecycleComposer {
   void show_shell();
   void finish_deferred_shell_wiring();
   void prepare_shell_close();
+  void schedule_deferred_plugin_panel();
+  void cancel_deferred_plugin_panel();
+
+  static void CALLBACK on_deferred_plugin_panel(HWND hwnd, UINT msg,
+                                                UINT_PTR id, DWORD time);
   void install_shell_wheel_forward();
   void remove_shell_wheel_forward();
 

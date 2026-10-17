@@ -3,7 +3,7 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# harness-auto-world3d-opt — reference
+# harness-auto-world3d-port-matrix — reference
 
 ## Matrix model
 

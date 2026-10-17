@@ -57,6 +57,15 @@ group("core") {
 }
 
 # Process-wide CLI switches (compiled into base.dll).
+# Process-wide AllocationTracker table. Not part of :memory — that source_set
+# is linked into every foundation consumer and would duplicate the map.
+source_set("allocation_tracker_state") {
+  sources = [ "memory/allocation_tracker_state.cc" ]
+  defines = [ "BASE_EXPORTS" ]
+  public_configs = [ ":foundation_config" ]
+  deps = [ "//src/base/memory:memory" ]
+}
+
 source_set("process_switches_sources") {
   sources = [
     "process/switches.cc",
@@ -71,6 +80,7 @@ product_shared_library("base") {
   dll_stem = "base"
   defines = [ "BASE_EXPORTS" ]
   deps = [
+    ":allocation_tracker_state",
     ":foundation",
     ":process_switches_sources",
     "//src/base/log:log_sources",

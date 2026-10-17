@@ -24,6 +24,19 @@ namespace vista {
 namespace detail {
 namespace {
 
+// Far vertices (rivers that leave the view) overflow int via lround and
+// come back as a screen-filling quad with a white halo.
+int clamp_screen_px(float v) {
+  constexpr float kLim = 20000.f;
+  if (v > kLim) {
+    v = kLim;
+  } else if (v < -kLim) {
+    v = -kLim;
+  }
+  return static_cast<int>(std::lround(v));
+}
+
+
 struct TextAnchorOff {
   float x = 0;
   float y = 0;
@@ -362,14 +375,14 @@ void emit_symbols(const gis::style::StyleLayer& layer, const LayoutInput& in,
           xy.reserve(static_cast<size_t>((n_pts / step + 2) * 2));
           for (int p = 0; p < n_pts; p += step) {
             const ScreenPt s = to_screen(in.view, line->getX(p), line->getY(p));
-            xy.push_back(static_cast<int>(std::lround(s.x)));
-            xy.push_back(static_cast<int>(std::lround(s.y)));
+            xy.push_back(clamp_screen_px(s.x));
+            xy.push_back(clamp_screen_px(s.y));
           }
           if (n_pts > 0 && (n_pts - 1) % step != 0) {
             const ScreenPt s = to_screen(in.view, line->getX(n_pts - 1),
                                          line->getY(n_pts - 1));
-            xy.push_back(static_cast<int>(std::lround(s.x)));
-            xy.push_back(static_cast<int>(std::lround(s.y)));
+            xy.push_back(clamp_screen_px(s.x));
+            xy.push_back(clamp_screen_px(s.y));
           }
           LineLabelPose pose;
           const int screen_pts = static_cast<int>(xy.size() / 2);
@@ -388,8 +401,8 @@ void emit_symbols(const gis::style::StyleLayer& layer, const LayoutInput& in,
           continue;
         }
         const ScreenPt s = to_screen(in.view, wx, wy);
-        cand.anchor_x = static_cast<int>(std::lround(s.x));
-        cand.anchor_y = static_cast<int>(std::lround(s.y));
+        cand.anchor_x = clamp_screen_px(s.x);
+        cand.anchor_y = clamp_screen_px(s.y);
         if (!screen_point_visible(in.view, cand.anchor_x, cand.anchor_y,
                                   kScreenCullMarginPx)) {
           continue;

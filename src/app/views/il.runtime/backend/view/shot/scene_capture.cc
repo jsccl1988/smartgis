@@ -12,6 +12,7 @@
 #include "app/views/util/exe_sidecar_path.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -85,12 +86,16 @@ CaptureOpts make_capture_opts(const Scene3dHwndCaptureOpts& opts) {
   CaptureOpts capture;
   capture.dst_w = opts.dst_w;
   capture.dst_h = opts.dst_h;
-  if (opts.use_grid_lit_policy) {
-    capture.max_attempts = 5;
-    capture.pump_base_ms = 60;
-    capture.pump_step_ms = 40;
-    capture.visible = VisiblePolicy::kGridLitFraction;
-  }
+  // FlyCube flip HWND (WS_EX_NOREDIRECTIONBITMAP): one BitBlt is often the
+  // clear color. Always retry with a short pump so interact drag → export
+  // can see a composited DEM frame (atmosphere land already opted into this
+  // via use_grid_lit_policy).
+  capture.max_attempts = opts.use_grid_lit_policy ? 5 : 4;
+  capture.pump_base_ms = opts.use_grid_lit_policy ? 60 : 40;
+  capture.pump_step_ms = opts.use_grid_lit_policy ? 40 : 30;
+  capture.visible = opts.use_grid_lit_policy
+                        ? VisiblePolicy::kGridLitFraction
+                        : VisiblePolicy::kSparseDistinct;
   return capture;
 }
 
@@ -131,6 +136,20 @@ BmpFileCheckOpts bmp_check_opts(const Scene3dHwndCaptureOpts& opts,
   check.allow_32bpp = force_32bpp || opts.allow_32bpp;
   check.mean_min = opts.mean_min;
   check.mean_max = opts.mean_max;
+  // Default min_w=320 false-rejected HiDPI Map/3D clients (~314×303) after
+  // Catalog|Inspector docks (ui.interact interact-3d-capture-reject).
+  if (opts.present_w > 0) {
+    check.min_w = (std::min)(320, static_cast<int>(opts.present_w));
+  }
+  if (opts.present_h > 0) {
+    check.min_h = (std::min)(240, static_cast<int>(opts.present_h));
+  }
+  if (check.min_w < 280) {
+    check.min_w = 280;
+  }
+  if (check.min_h < 200) {
+    check.min_h = 200;
+  }
   return check;
 }
 

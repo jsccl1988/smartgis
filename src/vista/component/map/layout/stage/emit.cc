@@ -45,7 +45,11 @@ LayoutTile make_view_clip_tile(const View& view) {
   LayoutTile view_clip;
   view_clip.tx = 0;
   view_clip.ty = 0;
-  const double outset = layout_tile_outset_world(view);
+  // Edge skirt plus a pan margin so InteractiveReuse can move the camera
+  // without presenting a cleared strip (and without replaying zoom-stale
+  // glyph quads to fill that strip).
+  const double outset =
+      layout_tile_outset_world(view) + layout_pan_coverage_world(view);
   view_clip.min_x = view.min_x - outset;
   view_clip.min_y = view.min_y - outset;
   view_clip.max_x = view.max_x + outset;

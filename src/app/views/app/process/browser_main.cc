@@ -140,6 +140,10 @@ void maybe_select_start_map_tab(Browser& browser) {
   }
   browser.select_view_tab(idx);
   pump_views_messages(800);
+  // Deferred China seed / resume_all_presents may run during the pump and
+  // briefly revive Map-Edit DXGI. Re-pin the start tab so Scene3d DEM stays.
+  browser.select_view_tab(idx);
+  pump_views_messages(100);
   LOGGING(LOG_INFO, "startup: VIEWS_START_MAP_TAB=%s -> tab %d", tab, idx);
   std::fflush(stderr);
 }
@@ -201,8 +205,14 @@ int run_browser_main(const content::ContentMainParams&,
     ui::views::enable_process_dpi_awareness();
   }
   disable_debug_crt_leak_abort();
-  // Product cold start only — ScenarioRegistry demos are panel/CI explicit.
-  apply_startup_policy(product_startup_policy());
+  // HARNESS_SUITE pins ContentMapView / FORCE_GDI before DrawHost attach so
+  // browse BitBlt / motion_gate see MapIR→HDC (not product FlyCube ocean).
+  if (const char* suite = base::switch_cstr("harness-suite");
+      suite && suite[0]) {
+    apply_startup_policy(startup_policy_for_scenario(suite));
+  } else {
+    apply_startup_policy(product_startup_policy());
+  }
   {
     wchar_t diag[MAX_PATH] = {};
     if (detail::exe_capture_path(diag, MAX_PATH, L"product-startup-cmdline.txt")) {

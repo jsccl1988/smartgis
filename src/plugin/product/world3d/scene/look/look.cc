@@ -22,9 +22,10 @@ void apply_china_orbit(content::OrbitFrame* orbit) {
   }
   orbit->reset();
   orbit->apply_world_extent(content::kChinaLonLatExtent);
-  orbit->set_dolly_limits(content::kScene3dDollyMinLocal, 12.f);
-  orbit->set_distance(content::kScene3dDefaultDistance);
-  orbit->set_pitch(0.52f);
+  orbit->set_dolly_limits(content::kScene3dChinaDollyMin, 12.f);
+  orbit->set_distance(content::kScene3dChinaDistance);
+  orbit->set_fov_y(content::kScene3dChinaFovY);
+  orbit->set_pitch(content::kScene3dChinaPitch);
   orbit->set_yaw(content::kScene3dDefaultYaw);
 }
 

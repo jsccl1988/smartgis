@@ -13,16 +13,28 @@
 
 namespace plugin {
 
-ProcessingPool::ProcessingPool(ProcessingMode mode) : mode_(mode) {
+void ProcessingPool::ensure_started() {
+  std::lock_guard<std::mutex> lock(mu_);
+  if (executor_) {
+    return;
+  }
   const std::size_t workers =
       mode_ == ProcessingMode::kUtilityStub
           ? 1
           : base::execution::NThreadPool::Thread::hardware_concurrency();
+  // Do not start workers inside PluginShell::init. Their first allocs race
+  // GisContents / PluginHost construction and the NT heap reports 0xC0000374
+  // on the next map node (print / orthogrid / report cold start).
   executor_ = std::make_unique<base::execution::NThreadPoolExecutor>(
       workers == 0 ? 1 : workers);
 }
 
+ProcessingPool::ProcessingPool(ProcessingMode mode) : mode_(mode) {}
+
 ProcessingPool::~ProcessingPool() {
+  if (!executor_) {
+    return;
+  }
   {
     std::lock_guard<std::mutex> lock(mu_);
     stop_ = true;
@@ -68,6 +80,7 @@ bool ProcessingPool::submit(
     std::string processing_id, std::string args_json,
     content::ProcessingFactory compute, content::ProcessingFactory present,
     std::function<void(bool ok, std::string message)> done) {
+  ensure_started();
   if (processing_id.empty() || !compute || !executor_ || stop_) {
     return false;
   }

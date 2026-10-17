@@ -21,6 +21,10 @@ inline constexpr int kLayoutAabbTilePx = 256;
 // Scenic rhi2d-tile-outset default. World skirt so strokes at tile edges
 // still tessellate into the slice (GPU compose, not HDC blit).
 inline constexpr int kLayoutTileOutsetPx = 16;
+// Extra world around the view so an interactive pan can move the camera
+// before the next layout without clearing uncovered pixels. Half of this
+// distance is the rebuild threshold (mesh still covers the window).
+inline constexpr int kPanCoveragePx = 512;
 
 // One world-grid cell covering the view, with skirt AABB for geom tests.
 struct LayoutTile {
@@ -44,16 +48,34 @@ inline double layout_tile_world_size(const View& view) {
   return static_cast<double>(kLayoutAabbTilePx) * wupp;
 }
 
-inline double layout_tile_outset_world(const View& view) {
+inline double layout_world_per_pixel(const View& view) {
   if (view.width_px == 0 || view.max_x <= view.min_x) {
     return 0;
   }
   const double wupp =
       (view.max_x - view.min_x) / static_cast<double>(view.width_px);
+  return wupp > 0.0 ? wupp : 0.0;
+}
+
+inline double layout_tile_outset_world(const View& view) {
+  const double wupp = layout_world_per_pixel(view);
   if (!(wupp > 0.0)) {
     return 0;
   }
   return static_cast<double>(kLayoutTileOutsetPx) * wupp;
+}
+
+// One pan-coverage margin in world units (same scale as the view).
+inline double layout_pan_coverage_world(const View& view) {
+  const double wupp = layout_world_per_pixel(view);
+  if (!(wupp > 0.0)) {
+    return 0;
+  }
+  return static_cast<double>(kPanCoveragePx) * wupp;
+}
+
+inline int layout_pan_extra_tiles() {
+  return (kPanCoveragePx + kLayoutAabbTilePx - 1) / kLayoutAabbTilePx;
 }
 
 inline uint32_t layout_tile_hash(int tx, int ty) {
@@ -104,8 +126,8 @@ inline bool aabb_contained(double min_x, double min_y, double max_x,
          max_y <= tile.max_y;
 }
 
-// World tiles whose un-skirted cell meets the view. Skirt is only on the
-// AABB used for geom hit tests / clip (strokes at the tile edge).
+// World tiles covering the view plus kPanCoveragePx of neighbors. Per-tile
+// skirt is only on the AABB used for geom hit tests (strokes at the edge).
 inline std::vector<LayoutTile> enumerate_layout_tiles(const View& view) {
   std::vector<LayoutTile> out;
   const double tile_w = layout_tile_world_size(view);
@@ -117,10 +139,11 @@ inline std::vector<LayoutTile> enumerate_layout_tiles(const View& view) {
   const double y0 = view.min_y;
   const double x1 = view.max_x;
   const double y1 = view.max_y;
-  const int tx0 = static_cast<int>(std::floor(x0 / tile_w));
-  const int ty0 = static_cast<int>(std::floor(y0 / tile_w));
-  const int tx1 = static_cast<int>(std::floor((x1 - 1e-12) / tile_w));
-  const int ty1 = static_cast<int>(std::floor((y1 - 1e-12) / tile_w));
+  const int extra = layout_pan_extra_tiles();
+  const int tx0 = static_cast<int>(std::floor(x0 / tile_w)) - extra;
+  const int ty0 = static_cast<int>(std::floor(y0 / tile_w)) - extra;
+  const int tx1 = static_cast<int>(std::floor((x1 - 1e-12) / tile_w)) + extra;
+  const int ty1 = static_cast<int>(std::floor((y1 - 1e-12) / tile_w)) + extra;
   if (tx1 < tx0 || ty1 < ty0) {
     return out;
   }

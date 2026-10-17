@@ -186,7 +186,7 @@ bool register_traffic(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"traffic.shortest_path", "最佳路径分析"},
           [host](content::PluginHost*) {
-            show_view_dialog(
+            present_dialog(
                 L"最佳路径分析",
                 wrap_with_present_surface(
                     host, std::make_unique<ShortestPathDialog>(host)));
@@ -196,7 +196,7 @@ bool register_traffic(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"traffic.about", "关于"},
           [](content::PluginHost*) {
-            show_view_dialog(
+            present_dialog(
                 L"关于",
                 std::make_unique<AboutDialog>(
                     "Traffic\nUrban least-cost path (native.cost_path)"));

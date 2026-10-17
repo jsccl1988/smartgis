@@ -270,7 +270,9 @@ def is_usable_map_record_hwnd(hwnd: int) -> bool:
     return True
 
 
-def resolve_map_record_hwnd(shell_hwnd: int) -> tuple[int, str]:
+def resolve_map_record_hwnd(
+    shell_hwnd: int, env: dict[str, str] | None = None
+) -> tuple[int, str]:
     """Prefer FlyCube Present / MapViewport client over shell for BitBlt.
 
     Shell BitBlt under WS_CLIPCHILDREN yields a near-black map hole while the
@@ -280,18 +282,38 @@ def resolve_map_record_hwnd(shell_hwnd: int) -> tuple[int, str]:
     """
     if not shell_hwnd or not user32.IsWindow(int(shell_hwnd)):
         return 0, ""
-    # Owned top-level FlyCube present (same process) — product DXGI face.
+    import os
+
+    # Suite env (child PE), not parent os.environ — browse pins overlay there.
+    src = env if env is not None else os.environ
+    prefer_gdi = str(src.get("FORCE_GDI_MAP_OVERLAY", "")).strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     pid = hwnd_pid(int(shell_hwnd))
-    if pid:
+    # Views DrawHost class is SmartGisDrawHost (not legacy SmartGisMapViewport).
+    child = 0
+    child_title = ""
+    for cls in ("SmartGisDrawHost", "SmartGisMapViewport"):
+        found = find_child_hwnd_by_class(int(shell_hwnd), cls)
+        if found and is_usable_map_record_hwnd(found):
+            child = int(found)
+            child_title = cls
+            break
+    if prefer_gdi and child:
+        return child, child_title
+    # Owned top-level FlyCube present (same process) — product DXGI face.
+    if pid and not prefer_gdi:
         for needle in ("FlyCube Present", "SmartGIS Draw Present"):
             present, title = find_window_by_title_substr(
                 needle, timeout_sec=0.05, pid=pid
             )
             if present and is_usable_map_record_hwnd(present):
                 return present, title or "FlyCube Present"
-    child = find_child_hwnd_by_class(int(shell_hwnd), "SmartGisMapViewport")
-    if child and is_usable_map_record_hwnd(child):
-        return child, "SmartGisMapViewport"
+    if child:
+        return child, child_title
     if is_usable_map_record_hwnd(int(shell_hwnd)):
         return int(shell_hwnd), _window_title(int(shell_hwnd))
     # Prefer last large shell over a collapsed chrome sliver.
@@ -419,14 +441,13 @@ def wait_stable_shell_hwnd(
         hwnd, title = _pick()
         if hwnd:
             last_title = title
-            # Bare *product* title (e.g. "SmartGis") is often a short-lived
-            # splash before the MDI EDIT frame. Specific suite titles
-            # (legacy-scene3d-showcase, …) are the real shell — accept them.
+            # Bare "SmartGis" can be a short-lived splash before an MDI EDIT
+            # frame. Views shell title is exactly "SmartGIS Views" — that is
+            # the real top-level window (no EDIT child); do not treat it as
+            # splash or browse HWND record never binds (hwnd=0 / mode=none).
             title_l = title.strip().lower()
             bare_splash = bool(needle) and title_l == needle and needle in (
                 "smartgis",
-                "smartgis views",
-                "smartgisviews",
             )
             pause = settle * (2.5 if bare_splash else 1.0)
             time.sleep(pause)

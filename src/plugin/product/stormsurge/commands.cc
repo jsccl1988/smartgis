@@ -522,7 +522,7 @@ bool register_stormsurge(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"stormsurge.run", "风暴潮淹没分析"},
           [host](content::PluginHost*) {
-            show_view_dialog(
+            present_dialog(
                 L"风暴潮淹没分析",
                 wrap_with_present_surface(
                     host, std::make_unique<StormSurgeRunDialog>(host)));
@@ -532,7 +532,7 @@ bool register_stormsurge(content::PluginHost* host) {
   if (!host->contribute_dialog(
           kPluginId, {"stormsurge.about", "关于"},
           [](content::PluginHost*) {
-            show_view_dialog(
+            present_dialog(
                 L"关于",
                 std::make_unique<AboutDialog>(
                     "StormSurge\nDEM+coast+tide inundation "

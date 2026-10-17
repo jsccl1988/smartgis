@@ -37,7 +37,7 @@ class VISTA_EXPORT MapEffect final : public render::graph::Effect {
             std::function<bool(const std::string& symbol_id,
                                std::vector<uint8_t>* rgba, int* w, int* h)>
                 load_icon,
-            bool record_all = false);
+            bool record_all = false, bool draw_overlays = false);
 
   render::graph::EffectSlot slot() const override;
   // MapPass encode clears when world_items run with ColorLoadOp::kClear.
@@ -54,6 +54,10 @@ class VISTA_EXPORT MapEffect final : public render::graph::Effect {
   std::function<bool(const std::string&, std::vector<uint8_t>*, int*, int*)>
       load_icon_;
   bool record_all_ = false;
+  // Pixel labels (river-label / label). Independent of record_all so a
+  // mid-drag coverage rebuild can refresh world meshes without replaying
+  // glyphs under the live camera.
+  bool draw_overlays_ = false;
 };
 
 }  // namespace vista

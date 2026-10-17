@@ -64,11 +64,9 @@ void open_print_preview_dialog(content::PluginHost* host) {
   if (!host) {
     return;
   }
-  auto body = wrap_with_present_surface(
-      host, std::make_unique<PrintPreviewDialog>(host));
-  const int width = body->preferred_size().width;
-  const int height = body->preferred_size().height;
-  show_owned_dialog(L"地图打印", width, height, std::move(body));
+  present_dialog(L"地图打印",
+                 wrap_with_present_surface(
+                     host, std::make_unique<PrintPreviewDialog>(host)));
 }
 
 }  // namespace plugin

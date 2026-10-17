@@ -3,7 +3,7 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# harness-auto-map2d-opt — reference
+# harness-auto-map2d-port-matrix — reference
 
 Progressive disclosure for the skill. Read when parsing logs, diagnosing a red cell, or extending the matrix.
 

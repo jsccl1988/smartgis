@@ -416,6 +416,7 @@ source_set("gis_present") {
   include_dirs += [ "//src" ]
   libs = [
     "gdi32.lib",
+    "gdiplus.lib",
     "msimg32.lib",
     "user32.lib",
   ]

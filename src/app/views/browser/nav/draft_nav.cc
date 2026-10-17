@@ -21,6 +21,7 @@
 #include "app/views/browser/nav/detail/attach_mode.h"
 #include "app/views/browser/nav/detail/seh_workspace.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
+#include "base/core/log.h"
 #include "base/process/switches.h"
 #include "content/browser/camera/view_navigation.h"
 #include "content/browser/session/browser_session.h"
@@ -122,7 +123,9 @@ void Browser::handle_draft(const tool::Draft& draft) {
   if (tool_id && std::strncmp(tool_id, "select.", 7) == 0) {
     const content::GisScene::Feature* hit = session_->document().selected_feature();
     if (hit) {
-      ui_->set_status_message("Selected " + content::GisScene::feature_token(hit->id));
+      const std::string token = content::GisScene::feature_token(hit->id);
+      LOGGING(LOG_INFO, "map.select %s", token.c_str());
+      ui_->set_status_message("Selected " + token);
       if (ui_->feature_info()) {
         ui_->feature_info()->set_feature_id(content::GisScene::feature_token(hit->id));
         std::vector<std::pair<std::string, std::string>> pairs;
@@ -173,6 +176,7 @@ void Browser::handle_draft(const tool::Draft& draft) {
       flash_lit_ = true;
       ui_->sync_flash_timer();
     } else {
+      LOGGING(LOG_INFO, "map.select miss");
       if (content::ToolSession* host = ui_->active_tool_session()) {
         const uint32_t view_id = ui_->active_map() ? ui_->active_map()->view_id() : 0;
         host->execute("flash.stop", view_id);

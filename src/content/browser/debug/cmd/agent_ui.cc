@@ -81,6 +81,16 @@ bool dispatch_ui_method(const std::string& method,
     *response = ui_text_result(id, host.ui_capture_shell(path));
     return true;
   }
+  if (method == "ui.open_panel") {
+    std::string panel;
+    extract_string_field(params_json, "panel", &panel);
+    if (!host.ui_open_panel) {
+      *response = err_result(id, "ui host not bound");
+      return true;
+    }
+    *response = ui_text_result(id, host.ui_open_panel(panel));
+    return true;
+  }
   if (method == "script.run") {
     std::string path;
     extract_string_field(params_json, "path", &path);
@@ -158,6 +168,14 @@ bool exec_ui_command(const std::string& line,
       path = rest.substr(8);
     }
     *output = host.ui_capture_shell(path);
+    return true;
+  }
+  if (rest.rfind("panel ", 0) == 0) {
+    if (!host.ui_open_panel) {
+      *output = "ui host not bound";
+      return true;
+    }
+    *output = host.ui_open_panel(rest.substr(6));
     return true;
   }
   *output = "unknown :ui command (see :help)";

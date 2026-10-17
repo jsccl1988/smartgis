@@ -4,6 +4,7 @@
 # One native plugin DLL per product pack. The shared_library stays at
 # $root_out_dir (import lib / PDB next to other binaries). A copy ships
 # <package>.dll next to plugin.json:
+#   $root_out_dir/<package>.dll
 #   $root_out_dir/plugins/<package>/<package>.dll
 #   (out/Debug/plugins/ or out/Release/plugins/).
 # Do not use product_shared_library — that template injects //build:legacy.

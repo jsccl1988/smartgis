@@ -9,6 +9,8 @@
 #include <utility>
 #include <vector>
 
+#include "vista/component/map/layout/policy/slice_key.h"
+
 #include "vista/component/map/color.h"
 
 namespace vista {
@@ -193,6 +195,7 @@ void push_feather_under(PlacedMesh core, float pad, std::vector<PlacedMesh>* out
   }
   PlacedMesh feather;
   feather.source = MeshSource::kSolid;
+  feather.stroke = core.stroke;
   feather.vertices = src;
   expand_from_center(&feather.vertices, pad);
   feather.indices_src = core.indices_src;
@@ -207,21 +210,63 @@ void push_feather_under(PlacedMesh core, float pad, std::vector<PlacedMesh>* out
   out->push_back(std::move(core));
 }
 
-float halo_pad_for(const vista::DrawItem& item,
-                   const vista::View& view) {
-  float halo_pad = item.halo_width_px;
-  if (item.pixel_space || view.width_px == 0 || view.height_px == 0) {
-    return halo_pad;
+// Pixel quads stored with pixel_space left false are placed as lon/lat.
+// A 16px glyph then covers tens of degrees: white halo, screen-sized
+// characters, while the map underneath is only partly in frame.
+bool text_quad_is_unplaced_pixels(const vista::DrawItem& item,
+                                  const vista::View& view) {
+  if (item.pixel_space || item.text_size_px <= 0.f || item.vertices.size() < 2 ||
+      view.width_px == 0 || view.max_x <= view.min_x) {
+    return false;
   }
-  const float sx = std::fabs(static_cast<float>(view.max_x - view.min_x)) /
-                   static_cast<float>(view.width_px);
-  const float sy = std::fabs(static_cast<float>(view.max_y - view.min_y)) /
-                   static_cast<float>(view.height_px);
-  halo_pad *= std::max(sx, sy);
-  return halo_pad;
+  float min_x = item.vertices[0].x;
+  float max_x = min_x;
+  float min_y = item.vertices[0].y;
+  float max_y = min_y;
+  for (const vista::Vertex& v : item.vertices) {
+    min_x = (std::min)(min_x, v.x);
+    max_x = (std::max)(max_x, v.x);
+    min_y = (std::min)(min_y, v.y);
+    max_y = (std::max)(max_y, v.y);
+  }
+  const float edge = (std::max)(max_x - min_x, max_y - min_y);
+  const float wupp = static_cast<float>(layout_world_per_pixel(view));
+  if (!(wupp > 0.f) || !(edge > 4.f)) {
+    return false;
+  }
+  const float expect = item.text_size_px * wupp;
+  return edge > 4.f * (std::max)(expect, 1.0e-4f);
 }
 
 }  // namespace
+
+// A glyph baked as raw pixels (or a stale ortho) covers a large fraction of
+// the view: white halo, screen-sized characters, land only at the edges.
+bool glyph_world_span_sane(const std::vector<vista::Vertex>& verts,
+                           const vista::View& view, float /*text_size_px*/) {
+  if (verts.size() < 2 || view.width_px == 0 || view.max_x <= view.min_x) {
+    return false;
+  }
+  float min_x = verts[0].x;
+  float max_x = min_x;
+  float min_y = verts[0].y;
+  float max_y = min_y;
+  for (const vista::Vertex& v : verts) {
+    min_x = (std::min)(min_x, v.x);
+    max_x = (std::max)(max_x, v.x);
+    min_y = (std::min)(min_y, v.y);
+    max_y = (std::max)(max_y, v.y);
+  }
+  const float edge = (std::max)(max_x - min_x, max_y - min_y);
+  const float wupp = static_cast<float>(layout_world_per_pixel(view));
+  if (!(wupp > 0.f) || !(edge > 0.f)) {
+    return false;
+  }
+  // Point labels run up to ~96px plus the atlas halo pad. Larger than this
+  // is a stale pixel bake left in lon/lat, not a label.
+  constexpr float kMaxGlyphPx = 192.f;
+  return edge <= kMaxGlyphPx * wupp;
+}
 
 void seal_borrowed_meshes(std::vector<PlacedMesh>* meshes) {
   if (!meshes) {
@@ -272,33 +317,58 @@ std::vector<PlacedMesh> place_frame(const vista::MapIR& frame,
     }
 
     if (item.kind == vista::DrawKind::kText) {
+      const bool as_pixels =
+          item.pixel_space || text_quad_is_unplaced_pixels(item, view);
+      if (as_pixels && !item.pixel_space) {
+        std::fprintf(stderr,
+                     "map2d: text quad coerced to pixel space size=%.1f "
+                     "cp=%u\n",
+                     item.text_size_px, item.codepoint);
+      }
       std::vector<vista::Vertex> verts = item.vertices;
       const uint32_t group = ++next_group;
+      // Atlas pads the cell by this many pixels and paints a glyph-shaped
+      // halo there. Grow the quad by the same margin so the ink stays at
+      // text_size and the plate is not an opaque rectangle over the terrain.
+      constexpr float kGlyphHaloPadPx = 2.f;
+      write_local_glyph_uv(as_pixels, &verts);
       if (item.halo_width_px > 0.f) {
-        std::vector<vista::Vertex> halo = verts;
-        expand_from_center(&halo, halo_pad_for(item, view));
-        if (item.pixel_space) {
-          rotate_about_anchor(&halo, item.anchor_x, item.anchor_y,
-                              item.angle_rad);
+        float cx = 0.f;
+        float cy = 0.f;
+        for (const vista::Vertex& v : verts) {
+          cx += v.x;
+          cy += v.y;
         }
-        to_ortho(view, item.pixel_space, &halo);
-        PlacedMesh mesh;
-        mesh.source = MeshSource::kSolid;
-        mesh.vertices = std::move(halo);
-        mesh.indices_src = &item.indices;
-        unpack_rgba(item.halo_rgba, item.opacity, &mesh.r, &mesh.g, &mesh.b,
-                    &mesh.a);
-        tag_text(&mesh, item, group);
-        out.push_back(std::move(mesh));
+        const float inv = 1.f / static_cast<float>(verts.size());
+        cx *= inv;
+        cy *= inv;
+        for (vista::Vertex& v : verts) {
+          if (v.x < cx) {
+            v.x -= kGlyphHaloPadPx;
+          } else if (v.x > cx) {
+            v.x += kGlyphHaloPadPx;
+          }
+          if (v.y < cy) {
+            v.y -= kGlyphHaloPadPx;
+          } else if (v.y > cy) {
+            v.y += kGlyphHaloPadPx;
+          }
+        }
       }
-      write_local_glyph_uv(item.pixel_space, &verts);
-      if (item.pixel_space) {
+      if (as_pixels) {
         rotate_about_anchor(&verts, item.anchor_x, item.anchor_y,
                             item.angle_rad);
       }
-      to_ortho(view, item.pixel_space, &verts);
+      to_ortho(view, as_pixels, &verts);
+      if (!glyph_world_span_sane(verts, view, item.text_size_px)) {
+        std::fprintf(stderr,
+                     "map2d: drop oversized text quad size=%.1f cp=%u\n",
+                     item.text_size_px, item.codepoint);
+        continue;
+      }
       PlacedMesh mesh;
       mesh.source = MeshSource::kGlyph;
+      mesh.overlay = true;
       mesh.vertices = std::move(verts);
       mesh.indices_src = &item.indices;
       tag_text(&mesh, item, group);
@@ -315,6 +385,7 @@ std::vector<PlacedMesh> place_frame(const vista::MapIR& frame,
       to_ortho(view, item.pixel_space, &verts);
       PlacedMesh mesh;
       mesh.source = MeshSource::kIcon;
+      mesh.overlay = true;
       mesh.vertices = std::move(verts);
       mesh.indices_src = &item.indices;
       mesh.symbol_id = item.symbol_id;
@@ -367,6 +438,8 @@ std::vector<PlacedMesh> place_frame(const vista::MapIR& frame,
       continue;
     }
     mesh.source = MeshSource::kSolid;
+    mesh.stroke = item.kind == vista::DrawKind::kLine ||
+                  item.kind == vista::DrawKind::kCircle;
     const float aa_pad = world_half_pixel(view);
     push_feather_under(std::move(mesh), aa_pad, &out);
   }

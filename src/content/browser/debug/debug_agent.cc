@@ -3,6 +3,7 @@
 
 #include "content/browser/debug/debug_agent.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -12,6 +13,8 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -25,6 +28,7 @@
 #include <windows.h>
 
 #include "base/core/log.h"
+#include "base/log/agent_feed.h"
 #include "base/log/log_sink.h"
 #include "base/process/switches.h"
 #include "content/browser/debug/cmd/agent_ask.h"
@@ -56,6 +60,118 @@ void ensure_wsa() {
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
   });
+}
+
+void flatten_agent_text(std::string* text) {
+  if (!text) {
+    return;
+  }
+  for (char& c : *text) {
+    if (c == '\n' || c == '\r' || c == '\t') {
+      c = ' ';
+    }
+  }
+  constexpr std::size_t kMax = 480;
+  if (text->size() > kMax) {
+    text->resize(kMax);
+    text->append("...");
+  }
+}
+
+bool console_prefix_matches(std::string_view candidate, std::string_view prefix) {
+  if (candidate == prefix) {
+    return true;
+  }
+  if (prefix.empty() || candidate.size() <= prefix.size() ||
+      !candidate.starts_with(prefix)) {
+    return false;
+  }
+  if (prefix.back() == ' ') {
+    return true;
+  }
+  return candidate[prefix.size()] == ' ';
+}
+
+// The console prompt documents ":help", but the input line often omits the
+// colon. A bare "help" must not fall through to Python eval.
+std::string promote_bare_console_verb(std::string line) {
+  if (line.empty() || line.front() == ':') {
+    return line;
+  }
+  const std::string candidate = ":" + line;
+  size_t count = 0;
+  const char* const* prefixes = detail::agent_console_command_prefixes(&count);
+  for (size_t i = 0; i < count; ++i) {
+    if (prefixes[i] && console_prefix_matches(candidate, prefixes[i])) {
+      return candidate;
+    }
+  }
+  return line;
+}
+
+std::string& agent_session_tls() {
+  thread_local std::string session = "console";
+  return session;
+}
+
+std::string sanitize_session_name(std::string_view raw) {
+  // Keep Unicode titles (Cursor conversation names are often not ASCII).
+  // Drop controls and quotes so the tab label stays a single line.
+  std::string out;
+  out.reserve(std::min<std::size_t>(raw.size(), 64));
+  int points = 0;
+  for (std::size_t i = 0; i < raw.size() && points < 40;) {
+    const auto c = static_cast<unsigned char>(raw[i]);
+    if (c < 0x20 || c == 0x7f || c == '"' || c == '\\') {
+      ++i;
+      continue;
+    }
+    int len = 1;
+    if ((c & 0x80) == 0) {
+      len = 1;
+    } else if ((c & 0xE0) == 0xC0 && i + 1 < raw.size()) {
+      len = 2;
+    } else if ((c & 0xF0) == 0xE0 && i + 2 < raw.size()) {
+      len = 3;
+    } else if ((c & 0xF8) == 0xF0 && i + 3 < raw.size()) {
+      len = 4;
+    } else {
+      ++i;
+      continue;
+    }
+    bool cont = true;
+    for (int k = 1; k < len; ++k) {
+      const auto next = static_cast<unsigned char>(raw[i + static_cast<std::size_t>(k)]);
+      if ((next & 0xC0) != 0x80) {
+        cont = false;
+        break;
+      }
+    }
+    if (!cont) {
+      ++i;
+      continue;
+    }
+    out.append(raw.substr(i, static_cast<std::size_t>(len)));
+    i += static_cast<std::size_t>(len);
+    ++points;
+  }
+  while (!out.empty() && out.front() == ' ') {
+    out.erase(out.begin());
+  }
+  while (!out.empty() && out.back() == ' ') {
+    out.pop_back();
+  }
+  return out;
+}
+
+void note_agent(base::AgentFeedKind kind, std::string text) {
+  flatten_agent_text(&text);
+  base::agent_feed().append(kind, std::move(text), agent_session_tls());
+}
+
+bool agent_feed_skips_method(const std::string& method) {
+  return method == "ping" || method == "log.tail" || method == "record.poll" ||
+         method == "cmd.exec";
 }
 
 std::string discovery_path() {
@@ -128,7 +244,12 @@ bool DebugAgent::start() {
   int addrlen = sizeof(addr);
   if (getsockname(listen_sock, reinterpret_cast<sockaddr*>(&addr), &addrlen) ==
       0) {
-    port_.store(ntohs(addr.sin_port));
+    port_.store(static_cast<int>(ntohs(addr.sin_port)));
+  }
+  if (port_.load() <= 0) {
+    LOGGING(LOG_ERROR, "DebugAgent: getsockname port unavailable");
+    closesocket(listen_sock);
+    return false;
   }
 
   listen_sock_ = static_cast<unsigned long long>(listen_sock);
@@ -146,6 +267,10 @@ bool DebugAgent::start() {
   accept_thread_ = std::thread([this] { accept_loop(); });
   LOGGING(LOG_INFO, "DebugAgent listening on 127.0.0.1:%d", port_.load());
   return true;
+}
+
+int DebugAgent::port() const {
+  return port_.load(std::memory_order_acquire);
 }
 
 void DebugAgent::stop() {
@@ -204,6 +329,9 @@ void DebugAgent::accept_loop() {
 
 void DebugAgent::serve_client(unsigned long long sock_u) {
   SOCKET sock = static_cast<SOCKET>(sock_u);
+  static std::atomic<int> next_agent_session{1};
+  agent_session_tls() =
+      "agent-" + std::to_string(next_agent_session.fetch_add(1));
   std::string buf;
   char tmp[1024];
   std::uint64_t sub_id = 0;
@@ -307,9 +435,19 @@ std::string DebugAgent::handle_request_json(const std::string& line) {
       method.assign(method_it->value.GetString(),
                     method_it->value.GetStringLength());
     }
+    const auto session_it = doc.FindMember("session");
+    if (session_it != doc.MemberEnd() && session_it->value.IsString()) {
+      std::string named = sanitize_session_name(std::string_view(
+          session_it->value.GetString(), session_it->value.GetStringLength()));
+      if (!named.empty()) {
+        agent_session_tls() = std::move(named);
+      }
+    }
   }
   if (method.empty()) {
-    return detail::err_result(id, "missing method");
+    const std::string err = detail::err_result(id, "missing method");
+    note_agent(base::AgentFeedKind::kDeny, err);
+    return err;
   }
   std::string params = "{}";
   if (!doc.HasParseError() && doc.IsObject()) {
@@ -321,7 +459,19 @@ std::string DebugAgent::handle_request_json(const std::string& line) {
       params.assign(buf.GetString(), buf.GetSize());
     }
   }
-  return dispatch_method(method, params, id);
+  const std::string response = dispatch_method(method, params, id);
+  if (!agent_feed_skips_method(method)) {
+    std::string request = method;
+    if (!params.empty() && params != "{}") {
+      request.push_back(' ');
+      request += params;
+    }
+    note_agent(base::AgentFeedKind::kRpc, std::move(request));
+    const bool denied = response.find("\"ok\":false") != std::string::npos;
+    note_agent(denied ? base::AgentFeedKind::kDeny : base::AgentFeedKind::kResult,
+               response);
+  }
+  return response;
 }
 
 std::string DebugAgent::dispatch_method(const std::string& method,
@@ -382,6 +532,20 @@ std::string DebugAgent::dispatch_method(const std::string& method,
     std::thread([this] { stop(); }).detach();
     return ok_result(id, "{}");
   }
+  // ui.open_panel marshals onto the UI thread and may freefill Views heaps.
+  // Copy only the thin SBO callback across that call — a full DebugAgentHost
+  // keeps heap-backed std::function copies alive and _Tidy AVs (0xcccccccc)
+  // after on_plugins returns.
+  if (method == "ui.open_panel") {
+    DebugAgentHost thin;
+    {
+      std::lock_guard<std::mutex> lock(mu_);
+      thin.ui_open_panel = host_.ui_open_panel;
+    }
+    if (detail::dispatch_ui_method(method, params_json, id, thin, &response)) {
+      return response;
+    }
+  }
   {
     const DebugAgentHost host = copy_host();
     if (detail::dispatch_ui_method(method, params_json, id, host, &response)) {
@@ -426,22 +590,40 @@ std::string DebugAgent::exec_line(const std::string& line_in) {
   if (line.empty()) {
     return "";
   }
+  line = promote_bare_console_verb(std::move(line));
+  std::string result;
+  struct PublishExec {
+    const std::string& line;
+    const std::string& result;
+    ~PublishExec() {
+      note_agent(base::AgentFeedKind::kCommand, line);
+      const bool denied = result.rfind("blocked:", 0) == 0;
+      note_agent(denied ? base::AgentFeedKind::kDeny : base::AgentFeedKind::kResult,
+                 result);
+    }
+  } publish{line, result};
+  (void)publish;
+  auto ret = [&](std::string out) {
+    result = out;
+    return result;
+  };
   if (line == ":help") {
-    return detail::agent_help_text();
+    return ret(detail::agent_help_text());
   }
   if (line == ":help json") {
-    return detail::agent_methods_schema_json();
+    return ret(detail::agent_methods_schema_json());
   }
   if (line == ":confirm") {
     confirm_dangerous_ops();
-    return "dangerous ops confirmed for this session";
+    return ret("dangerous ops confirmed for this session");
   }
 
   if (detail::AgentPolicy::is_dangerous_console_line(line) &&
       !dangerous_ops_allowed()) {
     detail::AgentPolicy::audit("deny", line);
-    return "blocked: type :confirm once (or set SG_DEBUG_ALLOW=1; debug "
-           "builds auto-allow)";
+    return ret(
+        "blocked: type :confirm once (or set SG_DEBUG_ALLOW=1; debug "
+        "builds auto-allow)");
   }
   if (detail::AgentPolicy::is_dangerous_console_line(line)) {
     detail::AgentPolicy::audit("console", line);
@@ -449,24 +631,36 @@ std::string DebugAgent::exec_line(const std::string& line_in) {
 
   std::string output;
   if (detail::exec_log_command(line, &output)) {
-    return output;
+    return ret(std::move(output));
+  }
+  // See dispatch_method("ui.open_panel"): keep only ui_open_panel across the
+  // UI-thread marshal so panel open cannot poison a full host copy's _Tidy.
+  if (line.rfind(":ui panel ", 0) == 0) {
+    DebugAgentHost thin;
+    {
+      std::lock_guard<std::mutex> lock(mu_);
+      thin.ui_open_panel = host_.ui_open_panel;
+    }
+    if (detail::exec_ui_command(line, thin, &output)) {
+      return ret(std::move(output));
+    }
   }
   {
     const DebugAgentHost host = copy_host();
     if (detail::exec_ask_command(line, host, this, &output)) {
-      return output;
+      return ret(std::move(output));
     }
     if (detail::exec_gis_command(line, host, &output)) {
-      return output;
+      return ret(std::move(output));
     }
     if (detail::exec_ui_command(line, host, &output)) {
-      return output;
+      return ret(std::move(output));
     }
     if (detail::exec_script_command(line, host, &output)) {
-      return output;
+      return ret(std::move(output));
     }
     if (detail::exec_diag_command(line, host, &output)) {
-      return output;
+      return ret(std::move(output));
     }
   }
   {
@@ -478,27 +672,27 @@ std::string DebugAgent::exec_line(const std::string& line_in) {
       record_events_.clear();
     };
     if (detail::exec_record_command(line, handlers, &output)) {
-      return output;
+      return ret(std::move(output));
     }
   }
   if (detail::exec_harness_command(line, &output)) {
-    return output;
+    return ret(std::move(output));
   }
   if (detail::exec_sdbd_command(line, &output)) {
-    return output;
+    return ret(std::move(output));
   }
   {
     const detail::PyEvalFn eval = [this](const std::string& code) {
       return eval_python(code);
     };
     if (detail::exec_py_command(line, eval, &output)) {
-      return output;
+      return ret(std::move(output));
     }
   }
   if (line[0] == ':') {
-    return "unknown command (see :help)";
+    return ret("unknown command (see :help)");
   }
-  return eval_python(line);
+  return ret(eval_python(line));
 }
 
 bool DebugAgent::spawn_python_worker() {
@@ -511,12 +705,23 @@ DebugAgent& debug_agent() {
 }
 
 bool debug_console_env_enabled() {
+  // SG_DEBUG / DEBUG (normalized to switch "debug"). Explicit 0 wins over the
+  // debug-build default; 1 forces on in Release.
   if (const char* env = base::switch_cstr("debug")) {
+    if (env[0] == '0' && env[1] == '\0') {
+      return false;
+    }
     if (env[0] == '1' && env[1] == '\0') {
       return true;
     }
   }
+#if !defined(NDEBUG)
+  // out/Debug: start Agent early so %TEMP%\smartgis-debug.json exists for
+  // tools/debug / VS Code without requiring SG_DEBUG=1.
+  return true;
+#else
   return false;
+#endif
 }
 
 void DebugAgent::set_record_enabled(bool on) {

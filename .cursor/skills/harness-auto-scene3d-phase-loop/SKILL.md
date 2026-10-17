@@ -1,13 +1,14 @@
 ---
-name: harness-auto-scene3d-frame-opt
+name: harness-auto-scene3d-phase-loop
 description: >-
-  Profiles every Scene3d / src_render frame (phase clocks + timed presents)
-  then loop-drives optimizations in content present, effect/scene, GpuScene,
-  and src/render until equal-profile budgets. Use when the user invokes
-  /harness-auto-scene3d-frame-opt, or says scene3d 逐帧 profile, 每一帧性能,
-  src/render 3d 优化 loop, ms_per_present, rebuild_count, atmosphere-showcase
-  perf, ocean_prep_ms / record_ms, or asks to profile-then-optimize Scene3d
-  frame by frame.
+  Product Scene3d phase-budget loop: profile every frame (phase clocks +
+  timed presents) and fix content present / effect/scene / GpuScene /
+  src/render until warm ms_per_present and rebuild budgets. Not the world3d
+  port matrix. Use when the user invokes /harness-auto-scene3d-phase-loop
+  (formerly /harness-auto-scene3d-frame-opt), or says scene3d 逐帧 profile,
+  每一帧性能, src/render 3d 优化 loop, ms_per_present, rebuild_count,
+  atmosphere-showcase perf, ocean_prep_ms / record_ms, or asks to
+  profile-then-optimize Scene3d frame by frame.
 ---
 
 <!--
@@ -15,17 +16,17 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# Harness auto scene3d frame opt（逐帧 profile → loop 优化）
+# Harness auto scene3d phase loop（产品路径逐帧相位 → 修到预算）
 
-**对 Scene3d / `src/render` 端到端渲染的每一帧做性能 profile，并 loop 驱动优化直至 equal-profile 预算。**
+**对产品 Scene3d 每一帧做相位 profile，并 loop 驱动优化直至相位预算。**
 
-Sibling of `harness-auto-world3d-opt` (backend **matrix**). This skill owns the **per-frame** profile + fix loop on the product Vista path (`--atmosphere-showcase=legacy` locked profile), not the GL/D3D leftover grid.
+Sibling of `harness-auto-world3d-port-matrix` (Scenic GL / Scenic D3D11 / Vista **matrix**). This skill owns the **per-frame** profile + fix loop on the product Vista path (`--atmosphere-showcase=legacy` locked profile). Port-grid screenshots and bare `ms_per_present` ranks belong to the matrix skill.
 
 Closed loop: build → locked-profile timed presents → parse hot phase → CBM → root-cause fix → rebuild → re-bench → until done bar / hard stop.
 
 ## Authorization
 
-When this skill is invoked, attached (`@harness-auto-scene3d-frame-opt` / `/harness-auto-scene3d-frame-opt`), or followed, the agent **MUST** run the frame bench, iterate fixes, and re-bench — do not defer the loop to the user.
+When this skill is invoked, attached (`@harness-auto-scene3d-phase-loop` / `/harness-auto-scene3d-phase-loop`, formerly `harness-auto-scene3d-frame-opt`), or followed, the agent **MUST** run the frame bench, iterate fixes, and re-bench — do not defer the loop to the user.
 
 ## Hard rules
 
@@ -118,7 +119,7 @@ Scene3d frame-opt progress:
 
 Run the entry commands. Read `atmosphere-showcase-perf.json` and stderr.
 
-If multi-backend A/B is needed, run sibling `harness-auto-world3d-opt` — do **not** treat leftover GL/D3D wall as the product done bar.
+If multi-backend A/B is needed, run sibling `harness-auto-world3d-port-matrix` — do **not** treat leftover GL/D3D wall as the product done bar.
 
 ### Step 3 — Parse hot phase
 
@@ -181,8 +182,8 @@ Debug legacy 640×480 GPU:
 
 ## Related
 
-- Matrix sibling: `.cursor/skills/harness-auto-world3d-opt/SKILL.md`
-- Map2d frame sibling: `.cursor/skills/harness-auto-map2d-frame-opt/SKILL.md`
+- Matrix sibling: `.cursor/skills/harness-auto-world3d-port-matrix/SKILL.md`
+- Map2d phase-loop sibling: `.cursor/skills/harness-auto-map2d-phase-loop/SKILL.md`
 - Visual review: `.cursor/skills/harness-visual-review/SKILL.md`
 - Timed present: `src/plugin/product/world3d/scenario/atmosphere/present/present_run.cc`
 - Phase clocks: `src/content/browser/present/scene3d/profile/scene3d_phase_profile.*`

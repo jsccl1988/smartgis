@@ -6,6 +6,7 @@
 
 #include "base/memory/allocation_tracker.h"
 #include "base/memory/arena.h"
+#include "base/trace/diag/diagnostic_bootstrap.h"
 #include "base/trace/event/process_trace.h"
 
 namespace base {
@@ -18,11 +19,18 @@ inline void sample_memory_counters_to_process_trace(bool include_tls = true) {
   if (!trace::tracing_enabled()) {
     return;
   }
+  // Working set / physical RAM — not the PMR pool. SynchronizedPool::capacity
+  // is SIZE_MAX and its used counter stays 0 when the process heap is CRT.
+  const trace::ProcessMemorySnapshot os = trace::process_memory_snapshot();
+  trace::process_trace().add_counter("process_used", "memory",
+                                     static_cast<int64_t>(os.working_set));
+  trace::process_trace().add_counter(
+      "process_capacity", "memory", static_cast<int64_t>(os.physical_total));
+  trace::process_trace().add_counter("process_private", "memory",
+                                     static_cast<int64_t>(os.private_bytes));
   if (MemoryResource* mr = memory_resource()) {
-    trace::process_trace().add_counter("process_used", "memory",
+    trace::process_trace().add_counter("arena_used", "memory",
                                        static_cast<int64_t>(mr->used()));
-    trace::process_trace().add_counter("process_capacity", "memory",
-                                       static_cast<int64_t>(mr->capacity()));
   }
   if (include_tls) {
     if (MemoryResource* tls = tls_memory_resource()) {

@@ -196,6 +196,19 @@ class BrowserView : public BrowserUiDelegate {
   void on_exit();
   void on_plugins();
   void on_processing();
+  // Open a named right-dock / tools panel (DebugAgent :ui panel). UI thread only.
+  std::string open_named_panel(const std::string& panel);
+
+  // Marshaled via WM_APP+0x4F50 (agent thread → shell HWND subclass).
+  struct OpenPanelUiRequest {
+    std::string panel;
+    std::string result;
+  };
+  // Marshaled via WM_APP+0x5546. `body` stays on the caller stack.
+  struct UiFnRequest {
+    const std::function<std::string()>* body = nullptr;
+    std::string result;
+  };
   void run_processing_operator(const std::string& processing_id);
   void run_processing_operator(const std::string& processing_id,
                                const std::string& distance);

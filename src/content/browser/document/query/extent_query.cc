@@ -4,6 +4,7 @@
 #include "content/browser/document/query/extent_query.h"
 
 #include <algorithm>
+#include <mutex>
 #include <vector>
 
 #include "content/browser/camera/gis_host_extent.h"
@@ -45,6 +46,7 @@ bool compute_extent(const LayerStore& store, double* min_x, double* min_y,
   if (!min_x || !min_y || !max_x || !max_y) {
     return false;
   }
+  std::lock_guard<std::recursive_mutex> lock(store.mutex());
   bool have = false;
   double minx = 0;
   double miny = 0;
@@ -88,6 +90,7 @@ bool has_drawable_extent(const LayerStore& store) {
 }
 
 bool has_land_surface(const LayerStore& store) {
+  std::lock_guard<std::recursive_mutex> lock(store.mutex());
   for (const MapLayer& layer : store.layers()) {
     if (layer.role == LayerRole::kLandSurface) {
       return true;
@@ -97,6 +100,7 @@ bool has_land_surface(const LayerStore& store) {
 }
 
 bool land_surface_visible(const LayerStore& store) {
+  std::lock_guard<std::recursive_mutex> lock(store.mutex());
   for (const MapLayer& layer : store.layers()) {
     if (layer.role == LayerRole::kLandSurface && layer.visible) {
       return true;
@@ -107,6 +111,7 @@ bool land_surface_visible(const LayerStore& store) {
 
 bool active_layer_world_extent(const LayerStore& store,
                                content::Extent2* out) {
+  std::lock_guard<std::recursive_mutex> lock(store.mutex());
   const MapLayer* layer = store.find_layer(store.active_layer_id());
   if (!layer) {
     return false;
@@ -119,6 +124,7 @@ bool active_layer_world_extent(const LayerStore& store,
 }
 
 bool selection_world_extent(const LayerStore& store, content::Extent2* out) {
+  std::lock_guard<std::recursive_mutex> lock(store.mutex());
   const MapFeature* feature = store.selected_feature();
   if (!feature) {
     return false;
@@ -143,6 +149,7 @@ void export_land_rings(const LayerStore& store,
     return;
   }
   out->clear();
+  std::lock_guard<std::recursive_mutex> lock(store.mutex());
   auto append_layer = [&](const MapLayer& layer) {
     for (const MapFeature& f : layer.features) {
       if (f.kind != GeomKind::kPolygon || f.points.size() < 3) {
@@ -189,6 +196,7 @@ bool polygon_fit_box(const LayerStore& store, double* min_x, double* min_y,
   if (!min_x || !min_y || !max_x || !max_y) {
     return false;
   }
+  std::lock_guard<std::recursive_mutex> lock(store.mutex());
   bool have = false;
   double minx = 0;
   double miny = 0;

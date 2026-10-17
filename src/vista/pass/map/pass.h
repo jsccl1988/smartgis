@@ -28,6 +28,10 @@ class Texture;
 
 namespace vista {
 
+namespace detail {
+struct DrawCache;
+}
+
 // Wall time of the most recent MapPass::record (place+upload+encode), milliseconds.
 // Used by Map2d GPU present phase clocks; zero when record was not entered.
 VISTA_EXPORT int64_t last_pass_record_ms();
@@ -127,24 +131,10 @@ class VISTA_EXPORT MapPass {
   render::rhi::Pipeline* multiply_pipeline_ = nullptr;
   std::vector<render::rhi::Buffer*> buffers_;
   std::vector<render::rhi::Texture*> textures_;
-  // Opaque so pass.h does not pull detail::UploadedDraw into every TU that
-  // only forward-declares MapPass (unique_ptr delete needs a complete type).
-  struct DrawCache;
-  std::unique_ptr<DrawCache> draw_cache_;
+  // Opaque so pass.h does not pull UploadedDraw into every TU that only
+  // forward-declares MapPass (unique_ptr delete needs a complete type).
+  std::unique_ptr<detail::DrawCache> draw_cache_;
   UploadPolicy upload_policy_ = UploadPolicy::kReuseIfCached;
-
-  // Device-thread upload of cache_key misses. Hits keep their buffers.
-  bool upload_keyed_slices(
-      render::rhi::CommandList* list, const vista::MapIR& frame,
-      const vista::View& view, GlyphRasterizer* glyphs,
-      const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
-                               int* w, int* h)>& load_raster,
-      const std::function<bool(const std::string& symbol_id,
-                               std::vector<uint8_t>* rgba, int* w, int* h)>&
-          load_icon,
-      const render::rhi::CameraMatrices* camera, bool world_items,
-      bool overlay_items, render::rhi::ColorLoadOp color_op,
-      uint64_t world_hash, uint64_t overlay_hash);
 };
 
 }  // namespace vista

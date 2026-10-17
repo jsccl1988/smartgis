@@ -29,7 +29,7 @@ All rights reserved.
 - Resolve product/test binaries under **`out/Debug/`** (default for `te` / `harness` runners) or **`out/Release/`**.
 - Third-party CMake install prefix remains **`out/third_party`** (junction to `.install`). Do not invent a second install root.
 - Do not use `vs2008/SmartGIS.sln` as a build entry.
-- Do not stash one-shot scripts, recovered sources, or nested `out/Debug/out/` under `out/`. Gen-root top level should stay **binaries + ninja + known subdirs** (`obj/`, `gen/`, `captures/`, `log/`, `plugin/`, `ui/`, `third_party/`, …).
+- Do not stash one-shot scripts, recovered sources, or nested `out/Debug/out/` under `out/`. Gen-root top level should stay **binaries + ninja + known subdirs** (`obj/`, `gen/`, `captures/`, `log/`, `plugin/`, `plugins/`, `ui/`, `third_party/`). **`out/sdk/Debug`** and **`out/sdk/Release`** are publish trees (`include` `lib` `bin` `pdb` `data` `ui` plus `third_party/` including `share/proj` and `share/gdal`), written only by `build.bat debug|release sdk`, not by the linker. `bin/SmartGIS.exe` resolves startup maps at `../data` and shell markup at `../ui`.
 
 ```bat
 build.bat

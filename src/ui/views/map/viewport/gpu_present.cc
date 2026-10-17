@@ -114,8 +114,47 @@ void DrawHost::destroy_gpu_present_hwnd() {
   gpu_present_hwnd_ = nullptr;
 }
 
+void DrawHost::recreate_gpu_present_surface() {
+  if (role_ != Role::kScene3d) {
+    return;
+  }
+  if (!gpu_present_want_visible_.load(std::memory_order_acquire) ||
+      present_paused_.load(std::memory_order_acquire)) {
+    return;
+  }
+  static int attempts = 0;
+  if (attempts >= 4) {
+    return;
+  }
+  if (gpu_present_hwnd_ && IsWindow(gpu_present_hwnd_)) {
+    reveal_gpu_present_if_ready();
+    return;
+  }
+  ++attempts;
+  gpu_present_hwnd_ = nullptr;
+  HWND embed = native_view();
+  if (!embed || !IsWindow(embed)) {
+    return;
+  }
+  RECT rc = {};
+  GetClientRect(embed, &rc);
+  uint32_t w = rc.right > 0 ? static_cast<uint32_t>(rc.right) : 1;
+  uint32_t h = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 1;
+  detail::clamp_scene3d_swapchain_size(&w, &h);
+  HWND present = ensure_gpu_present_hwnd(w, h);
+  if (!present) {
+    return;
+  }
+  LOGGING(LOG_INFO, "rhi.gpu_present recreate scene hwnd=%p %ux%u", present, w,
+          h);
+  enqueue_display_task(DisplayTask{DisplayOp::kResize, present, w, h});
+  signal_display();
+  request_frame();
+}
+
 void DrawHost::reveal_gpu_present_if_ready() {
-  if (!gpu_present_want_visible_.load(std::memory_order_acquire)) {
+  if (!gpu_present_want_visible_.load(std::memory_order_acquire) ||
+      present_paused_.load(std::memory_order_acquire)) {
     reveal_posted_.store(false, std::memory_order_release);
     return;
   }
@@ -140,11 +179,22 @@ void DrawHost::reveal_gpu_present_if_ready() {
         if (!PostMessageW(embed, kMsgRevealGpuPresent, 0, 0)) {
           reveal_posted_.store(false, std::memory_order_release);
         }
+      } else if (last_gpu_present_ok_.load(std::memory_order_acquire)) {
+        // Coalesced PostMessage may have run while Resize cleared
+        // last_gpu_present_ok_ (Scene3d stayed SW_HIDE forever). Heal by
+        // posting again once a real Present succeeded.
+        PostMessageW(embed, kMsgRevealGpuPresent, 0, 0);
       }
       return;
     }
   }
   reveal_posted_.store(false, std::memory_order_release);
+  // Re-check after the UI hop: pause / tab hide can land between PostMessage
+  // and this body; an async SWP_SHOWWINDOW must not undo sync SW_HIDE.
+  if (!gpu_present_want_visible_.load(std::memory_order_acquire) ||
+      present_paused_.load(std::memory_order_acquire)) {
+    return;
+  }
   DisplayInit init = DisplayInit::kIdle;
   {
     std::lock_guard<std::mutex> lock(display_mu_);
@@ -153,14 +203,13 @@ void DrawHost::reveal_gpu_present_if_ready() {
   // Init already device->present()'d a navy clear. Showing earlier leaves a
   // WS_EX_NOREDIRECTIONBITMAP desktop hole (startup / tab-switch hollow).
   if (init != DisplayInit::kOk) {
-    async_show_present_hwnd(gpu_present_hwnd_, false);
     return;
   }
-  // Scene3d: Init's first Present is an empty clear. Revealing that popup
-  // covers the embed software DEM (China bake + labels) with navy + Fps0.
+  // Scene3d: Init/Resize own the temporary hide around navy clear. Do not
+  // SW_HIDE here — a stale reveal during Resize's last_gpu_present_ok_=false
+  // window used to bury a good DEM Present with no follow-up PostMessage.
   if (role_ == Role::kScene3d &&
       !last_gpu_present_ok_.load(std::memory_order_acquire)) {
-    async_show_present_hwnd(gpu_present_hwnd_, false);
     return;
   }
   // Init may have used a pre-layout client (multi-k px). Re-sync to the embed
@@ -174,16 +223,66 @@ void DrawHost::reveal_gpu_present_if_ready() {
   uint32_t h = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 1;
   const Rect& laid_out = bounds();
   if (laid_out.width > 1 && laid_out.height > 1) {
-    w = (std::min)(w, static_cast<uint32_t>(laid_out.width));
-    h = (std::min)(h, static_cast<uint32_t>(laid_out.height));
+    const int dw = static_cast<int>(w) - laid_out.width;
+    const int dh = static_cast<int>(h) - laid_out.height;
+    // Only trim a few pixels. A stale hidden-tab height (live: embed
+    // 2144x1095 forced down to 2144x745) recreates the swapchain onto the
+    // navy clear and the China DEM never fills the 3D viewport.
+    if (dw > -2 && dw < 64 && dh > -2 && dh < 64) {
+      w = (std::min)(w, static_cast<uint32_t>(laid_out.width));
+      h = (std::min)(h, static_cast<uint32_t>(laid_out.height));
+    }
   }
   if (role_ == Role::kScene3d) {
     clamp_scene3d_swapchain_size(&w, &h);
   }
   sync_gpu_present_hwnd(w, h);
+  if (!gpu_present_want_visible_.load(std::memory_order_acquire) ||
+      present_paused_.load(std::memory_order_acquire)) {
+    return;
+  }
+  // Sync ShowWindow on the UI thread. Async SWP_SHOWWINDOW lost races to
+  // Resize SWP_HIDEWINDOW / Map-Edit hide so Scene3d DEM flashed once then
+  // the popup stayed invisible (plain tab switch + start-map-tab=scene3d).
+  ShowWindow(gpu_present_hwnd_, SW_SHOWNA);
   SetWindowPos(gpu_present_hwnd_, present_z_insert_after(embed), 0, 0, 0, 0,
-               kAsyncPresentPos | SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
   sync_identity_frame();
+  // Popup client can shrink after Init (1664 buffer, 665 window). Flip does
+  // not scale, so the visible frame stays the clear. Match the swapchain here.
+  if (role_ == Role::kScene3d &&
+      !present_paused_.load(std::memory_order_acquire)) {
+    RECT popup_rc = {};
+    GetClientRect(gpu_present_hwnd_, &popup_rc);
+    uint32_t pw =
+        popup_rc.right > 0 ? static_cast<uint32_t>(popup_rc.right) : 0;
+    uint32_t ph =
+        popup_rc.bottom > 0 ? static_cast<uint32_t>(popup_rc.bottom) : 0;
+    uint32_t sw = 0;
+    uint32_t sh = 0;
+    {
+      std::lock_guard<std::mutex> lock(display_mu_);
+      sw = display_client_w_;
+      sh = display_client_h_;
+    }
+    if (pw > 1 && ph > 1 && (pw != sw || ph != sh)) {
+      LOGGING(LOG_INFO,
+              "rhi.gpu_present reveal resize swapchain %ux%u -> popup %ux%u",
+              sw, sh, pw, ph);
+      enqueue_display_task(
+          DisplayTask{DisplayOp::kResize, gpu_present_hwnd_, pw, ph});
+      signal_display();
+    }
+  }
+  static thread_local int reveal_log_budget = 8;
+  if (reveal_log_budget > 0) {
+    --reveal_log_budget;
+    LOGGING(LOG_INFO,
+            "rhi.gpu_present reveal role=%d hwnd=%p visible=%d last_ok=%d",
+            static_cast<int>(role_), gpu_present_hwnd_,
+            IsWindowVisible(gpu_present_hwnd_) ? 1 : 0,
+            last_gpu_present_ok_.load(std::memory_order_acquire) ? 1 : 0);
+  }
 }
 
 void DrawHost::set_gpu_present_visible(bool show) {
@@ -192,10 +291,24 @@ void DrawHost::set_gpu_present_visible(bool show) {
     return;
   }
   if (!show) {
-    async_show_present_hwnd(gpu_present_hwnd_, false);
-    if (identity_badge_ && identity_badge_parent_ == gpu_present_hwnd_ &&
-        IsWindow(identity_badge_)) {
-      async_show_present_hwnd(identity_badge_, false);
+    // Sync hide on the UI thread so it wins over an in-flight async
+    // SWP_SHOWWINDOW from reveal (Map-Edit covering Scene3d after tab switch).
+    HWND embed = native_view();
+    const DWORD ui_tid =
+        embed && IsWindow(embed) ? GetWindowThreadProcessId(embed, nullptr) : 0;
+    const bool on_ui = ui_tid != 0 && ui_tid == GetCurrentThreadId();
+    if (on_ui) {
+      ShowWindow(gpu_present_hwnd_, SW_HIDE);
+      if (identity_badge_ && identity_badge_parent_ == gpu_present_hwnd_ &&
+          IsWindow(identity_badge_)) {
+        ShowWindow(identity_badge_, SW_HIDE);
+      }
+    } else {
+      async_show_present_hwnd(gpu_present_hwnd_, false);
+      if (identity_badge_ && identity_badge_parent_ == gpu_present_hwnd_ &&
+          IsWindow(identity_badge_)) {
+        async_show_present_hwnd(identity_badge_, false);
+      }
     }
     return;
   }
@@ -242,15 +355,89 @@ void DrawHost::sync_gpu_present_hwnd(uint32_t width_px,
   h = (std::max)(1, h);
   RECT cur = {};
   GetWindowRect(gpu_present_hwnd_, &cur);
-  if (cur.left == tl.x && cur.top == tl.y && cur.right == tl.x + w &&
-      cur.bottom == tl.y + h) {
+  const bool geometry_matches = cur.left == tl.x && cur.top == tl.y &&
+                                cur.right == tl.x + w &&
+                                cur.bottom == tl.y + h;
+  if (!geometry_matches) {
+    // Geometry only — never HWND_TOP here. Z-order on every sync raced the
+    // shell TabStrip and hung UI in NtUserSetWindowPos during switch_map_tab.
+    // Visibility / raise is owned by reveal_gpu_present_if_ready.
+    // Synchronous on the UI thread so the client rect below is the size the
+    // swapchain must match. Async SWP left a 1664 buffer on a 666 popup.
+    const DWORD tid = GetWindowThreadProcessId(gpu_present_hwnd_, nullptr);
+    const UINT pos_flags =
+        (tid != 0 && tid == GetCurrentThreadId())
+            ? (SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOSENDCHANGING)
+            : (kAsyncPresentPos | SWP_NOZORDER | SWP_NOSENDCHANGING);
+    SetWindowPos(gpu_present_hwnd_, nullptr, tl.x, tl.y, w, h, pos_flags);
+  }
+  // Flip DXGI does not stretch. A 1664 swapchain left on a later 665 client
+  // presents the China DEM once, then the shrunk popup stays on the clear
+  // (WM_SIZE during tab-switch pump often never reaches handle_size).
+  if (mode_ != AttachMode::kGpuPresent || !rhi_device_) {
     return;
   }
-  // Geometry only — never HWND_TOP here. Z-order on every sync raced the
-  // shell TabStrip and hung UI in NtUserSetWindowPos during switch_map_tab.
-  // Visibility / raise is owned by reveal_gpu_present_if_ready.
-  SetWindowPos(gpu_present_hwnd_, nullptr, tl.x, tl.y, w, h,
-               kAsyncPresentPos | SWP_NOZORDER | SWP_NOSENDCHANGING);
+  HWND embed_ui = native_view();
+  const DWORD ui_tid = embed_ui && IsWindow(embed_ui)
+                           ? GetWindowThreadProcessId(embed_ui, nullptr)
+                           : 0;
+  if (ui_tid == 0 || ui_tid != GetCurrentThreadId()) {
+    return;
+  }
+  uint32_t cur_w = 0;
+  uint32_t cur_h = 0;
+  DisplayInit init = DisplayInit::kIdle;
+  {
+    std::lock_guard<std::mutex> lock(display_mu_);
+    cur_w = display_client_w_;
+    cur_h = display_client_h_;
+    init = display_init_;
+  }
+  if (init != DisplayInit::kOk) {
+    return;
+  }
+  // Flip DXGI does not scale. Size the swapchain to the popup's client, not
+  // the pre-show embed (live: 1664 swapchain on a 666 client stays on clear).
+  RECT popup_client = {};
+  GetClientRect(gpu_present_hwnd_, &popup_client);
+  uint32_t want_w =
+      popup_client.right > 0 ? static_cast<uint32_t>(popup_client.right)
+                             : static_cast<uint32_t>(w);
+  uint32_t want_h =
+      popup_client.bottom > 0 ? static_cast<uint32_t>(popup_client.bottom)
+                              : static_cast<uint32_t>(h);
+  if (role_ == Role::kScene3d) {
+    clamp_scene3d_swapchain_size(&want_w, &want_h);
+  }
+  if (want_w < 1 || want_h < 1 || (cur_w == want_w && cur_h == want_h)) {
+    return;
+  }
+  LOGGING(LOG_INFO,
+          "rhi.gpu_present sync resize swapchain %ux%u -> %ux%u role=%d",
+          cur_w, cur_h, want_w, want_h, static_cast<int>(role_));
+  enqueue_display_task(
+      DisplayTask{DisplayOp::kResize, gpu_present_hwnd_, want_w, want_h});
+  signal_display();
+}
+
+HWND DrawHost::gpu_present_target(uint32_t width_px, uint32_t height_px) {
+  if (mode_ != AttachMode::kGpuPresent) {
+    return nullptr;
+  }
+  if (gpu_present_hwnd_ && IsWindow(gpu_present_hwnd_)) {
+    return gpu_present_hwnd_;
+  }
+  if (gpu_present_hwnd_) {
+    LOGGING(LOG_WARNING,
+            "rhi.gpu_present popup dead hwnd=%p role=%d — recreate",
+            gpu_present_hwnd_, static_cast<int>(role_));
+    gpu_present_hwnd_ = nullptr;
+  }
+  if (!gpu_present_want_visible_.load(std::memory_order_acquire) ||
+      present_paused_.load(std::memory_order_acquire)) {
+    return nullptr;
+  }
+  return ensure_gpu_present_hwnd(width_px, height_px);
 }
 
 HWND DrawHost::ensure_gpu_present_hwnd(uint32_t width_px,

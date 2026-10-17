@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -342,7 +343,10 @@ void InspectComposer::sync_layer_properties_from_scene() {
   std::string source = "(document)";
   std::string layer_token;
   std::string geom = "unknown";
-  for (const auto& layer : host_->browser_->document()->layers()) {
+  {
+    std::lock_guard<std::recursive_mutex> lock(
+        host_->browser_->document()->layer_mutex());
+    for (const auto& layer : host_->browser_->document()->layers()) {
     if (layer.id == host_->browser_->document()->active_layer_id() ||
         layer_token.empty()) {
       layer_token = layer.id.empty() ? layer.name : layer.id;
@@ -365,6 +369,7 @@ void InspectComposer::sync_layer_properties_from_scene() {
       if (layer.id == host_->browser_->document()->active_layer_id()) {
         break;
       }
+    }
     }
   }
   host_->layer_properties_panel_->set_source_text(source);

@@ -89,15 +89,17 @@ void encode_draws(render::rhi::CommandList* list, const vista::View& view,
                      static_cast<float>(view.height_px), 0.f, 1.f);
   list->set_depth_mode(render::rhi::DepthMode::kDisabled);
 
-  // Painter order: solids/lines → DEM rasters → glyph/icon textures.
-  // DEM must sit above cream fills; glyphs must sit above DEM. A single
-  // pass interleaved by upload bucket order can cover jet with later
-  // solids from a subsequent cache_key run.
+  // Painter order: land fills → DEM hillshade → line/circle strokes →
+  // glyph/icon overlays (halo is atlas coverage, src-alpha over the map).
+  // Strokes after DEM so
+  // rivers/admin are not buried under the jet sheet.
   auto is_dem_raster = [](const UploadedDraw& d) {
     return d.textured && d.dem_raster && d.texture != nullptr;
   };
-  auto is_overlay_tex = [](const UploadedDraw& d) {
-    return d.textured && !d.dem_raster;
+  auto is_overlay_draw = [](const UploadedDraw& d) {
+    // Prefer the place/upload flag; also treat non-DEM textured as overlay
+    // so a missed overlay bit cannot paint glyph atlases into the land pass.
+    return d.overlay || (d.textured && !d.dem_raster);
   };
   auto emit = [&](const UploadedDraw& draw) {
     if (draw.textured) {
@@ -111,7 +113,7 @@ void encode_draws(render::rhi::CommandList* list, const vista::View& view,
     }
   };
   for (const UploadedDraw& draw : draws) {
-    if (!draw.textured) {
+    if (!draw.textured && !draw.stroke && !is_overlay_draw(draw)) {
       emit(draw);
     }
   }
@@ -121,7 +123,12 @@ void encode_draws(render::rhi::CommandList* list, const vista::View& view,
     }
   }
   for (const UploadedDraw& draw : draws) {
-    if (is_overlay_tex(draw)) {
+    if (!draw.textured && draw.stroke && !is_overlay_draw(draw)) {
+      emit(draw);
+    }
+  }
+  for (const UploadedDraw& draw : draws) {
+    if (is_overlay_draw(draw)) {
       emit(draw);
     }
   }

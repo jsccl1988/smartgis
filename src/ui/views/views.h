@@ -21,6 +21,7 @@
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/layout/layout_check.h"
 #include "ui/views/kernel/layout/splitter.h"
+#include "ui/views/kernel/layout/splitter_grip.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/kernel/widget/widget.h"

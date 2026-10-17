@@ -54,7 +54,12 @@ void apply_product_flycube_2d_face() {
 void apply_content_mapview_face() {
   base::set_switch("force-content-mapview-2d", "1");
   base::set_switch("prefer-flycube-2d", "0");
-  base::set_switch("force-gdi-map-overlay", "0");
+  // Preserve harness FORCE_GDI_MAP_OVERLAY=1 (browse / align BitBlt). Clearing
+  // it here made prepare_env's overlay pin a no-op after policy apply.
+  const char* gdi = base::switch_cstr("force-gdi-map-overlay");
+  if (!(gdi && gdi[0] == '1' && gdi[1] == '\0')) {
+    base::set_switch("force-gdi-map-overlay", "0");
+  }
 }
 
 void apply_map2d_face(const LaunchPolicy& policy, bool fps) {
@@ -65,10 +70,10 @@ void apply_map2d_face(const LaunchPolicy& policy, bool fps) {
       break;
     case Map2dStartup::kContentGdi:
       // Historical name: ContentMapView attach (not soft MapIR->HDC).
-      // FPS bench may leave FlyCube preferred so present_gpu can warm.
-      if (!fps) {
-        apply_content_mapview_face();
-      }
+      // Keep the pin even when MAP2D_FPS_BENCH_MS is set — browse motion_gate
+      // BitBlt needs the embed/GDI path; FPS can warm without FlyCube Present.
+      (void)fps;
+      apply_content_mapview_face();
       break;
     case Map2dStartup::kFlyCube2d:
       apply_flycube_2d_face();
