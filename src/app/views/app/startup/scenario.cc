@@ -12,8 +12,7 @@
 #include <vector>
 
 #include "app/views/app/startup/policy.h"
-#include "app/views/il.runtime/backend/plugin/dispatch.h"
-#include "app/views/il.runtime/codegen/session/run_script.h"
+#include "app/views/app/startup/shell_runtime.h"
 #include "base/process/switches.h"
 
 namespace app {
@@ -101,9 +100,11 @@ int run_scenario(Browser& browser, const Scenario& scenario) {
   // C++ run on failure (no sticky map2d-showcase-il switch).
   const bool try_il = scenario.suite_id != nullptr;
   if (try_il) {
-    const int rc =
-        run_suite_script_rc(browser, scenario.suite_id, scenario.mark_leaf,
-                            /*clear_marks=*/true);
+    const int rc = run_script(browser, content::ScriptCall{
+                                    .suite_id = scenario.suite_id,
+                                    .mark_leaf = scenario.mark_leaf,
+                                })
+                       .rc;
     if (rc == 0) {
       return 0;
     }
@@ -112,7 +113,7 @@ int run_scenario(Browser& browser, const Scenario& scenario) {
     }
   }
   if (scenario.plugin_command) {
-    return detail::dispatch_plugin_command(browser, scenario.plugin_command);
+    return dispatch_plugin_command(browser, scenario.plugin_command);
   }
   if (scenario.run) {
     return scenario.run(browser);

@@ -5,6 +5,7 @@
 
 import json
 
+import glang.plugin as gp
 import smartgis
 
 
@@ -22,6 +23,9 @@ def _pick_path(pattern):
 
 
 def start(host):
+    if gp is None:
+        raise RuntimeError("glang.plugin missing")
+
     def _trimesh_from_xyz(_args):
         path = _pick_path("*.xyz;*.txt;*.*")
         if path is None:

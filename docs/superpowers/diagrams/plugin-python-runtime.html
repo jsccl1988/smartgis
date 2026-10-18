@@ -7,7 +7,7 @@ All rights reserved.
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>plugin/runtime/python — embed 能力与 samples</title>
+<title>glang 独占 CPython · glang.plugin</title>
 <style>
   :root {
     --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
@@ -40,12 +40,13 @@ All rights reserved.
   @media (max-width: 560px) { .lanes { grid-template-columns: 1fr; } }
   .lane {
     border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
-    min-height: 150px;
+    min-height: 168px;
   }
   .lane.ui { background: var(--ui); }
   .lane.sched { background: var(--sched); }
   .lane.cpu { background: var(--cpu); }
   .lane.gpu { background: var(--gpu); }
+  .lane.retire { background: #eef1f4; border-style: dashed; }
   .lane h3 { margin: 0 0 6px; font-size: 0.82rem; }
   .lane p, .lane li { margin: 0 0 4px; font-size: 0.8rem; color: var(--muted); }
   .lane ul { margin: 0; padding-left: 1.1em; }
@@ -63,70 +64,164 @@ All rights reserved.
     0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
     50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
   }
-  .step.active { animation: pulse 2.4s ease-in-out infinite; border-color: var(--accent); }
+  .step.active { animation: pulse 1.6s ease-in-out infinite; border-color: var(--accent); }
   .note { color: var(--muted); font-size: 0.8rem; margin: 8px 0 0; }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  table.map th, table.map td {
+    border: 1px solid var(--border); padding: 6px 8px; text-align: left;
+  }
+  table.map th { background: #e8edf3; color: var(--muted); font-weight: 600; }
+  .gates { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  @media (max-width: 900px) { .gates { grid-template-columns: 1fr 1fr 1fr; } }
+  @media (max-width: 560px) { .gates { grid-template-columns: 1fr; } }
+  .gate {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; font-size: 0.78rem; color: var(--muted);
+  }
+  .gate strong { display: block; color: var(--accent); font-size: 0.75rem; margin-bottom: 4px; }
+  .gate.final { border-color: var(--accent); background: var(--ui); color: var(--text); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1><code>plugin/runtime/python</code>：进程内 CPython + L2 宿主缝</h1>
-    <p class="meta">一样本目录 → 多样本包。Chrome 只持有一个解释器；每个 <code>kind=python</code> 包按目录独立 <code>start</code>/<code>stop</code>。内核仍在 C++。</p>
+    <h1>glang 拥有 CPython，插件只登记</h1>
+    <p class="meta">进程内一个解释器：<code>app::py::Interpreter</code>（<code>glang.runtime/exec/session/cpython</code>）。脚本 <code>import glang.plugin</code>。插件运行时不调用 <code>Py_Initialize</code>。内核仍是 C++。套件门禁仍是 <code>required_marks</code> + <code>score_id</code>。</p>
   </header>
 
   <section class="panel">
     <h2>分层（谁拥有什么）</h2>
     <div class="lanes">
       <div class="lane ui">
-        <h3>UI · Views / chrome</h3>
+        <h3>脚本</h3>
         <ul>
-          <li><code>smartgis.ui</code> 控件与 picker</li>
-          <li><code>plugin.ui.shell</code> inspect / debug tab</li>
-          <li>插件 UI 不离开 chrome 进程</li>
+          <li><code>import glang.plugin</code></li>
+          <li>返回值是变量，终态去掉 <code>as_</code></li>
+          <li><code>kind=python</code> 的 <code>start</code> / <code>stop</code> 按目录</li>
+          <li>插件 UI 留在 chrome 进程</li>
         </ul>
       </div>
       <div class="lane sched">
-        <h3>Host · L2 缝</h3>
+        <h3>glang · 解释器</h3>
         <ul>
-          <li><code>contribute_*</code> / <code>execute</code> / <code>withdraw</code></li>
-          <li>present / playback / export frame</li>
-          <li><code>has_capability</code> 查不透明表</li>
+          <li><code>app::py::Interpreter</code></li>
+          <li>隔离 <code>Py_InitializeFromConfig</code></li>
+          <li><code>eval</code> / <code>exec_source</code> / <code>exec_file</code></li>
+          <li>Debug 为桩（<code>python_enabled</code> 在 <code>is_debug</code> 时关闭）</li>
+          <li>回调由 glang 持有，进内核前放 GIL</li>
         </ul>
       </div>
       <div class="lane cpu">
-        <h3>Embed · 解释器</h3>
+        <h3><code>glang.plugin</code> 登记表</h3>
         <ul>
-          <li><code>PythonRuntime</code> isolated CPython 3.12</li>
-          <li>按目录加载 <code>plugin.py</code>（不抢 <code>plugin</code> 名）</li>
-          <li><code>eval</code> 给 Console <code>:py</code></li>
+          <li>C++：<code>app::py::register_fn</code></li>
+          <li>按名调用既有 <code>eval_*</code></li>
+          <li>不增长 <code>Op</code>（<code>kCount == 105</code> 直到删表）</li>
+          <li>落到 <code>CapabilityHost</code></li>
+          <li>插件运行时只登记 / 注销</li>
         </ul>
       </div>
-      <div class="lane gpu">
-        <h3>L1 · 能力底物</h3>
+      <div class="lane retire">
+        <h3>退役 · opcode 管线</h3>
         <ul>
-          <li><code>plugin.scene3d</code> / <code>plugin.map2d</code></li>
-          <li><code>run_processing</code> → <code>native.*</code> / product ids</li>
-          <li>Python 只编排，不实现 TIN/GEOS</li>
+          <li>今天套件仍走 <code>parse_python</code> → <code>check_suite</code> → <code>lower_program</code> → <code>eval_module</code></li>
+          <li>阶段 3 起套件改走 <code>main()</code>，本车道不再执行套件</li>
+          <li>转绿后删除 ANTLR / sema / lower / <code>Op</code> / <code>LanguageExtension</code></li>
+          <li>本车道不加入实时调用</li>
         </ul>
       </div>
     </div>
+    <p class="note">停用一个包：先 <code>unregister_fn</code>，再丢掉 glang 持有的回调，然后卸载模块。进程退出才 <code>Py_FinalizeEx</code>。</p>
   </section>
 
   <section class="panel">
-    <h2>原理流：启用一个 Python 包</h2>
-    <div class="flow">
-      <div class="step"><strong>1</strong>Registry <code>set_enabled</code></div>
-      <span class="arrow">→</span>
-      <div class="step active"><strong>2</strong><code>PythonRuntime::start(dir, entry)</code></div>
-      <span class="arrow">→</span>
-      <div class="step"><strong>3</strong>importlib 独立模块名</div>
-      <span class="arrow">→</span>
-      <div class="step"><strong>4</strong><code>start(host)</code> 贡献 command/dock/processing</div>
-      <span class="arrow">→</span>
-      <div class="step"><strong>5</strong>菜单 / Console 调 L1 ids</div>
+    <h2>门禁（按序，不可跳）</h2>
+    <div class="gates">
+      <div class="gate"><strong>1 桩编译</strong>Debug 编过 <code>:cpython</code> 与 <code>:python</code>。不链 <code>python312.lib</code>。</div>
+      <div class="gate"><strong>2 登记表</strong><code>plugin_fn_test</code> 查到 <code>mark</code> / <code>click</code> / gis 名。<code>codegen_ir_test</code> 仍绿。<code>Op::kCount</code> 仍为 105。</div>
+      <div class="gate"><strong>3 <code>main()</code></strong>Debug 桩报 python not compiled in。Release 跑 <code>browser.input</code>、<code>map2d.china</code>、<code>console</code>、<code>world3d.browse</code>。未知名字在该调用抛出。</div>
+      <div class="gate"><strong>4 产品包</strong>Release <code>plugin_python_test</code> 用 <code>import glang.plugin</code> 启动 hello 与 analysis。<code>PluginHost</code> 签名不动。</div>
+      <div class="gate"><strong>5 删除</strong>仅在 3、4 都绿之后。ANTLR / <code>Op</code> / <code>smartgis</code> 删除。Debug 桩仍能编。</div>
+      <div class="gate final"><strong>最终</strong>Release：核心语法三测全绿，并且浏览器场景 suite 与 11 个插件 suite 的 marks / <code>score_id</code> 都过。Debug 桩不能代替这一条。</div>
     </div>
-    <p class="note">停用：chrome <code>withdraw(plugin_id)</code> 再 <code>stop(directory)</code>。samples 在 <code>runtime/python/samples/</code>（hello / analysis / product_orchestrate / industry_pack）。</p>
+    <p class="note">命令与断言在计划 <code>2026-10-18-glang-cpython-plugin.md</code>。<code>build.bat … harness</code> 的 <code>--gate</code> 只跑 <code>browser.gpu</code> 与 <code>browser.harness</code>，不是最终场景门禁。</p>
+  </section>
+
+  <section class="panel">
+    <h2>原理流：脚本调用一个能力</h2>
+    <div class="flow" id="live">
+      <div class="step"><strong>1</strong>脚本 <code>import glang.plugin</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>2</strong>按名查登记表</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>3</strong>既有 <code>eval_*</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>4</strong><code>CapabilityHost</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>5</strong>C++ 内核 / 截图（已放 GIL）</div>
+    </div>
+    <p class="note">高亮沿 1→5 循环，表示调用顺序。退役车道不在这条链上。阶段 2 期间旧源码的 <code>smartgis.script._dispatch</code> 也查同一张表；阶段 3 起 <code>run_suite_script</code> 直接 <code>exec_file</code> 调 <code>main()</code>。</p>
+  </section>
+
+  <section class="panel">
+    <h2>未知动词（行为变更）</h2>
+    <table class="map">
+      <thead>
+        <tr><th></th><th>何时失败</th><th>副作用</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>今天的套件</td>
+          <td><code>bind_method</code> 在 <code>eval_module</code> 之前记下 unknown verb</td>
+          <td>整份文件没有任何 mark / 点击 / 写文档</td>
+        </tr>
+        <tr>
+          <td>阶段 3 之后</td>
+          <td>该调用抛异常</td>
+          <td>前缀步骤可能已经执行</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">门禁不放宽：<code>required_marks</code> 缺任一即失败；有 BMP 的 suite 还要 <code>score_id</code> 为 ok。<code>visual_review</code> 只出待看清单。<code>plugin.report</code> 无 BMP。</p>
+  </section>
+
+  <section class="panel">
+    <h2>插件门禁（11 suite）</h2>
+    <table class="map">
+      <thead>
+        <tr><th>suite</th><th>BMP 叶名</th><th>score_id</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>plugin.flood</td><td>plugin-showcase-flood.bmp</td><td>plugin_flood</td></tr>
+        <tr><td>plugin.geochem</td><td>plugin-showcase-geochem.bmp</td><td>plugin_map2d</td></tr>
+        <tr><td>plugin.traffic</td><td>plugin-showcase-traffic.bmp</td><td>plugin_map2d</td></tr>
+        <tr><td>plugin.orthogrid</td><td>plugin-showcase-orthogrid.bmp</td><td>map2d_orthogrid</td></tr>
+        <tr><td>plugin.print</td><td>plugin-showcase-print.bmp</td><td>plugin_print</td></tr>
+        <tr><td>plugin.report</td><td>无</td><td>无（hwnd-ok report-ok pass）</td></tr>
+        <tr><td>plugin.mine</td><td>plugin-showcase-mine.bmp</td><td>plugin_mesh</td></tr>
+        <tr><td>plugin.orthogrid3d</td><td>plugin-showcase-orthogrid3d.bmp</td><td>plugin_hex</td></tr>
+        <tr><td>plugin.stormsurge</td><td>plugin-showcase-stormsurge.bmp</td><td>plugin_stormsurge</td></tr>
+        <tr><td>plugin.world3d</td><td>plugin-showcase-world3d.bmp</td><td>plugin_scene3d</td></tr>
+        <tr><td>plugin.world3d.preview</td><td>plugin-showcase-world-preview.bmp</td><td>plugin_product</td></tr>
+      </tbody>
+    </table>
   </section>
 </div>
+<script>
+(function () {
+  var steps = document.querySelectorAll("#live .step");
+  var i = 0;
+  function tick() {
+    for (var n = 0; n < steps.length; n++) {
+      steps[n].classList.toggle("active", n === i);
+    }
+    i = (i + 1) % steps.length;
+  }
+  if (steps.length) {
+    tick();
+    setInterval(tick, 1400);
+  }
+})();
+</script>
 </body>
 </html>

@@ -169,6 +169,7 @@ void tag_text(PlacedMesh* mesh, const vista::DrawItem& item,
   mesh->glyph.text_size_px = item.text_size_px;
   mesh->glyph.rgba = item.rgba;
   mesh->glyph.opacity = item.opacity;
+  mesh->glyph.font = static_cast<uint8_t>(item.font);
 }
 
 // One screen pixel in world units (same scale as line half-width from Layout).
@@ -330,7 +331,7 @@ std::vector<PlacedMesh> place_frame(const vista::MapIR& frame,
       // Atlas pads the cell by this many pixels and paints a glyph-shaped
       // halo there. Grow the quad by the same margin so the ink stays at
       // text_size and the plate is not an opaque rectangle over the terrain.
-      constexpr float kGlyphHaloPadPx = 2.f;
+      constexpr float kGlyphHaloPadPx = 1.f;
       write_local_glyph_uv(as_pixels, &verts);
       if (item.halo_width_px > 0.f) {
         float cx = 0.f;

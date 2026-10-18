@@ -3,7 +3,7 @@
 
 """Legacy thin-wrapper entry (removed). Prefer loop_runner --suite <id>.
 
-Harness suites are suite.json + optional *.il only. Colocated *_loop.py
+Harness suites are suite.json + optional *.py only. Colocated *_loop.py
 aliases under testing/tools/harness/ were deleted; use:
 
   py -3 testing/tools/loop_runner.py --suite <id> [--no-build]

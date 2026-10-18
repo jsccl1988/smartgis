@@ -25,7 +25,7 @@ std::string resolve_under_exe(const char* const* rels, size_t count) {
     return {};
   }
   char base[MAX_PATH] = {};
-  if (!exe_dir_with_slash_a(base, MAX_PATH)) {
+  if (!content::detail::exe_dir_with_slash_a(base, MAX_PATH)) {
     return {};
   }
   for (size_t i = 0; i < count; ++i) {

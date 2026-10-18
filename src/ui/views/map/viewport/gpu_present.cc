@@ -173,16 +173,26 @@ void DrawHost::reveal_gpu_present_if_ready() {
   if (embed && IsWindow(embed)) {
     const DWORD ui_tid = GetWindowThreadProcessId(embed, nullptr);
     if (ui_tid != 0 && ui_tid != GetCurrentThreadId()) {
+      // Steady StaticReuse: popup is already showing. Do not PostMessage a
+      // reveal per present; the UI thread was spending the whole tick on
+      // ShowWindow / SetWindowPos and china FPS stayed near 35.
+      if (IsWindowVisible(gpu_present_hwnd_) &&
+          last_gpu_present_ok_.load(std::memory_order_acquire)) {
+        return;
+      }
       bool expected = false;
       if (reveal_posted_.compare_exchange_strong(expected, true,
                                                  std::memory_order_acq_rel)) {
         if (!PostMessageW(embed, kMsgRevealGpuPresent, 0, 0)) {
           reveal_posted_.store(false, std::memory_order_release);
         }
-      } else if (last_gpu_present_ok_.load(std::memory_order_acquire)) {
+      } else if (last_gpu_present_ok_.load(std::memory_order_acquire) &&
+                 !IsWindowVisible(gpu_present_hwnd_)) {
         // Coalesced PostMessage may have run while Resize cleared
-        // last_gpu_present_ok_ (Scene3d stayed SW_HIDE forever). Heal by
-        // posting again once a real Present succeeded.
+        // last_gpu_present_ok_ (Scene3d stayed SW_HIDE forever). Heal only
+        // while the popup is still hidden. A visible StaticReuse must not
+        // PostMessage every tick — that serialized ShowWindow/SetWindowText
+        // onto the UI thread and held china around 34 fps.
         PostMessageW(embed, kMsgRevealGpuPresent, 0, 0);
       }
       return;
@@ -235,6 +245,16 @@ void DrawHost::reveal_gpu_present_if_ready() {
   }
   if (role_ == Role::kScene3d) {
     clamp_scene3d_swapchain_size(&w, &h);
+  }
+  // Already on screen at this client size. Skip ShowWindow / SetWindowPos /
+  // identity-bar rebuild; the 250ms HUD timer still refreshes the fps text.
+  if (role_ != Role::kScene3d && IsWindowVisible(gpu_present_hwnd_)) {
+    RECT popup_rc = {};
+    GetClientRect(gpu_present_hwnd_, &popup_rc);
+    if (popup_rc.right == static_cast<LONG>(w) &&
+        popup_rc.bottom == static_cast<LONG>(h)) {
+      return;
+    }
   }
   sync_gpu_present_hwnd(w, h);
   if (!gpu_present_want_visible_.load(std::memory_order_acquire) ||

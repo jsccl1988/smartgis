@@ -4,8 +4,8 @@
 """Plain-launch visual capture: SmartGIS.exe argv=[] 2D + 3D.
 
 This is the settled home of scratch verify_bare_loop.py and
-map2d_hollow_smoke.py: argv=[] china shell scored as map2d_china
-(not_chrome_admin_hollow / near-black) plus a scene3d tab shot.
+map2d_hollow_smoke.py: argv=[] shell scored as views_shell_chrome.
+China design gates score map-only stills, not a full-window PrintWindow.
 
 Fixes closed-loop review bugs:
   #1 Wheel without click — OS click at fixed client coords flipped Map|Data|3D.
@@ -378,28 +378,11 @@ def _run_phase(
                 SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE,
             )
             time.sleep(0.25)
-        # Product ContentGdi paints china carto into the embed. Full-window
-        # PrintWindow includes dark chrome, so strict map2d_china land+water
-        # can fail even when hillshade/jet are active — accept chrome-ok +
-        # hillshade_active as carto gold for bare-launch shell captures.
-        if phase == "2d":
-            r_shell = _capture_shell(shell, cap / shell_leaf, score_id="map2d_china")
-            china = r_shell.get("score") or {}
-            if not r_shell.get("ok"):
-                chrome = score_bmp(cap / shell_leaf, "views_shell_chrome")
-                if chrome.get("ok") and china.get("hillshade_active"):
-                    r_shell = dict(r_shell)
-                    r_shell["ok"] = True
-                    r_shell["score"] = {
-                        **china,
-                        "ok": True,
-                        "shell_chrome_ok": True,
-                        "note": "shell PW + hillshade_active (chrome dilutes land+water)",
-                    }
-        else:
-            r_shell = _capture_shell(
-                shell, cap / shell_leaf, score_id="views_shell_chrome"
-            )
+        # Full-window PrintWindow is chrome. China design contracts score
+        # map-only stills; do not promote a shell capture via hillshade_active.
+        r_shell = _capture_shell(
+            shell, cap / shell_leaf, score_id="views_shell_chrome"
+        )
         print(f"{phase}_shell", r_shell.get("ok"), r_shell.get("score", {}).get("ok"), flush=True)
 
         if do_wheel:
@@ -700,7 +683,7 @@ def main(argv: list[str] | None = None) -> int:
             "chrome_ok",
         ],
         expect_notes=(
-            "argv=[]; 2d shell score=map2d_china (ContentGdi carto = align gold); "
+            "argv=[]; 2d shell score=views_shell_chrome (map frame uses map2d_china_*); "
             "optional FlyCube Present score=views_present_dxgi "
             "(or map2d frame_items log when DXGI BitBlt opaque)."
         ),

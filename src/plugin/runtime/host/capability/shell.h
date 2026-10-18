@@ -20,6 +20,7 @@
 
 namespace content {
 class GisContents;
+class Pane;
 class PluginHost;
 }  // namespace content
 
@@ -38,7 +39,7 @@ namespace plugin {
 inline constexpr std::string_view kCapabilityHarness = "app.views.harness";
 
 // Chrome publishes a Browser adapter under kCapabilityHarness. Product
-// scenario TUs depend on this vtable, not on app::Browser.
+// harness TUs depend on this vtable, not on app::Browser.
 class HarnessShell {
  public:
   virtual ~HarnessShell() = default;
@@ -51,6 +52,10 @@ class HarnessShell {
   virtual ui::views::DrawHost* draw_host() const = 0;
   virtual ui::views::DrawHost* data_draw_host() const = 0;
   virtual ui::views::DrawHost* scene_draw_host() const = 0;
+  // IL runtime pane. Does not expose DrawHost to content TUs.
+  virtual content::Pane* map_pane() = 0;
+  virtual content::Pane* data_pane() = 0;
+  virtual content::Pane* scene_pane() = 0;
   virtual content::ToolSession* edit_tool_session() const = 0;
   virtual content::ToolSession* scene_tool_session() = 0;
   virtual content::GisScene* document() = 0;

@@ -69,18 +69,12 @@ bool dispatch_py_method(const std::string& method,
     return true;
   }
   if (method == "py.run_file") {
-    std::string path;
-    extract_string_field(params_json, "path", &path);
-    std::ifstream in(path, std::ios::binary);
-    if (!in) {
-      *response = err_result(id, "cannot read file");
-      return true;
-    }
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    const std::string out = eval(ss.str());
-    *response =
-        ok_result(id, std::string("{\"output\":\"") + json_escape(out) + "\"}");
+    // File execution loads a module and calls main() via script.run.
+    // Do not eval the file body here; that skips main.
+    (void)params_json;
+    (void)eval;
+    *response = err_result(
+        id, "file scripts load as a module and call main; use script.run");
     return true;
   }
   return false;
@@ -97,15 +91,10 @@ bool exec_py_command(const std::string& line,
     return true;
   }
   if (line.rfind(":run ", 0) == 0) {
-    std::ifstream in(line.substr(5), std::ios::binary);
-    if (!in) {
-      *output = "cannot read file";
-      return true;
-    }
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    // Long :run stays OOP-capable via eval fallback when py_eval unset.
-    *output = eval(ss.str());
+    // :run is a file path. DebugAgent routes it to script.run before this
+    // fallback. Do not exec the file text; that skips main.
+    (void)eval;
+    *output = "error: file scripts load as a module and call main; use script.run";
     return true;
   }
   return false;

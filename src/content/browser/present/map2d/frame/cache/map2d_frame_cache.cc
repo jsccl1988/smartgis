@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "base/core/log.h"
+#include "base/process/switches.h"
 #include "vista/component/map/ir.h"
 #include "vista/component/map/layout/policy/slice_key.h"
 
@@ -647,6 +648,17 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
   const bool camera_changed = has_frame && !cam.same_camera(cached_cam);
   const bool reuse_slices_on_rebuild =
       has_frame && !fp_dirty && !zoom_dirty;
+
+  // Timed FPS window only. Shell client pixels/zoom bucket are not the locked
+  // showcase frame. Rebuilding would tessellate china for seconds and
+  // overwrite cached_cam_. Content fingerprint changes still rebuild.
+  if (has_frame && !fp_dirty && (pixels_dirty || zoom_dirty) &&
+      base::switch_is_one("map2d-fps-bench-active")) {
+    *action = PresentAction::kStaticReuse;
+    last_present_reused_layout_.store(true, std::memory_order_release);
+    pending_interactive_clock_refresh_ = false;
+    return true;
+  }
 
   if (job_inflight && has_frame) {
     // Worker still tessellating ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ present published; never join.

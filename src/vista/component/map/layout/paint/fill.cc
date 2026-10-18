@@ -4,8 +4,11 @@
 #include "vista/component/map/layout/paint/fill.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -176,6 +179,170 @@ struct FillJob {
   bool pattern = false;
 };
 
+// Four distinguishable pastels. Adjacent land polygons must not share one.
+constexpr uint32_t kProvinceColor[4] = {
+    0xFFE7C98Au,
+    0xFF8FBF7Au,
+    0xFF7EB0D4u,
+    0xFFE09A8Au,
+};
+
+struct ProvinceEdge {
+  uint64_t a = 0;
+  uint64_t b = 0;
+  bool operator==(const ProvinceEdge& o) const { return a == o.a && b == o.b; }
+};
+
+struct ProvinceEdgeHash {
+  size_t operator()(const ProvinceEdge& e) const {
+    return static_cast<size_t>(e.a ^ (e.b * 0x9e3779b97f4a7c15ull));
+  }
+};
+
+uint64_t quantize_province_vertex(double x, double y) {
+  const auto qx = static_cast<int32_t>(std::llround(x * 250.0));
+  const auto qy = static_cast<int32_t>(std::llround(y * 250.0));
+  return (static_cast<uint64_t>(static_cast<uint32_t>(qx)) << 32) |
+         static_cast<uint32_t>(qy);
+}
+
+void note_ring_edges(
+    const OGRLinearRing* ring, size_t job,
+    std::unordered_map<ProvinceEdge, std::vector<size_t>, ProvinceEdgeHash>*
+        edges) {
+  if (!ring || !edges) {
+    return;
+  }
+  const int n = ring->getNumPoints();
+  if (n < 2) {
+    return;
+  }
+  uint64_t prev = 0;
+  bool have = false;
+  for (int i = 0; i < n; ++i) {
+    const uint64_t key = quantize_province_vertex(ring->getX(i), ring->getY(i));
+    if (!have) {
+      prev = key;
+      have = true;
+      continue;
+    }
+    if (key == prev) {
+      continue;
+    }
+    ProvinceEdge edge{prev, key};
+    if (edge.a > edge.b) {
+      std::swap(edge.a, edge.b);
+    }
+    (*edges)[edge].push_back(job);
+    prev = key;
+  }
+}
+
+void note_geom_edges(
+    const OGRGeometry* geom, size_t job,
+    std::unordered_map<ProvinceEdge, std::vector<size_t>, ProvinceEdgeHash>*
+        edges) {
+  if (!geom || !edges) {
+    return;
+  }
+  const OGRwkbGeometryType flat = wkbFlatten(geom->getGeometryType());
+  if (flat == wkbPolygon) {
+    note_ring_edges(geom->toPolygon()->getExteriorRing(), job, edges);
+    return;
+  }
+  if (flat == wkbMultiPolygon || flat == wkbGeometryCollection) {
+    const OGRGeometryCollection* col = geom->toGeometryCollection();
+    if (!col) {
+      return;
+    }
+    const int n = col->getNumGeometries();
+    for (int i = 0; i < n; ++i) {
+      note_geom_edges(col->getGeometryRef(i), job, edges);
+    }
+  }
+}
+
+// Map four-color on land polygons that share a quantized border. One feature
+// keeps the style color. Greedy coloring uses four pastels; a fifth conflict
+// reuses the least-used neighbor color.
+void apply_province_colors(
+    const std::vector<const gis::style::StyleLayer*>& fill_layers,
+    std::vector<FillJob>* jobs) {
+  if (!jobs || jobs->size() < 2 || fill_layers.empty()) {
+    return;
+  }
+  std::vector<size_t> land;
+  land.reserve(jobs->size());
+  for (size_t i = 0; i < jobs->size(); ++i) {
+    const size_t ord = (*jobs)[i].layer_ord;
+    if (ord >= fill_layers.size() || !fill_layers[ord]) {
+      continue;
+    }
+    if (fill_layers[ord]->source_layer == "land") {
+      land.push_back(i);
+    }
+  }
+  if (land.size() < 2) {
+    return;
+  }
+
+  std::unordered_map<ProvinceEdge, std::vector<size_t>, ProvinceEdgeHash> edges;
+  edges.reserve(land.size() * 64);
+  for (size_t job : land) {
+    note_geom_edges((*jobs)[job].geom, job, &edges);
+  }
+
+  std::vector<std::vector<size_t>> adj(jobs->size());
+  for (const auto& entry : edges) {
+    std::vector<size_t> owners = entry.second;
+    std::sort(owners.begin(), owners.end());
+    owners.erase(std::unique(owners.begin(), owners.end()), owners.end());
+    for (size_t a = 0; a < owners.size(); ++a) {
+      for (size_t b = a + 1; b < owners.size(); ++b) {
+        adj[owners[a]].push_back(owners[b]);
+        adj[owners[b]].push_back(owners[a]);
+      }
+    }
+  }
+
+  std::sort(land.begin(), land.end(), [&](size_t a, size_t b) {
+    return adj[a].size() > adj[b].size();
+  });
+
+  std::vector<int> color(jobs->size(), -1);
+  for (size_t job : land) {
+    bool used[4] = {};
+    for (size_t nb : adj[job]) {
+      const int c = color[nb];
+      if (c >= 0 && c < 4) {
+        used[c] = true;
+      }
+    }
+    int pick = 0;
+    while (pick < 4 && used[pick]) {
+      ++pick;
+    }
+    if (pick == 4) {
+      int counts[4] = {};
+      for (size_t nb : adj[job]) {
+        const int c = color[nb];
+        if (c >= 0 && c < 4) {
+          ++counts[c];
+        }
+      }
+      pick = 0;
+      for (int c = 1; c < 4; ++c) {
+        if (counts[c] < counts[pick]) {
+          pick = c;
+        }
+      }
+    }
+    color[job] = pick;
+    (*jobs)[job].paint.fill_color = kProvinceColor[pick];
+    (*jobs)[job].paint.fill_opacity = 1.f;
+  }
+}
+
 }  // namespace
 
 // Own prism emit: walls then roof. Height/base are world-CRS z; a small xy
@@ -258,10 +425,8 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
       return;
     }
     const gis::style::StyleLayer& layer = *fill_layers[li];
-    // Keep cream/admin land under jet. Ocean spill is handled by dem_land_clip
-    // (land clipped to the DEM footprint). Skipping land when jet tiles attach
-    // left fill=0 — if the HSHD GPU sheet fails to composite, the map is
-    // ocean-only and vectors have no land hierarchy (Yangtze-belt look).
+    // Area is omitted entirely when a raster sheet hits the view (see
+    // order_paint_bands). This clip only runs for the area-only band.
     batches.visit(layer, layers, [&](const LayerBatch& batch) {
       for (size_t i = 0; i < batch.geoms.size(); ++i) {
         if (layout_gen_stale(in)) {
@@ -302,6 +467,7 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
   if (jobs.empty()) {
     return;
   }
+  apply_province_colors(fill_layers, &jobs);
   FillTessOptions fill_opts;
   fill_opts.world_units_per_pixel = wupp;
   auto to_item = [fill_opts](const FillJob& job) -> std::optional<DrawItem> {

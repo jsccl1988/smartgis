@@ -89,6 +89,17 @@ source_set("map_sources") {
     "//src/vista/mesh:mesh_sources",
     "//src/vista/terrain:terrain_sources",
   ]
+  data_deps = [ ":carto_style_resources" ]
+}
+
+# Product style documents live in //src/ui/resources/carto (not next to TUs).
+# Shared out/ui/carto, same pack as markup. Resolve <exe>/../ui/carto/*.style.json.
+copy("carto_style_resources") {
+  sources = [
+    "//src/ui/resources/carto/default.style.json",
+    "//src/ui/resources/carto/print.style.json",
+  ]
+  outputs = [ "$root_out_dir/../ui/carto/{{source_file_part}}" ]
 }
 
 # AVX2 lives in its own TU so the scalar file is not compiled with /arch:AVX2.
@@ -149,4 +160,6 @@ test("frame_test") {
     "//src/base:base",
     "//third_party:gdal",
   ]
+  # gtest_main provides main. /NODEFAULTLIB does not pull CRT startup unless named.
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
 }

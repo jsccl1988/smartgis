@@ -3,6 +3,7 @@
 
 import("//build/smartgis.gni")
 import("//src/plugin/product/native_plugin.gni")
+import("//testing/test.gni")
 
 copy("report_resources") {
   sources = [ "manifest/plugin.json" ]
@@ -25,6 +26,21 @@ source_set("report_views") {
     "//third_party:rapidjson",
   ]
   data_deps = [ ":report_resources" ]
+}
+
+test("report_gate_test") {
+  output_name = "report_gate_test"
+  sources = [
+    "gate.cc",
+    "gate.h",
+    "tests/gate_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":report_views",
+    "//src/plugin/runtime/host:host",
+  ]
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
 }
 
 native_plugin("report_native") {

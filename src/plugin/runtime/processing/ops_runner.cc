@@ -3,7 +3,7 @@
 
 #include "plugin/runtime/processing/ops_runner.h"
 
-#include "gis/analysis/ops/ops_runner.h"
+#include "gis/analysis/ops/runner/ops_runner.h"
 
 namespace plugin {
 

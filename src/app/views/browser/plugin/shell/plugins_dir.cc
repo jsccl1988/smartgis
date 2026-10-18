@@ -14,7 +14,7 @@ namespace app {
 std::string default_plugins_dir() {
   char path[MAX_PATH] = {};
   // <exe_dir>/plugins  (out/Debug/plugins or out/Release/plugins)
-  if (!detail::exe_sidecar_path_a(path, MAX_PATH, "plugins")) {
+  if (!content::detail::exe_sidecar_path_a(path, MAX_PATH, "plugins")) {
     return {};
   }
   return std::string(path);

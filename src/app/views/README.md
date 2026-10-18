@@ -53,11 +53,11 @@ gestures / ToolSessions / `GisContents*`）；能力实现在
 `browser/`、`ui/`、`il.runtime/`、`util/`。
 `il.runtime/bind/` 是机制（`host_member` traits + `bind_tagged_slots` +
 `reflect_fields` + `named_find` / `bind_into`）。
-`il.runtime/frontend/` 是语法和源文件查找：`Interact.g4` + AST + parse + `load`（suite id → `.il`）。`load` 不 include `backend/`。
+`il.runtime/` 目录名保留：里面是 C++ 能力槽和进程内 Python 会话，不是脚本语言。
 `il.runtime/ir/` 是语言无关指令（`app::ir`）。
-`il.runtime/backend/` 打平。GN `:compile` 是降级和解释（`driver`、`apply`、`lower_*`、`exec`、`eval_host`）。GN `:capability` 是 Host 原语（`bind_host`、`bind_horizon`、`bind_plugin`、`bind_export`、`capture_host`、`shell_expect`）。`:il.runtime` 是 session（`run_script` / `interact_script`）：链接一次再 apply。`:compile` 不依赖 `:capability`。
+`il.runtime/backend/` 是 Host 原语。`il.runtime/codegen/session/` 把 suite id 解析成同名 `.py` 并用 `exec_python` 执行。`:il.runtime` 别名 `:driver`。
 `browser/plugin/` 是 present / playback / preview / `report_suite` 缝。
-Harness 收口（living shell **§Harness IL capability cut**）：HWND / pump / capture 原子在 `il.runtime/backend/`；浏览器集成测试在 `testing/tools/harness/browser/browser.{harness,console,map2d.*,world3d.*,input}/*.il`；`app/startup/` 是 LaunchPolicy 登记表（`scenario.*`）；`src/app/views/harness/` 已删。
+Harness 收口：HWND / pump / capture 原子在 `il.runtime/backend/`；浏览器集成测试在 `testing/tools/harness/browser/browser.{harness,console,map2d.*,world3d.*,input}/*.py`；`app/startup/` 是 LaunchPolicy 登记表（`scenario.*`）；`src/app/views/harness/` 已删。
 图：[`docs/superpowers/diagrams/views-runtime-layers.html`](../../../docs/superpowers/diagrams/views-runtime-layers.html) · [`docs/superpowers/diagrams/harness-il-capability.html`](../../../docs/superpowers/diagrams/harness-il-capability.html)。`ui/`：`BrowserView`
 持有 Widget 树字段 + `BrowserUiDelegate` 薄转发；独立子目录
 `shell/`（`ShellLayoutComposer` / `ShellLifecycleComposer`）、

@@ -3,6 +3,7 @@
 
 #include "plugin/runtime/python/runtime.h"
 
+#include "content/browser/glang.runtime/exec/session/cpython.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/registry.h"
 
@@ -14,9 +15,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <map>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #if defined(HAS_PYTHON)
@@ -41,87 +45,86 @@ void bind_python_host(content::PluginHost* host);
 void unbind_python_host();
 void set_python_load_directory(std::string_view directory);
 void drop_python_plugin_holds(std::string_view directory);
+void unregister_python_plugin_verbs(std::string_view directory);
 #endif
 
 namespace {
 
-#if defined(HAS_PYTHON)
-#ifndef PYTHON_HOME
-#define PYTHON_HOME ""
-#endif
-
-std::wstring utf8_to_wide(const std::string& in) {
-  if (in.empty()) {
-    return {};
+// Debug builds do not link CPython. This scan is only the stub gate.
+// The embedded interpreter checks that module.main is callable after load.
+bool module_source_defines_main(std::string_view source) {
+  bool in_triple = false;
+  char quote = '\0';
+  size_t i = 0;
+  while (i < source.size()) {
+    const size_t eol = source.find('\n', i);
+    const size_t end = eol == std::string_view::npos ? source.size() : eol;
+    std::string_view line = source.substr(i, end - i);
+    if (!line.empty() && line.back() == '\r') {
+      line.remove_suffix(1);
+    }
+    i = end < source.size() ? end + 1 : source.size();
+    if (in_triple) {
+      const std::string closer(3, quote);
+      if (line.find(closer) != std::string_view::npos) {
+        in_triple = false;
+      }
+      continue;
+    }
+    size_t col = 0;
+    while (col < line.size() && (line[col] == ' ' || line[col] == '\t')) {
+      ++col;
+    }
+    if (col != 0 || col >= line.size()) {
+      continue;
+    }
+    const std::string_view rest = line.substr(col);
+    if (!rest.empty() && rest[0] == '#') {
+      continue;
+    }
+    if (rest.starts_with("\"\"\"") || rest.starts_with("'''")) {
+      quote = rest[0];
+      const std::string marker(3, quote);
+      if (rest.find(marker, 3) == std::string_view::npos) {
+        in_triple = true;
+      }
+      continue;
+    }
+    auto is_main_def = [](std::string_view text) {
+      if (!text.starts_with("def main")) {
+        return false;
+      }
+      const std::string_view tail = text.substr(8);
+      return !tail.empty() && (tail[0] == '(' || tail[0] == ' ' || tail[0] == '\t');
+    };
+    if (is_main_def(rest)) {
+      return true;
+    }
+    if (rest.starts_with("async ") && is_main_def(rest.substr(6))) {
+      return true;
+    }
   }
-  const int n = MultiByteToWideChar(CP_UTF8, 0, in.c_str(), -1, nullptr, 0);
-  std::wstring out(static_cast<size_t>(n), L'\0');
-  MultiByteToWideChar(CP_UTF8, 0, in.c_str(), -1, out.data(), n);
-  if (!out.empty() && out.back() == L'\0') {
-    out.pop_back();
-  }
-  return out;
+  return false;
 }
 
-std::string python_home() {
-  const char* env = base::switch_cstr("python-root");
-  if (env && env[0]) {
-    return env;
-  }
-  if (PYTHON_HOME[0]) {
-    return PYTHON_HOME;
-  }
-  return {};
-}
-
-void add_python_dll_dir(const std::string& home) {
-  if (home.empty()) {
-    return;
-  }
-  const std::wstring w = utf8_to_wide(home);
-  SetDllDirectoryW(w.c_str());
-}
-
-bool init_cpython() {
-  const std::string home = python_home();
-  add_python_dll_dir(home);
-
-  if (PyImport_AppendInittab("smartgis", &PyInit_smartgis) < 0) {
+bool read_script_file(std::string_view path, std::string* out) {
+  if (!out || path.empty()) {
     return false;
   }
-
-  PyConfig config;
-  PyConfig_InitIsolatedConfig(&config);
-  config.isolated = 1;
-  PyStatus status{};
-  std::wstring home_w;
-  std::wstring zip_w;
-  if (!home.empty()) {
-    home_w = utf8_to_wide(home);
-    zip_w = utf8_to_wide(home + "/python312.zip");
-    status = PyConfig_SetString(&config, &config.home, home_w.c_str());
-    if (PyStatus_Exception(status)) {
-      PyConfig_Clear(&config);
-      return false;
-    }
-    status = PyWideStringList_Append(&config.module_search_paths, home_w.c_str());
-    if (!PyStatus_Exception(status)) {
-      status =
-          PyWideStringList_Append(&config.module_search_paths, zip_w.c_str());
-    }
-    if (PyStatus_Exception(status)) {
-      PyConfig_Clear(&config);
-      return false;
-    }
-    config.module_search_paths_set = 1;
-  }
-  status = Py_InitializeFromConfig(&config);
-  PyConfig_Clear(&config);
-  if (PyStatus_Exception(status) || !Py_IsInitialized()) {
+  std::ifstream in(std::filesystem::path(std::string(path)), std::ios::binary);
+  if (!in) {
     return false;
   }
-  register_smartgis_bindings();
+  std::ostringstream ss;
+  ss << in.rdbuf();
+  *out = ss.str();
   return true;
+}
+
+#if defined(HAS_PYTHON)
+
+bool append_smartgis_inittab() {
+  return PyImport_AppendInittab("smartgis", &PyInit_smartgis) >= 0;
 }
 
 std::map<std::string, PyObject*> g_plugin_modules;
@@ -149,15 +152,37 @@ void call_module_stop(PyObject* mod) {
   Py_DECREF(stop_fn);
 }
 
+void forget_sys_module(PyObject* mod) {
+  if (!mod) {
+    return;
+  }
+  PyObject* modules = PyImport_GetModuleDict();
+  PyObject* name = PyObject_GetAttrString(mod, "__name__");
+  if (!name) {
+    PyErr_Clear();
+    return;
+  }
+  if (modules && name) {
+    if (PyDict_DelItem(modules, name) < 0) {
+      PyErr_Clear();
+    }
+  }
+  Py_XDECREF(name);
+}
+
 void unload_plugin_module(const std::string& directory) {
   auto it = g_plugin_modules.find(directory);
   if (it == g_plugin_modules.end()) {
     return;
   }
-  call_module_stop(it->second);
-  Py_XDECREF(it->second);
-  g_plugin_modules.erase(it);
+  PyObject* mod = it->second;
+  // stop order: unregister verbs, drop callbacks, then unload the module.
+  unregister_python_plugin_verbs(directory);
   drop_python_plugin_holds(directory);
+  call_module_stop(mod);
+  forget_sys_module(mod);
+  Py_XDECREF(mod);
+  g_plugin_modules.erase(it);
 }
 
 PyObject* import_entry_module(const std::string& directory,
@@ -274,32 +299,23 @@ void unload_all_plugin_modules() {
   }
 }
 
-#else  // !HAS_PYTHON
-
-bool python_dll_present() {
-  HMODULE m = LoadLibraryW(L"python312.dll");
-  if (!m) {
-    return false;
-  }
-  FreeLibrary(m);
-  return true;
-}
-
 #endif
 
 }  // namespace
 
 bool PythonRuntime::init() {
-#if defined(HAS_PYTHON)
   if (ready_) {
     return true;
   }
-  ready_ = init_cpython();
-  return ready_;
+#if defined(HAS_PYTHON)
+  content::py::InitHooks hooks;
+  hooks.before_initialize = &append_smartgis_inittab;
+  hooks.after_initialize = &register_smartgis_bindings;
+  ready_ = content::py::interpreter().init(hooks);
 #else
-  ready_ = python_dll_present();
-  return ready_;
+  ready_ = content::py::interpreter().init();
 #endif
+  return ready_;
 }
 
 void PythonRuntime::shutdown() {
@@ -309,9 +325,9 @@ void PythonRuntime::shutdown() {
     unload_all_plugin_modules();
     unbind_python_host();
     PyGILState_Release(gil);
-    Py_FinalizeEx();
   }
 #endif
+  content::py::interpreter().shutdown();
   ready_ = false;
 }
 
@@ -363,93 +379,58 @@ bool PythonRuntime::is_ready() const {
 
 std::string PythonRuntime::eval(std::string_view code) {
 #if defined(HAS_PYTHON)
-  if (!ready_ || !Py_IsInitialized()) {
+  if (!ready_) {
     return "error: python not ready";
   }
-  if (code.empty()) {
-    return {};
-  }
-
-  PyGILState_STATE gil = PyGILState_Ensure();
-  PyObject* main_mod = PyImport_AddModule("__main__");
-  if (!main_mod) {
-    PyGILState_Release(gil);
-    return "error: no __main__";
-  }
-  PyObject* globals = PyModule_GetDict(main_mod);
-  PyObject* code_obj =
-      PyUnicode_FromStringAndSize(code.data(), static_cast<Py_ssize_t>(code.size()));
-  if (!code_obj) {
-    PyErr_Clear();
-    PyGILState_Release(gil);
-    return "error: bad code string";
-  }
-  if (PyDict_SetItemString(globals, "_sg_code", code_obj) < 0) {
-    Py_DECREF(code_obj);
-    PyErr_Clear();
-    PyGILState_Release(gil);
-    return "error: cannot set _sg_code";
-  }
-  Py_DECREF(code_obj);
-
-  static const char kHelper[] =
-      "import io, sys\n"
-      "_buf = io.StringIO()\n"
-      "_old = sys.stdout\n"
-      "sys.stdout = _buf\n"
-      "_err = None\n"
-      "_val = None\n"
-      "try:\n"
-      "    try:\n"
-      "        _val = eval(_sg_code, globals())\n"
-      "    except SyntaxError:\n"
-      "        exec(_sg_code, globals())\n"
-      "        _val = None\n"
-      "except Exception as e:\n"
-      "    _err = e\n"
-      "finally:\n"
-      "    sys.stdout = _old\n"
-      "_sg_out = _buf.getvalue()\n"
-      "if _err is not None:\n"
-      "    _sg_out += (('' if not _sg_out else '\\n') + "
-      "f'{type(_err).__name__}: {_err}')\n"
-      "elif _val is not None:\n"
-      "    _sg_out += (('' if not _sg_out else '\\n') + repr(_val))\n";
-
-  PyObject* run = PyRun_String(kHelper, Py_file_input, globals, globals);
-  std::string out;
-  if (!run) {
-    if (PyErr_Occurred()) {
-      PyObject *ptype = nullptr, *pval = nullptr, *ptb = nullptr;
-      PyErr_Fetch(&ptype, &pval, &ptb);
-      PyErr_NormalizeException(&ptype, &pval, &ptb);
-      PyObject* s = pval ? PyObject_Str(pval) : nullptr;
-      const char* msg = s ? PyUnicode_AsUTF8(s) : "python error";
-      out = std::string("error: ") + (msg ? msg : "python error");
-      Py_XDECREF(s);
-      Py_XDECREF(ptype);
-      Py_XDECREF(pval);
-      Py_XDECREF(ptb);
-    } else {
-      out = "error: eval failed";
-    }
-  } else {
-    Py_DECREF(run);
-    PyObject* out_obj = PyDict_GetItemString(globals, "_sg_out");
-    if (out_obj && PyUnicode_Check(out_obj)) {
-      const char* utf8 = PyUnicode_AsUTF8(out_obj);
-      if (utf8) {
-        out = utf8;
-      }
-    }
-  }
-  PyDict_DelItemString(globals, "_sg_code");
-  PyDict_DelItemString(globals, "_sg_out");
-  PyGILState_Release(gil);
-  return out;
+  return content::py::interpreter().eval(code);
 #else
   (void)code;
   return "error: python not compiled in";
+#endif
+}
+
+bool PythonRuntime::exec_source(std::string_view code, std::string* error) {
+#if defined(HAS_PYTHON)
+  if (!ready_) {
+    if (error) {
+      *error = "error: python not ready";
+    }
+    return false;
+  }
+  return content::py::interpreter().exec_source(code, error);
+#else
+  (void)code;
+  if (error) {
+    *error = "error: python not compiled in";
+  }
+  return false;
+#endif
+}
+
+bool PythonRuntime::exec_file(std::string_view path, std::string* error) {
+  auto fail = [&](const char* message) {
+    if (error) {
+      *error = message;
+    }
+    return false;
+  };
+  if (path.empty()) {
+    return fail("error: cannot read script");
+  }
+#if defined(HAS_PYTHON)
+  if (!ready_) {
+    return fail("error: python not ready");
+  }
+  return content::py::interpreter().exec_file(path, error);
+#else
+  std::string source;
+  if (!read_script_file(path, &source)) {
+    return fail("error: cannot read script");
+  }
+  if (!module_source_defines_main(source)) {
+    return fail("error: script missing callable main");
+  }
+  return fail("error: python not compiled in");
 #endif
 }
 

@@ -5,7 +5,7 @@
     "--plugin-showcase=report",
     "--report-browser=fake"
   ],
-  "script": "plugin.report.il",
+  "script": "plugin.report.py",
   "env": {
     "SKIP_MAP_CONTEXT_MENU": "1",
     "REPORT_BROWSER": "fake"

@@ -23,9 +23,10 @@ namespace app {
 
 class Browser;
 
-// Modeless shared MapPreviewView / WorldPreviewView for PluginHost
-// present_dataset(surface=1). Owned by Browser; horizon wires DrawHost to the
-// same ToolSession / GisContents as the main panes.
+// Modeless MapPreviewView / WorldPreviewView for PluginHost
+// present_dataset(surface=1). Owned by Browser. Does not subclass the shell
+// map HWNDs: GisHwndGestures uses one subclass id, so a second attach/detach
+// removes pan/pinch from the main 2D and 3D panes.
 class PluginPreviewHost {
  public:
   PluginPreviewHost();

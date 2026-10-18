@@ -1,0 +1,35 @@
+---
+description: Unit tests use gtest; benchmarks use google benchmark
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Tests and benchmarks
+
+Product C++ under **`src/`**, **`core/`**, **`algorithm/`**, and **`testing/`** registers tests and benchmarks through **`//testing/test.gni`** and **`//testing/benchmark.gni`**.
+
+## Tests (`gtest`)
+
+- `test("name")` links **`//third_party:gtest`** (`gtest` + `gtest_main`). One behavior per **`TEST` / `TEST_F`**. Assertions are **`EXPECT_*` / `ASSERT_*`**.
+- Do not add a handwritten `main` that walks cases, counts failures, and prints OK.
+- **`use_gtest = false`** only when the binary is not a gtest runner. Say why in that `BUILD.gn`.
+- When editing a file that still uses a local `expect` + `main`, migrate that file in the same change.
+
+## Benchmarks (`google benchmark`)
+
+- `benchmark("name")` links **`//third_party:gbenchmark`** and, by default, **`gbenchmark_main`**. Cases are **`BENCHMARK` / `BENCHMARK_F`**.
+- Do not time with a handwritten loop and `printf`.
+- **`use_benchmark_main = false`** only when the bench must skip (GPU / env). Then call `benchmark::Initialize` and `RunSpecifiedBenchmarks`.
+
+## Out of scope
+
+- `testing/tools` harness and `SmartGIS.exe --harness` stay product gates, not gtest.
+- `third_party/` and `branches/` keep their own runners.
+
+## Relation
+
+**`testing/README.md`**, **`testing/test.gni`**, **`testing/benchmark.gni`**.

@@ -8,8 +8,8 @@
     "flycube"
   ],
   "driver": "inproc",
-  "script": "ui.interact.host.il",
-  "gesture_script": "ui.interact.il",
+  "script": "ui.interact.host.py",
+  "gesture_script": "ui.interact.py",
   "window_title": "SmartGIS Views",
   "env": {
     "UI_SHOWCASE_LINGER_MS": "0",

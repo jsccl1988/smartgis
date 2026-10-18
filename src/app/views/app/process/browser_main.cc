@@ -18,8 +18,7 @@
 #include "app/views/app/startup/scenario.h"
 #include "app/views/browser/browser.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
-#include "app/views/il.runtime/backend/horizon/atom/mark.h"
-#include "app/views/il.runtime/backend/horizon/atom/pump.h"
+#include "app/views/app/startup/shell_runtime.h"
 #include "app/views/util/exe_sidecar_path.h"
 #include "base/core/log.h"
 #include "base/trace/diag/diagnostic_bootstrap.h"
@@ -27,6 +26,7 @@
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
 #include "content/public/plugin_host.h"
+#include "content/browser/glang.runtime/host/horizon/atom/pump.h"
 #include "content/browser/session/browser_session.h"
 #include "ui/views/kernel/shell/dpi.h"
 
@@ -39,9 +39,9 @@ namespace {
                                       const char* suite_id) {
   const Scenario* scenario = find_scenario(suite_id);
   if (scenario && scenario->mark_leaf) {
-    detail::clear_mark(scenario->mark_leaf);
+    content::detail::clear_mark(scenario->mark_leaf);
   }
-  pump_views_messages(400);
+  content::pump_views_messages(400);
   if (!browser->hwnd() || !IsWindow(browser->hwnd())) {
     ::TerminateProcess(::GetCurrentProcess(), 2);
   }
@@ -139,11 +139,11 @@ void maybe_select_start_map_tab(Browser& browser) {
     return;
   }
   browser.select_view_tab(idx);
-  pump_views_messages(800);
+  content::pump_views_messages(800);
   // Deferred China seed / resume_all_presents may run during the pump and
   // briefly revive Map-Edit DXGI. Re-pin the start tab so Scene3d DEM stays.
   browser.select_view_tab(idx);
-  pump_views_messages(100);
+  content::pump_views_messages(100);
   LOGGING(LOG_INFO, "startup: VIEWS_START_MAP_TAB=%s -> tab %d", tab, idx);
   std::fflush(stderr);
 }
@@ -167,11 +167,11 @@ void apply_plugin_product_startup(Browser& browser) {
   const std::string& vp = shell->startup_viewport();
   if (vp == "scene3d") {
     browser.select_view_tab(1);
-    pump_views_messages(800);
+    content::pump_views_messages(800);
     LOGGING(LOG_INFO, "startup: plugin.json viewport=scene3d");
   } else if (vp == "map2d") {
     browser.select_view_tab(0);
-    pump_views_messages(800);
+    content::pump_views_messages(800);
     LOGGING(LOG_INFO, "startup: plugin.json viewport=map2d");
   }
 }
@@ -215,7 +215,7 @@ int run_browser_main(const content::ContentMainParams&,
   }
   {
     wchar_t diag[MAX_PATH] = {};
-    if (detail::exe_capture_path(diag, MAX_PATH, L"product-startup-cmdline.txt")) {
+    if (content::detail::exe_capture_path(diag, MAX_PATH, L"product-startup-cmdline.txt")) {
       FILE* f = nullptr;
       if (_wfopen_s(&f, diag, L"w") == 0 && f) {
         const wchar_t* cmd = GetCommandLineW();

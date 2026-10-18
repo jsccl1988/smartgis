@@ -11,6 +11,7 @@
 #include "app/views/browser/plugin/shell/builtins.h"
 #include "app/views/browser/plugin/shell/pack_enable.h"
 #include "app/views/browser/plugin/shell/startup_apply.h"
+#include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
 #include "content/public/gis_contents.h"
 #include "content/public/plugin_host.h"
@@ -21,6 +22,7 @@
 #include "plugin/runtime/host/catalog/resource_roots.h"
 #include "plugin/runtime/host/native/manager.h"
 #include "plugin/runtime/host/processing/processing.h"
+#include "content/browser/glang.runtime/host/bind/gis_console.h"
 #include "plugin/runtime/python/runtime.h"
 #include "tool/command/command.h"
 #include "ui/views/kernel/paint/painter_registry.h"
@@ -142,8 +144,8 @@ void PluginShell::shutdown() {
     }
   }
   if (python_) {
-    plugin::clear_gis_console_bridge();
-    plugin::bind_gis_host_for_analysis(nullptr);
+    content::clear_gis_console_bridge();
+    content::bind_gis_host_for_analysis(nullptr);
     python_->shutdown();
     python_.reset();
   }
@@ -261,6 +263,26 @@ std::string PluginShell::eval_python(std::string_view code) {
   return python_->eval(code);
 }
 
+bool PluginShell::exec_python(std::string_view code, std::string* error) {
+  if (!ensure_python()) {
+    if (error) {
+      *error = "error: python not ready";
+    }
+    return false;
+  }
+  return python_->exec_source(code, error);
+}
+
+bool PluginShell::exec_python_file(std::string_view path, std::string* error) {
+  if (!ensure_python()) {
+    if (error) {
+      *error = "error: python not ready";
+    }
+    return false;
+  }
+  return python_->exec_file(path, error);
+}
+
 bool PluginShell::ensure_builtins() {
   if (builtins_started_) {
     return true;
@@ -322,9 +344,23 @@ bool PluginShell::start_builtins() {
   (void)app::register_builtin_plugins(registry_.get(), host_);
   // Builtins may add manifests after scan; refresh owner index.
   plugin::rebuild_contribute_index(*registry_);
-  // Do not LoadLibrary every native pack here. Eight GDAL-linked plugin
-  // DLLs on debug CRT → STATUS_HEAP_CORRUPTION (0xC0000374) during product
-  // startup. Native init happens on execute / processing / catalog enable.
+  // Product packs are native DLLs under <exe>/plugins. Scan only records
+  // manifests; init_all LoadLibrary + init so every discovered pack is on.
+  if (manager_) {
+    (void)manager_->init_all(host_);
+    for (const plugin::PluginRecord& rec : registry_->list()) {
+      if (rec.manifest.kind != plugin::PluginKind::kNative) {
+        continue;
+      }
+      if (rec.state == plugin::PluginState::kEnabled) {
+        LOGGING(LOG_INFO, "plugin shell: loaded %s", rec.manifest.id.c_str());
+        continue;
+      }
+      LOGGING(LOG_ERROR, "plugin shell: native pack not loaded id=%s",
+              rec.manifest.id.c_str());
+    }
+  }
+  plugin::rebuild_contribute_index(*registry_);
   return true;
 }
 

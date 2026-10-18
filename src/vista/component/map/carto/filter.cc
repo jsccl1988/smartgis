@@ -79,11 +79,14 @@ size_t accept_label_count(const LabelScreenBox* boxes, size_t count) {
 }
 
 int label_min_importance(double scale) {
-  // Mainland framing is ~48° lon; absolute scale grows with viewport width
-  // (800px≈17, 1280px≈27). Gate on zoom=8+log2(scale) so national overview
-  // keeps prefecture/capital stems (2) and defers counties (1) until zoom-in.
+  // Mainland framing is ~48° lon (800px≈zoom 12.1, 1280px≈zoom 12.8).
+  // Importance: 3 国家/省/直辖市, 2 市, 1 县. 市 join the national frame
+  // so names are on screen before the user has to zoom into a province.
   const double zoom = gis::tile::zoom_from_scale(scale);
-  if (zoom < 14.0) {
+  if (zoom < 11.0) {
+    return 3;
+  }
+  if (zoom < 13.5) {
     return 2;
   }
   if (zoom < 16.0) {
@@ -205,6 +208,19 @@ bool line_is_major_class(const char* kind, const char* feature_class) {
   return major(kind) || major(feature_class);
 }
 
+bool line_is_overview_road(const char* kind, const char* feature_class) {
+  // National frame: primary/secondary grids read as a tangle. Keep the
+  // motorway / trunk / national-highway skeleton only.
+  auto trunk = [](const char* s) {
+    return ascii_icontains(s, "motorway") || ascii_icontains(s, "trunk") ||
+           ascii_icontains(s, "highway") || ascii_icontains(s, "express") ||
+           ascii_icontains(s, "national") ||
+           ascii_icontains(s, "\xe9\xab\x98\xe9\x80\x9f") ||
+           ascii_icontains(s, "\xe5\x9b\xbd\xe9\x81\x93");
+  };
+  return trunk(kind) || trunk(feature_class);
+}
+
 bool line_visible_at_scale(LineRole role, double length, bool major_class,
                            double scale) {
   // MapLibre-style road gate at national frame. Absolute scale tracks
@@ -212,8 +228,16 @@ bool line_visible_at_scale(LineRole role, double length, bool major_class,
   // Stem-aggregated length joins short trunk pieces; 0.12° is the bare-piece
   // floor so continuous roads read as networks.
   const double zoom = gis::tile::zoom_from_scale(scale);
-  if (role == LineRole::kRoad && zoom < 14.0) {
-    return major_class && length >= 0.12;
+  if (role == LineRole::kRoad) {
+    // Callers mark overview / primary as major. Local streets stay off until
+    // the county zoom; a 0.7° length floor still filled the national frame.
+    if (!major_class) {
+      return zoom >= 17.5 && length >= 0.08;
+    }
+    if (zoom < 15.5) {
+      return length >= 0.2;
+    }
+    return length >= 0.05 || zoom >= 18.0;
   }
   if (major_class) {
     if (zoom < 16.0) {
@@ -223,20 +247,16 @@ bool line_visible_at_scale(LineRole role, double length, bool major_class,
   }
   double min_len = 0.0;
   if (role == LineRole::kWater) {
-    // National frame (~zoom 11): keep Yangtze + major tributaries readable
-    // against the land/jet sheet (reference belt maps stroke rivers boldly).
-    if (zoom < 14.0) {
-      min_len = 0.12;
+    // National frame: short tributaries overlap admin and read as noise.
+    // ~1.2° keeps the trunk rivers; closer zooms bring the rest back.
+    if (zoom < 12.0) {
+      min_len = 1.2;
+    } else if (zoom < 14.0) {
+      min_len = 0.35;
     } else if (zoom < 16.0) {
       min_len = 0.25;
     } else if (zoom < 18.0) {
       min_len = 0.12;
-    }
-  } else if (role == LineRole::kRoad) {
-    if (zoom < 16.0) {
-      min_len = 0.7;
-    } else if (zoom < 18.0) {
-      min_len = 0.15;
     }
   }
   return length + 1e-9 >= min_len;

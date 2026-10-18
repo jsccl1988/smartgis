@@ -6,17 +6,16 @@
     "interact"
   ],
   "driver": "inproc",
-  "script": "../ui.interact/ui.interact.host.il",
-  "gesture_script": "ui.interact.combo.il",
+  "script": "../ui.interact/ui.interact.host.py",
+  "gesture_script": "ui.interact.combo.py",
   "env": {
     "UI_SHOWCASE_LINGER_MS": "0",
     "UI_THEME": "dark"
   },
   "mark_leaf": "ui-showcase-mark.txt",
   "required_marks": [
-    "dsl-load-ok",
+    "interact-smoke-ok",
     "interact-combo-demo-ok",
-    "dsl-done",
     "pass"
   ],
   "report_name": "ui_interact_combo_loop_report.json",

@@ -4,7 +4,7 @@
     "argv":  [
                  "--atmosphere-showcase=full"
              ],
-    "script":  "browser.world3d.full.il",
+    "script":  "browser.world3d.full.py",
     "env":  {
                 "ATMOSPHERE_SHOWCASE_GPU":  "1",
                 "ATMOSPHERE_SHOWCASE_LINGER_MS":  "0",
@@ -12,6 +12,10 @@
             },
     "mark_leaf":  "atmosphere-showcase-mark.txt",
     "required_marks":  [
+                           "bmp-land-ok",
+                           "bmp-ocean-ok",
+                           "bmp-coast-ok",
+                           "bmp-full-ok",
                            "bmp-ok",
                            "pass",
                            "fit-box-ok",
@@ -28,7 +32,7 @@
                ],
     "loop":  {
                  "rounds":  6,
-                 "timeout_sec":  180,
+                 "timeout_sec":  240,
                  "build_target":  "src/app/views:views",
                  "exe":  "SmartGIS.exe"
              },
@@ -41,6 +45,6 @@
                                             "land_detail",
                                             "no_flat_clear"
                                         ],
-                          "expect_notes":  "full atmosphere: sky + cloud + land; not washed flat clear"
+                          "expect_notes":  "full atmosphere BMP after land/ocean/coast looks in the same process; sky + cloud + land; not washed flat clear"
                       }
 }

@@ -62,7 +62,7 @@ All rights reserved.
 ### Task 3 — Plugin showcase Earth path
 
 **Files:**
-- Modify: `src/plugin/product/world3d/scenario/product/world3d.cc`
+- Modify: `src/plugin/product/world3d/scenario/product/world3d.cc` (plan path `harness/product/world3d.cc` was never the live tree). Python orchestration now lives under `testing/tools/harness/plugin/plugin.world3d.*`.
 - Create: `src/plugin/product/world3d/README.md`
 
 - [x] Step 1: Showcase uses atmosphere product defaults (not land-only off) + DEM orbit + pointcloud overlay

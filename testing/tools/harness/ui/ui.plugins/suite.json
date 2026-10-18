@@ -2,7 +2,7 @@
   "id": "ui.plugins",
   "kind": "integration",
   "argv": [],
-  "script": "ui.plugins.il",
+  "script": "ui.plugins.py",
   "env": {},
   "mark_leaf": "ui-plugins-mark.txt",
   "required_marks": [

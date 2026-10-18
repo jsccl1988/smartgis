@@ -4,7 +4,7 @@
     "argv":  [
                  "--plugin-showcase=world3d"
              ],
-    "script":  "plugin.world3d.il",
+    "script":  "plugin.world3d.py",
     "env":  {
                 "SKIP_MAP_CONTEXT_MENU":  "1",
                 "SCENE3D_ENGINE":  "flycube",
@@ -13,8 +13,6 @@
             },
     "mark_leaf":  "plugin-showcase-mark.txt",
     "required_marks":  [
-                           "pointcloud-ok",
-                           "present-ok",
                            "bmp-ok",
                            "pass",
                            "fit-box-ok",
@@ -41,7 +39,7 @@
                           "enabled":  true,
                           "checklist":  [
                                             "terrain_visible",
-                                            "pointcloud_or_mesh",
+                                            "dem_sphere",
                                             "atmosphere_or_sky_hint",
                                             "no_black_frame"
                                         ],

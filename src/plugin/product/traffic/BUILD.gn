@@ -48,28 +48,13 @@ native_plugin("traffic_native") {
   data_deps = [ ":traffic_resources" ]
 }
 
-source_set("traffic_harness") {
-  sources = [
-    "scenario/register.cc",
-    "scenario/register.h",
-    "scenario/run.cc",
-    "scenario/run.h",
-  ]
-  include_dirs += [
-    ".",
-    "//src",
-  ]
-  deps = [
-    ":traffic_views",
-    "//src/content:content",
-    "//src/plugin/product/world3d:world3d_harness",
-    "//src/plugin/runtime/host:host",
-  ]
-}
-
 test("traffic_path_test") {
   output_name = "traffic_path_test"
-  sources = [ "tests/path_test.cc" ]
+  sources = [
+    "gate.cc",
+    "gate.h",
+    "tests/path_test.cc",
+  ]
   include_dirs += [ "//src" ]
   deps = [
     ":traffic_views",
@@ -77,9 +62,11 @@ test("traffic_path_test") {
     "//src/gis:gis",
     "//src/plugin/runtime/host:host",
     "//third_party:gdal",
+    "//third_party/gn:dll_search",
   ]
   data_deps = [
     ":traffic_resources",
     "//third_party:gdal_runtime_dlls",
   ]
+  ldflags = [ "/ENTRY:mainCRTStartup", "/INCLUDE:__pfnDliNotifyHook2" ]
 }

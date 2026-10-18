@@ -7,6 +7,10 @@
 #include "render/rhi/flycube/command/recorder.h"
 #include "render/rhi/rhi.h"
 
+#include <cstdint>
+#include <utility>
+#include <vector>
+
 #ifdef HAS_FLYCUBE
 #include "BindingSet/BindingSet.h"
 #include "BindingSetLayout/BindingSetLayout.h"
@@ -64,6 +68,12 @@ class FlycubeProgram : public Pipeline {
     uint32_t size_bytes = 0;
     std::shared_ptr<::Resource> buffer;
     std::shared_ptr<::View> view;
+    // One upload allocation per draw in the open command list. A single
+    // buffer is recorded by reference and the GPU reads it after Close, so
+    // the last ColorCB write painted every solid the same color.
+    std::vector<std::shared_ptr<::Resource>> ring_buffers;
+    std::vector<std::shared_ptr<::View>> ring_views;
+    uint32_t cursor = 0;
   };
 
   FlycubeProgram() = default;
@@ -78,11 +88,16 @@ class FlycubeProgram : public Pipeline {
                                                 const ::BlendDesc& blend) const;
   std::shared_ptr<::Shader> shader_for(ShaderStage stage) const;
   const UploadCb* find_cb(uint32_t slot) const;
+  UploadCb* find_cb_mut(uint32_t slot);
   void upload_slot(uint32_t slot, const void* data, uint32_t byte_size);
+  std::shared_ptr<::View> take_cb_view(uint32_t slot, const void* data,
+                                      uint32_t byte_size);
   std::shared_ptr<::Pipeline> select_depth(bool pass_depth, DepthMode mode) const;
   std::shared_ptr<::BindingSet> make_binding_set(
       const std::vector<TextureBind>& srvs,
-      const std::vector<TextureBind>& uavs) const;
+      const std::vector<TextureBind>& uavs,
+      const std::vector<std::pair<uint32_t, std::shared_ptr<::View>>>*
+          cb_views) const;
 
   bool compute_ = false;
   int32_t camera_slot_ = -1;
@@ -104,7 +119,13 @@ class FlycubeProgram : public Pipeline {
   std::shared_ptr<::View> sampler_view_;
   std::vector<SlotBinding> bindings_;
   std::vector<UploadCb> constants_;
+  uint64_t cb_epoch_seen_ = 0;
 };
+
+// Bump once per Execute, after the previous frame's fence wait, so the
+// constant ring can reuse slots the GPU has finished reading.
+void bump_flycube_constant_epoch();
+uint64_t flycube_constant_epoch();
 
 #endif  // HAS_FLYCUBE
 

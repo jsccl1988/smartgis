@@ -1106,19 +1106,25 @@ bool GlobePass::record(render::rhi::Device* device,
   list->bind_texture(albedo_tex_, 0);
   detail::draw_indexed_mesh(list, vertex_buffer_, index_buffer_,
                             8 * sizeof(float), index_count_);
-  if (camera) {
-    const float* v = camera->view;
-    const float* p = camera->proj;
-    std::fprintf(
-        stderr,
-        "atmosphere.globe.record idx=%u eye=(%.3f,%.3f,%.3f) R=%.2f "
-        "view_t=(%.3f,%.3f,%.3f) view00=%.3f proj00=%.3f proj11=%.3f "
-        "kind=%d\n",
-        index_count_, cb.eye_x, cb.eye_y, cb.eye_z, params_.radius, v[12],
-        v[13], v[14], v[0], p[0], p[5], static_cast<int>(camera->kind));
-  } else {
-    std::fprintf(stderr, "atmosphere.globe.record idx=%u cam=null R=%.2f\n",
-                 index_count_, params_.radius);
+  // Repeat stderr on every present filled the harness pipe and showed up in
+  // record_ms. Keep one line per mesh LOD.
+  static uint32_t logged_index_count = 0xffffffffu;
+  if (logged_index_count != index_count_) {
+    logged_index_count = index_count_;
+    if (camera) {
+      const float* v = camera->view;
+      const float* p = camera->proj;
+      std::fprintf(
+          stderr,
+          "atmosphere.globe.record idx=%u eye=(%.3f,%.3f,%.3f) R=%.2f "
+          "view_t=(%.3f,%.3f,%.3f) view00=%.3f proj00=%.3f proj11=%.3f "
+          "kind=%d\n",
+          index_count_, cb.eye_x, cb.eye_y, cb.eye_z, params_.radius, v[12],
+          v[13], v[14], v[0], p[0], p[5], static_cast<int>(camera->kind));
+    } else {
+      std::fprintf(stderr, "atmosphere.globe.record idx=%u cam=null R=%.2f\n",
+                   index_count_, params_.radius);
+    }
   }
   return true;
 }

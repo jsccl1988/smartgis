@@ -11,7 +11,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .atmosphere import score_atmosphere_full, score_atmosphere_globe
+from .atmosphere import (
+    score_atmosphere_full,
+    score_atmosphere_globe,
+    score_china_stack,
+)
 from .legacy import (
     score_legacy_map2d_china,
     score_legacy_scene3d_china,
@@ -19,7 +23,12 @@ from .legacy import (
     score_legacy_scene3d_mesh,
     score_legacy_scene3d_points,
 )
-from .map2d import score_map2d_china, score_map2d_orthogrid
+from .map2d import (
+    score_map2d_align,
+    score_map2d_china_carto,
+    score_map2d_china_dem,
+    score_map2d_orthogrid,
+)
 from .plugin import (
     score_plugin_flood,
     score_plugin_hex,
@@ -36,7 +45,9 @@ from .views import score_views_present_dxgi, score_views_shell_chrome
 _SCORE_FNS = {
     "ui_shell_dark": score_ui_shell_dark,
     "ui_interact": score_ui_interact,
-    "map2d_china": score_map2d_china,
+    "map2d_china_dem": score_map2d_china_dem,
+    "map2d_china_carto": score_map2d_china_carto,
+    "map2d_align": score_map2d_align,
     "map2d_orthogrid": score_map2d_orthogrid,
     "plugin_product": score_plugin_product,
     "plugin_print": score_plugin_print,
@@ -48,6 +59,7 @@ _SCORE_FNS = {
     "plugin_hex": score_plugin_hex,
     "atmosphere_full": score_atmosphere_full,
     "atmosphere_globe": score_atmosphere_globe,
+    "china_stack": score_china_stack,
     "legacy_map2d_china": score_legacy_map2d_china,
     "legacy_scene3d_china": score_legacy_scene3d_china,
     "legacy_scene3d_mesh": score_legacy_scene3d_mesh,

@@ -1,0 +1,105 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>中国 3D 阶梯门禁 — DEM / 海洋 / 雾 / 天空 / 云</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --dem: #eaf4ee; --ocean: #e7f2f8; --fog: #f3f0e8;
+    --sky: #e8eef8; --cloud: #f7f1ea;
+    --bad: #f8e8e8; --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .stack { display: grid; gap: 8px; }
+  .stage {
+    display: grid; grid-template-columns: 88px 1fr 120px; gap: 10px;
+    align-items: center; border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .stage b { font-size: 0.85rem; }
+  .stage span { color: var(--muted); font-size: 0.85rem; }
+  .dem { background: var(--dem); }
+  .ocean { background: var(--ocean); }
+  .fog { background: var(--fog); }
+  .sky { background: var(--sky); }
+  .cloud { background: var(--cloud); }
+  .pill { font-size: 0.78rem; font-weight: 600; text-align: right; }
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .flow i { font-style: normal; color: var(--muted); }
+  .node {
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px;
+    background: #fff; min-width: 92px;
+  }
+  .node strong { display: block; font-size: 0.82rem; }
+  .node em { font-style: normal; color: var(--muted); font-size: 0.75rem; }
+  .bad { background: var(--bad); }
+  ol { margin: 0; padding-left: 1.2rem; }
+  li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>中国平地 3D 阶梯门禁</h1>
+    <p class="meta">DEM → 海洋 → 雾 → 天空 → 云。前一阶失败，后一阶不得计为通过。合成图像素分只作见证。</p>
+  </header>
+
+  <section class="panel">
+    <h2>层（谁开、谁必须关）</h2>
+    <div class="stack">
+      <div class="stage dem"><b>dem</b><span>DEM + 等高。海、雾、天空、云关。</span><div class="pill">只判陆地</div></div>
+      <div class="stage ocean"><b>ocean</b><span>上一阶再开海。雾、天空、云关。</span><div class="pill">只判海面</div></div>
+      <div class="stage fog"><b>fog</b><span>上一阶再开雾。天空、云关。</span><div class="pill">霾在，顶不刷白</div></div>
+      <div class="stage sky"><b>sky</b><span>上一阶再开天空。云关。</span><div class="pill">天顶有色差</div></div>
+      <div class="stage cloud"><b>cloud</b><span>上一阶再开云。</span><div class="pill">云盖，天顶仍是天空</div></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>失败关闭</h2>
+    <div class="flow" id="flow">
+      <div class="node"><strong>apply_china_stack_stage</strong><em>kLand 种子 + 掩码</em></div>
+      <i>→</i>
+      <div class="node"><strong>verify 开关</strong><em>已有 ocean/fog/sky/cloud</em></div>
+      <i>→</i>
+      <div class="node"><strong>BMP</strong><em>china-stack-&lt;stage&gt;</em></div>
+      <i>→</i>
+      <div class="node"><strong>本阶像素</strong><em>不过则 blocked</em></div>
+      <i>→</i>
+      <div class="node bad"><strong>witness</strong><em>score_atmosphere_full 不计通过</em></div>
+    </div>
+    <ol>
+      <li>标志不符或截图失败：本阶 <code>fail</code>，后面 <code>blocked</code>，不再截图。</li>
+      <li><code>score_china_stack</code> 不再为 blocked 阶打像素分。</li>
+      <li>同一改动不能放宽更早一阶的阈值。</li>
+    </ol>
+  </section>
+</div>
+</body>
+</html>

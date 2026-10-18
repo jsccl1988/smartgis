@@ -121,7 +121,7 @@ def run_product() -> Path:
         raise FileNotFoundError(f"missing {EXE}; build SmartGisViews first")
     ensure_china_data()
     env = os.environ.copy()
-        env["HARNESS_SUITE"] = "browser.map2d.align"
+    env["HARNESS_SUITE"] = "browser.map2d.align"
     cmd = [str(EXE)]
     print(" ".join(cmd), flush=True)
     completed = subprocess.run(cmd, cwd=str(OUT), env=env)

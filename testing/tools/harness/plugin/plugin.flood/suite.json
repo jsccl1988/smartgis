@@ -4,7 +4,7 @@
     "argv":  [
                  "--plugin-showcase=flood"
              ],
-    "script":  "plugin.flood.il",
+    "script":  "plugin.flood.py",
     "env":  {
                 "SKIP_MAP_CONTEXT_MENU":  "1"
             },

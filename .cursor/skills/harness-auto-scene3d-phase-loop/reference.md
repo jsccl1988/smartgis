@@ -36,7 +36,7 @@ Owned by `content::Scene3dPhaseSample` (`scene3d_phase_profile.*`):
 | `record_ms` | Pass / graph record |
 | `present_swap_ms` (`present_ms` in JSON) | Present / swap |
 
-JSON keys match the showcase writer in `present_run.cc`.
+JSON keys are the Scene3d phase sample fields. The old harness `present_run.cc` writer is gone; suites time frames through `export_bmp` / `camera_fly`.
 
 ## Pump trap (normative)
 

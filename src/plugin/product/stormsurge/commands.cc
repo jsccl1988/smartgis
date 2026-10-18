@@ -18,6 +18,7 @@
 #include "plugin/product/stormsurge/present/water_mesh.h"
 #include "plugin/product/stormsurge/views/run_dialog.h"
 #include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/host/capability/pack_ensure.h"
 #include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/host/processing/playback_frames.h"
@@ -565,5 +566,15 @@ bool register_stormsurge(content::PluginHost* host) {
                return host->run_processing("stormsurge.export", "{}");
              });
 }
+
+namespace {
+
+struct StormsurgePackOnce {
+  StormsurgePackOnce() {
+    register_command_pack("stormsurge", register_stormsurge);
+  }
+} k_stormsurge_pack_once;
+
+}  // namespace
 
 }  // namespace plugin

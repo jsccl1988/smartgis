@@ -6,8 +6,7 @@
     "TERM": "xterm-256color"
   },
   "files.associations": {
-    "*.g4": "antlr",
-    "*.il": "interact"
+    "*.g4": "antlr"
   },
   "antlr4.generation": {
     "mode": "internal",
@@ -21,12 +20,5 @@
   "[antlr]": {
     "editor.semanticHighlighting.enabled": true,
     "editor.wordBasedSuggestions": "off"
-  },
-  "[interact]": {
-    "editor.quickSuggestions": {
-      "other": true,
-      "comments": false,
-      "strings": false
-    }
   }
 }

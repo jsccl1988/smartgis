@@ -1,0 +1,220 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>codegen — GIS IR 方言与流水线</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+    --front: #e8f1fa; --front-ink: #2563a8;
+    --sema: #e6f5ef; --sema-ink: #2f7d62;
+    --code-lane: #f8efe4; --code-ink: #b06a1a;
+    --eval: #f3eef8; --eval-ink: #6b5ea8;
+    --host: #eef2f6; --host-ink: #243447;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .note { margin: 8px 0 0; font-size: 0.85rem; color: var(--muted); }
+  .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .stage {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 8px;
+    background: var(--panel2); min-height: 108px;
+  }
+  .stage h3 { margin: 0 0 4px; font-size: 0.86rem; }
+  .stage p { margin: 0; font-size: 0.78rem; color: var(--muted); }
+  .stage.front { background: var(--front); }
+  .stage.sema { background: var(--sema); }
+  .stage.code { background: var(--code-lane); }
+  .stage.eval { background: var(--eval); }
+  .stage.host { background: var(--host); }
+  .stage.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .dialects { display: grid; grid-template-columns: 1.1fr 1fr; gap: 10px; }
+  .stack { display: flex; flex-direction: column; gap: 6px; }
+  .d {
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    background: var(--panel2);
+  }
+  .d strong { display: block; font-size: 0.86rem; }
+  .d span { font-size: 0.78rem; color: var(--muted); }
+  .d.geo { background: #e8f1fa; }
+  .d.rel { background: #e6f5ef; }
+  .d.map { background: #f8efe4; }
+  .d.proc { background: #f3eef8; }
+  .d.sess { background: #eef2f6; }
+  .arrow-col { display: flex; flex-direction: column; justify-content: space-between; gap: 6px; }
+  .sink {
+    border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px;
+    font-size: 0.8rem; color: var(--muted); background: #fff;
+  }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); font-weight: 650; }
+  .controls { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  button {
+    appearance: none; border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (max-width: 800px) {
+    .flow, .dialects { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>codegen — GIS IR</h1>
+    <p>套件 <code>.py</code> 先变成 <code>app::code</code> 的直线模块，再按方言落到现有标准库。<code>app::ir</code> 的函数签名保持不动。</p>
+    <p class="meta">规格：<a href="../specs/2026-09-27-views-desktop-shell-design.md">views desktop shell</a> §Codegen GIS IR</p>
+  </header>
+
+  <section class="panel">
+    <h2>流水线</h2>
+    <div class="flow" id="flow">
+      <div class="stage front" data-step="0">
+        <h3>1 语法</h3>
+        <p><code>codegen/front</code><br>Python3 ANTLR → 自有 AST。第一处语法错误即停。</p>
+      </div>
+      <div class="stage sema" data-step="1">
+        <h3>2 语义</h3>
+        <p><code>codegen/sema</code><br>子集、<code>sg</code>、动词、槽。有错不出模块，不碰 Host。</p>
+      </div>
+      <div class="stage code" data-step="2">
+        <h3>3 Codegen</h3>
+        <p><code>codegen/lower</code><br>收成 <code>Module</code>。不链接 <code>backend</code>。</p>
+      </div>
+      <div class="stage eval" data-step="3">
+        <h3>4 执行</h3>
+        <p><code>codegen/eval</code><br>按 <code>OpDesc</code> 下标调用。第一条失败即停，不回滚。</p>
+      </div>
+      <div class="stage host" data-step="4">
+        <h3>5 宿主</h3>
+        <p><code>session</code> 先 bind。<code>app::ir</code> 与 GEOS / PROJ 在执行时才进入。</p>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="primary" id="play" type="button">播放</button>
+      <span class="note" id="caption">语义失败时，令牌停在第 2 步，Host 不会亮。</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>五种方言</h2>
+    <div class="dialects">
+      <div class="stack">
+        <div class="d geo"><strong>Geo</strong><span>谓词、构型、坐标变换。操作在 IL。求值调用 <code>geometry_traits</code>、GEOS、PROJ。几何是字符串池里的 WKT，<code>crs_epsg</code> 在操作数上。</span></div>
+        <div class="d rel"><strong>Relation</strong><span>Scan / Filter / Project / Join / Aggregate。空集是成功。</span></div>
+        <div class="d map"><strong>Map</strong><span>文档、图层、要素、样式、导出。有顺序。</span></div>
+        <div class="d proc"><strong>Process</strong><span>具名过程与 Scenario。端口类型固定。</span></div>
+        <div class="d sess"><strong>Session</strong><span>pump、mark、指针、等待、断言。</span></div>
+      </div>
+      <div class="arrow-col">
+        <div class="sink">Geo → <code>geometry_traits</code> / GEOS / PROJ</div>
+        <div class="sink">Relation → <code>MapLayer</code> 迭代</div>
+        <div class="sink">Map → <code>app::ir</code> document / view</div>
+        <div class="sink">Process → <code>run_processing</code> / <code>try_exec_harness_op</code></div>
+        <div class="sink">Session → <code>app::ir</code> horizon / gesture</div>
+      </div>
+    </div>
+    <p class="note">同一份模块可以按脚本顺序混合 Map、Process、Session。Geo 与 Relation 的操作在 IL 里求值。插件不提供 GIS 对象 API。</p>
+  </section>
+
+  <section class="panel">
+    <h2>插件</h2>
+    <div class="dialects">
+      <div class="d geo">
+        <strong>IL</strong>
+        <span>Geo / Relation / Map 操作。主入口是 IL runtime。套件脚本和以后的产品脚本从这里进来。</span>
+      </div>
+      <div class="d proc">
+        <strong>语言扩展 + 执行扩展</strong>
+        <span><code>plugin/runtime/python</code> 只把额外表面 lower 成 IL 操作，并为自己拥有的 op 提供 eval。GIS 类型不登记在绑定里。控制台任意 <code>:py</code> 仍是嵌入式 CPython。</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>扩展点</h2>
+    <table class="map">
+      <thead>
+        <tr><th>要加的东西</th><th>改哪里</th><th>不改哪里</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>内建动词</td><td>对应 lane 的一份 <code>OpDesc</code></td><td>语法、eval 主循环</td></tr>
+        <tr><td>插件场景</td><td>现有 <code>register_harness_op</code></td><td><code>Op</code> 枚举</td></tr>
+        <tr><td>新的具名分析</td><td>Process 描述（端口类型）</td><td>Geo 原语</td></tr>
+        <tr><td>几何代数</td><td>Geo 描述 + traits 后端</td><td>Session、窗口</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+(function () {
+  var stages = Array.prototype.slice.call(document.querySelectorAll(".stage"));
+  var caption = document.getElementById("caption");
+  var play = document.getElementById("play");
+  var timer = null;
+  var step = -1;
+  var captions = [
+    "语法：ANTLR 只产出 AST。",
+    "语义：收集错误。有错则停在这里，Host 不亮。",
+    "Codegen：把通过的语义收成 Module。",
+    "执行：第一条失败指令停下，此前效果保留。",
+    "宿主：session 已经 bind。app::ir 在这一步才被调用。"
+  ];
+  function clear() {
+    stages.forEach(function (el) { el.classList.remove("on"); });
+  }
+  function show(i) {
+    clear();
+    for (var k = 0; k <= i && k < stages.length; k++) stages[k].classList.add("on");
+    caption.textContent = captions[i];
+  }
+  function stop() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    play.textContent = "播放";
+  }
+  play.addEventListener("click", function () {
+    if (timer) { stop(); return; }
+    play.textContent = "暂停";
+    step = -1;
+    timer = setInterval(function () {
+      step += 1;
+      if (step >= stages.length) { stop(); return; }
+      show(step);
+    }, 900);
+  });
+})();
+</script>
+</body>
+</html>

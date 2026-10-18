@@ -1,0 +1,78 @@
+{
+  "version": 8,
+  "name": "carto-print",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {"background-color": "#aad3df", "background-opacity": 1}
+    },
+    {
+      "id": "land",
+      "type": "fill",
+      "source-layer": "land",
+      "paint": {"fill-color": "#f5f3e9", "fill-opacity": 1}
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source-layer": "water",
+      "paint": {"fill-color": "#a3ccff", "fill-opacity": 1}
+    },
+    {
+      "id": "river",
+      "type": "line",
+      "source-layer": "river",
+      "paint": {
+        "line-color": "#4a8ab8",
+        "line-width": 1.15,
+        "line-opacity": 1
+      },
+      "layout": {"line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "admin",
+      "type": "line",
+      "source-layer": "admin",
+      "paint": {
+        "line-color": "#2c2418",
+        "line-width": 1.05,
+        "line-opacity": 1
+      },
+      "layout": {"line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "road-casing",
+      "type": "line",
+      "source-layer": "road",
+      "minzoom": 5,
+      "paint": {
+        "line-color": "#8a7040",
+        "line-width": 1.55,
+        "line-opacity": 1
+      },
+      "layout": {"line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "road",
+      "type": "line",
+      "source-layer": "road",
+      "minzoom": 5,
+      "paint": {
+        "line-color": "#e0c06a",
+        "line-width": 0.9,
+        "line-opacity": 1
+      },
+      "layout": {"line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "city-circle",
+      "type": "circle",
+      "source-layer": "label",
+      "paint": {
+        "circle-color": "#e65100",
+        "circle-radius": 3
+      }
+    }
+  ]
+}

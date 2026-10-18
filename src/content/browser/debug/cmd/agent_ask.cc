@@ -99,8 +99,8 @@ bool exec_ask_command(const std::string& line,
   if (contains(lq, "script") || contains(lq, "repro") ||
       contains(lq, "interact")) {
     *output =
-        "Use :script <path.il> or script.run {path}. "
-        "Ask stub does not invent IL paths.";
+        "Use :script <path.py> or script.run {path}. "
+        "Ask stub does not invent script paths.";
     return true;
   }
 

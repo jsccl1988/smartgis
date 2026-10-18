@@ -34,6 +34,9 @@ enum class LineRole { kWater, kRoad, kOther };
 
 VISTA_EXPORT LineRole line_role(const char* kind, const char* feature_class);
 VISTA_EXPORT bool line_is_major_class(const char* kind, const char* feature_class);
+// Motorway / trunk / national highway. Primary and below stay off the
+// country frame so the road layer is a skeleton, not a mesh.
+VISTA_EXPORT bool line_is_overview_road(const char* kind, const char* feature_class);
 VISTA_EXPORT bool line_visible_at_scale(LineRole role, double length,
                                       bool major_class, double scale);
 VISTA_EXPORT int line_stroke_px(LineRole role, double length, double scale);

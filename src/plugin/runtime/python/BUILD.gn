@@ -7,31 +7,105 @@ import("//testing/test.gni")
 # has_python / python_root: see build/python.gni.
 # Stub compiles when Python 3.12 headers+libs are absent, the arg is false,
 # or the current config is Debug (Release CPython /MD must not link into /MDd).
+# Script verbs and the GIS console live in glang.runtime. This target is the
+# CPython embed plus plugin contribution bindings.
 
-source_set("python") {
+_python_deps = [
+  "//src/base:base",
+  "//src/content/browser/glang.runtime:eval",
+  "//src/content/browser/glang.runtime:gis_console",
+  "//src/content/browser/glang.runtime:op",
+  "//src/content/browser/glang.runtime:plugin_fn",
+  "//src/content/browser/glang.runtime:script_call",
+  "//src/content:capability",
+  "//src/plugin:host",
+  "//src/plugin/runtime/processing:processing_ops",
+  "//src/ui/gis:gis",
+  "//src/ui/views:views",
+]
+
+source_set("script") {
   sources = [
-    "bindings.cc",
-    "gis_bindings.cc",
-    "gis_bindings.h",
-    "runtime.cc",
-    "runtime.h",
+    "script/attach.cc",
+    "script/attach.h",
   ]
   include_dirs += [ "//src" ]
-  deps = [
-    "//src/base:base",
-    "//src/plugin:host",
-    "//src/plugin/runtime/processing:processing_ops",
-    "//src/ui/gis:gis",
-    "//src/ui/views:views",
-  ]
+  deps = _python_deps
   if (python_enabled) {
     include_dirs += [ python_include ]
     defines += [
       "HAS_PYTHON=1",
       "PYTHON_HOME=\"" + python_prefix + "\"",
     ]
-    libs += [ "python312.lib" ]
-    lib_dirs += [ python_libdir ]
+  }
+}
+
+source_set("gis") {
+  sources = [
+    "gis/analysis.cc",
+    "gis/attach.cc",
+    "gis/attach.h",
+    "gis/marshal.cc",
+    "gis/marshal.h",
+    "gis/scene.cc",
+    "gis/style.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = _python_deps
+  if (python_enabled) {
+    include_dirs += [ python_include ]
+    defines += [
+      "HAS_PYTHON=1",
+      "PYTHON_HOME=\"" + python_prefix + "\"",
+    ]
+  }
+}
+
+source_set("bind") {
+  sources = [
+    "bind/debug.cc",
+    "bind/events.cc",
+    "bind/forward.h",
+    "bind/gil.h",
+    "bind/host.cc",
+    "bind/module.cc",
+    "bind/py_compat.h",
+    "bind/slot.cc",
+    "bind/slot.h",
+    "bind/surface.h",
+    "bind/tool.cc",
+    "bind/ui.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = _python_deps + [
+           ":gis",
+           ":script",
+         ]
+  if (python_enabled) {
+    include_dirs += [ python_include ]
+    defines += [
+      "HAS_PYTHON=1",
+      "PYTHON_HOME=\"" + python_prefix + "\"",
+    ]
+  }
+}
+
+source_set("python") {
+  sources = [
+    "runtime.cc",
+    "runtime.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = _python_deps + [
+           ":bind",
+           "//src/content/browser/glang.runtime:cpython",
+         ]
+  if (python_enabled) {
+    include_dirs += [ python_include ]
+    defines += [
+      "HAS_PYTHON=1",
+      "PYTHON_HOME=\"" + python_prefix + "\"",
+    ]
   }
 }
 
@@ -46,15 +120,40 @@ if (python_enabled && python_dll != "") {
   }
 }
 
+test("script_main_test") {
+  output_name = "script_main_test"
+  sources = [ "script_main_test.cc" ]
+  include_dirs += [ "//src" ]
+  # Handwritten main(). Not a gtest runner.
+  use_gtest = false
+  deps = [ ":python" ]
+  if (python_enabled) {
+    defines += [ "HAS_PYTHON=1" ]
+    if (python_dll != "") {
+      data_deps = [
+        ":python312_dll",
+        ":python3_dll",
+      ]
+    }
+  }
+}
+
 test("plugin_python_test") {
   output_name = "plugin_python_test"
   sources = [ "python_test.cc" ]
   include_dirs += [ "//src" ]
+  # Handwritten main(). Not a gtest runner.
+  use_gtest = false
   deps = [ ":python" ]
   # Samples live under //src/plugin/runtime/python/samples/{hello,analysis,...}.
-  # Tests load hello only; do not retarget PLUGIN_HELLO_DIR without updating python_test.cc.
-  defines += [ "PLUGIN_HELLO_DIR=\"" +
-               rebase_path("//src/plugin/runtime/python/samples/hello") + "\"" ]
+  # plugin_python_test starts hello and analysis. product_orchestrate and
+  # industry_pack are not started by that binary.
+  defines += [
+    "PLUGIN_HELLO_DIR=\"" +
+        rebase_path("//src/plugin/runtime/python/samples/hello") + "\"",
+    "PLUGIN_ANALYSIS_DIR=\"" +
+        rebase_path("//src/plugin/runtime/python/samples/analysis") + "\"",
+  ]
   if (python_enabled) {
     defines += [ "HAS_PYTHON=1" ]
     if (python_dll != "") {

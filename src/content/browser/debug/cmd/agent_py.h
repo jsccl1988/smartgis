@@ -22,7 +22,7 @@ bool dispatch_py_method(const std::string& method,
                         const PyEvalFn& eval,
                         std::string* response);
 
-// Handles :py / :run / bare python one-liners (non-colon lines via caller).
+// Handles :py string eval. :run is a file path and must not be eval'd here.
 bool exec_py_command(const std::string& line,
                      const PyEvalFn& eval,
                      std::string* output);

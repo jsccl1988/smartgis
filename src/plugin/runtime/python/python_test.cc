@@ -30,6 +30,10 @@ void expect(bool ok, const char* msg) {
 #define PLUGIN_HELLO_DIR ""
 #endif
 
+#ifndef PLUGIN_ANALYSIS_DIR
+#define PLUGIN_ANALYSIS_DIR ""
+#endif
+
 bool write_text(const std::filesystem::path& path, const char* body) {
   std::ofstream out(path, std::ios::binary);
   if (!out) {
@@ -229,6 +233,30 @@ int main() {
       delete hello_host;
     } else {
       std::fprintf(stderr, "hello sample missing at %s\n", hello_dir);
+      ++g_fails;
+    }
+  }
+
+  const char* analysis_dir = PLUGIN_ANALYSIS_DIR;
+  if (analysis_dir && analysis_dir[0]) {
+    const fs::path analysis(analysis_dir);
+    if (fs::exists(analysis / "plugin.py")) {
+      content::PluginHost* analysis_host =
+          content::create_plugin_host(&catalog, &bus, nullptr);
+      expect(py.start(analysis.string(), "plugin.py", analysis_host),
+             "analysis sample start");
+      expect(analysis_host->run_processing("sample.flood_fill", "{}"),
+             "analysis sample.flood_fill");
+      expect(analysis_host->run_processing("sample.cost_path", "{}"),
+             "analysis sample.cost_path");
+      ui::views::set_message_box_suppressed_for_test(true);
+      expect(analysis_host->execute("sample.analysis.open", {}),
+             "analysis sample.analysis.open");
+      ui::views::set_message_box_suppressed_for_test(false);
+      py.stop();
+      delete analysis_host;
+    } else {
+      std::fprintf(stderr, "analysis sample missing at %s\n", analysis_dir);
       ++g_fails;
     }
   }

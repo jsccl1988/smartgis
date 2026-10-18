@@ -68,8 +68,8 @@ std::string default_carto_style_json() {
          "\"paint\":{"
          // Saturated blue hierarchy (Yangtze Economic Belt reference).
          "\"line-color\":\"#1e6aaf\","
-         "\"line-width\":[\"interpolate\",[\"linear\"],[\"zoom\"],5,2.8,11,"
-         "3.6,14,4.5],"
+         "\"line-width\":[\"interpolate\",[\"linear\"],[\"zoom\"],5,0.85,11,"
+         "1.25,14,1.75],"
          "\"line-opacity\":1"
          "},"
          "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
@@ -79,14 +79,14 @@ std::string default_carto_style_json() {
          "\"type\":\"line\","
          "\"source-layer\":\"admin\","
          "\"paint\":{"
-         // Charcoal umber #2c2418 — keep wide enough over jet hillshade so
-         // AA still leaves pixels inside the harness admin_gray band.
+         // Charcoal umber #2c2418. Hairline at national zoom; AA still
+         // leaves a 1px stroke inside the harness admin_gray band.
          "\"line-color\":\"#2c2418\","
-         "\"line-width\":[\"interpolate\",[\"linear\"],[\"zoom\"],5,2.4,11,"
-         "3.0,14,3.6],"
+         "\"line-width\":[\"interpolate\",[\"linear\"],[\"zoom\"],5,0.75,11,"
+         "1.05,14,1.4],"
          "\"line-opacity\":1"
          "},"
-         "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
+         "\"layout\":{\"line-cap\":\"butt\",\"line-join\":\"miter\"}"
          "},"
          "{"
          "\"id\":\"road-casing\","
@@ -101,7 +101,7 @@ std::string default_carto_style_json() {
          "\"#8a7040\"],"
          "\"line-width\":[\"*\",[\"match\",[\"get\",\"class\"],\"motorway\","
          "1.35,\"trunk\",1.2,\"primary\",1.05,1],"
-         "[\"interpolate\",[\"linear\"],[\"zoom\"],5,2.8,11,3.5,14,5]],"
+         "[\"interpolate\",[\"linear\"],[\"zoom\"],5,1.15,11,1.55,14,2.2]],"
          "\"line-opacity\":1"
          "},"
          "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
@@ -117,7 +117,7 @@ std::string default_carto_style_json() {
          "\"#e0c06a\"],"
          "\"line-width\":[\"*\",[\"match\",[\"get\",\"class\"],\"motorway\","
          "1.4,\"trunk\",1.2,\"primary\",1.05,1],"
-         "[\"interpolate\",[\"linear\"],[\"zoom\"],5,1.2,11,1.6,14,2.4]],"
+         "[\"interpolate\",[\"linear\"],[\"zoom\"],5,0.5,11,0.9,14,1.4]],"
          "\"line-opacity\":1"
          "},"
          "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"

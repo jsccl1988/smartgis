@@ -49,7 +49,7 @@ bool Browser::run_m2_harness_hooks(std::string* err) {
   if (!panel->select_id("native.buffer") || !panel->select_id("native.clip")) {
     return fail("m2: native.buffer/clip missing from panel");
   }
-  if (!plugins_ || !plugins_->host()) {
+  if (!this->plugins() || !this->plugins()->host()) {
     return fail("m2: plugin host missing");
   }
 

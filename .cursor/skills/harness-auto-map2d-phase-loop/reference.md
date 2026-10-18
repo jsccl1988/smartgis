@@ -47,7 +47,7 @@ Gate idea (matrix): phase sum ≈ export / cold present within ±15%.
 | `gpu_skip` / `gpu_full` / `skip_pct` | `Map2dGpuPresentProfile` |
 | `action_rebuild` / `interactive` / `settle` / `static` | Dual-speed present actions |
 
-Warm past dual-speed settle (~200–350 ms pump) before timed samples — already in `fps_bench.cc`.
+Warm past dual-speed settle (~200–350 ms pump) before timed samples — already in `map2d_fps.cc`.
 
 ## Env knobs
 

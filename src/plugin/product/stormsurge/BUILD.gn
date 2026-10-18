@@ -52,34 +52,13 @@ native_plugin("stormsurge_native") {
   data_deps = [ ":stormsurge_resources" ]
 }
 
-source_set("stormsurge_harness") {
-  sources = [
-    "scenario/interact.cc",
-    "scenario/interact.h",
-    "scenario/register.cc",
-    "scenario/register.h",
-    "scenario/run.cc",
-    "scenario/run.h",
-    "scenario/seed.cc",
-    "scenario/seed.h",
-  ]
-  include_dirs += [
-    ".",
-    "//src",
-  ]
-  deps = [
-    ":stormsurge_views",
-    "//src/content:content",
-    "//src/content:scene3d_present",
-    "//src/plugin/product/world3d:world3d_harness",
-    "//src/plugin/runtime/host:host",
-    "//third_party:gdal",
-  ]
-}
-
 test("stormsurge_run_test") {
   output_name = "stormsurge_run_test"
-  sources = [ "tests/run_test.cc" ]
+  sources = [
+    "gate.cc",
+    "gate.h",
+    "tests/run_test.cc",
+  ]
   include_dirs += [ "//src" ]
   deps = [
     ":stormsurge_views",
@@ -87,9 +66,11 @@ test("stormsurge_run_test") {
     "//src/gis:gis",
     "//src/plugin/runtime/host:host",
     "//third_party:gdal",
+    "//third_party/gn:dll_search",
   ]
   data_deps = [
     ":stormsurge_resources",
     "//third_party:gdal_runtime_dlls",
   ]
+  ldflags = [ "/ENTRY:mainCRTStartup", "/INCLUDE:__pfnDliNotifyHook2" ]
 }

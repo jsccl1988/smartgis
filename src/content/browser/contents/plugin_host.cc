@@ -93,7 +93,7 @@ class PluginHostImpl final : public PluginHost {
     // handlers_ is SoT for PluginHost::execute. Mirroring the real
     // CommandHandler into tool_d CommandCatalog (cross-module std::function
     // emplace) has corrupted the catalog map — next contains() AVs
-    // (_Find_lower_bound rax=0) inside register_map2d_scenario under
+    // (_Find_lower_bound rax=0) inside register_map2d_harness under
     // browser.harness. Keep a capture-free stub in the catalog for id
     // discovery only.
     if (catalog_ && !catalog_->contains(cid)) {

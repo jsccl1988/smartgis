@@ -46,4 +46,4 @@ py -3 testing/tools/loop_runner.py --suite plugin.stormsurge --no-build
 
 `--plugin-showcase=stormsurge` runs `run_stormsurge_scene3d` (owned present, peer of
 world3d/mine). Required marks include `playback-water-tin` and `tab3d-horizon`.
-Optional map2d script: `testing/tools/harness/plugin/plugin.stormsurge/plugin.stormsurge.il`.
+Optional map2d script: `testing/tools/harness/plugin/plugin.stormsurge/plugin.stormsurge.py`.

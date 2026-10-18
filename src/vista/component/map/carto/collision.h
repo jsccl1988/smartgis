@@ -43,7 +43,7 @@ int label_priority(const char* name, const char* kind, const char* cls,
                    const char* adcode);
 
 // Max accepted priority at this scale (fblc = device px per world unit).
-int lod_max_priority(float fblc);
+VISTA_EXPORT int lod_max_priority(float fblc);
 int label_budget(float fblc);
 // Former projected-label draw cap (ViewFrame scale / fblc).
 VISTA_EXPORT int label_draw_budget(double scale);

@@ -1,0 +1,38 @@
+---
+description: Product diagnostics go through base LOGGING, not ad-hoc stderr prints
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Logging (`base/core/log.h`)
+
+Product C++ under **`src/`**, **`core/`**, **`algorithm/`**, and **`testing/`** prints diagnostics with the base log macro. This rule is global (`alwaysApply`). `LOGGING` writes stderr (flushed) and `base::log_sink()`. That ring is the Diagnostic Tools **Output** pane (subscribed for the process lifetime) and Agent `log.tail`. Do not add a second text pane for the same lines.
+
+## Do
+
+```cpp
+#include "base/core/log.h"
+
+LOGGING(LOG_INFO, "flood.inundate present %dx%d", width, height);
+LOGGING(LOG_ERROR, "script replay failed: %s", message.c_str());
+```
+
+- Levels: `LOG_FATAL`, `LOG_ERROR`, `LOG_WARNING`, `LOG_NOTICE`, `LOG_INFO`, `LOG_DEBUG`, `LOG_TRACE`.
+- Format is printf. A runtime string is `"%s"`, not the format argument.
+- On a touched translation unit, replace diagnostic `fprintf` / `printf` / `std::cerr` / `std::cout` / `OutputDebugString` with `LOGGING`.
+
+## Don’t
+
+- Don’t add a second logger, a `std::cerr` helper, or raw `fprintf(stderr, ...)` for new diagnostics.
+- Don’t call `base::log_write` from product code; `LOGGING` is the only entry.
+- Don’t log secrets, command lines that embed tokens, or full document payloads.
+
+## Out of scope
+
+- `third_party/` and `branches/` keep their own logs.
+- The `LOGGING` implementation itself, user-visible UI strings, and test assert macros stay as they are.
+- Python under `tools/` keeps the `logging` module.

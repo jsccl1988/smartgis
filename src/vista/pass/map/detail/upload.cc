@@ -317,8 +317,12 @@ std::vector<UploadedDraw> upload_draws(
             } else {
               const size_t need =
                   static_cast<size_t>(w) * static_cast<size_t>(h) * 4u;
-              const float op = clamp01(opacity);
-              if (rgba.size() >= need && op < 0.999f) {
+              // Jet texels are a=255 on land. SrcAlpha would replace cream,
+              // water, and roads. Cap coverage so the ramp tints the fills.
+              // Ocean stays a=0.
+              constexpr float kHillshadeCover = 0.22f;
+              const float op = (std::min)(clamp01(opacity), kHillshadeCover);
+              if (rgba.size() >= need) {
                 const int scale = static_cast<int>(op * 255.f + 0.5f);
                 for (size_t i = 3; i < need; i += 4) {
                   rgba[i] = static_cast<uint8_t>(

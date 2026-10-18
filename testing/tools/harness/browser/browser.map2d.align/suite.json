@@ -5,7 +5,7 @@
                  "--map2d-showcase=align",
                  "--map2d-showcase-il=1"
              ],
-    "script":  "browser.map2d.align.il",
+    "script":  "browser.map2d.align.py",
     "env":  {
                 "MAP2D_SHOWCASE_LINGER_MS":  "0",
                 "MAP2D_SHOWCASE_W":  "1280",
@@ -21,9 +21,8 @@
                        ],
     "bmp":  {
                 "path":  "map2d-showcase-align.bmp",
-                "score_id":  "map2d_china",
+                "score_id":  "map2d_align",
                 "accept_nonzero_rc_if_bmp":  true,
-                "soft":  true,
                 "min_bytes":  10000
             },
     "report_name":  "browser_map2d_align_loop_report.json",
@@ -44,6 +43,6 @@
                                             "not_all_black",
                                             "no_y_flip_artifacts"
                                         ],
-                          "expect_notes":  "map2d StyleDocument align vs china carto; soft map2d_china"
+                          "expect_notes":  "map2d StyleDocument align (style_align.json, no admin layer); hard map2d_align"
                       }
 }

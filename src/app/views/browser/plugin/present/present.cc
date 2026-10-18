@@ -127,7 +127,7 @@ int export_plugin_frames(PluginShell* plugins, PluginPlayback* playback,
     _snwprintf_s(frame_leaf, _TRUNCATE, L"%s\\frame_%04d.bmp", leaf_w.c_str(),
                  i);
     wchar_t bmp_w[MAX_PATH] = {};
-    if (!exe_capture_path(bmp_w, MAX_PATH, frame_leaf)) {
+    if (!content::detail::exe_capture_path(bmp_w, MAX_PATH, frame_leaf)) {
       continue;
     }
     char bmp_a[MAX_PATH] = {};
@@ -142,7 +142,7 @@ int export_plugin_frames(PluginShell* plugins, PluginPlayback* playback,
 
   std::wstring json_leaf = leaf_w + L"\\playback.json";
   wchar_t json_w[MAX_PATH] = {};
-  if (exe_capture_path(json_w, MAX_PATH, json_leaf.c_str())) {
+  if (content::detail::exe_capture_path(json_w, MAX_PATH, json_leaf.c_str())) {
     char json_a[MAX_PATH] = {};
     if (WideCharToMultiByte(CP_ACP, 0, json_w, -1, json_a, MAX_PATH, nullptr,
                             nullptr) > 0) {

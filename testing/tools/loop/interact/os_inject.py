@@ -35,6 +35,32 @@ def _capture_zoom_sidecar(
     )
 
 
+def _run_python_in_process(script_path: Path, report: dict[str, Any]) -> dict[str, Any]:
+    """Execute a .py file inside the live shell. Does not parse IL."""
+    from ..record.agent_events import try_connect_agent
+
+    client = try_connect_agent(timeout=5.0)
+    if client is None:
+        report["ok"] = False
+        report["errors"].append("debug agent not connected")
+        return report
+    try:
+        result = client.call("script.run", {"path": str(script_path.resolve())})
+    except Exception as exc:  # noqa: BLE001
+        report["ok"] = False
+        report["errors"].append(f"script.run: {exc}")
+        return report
+    text = ""
+    if isinstance(result, dict):
+        text = str(result.get("text") or result.get("output") or "")
+    report["output"] = text
+    report["steps_run"] = 1
+    if text.startswith("error:"):
+        report["ok"] = False
+        report["errors"].append(text)
+    return report
+
+
 def run_script(
     script_path: Path,
     hwnd: int,
@@ -255,75 +281,9 @@ def run_script(
                     "when": "dblclick",
                 }
 
-    # Prefer Interact DSL (.il); legacy JSON remains as fallback.
-    if str(script_path).lower().endswith(".il"):
-        from .dsl import exec_os, parse_interact_file
-
-        try:
-            _name, stmts = parse_interact_file(script_path)
-        except Exception as exc:  # noqa: BLE001
-            report["ok"] = False
-            report["errors"].append(f"dsl_parse: {exc}")
-            return report
-        actions: list[dict[str, Any]] = []
-        exec_os(stmts, emit=actions.append, inject_default=inject_default)
-        chord_stack: list[list[int]] = []
-        for step in actions:
-            try:
-                op = step.get("op")
-                if op == "chord_begin":
-                    mods = []
-                    for name in step.get("modifiers") or []:
-                        vk = _mod_vk(str(name))
-                        if vk:
-                            mods.append(vk)
-                            if str(step.get("inject") or inject_default).lower() == "sendinput":
-                                user32.SetForegroundWindow(shell_hwnd)
-                                _send_key(vk, up=False)
-                            else:
-                                user32.PostMessageW(hwnd, WM_KEYDOWN, vk, 0)
-                    chord_stack.append(mods)
-                    report["steps_run"] += 1
-                    continue
-                if op == "chord_end":
-                    mods = chord_stack.pop() if chord_stack else []
-                    for vk in reversed(mods):
-                        if str(step.get("inject") or inject_default).lower() == "sendinput":
-                            _send_key(vk, up=True)
-                        else:
-                            user32.PostMessageW(hwnd, WM_KEYUP, vk, 0)
-                    report["steps_run"] += 1
-                    continue
-                _maybe_zoom_wrap(step)
-                if op == "wm_command":
-                    # MDI switch (e.g. ID_WND_3D) — retarget inject to the new view.
-                    # 3D CreateDevice + maximize needs more than a short sleep or
-                    # inject/capture still hits the Edit map client / black GL.
-                    cmd_id = int(step.get("id") or 0)
-                    time.sleep(2.5 if cmd_id == 32915 else 0.8)
-                    try:
-                        from ..record.hwnd import (
-                            bring_hwnd_to_front,
-                            find_map_client_hwnd,
-                        )
-
-                        bring_hwnd_to_front(int(shell_hwnd))
-                        new_hwnd, how = find_map_client_hwnd(
-                            shell_hwnd, timeout_sec=12.0
-                        )
-                        if new_hwnd and user32.IsWindow(int(new_hwnd)):
-                            hwnd = int(new_hwnd)
-                            report["retarget_hwnd"] = hwnd
-                            report["retarget_how"] = how
-                    except Exception as retarget_exc:  # noqa: BLE001
-                        report.setdefault("errors", []).append(
-                            f"retarget: {retarget_exc}"
-                        )
-            except Exception as exc:  # noqa: BLE001
-                report["ok"] = False
-                report["errors"].append(f"{step.get('op')}: {exc}")
-                break
-        return report
+    lowered = str(script_path).lower()
+    if lowered.endswith(".py"):
+        return _run_python_in_process(script_path, report)
 
     raw = json.loads(script_path.read_text(encoding="utf-8"))
     steps = raw.get("steps") or []

@@ -14,6 +14,7 @@
 #include <cstring>
 
 #include "gis/tile/protocol/mercator_math.h"
+#include <deque>
 #include <map>
 #include <memory>
 #include <string>
@@ -137,7 +138,9 @@ int feature_label_importance(const FeatureFields& fields) {
   if (fields.kind) {
     if (std::strcmp(fields.kind, "city") == 0 ||
         std::strcmp(fields.kind, "point") == 0) {
-      return 2;
+      // Not every city point is a prefecture. Unranked names wait for a
+      // closer zoom instead of joining the national 市 tier.
+      return 1;
     }
   }
   return 0;
@@ -193,7 +196,8 @@ std::string carto_source_layer(const BatchFeature& feature,
     return "land";
   }
   if (feature.kind == BatchGeomKind::kLine) {
-    if (has("river") || has("stream") || has("canal") || has("lake")) {
+    if (has("river") || has("stream") || has("canal") || has("lake") ||
+        has("water")) {
       return "river";
     }
     if (has("admin") || has("bound") || has("border")) {
@@ -318,10 +322,12 @@ bool should_keep_probe(const FeatureProbe& p, double scale, bool use_carto_slots
       }
     }
     bool major = p.major;
-    // Demote secondary arterials on national overview (zoom<14), matching
-    // line_visible_at_scale — absolute scale grows with viewport width.
-    if (p.role == detail::LineRole::kRoad &&
-        gis::tile::zoom_from_scale(scale) < 14.0) {
+    const double zoom = gis::tile::zoom_from_scale(scale);
+    if (p.role == detail::LineRole::kRoad && zoom < 15.5) {
+      // National and regional frames: motorway / national highway only.
+      major = detail::line_is_overview_road(p.fields.kind,
+                                            feature_class_cstr(p.fields));
+    } else if (p.role == detail::LineRole::kRoad && zoom < 17.5) {
       auto is_secondary = [](const char* s) {
         if (!s || !s[0]) {
           return false;
@@ -329,10 +335,10 @@ bool should_keep_probe(const FeatureProbe& p, double scale, bool use_carto_slots
         return std::strstr(s, "secondary") != nullptr ||
                std::strstr(s, "Secondary") != nullptr;
       };
-      if (is_secondary(p.fields.kind) ||
-          is_secondary(feature_class_cstr(p.fields))) {
-        major = false;
-      }
+      major = detail::line_is_major_class(p.fields.kind,
+                                         feature_class_cstr(p.fields)) &&
+              !is_secondary(p.fields.kind) &&
+              !is_secondary(feature_class_cstr(p.fields));
     }
     return detail::line_visible_at_scale(p.role, len_deg, major, scale);
   }
@@ -398,6 +404,14 @@ FeatureProbe make_probe(const BatchFeature& f, const std::string& layer_slot,
   p.source = !use_carto_slots
                  ? layer_slot
                  : (layer_is_slot ? layer_slot : carto_source_layer(f, p.fields));
+  // A mixed "line" layer (or a mis-named slot) still has to split river vs
+  // road, or both paint with whichever style the layer name happened to be.
+  if (use_carto_slots && f.kind == BatchGeomKind::kLine) {
+    const std::string typed = carto_source_layer(f, p.fields);
+    if (!typed.empty()) {
+      p.source = typed;
+    }
+  }
   const char* cls = feature_class_cstr(p.fields);
   // china_city stores geom stem on kind ("line") and semantics on line_kind.
   const char* role_kind = p.fields.kind;
@@ -413,17 +427,20 @@ FeatureProbe make_probe(const BatchFeature& f, const std::string& layer_slot,
         (p.source == "river") || (p.role == detail::LineRole::kWater);
     p.stem_road = (p.source == "road") || (p.role == detail::LineRole::kRoad);
   }
-  if (p.source == "label" || f.kind == BatchGeomKind::kText ||
-      f.kind == BatchGeomKind::kPoint) {
+  if (p.source == "label" || p.source == "land" ||
+      f.kind == BatchGeomKind::kText || f.kind == BatchGeomKind::kPoint ||
+      f.kind == BatchGeomKind::kPolygon) {
     p.label_importance = feature_label_importance(p.fields);
   }
   return p;
 }
 
 // Quantize lon/lat so shared provincial borders hash as one undirected edge.
+// 0.004° (~400 m) collapses the near-parallel ghost left when two admin_1
+// rings digitize the same border a few samples apart.
 uint64_t quantize_lonlat(double x, double y) {
-  const auto qx = static_cast<int32_t>(std::llround(x * 10000.0));
-  const auto qy = static_cast<int32_t>(std::llround(y * 10000.0));
+  const auto qx = static_cast<int32_t>(std::llround(x * 250.0));
+  const auto qy = static_cast<int32_t>(std::llround(y * 250.0));
   return (static_cast<uint64_t>(static_cast<uint32_t>(qx)) << 32) |
          static_cast<uint32_t>(qy);
 }
@@ -453,67 +470,43 @@ UndirectedEdgeKey make_edge_key(double x0, double y0, double x1, double y1) {
   return UndirectedEdgeKey{a, b};
 }
 
-// Emit land-ring segments as admin once per undirected edge. Adjacent
-// admin_1 polygons share borders; stroking every ring twice with independent
-// RDP produced parallel ghost strokes on china overview.
-void append_unique_admin_edges(const BatchFeature& f, int safe_step,
-                               const std::map<std::string, std::string>& attrs,
-                               LayerBatchSet* out, BatchSourceIndex* batch_index,
-                               AdminEdgeSet* seen_edges) {
-  if (!out || !seen_edges || !batch_index) {
+// One closed ring per polygon. Splitting on shared edges left open runs, so
+// provinces and counties no longer read as regions.
+void append_closed_ring(const BatchFeature& f, int safe_step,
+                        const std::map<std::string, std::string>& attrs,
+                        const char* source_layer, LayerBatchSet* out,
+                        BatchSourceIndex* batch_index) {
+  if (!out || !batch_index || !source_layer || !source_layer[0]) {
     return;
   }
   const int n = static_cast<int>(f.points.size());
   if (n < 3) {
     return;
   }
-  std::vector<BatchPoint> ring;
-  ring.reserve(static_cast<size_t>(n / (std::max)(safe_step, 1) + 2));
-  for (int i = 0; i < n; i += safe_step) {
-    ring.push_back(f.points[static_cast<size_t>(i)]);
+  auto ring = std::make_unique<OGRLineString>();
+  const int step = (std::max)(safe_step, 1);
+  for (int i = 0; i < n; i += step) {
+    const BatchPoint& pt = f.points[static_cast<size_t>(i)];
+    ring->addPoint(pt.x, pt.y);
   }
-  if (n > 0 && (n - 1) % safe_step != 0) {
-    ring.push_back(f.points.back());
+  if ((n - 1) % step != 0) {
+    ring->addPoint(f.points.back().x, f.points.back().y);
   }
-  if (ring.size() >= 2 &&
-      (ring.front().x != ring.back().x || ring.front().y != ring.back().y)) {
-    ring.push_back(ring.front());
-  }
-  if (ring.size() < 2) {
+  if (ring->getNumPoints() < 3) {
     return;
   }
-  LayerBatch* admin = batch_for(out, "admin", batch_index);
-  auto flush_run = [&](std::unique_ptr<OGRLineString>& run) {
-    if (!run || run->getNumPoints() < 2) {
-      run.reset();
-      return;
-    }
-    admin->geoms.push_back(run.get());
-    out->owned.push_back(std::move(run));
-    admin->attrs.push_back(attrs);
-  };
-  std::unique_ptr<OGRLineString> run;
-  for (size_t i = 1; i < ring.size(); ++i) {
-    const BatchPoint& p0 = ring[i - 1];
-    const BatchPoint& p1 = ring[i];
-    const UndirectedEdgeKey key = make_edge_key(p0.x, p0.y, p1.x, p1.y);
-    if (key.a == key.b || !seen_edges->insert(key).second) {
-      flush_run(run);
-      continue;
-    }
-    if (!run) {
-      run = std::make_unique<OGRLineString>();
-      run->addPoint(p0.x, p0.y);
-    }
-    run->addPoint(p1.x, p1.y);
+  const int last = ring->getNumPoints() - 1;
+  if (ring->getX(0) != ring->getX(last) || ring->getY(0) != ring->getY(last)) {
+    ring->addPoint(ring->getX(0), ring->getY(0));
   }
-  flush_run(run);
+  LayerBatch* batch = batch_for(out, source_layer, batch_index);
+  batch->geoms.push_back(ring.get());
+  out->owned.push_back(std::move(ring));
+  batch->attrs.push_back(attrs);
 }
 
 void append_probe_geometry(const FeatureProbe& p, double scale,
-                           LayerBatchSet* out, BatchSourceIndex* batch_index,
-                           AdminEdgeSet* land_admin_edges,
-                           bool skip_land_admin_synth) {
+                           LayerBatchSet* out, BatchSourceIndex* batch_index) {
   if (!out || !p.feature) {
     return;
   }
@@ -564,12 +557,14 @@ void append_probe_geometry(const FeatureProbe& p, double scale,
     attrs.emplace(field.name, field.value);
   }
   batch->attrs.push_back(attrs);
-  // china_city stores admin_1 as land polygons only; river/road extracts
-  // have no boundary lines. Stroke unique undirected ring edges as admin.
-  if (!skip_land_admin_synth && land_admin_edges && p.source == "land" &&
-      f.kind == BatchGeomKind::kPolygon && n >= 3) {
-    append_unique_admin_edges(f, safe_step, attrs, out, batch_index,
-                              land_admin_edges);
+  // china_city stores admin_1 as land polygons; river/road extracts are lines.
+  // Closed rings. Shared-edge splitting left provinces and counties open.
+  if (f.kind == BatchGeomKind::kPolygon && n >= 3) {
+    if (p.source == "water") {
+      // Lake / sea polygons keep a closed water stroke when the fill is
+      // covered by the raster sheet.
+      append_closed_ring(f, safe_step, attrs, "river", out, batch_index);
+    }
   }
 }
 
@@ -587,6 +582,156 @@ void collect_layer_probes(const BatchLayer& layer, bool use_carto_slots,
     }
     probes->push_back(make_probe(f, layer_slot, layer_is_slot, use_carto_slots));
   }
+}
+
+double snap_ll(double v) {
+  // 0.01° joins province rings that were simplified independently so shared
+  // edges count as 省界 instead of all falling through as 国界.
+  return std::round(v * 100.0) / 100.0;
+}
+
+struct BoundEdge {
+  uint64_t a = 0;
+  uint64_t b = 0;
+  int count = 0;
+};
+
+// Shared borders (count >= 2) are 省界. Edges owned by one ring are 国界
+// or coastline. Each snapped edge is emitted once.
+void emit_classified_land_boundaries(const std::vector<FeatureProbe>& probes,
+                                    double scale, bool use_carto_slots,
+                                    const LineStemLens* line_stems,
+                                    LayerBatchSet* out,
+                                    BatchSourceIndex* batch_index) {
+  if (!out || !batch_index) {
+    return;
+  }
+  const double zoom = gis::tile::zoom_from_scale(scale);
+  std::unordered_map<UndirectedEdgeKey, size_t, UndirectedEdgeHash> index;
+  std::vector<BoundEdge> edges;
+  std::unordered_map<uint64_t, std::pair<double, double>> coord;
+  index.reserve(8192);
+  for (const FeatureProbe& probe : probes) {
+    if (!probe.feature || probe.source != "land" ||
+        probe.feature->kind != BatchGeomKind::kPolygon) {
+      continue;
+    }
+    if (!should_keep_probe(probe, scale, use_carto_slots, line_stems)) {
+      continue;
+    }
+    const bool stroke = zoom >= 15.5 ||
+                        (zoom >= 13.0 && probe.label_importance >= 2) ||
+                        probe.label_importance >= 3;
+    if (!stroke) {
+      continue;
+    }
+    const BatchFeature& f = *probe.feature;
+    const int n = static_cast<int>(f.points.size());
+    if (n < 3) {
+      continue;
+    }
+    std::vector<uint64_t> ring;
+    ring.reserve(static_cast<size_t>(n) + 1);
+    for (int i = 0; i < n; ++i) {
+      const double x = snap_ll(f.points[static_cast<size_t>(i)].x);
+      const double y = snap_ll(f.points[static_cast<size_t>(i)].y);
+      const uint64_t key = quantize_lonlat(x, y);
+      coord.emplace(key, std::pair<double, double>{x, y});
+      if (!ring.empty() && ring.back() == key) {
+        continue;
+      }
+      ring.push_back(key);
+    }
+    if (ring.size() >= 2 && ring.front() != ring.back()) {
+      ring.push_back(ring.front());
+    }
+    for (size_t i = 1; i < ring.size(); ++i) {
+      uint64_t a = ring[i - 1];
+      uint64_t b = ring[i];
+      if (a == b) {
+        continue;
+      }
+      if (a > b) {
+        std::swap(a, b);
+      }
+      const UndirectedEdgeKey ek{a, b};
+      const auto found = index.find(ek);
+      if (found == index.end()) {
+        index.emplace(ek, edges.size());
+        edges.push_back(BoundEdge{a, b, 1});
+      } else {
+        edges[found->second].count += 1;
+      }
+    }
+  }
+  auto emit_class = [&](bool shared, const char* source) {
+    std::unordered_map<uint64_t, std::vector<size_t>> adj;
+    std::vector<char> used(edges.size(), 0);
+    for (size_t i = 0; i < edges.size(); ++i) {
+      if ((edges[i].count >= 2) != shared) {
+        continue;
+      }
+      adj[edges[i].a].push_back(i);
+      adj[edges[i].b].push_back(i);
+    }
+    for (size_t start = 0; start < edges.size(); ++start) {
+      if (used[start] || (edges[start].count >= 2) != shared) {
+        continue;
+      }
+      std::deque<uint64_t> nodes;
+      nodes.push_back(edges[start].a);
+      nodes.push_back(edges[start].b);
+      used[start] = 1;
+      auto extend = [&](bool front) {
+        for (;;) {
+          const uint64_t node = front ? nodes.front() : nodes.back();
+          size_t next = static_cast<size_t>(-1);
+          const auto it = adj.find(node);
+          if (it != adj.end()) {
+            for (size_t ei : it->second) {
+              if (!used[ei]) {
+                next = ei;
+                break;
+              }
+            }
+          }
+          if (next == static_cast<size_t>(-1)) {
+            break;
+          }
+          used[next] = 1;
+          const BoundEdge& edge = edges[next];
+          const uint64_t other = edge.a == node ? edge.b : edge.a;
+          if (front) {
+            nodes.push_front(other);
+          } else {
+            nodes.push_back(other);
+          }
+        }
+      };
+      extend(false);
+      extend(true);
+      if (nodes.size() < 2) {
+        continue;
+      }
+      auto line = std::make_unique<OGRLineString>();
+      for (uint64_t node : nodes) {
+        const auto it = coord.find(node);
+        if (it == coord.end()) {
+          continue;
+        }
+        line->addPoint(it->second.first, it->second.second);
+      }
+      if (line->getNumPoints() < 2) {
+        continue;
+      }
+      LayerBatch* batch = batch_for(out, source, batch_index);
+      batch->geoms.push_back(line.get());
+      out->owned.push_back(std::move(line));
+      batch->attrs.emplace_back();
+    }
+  };
+  emit_class(true, "admin");
+  emit_class(false, "nation");
 }
 
 void emit_kept_probes(const std::vector<FeatureProbe>& probes, double scale,
@@ -615,18 +760,15 @@ void emit_kept_probes(const std::vector<FeatureProbe>& probes, double scale,
   const bool skip_land_admin_synth = has_admin_lines || zoom < 8.0;
   BatchSourceIndex batch_index;
   batch_index.reserve(8);
-  AdminEdgeSet land_admin_edges;
-  AdminEdgeSet* edges =
-      skip_land_admin_synth ? nullptr : &land_admin_edges;
-  if (edges) {
-    land_admin_edges.reserve(4096);
-  }
   for (const FeatureProbe& probe : probes) {
     if (!should_keep_probe(probe, scale, use_carto_slots, line_stems)) {
       continue;
     }
-    append_probe_geometry(probe, scale, out, &batch_index, edges,
-                          skip_land_admin_synth);
+    append_probe_geometry(probe, scale, out, &batch_index);
+  }
+  if (!skip_land_admin_synth) {
+    emit_classified_land_boundaries(probes, scale, use_carto_slots, line_stems,
+                                   out, &batch_index);
   }
 }
 
@@ -704,8 +846,19 @@ void dedupe_admin_boundary_edges_impl(LayerBatchSet* set) {
                              : std::map<std::string, std::string>{};
     const OGRwkbGeometryType type = wkbFlatten(raw->getGeometryType());
     if (type == wkbLineString) {
-      append_unique_line_edges(static_cast<const OGRLineString*>(raw), &seen,
-                               admin, set, attrs);
+      const auto* line = static_cast<const OGRLineString*>(raw);
+      const int npts = line->getNumPoints();
+      const bool closed =
+          npts >= 4 && line->getX(0) == line->getX(npts - 1) &&
+          line->getY(0) == line->getY(npts - 1);
+      // Closed region rings stay one loop. Edge-splitting them opens the
+      // polygon the user is looking at.
+      if (closed) {
+        admin->geoms.push_back(raw);
+        admin->attrs.push_back(attrs);
+      } else {
+        append_unique_line_edges(line, &seen, admin, set, attrs);
+      }
     } else if (type == wkbMultiLineString) {
       const auto* multi = static_cast<const OGRMultiLineString*>(raw);
       const int n = multi->getNumGeometries();

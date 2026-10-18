@@ -1,0 +1,128 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map2d 中国全图设计门禁</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+    --measure: #e8f0e4; --measure-ink: #2a4a32;
+    --contract: #e7eef6; --contract-ink: #1e3a5f;
+    --fail: #f8ebe3; --fail-ink: #6b3a1f;
+    --ok: #e5f2ea; --ok-ink: #1d4d32;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.5 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 22px 18px 48px; }
+  h1 { margin: 0 0 6px; font-size: 1.3rem; }
+  h2 { margin: 0 0 8px; font-size: 1rem; }
+  p { margin: 0; color: var(--muted); }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; margin-top: 12px;
+  }
+  .lanes { display: grid; grid-template-columns: 1fr 28px 1fr 28px 1fr; gap: 8px; align-items: stretch; }
+  .lane { border-radius: 8px; padding: 10px 12px; border: 1px solid var(--border); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.92rem; }
+  .lane ul { margin: 0; padding-left: 1.1em; }
+  .arrow { display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 1.2rem; }
+  .m { background: var(--measure); color: var(--measure-ink); }
+  .c { background: var(--contract); color: var(--contract-ink); }
+  .f { background: var(--fail); color: var(--fail-ink); }
+  .flow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .step {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; min-width: 140px;
+  }
+  .step b { display: block; color: var(--accent); font-size: 0.78rem; }
+  .step.on { outline: 2px solid var(--accent); }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Map2d 中国全图设计门禁</h1>
+  <p>色带只测量。合同条款全部 AND。失败回到渲染或播种，不改合同。</p>
+
+  <div class="panel">
+    <h2>分层</h2>
+    <div class="lanes">
+      <div class="lane m">
+        <h3>测量</h3>
+        <ul>
+          <li><code>measure_bands</code></li>
+          <li>海洋、奶油、jet、晕渲、道路、行政区、河流</li>
+          <li>不判决</li>
+        </ul>
+      </div>
+      <div class="arrow">→</div>
+      <div class="lane c">
+        <h3>合同</h3>
+        <ul>
+          <li><code>map2d_china_dem</code></li>
+          <li><code>map2d_china_carto</code></li>
+          <li><code>map2d_align</code></li>
+        </ul>
+      </div>
+      <div class="arrow">→</div>
+      <div class="lane f">
+        <h3>结果</h3>
+        <ul>
+          <li>每条条款 pass/fail</li>
+          <li>未知 <code>score_id</code> 失败</li>
+          <li>无 <code>map2d_china</code> 别名</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>一次静帧怎么走</h2>
+    <div class="flow" id="flow">
+      <div class="step"><b>1</b>suite.json 声明合同</div>
+      <div class="step"><b>2</b>只测色带</div>
+      <div class="step"><b>3</b>逐条 AND</div>
+      <div class="step"><b>4</b>失败则改画面</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>场景绑定</h2>
+    <table>
+      <thead><tr><th>场景</th><th>合同</th><th>不能拿来顶替</th></tr></thead>
+      <tbody>
+        <tr><td><code>browser.map2d.china</code></td><td><code>map2d_china_dem</code></td><td>奶油陆地顶替 jet</td></tr>
+        <tr><td><code>browser.map2d.browse</code></td><td><code>map2d_china_carto</code></td><td>晕渲或 jet 顶替奶油陆地</td></tr>
+        <tr><td><code>browser.map2d.align</code></td><td><code>map2d_align</code></td><td>借 carto 合同省掉行政区</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+  const steps = document.querySelectorAll("#flow .step");
+  let i = 0;
+  setInterval(() => {
+    steps.forEach((el, n) => el.classList.toggle("on", n === i));
+    i = (i + 1) % steps.length;
+  }, 900);
+</script>
+</body>
+</html>

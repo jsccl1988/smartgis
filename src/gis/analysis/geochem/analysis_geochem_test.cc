@@ -5,7 +5,7 @@
 #include "gis/analysis/geochem/idw.h"
 #include "gis/analysis/geochem/samples.h"
 #include "gis/analysis/geochem/stats.h"
-#include "gis/analysis/ops/ops_runner.h"
+#include "gis/analysis/ops/runner/ops_runner.h"
 
 #include <cmath>
 #include <cstdio>

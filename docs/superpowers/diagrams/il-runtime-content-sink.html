@@ -1,0 +1,257 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IL 下沉 content — 运行时在 glang.runtime</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --panel: #fff;
+    --border: #d8dee6;
+    --text: #1a2330;
+    --muted: #5a6a7e;
+    --accent: #2563a8;
+    --code: #243447;
+    --code-bg: #eef2f6;
+    --content: #e8f1fa;
+    --content-ink: #1d4e89;
+    --shell: #e6f5ef;
+    --shell-ink: #1f6b52;
+    --forbid: #f8ecec;
+    --forbid-ink: #8f3a3a;
+    --allow: #e7f0e4;
+    --allow-ink: #2f6b32;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 0.88em;
+    color: var(--code);
+    background: var(--code-bg);
+    padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 14px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .lane {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 12px 10px;
+    min-height: 280px;
+  }
+  .lane h3 { margin: 0 0 4px; font-size: 0.95rem; }
+  .lane .path { margin: 0 0 10px; font-size: 0.78rem; color: var(--muted); }
+  .lane.content { background: var(--content); }
+  .lane.content h3 { color: var(--content-ink); }
+  .lane.shell { background: var(--shell); }
+  .lane.shell h3 { color: var(--shell-ink); }
+  ul.own { margin: 0; padding-left: 1.1rem; }
+  ul.own li { margin: 0 0 6px; font-size: 0.84rem; }
+  .chip {
+    display: inline-block;
+    margin: 0 4px 4px 0;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid var(--border);
+    font-size: 0.78rem;
+  }
+  .edges { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .edge {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    font-size: 0.86rem;
+  }
+  .edge strong { display: block; margin-bottom: 4px; }
+  .edge.forbid { background: var(--forbid); }
+  .edge.forbid strong { color: var(--forbid-ink); }
+  .edge.allow { background: var(--allow); }
+  .edge.allow strong { color: var(--allow-ink); }
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .stage {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #f7f9fb;
+    padding: 8px 8px 7px;
+    min-height: 92px;
+  }
+  .stage h3 { margin: 0 0 4px; font-size: 0.8rem; }
+  .stage p { margin: 0; font-size: 0.75rem; color: var(--muted); }
+  .stage.on { outline: 2px solid var(--accent); outline-offset: 1px; background: #e8f1fa; }
+  .note { margin: 8px 0 0; font-size: 0.82rem; color: var(--muted); }
+  .controls { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  button {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 6px 11px;
+    cursor: pointer;
+    font: inherit;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (max-width: 800px) {
+    .cols, .edges, .flow { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>IL 下沉 content</h1>
+    <p>整棵运行时在 <code>src/content/browser/glang.runtime/</code>（GIS language runtime）。顶层三条车道：<code>language/</code>（opcode 管线）、<code>exec/</code>（求值与解释器）、<code>host/</code>（CapabilityHost 绑定）。壳侧只从外部 bind。</p>
+    <p class="meta">规格：<a href="../specs/2026-09-27-views-desktop-shell-design.md">views desktop shell</a> §IL 下沉 content · 编译器设计仍见 §Codegen GIS IR</p>
+  </header>
+
+  <section class="panel">
+    <h2>谁搬走，谁留下</h2>
+    <div class="cols">
+      <article class="lane content">
+        <h3>迁入 content</h3>
+        <p class="path"><code>src/content/browser/glang.runtime/</code></p>
+        <p>
+          <span class="chip">language</span>
+          <span class="chip">exec</span>
+          <span class="chip">host</span>
+        </p>
+        <ul class="own">
+          <li><code>language/</code>：front → sema → lower → <code>app::code</code>，IR 在 <code>language/ir</code>。</li>
+          <li><code>exec/</code>：op、eval、extend，以及 <code>exec/session</code> 里的解释器。</li>
+          <li><code>host/</code> 通过 <code>content::ShellBridge</code> / <code>content::Pane</code> 填 <code>CapabilityHost</code>。不包含 <code>Browser</code>、<code>DrawHost</code>、<code>PluginShell</code>。</li>
+          <li>GN <code>:backend</code> 与 <code>:session</code> 不依赖 <code>//src/app/views</code>。</li>
+        </ul>
+      </article>
+      <article class="lane shell">
+        <h3>壳侧只从外部 bind</h3>
+        <p class="path"><code>app/views/app/startup/shell_runtime.cc</code></p>
+        <p>
+          <span class="chip">ShellBridge</span>
+          <span class="chip">Browser</span>
+        </p>
+        <ul class="own">
+          <li>把 <code>Browser</code> / <code>DrawHost</code> / <code>PluginShell</code> 适配成 <code>ShellBridge</code> 与 <code>Pane</code>。</li>
+          <li>然后调用 <code>content::run_suite_script</code>。</li>
+          <li>这里没有 <code>host/</code>，也没有 <code>exec/session</code>。控制台任意 <code>:py</code> 仍是壳内嵌入式 CPython。</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>依赖边</h2>
+    <div class="edges">
+      <div class="edge forbid">
+        <strong>禁止</strong>
+        <code>content</code> 不 <code>#include</code> <code>app/views</code>，GN 也不依赖 <code>//src/app/views</code>。
+      </div>
+      <div class="edge allow">
+        <strong>允许</strong>
+        <code>app/views</code> 的 <code>shell_runtime</code> 从外部 bind，再进入一个 content public 入口；content 内 eval 使用 <code>CapabilityHost</code>。<code>host/</code> 与 <code>exec/session</code> 在 <code>glang.runtime</code>。
+      </div>
+    </div>
+    <p class="note">头文件 <code>src/content/public/script_runtime.h</code>。签名是 <code>content::run_suite_script(CapabilityHost&amp;, std::string_view, std::string*)</code>，没有额外方法。</p>
+  </section>
+
+  <section class="panel">
+    <h2>允许的调用顺序</h2>
+    <div class="flow" id="flow">
+      <div class="stage" data-step="0">
+        <h3>1 套件脚本</h3>
+        <p>作者编写的 <code>.py</code>。下沉之后由 content 内编译器处理。</p>
+      </div>
+      <div class="stage" data-step="1">
+        <h3>2 壳侧 bind</h3>
+        <p><code>app/views</code> 注册 <code>ShellBridge</code>，把 <code>Browser</code> 槽写入 <code>CapabilityHost</code>。</p>
+      </div>
+      <div class="stage" data-step="2">
+        <h3>3 唯一入口</h3>
+        <p><code>content::run_suite_script</code>。public 只此一个函数。</p>
+      </div>
+      <div class="stage" data-step="3">
+        <h3>4 content eval</h3>
+        <p><code>content/browser/glang.runtime/exec/eval</code> 按 <code>app::code</code> 执行。</p>
+      </div>
+      <div class="stage" data-step="4">
+        <h3>5 CapabilityHost</h3>
+        <p><code>app::ir</code> 标准库落在已 bind 的槽上。</p>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="primary" id="play" type="button">播放</button>
+      <span class="note" id="caption">箭头只从壳侧进入 content。content 不回头包含 app/views。</span>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var stages = Array.prototype.slice.call(document.querySelectorAll(".stage"));
+  var caption = document.getElementById("caption");
+  var play = document.getElementById("play");
+  var timer = null;
+  var step = -1;
+  var captions = [
+    "套件 .py 进入 content 内的编译器。控制台 :py 仍留在壳内 CPython。",
+    "壳侧 shell_runtime 从外部 bind：Browser 槽进入 CapabilityHost。host 与 exec/session 在 glang.runtime。",
+    "唯一 public 调用：content::run_suite_script。",
+    "eval 在 content/browser/glang.runtime/exec 内跑 app::code。",
+    "app::ir 使用 CapabilityHost 槽。content 不包含 app/views。"
+  ];
+  function clear() {
+    stages.forEach(function (el) { el.classList.remove("on"); });
+  }
+  function show(i) {
+    clear();
+    for (var k = 0; k <= i && k < stages.length; k++) stages[k].classList.add("on");
+    caption.textContent = captions[i];
+  }
+  function stop() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    play.textContent = "播放";
+  }
+  play.addEventListener("click", function () {
+    if (timer) { stop(); return; }
+    play.textContent = "暂停";
+    step = -1;
+    timer = setInterval(function () {
+      step += 1;
+      if (step >= stages.length) { stop(); return; }
+      show(step);
+    }, 900);
+  });
+})();
+</script>
+</body>
+</html>

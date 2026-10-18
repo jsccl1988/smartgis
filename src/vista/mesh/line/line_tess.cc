@@ -43,22 +43,16 @@ LineDecimationBudget decimation_budget(const LineTessOptions& options) {
   if (px <= 0) {
     return budget;
   }
-  // Overview / thin strokes: coarser along-track spacing; extrema still forced.
+  // Screen spacing, then a hard cap. The cap must still cover the whole
+  // path: stopping early and snapping the last vertex to the endpoint draws
+  // a chord (straight 省界, river tails).
+  budget.spacing_px = 0.85;
   if (px <= 1.5) {
-    budget.max_verts = 36;
-    budget.spacing_px = 2.75;
-  } else if (px <= 2.5) {
-    budget.max_verts = 64;
-    budget.spacing_px = 2.0;
+    budget.max_verts = 2048;
   } else if (px <= 4.0) {
-    budget.max_verts = 96;
-    budget.spacing_px = 1.5;
-  } else if (px <= 8.0) {
-    budget.max_verts = 192;
-    budget.spacing_px = 1.0;
+    budget.max_verts = 3072;
   } else {
-    budget.max_verts = 384;
-    budget.spacing_px = 0.85;
+    budget.max_verts = 4096;
   }
   return budget;
 }
@@ -66,15 +60,6 @@ LineDecimationBudget decimation_budget(const LineTessOptions& options) {
 bool is_forced_vertex(int index, const int* forced, int forced_count) {
   for (int k = 0; k < forced_count; ++k) {
     if (forced[k] == index) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool forced_vertex_ahead(int after, const int* forced, int forced_count) {
-  for (int k = 0; k < forced_count; ++k) {
-    if (forced[k] > after) {
       return true;
     }
   }
@@ -262,41 +247,27 @@ bool append_solid_polyline(const std::vector<PolyPt>& pts, double hw,
     }
   }
 
-  // Drop short edges (sub-pixel at current wupp) before stroking.
+  // Drop sub-pixel edges, but never stop early and pin the tail to the
+  // endpoint. That chord is what turned province rings and rivers into
+  // straight cuts.
   auto clean_holder = poly_pt_vec_pool().allocate();
   std::vector<PolyPt>& clean = *clean_holder;
   clean.reserve(pts.size());
   clean.push_back(pts.front());
   const double min_seg2 = min_seg * min_seg;
-  size_t kMaxClean = 128;
-  if (px > 0 && px <= 2.5) {
-    kMaxClean = 48;
-  } else if (px > 0 && px <= 4.0) {
-    kMaxClean = 64;
-  } else if (px > 0 && px <= 8.0) {
-    kMaxClean = 96;
-  }
   for (size_t i = 1; i + 1 < pts.size(); ++i) {
     const double dx = pts[i].x - clean.back().x;
     const double dy = pts[i].y - clean.back().y;
     if (dx * dx + dy * dy >= min_seg2) {
       clean.push_back(pts[i]);
-      if (clean.size() >= kMaxClean - 1) {
-        break;
-      }
     }
   }
   {
     const PolyPt& last = pts.back();
     const double dx = last.x - clean.back().x;
     const double dy = last.y - clean.back().y;
-    const double d2 = dx * dx + dy * dy;
-    if (d2 >= kEps * kEps) {
-      if ((d2 < min_seg2 || clean.size() >= kMaxClean) && clean.size() >= 2) {
-        clean.back() = last;
-      } else {
-        clean.push_back(last);
-      }
+    if (dx * dx + dy * dy >= kEps * kEps) {
+      clean.push_back(last);
     }
   }
   if (clean.size() < 2) {
@@ -509,11 +480,9 @@ void line_to_points_decimated(const OGRLineString* line,
   const LineDecimationBudget budget = decimation_budget(options);
   const int kMaxLineVerts = budget.max_verts;
   const double wupp = options.world_units_per_pixel;
-  // First china present: tess_line CPU walks every river/admin vertex for
-  // path_len + extrema + spacing, then drops most at the decimation cap.
-  // Stride when n is already past ~2× the output budget.
-  const int step =
-      n > kMaxLineVerts * 2 ? (std::max)(1, n / (kMaxLineVerts * 2)) : 1;
+  // Distance spacing drops extras. Do not stride by index: that skips bends
+  // and draws a chord through the river.
+  const int step = 1;
 
   // Sampled SoA for the stride walk (SIMD extrema / path length).
   std::vector<double> sx;
@@ -551,9 +520,14 @@ void line_to_points_decimated(const OGRLineString* line,
   const int i_e = sidx[static_cast<size_t>(si_e)];
   const int i_w = sidx[static_cast<size_t>(si_w)];
 
-  double spacing = path_len > kEps ? path_len / (kMaxLineVerts - 1) : kEps;
-  if (wupp > 0) {
-    spacing = (std::max)(spacing, wupp * budget.spacing_px);
+  // Desired spacing is about one screen pixel. If that would exceed the
+  // vertex cap, coarsen uniformly so the last sample is still the endpoint.
+  double spacing = wupp > 0 ? wupp * budget.spacing_px : kEps;
+  if (path_len > kEps && kMaxLineVerts > 1) {
+    const double cover = path_len / static_cast<double>(kMaxLineVerts - 1);
+    if (cover > spacing) {
+      spacing = cover;
+    }
   }
 
   int forced[8];
@@ -596,20 +570,12 @@ void line_to_points_decimated(const OGRLineString* line,
     }
     pts.push_back({x, y, z});
     since = 0;
-    if (static_cast<int>(pts.size()) >= kMaxLineVerts && i + 1 < n &&
-        !forced_vertex_ahead(i, forced, forced_count)) {
-      break;
-    }
   }
   if (pts.size() >= 2) {
     const double x = sx[static_cast<size_t>(sn - 1)];
     const double y = sy[static_cast<size_t>(sn - 1)];
     if (std::hypot(pts.back().x - x, pts.back().y - y) > kEps) {
-      if (static_cast<int>(pts.size()) >= kMaxLineVerts) {
-        pts.back() = {x, y, sz[static_cast<size_t>(sn - 1)]};
-      } else {
-        pts.push_back({x, y, sz[static_cast<size_t>(sn - 1)]});
-      }
+      pts.push_back({x, y, sz[static_cast<size_t>(sn - 1)]});
     }
   }
 }

@@ -683,8 +683,32 @@ void DebugConsolePanel::flush_pending_logs() {
   flushing_logs_ = false;
 }
 
+HWND DebugConsolePanel::flush_hwnd() {
+  // Tab pages can be built before Widget::set_widget walks this node.
+  // Any ancestor that already owns the shell HWND can host the flush timer.
+  for (View* v = this; v; v = v->parent()) {
+    if (Widget* host = v->widget()) {
+      if (HWND hwnd = host->hwnd()) {
+        if (IsWindow(hwnd)) {
+          return hwnd;
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
+void DebugConsolePanel::sync_log_output() {
+  if (mode_ == PaneMode::kConsole) {
+    return;
+  }
+  ensure_log_subscription();
+  reload_from_sink();
+  arm_log_flush_timer();
+}
+
 void DebugConsolePanel::arm_log_flush_timer() {
-  HWND hwnd = widget() ? widget()->hwnd() : nullptr;
+  HWND hwnd = flush_hwnd();
   if (!hwnd) {
     return;
   }
@@ -699,7 +723,7 @@ void DebugConsolePanel::arm_log_flush_timer() {
 
 void DebugConsolePanel::disarm_log_flush_timer() {
   log_flush_armed_.store(false);
-  HWND hwnd = widget() ? widget()->hwnd() : nullptr;
+  HWND hwnd = flush_hwnd();
   if (hwnd) {
     KillTimer(hwnd, reinterpret_cast<UINT_PTR>(this));
   }

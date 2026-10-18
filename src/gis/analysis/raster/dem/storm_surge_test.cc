@@ -17,7 +17,7 @@
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
 
-#include "gis/analysis/ops/ops_runner.h"
+#include "gis/analysis/ops/runner/ops_runner.h"
 
 namespace {
 

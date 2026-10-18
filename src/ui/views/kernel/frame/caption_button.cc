@@ -39,8 +39,10 @@ void CaptionButton::on_device_scale_factor_changed(float /*old_scale*/,
 }
 
 void CaptionButton::activate() {
-  if (click_) {
-    click_();
+  // Copy first. Close destroys this button inside the handler.
+  const std::function<void()> click = click_;
+  if (click) {
+    click();
   }
 }
 
@@ -49,16 +51,19 @@ bool CaptionButton::on_mouse_event(const MouseEvent& e) {
     return false;
   }
   if (e.type == MouseEvent::Type::kDown && e.button == 1) {
+    armed_ = true;
     set_pressed(true);
     schedule_paint();
     return true;
   }
   if (e.type == MouseEvent::Type::kUp && e.button == 1) {
-    const bool was = is_pressed();
+    const bool was = armed_;
+    armed_ = false;
     set_pressed(false);
     schedule_paint();
     // Capture delivers Up to the press target even after the cursor leaves.
     // Activate only when the release is still over this control.
+    // Do not read is_pressed(): Widget clears it before this handler.
     if (was && bounds().contains(e.x, e.y)) {
       activate();
     }

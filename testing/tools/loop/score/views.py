@@ -77,7 +77,7 @@ def score_views_shell_chrome(path: Path) -> dict:
             "min_width_640": w >= 640,
             "teal_map_hole_allowed": True,
         },
-        "note": "Shell PW teal embed is harness-only; do not score as map2d_china.",
+        "note": "Shell PW teal embed is harness-only; do not score as a map2d China contract.",
     }
 
 

@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-"""Compact raw OS/agent events into intermediate op dicts for IL emit."""
+"""Compact raw OS/agent events into intermediate op dicts for Python emit."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .il_emit import emit_il
+from .py_emit import emit_py
 
 # Gaps larger than this become pump(ms=...).
 DEFAULT_PUMP_GAP_MS = 80
@@ -56,7 +56,7 @@ def compact_events(
     *,
     pump_gap_ms: int = DEFAULT_PUMP_GAP_MS,
 ) -> list[dict[str, Any]]:
-    """Return intermediate op dicts (op/driver/args) ready for IL emit."""
+    """Return intermediate op dicts (op/driver/args) ready for Python emit."""
     ops: list[dict[str, Any]] = []
     i = 0
     n = len(events)
@@ -373,7 +373,7 @@ def compact_events(
     return ops
 
 
-def events_to_il(
+def events_to_py(
     events: list[dict[str, Any]],
     *,
     script_name: str = "recorded",
@@ -381,4 +381,4 @@ def events_to_il(
     pump_gap_ms: int = DEFAULT_PUMP_GAP_MS,
 ) -> str:
     ops = compact_events(events, pump_gap_ms=pump_gap_ms)
-    return emit_il(ops, script_name=script_name, title_comment=title_comment)
+    return emit_py(ops, script_name=script_name, title_comment=title_comment)

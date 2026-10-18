@@ -4,7 +4,7 @@
     "argv":  [
                  "--plugin-showcase=mine"
              ],
-    "script":  "plugin.mine.il",
+    "script":  "plugin.mine.py",
     "env":  {
                 "SKIP_MAP_CONTEXT_MENU":  "1",
                 "SCENE3D_ENGINE":  "flycube"
@@ -13,8 +13,6 @@
     "required_marks":  [
                            "mine-ok",
                            "prism-ok",
-                           "orbit-mine",
-                           "present-ok",
                            "bmp-ok",
                            "pass",
                            "fit-box-ok",

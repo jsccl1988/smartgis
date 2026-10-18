@@ -5,7 +5,7 @@
                  "--map2d-showcase=orthogrid",
                  "--map2d-showcase-il=1"
              ],
-    "script":  "browser.map2d.orthogrid.il",
+    "script":  "browser.map2d.orthogrid.py",
     "env":  {
                 "MAP2D_SHOWCASE_LINGER_MS":  "0",
                 "SKIP_MAP_CONTEXT_MENU":  "1"

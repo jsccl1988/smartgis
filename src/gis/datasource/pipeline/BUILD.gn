@@ -27,8 +27,10 @@ test("feature_load_pipeline_test") {
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
   # Header-only — do not link ogr_codec / gis.dll (Feature/Tin LNK2005 risk).
+  # AllocationTracker::state is exported from base.dll.
   deps = [
     ":pipeline",
+    "//src/base:base",
     "//src/base:foundation",
     "//third_party:gdal",
   ]

@@ -52,6 +52,12 @@ class VISTA_EXPORT GlyphRasterizer {
 
   virtual bool rasterize(uint32_t codepoint, float text_size_px,
                          Bitmap* out) = 0;
+  // |font_face| is vista::MapFont. Default keeps older rasterizers on one face.
+  virtual bool rasterize(uint32_t codepoint, float text_size_px,
+                         uint8_t font_face, Bitmap* out) {
+    (void)font_face;
+    return rasterize(codepoint, text_size_px, out);
+  }
 };
 
 // GDI+ glyph rasterizer and advance metrics. No HWND. rasterize returns false
@@ -62,7 +68,11 @@ class VISTA_EXPORT WindowsGlyphRasterizer : public GlyphRasterizer,
   ~WindowsGlyphRasterizer() override = default;
 
   float advance_px(uint32_t codepoint, float text_size_px) const override;
+  float advance_px(uint32_t codepoint, float text_size_px,
+                   uint8_t font_face) const override;
   bool rasterize(uint32_t codepoint, float text_size_px, Bitmap* out) override;
+  bool rasterize(uint32_t codepoint, float text_size_px, uint8_t font_face,
+                 Bitmap* out) override;
 };
 
 // Records map meshes onto an existing RHI command list. The projection is

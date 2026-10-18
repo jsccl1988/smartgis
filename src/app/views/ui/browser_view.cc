@@ -218,7 +218,7 @@ void BrowserView::sync_status() {
   if (!status_bar_ || !pane) {
     return;
   }
-  status_bar_->set_status(detail::wide_to_utf8(pane->status_text()));
+  status_bar_->set_status(content::detail::wide_to_utf8(pane->status_text()));
   // Keep Map|3D underline aligned with the live GPU present face. A mouse
   // set_active or plugin present_dataset can leave chrome on Map while
   // Scene3d is showing (plain-launch visual_review #6).

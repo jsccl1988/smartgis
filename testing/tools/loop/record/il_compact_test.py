@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-"""Unit tests for IL compaction (no HWND / hooks required)."""
+"""Unit tests for event compaction and Python emit (no HWND / hooks)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ _TOOLS = Path(__file__).resolve().parents[2]
 if str(_TOOLS) not in sys.path:
     sys.path.insert(0, str(_TOOLS))
 
-from loop.record.il_compact import compact_events, emit_il, events_to_il  # noqa: E402
+from loop.record.il_compact import compact_events, events_to_py  # noqa: E402
+from loop.record.py_emit import emit_py  # noqa: E402
 
 
 class IlCompactTest(unittest.TestCase):
@@ -24,11 +25,11 @@ class IlCompactTest(unittest.TestCase):
             {"t_ms": 200, "src": "os", "kind": "key", "action": "down", "vk": 27, "name": "ESCAPE"},
             {"t_ms": 220, "src": "os", "kind": "key", "action": "up", "vk": 27, "name": "ESCAPE"},
         ]
-        text = events_to_il(events, script_name="t")
-        self.assertIn('script "t"', text)
-        self.assertIn("click(shell, 10, 20)", text)
-        self.assertIn("key(ESCAPE)", text)
-        self.assertIn("seq @os", text)
+        text = events_to_py(events, script_name="t")
+        self.assertIn("import smartgis", text)
+        self.assertIn('sg.click("shell", 10, 20, "left")', text)
+        self.assertIn('sg.key("ESCAPE")', text)
+        self.assertNotIn(".il", text)
 
     def test_path_and_pan_burst(self) -> None:
         events = []
@@ -50,16 +51,16 @@ class IlCompactTest(unittest.TestCase):
             t += 50
         ops = compact_events(events)
         self.assertTrue(any(o.get("op") == "pan_burst" for o in ops), ops)
-        text = emit_il(ops)
-        self.assertIn("pan_burst(", text)
+        text = emit_py(ops)
+        self.assertIn("sg.pan_burst(", text)
 
     def test_wheel_burst(self) -> None:
         events = [
             {"t_ms": i * 40, "src": "os", "kind": "mouse", "action": "wheel", "x": 250, "y": 210, "delta": -120}
             for i in range(5)
         ]
-        text = events_to_il(events)
-        self.assertIn("wheel_burst(", text)
+        text = events_to_py(events)
+        self.assertIn("sg.wheel_burst(", text)
 
     def test_agent_select_map_tab(self) -> None:
         events = [
@@ -67,8 +68,8 @@ class IlCompactTest(unittest.TestCase):
             {"t_ms": 20, "src": "os", "kind": "mouse", "action": "up", "button": "left", "x": 1, "y": 1},
             {"t_ms": 50, "src": "agent", "kind": "select_map_tab", "index": 2},
         ]
-        text = events_to_il(events)
-        self.assertIn("select_map_tab(2) @inproc", text)
+        text = events_to_py(events)
+        self.assertIn("sg.select_map_tab(2)", text)
 
 
 if __name__ == "__main__":

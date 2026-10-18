@@ -3,6 +3,7 @@
 
 #include "render/rhi/flycube/command/command_list.h"
 #include "render/rhi/flycube/device.h"
+#include "render/rhi/flycube/pipeline/program.h"
 
 #include "base/core/log.h"
 
@@ -99,6 +100,7 @@ bool FlycubeDevice::execute_recorded(FlycubeCommandList* recorded) {
       return false;
     }
     command_queue_->Wait(fence_, fence_value_);
+    bump_flycube_constant_epoch();
     std::shared_ptr<Resource> back_buffer =
         swapchain_->GetBackBuffer(frame_index);
     // Per-frame command list: wait for this slot's prior Execute before Reset
@@ -228,6 +230,7 @@ bool FlycubeDevice::execute_to_imported(FlycubeCommandList* recorded) {
     }
     composed_into_imported_ = false;
     wait_for_idle();
+    bump_flycube_constant_epoch();
     auto fc_list = fc_device_->CreateCommandList(::CommandListType::kGraphics);
     if (!fc_list) {
       return false;

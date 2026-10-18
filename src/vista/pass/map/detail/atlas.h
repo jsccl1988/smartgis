@@ -24,10 +24,12 @@ struct GlyphKey {
   uint32_t size_q = 0;
   uint32_t rgba = 0;
   uint32_t opacity_q = 0;
+  uint32_t font = 0;
 
   bool operator==(const GlyphKey& other) const {
     return codepoint == other.codepoint && size_q == other.size_q &&
-           rgba == other.rgba && opacity_q == other.opacity_q;
+           rgba == other.rgba && opacity_q == other.opacity_q &&
+           font == other.font;
   }
 };
 
@@ -41,6 +43,7 @@ struct GlyphKeyHash {
     mix(key.size_q);
     mix(key.rgba);
     mix(key.opacity_q);
+    mix(key.font);
     return h;
   }
 };

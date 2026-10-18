@@ -113,7 +113,7 @@ All rights reserved.
 - [x] `legacy.browse.2d` / `legacy.browse.3d` — zoom/pan/black-frame checklist.
 - [x] `ui.shell` / `ui.catalog` / `ui.data` / `ui.scene` / `ui.interact` / `ui.interact.os` — chrome readability / collapse / dark theme.
 - [x] `browser.world3d.legacy`, `browser.map2d.orthogrid`.
-- [x] Skip marks-only suites (`browse`, `browse.3d`, `plugin.report`, `ui.interact.smoke` / `.combo`).
+- [x] Skip marks-only suites (`browse`, `browse.3d`, `plugin.report`, `ui.interact.combo`, which also covers the former smoke Escape).
 
 ### Task 6: real `--review-prep` + bug tables
 

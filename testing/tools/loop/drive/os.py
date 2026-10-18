@@ -91,7 +91,7 @@ def run_os_process(
                 time.sleep(0.25)
 
         # Bind HWND to the launched PE only — title substr alone matches Cursor
-        # tabs like ``legacy.browse.2d.il - smartgis - Cursor``. Also skip
+        # tabs like ``legacy.browse.2d.py - smartgis - Cursor``. Also skip
         # short-lived splash HWNDs titled exactly ``SmartGis``.
         child_pid = int(proc.pid)
         # scene3d showcase HWND is 640x480 (~307k); keep floor lower than Edit.

@@ -20,6 +20,9 @@
 #include "content/public/gis_contents.h"
 #include "content/public/plugin_host.h"
 #include "content/public/tool_session.h"
+#include "gis/style/document/style_document.h"
+#include "vista/component/map/carto/resolve.h"
+#include "vista/component/map/layout.h"
 
 #if defined(_DEBUG)
 #include <crtdbg.h>
@@ -217,6 +220,20 @@ bool Browser::init() {
           plugins_->attach_gis_contents(session_->gis_contents()))) {
       LOGGING(LOG_WARNING,
               "startup: GisContents/PluginHost attach failed; no bridges");
+    }
+  }
+
+  {
+    BASE_TRACE_EVENT("CartoStyle", "startup");
+    const gis::style::StyleDocument* carto = vista::default_carto_style();
+    const bool carto_ok = carto && !carto->layers.empty();
+    const bool print_ok = !vista::print_carto_style_json().empty();
+    if (!carto_ok || !print_ok) {
+      LOGGING(LOG_ERROR,
+              "startup: carto style resource missing (ui/carto)");
+    } else {
+      LOGGING(LOG_INFO, "startup: carto style resource loaded (%u layers)",
+              static_cast<unsigned>(carto->layers.size()));
     }
   }
 

@@ -4,7 +4,7 @@
   "argv": [
     "--harness"
   ],
-  "script": "browser.harness.il",
+  "script": "browser.harness.py",
   "window_title": "SmartGIS Views",
   "env": {
     "SKIP_MAP_CONTEXT_MENU": "1"

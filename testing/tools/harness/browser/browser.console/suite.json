@@ -4,7 +4,7 @@
   "argv": [
     "--harness-console"
   ],
-  "script": "browser.console.il",
+  "script": "browser.console.py",
   "env": {},
   "mark_leaf": "harness-mark.txt",
   "required_marks": [

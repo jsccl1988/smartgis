@@ -4,7 +4,7 @@
     "argv":  [
                  "--atmosphere-showcase=globe"
              ],
-    "script":  "browser.world3d.globe.il",
+    "script":  "browser.world3d.globe.py",
     "env":  {
                 "ATMOSPHERE_SHOWCASE_GPU":  "1",
                 "ATMOSPHERE_SHOWCASE_LINGER_MS":  "0",

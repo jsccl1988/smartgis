@@ -55,13 +55,52 @@ int encode_utf16(uint32_t codepoint, wchar_t out[3]) {
   return 2;
 }
 
-std::unique_ptr<Gdiplus::Font> make_font(float text_size_px) {
-  // Match map2d_hdc_frame CreateFont face so Layout advances equal GDI TextOut.
-  const wchar_t* faces[] = {L"Microsoft YaHei UI", L"Microsoft YaHei",
-                            L"Segoe UI", L"Arial", L"Tahoma"};
-  for (const wchar_t* face : faces) {
+// GB/T 20257: 居民地/道路用等线，水系用左斜宋。YaHei is only a fallback.
+std::unique_ptr<Gdiplus::Font> make_font(float text_size_px, uint8_t face) {
+  struct Candidate {
+    const wchar_t* name;
+    Gdiplus::FontStyle style;
+  };
+  const Candidate gothic[] = {
+      {L"DengXian", Gdiplus::FontStyleRegular},
+      {L"\u7b49\u7ebf", Gdiplus::FontStyleRegular},
+      {L"Microsoft YaHei", Gdiplus::FontStyleRegular},
+      {L"SimHei", Gdiplus::FontStyleRegular},
+  };
+  const Candidate gothic_bold[] = {
+      {L"DengXian", Gdiplus::FontStyleBold},
+      {L"\u7b49\u7ebf", Gdiplus::FontStyleBold},
+      {L"Microsoft YaHei", Gdiplus::FontStyleBold},
+      {L"SimHei", Gdiplus::FontStyleRegular},
+  };
+  const Candidate gothic_light[] = {
+      {L"DengXian Light", Gdiplus::FontStyleRegular},
+      {L"\u7b49\u7ebf Light", Gdiplus::FontStyleRegular},
+      {L"DengXian", Gdiplus::FontStyleRegular},
+      {L"\u7b49\u7ebf", Gdiplus::FontStyleRegular},
+      {L"Microsoft YaHei", Gdiplus::FontStyleRegular},
+  };
+  const Candidate song_oblique[] = {
+      {L"SimSun", Gdiplus::FontStyleItalic},
+      {L"NSimSun", Gdiplus::FontStyleItalic},
+      {L"\u5b8b\u4f53", Gdiplus::FontStyleItalic},
+      {L"SimSun", Gdiplus::FontStyleRegular},
+  };
+  const Candidate* list = gothic;
+  int count = 4;
+  if (face == static_cast<uint8_t>(MapFont::kGothicBold)) {
+    list = gothic_bold;
+    count = 4;
+  } else if (face == static_cast<uint8_t>(MapFont::kGothicLight)) {
+    list = gothic_light;
+    count = 5;
+  } else if (face == static_cast<uint8_t>(MapFont::kSongOblique)) {
+    list = song_oblique;
+    count = 4;
+  }
+  for (int i = 0; i < count; ++i) {
     auto font = std::make_unique<Gdiplus::Font>(
-        face, text_size_px, Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
+        list[i].name, text_size_px, list[i].style, Gdiplus::UnitPixel);
     if (font->GetLastStatus() == Gdiplus::Ok && font->IsAvailable()) {
       return font;
     }
@@ -106,6 +145,11 @@ bool measure_glyph(const Gdiplus::Font& font, const wchar_t* chars, int n,
 
 float WindowsGlyphRasterizer::advance_px(uint32_t codepoint,
                                          float text_size_px) const {
+  return advance_px(codepoint, text_size_px, 0);
+}
+
+float WindowsGlyphRasterizer::advance_px(uint32_t codepoint, float text_size_px,
+                                         uint8_t font_face) const {
   if (!gdiplus_ready() || text_size_px <= 0.f) {
     return 0.f;
   }
@@ -114,7 +158,7 @@ float WindowsGlyphRasterizer::advance_px(uint32_t codepoint,
   if (n <= 0) {
     return 0.f;
   }
-  std::unique_ptr<Gdiplus::Font> font = make_font(text_size_px);
+  std::unique_ptr<Gdiplus::Font> font = make_font(text_size_px, font_face);
   if (!font) {
     return 0.f;
   }
@@ -127,6 +171,11 @@ float WindowsGlyphRasterizer::advance_px(uint32_t codepoint,
 
 bool WindowsGlyphRasterizer::rasterize(uint32_t codepoint, float text_size_px,
                                        Bitmap* out) {
+  return rasterize(codepoint, text_size_px, 0, out);
+}
+
+bool WindowsGlyphRasterizer::rasterize(uint32_t codepoint, float text_size_px,
+                                       uint8_t font_face, Bitmap* out) {
   if (!out || !gdiplus_ready() || text_size_px <= 0.f) {
     return false;
   }
@@ -140,7 +189,7 @@ bool WindowsGlyphRasterizer::rasterize(uint32_t codepoint, float text_size_px,
   if (n <= 0) {
     return false;
   }
-  std::unique_ptr<Gdiplus::Font> font = make_font(text_size_px);
+  std::unique_ptr<Gdiplus::Font> font = make_font(text_size_px, font_face);
   if (!font) {
     return false;
   }
@@ -168,7 +217,7 @@ bool WindowsGlyphRasterizer::rasterize(uint32_t codepoint, float text_size_px,
     return false;
   }
   graphics.Clear(Gdiplus::Color(0, 0, 0, 0));
-  graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAliasGridFit);
+  graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAlias);
   graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
   Gdiplus::SolidBrush brush(Gdiplus::Color(255, 255, 255, 255));
   if (graphics.DrawString(chars, n, font.get(),

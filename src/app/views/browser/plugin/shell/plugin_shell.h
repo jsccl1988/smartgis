@@ -75,9 +75,14 @@ class PluginShell {
   // Ensure CPython is up and host is bound into smartgis.content.host.
   bool ensure_python();
   std::string eval_python(std::string_view code);
+  // Statement exec in __main__. A .py path must use exec_python_file().
+  bool exec_python(std::string_view code, std::string* error);
+  // Load |path| as a module and call main(). False when main is missing
+  // or the call raises.
+  bool exec_python_file(std::string_view path, std::string* error);
 
-  // Scan plugin.json + in-process builtins. Native DLLs load on command /
-  // processing / catalog enable — not all packs at once.
+  // Scan plugin.json, start in-process builtins, then LoadLibrary every
+  // discovered native pack (product plugins under <exe>/plugins).
   bool ensure_builtins();
 
   // Scan manifests only (no enable-all). Safe for harness single-pack dispatch.

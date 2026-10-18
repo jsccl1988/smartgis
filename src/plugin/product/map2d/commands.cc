@@ -7,6 +7,7 @@
 #include "plugin/product/map2d/print/register.h"
 #include "plugin/product/map2d/seed/seed.h"
 #include "plugin/product/map2d/ops.h"
+#include "plugin/runtime/host/capability/pack_ensure.h"
 #include "tool/command/command.h"
 
 namespace plugin {
@@ -41,7 +42,7 @@ bool register_map2d(content::PluginHost* host) {
     return false;
   }
   // Avoid CommandCatalog::contains — cross-module handler emplace can leave
-  // the tool_d map unreadable (browser.harness AV in register_map2d_scenario).
+  // the tool_d map unreadable.
   if (!register_map2d_seed(host)) {
     return false;
   }
@@ -57,5 +58,12 @@ bool register_map2d(content::PluginHost* host) {
              kPluginId, {"map2d_orthogrid", 0.0, 0.0, 1.0, 1.0}) &&
          register_map2d_sink_ops(host);
 }
+
+struct Map2dPackOnce {
+  Map2dPackOnce() {
+    register_command_pack("map2d", register_map2d);
+    register_command_pack("print.", register_map2d);
+  }
+} k_map2d_pack_once;
 
 }  // namespace plugin

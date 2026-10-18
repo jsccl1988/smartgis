@@ -185,12 +185,19 @@ source_set("capability") {
   assert_no_deps = _content_no_shell_deps
   sources = [
     "browser/capability/document.h",
+    "browser/capability/gis.h",
     "browser/capability/horizon.h",
     "browser/capability/host.h",
+    "browser/capability/op.h",
     "browser/capability/plugin.h",
     "browser/capability/view.h",
   ]
   include_dirs += [ "//src" ]
+}
+
+# IL language core. Not absorbed into content.dll. See browser/glang.runtime/BUILD.gn.
+group("il") {
+  public_deps = [ "//src/content/browser/glang.runtime:il" ]
 }
 
 source_set("debug_agent") {

@@ -6,7 +6,7 @@
 #include <mutex>
 
 #include "app/views/browser/plugin/harness/report_suite.h"
-#include "app/views/il.runtime/backend/horizon/atom/mark.h"
+#include "app/views/app/startup/shell_runtime.h"
 
 namespace app {
 namespace {
@@ -57,108 +57,100 @@ void ensure_builtin_scenarios() {
     // Browse stress + HWND BitBlt / motion_gate need ContentMapView + GDI
     // overlay (prepare_env FORCE_*). Product FlyCube Present smears under
     // pan so unique-frame gates stay stuck at 1.
-    add_row(Scenario{"browser.map2d.browse", detail::kHarnessMarkLeaf,
+    add_row(Scenario{"browser.map2d.browse", content::detail::kHarnessMarkLeaf,
                      "browser.map2d.browse", nullptr, nullptr,
                      k_browse_map2d_gdi});
-    add_row(Scenario{"browser.map2d.china", detail::kMap2dMarkLeaf,
-                     "browser.map2d.china", "map2d.scenario.china", nullptr,
+    add_row(Scenario{"browser.map2d.china", content::detail::kMap2dMarkLeaf,
+                     "browser.map2d.china", nullptr, nullptr,
                      k_map2d_flycube_skip_catalog});
-    add_row(Scenario{"browser.map2d.align", detail::kMap2dMarkLeaf,
-                     "browser.map2d.align", "map2d.scenario.align", nullptr,
+    add_row(Scenario{"browser.map2d.align", content::detail::kMap2dMarkLeaf,
+                     "browser.map2d.align", nullptr, nullptr,
                      k_map2d_flycube_skip_catalog});
-    add_row(Scenario{"browser.map2d.orthogrid", detail::kMap2dMarkLeaf,
-                     "browser.map2d.orthogrid", "map2d.scenario.orthogrid",
-                     nullptr, k_map2d_flycube_skip_catalog});
-    add_row(Scenario{"browser.world3d.browse", detail::kBrowse3dMarkLeaf,
+    add_row(Scenario{"browser.map2d.orthogrid", content::detail::kMap2dMarkLeaf,
+                     "browser.map2d.orthogrid", nullptr, nullptr,
+                     k_map2d_flycube_skip_catalog});
+    add_row(Scenario{"browser.world3d.browse", content::detail::kBrowse3dMarkLeaf,
                      "browser.world3d.browse", nullptr, nullptr, k_browse_3d});
     // Atmosphere suites borrow shell FlyCube (rhi_device). kGdi policy forced
     // Scene3dEngine::kGdi over SCENE3D_ENGINE=flycube → device-missing (#5).
-    add_row(Scenario{"browser.world3d.land", detail::kAtmosphereMarkLeaf,
-                     "browser.world3d.land",
-                     "world3d.scenario.atmosphere.land", nullptr, k_browse_3d});
-    add_row(Scenario{"browser.world3d.ocean", detail::kAtmosphereMarkLeaf,
-                     "browser.world3d.ocean",
-                     "world3d.scenario.atmosphere.ocean", nullptr, k_browse_3d});
-    add_row(Scenario{"browser.world3d.full", detail::kAtmosphereMarkLeaf,
+    // land / ocean / coast looks run inside browser.world3d.full (one process).
+    add_row(Scenario{"browser.world3d.full", content::detail::kAtmosphereMarkLeaf,
                      "browser.world3d.full",
                      "world3d.scenario.atmosphere.full", nullptr, k_browse_3d});
-    add_row(Scenario{"browser.world3d.coast", detail::kAtmosphereMarkLeaf,
-                     "browser.world3d.coast",
-                     "world3d.scenario.atmosphere.coast", nullptr, k_browse_3d});
-    add_row(Scenario{"browser.world3d.legacy", detail::kAtmosphereMarkLeaf,
+    add_row(Scenario{"browser.world3d.legacy", content::detail::kAtmosphereMarkLeaf,
                      "browser.world3d.legacy",
                      "world3d.scenario.atmosphere.legacy", nullptr,
                      k_browse_3d});
-    add_row(Scenario{"browser.world3d.globe", detail::kAtmosphereMarkLeaf,
+    add_row(Scenario{"browser.world3d.globe", content::detail::kAtmosphereMarkLeaf,
                      "browser.world3d.globe",
                      "world3d.scenario.atmosphere.globe", nullptr, k_browse_3d});
+    // Planar DEM→cloud ladder. Script owns the stages; the command is the
+    // same fallback the other atmosphere rows keep.
+    add_row(Scenario{"browser.world3d.china_stack", content::detail::kAtmosphereMarkLeaf,
+                     "browser.world3d.china_stack",
+                     "world3d.scenario.atmosphere.china_stack", nullptr,
+                     k_browse_3d});
     // Cross-cutting browser integration (HWND / console / digitize / GPU PE).
-    add_row(Scenario{"browser.harness", detail::kHarnessMarkLeaf,
+    add_row(Scenario{"browser.harness", content::detail::kHarnessMarkLeaf,
                      "browser.harness", nullptr, nullptr,
                      k_content_map_harness});
-    add_row(Scenario{"self_test", detail::kHarnessMarkLeaf, "browser.harness",
+    add_row(Scenario{"self_test", content::detail::kHarnessMarkLeaf, "browser.harness",
                      nullptr, nullptr, k_content_map_harness});
-    add_row(Scenario{"browser.console", detail::kHarnessMarkLeaf,
+    add_row(Scenario{"browser.console", content::detail::kHarnessMarkLeaf,
                      "browser.console", nullptr, nullptr,
                      k_content_map_harness});
-    add_row(Scenario{"browser.input", detail::kInputMarkLeaf, "browser.input",
+    add_row(Scenario{"browser.input", content::detail::kInputMarkLeaf, "browser.input",
                      nullptr, nullptr, k_content_map_skip_catalog});
+    // China seed + digitize + one orbit. Same ContentMapView face as harness.
+    add_row(Scenario{"browser.campaign", content::detail::kCampaignMarkLeaf,
+                     "browser.campaign", nullptr, nullptr,
+                     k_content_map_harness});
     // browser.gpu is SmartGisRender.exe-only (no Views ScenarioRegistry row).
-    add_row(Scenario{"ui.shell", detail::kUiMarkLeaf, "ui.shell", nullptr,
+    add_row(Scenario{"ui.shell", content::detail::kUiMarkLeaf, "ui.shell", nullptr,
                      nullptr, k_ui_shell_flycube});
-    add_row(Scenario{"ui.data", detail::kUiMarkLeaf, "ui.data", nullptr,
+    add_row(Scenario{"ui.data", content::detail::kUiMarkLeaf, "ui.data", nullptr,
                      nullptr, k_ui_shell_flycube});
-    add_row(Scenario{"ui.scene", detail::kUiMarkLeaf, "ui.scene", nullptr,
+    add_row(Scenario{"ui.scene", content::detail::kUiMarkLeaf, "ui.scene", nullptr,
                      nullptr, k_ui_scene});
-    add_row(Scenario{"ui.catalog", detail::kUiMarkLeaf, "ui.catalog", nullptr,
+    add_row(Scenario{"ui.catalog", content::detail::kUiMarkLeaf, "ui.catalog", nullptr,
                      nullptr, k_ui_shell_flycube});
     // Plugins dock only. Index 12 matches shell_layout_composer add order
     // (Tools … Atmosphere, then Plugins). Own mark leaf so ui.catalog
     // captures do not clobber it.
     add_row(Scenario{"ui.plugins", L"ui-plugins-mark.txt", "ui.plugins",
                      nullptr, nullptr, k_ui_shell_flycube});
-    // ui.interact* share ui.interact.host.il chrome; gesture body is selected
-    // by UI_INTERACT_GESTURE_SCRIPT (product / smoke / combo) or OS inject.
-    add_row(Scenario{"ui.interact", detail::kUiMarkLeaf, "ui.interact.host",
+    // ui.interact* share ui.interact.host.py chrome. combo keeps the ContentGdi
+    // horizon policy and also runs the former smoke gestures.
+    add_row(Scenario{"ui.interact", content::detail::kUiMarkLeaf, "ui.interact.host",
                      nullptr, nullptr, k_ui_interact});
-    add_row(Scenario{"ui.interact.os", detail::kUiMarkLeaf, "ui.interact.host",
+    add_row(Scenario{"ui.interact.os", content::detail::kUiMarkLeaf, "ui.interact.host",
                      nullptr, nullptr, k_ui_interact});
-    add_row(Scenario{"ui.interact.smoke", detail::kUiMarkLeaf,
-                     "ui.interact.host", nullptr, nullptr,
-                     k_content_map_horizon});
-    add_row(Scenario{"ui.interact.combo", detail::kUiMarkLeaf,
+    add_row(Scenario{"ui.interact.combo", content::detail::kUiMarkLeaf,
                      "ui.interact.host", nullptr, nullptr,
                      k_content_map_horizon});
     // Plugin family — bodies live in product packs; chrome only dispatches.
-    add_row(Scenario{"plugin.world3d", detail::kPluginMarkLeaf, "plugin.world3d",
-                     "world3d.scenario.showcase", nullptr, k_plugin_scene3d});
-    add_row(Scenario{"plugin.world3d.preview", detail::kPluginMarkLeaf,
+    add_row(Scenario{"plugin.world3d", content::detail::kPluginMarkLeaf, "plugin.world3d",
+                     nullptr, nullptr, k_plugin_scene3d});
+    add_row(Scenario{"plugin.world3d.preview", content::detail::kPluginMarkLeaf,
                      "plugin.world3d.preview", "world3d.scenario.world_preview",
                      nullptr, k_plugin_scene3d});
-    add_row(Scenario{"plugin.print", detail::kPluginMarkLeaf, "plugin.print",
-                     "map2d.scenario.print", nullptr,
-                     k_plugin_product});
-    add_row(Scenario{"plugin.orthogrid", detail::kPluginMarkLeaf,
-                     "plugin.orthogrid", "orthogrid.scenario.showcase", nullptr,
-                     k_plugin_product});
-    add_row(Scenario{"plugin.orthogrid3d", detail::kPluginMarkLeaf,
-                     "plugin.orthogrid3d", "orthogrid3d.scenario.showcase",
-                     nullptr, k_plugin_scene3d});
-    add_row(Scenario{"plugin.traffic", detail::kPluginMarkLeaf, "plugin.traffic",
-                     "traffic.scenario.showcase", nullptr,
-                     k_plugin_product});
-    add_row(Scenario{"plugin.flood", detail::kPluginMarkLeaf, "plugin.flood",
-                     "flood.scenario.showcase", nullptr,
-                     k_plugin_product});
-    add_row(Scenario{"plugin.stormsurge", detail::kPluginMarkLeaf,
-                     "plugin.stormsurge", "stormsurge.scenario.showcase",
-                     nullptr, k_plugin_scene3d});
-    add_row(Scenario{"plugin.mine", detail::kPluginMarkLeaf, "plugin.mine",
-                     "mine.scenario.showcase", nullptr, k_plugin_scene3d});
-    add_row(Scenario{"plugin.geochem", detail::kPluginMarkLeaf, "plugin.geochem",
-                     "geochem.scenario.showcase", nullptr,
-                     k_plugin_product});
-    add_row(Scenario{"plugin.report", detail::kPluginMarkLeaf, "plugin.report",
+    add_row(Scenario{"plugin.print", content::detail::kPluginMarkLeaf, "plugin.print",
+                     nullptr, nullptr, k_plugin_product});
+    add_row(Scenario{"plugin.orthogrid", content::detail::kPluginMarkLeaf,
+                     "plugin.orthogrid", nullptr, nullptr, k_plugin_product});
+    add_row(Scenario{"plugin.orthogrid3d", content::detail::kPluginMarkLeaf,
+                     "plugin.orthogrid3d", nullptr, nullptr, k_plugin_scene3d});
+    add_row(Scenario{"plugin.traffic", content::detail::kPluginMarkLeaf, "plugin.traffic",
+                     nullptr, nullptr, k_plugin_product});
+    add_row(Scenario{"plugin.flood", content::detail::kPluginMarkLeaf, "plugin.flood",
+                     nullptr, nullptr, k_plugin_product});
+    add_row(Scenario{"plugin.stormsurge", content::detail::kPluginMarkLeaf,
+                     "plugin.stormsurge", nullptr, nullptr, k_plugin_scene3d});
+    add_row(Scenario{"plugin.mine", content::detail::kPluginMarkLeaf, "plugin.mine",
+                     nullptr, nullptr, k_plugin_scene3d});
+    add_row(Scenario{"plugin.geochem", content::detail::kPluginMarkLeaf, "plugin.geochem",
+                     nullptr, nullptr, k_plugin_product});
+    add_row(Scenario{"plugin.report", content::detail::kPluginMarkLeaf, "plugin.report",
                      nullptr, &run_report_suite, k_plugin_product});
   });
 }

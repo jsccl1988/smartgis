@@ -4,7 +4,6 @@
 #ifndef CONTENT_PUBLIC_EVENT_BUS_H_
 #define CONTENT_PUBLIC_EVENT_BUS_H_
 
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -96,14 +95,61 @@ class EventBus {
     std::function<void(const void*)> fn;
   };
 
+  // Intrusive list, not std::vector. Debug STL _Orphan_range AVs on
+  // vector<std::function> while finish_deferred_shell_wiring subscribes
+  // LayersChanged (cdb: unused-capacity emplace -> orphan walk).
+  struct Node {
+    Slot slot;
+    Node* next = nullptr;
+  };
+
   struct Hub {
     std::uint64_t next_id = 1;
-    std::vector<Slot> slots;
+    Node* head = nullptr;
+    Node* tail = nullptr;
+
+    Hub() = default;
+    Hub(const Hub&) = delete;
+    Hub& operator=(const Hub&) = delete;
+
+    ~Hub() {
+      Node* n = head;
+      while (n) {
+        Node* next = n->next;
+        delete n;
+        n = next;
+      }
+    }
+
+    void push(Slot slot) {
+      Node* n = new Node;
+      n->slot = std::move(slot);
+      if (!tail) {
+        head = tail = n;
+        return;
+      }
+      tail->next = n;
+      tail = n;
+    }
 
     void unsubscribe(std::uint64_t id) {
-      slots.erase(std::remove_if(slots.begin(), slots.end(),
-                                   [id](const Slot& s) { return s.id == id; }),
-                  slots.end());
+      Node* prev = nullptr;
+      for (Node* n = head; n; n = n->next) {
+        if (n->slot.id != id) {
+          prev = n;
+          continue;
+        }
+        if (prev) {
+          prev->next = n->next;
+        } else {
+          head = n->next;
+        }
+        if (tail == n) {
+          tail = prev;
+        }
+        delete n;
+        return;
+      }
     }
   };
 
@@ -175,7 +221,7 @@ class EventBus {
     slot.fn = [fn = std::move(fn)](const void* p) {
       fn(*static_cast<const E*>(p));
     };
-    hub_->slots.push_back(std::move(slot));
+    hub_->push(std::move(slot));
     c.hub_ = hub_;
     c.id_ = id;
     return c;
@@ -188,10 +234,10 @@ class EventBus {
     }
     const char* type_name = event_type_name<E>();
     std::vector<std::function<void(const void*)>> fns;
-    for (const Slot& slot : hub_->slots) {
-      if (slot.type_name != nullptr &&
-          std::strcmp(slot.type_name, type_name) == 0) {
-        fns.push_back(slot.fn);
+    for (const Node* n = hub_->head; n; n = n->next) {
+      if (n->slot.type_name != nullptr &&
+          std::strcmp(n->slot.type_name, type_name) == 0 && n->slot.fn) {
+        fns.push_back(n->slot.fn);
       }
     }
     for (const auto& fn : fns) {

@@ -48,33 +48,13 @@ native_plugin("mine_native") {
   data_deps = [ ":mine_resources" ]
 }
 
-source_set("mine_harness") {
-  sources = [
-    "scenario/interact.cc",
-    "scenario/interact.h",
-    "scenario/register.cc",
-    "scenario/register.h",
-    "scenario/run.cc",
-    "scenario/run.h",
-    "scenario/seed.cc",
-    "scenario/seed.h",
-  ]
-  include_dirs += [
-    ".",
-    "//src",
-  ]
-  deps = [
-    ":mine_views",
-    "//src/content:content",
-    "//src/content:scene3d_present",
-    "//src/plugin/product/world3d:world3d_harness",
-    "//src/plugin/runtime/host:host",
-  ]
-}
-
 test("mine_stratum_test") {
   output_name = "mine_stratum_test"
-  sources = [ "tests/stratum_test.cc" ]
+  sources = [
+    "gate.cc",
+    "gate.h",
+    "tests/stratum_test.cc",
+  ]
   include_dirs += [ "//src" ]
   deps = [
     ":mine_views",
@@ -83,4 +63,5 @@ test("mine_stratum_test") {
     "//src/plugin/runtime/host:host",
   ]
   data_deps = [ ":mine_resources" ]
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
 }

@@ -24,8 +24,7 @@ product packages). Layout:
 | `scene/atmosphere/` | Inspector dock `world3d.atmosphere` |
 | `scene/present/` | Contour / stand-in mesh / style helpers |
 | `scene/detail/` | Alias helper + scene JSON/sink internals |
-| `scenario/` | HWND/BMP harness (`*_harness` exe-only): `capture/` `present/` `seed/` `session/` `product/` `common/` |
-| `scenario/atmosphere/` | Atmosphere HWND lanes: `capture/` `common/` `present/` `seed/` `session/` |
+| `testing/tools/harness/_shared/steps/` | 套件编排：`atmosphere.py`、`china_stack.py`、`browse.py`、`scene_shell.py`、`preview.py`。套件脚本只组合差异 |
 | `resources/data/` | Data stub README (copy → `out/<config>/plugins/world3d/data`) |
 
 Shell includes only `plugin/product/world3d/commands.h`.
@@ -40,6 +39,7 @@ Shell includes only `plugin/product/world3d/commands.h`.
 | `world3d.set_atmosphere` | JSON `{sky?,ocean?,cloud?,fog?}` — explicit atmosphere pass toggles |
 | `world3d.atmosphere_panel` | Inspector dock `world3d.atmosphere` (time scrub + layer checks; chrome mounts via `plugin.ui.shell`) |
 | `world3d.apply_look` | JSON `{mode}` — `land` / `ocean` / `full` / `coast` / `globe` / `legacy` / `east_china` (former `--atmosphere-showcase` looks) |
+| `world3d.scenario.atmosphere.china_stack` | Gate only. The ladder is `testing/tools/harness/_shared/steps/china_stack.py` (DEM → ocean → fog → sky → cloud). Suite `browser.world3d.china_stack`. |
 | `world3d.fly_globe` | JSON `{t?}` — cinematic globe fly-in beat in `[0,1]` (space→clouds→DEM→ocean) |
 | `world3d.fly_to` | JSON `{lon,lat,distance?,span_deg?}` — local orbit reframe |
 | `world3d.attach_city_tileset` | JSON `{path?}` — 3D Tiles JSON (empty → `m3_city_tileset.json`) |
@@ -111,5 +111,5 @@ Interactive: Tools → **打开真三维地球** / **加载全球DEM** / **卫�
   live meteorological imagery streaming.
 - City tiles = local fixture stream, not production city coverage.
 - Fly-to is extent reframe. Cinematic globe fly lives on `world3d.fly_globe`
-  (`scene/fly/globe_fly.*`); `--atmosphere-showcase=globe` is a harness HWND
-  capture of that product path.
+  (`scene/fly/globe_fly.*`). The globe suite calls that command, then
+  `export_bmp(frame="scene3d")`.

@@ -4,7 +4,7 @@
   "argv": [
     "--input-showcase"
   ],
-  "script": "browser.input.il",
+  "script": "browser.input.py",
   "env": {
     "SKIP_MAP_CONTEXT_MENU": "1"
   },

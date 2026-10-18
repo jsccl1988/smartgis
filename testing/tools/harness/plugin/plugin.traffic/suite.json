@@ -4,7 +4,7 @@
     "argv":  [
                  "--plugin-showcase=traffic"
              ],
-    "script":  "plugin.traffic.il",
+    "script":  "plugin.traffic.py",
     "env":  {
                 "SKIP_MAP_CONTEXT_MENU":  "1"
             },

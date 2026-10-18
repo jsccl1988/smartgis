@@ -173,6 +173,7 @@ void DrawHost::display_run_present(uint32_t width_px, uint32_t height_px,
     LOGGING(LOG_WARNING,
             "rhi.present skip: no gpu_present/submit callback size=%ux%u",
             width_px, height_px);
+    frame_presented_.store(frame_token, std::memory_order_release);
     return;
   }
   const bool was_ok = last_gpu_present_ok_.load(std::memory_order_acquire);
@@ -188,11 +189,14 @@ void DrawHost::display_run_present(uint32_t width_px, uint32_t height_px,
       LOGGING(LOG_INFO, "rhi.present recovered size=%ux%u token=%u role=%d",
               width_px, height_px, frame_token, static_cast<int>(role_));
     }
-  } else if (was_ok || frame_token <= 2) {
-    LOGGING(LOG_ERROR,
-            "rhi.present FAIL size=%ux%u token=%u role=%d (DXGI SoT; no GDI "
-            "BitBlt overlay)",
-            width_px, height_px, frame_token, static_cast<int>(role_));
+  } else {
+    frame_presented_.store(frame_token, std::memory_order_release);
+    if (was_ok || frame_token <= 2) {
+      LOGGING(LOG_ERROR,
+              "rhi.present FAIL size=%ux%u token=%u role=%d (DXGI SoT; no GDI "
+              "BitBlt overlay)",
+              width_px, height_px, frame_token, static_cast<int>(role_));
+    }
   }
   if (last_begin_frame_qpc_ != 0) {
     LARGE_INTEGER now = {};
@@ -212,13 +216,6 @@ void DrawHost::display_run_begin_frame() {
   last_begin_frame_qpc_ = static_cast<std::uint64_t>(begin_qpc.QuadPart);
   ui::gfx::note_begin_frame_qpc(last_begin_frame_qpc_);
 
-  if (role_ != Role::kScene3d) {
-    if (const char* env = base::switch_cstr("force-gdi-map-overlay")) {
-      if (env[0] == '1' && env[1] == '\0') {
-        return;
-      }
-    }
-  }
   const uint32_t requested =
       frame_request_.load(std::memory_order_acquire);
   const uint32_t presented =
@@ -226,10 +223,22 @@ void DrawHost::display_run_begin_frame() {
   if (requested == presented) {
     return;
   }
-  if (!rhi_device_) {
-    return;
+  // Consume the token when this tick cannot present. The wait predicate
+  // treats request != presented as "wake now"; leaving a failed token
+  // pending busy-spins the mailbox and stretches china export / cold upload.
+  auto consume_request = [&]() {
+    frame_presented_.store(requested, std::memory_order_release);
+  };
+  if (role_ != Role::kScene3d) {
+    if (const char* env = base::switch_cstr("force-gdi-map-overlay")) {
+      if (env[0] == '1' && env[1] == '\0') {
+        consume_request();
+        return;
+      }
+    }
   }
-  if (!has_gpu_cb_.load(std::memory_order_acquire)) {
+  if (!rhi_device_ || !has_gpu_cb_.load(std::memory_order_acquire)) {
+    consume_request();
     return;
   }
   uint32_t w = 0;
@@ -275,7 +284,12 @@ void DrawHost::display_thread_main() {
       }
       if (display_queue_.empty() && !display_stop_) {
         display_cv_.wait_for(lock, std::chrono::milliseconds(16), [this]() {
-          return display_stop_ || !display_queue_.empty();
+          // frame_request_ is not a queue item. Without it in the predicate,
+          // notify_all from request_frame is ignored and the mailbox sleeps
+          // out the full 16ms, so StaticReuse presents land near 40Hz.
+          return display_stop_ || !display_queue_.empty() ||
+                 frame_request_.load(std::memory_order_acquire) !=
+                     frame_presented_.load(std::memory_order_acquire);
         });
       }
       if (display_stop_ && display_queue_.empty()) {

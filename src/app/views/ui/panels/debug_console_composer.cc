@@ -22,8 +22,7 @@
 #include <windows.h>
 
 #include "app/views/browser/plugin/shell/plugin_shell.h"
-#include "app/views/il.runtime/backend/horizon/atom/mark.h"
-#include "app/views/il.runtime/codegen/session/run_script.h"
+#include "app/views/app/startup/shell_runtime.h"
 #include "app/views/util/charset.h"
 #include "app/views/util/view_tree.h"
 #include "base/process/switches.h"
@@ -37,6 +36,57 @@
 #include "ui/views/map/viewport/draw_host.h"
 
 namespace app {
+
+namespace {
+
+// Agent clicks are widget-client points. The map camera reads WM_* on the
+// DXGI present popup (input_hwnd), which sits above the embed and is not a
+// Views hit target. Forward when the point lands on that HWND.
+std::string click_map_or_widget(HWND shell, ui::views::DrawHost* map,
+                                 ui::views::Widget* widget, int x, int y,
+                                 int button) {
+  HWND target = map ? map->input_hwnd() : nullptr;
+  if (shell && IsWindow(shell) && target && IsWindow(target)) {
+    POINT pt{x, y};
+    ClientToScreen(shell, &pt);
+    RECT rc{};
+    if (GetWindowRect(target, &rc) && pt.x >= rc.left && pt.x < rc.right &&
+        pt.y >= rc.top && pt.y < rc.bottom) {
+      ScreenToClient(target, &pt);
+      UINT down = WM_LBUTTONDOWN;
+      UINT up = WM_LBUTTONUP;
+      WPARAM mk = MK_LBUTTON;
+      if (button == 2) {
+        down = WM_RBUTTONDOWN;
+        up = WM_RBUTTONUP;
+        mk = MK_RBUTTON;
+      } else if (button == 3) {
+        down = WM_MBUTTONDOWN;
+        up = WM_MBUTTONUP;
+        mk = MK_MBUTTON;
+      }
+      const LPARAM lp = MAKELPARAM(pt.x, pt.y);
+      SendMessageW(target, down, mk, lp);
+      SendMessageW(target, up, 0, lp);
+      return "clicked map";
+    }
+  }
+  if (!widget) {
+    return "not wired";
+  }
+  ui::views::MouseEvent down;
+  down.type = ui::views::MouseEvent::Type::kDown;
+  down.x = x;
+  down.y = y;
+  down.button = button > 0 ? button : 1;
+  widget->send_mouse(down);
+  ui::views::MouseEvent up = down;
+  up.type = ui::views::MouseEvent::Type::kUp;
+  widget->send_mouse(up);
+  return "clicked";
+}
+
+}  // namespace
 
 // Diagnostic tools / debug-agent host binding.
 
@@ -74,6 +124,9 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     invoke_on_ui([this] {
       if (host_->browser_) {
         host_->browser_->on_view_command("view.refresh", -1, false, 0, 0);
+      }
+      if (ui::views::DrawHost* map = host_->active_map()) {
+        map->request_frame();
       }
       return std::string();
     });
@@ -144,7 +197,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
       return std::string("not wired");
     }
     const ui::views::View* hit =
-        detail::find_view_by_paint_role(root, std::string_view(name));
+        content::detail::find_view_by_paint_role(root, std::string_view(name));
     if (!hit) {
       return std::string("not wired");
     }
@@ -157,22 +210,14 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     });
   };
   host.ui_click = [this](int x, int y, int button) {
-    return invoke_on_ui([&] {
-    ui::views::MouseEvent down;
-    down.type = ui::views::MouseEvent::Type::kDown;
-    down.x = x;
-    down.y = y;
-    down.button = button > 0 ? button : 1;
-    host_->widget_.send_mouse(down);
-    ui::views::MouseEvent up = down;
-    up.type = ui::views::MouseEvent::Type::kUp;
-    host_->widget_.send_mouse(up);
-    return std::string("clicked");
+    return invoke_on_ui([this, x, y, button] {
+      return click_map_or_widget(host_->widget_.hwnd(), host_->active_map(),
+                                &host_->widget_, x, y, button);
     });
   };
   host.ui_type = [this](const std::string& utf8) {
     return invoke_on_ui([&] {
-    const std::wstring wide = detail::utf8_to_wide(utf8);
+    const std::wstring wide = content::detail::utf8_to_wide(utf8);
     for (wchar_t ch : wide) {
       ui::views::CharEvent ev;
       ev.ch = ch;
@@ -188,7 +233,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
       return std::string("not wired");
     }
     std::ostringstream oss;
-    detail::append_view_tree_lines(root, 0, oss);
+    content::detail::append_view_tree_lines(root, 0, oss);
     return oss.str();
     });
   };
@@ -245,11 +290,17 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     if (out_path.has_parent_path()) {
       std::filesystem::create_directories(out_path.parent_path(), ec);
     }
-    HDC hdc_win = GetDC(hwnd);
+    // Shell GetDC misses the owned FlyCube present popup (DXGI flip is not
+    // in the parent DC), so agent captures stayed ocean while the map moved.
+    // Sample the composed screen over the client rect instead.
+    POINT origin{0, 0};
+    ClientToScreen(hwnd, &origin);
+    SetForegroundWindow(hwnd);
+    HDC hdc_win = GetDC(nullptr);
     HDC mem = CreateCompatibleDC(hdc_win);
     HBITMAP bmp = CreateCompatibleBitmap(hdc_win, w, h);
     HGDIOBJ old = SelectObject(mem, bmp);
-    BitBlt(mem, 0, 0, w, h, hdc_win, 0, 0, SRCCOPY);
+    BitBlt(mem, 0, 0, w, h, hdc_win, origin.x, origin.y, SRCCOPY);
 
     BITMAPFILEHEADER bfh = {};
     BITMAPINFOHEADER bih = {};
@@ -273,7 +324,7 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     SelectObject(mem, old);
     DeleteObject(bmp);
     DeleteDC(mem);
-    ReleaseDC(hwnd, hdc_win);
+    ReleaseDC(nullptr, hdc_win);
 
     std::ofstream file(out_path, std::ios::binary);
     if (!file) {
@@ -294,10 +345,12 @@ void DebugConsoleComposer::bind_debug_agent_host() {
   };
   host.py_eval = [this](const std::string& code) {
     return invoke_on_ui([&] {
-    if (!host_->browser_ || !host_->browser_->plugins()) {
-      return std::string("error: no plugin shell");
+    if (!host_->browser_) {
+      return std::string("error: no browser");
     }
-    return host_->browser_->plugins()->eval_python(code);
+    return app::run_script(*host_->browser_,
+                           content::ScriptCall{.code = code.c_str()})
+        .text;
     });
   };
   host.script_run = [this](const std::string& path_utf8) {
@@ -305,8 +358,10 @@ void DebugConsoleComposer::bind_debug_agent_host() {
     if (!host_->browser_) {
       return std::string("error: no browser");
     }
-    return app::run_execution_script_utf8(*host_->browser_, path_utf8,
-                                           app::detail::kUiMarkLeaf);
+    return app::run_script(*host_->browser_,
+                           content::ScriptCall{.path_utf8 = path_utf8.c_str(),
+                                      .mark_leaf = content::detail::kUiMarkLeaf})
+        .text;
     });
   };
   content::debug_agent().set_host(std::move(host));

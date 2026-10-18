@@ -833,8 +833,8 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
     });
   }
 
-  // Cold-start (shell §Startup P0-2 style): Output keeps LogSink; Trace is the
-  // default tab. Console + Memory markup trees wait until first select.
+  // Cold-start: Output stays on LogSink for the process lifetime and is the
+  // landing tab. Console + Memory markup trees wait until first select.
   auto output = std::make_unique<DebugConsolePanel>();
   output->set_pane_mode(DebugConsolePanel::PaneMode::kOutput);
   output->set_visible_console(true);
@@ -853,6 +853,7 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
   memory_tab_ = tabs_->add_tab("Memory", std::make_unique<View>());
   tabs_->add_tab("Agent", std::make_unique<AgentSessionsPage>());
   tabs_->set_change([this](int i) { ensure_tab_content(i); });
+  tabs_->set_active(0);
 
   if (tabs_host_) {
     tabs_host_->set_preferred_size({0, kTabsHostMinDip});
@@ -963,6 +964,7 @@ void DiagnosticToolsPanel::set_visible_tools(bool on) {
   }
   if (output_) {
     output_->set_visible_console(true);
+    output_->sync_log_output();
   }
   if (console_) {
     console_->set_visible_console(on);

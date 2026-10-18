@@ -2,7 +2,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-"""Compat shim — prefer loop.kill / loop_runner kill path."""
+"""Compat shim - prefer loop.kill / loop_runner kill path."""
 
 from __future__ import annotations
 

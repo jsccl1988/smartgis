@@ -1,12 +1,14 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Thin present forwarder over gis::style carto resolve. StyleDocument
-// selection does not read GisScene.
+// Present style selection. The painted default is the file-backed vista
+// document (out/ui/carto/default.style.json). gis::style keeps a separate
+// embedded copy that had drifted to a single yellow road ramp.
 
 #include "content/browser/present/map2d/frame/carto/map2d_carto.h"
 
 #include "gis/style/carto/resolve.h"
+#include "vista/component/map/carto/resolve.h"
 
 namespace content {
 namespace detail {
@@ -20,12 +22,12 @@ bool style_has_carto_slots(const gis::style::StyleDocument* doc) {
 }
 
 const gis::style::StyleDocument* default_carto_style() {
-  return gis::style::default_carto_style();
+  return vista::default_carto_style();
 }
 
 const gis::style::StyleDocument* resolve_present_style(
     const gis::style::StyleDocument* scene_style, bool* use_carto) {
-  return gis::style::resolve_present_style(scene_style, use_carto);
+  return vista::resolve_present_style(scene_style, use_carto);
 }
 
 const gis::style::StyleLayer* find_hillshade_layer(

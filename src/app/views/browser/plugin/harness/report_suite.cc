@@ -12,11 +12,9 @@
 #include "app/views/browser/browser.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "app/views/browser/ui_delegate.h"
-#include "app/views/il.runtime/backend/view/host/capture_host.h"
-#include "app/views/il.runtime/backend/plugin/paths.h"
-#include "app/views/il.runtime/backend/horizon/atom/mark.h"
-#include "app/views/il.runtime/backend/plugin/dispatch.h"
-#include "app/views/il.runtime/backend/horizon/atom/pump.h"
+#include "app/views/app/startup/shell_runtime.h"
+#include "content/browser/glang.runtime/host/plugin/paths.h"
+#include "content/browser/glang.runtime/host/view/host/capture_host.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/web/fake_report_browser.h"
 #include "plugin/runtime/host/capability/capability.h"
@@ -47,14 +45,14 @@ std::string json_escape_path(const char* path) {
 
 int run_report_suite(Browser& browser) {
   std::fprintf(stderr, "plugin-showcase: report dock path\n");
-  detail::write_mark(detail::kPluginMarkLeaf, "report",
+  content::detail::write_mark(content::detail::kPluginMarkLeaf, "report",
                      /*truncate=*/true);
   // IL may have failed before hwnd-ok; C++ fallback still runs with a live
   // horizon — publish the mark the suite gate requires.
-  detail::write_mark(detail::kPluginMarkLeaf, "hwnd-ok", false);
+  content::detail::write_mark(content::detail::kPluginMarkLeaf, "hwnd-ok", false);
 
   if (!browser.plugins() || !browser.plugins()->ensure_builtins()) {
-    detail::write_mark(detail::kPluginMarkLeaf, "plugins-fail", false);
+    content::detail::write_mark(content::detail::kPluginMarkLeaf, "plugins-fail", false);
     detail::detach_views(browser);
     return 1;
   }
@@ -65,9 +63,9 @@ int run_report_suite(Browser& browser) {
       L"data\\plugin\\report\\sample",
       L"..\\..\\testing\\data\\plugin\\report\\sample",
       L"..\\testing\\data\\plugin\\report\\sample"};
-  if (!detail::resolve_first_existing_under_exe(rels, 4, rep_path,
+  if (!content::detail::resolve_first_existing_under_exe(rels, 4, rep_path,
                                                 sizeof(rep_path))) {
-    detail::write_mark(detail::kPluginMarkLeaf, "report-sample-missing",
+    content::detail::write_mark(content::detail::kPluginMarkLeaf, "report-sample-missing",
                        false);
     detail::detach_views(browser);
     return 1;
@@ -79,7 +77,7 @@ int run_report_suite(Browser& browser) {
       browser.plugins() ? browser.plugins()->host() : nullptr;
   plugin::ReportBridge* report = plugin::report_bridge(host);
   if (!host || !report) {
-    detail::write_mark(detail::kPluginMarkLeaf, "report-open-fail", false);
+    content::detail::write_mark(content::detail::kPluginMarkLeaf, "report-open-fail", false);
     detail::detach_views(browser);
     return 1;
   }
@@ -98,12 +96,12 @@ int run_report_suite(Browser& browser) {
         []() { report_showcase_fake().close(); });
   };
   install_fake();
-  detail::write_mark(detail::kPluginMarkLeaf, "report-fake-bridge", false);
+  content::detail::write_mark(content::detail::kPluginMarkLeaf, "report-fake-bridge", false);
 
   if (browser.ui()) {
     browser.ui()->activate_inspector_tab(9);
   }
-  detail::pump_messages(200);
+  content::detail::pump_messages(200);
   // activate_inspector_tab may re-wire ReportBridge to the panel (WebView2);
   // re-install fake so harness open/post never touch WebView2.
   install_fake();
@@ -114,13 +112,13 @@ int run_report_suite(Browser& browser) {
       "{\"series\":[{\"label\":\"X\",\"value\":22},{\"label\":\"Y\",\"value\":41},"
       "{\"label\":\"Z\",\"value\":15}]}";
   if (!report->open(rep_path) || !report->post(kSeries)) {
-    detail::write_mark(detail::kPluginMarkLeaf, "report-open-fail", false);
+    content::detail::write_mark(content::detail::kPluginMarkLeaf, "report-open-fail", false);
     detail::detach_views(browser);
     return 1;
   }
-  detail::write_mark(detail::kPluginMarkLeaf, "report-ok", false);
-  detail::pump_messages(400);
-  detail::write_mark(detail::kPluginMarkLeaf, "pass", false);
+  content::detail::write_mark(content::detail::kPluginMarkLeaf, "report-ok", false);
+  content::detail::pump_messages(400);
+  content::detail::write_mark(content::detail::kPluginMarkLeaf, "pass", false);
   detail::detach_views(browser);
   std::fprintf(stderr, "plugin-showcase: PASS mode=report\n");
   return 0;

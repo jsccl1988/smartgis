@@ -2,6 +2,7 @@
 // All rights reserved.
 
 #include "vista/component/map/carto/collision.h"
+#include "vista/component/map/carto/filter.h"
 
 #include <algorithm>
 #include <cmath>
@@ -9,6 +10,8 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
+
+#include "gis/tile/protocol/mercator_math.h"
 
 namespace vista {
 namespace detail {
@@ -135,10 +138,7 @@ int label_priority(const char* name, const char* kind, const char* cls,
       if (std::strcmp(tail4, "0000") == 0) {
         return 1;
       }
-      // Provincial capital seats (…0100) stay on the country frame.
-      if (std::strcmp(tail4, "0100") == 0 || std::strcmp(tail4, "0200") == 0) {
-        return 1;
-      }
+      // Prefecture seats (…0100 / …0200) share the 市 tier.
       if (std::strcmp(tail2, "00") == 0) {
         return 2;
       }
@@ -173,12 +173,11 @@ int label_priority(const char* name, const char* kind, const char* cls,
     // into the wrong encoding (then find() never matches and every city
     // falls through to priority 5 / clutter).
     const std::string n(name);
-    // Tier-1 municipalities — keep on china overview even under label budget.
+    // Municipalities sit with 省 on the country frame. Megacity seats
+    // (广州/深圳) wait for the 市 tier via the 市 suffix below.
     static constexpr const char* kTier1[] = {
         "\xe5\x8c\x97\xe4\xba\xac",  // 北京
         "\xe4\xb8\x8a\xe6\xb5\xb7",  // 上海
-        "\xe5\xb9\xbf\xe5\xb7\x9e",  // 广州
-        "\xe6\xb7\xb1\xe5\x9c\xb3",  // 深圳
         "\xe9\x87\x8d\xe5\xba\x86",  // 重庆
         "\xe5\xa4\xa9\xe6\xb4\xa5",  // 天津
     };
@@ -215,9 +214,14 @@ int label_priority(const char* name, const char* kind, const char* cls,
       return 2;
     }
   }
+  // Provincial capitals are 粗等线. Other city points are a lower grade so
+  // 侯马 does not share 成都's size just because kind == "city".
+  if (name && *name && place_name_importance(name) >= 3) {
+    return 1;
+  }
   if (kind &&
       (std::strcmp(kind, "city") == 0 || std::strcmp(kind, "point") == 0)) {
-    return 2;
+    return 6;
   }
   if (kind &&
       (std::strcmp(kind, "region") == 0 || std::strcmp(kind, "area") == 0)) {
@@ -226,46 +230,49 @@ int label_priority(const char* name, const char* kind, const char* cls,
   return 5;
 }
 
-int lod_max_priority(float fblc) {
-  // Country framing (fblc ≈ px per lon-degree). Mainland showcase sits near
-  // fblc≈13 — allow prefecture / 市 seats (priority 2), not only 省.
-  if (fblc < 12.f) {
+VISTA_EXPORT int lod_max_priority(float fblc) {
+  // Same zoom ladder as label_min_importance. Priority: 0–1 国家/省,
+  // 2 市, 3–4 河/路, 6 县.
+  const double zoom = gis::tile::zoom_from_scale(fblc);
+  if (zoom < 11.0) {
     return 1;
   }
-  if (fblc < 28.f) {
-    return 2;
+  if (zoom < 13.5) {
+    return 4;
   }
-  if (fblc < 60.f) {
-    return 3;
+  if (zoom < 16.0) {
+    return 6;
   }
   return 9;
 }
 
 int label_budget(float fblc) {
-  if (fblc < 12.f) {
-    return 16;
+  const double zoom = gis::tile::zoom_from_scale(fblc);
+  // One admin tier per band: ~34 省, then 地级市, then 县.
+  if (zoom < 11.0) {
+    return 48;
   }
-  if (fblc < 28.f) {
-    return 28;
+  if (zoom < 13.5) {
+    return 160;
   }
-  if (fblc < 60.f) {
-    return 60;
+  if (zoom < 16.0) {
+    return 240;
   }
-  return 180;
+  return 360;
 }
 
 int label_draw_budget(double scale) {
-  // Caps from the retired whole-string label pass.
-  if (scale < 22.0) {
-    return 24;
+  const double zoom = gis::tile::zoom_from_scale(scale);
+  if (zoom < 11.0) {
+    return 48;
   }
-  if (scale < 48.0) {
-    return 40;
+  if (zoom < 13.5) {
+    return 160;
   }
-  if (scale < 96.0) {
-    return 80;
+  if (zoom < 16.0) {
+    return 240;
   }
-  return 120;
+  return 320;
 }
 
 int point_label_nudges(int text_h, PointNudge* out, int max_out) {
@@ -286,18 +293,22 @@ int point_label_nudges(int text_h, PointNudge* out, int max_out) {
 }
 
 int label_px(int priority, float fblc) {
-  // Floors stay under the style curve. National zoom (~13) resolves to
-  // about 44px; these only catch a missing text-size.
-  if (priority <= 1) {
-    return fblc < 12.f ? 28 : 36;
+  // Screen grades for 等线. 省 stays above 市, 市 above 县. Line names do
+  // not use this floor (they keep the style size).
+  const double zoom = gis::tile::zoom_from_scale(fblc);
+  if (priority <= 0) {
+    return zoom < 11.0 ? 32 : 40;
+  }
+  if (priority == 1) {
+    return zoom < 11.0 ? 26 : 32;
   }
   if (priority == 2) {
-    return fblc < 18.f ? 24 : 32;
-  }
-  if (priority == 3) {
     return 22;
   }
-  return 18;
+  if (priority == 3 || priority >= 6) {
+    return 18;
+  }
+  return 16;
 }
 
 // Exported: frame_test calls this across the gis DLL boundary.

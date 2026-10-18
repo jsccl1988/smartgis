@@ -67,12 +67,12 @@ TextAnchorOff text_origin(const std::string& anchor, float total_w,
 }
 
 float run_width(const std::string& text, float text_size,
-                const GlyphMetrics* metrics) {
+                const GlyphMetrics* metrics, uint8_t font) {
   float width = 0;
   size_t index = 0;
   uint32_t cp = 0;
   while (next_codepoint(text, &index, &cp)) {
-    width += metrics->advance_px(cp, text_size);
+    width += metrics->advance_px(cp, text_size, font);
   }
   return width;
 }
@@ -133,6 +133,8 @@ struct SymbolCand {
   float icon_off_x = 0.f;
   float icon_off_y = 0.f;
   bool draw_text = false;
+  bool along_line = false;
+  uint8_t font = 0;
   // Cached once per candidate — collision retries reuse these widths.
   float emit_text_w = 0.f;
   float collision_text_h = 0.f;
@@ -143,8 +145,13 @@ struct SymbolCand {
 };
 
 int collision_text_height(const SymbolCand& cand, float fblc) {
-  const int carto_h = label_px(cand.priority, fblc);
   const int styled_h = static_cast<int>(std::ceil(cand.text_size));
+  // Line names keep the style grade (干流 / 支流 / 道路). Point places use
+  // the admin floor so 省 stays larger than 市 and 县.
+  if (cand.along_line) {
+    return (std::max)(styled_h, 11);
+  }
+  const int carto_h = label_px(cand.priority, fblc);
   return (std::max)(carto_h, styled_h);
 }
 
@@ -166,9 +173,11 @@ void prepare_text_metrics(SymbolCand* cand, float fblc,
   cand->collision_total_w = units_floor;
   if (metrics) {
     cand->collision_total_w =
-        (std::max)(run_width(cand->text, cand->collision_text_h, metrics),
+        (std::max)(run_width(cand->text, cand->collision_text_h, metrics,
+                             cand->font),
                    units_floor);
-    cand->emit_text_w = run_width(cand->text, cand->text_size, metrics);
+    cand->emit_text_w =
+        run_width(cand->text, cand->text_size, metrics, cand->font);
   }
 }
 
@@ -258,20 +267,21 @@ void emit_kept_symbol(const SymbolCand& cand, const GlyphMetrics* metrics,
   const float total_w =
       cand.emit_text_w > 0.f
           ? cand.emit_text_w
-          : run_width(cand.text, cand.text_size, metrics);
+          : run_width(cand.text, cand.text_size, metrics, cand.font);
   const TextAnchorOff origin =
       text_origin(cand.text_anchor, total_w, cand.text_size);
   float pen = 0.f;
   size_t index = 0;
   uint32_t cp = 0;
   while (next_codepoint(cand.text, &index, &cp)) {
-    const float adv = metrics->advance_px(cp, cand.text_size);
+    const float adv = metrics->advance_px(cp, cand.text_size, cand.font);
     if (adv > 0.f) {
       DrawItem glyph;
       glyph.kind = DrawKind::kText;
       glyph.pixel_space = true;
       glyph.codepoint = cp;
       glyph.text_size_px = cand.text_size;
+      glyph.font = static_cast<vista::MapFont>(cand.font);
       glyph.halo_width_px = cand.halo_width;
       glyph.halo_rgba = cand.halo_rgba;
       glyph.rgba = cand.text_rgba;
@@ -342,6 +352,32 @@ void emit_symbols(const gis::style::StyleLayer& layer, const LayoutInput& in,
       cand.text = label_text(paint, attrs);
       cand.text_anchor = paint.text_anchor.empty() ? "center" : paint.text_anchor;
       cand.text_size = paint.text_size;
+      cand.along_line = along_line;
+      // GB/T 20257: 省会粗等线, 市中等线, 县细等线, 水系左斜宋, 道路细等线.
+      if (along_line && layer.source_layer == "river") {
+        cand.font = static_cast<uint8_t>(vista::MapFont::kSongOblique);
+      } else if (along_line) {
+        cand.font = static_cast<uint8_t>(vista::MapFont::kGothicLight);
+      } else if (feature_priority <= 1) {
+        cand.font = static_cast<uint8_t>(vista::MapFont::kGothicBold);
+      } else if (feature_priority >= 6) {
+        cand.font = static_cast<uint8_t>(vista::MapFont::kGothicLight);
+      } else {
+        cand.font = static_cast<uint8_t>(vista::MapFont::kGothic);
+      }
+      // Absolute grades. The style curve is one size for the whole layer, so
+      // scaling it left 北京 and 侯马 almost the same.
+      if (!along_line) {
+        if (feature_priority <= 0) {
+          cand.text_size = 40.f;
+        } else if (feature_priority == 1) {
+          cand.text_size = 32.f;
+        } else if (feature_priority == 2) {
+          cand.text_size = 22.f;
+        } else {
+          cand.text_size = 18.f;
+        }
+      }
       cand.icon = find_symbol(in, paint.icon_image);
       cand.icon_size = paint.icon_size;
       cand.icon_off_x = paint.icon_offset_x;
@@ -423,7 +459,7 @@ void emit_symbols(const gis::style::StyleLayer& layer, const LayoutInput& in,
             cand.emit_text_w > 0.f
                 ? cand.emit_text_w
                 : (in.metrics
-                       ? run_width(cand.text, cand.text_size, in.metrics)
+                       ? run_width(cand.text, cand.text_size, in.metrics, cand.font)
                        : estimate_run_width_px(cand.text.c_str(), cand.text_size));
         if (!line_fits_label(cand.line_path_len_px, text_w)) {
           if (!icon_ok) {

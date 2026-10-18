@@ -7,8 +7,8 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-15 — **§Vista map pass layers**（`pass/map` detail 拆 `draw_cache` / `place_upload` / `keyed_slices`；图 [`vista-map-pass-layers.html`](../diagrams/vista-map-pass-layers.html)）。Prior 2026-10-13 — **§Content present ↔ Chromium mapping** deepened（Chromium RWHV→cc→CompositorFrame→Viz Display vs Topology A DrawHost→Presenter→FrameCache/PresentAction→Pass→`graph::present` 1CL；拒绝 FrameSink/Mojo Viz；优化只在 C/G/E；图 §4 泳道）。Prior 2026-10-10 — same § first lock + subdirectory diagram. Prior 2026-10-08 — **§Content present subdirectory layers**（`host/{blit,overlay,scenic,gdi}` · `map2d/frame/{cache,carto,batches,layout,tile}` · `map2d/gpu/{present,selection}` · `scene3d/frame/{orbit,terrain,tileset,overlay}` · `*/profile` · `scene3d/scenic`；软 `software/` 删除；图同）。Prior same day — **§Vista map component layers**（顶层五条：`carto` · `shade` · `place` · `mvt` · `layout`；collision 并入 carto；layout 套 policy/geom/paint/stage；图 [`vista-map-component-layers.html`](../diagrams/vista-map-component-layers.html)）。Prior same day — **§Vista map layout layers**（`layout/{policy,geom,paint,stage}/` 文件角色；图 [`vista-map-layout-layers.html`](../diagrams/vista-map-layout-layers.html)）。Prior same day �?**§Vista world space layers** · **§Vista world component layers**�?**Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；multiprocess [`../ui-shell-multiprocess.md`](../ui-shell-multiprocess.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)�? 
-**Diagrams:** **World LOD terrain** [../diagrams/world-lod-terrain.html](../diagrams/world-lod-terrain.html) · **Vista scene octree** [`../diagrams/vista-scene-octree.html`](../diagrams/vista-scene-octree.html) · **Vista map/frame scenic-peer** [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html) · **DEM / hillshade bake** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html) · **Scene3d present** [`../diagrams/scene3d-present-layers.html`](../diagrams/scene3d-present-layers.html) · **content present subdirectory** [`../diagrams/content-present-subdirectory-layers.html`](../diagrams/content-present-subdirectory-layers.html) · **content present accelerate** [`../diagrams/content-present-accelerate.html`](../diagrams/content-present-accelerate.html) · **rhi2d frame-beat + map/layer/feature** [`../diagrams/rhi2d-paint-map-strategy.html`](../diagrams/rhi2d-paint-map-strategy.html) · **rhi3d public lanes** [`../diagrams/rhi3d-public-api-lanes.html`](../diagrams/rhi3d-public-api-lanes.html) · **Vista 子目录分�?* [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html) · **Scenic** [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · **RHI2D composition split** [`../diagrams/rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html) · **Map2d present** [`../diagrams/map2d-present-frame.html`](../diagrams/map2d-present-frame.html) · **A×B 规范�?* [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（含 **§8 Scene3d cold vs warm**�?· Views shell [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · GIS MapFrame [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)  
+**Updated:** 2026-10-18 — **§China stack gate**（DEM → ocean → fog → sky → cloud；图 [`china-stack-gates.html`](../diagrams/china-stack-gates.html)）。Prior same day — **§Map2d China design gates**（`map2d_china_dem` / `map2d_china_carto` / `map2d_align`；图 [`map2d-china-design-gate.html`](../diagrams/map2d-china-design-gate.html)）。Prior 2026-10-15 — **§Vista map pass layers**（`pass/map` detail 拆 `draw_cache` / `place_upload` / `keyed_slices`；图 [`vista-map-pass-layers.html`](../diagrams/vista-map-pass-layers.html)）。Prior 2026-10-13 — **§Content present ↔ Chromium mapping** deepened（Chromium RWHV→cc→CompositorFrame→Viz Display vs Topology A DrawHost→Presenter→FrameCache/PresentAction→Pass→`graph::present` 1CL；拒绝 FrameSink/Mojo Viz；优化只在 C/G/E；图 §4 泳道）。Prior 2026-10-10 — same § first lock + subdirectory diagram. Prior 2026-10-08 — **§Content present subdirectory layers**（`host/{blit,overlay,scenic,gdi}` · `map2d/frame/{cache,carto,batches,layout,tile}` · `map2d/gpu/{present,selection}` · `scene3d/frame/{orbit,terrain,tileset,overlay}` · `*/profile` · `scene3d/scenic`；软 `software/` 删除；图同）。Prior same day — **§Vista map component layers**（顶层五条：`carto` · `shade` · `place` · `mvt` · `layout`；collision 并入 carto；layout 套 policy/geom/paint/stage；图 [`vista-map-component-layers.html`](../diagrams/vista-map-component-layers.html)）。Prior same day — **§Vista map layout layers**（`layout/{policy,geom,paint,stage}/` 文件角色；图 [`vista-map-layout-layers.html`](../diagrams/vista-map-layout-layers.html)）。Prior same day �?**§Vista world space layers** · **§Vista world component layers**�?**Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；multiprocess [`../ui-shell-multiprocess.md`](../ui-shell-multiprocess.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)�? 
+**Diagrams:** **China stack gate** [`../diagrams/china-stack-gates.html`](../diagrams/china-stack-gates.html) · **World LOD terrain** [../diagrams/world-lod-terrain.html](../diagrams/world-lod-terrain.html) · **Vista scene octree** [`../diagrams/vista-scene-octree.html`](../diagrams/vista-scene-octree.html) · **Vista map/frame scenic-peer** [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html) · **DEM / hillshade bake** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html) · **Scene3d present** [`../diagrams/scene3d-present-layers.html`](../diagrams/scene3d-present-layers.html) · **content present subdirectory** [`../diagrams/content-present-subdirectory-layers.html`](../diagrams/content-present-subdirectory-layers.html) · **content present accelerate** [`../diagrams/content-present-accelerate.html`](../diagrams/content-present-accelerate.html) · **rhi2d frame-beat + map/layer/feature** [`../diagrams/rhi2d-paint-map-strategy.html`](../diagrams/rhi2d-paint-map-strategy.html) · **rhi3d public lanes** [`../diagrams/rhi3d-public-api-lanes.html`](../diagrams/rhi3d-public-api-lanes.html) · **Vista 子目录分�?* [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html) · **Scenic** [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · **RHI2D composition split** [`../diagrams/rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html) · **Map2d present** [`../diagrams/map2d-present-frame.html`](../diagrams/map2d-present-frame.html) · **A×B 规范�?* [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（含 **§8 Scene3d cold vs warm**�?· Views shell [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · GIS MapFrame [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)  
 **Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · **gpu accelerate（§GPU-process 唯一 checklist�?* [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · **vista parallel** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md) · suite/bench [`../plans/2026-09-28-render-rhi-suite-bench.md`](../plans/2026-09-28-render-rhi-suite-bench.md) · **Map2d hillshade + line casing** [`../plans/2026-09-30-map2d-hillshade-line-casing.md`](../plans/2026-09-30-map2d-hillshade-line-casing.md) · **world3d pointcloud LAS** [`../plans/2026-09-30-world3d-pointcloud-las.md`](../plans/2026-09-30-world3d-pointcloud-las.md) · **D3D leftover capability** [`../plans/2026-09-29-d3d-leftover-capability.md`](../plans/2026-09-29-d3d-leftover-capability.md) · **GL leftover capability** [`../plans/2026-09-29-gl-leftover-capability.md`](../plans/2026-09-29-gl-leftover-capability.md) · GDI leftover worker [`../plans/2026-09-29-gdi-leftover-worker.md`](../plans/2026-09-29-gdi-leftover-worker.md) · GDI carto math [`../plans/2026-09-29-gdi-carto-base-math.md`](../plans/2026-09-29-gdi-carto-base-math.md) · GDI layout/compose [`../plans/2026-09-29-gdi-layout-device-compose.md`](../plans/2026-09-29-gdi-layout-device-compose.md) · GDI profile [`../plans/2026-09-29-gdi-leftover-profile.md`](../plans/2026-09-29-gdi-leftover-profile.md) · **GDI internal RHI** [`../plans/2026-09-29-gdi-internal-rhi-reshape.md`](../plans/2026-09-29-gdi-internal-rhi-reshape.md) · **Legacy Pipeline+Arena** [`../plans/2026-09-30-legacy-render-pipeline-arena.md`](../plans/2026-09-30-legacy-render-pipeline-arena.md) · **rhi2d Chromium-cc** [`../plans/2026-10-01-rhi2d-chromium-cc-compose.md`](../archive/plans/2026-10-01-rhi2d-chromium-cc-compose.md) · **rhi2d leftover tile-raster** [`../plans/2026-10-01-rhi2d-leftover-tile-raster.md`](../plans/2026-10-01-rhi2d-leftover-tile-raster.md) · **rhi3d leftover parallel frame** [`../plans/2026-10-01-rhi3d-parallel-frame.md`](../archive/plans/2026-10-01-rhi3d-parallel-frame.md) · **rhi3d Eigen frustum** [`../plans/2026-10-01-rhi3d-eigen-base-math.md`](../archive/plans/2026-10-01-rhi3d-eigen-base-math.md)�? 
 **Scope:** Living RHI + dual scene + in-process frame graph + GPU-process compose. Vista DX12/Vulkan. Logical world in `gis`/`sdb`; GPU cache in `render/scene`. Do **not** open new dated RHI/layout twins �?revise sections below.
 
@@ -1189,6 +1189,47 @@ Industry look pass on `src/vista/component/world/atmosphere` without a second at
 
 - Full Bruneton/Hillaire LUT tables, SSR ocean, volumetric light shafts as required v1.
 - No new dated design twin �?revise this `§` only.
+
+---
+
+## §China stack gate（DEM → ocean → fog → sky → cloud）（2026-10-18）
+
+**Status:** active
+**Updated:** 2026-10-18
+**Diagram:** [`../diagrams/china-stack-gates.html`](../diagrams/china-stack-gates.html)
+
+中国平地场景的迭代门禁。合成图 `score_atmosphere_full` 不能单独放行：后一层的像素可以补平前一层的错误。`globe` / `legacy` 不在这条链上。产品 `World3dLook` 不增加枚举。
+
+### 阶梯
+
+入口 `apply_china_stack_stage`。每阶先走 `World3dLook::kLand`（DEM + 等高套件），再把轨道收到与 `kFull` 相同的距离 3.6、俯仰 0.36，然后只打开本阶及以前的层。
+
+| 阶 | 海洋 | 雾 | 天空 | 云 |
+| --- | --- | --- | --- | --- |
+| `dem` | 关 | 关 | 关 | 关 |
+| `ocean` | 开 | 关 | 关 | 关 |
+| `fog` | 开 | 开 | 关 | 关 |
+| `sky` | 开 | 开 | 开 | 关 |
+| `cloud` | 开 | 开 | 开 | 开 |
+
+`verify_china_stack_stage` 只读已有的 `ocean/fog/sky/cloud` 与 `globe` / `sat_cloud`。掩码不符即本阶 `fail`。不新增着色器回读，不改 pass 记录顺序。
+
+### 失败关闭
+
+Harness 命令 `world3d.scenario.atmosphere.china_stack` 按上表顺序截图，并写 `china-stack-status.txt`（`ok` / `fail` / `blocked`）。
+
+- 本阶标志或截图失败：记 `fail`，后面的阶记 `blocked`，不再截图。
+- 像素分 `score_china_stack` 见到 `fail`、`blocked` 或 BMP 缺失，不再给后面的阶打像素分。
+- `score_atmosphere_full` 打在云层 BMP 上，字段 `witness_ok`。阶梯 `ok` 不读取它。
+- 修第 N 阶时不放宽前面任一阶的阈值。
+
+Suite：`browser.world3d.china_stack`，`score_id=china_stack`。
+
+### Non-goals
+
+- 不把 `kOcean` 产品外观改成这条阶梯。
+- 不把 `globe` 卫星云并进这五阶。
+- 不新增 GPU readback。
 
 ---
 
@@ -3801,6 +3842,35 @@ MapPass::record
 
 - [x] `detail/{draw_cache,place_upload,keyed_slices}` 落地；`pass.cc` 只编排
 - [x] `map2d_pass_test`（`map_effect_test`）绿（本变更编译墙）
+
+---
+
+## §Map2d China design gates（2026-10-18）
+
+**Status:** accepted
+**Updated:** 2026-10-18
+**Diagram:** [`../diagrams/map2d-china-design-gate.html`](../diagrams/map2d-china-design-gate.html)
+
+中国全图的外观门禁是两份具名合同。色带只测量。合同条款只有 `min` / `max`，条款之间只有 AND。一张静帧只评它声明的那一份。失败时改渲染或改播种。不放宽条款，不在打分器里用另一种颜色顶替缺层，不恢复 `map2d_china` 别名。
+
+可执行合同在 `testing/tools/loop/score/map2d_contract.py`。本节是设计锁；数字必须与该文件一致。
+
+| 合同 | 必须同时在场 | 禁止 |
+| --- | --- | --- |
+| `map2d_china_dem` | 海洋、jet 低/高程、晕渲灰、亮度起伏、道路（含 casing）、行政区、河流；1280×720 | 奶油陆地占比 > 0.045；陆地内部海色空洞 |
+| `map2d_china_carto` | 奶油陆地、海洋、道路（含 casing）、行政区、河流；1280×720 | jet 占比 > 0.08；晕渲灰占比 > 0.02 |
+| `map2d_align` | 与 carto 相同的奶油、海洋、道路、河流（`style_align.json`） | 与 carto 相同的 jet / 晕渲灰上限 |
+
+`style_align.json` 没有行政区图层，所以 align 不是 `map2d_china_carto`。不要把行政区从 carto 合同里拿掉来让 align 混过。
+
+| 场景 | `score_id` | 硬度 |
+| --- | --- | --- |
+| `browser.map2d.china`（`mode=china`，`MAP2D_FORCE_HILLSHADE=1`） | `map2d_china_dem` | 硬 |
+| `browser.map2d.browse`（`fit_extent` 后、压力测试前的静帧） | `map2d_china_carto` | 硬（无 `soft`） |
+| `browser.map2d.align`（`mode=align`） | `map2d_align` | 硬（无 `soft`） |
+| orthogrid | `map2d_orthogrid` | 不动 |
+
+整窗 PrintWindow 含壳层，只评 `views_shell_chrome`。不用 `hillshade_active` 把壳层截图改判为地图合格。
 
 ---
 

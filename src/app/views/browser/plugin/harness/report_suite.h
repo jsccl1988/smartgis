@@ -9,7 +9,7 @@ namespace app {
 class Browser;
 
 // Chrome inspector tab + FakeReportBrowser fallback. Product open/post is
-// plugin command report.scenario.showcase.
+// report.open / report.post from the startup script.
 int run_report_suite(Browser& browser);
 
 }  // namespace app

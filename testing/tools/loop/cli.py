@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-"""CLI for loop_runner: suite loop, review-prep, and IL record."""
+"""CLI for loop_runner: suite loop, review-prep, and interaction record."""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--record-il",
         action="store_true",
-        help="Record interactions to Interact DSL (.il); see loop/record/il_recorder.py",
+        help="Record interactions to a smartgis.script .py; see loop/record/py_recorder.py",
     )
     parser.add_argument(
         "--attach",
@@ -83,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--il-name",
         default="recorded",
-        help="With --record-il: script name / .il stem",
+        help="With --record-il: script name / .py stem",
     )
     parser.add_argument(
         "--video",
@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
     args, launch_args = parser.parse_known_args(argv)
 
     if args.record_il:
-        from .record.il_recorder import (
+        from .record.py_recorder import (
             _default_captures,
             _resolve_exe,
             run_record_session,

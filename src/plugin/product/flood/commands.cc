@@ -4,6 +4,7 @@
 #include "plugin/product/flood/commands.h"
 
 #include <cmath>
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -15,6 +16,7 @@
 #include "gis/analysis/raster/dem/flood_fill.h"
 #include "plugin/product/flood/views/inundate_dialog.h"
 #include "plugin/product/flood/present/present.h"
+#include "plugin/runtime/host/capability/pack_ensure.h"
 #include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/host/processing/playback_frames.h"
@@ -149,6 +151,8 @@ bool flood_inundate_present(content::PluginHost* host) {
   content::GisDocument* gis =
       require_gis_document(host, "flood.inundate", "no_flood_seam");
   if (!gis) {
+    std::fprintf(stderr, "flood.inundate: gis document missing\n");
+    std::fflush(stderr);
     return false;
   }
   bool painted = present_flood_style(gis);
@@ -158,6 +162,10 @@ bool flood_inundate_present(content::PluginHost* host) {
         result.water_level, i == 0, /*add_water_standin=*/false);
   }
   if (!painted) {
+    std::fprintf(stderr,
+                 "flood.inundate: present_flood_mask failed frames=%d %dx%d\n",
+                 frame_count, result.width, result.height);
+    std::fflush(stderr);
     set_operation_result(
         "{\"error\":\"no_flood_seam\",\"op\":\"flood.inundate\"}");
     return false;
@@ -269,5 +277,13 @@ bool register_flood(content::PluginHost* host) {
                return host->run_processing("flood.export_mask", "{}");
              });
 }
+
+namespace {
+
+struct FloodPackOnce {
+  FloodPackOnce() { register_command_pack("flood", register_flood); }
+} k_flood_pack_once;
+
+}  // namespace
 
 }  // namespace plugin

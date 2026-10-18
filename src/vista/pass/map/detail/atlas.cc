@@ -31,22 +31,23 @@ uint32_t quantize_opacity(float opacity) {
 }
 
 GlyphKey glyph_key(uint32_t codepoint, float text_size_px, uint32_t rgba,
-                   float opacity) {
+                   float opacity, uint8_t font) {
   GlyphKey key;
   key.codepoint = codepoint;
   key.size_q = quantize_size(text_size_px);
   key.rgba = rgba;
   key.opacity_q = quantize_opacity(opacity);
+  key.font = font;
   return key;
 }
 
 GlyphKey glyph_key(const GlyphId& id) {
-  return glyph_key(id.codepoint, id.text_size_px, id.rgba, id.opacity);
+  return glyph_key(id.codepoint, id.text_size_px, id.rgba, id.opacity, id.font);
 }
 
 // Must match the quad grow in place_frame. The pad holds a dilated glyph
 // halo so the plate follows the ink and src-alpha blends with the terrain.
-constexpr int kGlyphHaloPadPx = 2;
+constexpr int kGlyphHaloPadPx = 1;
 
 void blit_ink_with_halo(std::vector<uint8_t>* atlas, int atlas_w, int dx,
                         int dy, const GlyphRasterizer::Bitmap& bitmap, float r,
@@ -172,13 +173,15 @@ AtlasLayout pack_atlas(GlyphRasterizer* glyphs,
       continue;
     }
     const GlyphKey key =
-        glyph_key(item.codepoint, item.text_size_px, item.rgba, item.opacity);
+        glyph_key(item.codepoint, item.text_size_px, item.rgba, item.opacity,
+                  static_cast<uint8_t>(item.font));
     if (key.size_q == 0 || !seen.insert(key).second) {
       continue;
     }
     GlyphRasterizer::Bitmap bitmap;
     const float size_px = static_cast<float>(key.size_q) / 64.f;
-    if (!glyphs->rasterize(item.codepoint, size_px, &bitmap) ||
+    if (!glyphs->rasterize(item.codepoint, size_px,
+                           static_cast<uint8_t>(item.font), &bitmap) ||
         bitmap.width <= 0 || bitmap.height <= 0) {
       continue;
     }

@@ -7,8 +7,8 @@
   ],
   "driver": "os",
   "os_inject_default": "postmessage",
-  "script": "../ui.interact/ui.interact.host.il",
-  "gesture_script": "../ui.interact/ui.interact.il",
+  "script": "../ui.interact/ui.interact.host.py",
+  "gesture_script": "../ui.interact/ui.interact.py",
   "window_title": "SmartGIS Views",
   "env": {
     "UI_SHOWCASE_LINGER_MS": "0",

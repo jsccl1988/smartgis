@@ -26,6 +26,16 @@ namespace detail {
 
 namespace {
 
+uint64_t g_flycube_cb_epoch = 1;
+
+}  // namespace
+
+void bump_flycube_constant_epoch() { ++g_flycube_cb_epoch; }
+
+uint64_t flycube_constant_epoch() { return g_flycube_cb_epoch; }
+
+namespace {
+
 GpuTexture* find_texture(const std::vector<TextureBind>& binds, uint32_t slot) {
   for (const TextureBind& bind : binds) {
     if (bind.slot == slot) {
@@ -232,6 +242,15 @@ const FlycubeProgram::UploadCb* FlycubeProgram::find_cb(uint32_t slot) const {
   return nullptr;
 }
 
+FlycubeProgram::UploadCb* FlycubeProgram::find_cb_mut(uint32_t slot) {
+  for (UploadCb& cb : constants_) {
+    if (cb.slot == slot) {
+      return &cb;
+    }
+  }
+  return nullptr;
+}
+
 uint32_t FlycubeProgram::constant_slot_size(uint32_t slot) const {
   const UploadCb* cb = find_cb(slot);
   return cb ? cb->size_bytes : 0;
@@ -239,14 +258,53 @@ uint32_t FlycubeProgram::constant_slot_size(uint32_t slot) const {
 
 void FlycubeProgram::upload_slot(uint32_t slot, const void* data,
                                 uint32_t byte_size) {
-  if (!data || byte_size == 0) {
-    return;
+  (void)take_cb_view(slot, data, byte_size);
+}
+
+std::shared_ptr<::View> FlycubeProgram::take_cb_view(uint32_t slot,
+                                                    const void* data,
+                                                    uint32_t byte_size) {
+  if (!data || byte_size == 0 || !device_) {
+    return nullptr;
   }
-  const UploadCb* cb = find_cb(slot);
-  if (!cb || !cb->buffer || byte_size > cb->size_bytes) {
-    return;
+  UploadCb* cb = find_cb_mut(slot);
+  if (!cb || byte_size > cb->size_bytes) {
+    return nullptr;
   }
-  cb->buffer->UpdateUploadBuffer(0, data, byte_size);
+  if (cb_epoch_seen_ != g_flycube_cb_epoch) {
+    cb_epoch_seen_ = g_flycube_cb_epoch;
+    for (UploadCb& slot_cb : constants_) {
+      slot_cb.cursor = 0;
+    }
+  }
+  if (cb->ring_buffers.empty() && cb->buffer && cb->view) {
+    cb->ring_buffers.push_back(cb->buffer);
+    cb->ring_views.push_back(cb->view);
+  }
+  if (cb->cursor >= cb->ring_buffers.size()) {
+    const uint64_t cb_align = device_->GetConstantBufferOffsetAlignment();
+    const uint64_t align = cb_align ? cb_align : 256;
+    std::shared_ptr<::Resource> buffer = device_->CreateBuffer(
+        MemoryType::kUpload,
+        {.size = Align(cb->size_bytes, align),
+         .usage = BindFlag::kConstantBuffer});
+    if (!buffer) {
+      return nullptr;
+    }
+    ViewDesc cb_view = {
+        .view_type = ViewType::kConstantBuffer,
+        .dimension = ViewDimension::kBuffer,
+    };
+    std::shared_ptr<::View> view = device_->CreateView(buffer, cb_view);
+    if (!view) {
+      return nullptr;
+    }
+    cb->ring_buffers.push_back(std::move(buffer));
+    cb->ring_views.push_back(std::move(view));
+  }
+  const uint32_t index = cb->cursor++;
+  cb->ring_buffers[index]->UpdateUploadBuffer(0, data, byte_size);
+  return cb->ring_views[index];
 }
 
 std::shared_ptr<::Pipeline> FlycubeProgram::select_depth(bool pass_depth,
@@ -268,7 +326,9 @@ std::shared_ptr<::Pipeline> FlycubeProgram::select_depth(bool pass_depth,
 
 std::shared_ptr<::BindingSet> FlycubeProgram::make_binding_set(
     const std::vector<TextureBind>& srvs,
-    const std::vector<TextureBind>& uavs) const {
+    const std::vector<TextureBind>& uavs,
+    const std::vector<std::pair<uint32_t, std::shared_ptr<::View>>>* cb_views)
+    const {
   if (!device_ || !layout_) {
     return nullptr;
   }
@@ -278,11 +338,21 @@ std::shared_ptr<::BindingSet> FlycubeProgram::make_binding_set(
     std::shared_ptr<::View> view;
     switch (binding.kind) {
       case BindingKind::kConstantBuffer: {
-        const UploadCb* cb = find_cb(binding.slot);
-        if (!cb) {
-          return nullptr;
+        if (cb_views) {
+          for (const auto& override_view : *cb_views) {
+            if (override_view.first == binding.slot && override_view.second) {
+              view = override_view.second;
+              break;
+            }
+          }
         }
-        view = cb->view;
+        if (!view) {
+          const UploadCb* cb = find_cb(binding.slot);
+          if (!cb) {
+            return nullptr;
+          }
+          view = cb->view;
+        }
         break;
       }
       case BindingKind::kSrv: {
@@ -416,45 +486,37 @@ bool FlycubeProgram::replay_draw(::CommandList* list, const Draw& draw,
     return false;
   }
   std::shared_ptr<::Pipeline> pso = select_depth(pass_depth, draw.depth);
-  // #region agent log
-  {
-    static int agent_n = 0;
-    if (agent_n < 6) {
-      ++agent_n;
-      if (FILE* agent_log = std::fopen("debug-7df9f1.log", "a")) {
-        std::fprintf(agent_log,
-                     "{\"sessionId\":\"7df9f1\",\"runId\":\"pre-fix\","
-                     "\"hypothesisId\":\"PSO\",\"location\":\"program.cc:replay_draw\","
-                     "\"message\":\"replay_draw\",\"data\":{\"has_pso\":%d,"
-                     "\"pass_depth\":%d,\"depth_mode\":%d,\"index_count\":%u},"
-                     "\"timestamp\":%llu}\n",
-                     pso ? 1 : 0, pass_depth ? 1 : 0,
-                     static_cast<int>(draw.depth), draw.index_count,
-                     static_cast<unsigned long long>(agent_n));
-        std::fclose(agent_log);
-      }
-    }
-  }
-  // #endregion
   if (!pso) {
     LOGGING(LOG_WARNING,
             "rhi.flycube replay_draw skip: no PSO pass_depth=%d mode=%d",
             pass_depth ? 1 : 0, static_cast<int>(draw.depth));
     return false;
   }
+  std::vector<std::pair<uint32_t, std::shared_ptr<::View>>> cb_views;
+  cb_views.reserve(draw.constants.size() + 1);
   for (const ConstantBytes& constant : draw.constants) {
-    upload_slot(constant.slot, constant.bytes.data(),
-                static_cast<uint32_t>(constant.bytes.size()));
+    std::shared_ptr<::View> view = take_cb_view(
+        constant.slot, constant.bytes.data(),
+        static_cast<uint32_t>(constant.bytes.size()));
+    if (view) {
+      cb_views.emplace_back(constant.slot, std::move(view));
+    }
   }
   if (camera_slot_ >= 0) {
     float block[32];
     std::memcpy(block, draw.camera_view, sizeof(float) * 16);
     std::memcpy(block + 16, draw.camera_proj, sizeof(float) * 16);
-    upload_slot(static_cast<uint32_t>(camera_slot_), block,
-                static_cast<uint32_t>(sizeof(block)));
+    std::shared_ptr<::View> view = take_cb_view(
+        static_cast<uint32_t>(camera_slot_), block,
+        static_cast<uint32_t>(sizeof(block)));
+    if (view) {
+      cb_views.emplace_back(static_cast<uint32_t>(camera_slot_),
+                            std::move(view));
+    }
   }
   // Graphics textures are SRVs. UAV slots stay empty on this path.
-  std::shared_ptr<::BindingSet> set = make_binding_set(draw.textures, {});
+  std::shared_ptr<::BindingSet> set =
+      make_binding_set(draw.textures, {}, &cb_views);
   if (!set) {
     LOGGING(LOG_WARNING,
             "rhi.flycube replay_draw skip: binding set null tex_binds=%zu",
@@ -484,9 +546,15 @@ bool FlycubeProgram::replay_dispatch(::CommandList* list, const Dispatch& item) 
   if (!list || !compute_ || !compute_pipeline_) {
     return false;
   }
+  std::vector<std::pair<uint32_t, std::shared_ptr<::View>>> cb_views;
+  cb_views.reserve(item.constants.size());
   for (const ConstantBytes& constant : item.constants) {
-    upload_slot(constant.slot, constant.bytes.data(),
-                static_cast<uint32_t>(constant.bytes.size()));
+    std::shared_ptr<::View> view = take_cb_view(
+        constant.slot, constant.bytes.data(),
+        static_cast<uint32_t>(constant.bytes.size()));
+    if (view) {
+      cb_views.emplace_back(constant.slot, std::move(view));
+    }
   }
 
   for (const SlotBinding& binding : bindings_) {
@@ -503,7 +571,8 @@ bool FlycubeProgram::replay_dispatch(::CommandList* list, const Dispatch& item) 
     }
   }
 
-  std::shared_ptr<::BindingSet> set = make_binding_set(item.srvs, item.uavs);
+  std::shared_ptr<::BindingSet> set =
+      make_binding_set(item.srvs, item.uavs, &cb_views);
   if (!set) {
     return false;
   }

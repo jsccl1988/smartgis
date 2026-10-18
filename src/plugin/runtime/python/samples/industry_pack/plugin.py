@@ -9,6 +9,8 @@ reference UI. Builtin `kind=builtin` product plugins remain the
 reference / performance fallback until explicitly withdrawn per plugin.
 """
 
+import glang.plugin as gp
+
 PLUGIN_ID = "smartgis.sample_industry_pack"
 
 
@@ -40,6 +42,9 @@ def _run_buffer_only(host, args):
 
 
 def start(host):
+    if gp is None:
+        raise RuntimeError("glang.plugin missing")
+
     def trimesh_then_buffer(args):
         return _run_trimesh_then_buffer(host, args)
 

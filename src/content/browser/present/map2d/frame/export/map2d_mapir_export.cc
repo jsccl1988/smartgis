@@ -121,8 +121,8 @@ bool gdiplus_ready() {
   return state.ok;
 }
 
-// Stroke meshes are thin triangles. GDI Polygon is aliased; GDI+ smooths them
-// so national-scale roads (the yellow network) read as continuous casings.
+// Stroke meshes are thin triangles. Per-triangle GDI+ was ~300ms. One path
+// over the whole mesh was tens of seconds, so flush a small GraphicsPath.
 void paint_mesh_aa(HDC hdc, const vista::DrawItem& item, const WorldToPixel& x) {
   if (!gdiplus_ready() || item.indices.empty() || item.vertices.size() < 3) {
     paint_fill(hdc, item, x);
@@ -133,15 +133,31 @@ void paint_mesh_aa(HDC hdc, const vista::DrawItem& item, const WorldToPixel& x) 
     paint_fill(hdc, item, x);
     return;
   }
-  graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+  graphics.SetSmoothingMode(Gdiplus::SmoothingModeHighSpeed);
   graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
   const COLORREF c = rgba_opaque(item.rgba);
   const BYTE alpha = static_cast<BYTE>(std::lround(
       (std::max)(0.f, (std::min)(1.f, item.opacity)) * 255.f));
   Gdiplus::SolidBrush brush(
       Gdiplus::Color(alpha, GetRValue(c), GetGValue(c), GetBValue(c)));
-  std::vector<Gdiplus::Point> pts(3);
+  // FillPath of the entire road mesh took tens of seconds. Small batches
+  // cut per-triangle FillPolygon overhead without that path cost.
+  constexpr size_t kBatchTris = 32;
+  std::vector<Gdiplus::Point> batch;
+  batch.reserve(kBatchTris * 3);
+  auto flush = [&]() {
+    if (batch.empty()) {
+      return;
+    }
+    Gdiplus::GraphicsPath path(Gdiplus::FillModeAlternate);
+    for (size_t t = 0; t + 2 < batch.size(); t += 3) {
+      path.AddPolygon(&batch[t], 3);
+    }
+    graphics.FillPath(&brush, &path);
+    batch.clear();
+  };
   for (size_t i = 0; i + 2 < item.indices.size(); i += 3) {
+    Gdiplus::Point tri[3];
     bool ok = true;
     for (int k = 0; k < 3; ++k) {
       const uint32_t vi = item.indices[i + static_cast<size_t>(k)];
@@ -150,12 +166,17 @@ void paint_mesh_aa(HDC hdc, const vista::DrawItem& item, const WorldToPixel& x) 
         break;
       }
       const POINT p = x.to_point(item.vertices[vi].x, item.vertices[vi].y);
-      pts[static_cast<size_t>(k)] = Gdiplus::Point(p.x, p.y);
+      tri[k] = Gdiplus::Point(p.x, p.y);
     }
-    if (ok) {
-      graphics.FillPolygon(&brush, pts.data(), 3);
+    if (!ok) {
+      continue;
+    }
+    batch.insert(batch.end(), tri, tri + 3);
+    if (batch.size() >= kBatchTris * 3) {
+      flush();
     }
   }
+  flush();
 }
 
 int utf16_from_codepoint(uint32_t cp, wchar_t out[3]) {

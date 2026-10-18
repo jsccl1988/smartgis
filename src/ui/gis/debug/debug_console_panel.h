@@ -44,6 +44,9 @@ class UI_EXPORT DebugConsolePanel : public View {
   void set_visible_console(bool on);
   bool is_console_visible() const { return visible_; }
 
+  // Keep the Output pane on the process LogSink and copy the ring into the list.
+  void sync_log_output();
+
   void append_line(std::string line);
   void clear_output();
 
@@ -85,6 +88,7 @@ class UI_EXPORT DebugConsolePanel : public View {
   void flush_pending_logs();
   void arm_log_flush_timer();
   void disarm_log_flush_timer();
+  HWND flush_hwnd();
   static void CALLBACK on_log_flush_timer(HWND hwnd, UINT msg, UINT_PTR id,
                                           DWORD time);
   void reload_from_sink();

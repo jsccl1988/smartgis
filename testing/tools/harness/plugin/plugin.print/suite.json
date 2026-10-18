@@ -4,7 +4,7 @@
     "argv":  [
                  "--plugin-showcase=print"
              ],
-    "script":  "plugin.print.il",
+    "script":  "plugin.print.py",
     "env":  {
                 "SKIP_MAP_CONTEXT_MENU":  "1"
             },

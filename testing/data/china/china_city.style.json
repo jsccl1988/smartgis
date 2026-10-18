@@ -26,7 +26,7 @@
       "filter": ["any", ["in", "kind", "river", "lake"], ["in", "line_kind", "river", "lake"]],
       "paint": {
         "line-color": "#4a8ab8",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 2, 11, 2.5, 14, 3.2]
+        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.85, 11, 1.25, 14, 1.75]
       }
     },
     {
@@ -37,7 +37,7 @@
       "filter": ["any", ["==", "kind", "road"], ["==", "line_kind", "road"]],
       "paint": {
         "line-color": ["match", ["get", "class"], "motorway", "#6a5430", "trunk", "#7a6038", "primary", "#8a7040", "#8a7040"],
-        "line-width": ["*", ["match", ["get", "class"], "motorway", 1.35, "trunk", 1.2, "primary", 1.05, 1], ["interpolate", ["linear"], ["zoom"], 5, 2.8, 11, 3.5, 14, 5]]
+        "line-width": ["*", ["match", ["get", "class"], "motorway", 1.35, "trunk", 1.2, "primary", 1.05, 1], ["interpolate", ["linear"], ["zoom"], 5, 1.15, 11, 1.55, 14, 2.2]]
       }
     },
     {
@@ -48,7 +48,7 @@
       "filter": ["any", ["==", "kind", "road"], ["==", "line_kind", "road"]],
       "paint": {
         "line-color": ["match", ["get", "class"], "motorway", "#f0d080", "trunk", "#e8c870", "primary", "#e0c06a", "#e0c06a"],
-        "line-width": ["*", ["match", ["get", "class"], "motorway", 1.4, "trunk", 1.2, "primary", 1.05, 1], ["interpolate", ["linear"], ["zoom"], 5, 1.2, 11, 1.6, 14, 2.4]]
+        "line-width": ["*", ["match", ["get", "class"], "motorway", 1.4, "trunk", 1.2, "primary", 1.05, 1], ["interpolate", ["linear"], ["zoom"], 5, 0.5, 11, 0.9, 14, 1.4]]
       }
     },
     {

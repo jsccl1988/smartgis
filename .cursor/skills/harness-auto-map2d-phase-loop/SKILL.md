@@ -183,7 +183,7 @@ Debug china 1280×720:
 - Port-matrix sibling: `.cursor/skills/harness-auto-map2d-port-matrix/SKILL.md`
 - Scene3d phase-loop sibling: `.cursor/skills/harness-auto-scene3d-phase-loop/SKILL.md`
 - Visual review: `.cursor/skills/harness-visual-review/SKILL.md`
-- FPS bench: `src/plugin/product/map2d/scenario/fps_bench.*`
+- FPS bench: `src/content/browser/glang.runtime/host/view/present/map2d_fps.*`
 - Phase clocks: `src/content/browser/present/map2d/profile/map2d_phase_profile.*`
 - Bake profile (CPU vs Thrust): `testing/tools/harness/browser/run_hillshade_bake_bench.py`
 - Detail: [reference.md](reference.md)

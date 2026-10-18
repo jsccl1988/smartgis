@@ -1,262 +1,101 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/component/map/ir.h"
+#include "vista/component/map/layout.h"
+
+#include <fstream>
+#include <iterator>
+#include <mutex>
+#include <string>
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 
 namespace vista {
+namespace {
+
+std::string exe_dir() {
+  char module[MAX_PATH] = {};
+  const DWORD n = GetModuleFileNameA(nullptr, module, MAX_PATH);
+  if (n == 0 || n >= MAX_PATH) {
+    return {};
+  }
+  std::string dir(module, module + n);
+  const size_t slash = dir.find_last_of("\\/");
+  if (slash == std::string::npos) {
+    return {};
+  }
+  dir.resize(slash + 1);
+  return dir;
+}
+
+bool is_file(const std::string& path) {
+  const DWORD attr = GetFileAttributesA(path.c_str());
+  return attr != INVALID_FILE_ATTRIBUTES &&
+         (attr & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+std::string read_file_utf8(const std::string& path) {
+  std::ifstream in(path, std::ios::binary);
+  if (!in) {
+    return {};
+  }
+  std::string data((std::istreambuf_iterator<char>(in)),
+                   std::istreambuf_iterator<char>());
+  if (data.size() >= 3 && static_cast<unsigned char>(data[0]) == 0xEF &&
+      static_cast<unsigned char>(data[1]) == 0xBB &&
+      static_cast<unsigned char>(data[2]) == 0xBF) {
+    data.erase(0, 3);
+  }
+  return data;
+}
+
+// Shared out/ui/carto (exe under out/Debug|Release → ../ui), same pack as
+// markup. Source-tree paths cover a binary launched from the repo root.
+std::string resolve_carto_style_path(const char* leaf) {
+  const std::string dir = exe_dir();
+  const std::string candidates[] = {
+      dir + "..\\ui\\carto\\" + leaf,
+      dir + "../ui/carto/" + leaf,
+      dir + "ui\\carto\\" + leaf,
+      dir + "ui/carto/" + leaf,
+      dir + "..\\..\\src\\ui\\resources\\carto\\" + leaf,
+      dir + "../../src/ui/resources/carto/" + leaf,
+      std::string("src\\ui\\resources\\carto\\") + leaf,
+      std::string("src/ui/resources/carto/") + leaf,
+  };
+  for (const std::string& path : candidates) {
+    if (is_file(path)) {
+      return path;
+    }
+  }
+  return {};
+}
+
+std::string load_style_json(const char* leaf) {
+  const std::string path = resolve_carto_style_path(leaf);
+  if (path.empty()) {
+    return {};
+  }
+  return read_file_utf8(path);
+}
+
+}  // namespace
 
 std::string default_carto_style_json() {
-  // Land / water / river / road casing+fill / admin stroke / labels.
-  // Colors are the cartographic RGB values, stored only in this document.
-  // Road casing is an earlier line layer on source-layer "road".
-  return "{"
-         "\"version\":8,"
-         "\"name\":\"carto\","
-         "\"layers\":["
-         "{"
-         "\"id\":\"background\","
-         "\"type\":\"background\","
-         "\"paint\":{\"background-color\":\"#aad3df\",\"background-opacity\":1}"
-         "},"
-         "{"
-         "\"id\":\"land\","
-         "\"type\":\"fill\","
-         "\"source-layer\":\"land\","
-         "\"paint\":{\"fill-color\":\"#f5f3e9\",\"fill-opacity\":1}"
-         "},"
-         "{"
-         "\"id\":\"water\","
-         "\"type\":\"fill\","
-         "\"source-layer\":\"water\","
-         "\"paint\":{\"fill-color\":\"#a3ccff\",\"fill-opacity\":1}"
-         "},"
-         "{"
-         // DEM second surface after land/water: jet + isolines over carto
-         // (stacked Origin look). Ocean cells stay transparent.
-         "\"id\":\"hillshade\","
-         "\"type\":\"hillshade\","
-         "\"paint\":{"
-         "\"hillshade-illumination-direction\":335,"
-         "\"hillshade-illumination-altitude\":28,"
-         "\"hillshade-exaggeration\":3.4,"
-         "\"hillshade-color-ramp\":\"jet\","
-         // Deep umber umbra for grayscale fallback / jet lighting reconstruction.
-         "\"hillshade-shadow-color\":\"#1c1810\","
-         "\"hillshade-highlight-color\":\"#c8c0b0\","
-         "\"hillshade-accent-color\":\"#12100c\""
-         "}"
-         "},"
-         "{"
-         // Optional density overlay; silent when no points. kRaster 'HEAT'.
-         "\"id\":\"heatmap\","
-         "\"type\":\"heatmap\","
-         "\"source-layer\":\"heatmap\","
-         "\"paint\":{"
-         "\"heatmap-radius\":28,"
-         "\"heatmap-weight\":1,"
-         "\"heatmap-intensity\":1.1,"
-         "\"heatmap-color\":\"#ff6400\","
-         "\"heatmap-opacity\":0.7"
-         "}"
-         "},"
-         "{"
-         "\"id\":\"river\","
-         "\"type\":\"line\","
-         "\"source-layer\":\"river\","
-         "\"paint\":{"
-         "\"line-color\":\"#4a8ab8\","
-         "\"line-width\":[\"interpolate\",[\"linear\"],[\"zoom\"],5,2,11,2.5,"
-         "14,3.2],"
-         "\"line-opacity\":1"
-         "},"
-         "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
-         "},"
-         "{"
-         "\"id\":\"admin\","
-         "\"type\":\"line\","
-         "\"source-layer\":\"admin\","
-         "\"paint\":{"
-         // Charcoal umber #2c2418 — keep wide enough over jet hillshade so
-         // AA still leaves pixels inside the harness admin_gray band.
-         "\"line-color\":\"#2c2418\","
-         "\"line-width\":[\"interpolate\",[\"linear\"],[\"zoom\"],5,2.4,11,"
-         "3.0,14,3.6],"
-         "\"line-opacity\":1"
-         "},"
-         "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
-         "},"
-         "{"
-         "\"id\":\"road-casing\","
-         "\"type\":\"line\","
-         "\"source-layer\":\"road\","
-         "\"minzoom\":5,"
-         "\"paint\":{"
-         "\"line-color\":[\"match\",[\"get\",\"class\"],\"motorway\","
-         "\"#6a5430\",\"trunk\",\"#7a6038\",\"primary\",\"#8a7040\","
-         "\"#8a7040\"],"
-         "\"line-width\":[\"*\",[\"match\",[\"get\",\"class\"],\"motorway\","
-         "1.35,\"trunk\",1.2,\"primary\",1.05,1],"
-         "[\"interpolate\",[\"linear\"],[\"zoom\"],5,1.6,11,2.2,14,4.2]],"
-         "\"line-opacity\":1"
-         "},"
-         "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
-         "},"
-         "{"
-         "\"id\":\"road\","
-         "\"type\":\"line\","
-         "\"source-layer\":\"road\","
-         "\"minzoom\":5,"
-         "\"paint\":{"
-         "\"line-color\":[\"match\",[\"get\",\"class\"],\"motorway\","
-         "\"#f0d080\",\"trunk\",\"#e8c870\",\"primary\",\"#e0c06a\","
-         "\"#e0c06a\"],"
-         "\"line-width\":[\"*\",[\"match\",[\"get\",\"class\"],\"motorway\","
-         "1.4,\"trunk\",1.2,\"primary\",1.05,1],"
-         "[\"interpolate\",[\"linear\"],[\"zoom\"],5,0.7,11,1.1,14,2.2]],"
-         "\"line-opacity\":1"
-         "},"
-         "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
-         "},"
-         "{"
-         "\"id\":\"label\","
-         "\"type\":\"symbol\","
-         "\"source-layer\":\"label\","
-         "\"layout\":{"
-         "\"symbol-placement\":\"point\","
-         "\"text-field\":\"{name}\","
-         "\"text-size\":[\"interpolate\",[\"linear\"],[\"zoom\"],6,28,10,36,"
-         "13,44,16,56],"
-         "\"text-anchor\":\"top\""
-         "},"
-         "\"paint\":{"
-         "\"text-color\":\"#141820\","
-         "\"text-halo-color\":\"#ffffff\","
-         "\"text-halo-width\":1.5"
-         "}"
-         "},"
-         "{"
-         "\"id\":\"river-label\","
-         "\"type\":\"symbol\","
-         "\"source-layer\":\"river\","
-         "\"minzoom\":8,"
-         "\"layout\":{"
-         "\"symbol-placement\":\"line\","
-         "\"text-field\":\"{name}\","
-         "\"text-size\":[\"interpolate\",[\"linear\"],[\"zoom\"],8,10,12,12,"
-         "16,14],"
-         "\"text-anchor\":\"center\""
-         "},"
-         "\"paint\":{"
-         "\"text-color\":\"#1a4a6a\","
-         "\"text-halo-color\":\"#ffffff\","
-         "\"text-halo-width\":2"
-         "}"
-         "},"
-         "{"
-         "\"id\":\"road-label\","
-         "\"type\":\"symbol\","
-         "\"source-layer\":\"road\","
-         "\"minzoom\":11,"
-         "\"layout\":{"
-         "\"symbol-placement\":\"line\","
-         "\"text-field\":\"{name}\","
-         "\"text-size\":[\"interpolate\",[\"linear\"],[\"zoom\"],11,10,14,12,"
-         "16,14],"
-         "\"text-anchor\":\"center\""
-         "},"
-         "\"paint\":{"
-         "\"text-color\":\"#3a2a10\","
-         "\"text-halo-color\":\"#fff8e8\","
-         "\"text-halo-width\":2"
-         "}"
-         "}"
-         "]"
-         "}";
+  static std::once_flag once;
+  static std::string json;
+  std::call_once(once, [] { json = load_style_json("default.style.json"); });
+  return json;
 }
 
 std::string print_carto_style_json() {
-  // Same land / water / river / road face as default carto, but without
-  // hillshade (dark ridges twin-trigger the print harness) and without
-  // label / river-label / road-label symbol layers. Print pages list Cities
-  // in the legend.
-  return "{"
-         "\"version\":8,"
-         "\"name\":\"carto-print\","
-         "\"layers\":["
-         "{"
-         "\"id\":\"background\","
-         "\"type\":\"background\","
-         "\"paint\":{\"background-color\":\"#aad3df\",\"background-opacity\":1}"
-         "},"
-         "{"
-         "\"id\":\"land\","
-         "\"type\":\"fill\","
-         "\"source-layer\":\"land\","
-         "\"paint\":{\"fill-color\":\"#f5f3e9\",\"fill-opacity\":1}"
-         "},"
-         "{"
-         "\"id\":\"water\","
-         "\"type\":\"fill\","
-         "\"source-layer\":\"water\","
-         "\"paint\":{\"fill-color\":\"#a3ccff\",\"fill-opacity\":1}"
-         "},"
-         "{"
-         "\"id\":\"river\","
-         "\"type\":\"line\","
-         "\"source-layer\":\"river\","
-         "\"paint\":{"
-         "\"line-color\":\"#4a8ab8\","
-         "\"line-width\":2.5,"
-         "\"line-opacity\":1"
-         "},"
-         "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
-         "},"
-         "{"
-         "\"id\":\"admin\","
-         "\"type\":\"line\","
-         "\"source-layer\":\"admin\","
-         "\"paint\":{"
-         "\"line-color\":\"#2c2418\","
-         "\"line-width\":1.8,"
-         "\"line-opacity\":1"
-         "},"
-         "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
-         "},"
-         "{"
-         "\"id\":\"road-casing\","
-         "\"type\":\"line\","
-         "\"source-layer\":\"road\","
-         "\"minzoom\":5,"
-         "\"paint\":{"
-         "\"line-color\":\"#8a7040\","
-         "\"line-width\":3.5,"
-         "\"line-opacity\":1"
-         "},"
-         "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
-         "},"
-         "{"
-         "\"id\":\"road\","
-         "\"type\":\"line\","
-         "\"source-layer\":\"road\","
-         "\"minzoom\":5,"
-         "\"paint\":{"
-         "\"line-color\":\"#e0c06a\","
-         "\"line-width\":1.6,"
-         "\"line-opacity\":1"
-         "},"
-         "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
-         "},"
-         "{"
-         "\"id\":\"city-circle\","
-         "\"type\":\"circle\","
-         "\"source-layer\":\"label\","
-         "\"paint\":{"
-         "\"circle-color\":\"#e65100\","
-         "\"circle-radius\":3"
-         "}"
-         "}"
-         "]"
-         "}";
+  static std::once_flag once;
+  static std::string json;
+  std::call_once(once, [] { json = load_style_json("print.style.json"); });
+  return json;
 }
 
 }  // namespace vista

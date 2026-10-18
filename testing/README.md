@@ -47,6 +47,8 @@ test("core_test") {
 }
 ```
 
+`test()` links `//third_party:gtest` (`gtest_main`). Cases are `TEST` / `TEST_F` with `EXPECT_*` / `ASSERT_*`. Do not write a `main` that counts failures. Set `use_gtest = false` only when the executable is not a gtest runner.
+
 Then add `"//<module>:<name>"` to root `//:test_all` (`BUILD.gn`).
 
 ## GUI / Views testing
@@ -94,4 +96,4 @@ Aliases: `te` = `//:test_all`, `a` = `//:all_with_tests`, `b` = `//:benchmark_al
 
 ---
 
-**最后更新：** 2026-10-06
+**最后更新：** 2026-10-18

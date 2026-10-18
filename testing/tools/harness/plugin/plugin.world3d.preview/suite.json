@@ -1,0 +1,45 @@
+{
+  "id": "plugin.world3d.preview",
+  "kind": "integration",
+  "argv": [
+    "--plugin-showcase=world3d.preview"
+  ],
+  "script": "plugin.world3d.preview.py",
+  "env": {
+    "SKIP_MAP_CONTEXT_MENU": "1",
+    "SCENE3D_ENGINE": "flycube"
+  },
+  "mark_leaf": "plugin-showcase-mark.txt",
+  "required_marks": [
+    "hwnd-ok",
+    "scene-ready",
+    "export-ok",
+    "pass"
+  ],
+  "bmp": {
+    "path": "plugin-showcase-world-preview.bmp",
+    "score_id": "plugin_product",
+    "accept_nonzero_rc_if_bmp": true,
+    "min_bytes": 10000
+  },
+  "report_name": "plugin_world3d_preview_loop_report.json",
+  "probes": [
+    "marks",
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 2,
+    "timeout_sec": 180,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGIS.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "preview_surface_open",
+      "document_or_globe_ink",
+      "no_black_frame"
+    ],
+    "expect_notes": "WorldPreviewView export is non-blank; open-earth is optional and not required"
+  }
+}

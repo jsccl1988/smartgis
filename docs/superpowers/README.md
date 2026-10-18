@@ -36,14 +36,18 @@ Living specs, open plans, HTML diagrams, and as-built product notes live here. P
 | [`diagrams/gis-model-ogr-layers.html`](diagrams/gis-model-ogr-layers.html) | `gis/{feature,layer,map}` 产品面 vs leftover ABI；Map/Layer/Feature ↔ OGR |
 | [`diagrams/gis-algorithm-geometry-split.html`](diagrams/gis-algorithm-geometry-split.html) | 几何体 ⊥ 算法（补图） |
 | [`diagrams/map2d-present-frame.html`](diagrams/map2d-present-frame.html) | Map2d MapFrame 四层 + 双出口 |
+| [`diagrams/map2d-china-design-gate.html`](diagrams/map2d-china-design-gate.html) | 中国全图设计门禁：色带测量 × 具名合同 AND |
 | [`diagrams/hillshade-bake-profile.html`](diagrams/hillshade-bake-profile.html) | DEM/hillshade bake 相位 + CPU vs Thrust bench |
 | [`diagrams/scene3d-present-layers.html`](diagrams/scene3d-present-layers.html) | Scene3d present：facade / frame / GPU / software / scenic |
+| [`diagrams/china-stack-gates.html`](diagrams/china-stack-gates.html) | 中国平地阶梯门禁：DEM → 海洋 → 雾 → 天空 → 云，前阶失败则后阶 blocked |
 | [`diagrams/content-present-accelerate.html`](diagrams/content-present-accelerate.html) | present 三车道：cache / GPU 合成 / `base::execution` |
 | [`diagrams/render-accelerate-topology.html`](diagrams/render-accelerate-topology.html) | GPU-process × vista parallel（A×B） |
 | [`diagrams/ui-views-shell-architecture.html`](diagrams/ui-views-shell-architecture.html) | Views shell / compositor 泳道 |
 | [`diagrams/map-viewport-paint.html`](diagrams/map-viewport-paint.html) | DrawHost paint 分层 + 2D SoT（不 blit leftover SharedSurface） |
 | [`diagrams/content-browser-layers.html`](diagrams/content-browser-layers.html) | `content/browser` 责任层 + C11 收紧 + MapSession / content.dll |
 | [`diagrams/views-runtime-layers.html`](diagrams/views-runtime-layers.html) | `il.runtime`（`src/app/views/il.runtime`）：capability / execution |
+| [`diagrams/codegen-gis-ir.html`](diagrams/codegen-gis-ir.html) | codegen：Python3 前端 → `app::code` 五种方言 → `app::ir` |
+| [`diagrams/il-runtime-content-sink.html`](diagrams/il-runtime-content-sink.html) | IL 语言核下沉 `content/browser/glang.runtime`（GIS language runtime）；壳侧 session 只 bind，再调用一次 public 入口 |
 | [`diagrams/capability-horizon-layers.html`](diagrams/capability-horizon-layers.html) | `capability/horizon`：bind → sema → atom；still 走 capture，断言走 expect |
 | [`diagrams/loop-layers.html`](diagrams/loop-layers.html) | `testing/tools/loop`：contract / drive / interact / record / score / review |
 | [`diagrams/views-window-process.html`](diagrams/views-window-process.html) | Views 窗口体系 / 进程体系 |
@@ -53,9 +57,11 @@ Living specs, open plans, HTML diagrams, and as-built product notes live here. P
 | [`diagrams/rhi3d-public-api-lanes.html`](diagrams/rhi3d-public-api-lanes.html) | Scenic `RenderDevice3d` 组合部件（`render_device.h`；几何源 XOR / 着色 XOR） |
 | [`diagrams/debug-console-agent.html`](diagrams/debug-console-agent.html) | Debug console agent |
 | [`diagrams/plugin-host-layers.html`](diagrams/plugin-host-layers.html) | `runtime/host`：catalog / native / capability 收紧 |
-| [`diagrams/plugin-python-runtime.html`](diagrams/plugin-python-runtime.html) | `runtime/python`：isolated embed + L2 Host 缝 + samples |
+| [`diagrams/plugin-python-runtime.html`](diagrams/plugin-python-runtime.html) | glang 拥有 CPython；`glang.plugin` 登记 `eval_*`；插件运行时只注册；opcode 管线退役 |
 | [`diagrams/plugin-host-capabilities.html`](diagrams/plugin-host-capabilities.html) | PluginHost：贡献点 + 不透明能力表（不识别具体插件） |
 | [`diagrams/plugin-product-showcase.html`](diagrams/plugin-product-showcase.html) | Harness showcase 族 → `plugin/product` 载荷；HWND 在 `il.runtime/capability`；登记表 `harness/run` |
+| [`diagrams/plugin-product-depth-gate.html`](diagrams/plugin-product-depth-gate.html) | 每个产品包 contract → compute → command → visual；浅层失败不写基线 |
+| [`diagrams/world3d-harness-glang.html`](diagrams/world3d-harness-glang.html) | world3d harness 编排进 glang：壳在套件，场景顺序在一次 `atmosphere` / `china_stack` / `world_preview` |
 | [`diagrams/plugin-product-world3d.html`](diagrams/plugin-product-world3d.html) | world3d 包：DEM + 2D orthogrid + 3D hex |
 | [`diagrams/plugin-analysis-processing.html`](diagrams/plugin-analysis-processing.html) | 产品分析：chrome writer → 插件 compute/present processing |
 
@@ -71,7 +77,7 @@ Legacy UI/app deep-layer slices: `diagrams/legacy-{app,ui-widgets,ui-map,ui-shel
 | Tool dispatch + `src/tool` | [`specs/2026-09-13-tool-event-dispatch-design.md`](specs/2026-09-13-tool-event-dispatch-design.md) | [`plans/2026-09-13-tool-event-dispatch.md`](plans/2026-09-13-tool-event-dispatch.md) |
 | `src/base` foundation (+ memory / PA-E / execution / codecs) | [`specs/2026-09-14-base-root-hybrid-design.md`](specs/2026-09-14-base-root-hybrid-design.md) | [`plans/2026-09-28-partition-alloc-everywhere.md`](plans/2026-09-28-partition-alloc-everywhere.md) · [`plans/2026-09-28-base-execution.md`](plans/2026-09-28-base-execution.md) |
 | GIS datasource / GDAL / SDB / Session+Provider | [`specs/2026-09-13-gdal-layer-management-design.md`](specs/2026-09-13-gdal-layer-management-design.md) | [`plans/2026-09-28-datasource-session-provider.md`](plans/2026-09-28-datasource-session-provider.md) · [`plans/2026-09-13-ogr-db-datasource.md`](plans/2026-09-13-ogr-db-datasource.md) · [`plans/2026-09-19-sdbd-wsl-client.md`](plans/2026-09-19-sdbd-wsl-client.md) |
-| Plugin host / contributions / store | [`specs/2026-09-13-plugin-host-design.md`](specs/2026-09-13-plugin-host-design.md) | [`plans/2026-10-05-plugin-analysis-present-to-processing.md`](plans/2026-10-05-plugin-analysis-present-to-processing.md) · [`plans/2026-09-30-stormsurge-3d-disaster.md`](plans/2026-09-30-stormsurge-3d-disaster.md) · world3d / leftover-plugin checklists still open on the umbrella |
+| Plugin host / contributions / store | [`specs/2026-09-13-plugin-host-design.md`](specs/2026-09-13-plugin-host-design.md) | [`plans/2026-10-18-glang-cpython-plugin.md`](plans/2026-10-18-glang-cpython-plugin.md) · [`plans/2026-10-05-plugin-analysis-present-to-processing.md`](plans/2026-10-05-plugin-analysis-present-to-processing.md) · [`plans/2026-09-30-stormsurge-3d-disaster.md`](plans/2026-09-30-stormsurge-3d-disaster.md) · world3d / leftover-plugin checklists still open on the umbrella |
 | Algorithm layer (OSS) | [`specs/2026-09-13-algorithm-layer-oss-design.md`](specs/2026-09-13-algorithm-layer-oss-design.md) | [`plans/2026-09-13-algorithm-layer-oss.md`](plans/2026-09-13-algorithm-layer-oss.md) |
 | Net (asio / httplib) | [`specs/2026-09-13-net-asio-httplib-design.md`](specs/2026-09-13-net-asio-httplib-design.md) | [`plans/2026-09-13-net-asio-httplib.md`](plans/2026-09-13-net-asio-httplib.md) |
 
@@ -81,4 +87,4 @@ Open milestone: [`plans/2026-09-20-m1-carto-style-tile-export.md`](plans/2026-09
 
 Landed / superseded / fold-B children: [`archive/`](archive/).
 
-**最后更新:** 2026-10-06（living 仍 9 行；`loop/` 分层 [`diagrams/loop-layers.html`](diagrams/loop-layers.html)）
+**最后更新:** 2026-10-18（living 仍 9 行；中国平地阶梯门禁见 [`diagrams/china-stack-gates.html`](diagrams/china-stack-gates.html)；world3d harness 编排进 glang，见 [`diagrams/world3d-harness-glang.html`](diagrams/world3d-harness-glang.html)）

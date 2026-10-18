@@ -9,7 +9,6 @@
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/capability/pack_ensure.h"
-#include "plugin/runtime/host/capability/scenario.h"
 #include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "tool/command/command.h"
@@ -20,14 +19,6 @@ namespace plugin {
 namespace {
 
 constexpr const char* kPluginId = "smartgis.report";
-
-struct ReportPackOnce {
-  ReportPackOnce() {
-    register_command_pack("report", [](content::PluginHost* host) {
-      return register_report(host);
-    });
-  }
-} k_report_pack_once;
 
 bool process_open(content::PluginHost* host, std::string_view args_json) {
   std::string path;
@@ -74,16 +65,6 @@ bool process_post(content::PluginHost* host, std::string_view args_json) {
   return true;
 }
 
-bool process_scenario(content::PluginHost* host, std::string_view args_json) {
-  if (!process_open(host, args_json)) {
-    return false;
-  }
-  constexpr const char* kSeries =
-      "{\"series\":[{\"label\":\"X\",\"value\":22},{\"label\":\"Y\",\"value\":41},"
-      "{\"label\":\"Z\",\"value\":15}]}";
-  return process_post(host, kSeries);
-}
-
 }  // namespace
 
 bool register_report(content::PluginHost* host) {
@@ -105,12 +86,6 @@ bool register_report(content::PluginHost* host) {
       !contribute("report.post", "推送报告数据",
                   [host](const tool::CommandArgs& args) {
                     return process_post(host, args.payload);
-                  }) ||
-      !contribute("report.scenario.showcase", "Harness report scenario",
-                  [host](const tool::CommandArgs& args) {
-                    const bool ok = process_scenario(host, args.payload);
-                    set_harness_scenario_exit(ok ? 0 : 1);
-                    return ok;
                   })) {
     return false;
   }
@@ -119,11 +94,15 @@ bool register_report(content::PluginHost* host) {
              process_open) &&
          host->contribute_processing(
              kPluginId, {"report.post", "Post JSON to the report dock"},
-             process_post) &&
-         host->contribute_processing(
-             kPluginId,
-             {"report.scenario.showcase", "Open sample report and post series"},
-             process_scenario);
+             process_post);
 }
+
+namespace {
+
+struct ReportPackOnce {
+  ReportPackOnce() { register_command_pack("report", register_report); }
+} k_report_pack_once;
+
+}  // namespace
 
 }  // namespace plugin

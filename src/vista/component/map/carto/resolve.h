@@ -21,7 +21,7 @@ VISTA_EXPORT bool style_uses_area_point_line_slots(
     const gis::style::StyleDocument* doc);
 VISTA_EXPORT bool style_has_carto_slots(const gis::style::StyleDocument* doc);
 
-// Parsed default_carto_style_json(), process-lifetime, call_once.
+// Parsed default carto style file, process-lifetime, call_once.
 VISTA_EXPORT const gis::style::StyleDocument* default_carto_style();
 
 // Area/point/line packs and a null document fall back to default_carto_style().

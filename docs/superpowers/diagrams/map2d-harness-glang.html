@@ -1,0 +1,73 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>map2d harness 沉淀到 glang</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --script: #e8f0ea; --glang: #e7eef8; --product: #f8f1e6;
+  }
+  body { margin: 0; font: 15px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  main { max-width: 880px; margin: 32px auto; padding: 0 20px 48px; }
+  h1 { font-size: 22px; font-weight: 600; }
+  p.lead { color: var(--muted); }
+  .stack { display: grid; gap: 10px; margin: 20px 0 28px; }
+  .lane { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .lane h2 { margin: 0 0 6px; font-size: 14px; }
+  .lane.script { background: var(--script); }
+  .lane.glang { background: var(--glang); }
+  .lane.product { background: var(--product); }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px; background: #eef2f6; padding: 1px 4px; }
+  ol { margin: 8px 0 0; padding-left: 20px; }
+  ol li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>map2d showcase 编排</h1>
+  <p class="lead">套件只组合差异。公共步骤在 <code>testing/tools/harness/_shared/steps/</code>。glang 导出路径持有暖缓存、像素门和 GPU smoke。</p>
+  <div class="stack">
+    <section class="lane script">
+      <h2>套件脚本</h2>
+      <code>browser.map2d.china.py</code> / <code>align</code> / <code>orthogrid</code>
+      <ol>
+        <li><code>map_seed.open_shell</code></li>
+        <li>种子模式 <code>china</code> / <code>align</code> / <code>orthogrid</code></li>
+        <li><code>export_bmp</code>（帧名 <code>china_product</code> / <code>map2d_china</code> / <code>map2d_orthogrid</code>）</li>
+        <li><code>fps_bench</code> 只在 china；align 在导出前 <code>invalidate_map2d</code></li>
+      </ol>
+    </section>
+    <section class="lane glang">
+      <h2>glang.runtime</h2>
+      <ol>
+        <li><code>export_map2d_bmp</code>：取景、暖缓存、写 BMP、可见信号、<code>*.keep.bmp</code></li>
+        <li><code>run_map2d_showcase_gpu</code>：隐藏 HWND 上 cold + warm <code>present_gpu</code></li>
+        <li><code>run_map2d_fps_bench</code>：<code>map2d-fps-bench-ms</code> 打开时采样 HUD</li>
+      </ol>
+    </section>
+    <section class="lane product">
+      <h2>testing/tools/harness/_shared/steps（Python，不是套件）</h2>
+      <code>map_seed.py</code> · <code>digitize.py</code> · <code>edit_m0.py</code> · <code>navigate.py</code> · <code>milestones.py</code> · <code>print_page.py</code> · <code>atmosphere.py</code>
+    </section>
+    <section class="lane script">
+      <h2>browser.campaign（失败即停）</h2>
+      <ol>
+        <li>种子中国底图 → <code>campaign-china-ok</code></li>
+        <li>追加一个点，要素数变大 → <code>campaign-digitize-ok</code></li>
+        <li><code>native.buffer</code> 写回 → <code>campaign-buffer-ok</code></li>
+        <li><code>native.clip</code> 写回 → <code>campaign-clip-ok</code></li>
+        <li>打印样式（文件在才套用）+ <code>export_bmp</code> → <code>campaign-export-ok</code></li>
+        <li>场景页 trackball 轨道 → <code>campaign-orbit-ok</code> → <code>campaign-pass</code></li>
+      </ol>
+      <p>任一步抛错，后面的 mark 不写。</p>
+    </section>
+  </div>
+</main>
+</body>
+</html>

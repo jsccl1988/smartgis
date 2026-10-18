@@ -4,7 +4,7 @@
   "argv": [
     "--plugin-showcase=geochem"
   ],
-  "script": "plugin.geochem.il",
+  "script": "plugin.geochem.py",
   "env": {
     "SKIP_MAP_CONTEXT_MENU": "1"
   },
@@ -13,6 +13,7 @@
     "hwnd-ok",
     "geochem-ok",
     "stats-ok",
+    "extent-ok",
     "bmp-ok",
     "pass"
   ],

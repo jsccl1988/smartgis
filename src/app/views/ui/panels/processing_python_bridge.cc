@@ -23,8 +23,8 @@
 #include "content/browser/session/browser_session.h"
 #include "content/public/tool_session.h"
 #include "content/public/types.h"
+#include "content/browser/glang.runtime/host/bind/gis_console.h"
 #include "gis/style/document/style_document.h"
-#include "plugin/runtime/python/runtime.h"
 #include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 
@@ -39,7 +39,7 @@ void ProcessingComposer::bind_gis_python_bridge() {
   if (!browser || !browser->plugins()) {
     return;
   }
-  plugin::GisConsoleBridge bridge;
+  content::GisConsoleBridge bridge;
   bridge.write_active_geojson = [this](const std::string& path) {
     return host_->browser_ && host_->browser_->document() &&
            host_->browser_->session().write_document(path);
@@ -198,7 +198,7 @@ void ProcessingComposer::bind_gis_python_bridge() {
     }
     return true;
   };
-  plugin::set_gis_console_bridge(std::move(bridge));
+  content::set_gis_console_bridge(std::move(bridge));
   // --self-test / --self-test-console must not ensure_builtins (traffic start
   // has called a null fn under cdb; product packs are not the suite).
   if (!base::switch_is_one("harness-run")) {

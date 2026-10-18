@@ -367,7 +367,8 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     const bool draw_labels =
         !interactive && !defer_labels && label_camera_ok &&
         (action == Map2dFrameCache::PresentAction::kRebuildFull ||
-         action == Map2dFrameCache::PresentAction::kSettleRebuild);
+         action == Map2dFrameCache::PresentAction::kSettleRebuild ||
+         action == Map2dFrameCache::PresentAction::kStaticReuse);
     if (defer_labels || draw_labels ||
         action == Map2dFrameCache::PresentAction::kRebuildFull) {
       LOGGING(LOG_INFO,

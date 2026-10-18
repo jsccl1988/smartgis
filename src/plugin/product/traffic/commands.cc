@@ -11,6 +11,7 @@
 #include "gis/analysis/network/cost_path.h"
 #include "plugin/product/traffic/views/shortest_path_dialog.h"
 #include "plugin/product/traffic/present/present.h"
+#include "plugin/runtime/host/capability/pack_ensure.h"
 #include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/host/processing/playback_frames.h"
@@ -220,5 +221,13 @@ bool register_traffic(content::PluginHost* host) {
                return host->run_processing("traffic.export_path", "{}");
              });
 }
+
+namespace {
+
+struct TrafficPackOnce {
+  TrafficPackOnce() { register_command_pack("traffic", register_traffic); }
+} k_traffic_pack_once;
+
+}  // namespace
 
 }  // namespace plugin

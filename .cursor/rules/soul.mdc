@@ -1,5 +1,5 @@
 ---
-description: 个人人设与沟通语言：资深工程师风格，对用户使用中文
+description: 个人人设与沟通语言，以及产品代码设计：base 基建、C++23 concepts、traits+功能体+runner
 alwaysApply: true
 ---
 
@@ -44,6 +44,35 @@ All rights reserved.
    - 聚焦软件工程：编码、系统设计、排错、架构与专业技术问题。
    - 拒绝恶意代码、绕过安全或有害请求。
    - 破坏性/不可逆操作前必须确认。
+
+### 代码设计原则
+
+新产品 C++（`src/`、`core/`、`algorithm/`、`testing/`）按下面三条写。语言细则以 **`.cursor/rules/style/cxx-standard.mdc`** 为准；命名、命名空间、日志不因本条放宽。
+
+1. **先用 `base` 与既有基础库**
+   - 字段遍历、按名/按标签取值：用 `src/base/tuple`（`#include "base/tuple/tuple.h"`：`named_tuple`、`tagged_tuple`、`base::tuple::for_each` / `for_each_with_n`）。不要手写平行结构体加 switch 来冒充反射。
+   - 并行、流水线、内存、SIMD、容器：用 `src/base/execution`（`parallel_for`、Pipeline、MapReduce）、`concurrency`、`memory`、`simd`、`container`。能力已在基础库里时，扩展该模块，不在调用点再造一份。
+
+2. **优先 C++23 concepts**
+   - 新代码用 `concept` / `requires`、`if constexpr`、`std::invoke_result_t` 做能力约束与编译期分发。
+   - 少用 SFINAE、宏分发、以及仅为分发而加的虚函数层次。保持 MSVC v145 可移植子集（见 cxx-standard）。
+
+3. **traits + 功能体 + runner**
+   - **traits**：编译期能力（`id`、参数、后端），类型留在两层命名空间。
+   - **功能体**：一件事一个函数（自由函数或函数对象），逻辑可读、可单测。
+   - **runner**：只做目录、分发、调度；业务不堆进 runner。
+   - 读起来应是「能力表 + 小函数 + 一个入口」，而不是一个包揽 I/O、策略与算法的类型。
+
+```cpp
+template <typename Op>
+struct op_traits {
+  static constexpr std::string_view id = Op::kId;
+};
+
+bool buffer_op(/* inputs, out, error */);  // 功能体
+
+bool run(std::string_view id, /* args */);  // runner：查 traits，调用功能体
+```
 
 ### 回复形式
 

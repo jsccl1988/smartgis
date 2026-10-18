@@ -520,6 +520,16 @@ std::string DebugAgent::dispatch_method(const std::string& method,
   if (detail::dispatch_sdbd_method(method, params_json, id, &response)) {
     return response;
   }
+  if (method == "py.run_file") {
+    std::string path;
+    detail::extract_string_field(params_json, "path", &path);
+    const DebugAgentHost host = copy_host();
+    if (!host.script_run) {
+      return err_result(id, "script host not bound");
+    }
+    const std::string out = host.script_run(path);
+    return ok_result(id, std::string("{\"output\":\"") + json_escape(out) + "\"}");
+  }
   {
     const detail::PyEvalFn eval = [this](const std::string& code) {
       return eval_python(code);
@@ -680,6 +690,17 @@ std::string DebugAgent::exec_line(const std::string& line_in) {
   }
   if (detail::exec_sdbd_command(line, &output)) {
     return ret(std::move(output));
+  }
+  if (line.rfind(":run ", 0) == 0) {
+    const DebugAgentHost host = copy_host();
+    if (!host.script_run) {
+      return ret("script host not bound");
+    }
+    std::string path = line.substr(5);
+    while (!path.empty() && (path.back() == ' ' || path.back() == '\r')) {
+      path.pop_back();
+    }
+    return ret(host.script_run(path));
   }
   {
     const detail::PyEvalFn eval = [this](const std::string& code) {

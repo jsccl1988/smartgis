@@ -14,6 +14,7 @@
 #include "plugin/product/mine/present/stratum.h"
 #include "plugin/product/mine/views/interpolate_dialog.h"
 #include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/host/capability/pack_ensure.h"
 #include "plugin/runtime/host/processing/args_json.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/host/processing/processing_phase.h"
@@ -312,5 +313,13 @@ bool register_mine(content::PluginHost* host) {
          host->contribute_export_frame(
              kPluginId, {"mine_boreholes", 116.34, 39.87, 116.41, 39.93});
 }
+
+namespace {
+
+struct MinePackOnce {
+  MinePackOnce() { register_command_pack("mine", register_mine); }
+} k_mine_pack_once;
+
+}  // namespace
 
 }  // namespace plugin

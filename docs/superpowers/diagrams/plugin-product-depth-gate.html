@@ -1,0 +1,121 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>产品插件深度门禁</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #e8f0f8; --cpu: #eaf4ee; --gpu: #f4eee6;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 800px) { .lanes { grid-template-columns: 1fr; } }
+  .lane { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .lane.ui { background: var(--ui); }
+  .lane.cpu { background: var(--cpu); }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .step {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; min-width: 120px; font-size: 0.82rem;
+  }
+  .step strong { display: block; color: var(--accent); font-size: 0.75rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  .stop { color: #8a3b2c; font-size: 0.8rem; margin-top: 8px; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+  .step.on { animation: pulse 2.4s ease-in-out infinite; border-color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th, td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+  th { background: #eef2f6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>每个产品包一条深度门禁</h1>
+    <p class="meta">验收只在 gtest / harness。浅层红了，后面的阶段不跑，<code>gate.json</code> 的 <code>baseline</code> 保持 false。</p>
+  </header>
+  <section class="panel">
+    <h2>分层</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>调度</h3>
+        <p><code>plugin::eval_product_gate</code> 按包提供的步骤顺序调用，不认识 flood / world3d。</p>
+        <p>报告：<code>out/&lt;config&gt;/captures/plugin/&lt;pkg&gt;/gate.json</code></p>
+      </div>
+      <div class="lane cpu">
+        <h3>产品包</h3>
+        <p>检查函数留在 <code>src/plugin/product/&lt;pkg&gt;/</code>。</p>
+        <p><code>map2d</code> / <code>world3d</code> 的画面是现有 showcase。其余包的画面是输出文件。</p>
+      </div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>同一次运行</h2>
+    <div class="flow" id="flow">
+      <div class="step" data-i="0"><strong>1 contract</strong>样例与标识</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="1"><strong>2 compute</strong>纯结果</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="2"><strong>3 command</strong>处理入口</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="3"><strong>4 visual</strong>画面或文件</div>
+    </div>
+    <p class="stop" id="note">任一阶段失败后，右侧不再点亮，基线不更新。</p>
+  </section>
+  <section class="panel">
+    <h2>八个包</h2>
+    <table>
+      <tr><th>包</th><th>visual 是什么</th></tr>
+      <tr><td><code>map2d</code></td><td>china / align / orthogrid / print 捕获</td></tr>
+      <tr><td><code>world3d</code></td><td>world_preview 与 atmosphere 模式</td></tr>
+      <tr><td><code>flood</code> <code>stormsurge</code></td><td>淹没掩膜文件</td></tr>
+      <tr><td><code>traffic</code></td><td>路径 GeoJSON</td></tr>
+      <tr><td><code>mine</code></td><td>TIN 与体积 JSON</td></tr>
+      <tr><td><code>geochem</code></td><td>IDW 栅格</td></tr>
+      <tr><td><code>report</code></td><td>含 path 的 HTML 页</td></tr>
+    </table>
+  </section>
+</div>
+<script>
+  const steps = document.querySelectorAll("#flow .step");
+  let i = 0;
+  setInterval(() => {
+    steps.forEach((el, n) => el.classList.toggle("on", n === i));
+    const note = document.getElementById("note");
+    note.textContent = i < 3
+      ? "当前阶段若失败，后面的阶段保持未运行。"
+      : "四层都过，gate.json 的 baseline 才为 true。";
+    i = (i + 1) % 4;
+  }, 900);
+</script>
+</body>
+</html>

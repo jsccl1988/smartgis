@@ -16,6 +16,7 @@ views dialogs).
 | `shell/` | StatusBar, AtmospherePanel, AmboxView (scroll shell), ChartView (title), **main_app** (SmartGisViews horizon skeleton — product via `ShellLayoutComposer`) |
 | `inspect/` | Measure, Selection, FeatureInfo, AttributeTable; AttributeSchema modal |
 | `style/` | Legend, Symbology, LayerProperties |
+| `carto/` | MapLibre carto documents (`default.style.json`, `print.style.json`) copied to `out/ui/carto/` |
 | `analysis/` | SpatialAnalysis, Processing, GeoprocessingHistory, ResultPlayback |
 | `debug/` | DebugConsole, RenderTrace, DiagnosticTools (horizon + tabs_host), Memory page |
 

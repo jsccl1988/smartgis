@@ -31,6 +31,14 @@ enum class DrawKind : uint8_t {
 // Raster composite. Lives here so this header does not include render/rhi.
 enum class DrawBlend : uint8_t { kOver, kMultiply };
 
+// GB/T 20257 annotation faces. Rasterizer maps these to 等线 / 左斜宋.
+enum class MapFont : uint8_t {
+  kGothic = 0,        // 中等线
+  kGothicBold = 1,    // 粗等线
+  kGothicLight = 2,   // 细等线
+  kSongOblique = 3,   // 左斜宋（水系）
+};
+
 // One painter primitive. kRaster stores TileSlot::texture_key in codepoint.
 struct DrawItem {
   DrawKind kind = DrawKind::kFill;
@@ -41,6 +49,7 @@ struct DrawItem {
   float angle_rad = 0.f;
   uint32_t codepoint = 0;
   float text_size_px = 0.f;
+  MapFont font = MapFont::kGothic;
   float halo_width_px = 0.f;
   uint32_t halo_rgba = 0;
   std::string symbol_id;

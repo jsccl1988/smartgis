@@ -44,6 +44,35 @@ std::vector<DeferredDataset>& deferred_datasets() {
   return queue;
 }
 
+bool is_vector_dataset_path(std::string_view path) {
+  const size_t dot = path.find_last_of('.');
+  if (dot == std::string_view::npos || dot + 1 >= path.size()) {
+    return false;
+  }
+  const std::string ext(path.substr(dot));
+  return _stricmp(ext.c_str(), ".geojson") == 0 ||
+         _stricmp(ext.c_str(), ".gpkg") == 0 ||
+         _stricmp(ext.c_str(), ".shp") == 0 ||
+         _stricmp(ext.c_str(), ".kml") == 0 ||
+         _stricmp(ext.c_str(), ".gml") == 0;
+}
+
+// map2d.seed checks feature_count before it returns. The tab/fit half of
+// present stays on a timer so a plugin-panel click does not free the pressed
+// view; the file open cannot wait for that timer.
+bool open_vector_dataset_now(Browser* browser, std::string_view path) {
+  if (!browser || !is_vector_dataset_path(path)) {
+    return false;
+  }
+  if (!browser->session().open_document(std::string(path))) {
+    LOGGING(LOG_ERROR, "present_dataset: open failed %.*s",
+            static_cast<int>(path.size()), path.data());
+    return false;
+  }
+  browser->sync_catalog_from_scene();
+  return true;
+}
+
 bool present_dataset_now(Browser* browser, std::string_view plugin_id,
                          std::string_view path, int face, int surface) {
   if (!browser) {
@@ -61,19 +90,8 @@ bool present_dataset_now(Browser* browser, std::string_view plugin_id,
   } guard;
 
   const bool scene3d = face == 1;
-  if (!scene3d && !path.empty()) {
-    const size_t dot = path.find_last_of('.');
-    if (dot != std::string_view::npos) {
-      const std::string ext(path.substr(dot));
-      if (_stricmp(ext.c_str(), ".geojson") == 0 ||
-          _stricmp(ext.c_str(), ".gpkg") == 0 ||
-          _stricmp(ext.c_str(), ".shp") == 0 ||
-          _stricmp(ext.c_str(), ".kml") == 0 ||
-          _stricmp(ext.c_str(), ".gml") == 0) {
-        (void)browser->session().open_document(std::string(path));
-        browser->sync_catalog_from_scene();
-      }
-    }
+  if (!scene3d) {
+    (void)open_vector_dataset_now(browser, path);
   }
   if (browser->plugins() && browser->plugins()->host() &&
       browser->plugins()->host()->playback()) {
@@ -101,13 +119,16 @@ void CALLBACK on_deferred_dataset(HWND hwnd, UINT, UINT_PTR id, DWORD) {
 }  // namespace
 
 void Browser::install_plugin_host_bridges() {
-  if (!plugins_ || !plugins_->host() || !session_->gis_contents()) {
+  // plugins() is defined next to the member. Inlining plugins_ here bakes a
+  // stale offsetof when parallel ninja links an older .obj (0xCD freefill AV).
+  PluginShell* shell = this->plugins();
+  if (!shell || !shell->host() || !session_->gis_contents()) {
     return;
   }
   // PluginHost is owned by GisContents (attach_gis_contents already ran).
   content::PluginHost* host = session_->gis_contents()->plugin_host();
   if (!host) {
-    host = plugins_->host();
+    host = shell->host();
   }
   if (!host) {
     return;
@@ -198,14 +219,22 @@ void Browser::install_plugin_host_bridges() {
 }
 
 void Browser::wire_plugin_present_dataset() {
-  if (!plugins_ || !plugins_->host()) {
+  PluginShell* shell = this->plugins();
+  if (!shell || !shell->host()) {
     return;
   }
-  plugins_->host()->set_present_dataset_bridge(
+  shell->host()->set_present_dataset_bridge(
       [this](std::string_view plugin_id, std::string_view path, int face,
              int surface) {
-        // Dialog constructors call this under the plugin-panel click. Running
-        // open/fit/tab-switch on that stack frees the pressed view.
+        // Dialog constructors call this under the plugin-panel click. Fit and
+        // tab-switch stay deferred so that stack does not free the pressed
+        // view. Vector open is synchronous: map2d.seed reads feature_count
+        // before this call returns.
+        const bool scene3d = face == 1;
+        if (!scene3d && is_vector_dataset_path(path) &&
+            !open_vector_dataset_now(this, path)) {
+          return false;
+        }
         HWND shell = hwnd();
         if (!shell) {
           return present_dataset_now(this, plugin_id, path, face, surface);
@@ -218,11 +247,11 @@ void Browser::wire_plugin_present_dataset() {
 }
 
 bool Browser::apply_plugin_frame(int index) {
-  return detail::present_plugin_frame(plugins_.get(), &plugin_playback_, index);
+  return detail::present_plugin_frame(this->plugins(), &plugin_playback_, index);
 }
 
 int Browser::export_plugin_frames(const std::string& dir_leaf) {
-  return detail::export_plugin_frames(plugins_.get(), &plugin_playback_,
+  return detail::export_plugin_frames(this->plugins(), &plugin_playback_,
                                       session_.get(), dir_leaf);
 }
 

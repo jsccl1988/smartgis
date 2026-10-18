@@ -5,6 +5,7 @@
 
 #include <cstdio>
 
+#include "base/core/log.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/contribute_index.h"
 #include "plugin/runtime/host/catalog/resource_roots.h"
@@ -99,6 +100,7 @@ bool PluginManager::init_all(content::PluginHost* host) {
     return false;
   }
   bool any = false;
+  int failed = 0;
   for (const PluginRecord& rec : registry_->list()) {
     if (rec.manifest.kind != PluginKind::kNative) {
       continue;
@@ -108,7 +110,15 @@ bool PluginManager::init_all(content::PluginHost* host) {
     }
     if (registry_->set_enabled(rec.manifest.id, true, host)) {
       any = true;
+      continue;
     }
+    ++failed;
+    last_error_ = rec.manifest.id + ": " + registry_->last_error();
+    LOGGING(LOG_ERROR, "plugin init_all failed id=%s err=%s",
+            rec.manifest.id.c_str(), registry_->last_error().c_str());
+  }
+  if (failed > 0 && !any) {
+    return false;
   }
   return any || !registry_->list().empty();
 }

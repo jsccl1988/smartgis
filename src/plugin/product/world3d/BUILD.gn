@@ -237,10 +237,14 @@ source_set("world3d_views") {
     "scene/present/style.h",
     "scene/fly/globe_fly.cc",
     "scene/fly/globe_fly.h",
+    "scene/look/china_stack.cc",
+    "scene/look/china_stack.h",
     "scene/look/look.cc",
     "scene/look/look.h",
     "scene/register.cc",
     "scene/register.h",
+    "gate.cc",
+    "gate.h",
   ]
   include_dirs += [
     ".",
@@ -276,108 +280,6 @@ source_set("world3d_views") {
   ]
 }
 
-# HWND/RHI showcase bodies linked into SmartGIS.exe, not the native DLL.
-# Split source_sets: atmosphere/capture/capture.cc vs capture/capture.cc share an obj stem.
-source_set("world3d_harness_atmosphere") {
-  sources = [
-    "scenario/atmosphere/capture/capture.cc",
-    "scenario/atmosphere/capture/capture.h",
-    "scenario/atmosphere/session/device_session.cc",
-    "scenario/atmosphere/session/device_session.h",
-    "scenario/atmosphere/present/globe_present.cc",
-    "scenario/atmosphere/present/globe_present.h",
-    "scenario/atmosphere/session/host.cc",
-    "scenario/atmosphere/session/host.h",
-    "scenario/atmosphere/seed/legacy_seed.cc",
-    "scenario/atmosphere/seed/legacy_seed.h",
-    "scenario/atmosphere/common/linger.cc",
-    "scenario/atmosphere/common/linger.h",
-    "scenario/atmosphere/mode.h",
-    "scenario/atmosphere/seed/mode_seed.cc",
-    "scenario/atmosphere/seed/mode_seed.h",
-    "scenario/atmosphere/present/present_linger.cc",
-    "scenario/atmosphere/present/present_linger.h",
-    "scenario/atmosphere/present/present_run.cc",
-    "scenario/atmosphere/present/present_run.h",
-    "scenario/atmosphere/session/session_finish.cc",
-    "scenario/atmosphere/session/session_finish.h",
-  ]
-  include_dirs += [
-    ".",
-    "//src",
-  ]
-  deps = [
-    ":world3d_views",
-    "//src/base:base",
-    "//src/content:content",
-    "//src/content:scene3d_present",
-    "//src/gis:gis",
-    "//src/plugin/runtime/host:host",
-    "//src/render:rhi",
-    "//src/ui/views:views",
-    "//src/vista:vista",
-    "//third_party:gdal",
-  ]
-  libs = [
-    "user32.lib",
-    "gdi32.lib",
-  ]
-}
-
-source_set("world3d_harness") {
-  sources = [
-    "scenario/capture/capture.cc",
-    "scenario/capture/capture.h",
-    "scenario/capture/map2d_export.cc",
-    "scenario/capture/map2d_export.h",
-    "scenario/common/host_rhi.h",
-    "scenario/interact.cc",
-    "scenario/interact.h",
-    "scenario/present/present_warmup.cc",
-    "scenario/present/present_warmup.h",
-    "scenario/present/world3d_fly.cc",
-    "scenario/present/world3d_fly.h",
-    "scenario/product/orthogrid.cc",
-    "scenario/product/orthogrid.h",
-    "scenario/product/orthogrid3d.cc",
-    "scenario/product/orthogrid3d.h",
-    "scenario/product/world3d.cc",
-    "scenario/product/world3d.h",
-    "scenario/product/world_preview.cc",
-    "scenario/product/world_preview.h",
-    "scenario/register.cc",
-    "scenario/register.h",
-    "scenario/seed/orbit_seed.cc",
-    "scenario/seed/orbit_seed.h",
-    "scenario/seed/world3d_seed.cc",
-    "scenario/seed/world3d_seed.h",
-    "scenario/session/device_session.cc",
-    "scenario/session/device_session.h",
-  ]
-  include_dirs += [
-    ".",
-    "//src",
-  ]
-  deps = [
-    ":world3d_harness_atmosphere",
-    ":world3d_views",
-    "//src/base:base",
-    "//src/content:content",
-    "//src/content:scene3d_present",
-    "//src/gis:gis",
-    "//src/plugin/runtime/host:host",
-    "//src/render:rhi",
-    "//src/tool:dispatch",
-    "//src/ui/views:views",
-    "//src/vista:vista",
-    "//third_party:gdal",
-  ]
-  libs = [
-    "user32.lib",
-    "gdi32.lib",
-  ]
-}
-
 native_plugin("world3d_native") {
   package = "world3d"
   entry = "dll_entry.cc"
@@ -386,6 +288,18 @@ native_plugin("world3d_native") {
     ":world3d_data_stub",
     ":world3d_resources",
   ]
+}
+
+test("world3d_gate_test") {
+  output_name = "world3d_gate_test"
+  sources = [
+    "gate.cc",
+    "gate.h",
+    "tests/gate_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/plugin/runtime/host:host" ]
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
 }
 
 test("world3d_loader_test") {

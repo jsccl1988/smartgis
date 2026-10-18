@@ -4,7 +4,7 @@
     "argv":  [
                  "--browse-showcase"
              ],
-    "script":  "browser.world3d.browse.il",
+    "script":  "browser.world3d.browse.py",
     "env":  {
                 "SKIP_MAP_CONTEXT_MENU":  "1",
                 "SCENE3D_ENGINE":  "flycube",

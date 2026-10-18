@@ -52,11 +52,18 @@ native_plugin("geochem_native") {
 
 test("geochem_analyze_test") {
   output_name = "geochem_analyze_test"
-  sources = [ "tests/analyze_test.cc" ]
+  sources = [
+    "gate.cc",
+    "gate.h",
+    "tests/analyze_test.cc",
+  ]
   include_dirs += [ "//src" ]
   deps = [
     "//src/gis:gis",
+    "//src/plugin/runtime/host:host",
     "//third_party:gdal",
+    "//third_party/gn:dll_search",
   ]
   data_deps = [ "//third_party:gdal_runtime_dlls" ]
+  ldflags = [ "/ENTRY:mainCRTStartup", "/INCLUDE:__pfnDliNotifyHook2" ]
 }

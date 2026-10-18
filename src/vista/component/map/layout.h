@@ -1,8 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Pure CPU layout: style order in, MapIR out. No RHI, HWND, or
-// CameraMatrices. View::mode is a host hint; Layout does not branch on it.
+// Pure CPU layout: style in, MapIR out. Paint bands are raster-xor-area,
+// then lines, then points and labels. No RHI, HWND, or CameraMatrices.
+// View::mode is a host hint; Layout does not branch on it.
 
 #ifndef VISTA_COMPONENT_MAP_LAYOUT_H_
 #define VISTA_COMPONENT_MAP_LAYOUT_H_
@@ -26,6 +27,12 @@ class GlyphMetrics {
  public:
   virtual ~GlyphMetrics() = default;
   virtual float advance_px(uint32_t codepoint, float text_size_px) const = 0;
+  // |font| is MapFont. Default ignores it so test stubs stay on the 2-arg path.
+  virtual float advance_px(uint32_t codepoint, float text_size_px,
+                           uint8_t font) const {
+    (void)font;
+    return advance_px(codepoint, text_size_px);
+  }
 };
 
 // One raster tile whose corners are already in the view CRS (lon/lat).
@@ -96,10 +103,11 @@ class Layout {
                             const std::vector<LayerBatch>& layers) const;
 };
 
+// Reads out/ui/carto/default.style.json (source: src/ui/resources/carto).
 VISTA_EXPORT std::string default_carto_style_json();
 
-// Default carto without symbol / label layers — print layout horizon uses this
-// so city glyphs cannot twin-draw under MapLibre label slots.
+// Print carto from out/ui/carto/print.style.json. No hillshade or symbol
+// labels — print pages list cities in the legend.
 VISTA_EXPORT std::string print_carto_style_json();
 
 }  // namespace vista

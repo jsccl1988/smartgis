@@ -1,0 +1,603 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# IL runtime. Language core does not dep //src/app/views or the Views toolkit.
+# :backend / :session bind CapabilityHost. They must not dep //src/app/views.
+# The shell fills ShellBridge from Browser (app/views/app/startup/shell_runtime.cc).
+# Suite entry is content::run_suite_script.
+
+import("//build/python.gni")
+import("//testing/test.gni")
+import("//third_party/antlr4/antlr.gni")
+
+_il_no_shell_deps = [
+  "//src/app:*",
+  "//src/app/*",
+  "//src/ui/views:ui_views",
+]
+
+# Split Python3 lexer/parser. tokenVocab is read beside the parser unless
+# -lib points at the lexer output, so this is two jar runs. Basenames are
+# copied into $root_out_dir (the action cwd) so -o stays flat.
+_py_gen = "$root_gen_dir/g4/il.runtime/python/cpp"
+
+copy("python3_grammar_src") {
+  sources = [
+    "language/front/python/Python3Lexer.g4",
+    "language/front/python/Python3Parser.g4",
+  ]
+  outputs = [ "$root_out_dir/{{source_file_part}}" ]
+}
+
+action("python3_lexer_gen") {
+  script = "//build/tools/action/run_script.py"
+  deps = [ ":python3_grammar_src" ]
+  inputs = [ antlr4_complete_jar ]
+  outputs = [
+    "$_py_gen/Python3Lexer.cpp",
+    "$_py_gen/Python3Lexer.h",
+  ]
+  args = [
+    "java",
+    "-jar",
+    rebase_path(antlr4_complete_jar, root_build_dir),
+    "-Dlanguage=Cpp",
+    "-visitor",
+    "-package",
+    "app_py",
+    "-o",
+    rebase_path(_py_gen, root_build_dir),
+    "Python3Lexer.g4",
+  ]
+}
+
+action("python3_parser_gen") {
+  script = "//build/tools/action/run_script.py"
+  deps = [ ":python3_lexer_gen" ]
+  inputs = [ antlr4_complete_jar ]
+  outputs = [
+    "$_py_gen/Python3Parser.cpp",
+    "$_py_gen/Python3Parser.h",
+    "$_py_gen/Python3ParserBaseVisitor.cpp",
+    "$_py_gen/Python3ParserBaseVisitor.h",
+    "$_py_gen/Python3ParserVisitor.cpp",
+    "$_py_gen/Python3ParserVisitor.h",
+    "$_py_gen/Python3ParserBaseListener.cpp",
+    "$_py_gen/Python3ParserBaseListener.h",
+    "$_py_gen/Python3ParserListener.cpp",
+    "$_py_gen/Python3ParserListener.h",
+  ]
+  args = [
+    "java",
+    "-jar",
+    rebase_path(antlr4_complete_jar, root_build_dir),
+    "-Dlanguage=Cpp",
+    "-visitor",
+    "-package",
+    "app_py",
+    "-lib",
+    rebase_path(_py_gen, root_build_dir),
+    "-o",
+    rebase_path(_py_gen, root_build_dir),
+    "Python3Parser.g4",
+  ]
+}
+
+config("python3_gen_includes") {
+  include_dirs += [
+    _py_gen,
+    "language/front/python",
+  ]
+}
+
+source_set("python3_grammar") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "language/front/python/Python3LexerBase.cpp",
+    "language/front/python/Python3LexerBase.h",
+    "language/front/python/Python3ParserBase.cpp",
+    "language/front/python/Python3ParserBase.h",
+  ]
+  sources += get_target_outputs(":python3_lexer_gen")
+  sources += get_target_outputs(":python3_parser_gen")
+  deps = [
+    ":python3_lexer_gen",
+    ":python3_parser_gen",
+  ]
+  public_deps = [ "//third_party:antlr4" ]
+  public_configs = [ ":python3_gen_includes" ]
+  defines = [
+    "ANTLR4CPP_STATIC",
+    "NOMINMAX",
+    "_CRT_DECLARE_NONSTDC_NAMES=0",
+  ]
+  cflags = [ "/U_HAS_STD_BYTE" ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("front") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "language/front/ast.h",
+    "language/front/diagnostic.h",
+    "language/front/parse.h",
+    "language/front/parse.cc",
+    "language/front/python_parse.cc",
+  ]
+  deps = [
+    ":python3_grammar",
+    "//src/base:base",
+  ]
+  defines = [
+    "ANTLR4CPP_STATIC",
+    "NOMINMAX",
+    "_CRT_DECLARE_NONSTDC_NAMES=0",
+  ]
+  include_dirs += [
+    "//src",
+    _py_gen,
+    "language/front/python",
+  ]
+}
+
+source_set("code") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "language/code/module.h",
+    "language/code/op.h",
+    "language/code/verify.h",
+    "language/code/verify.cc",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/content:capability",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("op") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "exec/extend/exec.cc",
+    "exec/extend/exec.h",
+    "exec/extend/language.h",
+    "exec/op/document.cc",
+    "exec/op/gesture.cc",
+    "exec/op/gis/dispatch/dispatch.cc",
+    "exec/op/gis/eval/catalog.cc",
+    "exec/op/gis/eval/host_query.cc",
+    "exec/op/gis/eval/eval.h",
+    "exec/op/gis/eval/feature.cc",
+    "exec/op/gis/eval/geometry.cc",
+    "exec/op/gis/eval/host_call.h",
+    "exec/op/gis/pack/pack.cc",
+    "exec/op/gis/pack/pack.h",
+    "exec/op/horizon.cc",
+    "exec/op/plugin.cc",
+    "exec/op/host_verb.h",
+    "exec/op/register.cc",
+    "exec/op/register.h",
+    "exec/op/view.cc",
+  ]
+  deps = [
+    ":code",
+    ":ir",
+    "//src/base:base",
+    "//src/content:capability",
+    "//src/gis:gis",
+    "//third_party:gdal",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("sema") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "language/sema/check.cc",
+    "language/sema/check.h",
+  ]
+  deps = [
+    ":code",
+    ":front",
+    ":op",
+    "//src/base:base",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("lower") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "language/lower/lower.cc",
+    "language/lower/lower.h",
+  ]
+  deps = [
+    ":code",
+    ":front",
+    ":sema",
+    "//src/base:base",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("plugin_fn") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "exec/session/plugin_fn.cc",
+    "exec/session/plugin_fn.h",
+  ]
+  deps = [
+    ":op",
+    ":script_call",
+    ":sema",
+    "//src/base:base",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("script_call") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "exec/session/script_call.cc",
+    "exec/session/script_call.h",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("gis_console") {
+  sources = [
+    "host/bind/gis_console.cc",
+    "host/bind/gis_console.h",
+  ]
+  deps = [
+    ":op",
+    "//src/base:base",
+    "//src/content:capability",
+    "//src/plugin:host",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("eval") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "exec/eval/eval.cc",
+    "exec/eval/eval.h",
+  ]
+  deps = [
+    ":code",
+    ":lower",
+    ":op",
+    ":sema",
+    ":ir",
+    "//src/base:base",
+    "//src/content:capability",
+    ":script_call",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+# Language-neutral instructions. ir/gis links GDAL for geometry;
+# the other headers stay inline over CapabilityHost.
+source_set("ir") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "language/ir/api.h",
+    "language/ir/document.h",
+    "language/ir/fail.h",
+    "language/ir/gesture.h",
+    "language/ir/gis.h",
+    "language/ir/gis/construct/construct.cc",
+    "language/ir/gis/construct/construct.h",
+    "language/ir/gis/eval/write.cc",
+    "language/ir/gis/eval/write.h",
+    "language/ir/gis/feature/feature.cc",
+    "language/ir/gis/host/host.cc",
+    "language/ir/gis/measure/measure.cc",
+    "language/ir/gis/transform/transform.cc",
+    "language/ir/gis/verb/verb.cc",
+    "language/ir/visit.h",
+    "language/ir/horizon.h",
+    "language/ir/plugin.h",
+    "language/ir/view.h",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/content:capability",
+    "//src/gis:gis",
+    # WKT / feature kernels are linked through gis.dll.
+    "//src/gis/analysis:analysis",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("script_runtime") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "run_suite.cc",
+    "//src/content/public/script_runtime.h",
+  ]
+  deps = [
+    ":cpython",
+    ":eval",
+    ":script_call",
+    "//src/base:base",
+    "//src/content:capability",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("scene_policy") {
+  assert_no_deps = _il_no_shell_deps
+  sources = [
+    "host/scene/policy/gate.cc",
+    "host/scene/policy/gate.h",
+  ]
+  deps = [
+    ":ir",
+    "//src/base:base",
+    "//src/content:capability",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+group("il") {
+  public_deps = [
+    ":code",
+    ":eval",
+    ":front",
+    ":ir",
+    ":lower",
+    ":op",
+    ":script_runtime",
+    ":sema",
+  ]
+}
+
+source_set("backend") {
+  assert_no_deps = [
+    "//src/app:*",
+    "//src/app/*",
+  ]
+  sources = [
+    "host/document/bind_export.cc",
+    "host/document/document.cc",
+    "host/document/document.h",
+    "host/document/document_bind.cc",
+    "host/document/document_bind.h",
+    "host/horizon/atom/capture.cc",
+    "host/horizon/atom/capture.h",
+    "host/horizon/atom/mark.cc",
+    "host/horizon/atom/mark.h",
+    "host/horizon/atom/pump.cc",
+    "host/horizon/atom/pump.h",
+    "host/horizon/atom/surface.cc",
+    "host/horizon/atom/surface.h",
+    "host/horizon/bind/bind_horizon.cc",
+    "host/horizon/bind/bind_horizon.h",
+    "host/horizon/sema/debug_console.cc",
+    "host/horizon/sema/debug_console.h",
+    "host/horizon/sema/expect.cc",
+    "host/horizon/sema/expect.h",
+    "host/horizon/sema/ui.cc",
+    "host/horizon/sema/ui.h",
+    "host/link/bind_host.cc",
+    "host/link/bind_host.h",
+    "host/plugin/bind_plugin.cc",
+    "host/plugin/bind_plugin.h",
+    "host/plugin/paths.cc",
+    "host/plugin/paths.h",
+    "host/scene/bind.cc",
+    "host/scene/bind.h",
+    "host/scene/browse/dispatch.cc",
+    "host/scene/browse/dispatch.h",
+    "host/scene/verbs.cc",
+    "host/scene/verbs.h",
+    "host/view/browse/still.cc",
+    "host/view/browse/still.h",
+    "host/view/browse/stress.cc",
+    "host/view/browse/stress.h",
+    "host/view/camera/camera_fly.cc",
+    "host/view/camera/camera_fly.h",
+    "host/view/camera/fit_scene_box.cc",
+    "host/view/camera/fit_scene_box.h",
+    "host/view/dib/gdi.cc",
+    "host/view/dib/gdi.h",
+    "host/view/dib/read.cc",
+    "host/view/dib/read.h",
+    "host/view/host/capture_host.cc",
+    "host/view/host/capture_host.h",
+    "host/view/pixel/bmp.cc",
+    "host/view/pixel/bmp.h",
+    "host/view/pixel/gate.cc",
+    "host/view/pixel/gate.h",
+    "host/view/present/env.cc",
+    "host/view/present/env.h",
+    "host/view/present/session.cc",
+    "host/view/present/session.h",
+    "host/view/present/map2d_fps.cc",
+    "host/view/present/map2d_fps.h",
+    "host/view/present/map2d_gpu.cc",
+    "host/view/present/map2d_gpu.h",
+    "host/view/present/warmup.cc",
+    "host/view/present/warmup.h",
+    "host/view/probe.cc",
+    "host/view/probe.h",
+    "host/view/shot/export.cc",
+    "host/view/shot/export.h",
+    "host/view/shot/paint.cc",
+    "host/view/shot/paint.h",
+    "host/view/shot/scene_capture.cc",
+    "host/view/shot/scene_capture.h",
+    "host/view/view_bind.cc",
+    "host/view/view_bind.h",
+    "host/bind/pane.h",
+    "host/bind/shell_bridge.h",
+    "host/bind/slots.h",
+    "host/utils/charset.cc",
+    "host/utils/charset.h",
+    "host/utils/exe_path.h",
+    "host/utils/find_named.cc",
+    "host/utils/find_named.h",
+    "host/utils/reflect.h",
+    "host/utils/view_tree.h",
+  ]
+  deps = [
+    ":ir",
+    ":op",
+    ":scene_policy",
+    "//src/base:base",
+    "//src/base:foundation",
+    "//src/content:capability",
+    "//src/content:content",
+    "//src/content:debug_agent",
+    "//src/content:gis_scene",
+    "//src/content:tool_session",
+    "//src/gis:gis",
+    "//src/gpu:gpu_lib",
+    "//src/net:net",
+    "//src/plugin:host",
+    "//src/plugin/product/world3d:world3d_views",
+    "//src/render:rhi",
+    "//src/tool:tool",
+    "//src/ui/gis:ui_gis",
+    "//src/ui/views:views",
+    "//src/vista:vista",
+    "//third_party:gdal",
+    "//third_party:rapidjson",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+# Process-wide CPython. Debug (python_enabled false) is the stub and must
+# not link python312.lib. Plugin packs depend on this target; they do not
+# compile cpython.cc themselves.
+source_set("cpython") {
+  assert_no_deps = [
+    "//src/app:*",
+    "//src/app/*",
+  ]
+  sources = [
+    "exec/session/cpython.cc",
+    "exec/session/cpython.h",
+    "exec/session/plugin_module.cc",
+    "exec/session/plugin_module.h",
+  ]
+  deps = [
+    ":plugin_fn",
+    "//src/base:base",
+  ]
+  include_dirs += [ "//src" ]
+  if (python_enabled) {
+    include_dirs += [ python_include ]
+    defines += [
+      "HAS_PYTHON=1",
+      "PYTHON_HOME=\"" + python_prefix + "\"",
+    ]
+    libs += [ "python312.lib" ]
+    lib_dirs += [ python_libdir ]
+  }
+}
+
+source_set("session") {
+  assert_no_deps = [
+    "//src/app:*",
+    "//src/app/*",
+  ]
+  sources = [
+    "exec/session/script_load.cc",
+    "exec/session/script_load.h",
+    "exec/session/session.cc",
+    "exec/session/session.h",
+  ]
+  public_deps = [ ":backend" ]
+  deps = [
+    ":eval",
+    ":script_call",
+    ":script_runtime",
+    "//src/base:base",
+    "//src/content:capability",
+    "//src/plugin:host",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+test("capture_present_test") {
+  output_name = "capture_present_test"
+  sources = [
+    "host/view/present/env.cc",
+    "host/view/present/env_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/base:base" ]
+}
+
+test("plugin_fn_test") {
+  output_name = "plugin_fn_test"
+  sources = [ "exec/session/plugin_fn_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":plugin_fn",
+    "//src/base:base",
+  ]
+  # gtest_main provides main. /NODEFAULTLIB does not pull CRT startup unless named.
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
+  if (python_enabled) {
+    defines += [ "HAS_PYTHON=1" ]
+    deps += [
+      ":cpython",
+      ":eval",
+      "//src/content:capability",
+    ]
+    if (python_dll != "") {
+      data_deps = [
+        "//src/plugin/runtime/python:python312_dll",
+        "//src/plugin/runtime/python:python3_dll",
+      ]
+    }
+  }
+}
+
+test("scene_gate_test") {
+  output_name = "scene_gate_test"
+  sources = [ "host/scene/policy/gate_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":scene_policy",
+    "//src/base:base",
+    "//src/content:capability",
+  ]
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
+}
+
+test("host_verb_slot_test") {
+  output_name = "host_verb_slot_test"
+  sources = [ "exec/op/host_verb_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":op",
+    "//src/base:base",
+  ]
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
+}
+
+test("codegen_ir_test") {
+  output_name = "codegen_ir_test"
+  sources = [ "codegen_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":code",
+    ":eval",
+    ":front",
+    ":ir",
+    ":lower",
+    ":op",
+    ":sema",
+    "//src/base:base",
+    "//src/content:capability",
+  ]
+}

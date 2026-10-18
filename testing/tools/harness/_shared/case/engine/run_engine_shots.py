@@ -107,9 +107,9 @@ def run_one(engine_id: str, label: str, cmd: list[str], src_bmp: str) -> dict:
     # env to the --d3d shot-loop path (or inherits Direct3D).
     if engine_id == "legacy-scene3d-gl":
         env["STEREO_API"] = "OpenGL"
-            elif engine_id == "legacy-scene3d-d3d":
+    elif engine_id == "legacy-scene3d-d3d":
         env["STEREO_API"] = "Direct3D"
-            else:
+    else:
         env.pop("STEREO_API", None)
                 
     print(f"\n######## ENGINE {engine_id} �?{label} ########", flush=True)

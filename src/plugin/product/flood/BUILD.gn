@@ -48,28 +48,13 @@ native_plugin("flood_native") {
   data_deps = [ ":flood_resources" ]
 }
 
-source_set("flood_harness") {
-  sources = [
-    "scenario/register.cc",
-    "scenario/register.h",
-    "scenario/run.cc",
-    "scenario/run.h",
-  ]
-  include_dirs += [
-    ".",
-    "//src",
-  ]
-  deps = [
-    ":flood_views",
-    "//src/content:content",
-    "//src/plugin/product/world3d:world3d_harness",
-    "//src/plugin/runtime/host:host",
-  ]
-}
-
 test("flood_inundate_test") {
   output_name = "flood_inundate_test"
-  sources = [ "tests/inundate_test.cc" ]
+  sources = [
+    "gate.cc",
+    "gate.h",
+    "tests/inundate_test.cc",
+  ]
   include_dirs += [ "//src" ]
   deps = [
     ":flood_views",
@@ -77,9 +62,11 @@ test("flood_inundate_test") {
     "//src/gis:gis",
     "//src/plugin/runtime/host:host",
     "//third_party:gdal",
+    "//third_party/gn:dll_search",
   ]
   data_deps = [
     ":flood_resources",
     "//third_party:gdal_runtime_dlls",
   ]
+  ldflags = [ "/ENTRY:mainCRTStartup", "/INCLUDE:__pfnDliNotifyHook2" ]
 }

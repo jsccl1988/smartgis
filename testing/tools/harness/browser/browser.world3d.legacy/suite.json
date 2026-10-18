@@ -4,7 +4,7 @@
     "argv":  [
                  "--atmosphere-showcase=legacy"
              ],
-    "script":  "browser.world3d.legacy.il",
+    "script":  "browser.world3d.legacy.py",
     "env":  {
                 "ATMOSPHERE_SHOWCASE_GPU":  "1",
                 "ATMOSPHERE_SHOWCASE_LINGER_MS":  "0",

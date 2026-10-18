@@ -75,12 +75,12 @@ All rights reserved.
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>il.runtime — 四个对象</h1>
-    <p>Interact Language（<code>src/app/views/il.runtime</code>）与
+    <h1>il.runtime — 四个能力对象</h1>
+    <p><code>src/app/views/il.runtime</code> 与
       <code>content::CapabilityHost</code> 使用同一组对象：
       <code>document</code>、<code>view</code>、<code>plugin</code>、<code>horizon</code>。
-      <code>frontend/</code> 解析，<code>ir/</code> 发指令，<code>codegen/</code> 降级，
-      <code>backend/</code> 填槽。<code>view</code> 覆盖 edit / data / scene，以及以后的 world 视口。
+      脚本语言是进程内 Python（<code>smartgis.script</code>），不再有 Interact 解析或降级。
+      <code>ir/</code> 发指令，<code>backend/</code> 填槽。<code>view</code> 覆盖 edit / data / scene，以及以后的 world 视口。
       产品 payload 仍在 <code>src/plugin/product</code>。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Harness capability runtime</a>
@@ -147,12 +147,12 @@ All rights reserved.
   </section>
 
   <section class="panel">
-    <h2>2. 原理流（parse → ir → lower → backend）</h2>
+    <h2>2. 原理流（Python → ir → backend）</h2>
     <svg class="diagram" viewBox="0 0 1080 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="compiler pipeline">
       <rect x="16" y="24" width="200" height="88" rx="8" fill="#e8f1fa" stroke="#2563a8"/>
-      <text class="box-title" x="28" y="50">1. frontend</text>
-      <text class="box-sub" x="28" y="70">Interact.g4 → AST</text>
-      <text class="box-sub" x="28" y="88">不碰 Host</text>
+      <text class="box-title" x="28" y="50">1. Python</text>
+      <text class="box-sub" x="28" y="70">smartgis.script</text>
+      <text class="box-sub" x="28" y="88">不解析 .il</text>
 
       <rect x="248" y="24" width="220" height="88" rx="8" fill="#e6f4ee" stroke="#2f7d62"/>
       <text class="box-title" x="260" y="50">2. ir</text>
@@ -160,9 +160,9 @@ All rights reserved.
       <text class="box-sub" x="260" y="88">只调用对应成员</text>
 
       <rect x="500" y="24" width="240" height="88" rx="8" fill="#e6f4ee" stroke="#2f7d62"/>
-      <text class="box-title" x="512" y="50">3. codegen :lower</text>
-      <text class="box-sub" x="512" y="70">CallStmt → Code / Action</text>
-      <text class="box-sub" x="512" y="88">不依赖 :backend</text>
+      <text class="box-title" x="512" y="50">3. 会话</text>
+      <text class="box-sub" x="512" y="70">bind_host 一次</text>
+      <text class="box-sub" x="512" y="88">执行 .py 文件</text>
 
       <rect x="772" y="24" width="288" height="88" rx="8" fill="#f7efe4" stroke="#b06a1a"/>
       <text class="box-title" x="784" y="50">4. backend</text>
@@ -175,9 +175,9 @@ All rights reserved.
 
       <rect x="16" y="148" width="1048" height="108" rx="8" fill="#f0f3f7" stroke="#d8dee6"/>
       <text class="lane-label" x="28" y="172" fill="#5a6a7e">正交</text>
-      <text class="box-sub" x="28" y="196">每一层都是这四个对象。断言跟在被观察的对象上。click 的 target 分支留在 codegen/lower/gesture.h。</text>
-      <text class="box-sub" x="28" y="216">CapabilityHost 是端口。content 不包含 Browser。frontend/load 不包含 backend。</text>
-      <text class="box-sub" x="28" y="236">session 链接一次。apply 不再 bind_host。fail_rc 在 Host 上，不属于某一个对象。</text>
+      <text class="box-sub" x="28" y="196">每一层都是这四个对象。断言跟在被观察的对象上。指针 target 分支在 ir/gesture.h。</text>
+      <text class="box-sub" x="28" y="216">CapabilityHost 是端口。content 不包含 Browser。脚本查找不包含 backend。</text>
+      <text class="box-sub" x="28" y="236">session 链接一次。fail_rc 在 Host 上，不属于某一个对象。现场路径不拆视图。</text>
     </svg>
     <p class="note">动画虚线表示控制流，不是 GPU 提交。backend 不加入 <code>content.dll</code>。</p>
   </section>
@@ -191,8 +191,8 @@ All rights reserved.
       <tbody>
         <tr><td>端口</td><td><code>content/browser/capability/{document,view,plugin,horizon}.h</code></td><td><code>Browser</code>、脚本</td></tr>
         <tr><td>指令</td><td><code>il.runtime/ir/{document,view,plugin,horizon,fail}.h</code></td><td>解析、HWND、像素</td></tr>
-        <tr><td>降级</td><td><code>il.runtime/codegen/lower/</code>（<code>:lower</code>）</td><td><code>:backend</code></td></tr>
-        <tr><td>实现</td><td><code>il.runtime/backend/{document,view,plugin,horizon,link}</code></td><td><code>Interact.g4</code></td></tr>
+        <tr><td>脚本</td><td><code>smartgis.script</code> + <code>codegen/session</code></td><td><code>Interact.g4</code>、AST</td></tr>
+        <tr><td>实现</td><td><code>il.runtime/backend/{document,view,plugin,horizon,link}</code></td><td>脚本语法</td></tr>
         <tr><td>会话</td><td><code>codegen/session</code> + <code>:driver</code></td><td>第二次 <code>bind_host</code></td></tr>
       </tbody>
     </table>

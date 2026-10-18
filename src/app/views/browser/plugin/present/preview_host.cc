@@ -103,18 +103,19 @@ void PluginPreviewHost::wire_draw_host(Browser* browser) {
     return;
   }
   ui::views::DrawHost* dh = nullptr;
-  content::ToolSession* vh = nullptr;
   if (face_ == 1 && world_preview_) {
     dh = world_preview_->draw_host();
-    vh = browser->scene_tool_session();
   } else if (face_ == 0 && map_preview_) {
     dh = map_preview_->draw_host();
-    vh = browser->edit_tool_session();
   }
   if (!dh) {
     return;
   }
-  dh->set_tool_session(vh);
+  // Leave the shell ToolSession on the main panes. Sharing it made preview
+  // pointer input call Browser::handle_draft → view.pan blit on Map-Edit.
+  // Do not GisHwndGestures::attach here: one subclass id, and detach removes
+  // the main 2D / 3D pan-pinch subclass.
+  dh->set_tool_session(nullptr);
   dh->set_gis_contents(browser->map_session());
   if (face_ == 1) {
     dh->set_role(ui::views::DrawHost::Role::kScene3d);

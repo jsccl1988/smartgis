@@ -4,7 +4,7 @@
 # Plugin host / shared runtime DLL (dll_stem = plugin_host).
 # Role subdirs: catalog / native / capability / processing / present / ui /
 # tests. Export macro stays at host root. One-file capability facades sit
-# beside capability.h (including HarnessShell / scenario / marks). GisDocument
+# beside capability.h (including HarnessShell / harness / marks). GisDocument
 # helpers stay in present/.
 # Product *_views stay source_sets (Phase-2 per-stem DLLs later).
 
@@ -44,14 +44,16 @@ source_set("host_sources") {
     "native/scan.h",
     "capability/capability.h",
     "capability/contribute.h",
-    "capability/scenario_command.h",
-    "capability/scenario_shell.cc",
-    "capability/scenario_shell.h",
+    "capability/harness_command.h",
+    "capability/harness_shell.cc",
+    "capability/harness_shell.h",
     "capability/marks.h",
     "capability/pack_ensure.cc",
     "capability/pack_ensure.h",
-    "capability/scenario.cc",
-    "capability/scenario.h",
+    "capability/product_gate.cc",
+    "capability/product_gate.h",
+    "capability/harness.cc",
+    "capability/harness.h",
     "capability/shell.h",
     "capability/map2d_sink.cc",
     "capability/map2d_sink.h",
@@ -130,6 +132,15 @@ test("plugin_host_test") {
     "//third_party:gdal_runtime_dlls",
   ]
   libs += [ "ws2_32.lib" ]
+}
+
+test("product_gate_test") {
+  output_name = "product_gate_test"
+  sources = [ "tests/product_gate_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":host" ]
+  # Single-obj test + /NODEFAULTLIB does not pull CRT startup unless named.
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
 }
 
 test("plugin_manager_test") {

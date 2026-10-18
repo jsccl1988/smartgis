@@ -30,6 +30,7 @@ struct GlyphId {
   float text_size_px = 0.f;
   uint32_t rgba = 0;
   float opacity = 1.f;
+  uint8_t font = 0;
 };
 
 // One drawable mesh in the view lon/lat ortho. Pixel-space icon and text are

@@ -1,0 +1,157 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>world3d harness 编排进 glang</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --script: #2563a8; --eval: #2f7d62; --gpu: #b06a1a; --product: #6b5ea8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; }
+  .hero p, .note { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes { display: grid; gap: 8px; }
+  .lane { display: grid; grid-template-columns: 148px 1fr; gap: 10px; align-items: stretch; }
+  .lane-name { border-radius: 8px; padding: 8px 10px; font-weight: 700; font-size: 0.82rem; }
+  .lane-body { border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); padding: 8px 10px; font-size: 0.84rem; }
+  .l-script { background: #e8f1fa; color: var(--script); }
+  .l-eval { background: #e6f5ef; color: var(--eval); }
+  .l-gpu { background: #f8efe4; color: var(--gpu); }
+  .l-product { background: #efeaf8; color: var(--product); }
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  .step {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 6px 8px; min-width: 108px; font-size: 0.78rem;
+  }
+  .step b { display: block; font-size: 0.8rem; }
+  .step span { color: var(--muted); }
+  .step.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .step.wait { background: #f8efe4; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  button { appearance: none; border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .controls { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  th, td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>world3d harness 编排进 glang</h1>
+    <p>路径 A。套件脚本用已有 <code>run_processing</code> 写场景。showcase 命令只跑门禁。</p>
+    <div class="meta">Spec §world3d harness 编排进 glang · <a href="../specs/2026-09-13-plugin-host-design.md">plugin-host-design</a></div>
+  </header>
+
+  <section class="panel">
+    <h2>层</h2>
+    <div class="lanes">
+      <div class="lane">
+        <div class="lane-name l-script">脚本</div>
+        <div class="lane-body">套件 <code>.py</code> 只选择模式。顺序在 <code>testing/tools/harness/_shared/steps/</code>（<code>atmosphere.py</code>、<code>china_stack.py</code>、<code>preview.py</code>、<code>browse.py</code>），再 <code>run_processing</code>（<code>world3d.apply_look</code> 等）、<code>export_bmp</code>、<code>fit_scene_box</code>、<code>camera_fly</code>。</div>
+      </div>
+      <div class="lane">
+        <div class="lane-name l-eval">glang.plugin</div>
+        <div class="lane-body">已有 <code>world3d.apply_look</code>、<code>set_atmosphere</code>、<code>fly_globe</code>、<code>open_earth</code>。套件按名调用，不另写 harness 动词。</div>
+      </div>
+      <div class="lane">
+        <div class="lane-name l-gpu">backend/view</div>
+        <div class="lane-body"><code>export_bmp</code> 在 <code>frame="scene3d"</code> 时走 <code>export_scene3d_bmp</code>。套件写出 BMP 和 mark。</div>
+      </div>
+      <div class="lane">
+        <div class="lane-name l-product">scene/</div>
+        <div class="lane-body"><code>look</code> 材质、<code>earth</code> 瓦片、<code>pointcloud</code> 加载。脚本只传 id 与路径。</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>globe 顺序</h2>
+    <p class="note">琥珀色步在 C++ 内跑完才返回。蓝色步是脚本在等这一次调用。</p>
+    <div class="flow" id="flow"></div>
+    <div class="controls">
+      <button class="primary" id="play" type="button">播放</button>
+      <button id="stop" type="button">停止</button>
+      <span class="note" id="cap"></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>谁等待</h2>
+    <table>
+      <thead><tr><th>阶段</th><th>脚本</th><th>C++</th></tr></thead>
+      <tbody>
+        <tr><td><code>run_processing</code></td><td>等到返回</td><td>已有 <code>apply_look</code> / <code>open_earth</code></td></tr>
+        <tr><td><code>export_bmp</code></td><td>等到返回</td><td><code>frame="scene3d"</code> 写出套件 BMP</td></tr>
+        <tr><td><code>fit_scene_box</code> / <code>camera_fly</code></td><td>继续</td><td>套件写 <code>fit-box-ok</code>、<code>camera-fly-ok</code>、<code>pass</code></td></tr>
+        <tr><td>command id</td><td>不画画</td><td>只跑产品门禁</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+const steps = [
+  ["壳", "mark / wait_viewport", false],
+  ["外观", "apply_look", true],
+  ["出图", "export_bmp scene3d", true],
+  ["适配", "fit_scene_box", false],
+  ["飞入", "camera_fly", false],
+  ["通过", "mark(\"pass\")", false]
+];
+const flow = document.getElementById("flow");
+const cap = document.getElementById("cap");
+steps.forEach((s, i) => {
+  if (i) {
+    const a = document.createElement("span");
+    a.className = "arrow";
+    a.textContent = "→";
+    flow.appendChild(a);
+  }
+  const d = document.createElement("div");
+  d.className = "step" + (s[2] ? " wait" : "");
+  d.innerHTML = "<b>" + s[0] + "</b><span>" + s[1] + "</span>";
+  d.dataset.i = String(i);
+  flow.appendChild(d);
+});
+let timer = 0;
+let idx = 0;
+function paint() {
+  document.querySelectorAll(".step").forEach((el) => {
+    el.classList.toggle("on", Number(el.dataset.i) === idx);
+  });
+  const s = steps[idx];
+  cap.textContent = s[2] ? "脚本停在这一次调用里" : "脚本发出下一次调用";
+}
+function tick() {
+  idx = (idx + 1) % steps.length;
+  paint();
+}
+document.getElementById("play").onclick = () => {
+  if (timer) return;
+  paint();
+  timer = setInterval(tick, 900);
+};
+document.getElementById("stop").onclick = () => {
+  clearInterval(timer);
+  timer = 0;
+};
+paint();
+</script>
+</body>
+</html>

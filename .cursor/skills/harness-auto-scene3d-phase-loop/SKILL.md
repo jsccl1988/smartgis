@@ -185,6 +185,6 @@ Debug legacy 640×480 GPU:
 - Matrix sibling: `.cursor/skills/harness-auto-world3d-port-matrix/SKILL.md`
 - Map2d phase-loop sibling: `.cursor/skills/harness-auto-map2d-phase-loop/SKILL.md`
 - Visual review: `.cursor/skills/harness-visual-review/SKILL.md`
-- Timed present: `src/plugin/product/world3d/scenario/atmosphere/present/present_run.cc`
+- Timed present: `src/content/browser/present/scene3d/profile/scene3d_phase_profile.*` (suite `export_bmp` / `camera_fly`; no harness present runner)
 - Phase clocks: `src/content/browser/present/scene3d/profile/scene3d_phase_profile.*`
 - Detail: [reference.md](reference.md)

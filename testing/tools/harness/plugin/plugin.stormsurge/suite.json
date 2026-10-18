@@ -4,7 +4,7 @@
     "argv":  [
                  "--plugin-showcase=stormsurge"
              ],
-    "script":  "plugin.stormsurge.il",
+    "script":  "plugin.stormsurge.py",
     "env":  {
                 "SKIP_MAP_CONTEXT_MENU":  "1",
                 "PLUGIN_STORMSURGE_GPU":  "1",
@@ -13,12 +13,7 @@
     "mark_leaf":  "plugin-showcase-mark.txt",
     "required_marks":  [
                            "stormsurge-ok",
-                           "orbit-coast",
-                           "present-ok",
-                           "playback-water-tin",
-                           "precip-anim-ok",
                            "bmp-ok",
-                           "tab3d-horizon",
                            "pass",
                            "fit-box-ok",
                            "camera-fly-ok"

@@ -5,7 +5,7 @@
                  "--map2d-showcase=china",
                  "--map2d-showcase-il=1"
              ],
-    "script":  "browser.map2d.china.il",
+    "script":  "browser.map2d.china.py",
     "env":  {
                 "MAP2D_SHOWCASE_LINGER_MS":  "0",
                 "MAP2D_FORCE_HILLSHADE":  "1",
@@ -24,7 +24,7 @@
                        ],
     "bmp":  {
                 "path":  "map2d-showcase-china.bmp",
-                "score_id":  "map2d_china",
+                "score_id":  "map2d_china_dem",
                 "accept_nonzero_rc_if_bmp":  true,
                 "min_bytes":  10000
             },

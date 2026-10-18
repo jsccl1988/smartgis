@@ -42,6 +42,9 @@ class UI_EXPORT CaptionButton : public View {
 
   CaptionButtonKind kind_;
   std::function<void()> click_;
+  // Widget clears View::pressed before Up so a click can destroy the view.
+  // This flag stays set across that clear and gates activate.
+  bool armed_ = false;
 };
 
 }  // namespace views

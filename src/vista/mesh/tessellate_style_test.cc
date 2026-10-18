@@ -1,6 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include <cmath>
 #include <cstdio>
 
 #include "ogrsf_frmts.h"
@@ -88,6 +89,39 @@ int main() {
   expect(vista::tessellate_line(&seg, dashed, dash_mesh), "dash line");
   // Length 10 → dashes at [0-2],[4-6],[8-10] = 3 quads minimum.
   expect(dash_mesh.indices.size() >= 18, "dash yields multiple quads");
+
+  // A long sine must keep later bends. Truncating the vertex budget and
+  // jumping the last sample to the endpoint draws one chord across the wave.
+  {
+    OGRLineString wave;
+    for (int i = 0; i <= 800; ++i) {
+      const double x = static_cast<double>(i) * 0.05;
+      wave.addPoint(x, std::sin(x));
+    }
+    LineTessOptions wave_opts;
+    wave_opts.pixel_width = 1.0;
+    wave_opts.world_units_per_pixel = 0.05;
+    wave_opts.cap = LineCap::kButt;
+    wave_opts.join = LineJoin::kMiter;
+    TessMesh wave_mesh;
+    expect(vista::tessellate_line(&wave, wave_opts, wave_mesh), "sine wave");
+    bool follows = !wave_mesh.positions.empty();
+    for (int k = 1; k <= 7 && follows; ++k) {
+      const double x = static_cast<double>(k) * 5.0;
+      const double y = std::sin(x);
+      bool near = false;
+      for (size_t i = 0; i + 2 < wave_mesh.positions.size(); i += 3) {
+        const double vx = wave_mesh.positions[i];
+        const double vy = wave_mesh.positions[i + 1];
+        if (std::fabs(vx - x) < 0.45 && std::fabs(vy - y) < 0.4) {
+          near = true;
+          break;
+        }
+      }
+      follows = near;
+    }
+    expect(follows, "sine wave keeps bends");
+  }
   expect(dash_mesh.indices.size() > solid.indices.size(),
          "dash has more indices than solid same segment");
 
