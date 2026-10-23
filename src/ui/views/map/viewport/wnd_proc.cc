@@ -18,6 +18,7 @@
 #include "ui/views/map/frame/embed_fill.h"
 #include "ui/views/map/input/viewport_input.h"
 #include "ui/views/map/viewport/features.h"
+#include "ui/views/map/viewport/horizon_paint.h"
 #include "ui/views/map/viewport/paint_policy.h"
 
 namespace ui {
@@ -121,6 +122,9 @@ LRESULT DrawHost::handle_paint(HWND hwnd) {
         detail::fill_map_embed_opaque(hdc, rc, scene3d);
       }
       signal_display();
+      if (!scene3d) {
+        paint_map_horizon(hwnd, hdc, width_px, height_px);
+      }
       EndPaint(hwnd, &ps);
       return 0;
     }
@@ -133,6 +137,9 @@ LRESULT DrawHost::handle_paint(HWND hwnd) {
         detail::fill_map_embed_opaque(hdc, rc, scene3d);
       }
       signal_display();
+      if (!scene3d) {
+        paint_map_horizon(hwnd, hdc, width_px, height_px);
+      }
       EndPaint(hwnd, &ps);
       LARGE_INTEGER t1 = {};
       QueryPerformanceCounter(&t1);
@@ -158,7 +165,8 @@ LRESULT DrawHost::handle_paint(HWND hwnd) {
       bool have_shell_quad = false;
       {
         std::lock_guard<std::mutex> lock(shell_mu_);
-        have_shell_quad = !shell_bgra_.empty() && shell_width_px_ > 0;
+        have_shell_quad =
+            shell_bgra_ && shell_bgra_bytes_ > 0 && shell_width_px_ > 0;
       }
       if (detail::force_gdi_shell_overlay() || !have_shell_quad) {
         (*scene_overlay)(hdc, rc);
@@ -293,6 +301,7 @@ void DrawHost::handle_size(HWND hwnd, int cx, int cy) {
   } else if (cx > 0 && cy > 0) {
     InvalidateRect(hwnd, nullptr, FALSE);
   }
+  sync_eagle_eye();
 }
 
 bool DrawHost::handle_mouse_capture(HWND hwnd, UINT msg, WPARAM wparam,

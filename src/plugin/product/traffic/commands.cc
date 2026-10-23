@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 
+#include "base/core/log.h"
 #include "content/public/plugin_host.h"
 #include "gis/analysis/network/cost_path.h"
 #include "plugin/product/traffic/views/shortest_path_dialog.h"
@@ -132,6 +133,28 @@ bool traffic_cost_path(content::PluginHost* host, std::string_view args_json) {
                                traffic_cost_path_present);
 }
 
+// Same least-cost path as traffic.cost_path. Present does not paint and does
+// not fill playback, so scheme comparison can batch quotes first.
+bool traffic_cost_quote_present(content::PluginHost*) {
+  if (!g_last_path.ok) {
+    LOGGING(LOG_ERROR, "traffic.cost_quote: no path result");
+    set_operation_result(
+        "{\"error\":\"path_failed\",\"op\":\"traffic.cost_quote\"}");
+    return false;
+  }
+  const int point_count = static_cast<int>(g_last_path.xy.size() / 2);
+  set_operation_result(
+      std::string("{\"ok\":true,\"op\":\"traffic.cost_quote\",\"points\":") +
+      std::to_string(point_count) + ",\"cost\":" +
+      std::to_string(g_last_path.total_cost) + "}");
+  return true;
+}
+
+bool traffic_cost_quote(content::PluginHost* host, std::string_view args_json) {
+  return run_processing_phases(host, args_json, traffic_cost_path_compute,
+                               traffic_cost_quote_present);
+}
+
 bool traffic_export_path(content::PluginHost*, std::string_view args_json) {
   return reexport_cached_file(&g_last_output, args_json, "traffic.export_path");
 }
@@ -207,6 +230,10 @@ bool register_traffic(content::PluginHost* host) {
   return host->contribute_processing(
              kPluginId, {"traffic.cost_path", "Traffic cost path"},
              traffic_cost_path) &&
+         host->contribute_processing(
+             kPluginId,
+             {"traffic.cost_quote", "Traffic path cost without present"},
+             traffic_cost_quote) &&
          host->contribute_processing(
              kPluginId, {"traffic.export_path", "Export traffic path GeoJSON"},
              traffic_export_path) &&

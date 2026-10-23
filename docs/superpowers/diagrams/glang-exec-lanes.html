@@ -1,0 +1,66 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>glang exec 三车道</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 48px; }
+  h1 { font-size: 1.25rem; margin: 0 0 6px; }
+  .lead { color: var(--muted); margin: 0 0 14px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .lane b { display: block; margin-bottom: 4px; }
+  .py { background: #f3eef8; }
+  .vm { background: #e8f1fa; }
+  .op { background: #e7f5ee; }
+  ol { margin: 8px 0 0; padding-left: 1.2rem; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .box { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  .arrow { color: var(--accent); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>glang exec 三车道</h1>
+  <p class="lead">解释器只认一张动词表。脚本调用和 GIS 调用都汇入 <code>invoke_inst</code>。</p>
+  <div class="panel">
+    <div class="lanes">
+      <div class="lane py"><b>py · 嵌入</b><code>exec/py</code>：CPython、套件装载、<code>glang.ext</code>、<code>embed</code>。只组参数，不复制操作码表。</div>
+      <div class="lane vm"><b>vm · 虚拟机</b><code>exec/vm</code>：动词表（内建槽、动态名、exec 扩展、语言降级）和 <code>invoke_inst</code>。</div>
+      <div class="lane op"><b>op · 功能体</b><code>exec/op</code>：拆操作数后直接调 <code>CapabilityHost</code>。几何内核在 <code>exec/op/gis/geom</code>。</div>
+      <div class="lane py"><b>host · 宿主</b><code>glang.runtime/host</code>：把 <code>content::Shell</code> 填进能力槽，并登记动词。不经过单独的 ir 层。</div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="flow">
+      <div class="box"><code>eval_script_call</code><br>文本参数、语法糖</div>
+      <div class="arrow">→</div>
+      <div class="box"><code>eval_gis_call</code><br>GisArg 类型化操作数</div>
+      <div class="arrow">→</div>
+      <div class="box"><code>invoke_inst</code></div>
+      <div class="arrow">→</div>
+      <div class="box">功能体 <code>apply</code></div>
+    </div>
+    <ol>
+      <li>动态名：<code>register_fn</code> 命中即用；<code>unregister_fn</code> 只藏这个名字。</li>
+      <li>操作码槽：有 <code>eval</code> 用它，否则用 exec 扩展。</li>
+      <li>语言降级：只在 GIS 内建降级不认识该名字时参与，不负责执行。</li>
+    </ol>
+  </div>
+</div>
+</body>
+</html>

@@ -37,6 +37,8 @@ class Map2dSink {
       std::function<bool(uint32_t width_px, uint32_t height_px)>;
   using ExportBmpFn = std::function<bool(std::string_view path, int width_px,
                                          int height_px)>;
+  using SetFurnitureFn =
+      std::function<void(bool scale_bar, bool north_arrow, bool border)>;
 
   PLUGIN_HOST_EXPORT void set_bridges(AddStandinLayerFn layer,
                                       AttachDatasetFn dataset,
@@ -48,10 +50,20 @@ class Map2dSink {
   PLUGIN_HOST_EXPORT void set_seed_bridges(SeedIfEmptyFn seed);
   PLUGIN_HOST_EXPORT void set_present_bridges(PresentGpuFn present_gpu,
                                               ExportBmpFn export_bmp);
+  PLUGIN_HOST_EXPORT void set_furniture_bridges(SetFurnitureFn set_furniture);
+  PLUGIN_HOST_EXPORT void set_furniture(bool scale_bar, bool north_arrow,
+                                        bool border);
 
   bool view_bridges_installed() const { return view_bridges_installed_; }
   bool look_bridges_installed() const { return look_bridges_installed_; }
   bool present_bridges_installed() const { return present_bridges_installed_; }
+  bool furniture_bridges_installed() const {
+    return furniture_bridges_installed_;
+  }
+
+  bool furniture_scale_bar() const { return furniture_scale_bar_; }
+  bool furniture_north_arrow() const { return furniture_north_arrow_; }
+  bool furniture_border() const { return furniture_border_; }
 
   bool add_standin_layer(std::string_view name, double lon, double lat,
                          double half_deg) const {
@@ -99,9 +111,14 @@ class Map2dSink {
   SeedIfEmptyFn seed_if_empty_;
   PresentGpuFn present_gpu_;
   ExportBmpFn export_bmp_;
+  SetFurnitureFn set_furniture_;
+  bool furniture_scale_bar_ = true;
+  bool furniture_north_arrow_ = true;
+  bool furniture_border_ = true;
   bool view_bridges_installed_ = false;
   bool look_bridges_installed_ = false;
   bool present_bridges_installed_ = false;
+  bool furniture_bridges_installed_ = false;
 };
 
 }  // namespace plugin

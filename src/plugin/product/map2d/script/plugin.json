@@ -1,0 +1,15 @@
+{
+  "id": "smartgis.map2d_coverage",
+  "name": "瓦片覆盖与比例尺",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "python",
+  "author": "The Mogu Authors",
+  "description": "Tile coverage and scale-bar readout for a bbox, then open the selected pyramid once",
+  "entry": "plugin.py",
+  "contributes": {
+    "commands": [
+      {"id": "map2d.coverage", "title": "瓦片覆盖与比例尺", "menu": "tools"}
+    ]
+  }
+}

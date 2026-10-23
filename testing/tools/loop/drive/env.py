@@ -9,6 +9,9 @@ from ..contract import Suite
 from .process import merge_env
 
 _SCRUB_KEYS = (
+    # Ambient Cursor agent credentials must not peel into --cursor-api-key on
+    # Views PE argv (changes startup / map wait); keep the product gate hermetic.
+    "CURSOR_API_KEY",
     "FORCE_GDI_MAP_OVERLAY",
     "FORCE_CONTENT_MAPVIEW_2D",
     "PREFER_FLYCUBE_2D",

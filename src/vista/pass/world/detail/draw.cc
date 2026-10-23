@@ -124,10 +124,16 @@ void record_kind(render::rhi::CommandList* list,
     const render::programs::Color color{mesh.solid_r, mesh.solid_g, mesh.solid_b,
                                 mesh.solid_a};
     // Albedo gate: FlyCube textured SRVs sample near-black after ocean/sky heap
-    // churn. Solid PSO + olive ColorCB is the score face. The position-only
-    // solid PSO must stay on kWrite: depth-off returns DrawIndexed success on
-    // the interactive swapchain and still leaves the navy clear.
-    if (force_solid_terrain && kind == vista::NodeKind::kTerrain && solid) {
+    // churn. Solid PSO + olive ColorCB is the score face for china DEM. Plugin
+    // overlay keep path uploads atlas + identity white ColorCB — only then skip
+    // the olive force (a stale DEM SRV pointer must not bind under olive).
+    // Position-only solid PSO stays on kWrite (depth-off leaves navy clear).
+    const bool overlay_kept_tex =
+        force_solid_terrain && kind == vista::NodeKind::kTerrain &&
+        mesh.texture && mesh.solid_r >= 0.95f && mesh.solid_g >= 0.95f &&
+        mesh.solid_b >= 0.95f && mesh.solid_a >= 0.95f;
+    if (force_solid_terrain && kind == vista::NodeKind::kTerrain && solid &&
+        !overlay_kept_tex) {
       if (pass.enable_depth) {
         list->set_depth_mode(render::rhi::DepthMode::kWrite);
       }

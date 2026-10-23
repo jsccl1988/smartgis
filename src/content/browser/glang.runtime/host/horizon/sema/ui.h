@@ -4,7 +4,7 @@
 #ifndef IL_RUNTIME_CAPABILITY_HORIZON_SEMA_UI_H_
 #define IL_RUNTIME_CAPABILITY_HORIZON_SEMA_UI_H_
 
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <string>
 
@@ -30,32 +30,32 @@ const char* ui_mode_name(UiMode mode);
 void apply_ui_harness_theme();
 
 // Kill DrawHost present timers and drain queued WM_TIMER (no DrawHost detach).
-void stop_ui_map_present(content::ShellBridge& browser);
+void stop_ui_map_present(content::Shell& browser);
 
 // Layout + Invalidate + pump so PrintWindow sees finished horizon.
-void force_ui_shell_repaint(content::ShellBridge& browser);
+void force_ui_shell_repaint(content::Shell& browser);
 
 // Timed / linger env (ui-*-ms harness switches); 0 = no linger.
 int ui_linger_ms();
 
 // Optional MAP2D_FPS_BENCH_MS loop (writes map2d-fps-bench.txt).
-void run_horizon_map2d_fps_bench(content::ShellBridge& browser);
+void run_horizon_map2d_fps_bench(content::Shell& browser);
 
 // One UI capture pass in three stages. Harness and capability slots may
 // run other work between them.
 
 // Mode-specific tab / catalog / inspector / scene panel orchestration before
 // layout gate + BMP. Does not own product horizon widgets — only drives them.
-void apply_ui_scenario_panels(content::ShellBridge& browser, UiMode mode);
+void apply_ui_scenario_panels(content::Shell& browser, UiMode mode);
 
 // Runs layout / overlap / shell anomaly checks. On failure (or UI_FORENSICS)
 // dumps under out/ui_forensics/. Returns 0 on pass, else exit code 30.
-int run_ui_layout_gate(content::ShellBridge& browser, UiMode mode);
+int run_ui_layout_gate(content::Shell& browser, UiMode mode);
 
 // After layout gate: linger, keep Scene on 3D, composite FlyCube present
 // pixels into the shell BMP, HUD FPS mark, horizon BMP write, stop timers.
 // Returns 0 on success, else exit code (54/55).
-int run_ui_present_capture(content::ShellBridge& browser, UiMode mode);
+int run_ui_present_capture(content::Shell& browser, UiMode mode);
 
 }  // namespace detail
 }  // namespace content

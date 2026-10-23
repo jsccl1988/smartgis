@@ -18,12 +18,12 @@
 namespace content {
 namespace detail {
 
-void register_scene_slots(content::ShellBridge& browser,
+void register_scene_slots(content::Shell& browser,
                           content::CapabilityHost* out,
                           const wchar_t* mark_leaf) {
   code::install_scene_verb_table();
   register_browse_still_faces();
-  content::ShellBridge* b = &browser;
+  content::Shell* b = &browser;
   const wchar_t* leaf = mark_leaf;
   bind_tagged_slots(
       out, base::tagged_tuple{

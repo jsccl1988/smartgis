@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/horizon/sema/debug_console.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include "content/browser/glang.runtime/host/view/host/capture_host.h"
 #include "content/browser/session/browser_session.h"
@@ -64,7 +64,7 @@ double median_ms(std::vector<double>* samples) {
   return 0.5 * ((*samples)[n / 2 - 1] + (*samples)[n / 2]);
 }
 
-content::ToolSession* pan_host(content::ShellBridge& browser) {
+content::ToolSession* pan_host(content::Shell& browser) {
   if (browser.has_ui()) {
     return browser.active_tool_session();
   }
@@ -102,8 +102,8 @@ bool write_console_bench_json(double layers_list_ms,
 
 }  // namespace
 
-int wire_debug_agent(content::ShellBridge& browser) {
-  content::ShellBridge* b = &browser;
+int wire_debug_agent(content::Shell& browser) {
+  content::Shell* b = &browser;
   content::DebugAgentHost host;
   host.refresh_gis = [b] { b->on_view_command("view.refresh", -1, false, 0, 0); };
   host.extent_string = [b] {
@@ -171,7 +171,7 @@ int wire_debug_agent(content::ShellBridge& browser) {
   return 0;
 }
 
-int debug_exec(content::ShellBridge& browser,
+int debug_exec(content::Shell& browser,
                const std::string& line,
                const std::string& contains,
                const std::string& equals,
@@ -227,7 +227,7 @@ int debug_exec(content::ShellBridge& browser,
   return 0;
 }
 
-int console_pan_bench(content::ShellBridge& browser, const wchar_t* mark_leaf) {
+int console_pan_bench(content::Shell& browser, const wchar_t* mark_leaf) {
   content::ToolSession* host = pan_host(browser);
   tool::Interaction* cur =
       host && host->workspace() ? host->workspace()->stack().current()
@@ -243,7 +243,7 @@ int console_pan_bench(content::ShellBridge& browser, const wchar_t* mark_leaf) {
   QueryPerformanceFrequency(&freq);
   // Document :extent is the layer bbox. A drag moves ViewFrame::pan_*,
   // which is what app_pan_live was trying to observe.
-  const content::ViewFrame& frame = browser.session().view_frame();
+  const content::ViewFrame& frame = browser.session()->view_frame();
   const double pan_x0 = frame.pan_x();
   const double pan_y0 = frame.pan_y();
   std::vector<double> pan_samples;
@@ -274,7 +274,7 @@ int console_pan_bench(content::ShellBridge& browser, const wchar_t* mark_leaf) {
     QueryPerformanceCounter(&t1);
     pan_samples.push_back(elapsed_ms(freq, t0, t1));
   }
-  const content::ViewFrame& frame_after = browser.session().view_frame();
+  const content::ViewFrame& frame_after = browser.session()->view_frame();
   if (frame_after.pan_x() == pan_x0 && frame_after.pan_y() == pan_y0) {
     std::fprintf(stderr, "console harness: view pan did not move the frame\n");
     detach_views(browser);

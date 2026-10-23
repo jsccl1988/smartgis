@@ -4,7 +4,7 @@
 #include "content/browser/glang.runtime/host/view/browse/still.h"
 
 #include "content/browser/glang.runtime/host/scene/browse/dispatch.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <cstdio>
 #include <exception>
@@ -56,7 +56,7 @@ bool still_signal(const wchar_t* path, bool allow_32bpp, int* w, int* h) {
   return bmp_file_has_visible_signal(path, w, h, check);
 }
 
-void frame_map2d_still(content::ShellBridge& browser, content::GisScene* doc, int w, int h) {
+void frame_map2d_still(content::Shell& browser, content::GisScene* doc, int w, int h) {
   content::ViewFrame* frame = browser.view_frame();
   if (!frame) {
     return;
@@ -91,7 +91,7 @@ void linger_flycube_presents(content::Pane* pane, DWORD budget_ms) {
   }
 }
 
-bool capture_scene3d_software(content::ShellBridge& browser) {
+bool capture_scene3d_software(content::Shell& browser) {
   content::Scene3dPresenter* cam = browser.scene3d();
   if (!cam) {
     return false;
@@ -124,7 +124,7 @@ bool capture_scene3d_software(content::ShellBridge& browser) {
   return true;
 }
 
-bool capture_scene3d_hwnd(content::ShellBridge& browser, content::Pane* pane) {
+bool capture_scene3d_hwnd(content::Shell& browser, content::Pane* pane) {
   HWND hwnd = pane ? pane->input_hwnd() : nullptr;
   if (!hwnd || !IsWindow(hwnd)) {
     hwnd = browser.hwnd();
@@ -154,7 +154,7 @@ bool capture_scene3d_hwnd(content::ShellBridge& browser, content::Pane* pane) {
   return true;
 }
 
-void seed_scene3d_still(content::ShellBridge& browser) {
+void seed_scene3d_still(content::Shell& browser) {
   resume_present_timers(browser);
   if (browser.scene3d()) {
     (void)browser.with_harness_shell([](plugin::HarnessShell& shell) {
@@ -172,7 +172,7 @@ void seed_scene3d_still(content::ShellBridge& browser) {
 
 }  // namespace
 
-bool capture_browse_map2d(content::ShellBridge& browser, const wchar_t* mark_leaf) {
+bool capture_browse_map2d(content::Shell& browser, const wchar_t* mark_leaf) {
   if (!browser.map2d()) {
     return false;
   }
@@ -244,7 +244,7 @@ bool capture_browse_map2d(content::ShellBridge& browser, const wchar_t* mark_lea
   return true;
 }
 
-void capture_browse_scene3d(content::ShellBridge& browser) {
+void capture_browse_scene3d(content::Shell& browser) {
   content::Pane* pane = browser.scene_draw_host();
   seed_scene3d_still(browser);
   if (capture_scene3d_software(browser)) {
@@ -259,12 +259,12 @@ void capture_browse_scene3d(content::ShellBridge& browser) {
   (void)capture_scene3d_hwnd(browser, pane);
 }
 
-bool capture_still_map2d(content::ShellBridge& browser, const wchar_t* mark_leaf) {
+bool capture_still_map2d(content::Shell& browser, const wchar_t* mark_leaf) {
   (void)capture_browse_map2d(browser, mark_leaf);
   return true;
 }
 
-bool capture_still_scene3d(content::ShellBridge& browser, const wchar_t*) {
+bool capture_still_scene3d(content::Shell& browser, const wchar_t*) {
   capture_browse_scene3d(browser);
   return true;
 }

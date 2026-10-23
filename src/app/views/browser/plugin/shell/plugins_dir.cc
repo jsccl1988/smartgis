@@ -3,7 +3,6 @@
 
 #include "app/views/browser/plugin/shell/plugin_shell.h"
 
-#include <cstdio>
 #include <windows.h>
 
 #include "app/views/util/exe_sidecar_path.h"
@@ -37,21 +36,6 @@ void peek_plugin_startup(const std::string& plugins_dir,
   if (root.empty()) {
     return;
   }
-  // #region agent log
-  {
-    FILE* f = nullptr;
-    if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
-        f) {
-      std::fprintf(
-          f,
-          "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"C\","
-          "\"location\":\"plugins_dir.cc:peek\",\"message\":\"peek_plugin_"
-          "startup\",\"data\":{\"root\":\"%s\"},\"timestamp\":0}\n",
-          root.c_str());
-      std::fclose(f);
-    }
-  }
-  // #endregion
   plugin::PluginStartupPeek peek{};
   plugin::peek_plugins_dir_startup(root.c_str(), &peek);
   if (scenario_id && peek.scenario[0]) {

@@ -27,6 +27,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
+#include "ui/views/map/eagle_eye/eagle_eye_host.h"
 #include "ui/views/map/frame/identity_hud.h"
 #include "ui/views/map/device/device_load.h"
 #include "ui/views/map/frame/embed_fill.h"
@@ -303,6 +304,7 @@ void DrawHost::reveal_gpu_present_if_ready() {
             IsWindowVisible(gpu_present_hwnd_) ? 1 : 0,
             last_gpu_present_ok_.load(std::memory_order_acquire) ? 1 : 0);
   }
+  sync_eagle_eye();
 }
 
 void DrawHost::set_gpu_present_visible(bool show) {
@@ -329,6 +331,9 @@ void DrawHost::set_gpu_present_visible(bool show) {
           IsWindow(identity_badge_)) {
         async_show_present_hwnd(identity_badge_, false);
       }
+    }
+    if (eagle_eye_) {
+      eagle_eye_->destroy();
     }
     return;
   }

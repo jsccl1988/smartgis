@@ -93,9 +93,43 @@ float CloudSystem::density_from_cover(float cover, float height_m, float base_m,
 }
 
 int CloudSystem::raymarch_steps_for_quality(int quality) {
-  // quality 0..3 → 8 / 16 / 32 / 64 (clamp outside).
+  // Design B: quality 0..3 → 16 / 32 / 64 / 128 (clamp outside).
   const int q = std::max(0, std::min(3, quality));
-  return 8 << q;
+  return 16 << q;
+}
+
+bool CloudSystem::fill_cover_grid(const FieldStore& store,
+                                  const FieldGrid& extent, int cols, int rows,
+                                  double time_sec, float* out_cover,
+                                  std::size_t out_count) const {
+  if (!out_cover || cols < 1 || rows < 1) {
+    return false;
+  }
+  if (extent.empty() || extent.max_lon <= extent.min_lon ||
+      extent.max_lat <= extent.min_lat) {
+    return false;
+  }
+  const std::size_t need =
+      static_cast<std::size_t>(cols) * static_cast<std::size_t>(rows);
+  if (out_count != need) {
+    return false;
+  }
+  const double dlon =
+      (extent.max_lon - extent.min_lon) / static_cast<double>(cols);
+  const double dlat =
+      (extent.max_lat - extent.min_lat) / static_cast<double>(rows);
+  for (int r = 0; r < rows; ++r) {
+    for (int c = 0; c < cols; ++c) {
+      const double lon =
+          extent.min_lon + (static_cast<double>(c) + 0.5) * dlon;
+      const double lat =
+          extent.min_lat + (static_cast<double>(r) + 0.5) * dlat;
+      out_cover[static_cast<std::size_t>(r) * static_cast<std::size_t>(cols) +
+                static_cast<std::size_t>(c)] =
+          store.sample(FieldChannel::kCloudCover, lon, lat, time_sec);
+    }
+  }
+  return true;
 }
 
 bool CloudSystem::advect_cover(FieldStore* store,

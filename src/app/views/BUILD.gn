@@ -82,8 +82,8 @@ source_set("shell_browser") {
     "//src/plugin:host",
     ":plugin_builtins",
     "//src/plugin/runtime/processing:processing_views",
-    "//src/plugin/runtime/python:python",
-    "//src/content/browser/glang.runtime:gis_console",
+    "//src/plugin/runtime/extension:extension",
+    "//src/content/browser/glang.runtime:console",
     "//src/render:rhi",
     "//src/tool:dispatch",
     "//src/ui/gis:gis",
@@ -107,6 +107,7 @@ source_set("shell_ui") {
     "ui/horizon/ambox_composer.h",
     "ui/horizon/catalog_composer.cc",
     "ui/horizon/catalog_composer.h",
+    "ui/horizon/detail/catalog_layer_filter.h",
     "ui/horizon/inspector_group_bar.cc",
     "ui/horizon/inspector_group_bar.h",
     "ui/horizon/inspector_host_composer.cc",
@@ -152,8 +153,8 @@ source_set("shell_ui") {
     "//src/gis/edit:edit",
     "//src/gis/tile:tile",
     "//src/plugin:host",
-    "//src/plugin/runtime/python:python",
-    "//src/content/browser/glang.runtime:gis_console",
+    "//src/plugin/runtime/extension:extension",
+    "//src/content/browser/glang.runtime:console",
     "//src/render:rhi",
     "//src/tool:dispatch",
     "//src/ui/gis:gis",
@@ -238,8 +239,8 @@ win32_app("views") {
   ]
   if (python_enabled && python_dll != "") {
     data_deps += [
-      "//src/plugin/runtime/python:python312_dll",
-      "//src/plugin/runtime/python:python3_dll",
+      "//src/plugin/runtime/extension:python312_dll",
+      "//src/plugin/runtime/extension:python3_dll",
     ]
   }
   libs = [
@@ -298,4 +299,13 @@ test("plugin_builtins_test") {
     "//src/plugin/runtime/host:host",
     "//src/tool:dispatch",
   ]
+}
+
+test("catalog_layer_filter_test") {
+  output_name = "catalog_layer_filter_test"
+  # Match peer app/views tests (view_commands_test): handwritten main.
+  use_gtest = false
+  sources = [ "ui/horizon/detail/catalog_layer_filter_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/content:content" ]
 }

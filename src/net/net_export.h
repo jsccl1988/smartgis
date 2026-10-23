@@ -5,13 +5,19 @@
 #define NET_NET_EXPORT_H_
 
 // GN defines NET_EXPORTS when building //src/net:net (dll_stem = net).
+// When is_component_build=false, COMPONENT_BUILD is unset → no-op.
+
+#if defined(COMPONENT_BUILD)
 #if defined(NET_EXPORTS)
 #define NET_EXPORT __declspec(dllexport)
 #else
 #define NET_EXPORT __declspec(dllimport)
 #endif
+#else
+#define NET_EXPORT
+#endif
 
-#if !defined(NET_EXPORTS)
+#if defined(COMPONENT_BUILD) && !defined(NET_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "net_d.lib")
 #else

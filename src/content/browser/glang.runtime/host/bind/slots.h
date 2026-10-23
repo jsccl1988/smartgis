@@ -1,8 +1,11 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef IL_RUNTIME_BIND_SLOTS_H_
-#define IL_RUNTIME_BIND_SLOTS_H_
+// NTTP host_member tags + lane slot aliases for bind_tagged_slots.
+// Fills CapabilityHost from Shell-side packs (document / view / plugin / horizon).
+
+#ifndef CONTENT_BROWSER_GLANG_RUNTIME_HOST_BIND_SLOTS_H_
+#define CONTENT_BROWSER_GLANG_RUNTIME_HOST_BIND_SLOTS_H_
 
 #include <string_view>
 #include <type_traits>
@@ -144,8 +147,22 @@ using slot_doc_clear = host_member<&Host::document, &Doc::doc_clear>;
 using slot_fit_extent = host_member<&Host::document, &Doc::fit_extent>;
 using slot_export_bmp = host_member<&Host::document, &Doc::export_bmp>;
 using slot_apply_style_file = host_member<&Host::document, &Doc::apply_style_file>;
+using slot_feature_count = host_member<&Host::document, &Doc::feature_count>;
+using slot_create_layer = host_member<&Host::document, &Doc::create_layer>;
+using slot_remove_layer = host_member<&Host::document, &Doc::remove_layer>;
+using slot_set_layer_visible =
+    host_member<&Host::document, &Doc::set_layer_visible>;
+using slot_select_layer = host_member<&Host::document, &Doc::select_layer>;
+using slot_write_document = host_member<&Host::document, &Doc::write_document>;
+using slot_clear_selection = host_member<&Host::document, &Doc::clear_selection>;
+using slot_layer_count = host_member<&Host::document, &Doc::layer_count>;
+using slot_layers_json = host_member<&Host::document, &Doc::layers_json>;
+using slot_extent_json = host_member<&Host::document, &Doc::extent_json>;
+using slot_has_style_document =
+    host_member<&Host::document, &Doc::has_style_document>;
+using slot_clear_style = host_member<&Host::document, &Doc::clear_style>;
 
 }  // namespace detail
 }  // namespace content
 
-#endif  // IL_RUNTIME_BIND_SLOTS_H_
+#endif  // CONTENT_BROWSER_GLANG_RUNTIME_HOST_BIND_SLOTS_H_

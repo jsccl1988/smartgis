@@ -38,6 +38,7 @@ copy("plugin_product_samples") {
     "plugin/orthogrid_sample.gridbnd",
     "plugin/traffic_network_sample.geojson",
     "plugin/flood_basin_sample.tif",
+    "plugin/flood_valley.geojson",
     "plugin/stormsurge_dem_sample.tif",
     "plugin/stormsurge_coast_sample.geojson",
     "plugin/stormsurge_tide_sample.csv",

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="map_furniture_panel">
+  <style src="map_furniture_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Map furniture"/>
+    <checkbox id="scale" text="Scale bar"/>
+    <checkbox id="north" text="North arrow"/>
+    <checkbox id="border" text="Border"/>
+    <checkbox id="eagle" text="Eagle eye"/>
+  </vbox>
+</ui>

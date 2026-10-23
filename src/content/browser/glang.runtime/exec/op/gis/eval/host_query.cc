@@ -4,7 +4,6 @@
 #include "content/browser/glang.runtime/exec/op/gis/eval/eval.h"
 
 #include "content/browser/capability/host.h"
-#include "content/browser/glang.runtime/language/ir/document.h"
 #include "content/browser/glang.runtime/exec/op/gis/pack/pack.h"
 
 #include <string>
@@ -21,7 +20,13 @@ bool eval_list_layers(content::CapabilityHost& host,
   if (!host.document.layers_json) {
     return fail_step(inst, "unbound", error);
   }
-  return put_result(inst, slots, host.document.layers_json(), error);
+  // Empty Op result → "[]" so glang.plugin.list_layers never returns None.
+  // (produces_slot must also be true on ListLayersOp so the string is copied out.)
+  std::string json = host.document.layers_json();
+  if (json.empty()) {
+    json = "[]";
+  }
+  return put_result(inst, slots, json, error);
 }
 
 bool eval_feature_count(content::CapabilityHost& host,
@@ -29,7 +34,8 @@ bool eval_feature_count(content::CapabilityHost& host,
                         const Inst& inst,
                         SlotTable& slots,
                         std::string* error) {
-  const int count = ir::feature_count(host);
+  const int count =
+      host.document.feature_count ? host.document.feature_count() : -1;
   if (count < 0) {
     return fail_step(inst, "unbound", error);
   }

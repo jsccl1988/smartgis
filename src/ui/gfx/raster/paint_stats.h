@@ -10,8 +10,8 @@
 namespace ui {
 namespace gfx {
 
-// Debug-only paint counters. Not a metrics framework: Release builds keep the
-// functions but leave every field at zero and do not log.
+// Process-local paint / layout counters for unit tests and shell profiling.
+// Cheap increments only — not a metrics pipeline.
 struct PaintCounters {
   std::uint64_t widget_paint_qpc = 0;
   std::uint64_t map_paint_qpc = 0;
@@ -19,7 +19,7 @@ struct PaintCounters {
   std::uint64_t commit_qpc = 0;
   std::uint64_t raster_qpc = 0;
   std::uint64_t present_qpc = 0;
-  // BeginFrame (DWM/vblank) → present latency gate (Debug accumulates).
+  // BeginFrame (DWM/vblank) → present latency gate.
   std::uint64_t begin_frame_qpc = 0;
   std::uint64_t begin_frame_to_present_qpc = 0;
   // Shell-only BeginFrame → shell present (U5); separate from map present.

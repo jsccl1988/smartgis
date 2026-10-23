@@ -29,6 +29,7 @@
 // Panels
 #include "ui/gis/shell/ambox_view.h"
 #include "ui/gis/shell/atmosphere_panel.h"
+#include "ui/gis/shell/map_furniture_panel.h"
 #include "ui/gis/debug/debug_console_panel.h"
 #include "ui/gis/debug/diagnostic_tools_panel.h"
 #include "ui/gis/debug/render_trace_panel.h"

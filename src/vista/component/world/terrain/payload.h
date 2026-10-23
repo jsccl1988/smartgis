@@ -43,6 +43,21 @@ struct TerrainPayload {
                               static_cast<size_t>(tex_h) * 4u;
   }
 
+  // Plugin overlay TIN drapes (2×2 albedo, 16² zone atlas, 512² water).
+  // Distinct from china DEM bake sizes so the ocean olive gate can keep them.
+  bool is_overlay_albedo_tex() const {
+    if (!has_texture() || tex_w != tex_h) {
+      return false;
+    }
+    if (tex_w == 2) {
+      return true;
+    }
+    if (uvs.empty()) {
+      return false;
+    }
+    return tex_w == 16 || tex_w == 512;
+  }
+
   void clear_mesh() {
     positions.clear();
     indices.clear();

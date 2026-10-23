@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/view/probe.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <cmath>
 #include <cstdint>
@@ -43,7 +43,7 @@ const char* geom_kind_token(gis::FeatureGeom::Kind kind) {
   }
 }
 
-content::ToolSession* tool_stack_host(content::ShellBridge& browser) {
+content::ToolSession* tool_stack_host(content::Shell& browser) {
   content::ToolSession* host = nullptr;
   if (content::Pane* scene = browser.scene_draw_host()) {
     if (scene->is_visible()) {
@@ -65,14 +65,14 @@ content::ToolSession* tool_stack_host(content::ShellBridge& browser) {
 
 }  // namespace
 
-content::ToolSession* active_map_host(content::ShellBridge& browser) {
+content::ToolSession* active_map_host(content::Shell& browser) {
   if (browser.has_ui()) {
     return browser.active_tool_session();
   }
   return browser.edit_tool_session();
 }
 
-int activate_view_tool(content::ShellBridge& browser, const std::string& id) {
+int activate_view_tool(content::Shell& browser, const std::string& id) {
   content::ToolSession* host = active_map_host(browser);
   if (!host || !host->workspace()) {
     return 21;
@@ -83,7 +83,7 @@ int activate_view_tool(content::ShellBridge& browser, const std::string& id) {
   return 0;
 }
 
-bool fill_edit_tool_session_status(content::ShellBridge& browser, content::EditToolSessionStatus* out) {
+bool fill_edit_tool_session_status(content::Shell& browser, content::EditToolSessionStatus* out) {
   if (!out) {
     return false;
   }
@@ -105,7 +105,7 @@ bool fill_edit_tool_session_status(content::ShellBridge& browser, content::EditT
   return true;
 }
 
-bool fill_map_ready_status(content::ShellBridge& browser,
+bool fill_map_ready_status(content::Shell& browser,
                            int timeout_ms,
                            content::MapReadyStatus* out) {
   if (!out) {
@@ -147,7 +147,7 @@ bool fill_map_ready_status(content::ShellBridge& browser,
   }
 }
 
-bool fill_tool_status(content::ShellBridge& browser, content::ToolStatus* out) {
+bool fill_tool_status(content::Shell& browser, content::ToolStatus* out) {
   if (!out) {
     return false;
   }
@@ -164,7 +164,7 @@ bool fill_tool_status(content::ShellBridge& browser, content::ToolStatus* out) {
   return true;
 }
 
-bool fill_last_geom(content::ShellBridge& browser, content::GeomStatus* out) {
+bool fill_last_geom(content::Shell& browser, content::GeomStatus* out) {
   if (!out) {
     return false;
   }
@@ -192,7 +192,7 @@ bool fill_last_geom(content::ShellBridge& browser, content::GeomStatus* out) {
   return true;
 }
 
-bool fill_view_scale(content::ShellBridge& browser, content::ViewScaleStatus* out) {
+bool fill_view_scale(content::Shell& browser, content::ViewScaleStatus* out) {
   if (!out) {
     return false;
   }

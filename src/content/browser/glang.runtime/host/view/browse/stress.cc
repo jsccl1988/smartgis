@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/view/browse/stress.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <cstdio>
 
@@ -86,7 +86,7 @@ bool rmb_consumed(content::ToolSession& host, int x, int y) {
 
 // Do not invalidate_frame_cache here — a full china rebuild per stroke drops
 // PrintWindow/BitBlt below motion_gate frame counts.
-void paint_map_client(content::ShellBridge& browser) {
+void paint_map_client(content::Shell& browser) {
   content::Pane* pane = browser.draw_host();
   if (!pane) {
     return;
@@ -99,7 +99,7 @@ void paint_map_client(content::ShellBridge& browser) {
 
 namespace detail {
 
-bool browse_stress(content::ShellBridge& browser, const wchar_t* leaf, int count) {
+bool browse_stress(content::Shell& browser, const wchar_t* leaf, int count) {
   content::ToolSession* host = browser.edit_tool_session();
   if (!host) {
     write_mark(leaf, "browse-stress-no-host", false);

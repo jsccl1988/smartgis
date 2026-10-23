@@ -28,8 +28,8 @@ FrameView::FrameView() {
 
 FrameView::~FrameView() = default;
 
-void FrameView::set_title(std::string title) {
-  title_ = std::move(title);
+void FrameView::set_title(const char* title) {
+  title_ = title ? title : "";
   schedule_paint();
 }
 
@@ -183,5 +183,10 @@ void FrameView::paint_self(ui::gfx::Canvas* canvas) {
 std::string_view FrameView::paint_role() const {
   return "frame";
 }
+
+std::unique_ptr<FrameView> make_frame_view() {
+  return std::make_unique<FrameView>();
+}
+
 }  // namespace views
 }  // namespace ui

@@ -86,25 +86,26 @@ int main() {
     expect(!items[0].separator, "nav rows are not separators");
   }
 
-  // nav(10) + separator(1) + tail(10) = 21
+  // nav(10) + separator(1) + tail(11) = 22
   const app::ShellMenus menus = app::build_shell_menus({}, {});
   expect(menus.file.size() == 4, "file menu count");
   expect(menus.edit.size() == 3, "edit menu count");
   expect(menus.layer.size() == 4, "layer menu count");
   expect(menus.plugins.size() == 1, "plugins menu count");
-  expect(menus.view.size() == 21, "view menu is nav plus tail");
-  if (menus.file.size() == 4 && menus.view.size() == 21 &&
+  expect(menus.view.size() == 22, "view menu is nav plus tail");
+  if (menus.file.size() == 4 && menus.view.size() == 22 &&
       menus.layer.size() == 4 && menus.plugins.size() == 1) {
     expect(menus.file[0].label == "Open", "file starts at Open");
     expect(menus.file[3].label == "Exit", "file ends at Exit");
     expect(menus.view[0].label == "Pan", "view starts at Pan");
     expect(menus.view[10].separator, "view separator after nav");
     expect(menus.view[11].label == "Refresh", "refresh after separator");
-    expect(menus.view[16].label == "Engine: FlyCube/DX12", "engine flycube");
-    expect(menus.view[17].label == "Engine: Stereo/GL", "engine stereo");
-    expect(menus.view[18].label == "Engine: GDI", "engine gdi");
-    expect(menus.view[19].label == "RHI", "rhi row");
-    expect(menus.view[20].label == "MapLibre", "maplibre row");
+    expect(menus.view[12].label == "Eagle Eye", "eagle eye toggle");
+    expect(menus.view[17].label == "Engine: FlyCube/DX12", "engine flycube");
+    expect(menus.view[18].label == "Engine: Stereo/GL", "engine stereo");
+    expect(menus.view[19].label == "Engine: GDI", "engine gdi");
+    expect(menus.view[20].label == "RHI", "rhi row");
+    expect(menus.view[21].label == "MapLibre", "maplibre row");
     expect(menus.layer[3].label == "Zoom to layer", "layer zoom row");
     expect(menus.plugins[0].label == "Manage plugins…", "plugins manage row");
   }

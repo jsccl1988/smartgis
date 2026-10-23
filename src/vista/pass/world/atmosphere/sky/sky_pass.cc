@@ -124,14 +124,15 @@ void SkyPass::sample_sky_rgb(const SkyDrawParams& p, float dir_x, float dir_y,
     hg = detail::clampf(hg + warm * 0.04f, 0.0f, 1.0f);
   }
   const float blend =
-      std::pow(detail::clampf(elev_v * 1.25f, 0.0f, 1.0f), 0.50f);
+      std::pow(detail::clampf(elev_v * 1.25f, 0.0f, 1.0f), 0.48f);
   float r = detail::lerp(hr, zr, blend);
   float g = detail::lerp(hg, zg, blend);
   float b = detail::lerp(hb, zb, blend);
-  const float rayleigh = std::pow(elev_v, 0.55f);
-  r *= detail::lerp(1.0f, 0.72f, rayleigh);
-  g *= detail::lerp(1.0f, 0.88f, rayleigh);
-  b *= detail::lerp(1.0f, 1.22f, rayleigh);
+  // Design B: stronger Rayleigh blue toward zenith (still analytical, no LUT).
+  const float rayleigh = std::pow(elev_v, 0.50f);
+  r *= detail::lerp(1.0f, 0.68f, rayleigh);
+  g *= detail::lerp(1.0f, 0.86f, rayleigh);
+  b *= detail::lerp(1.0f, 1.28f, rayleigh);
   r = detail::clampf(r, 0.0f, 1.0f);
   g = detail::clampf(g, 0.0f, 1.0f);
   b = detail::clampf(b, 0.0f, 1.0f);

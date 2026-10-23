@@ -7,6 +7,7 @@
 
 #include "ui/views/map/frame/embed_fill.h"
 #include "ui/views/map/viewport/features.h"
+#include "ui/views/map/viewport/horizon_paint.h"
 #include "ui/views/map/viewport/paint_policy.h"
 
 namespace ui {
@@ -160,6 +161,11 @@ void DrawHost::paint_host_content(HDC target, const RECT& client_rc) {
           std::atomic_load_explicit(&overlay_paint_, std::memory_order_acquire);
       paint && *paint) {
     (*paint)(target, client_rc);
+  }
+  if (role_ != Role::kScene3d) {
+    const int horizon_w = client_rc.right - client_rc.left;
+    const int horizon_h = client_rc.bottom - client_rc.top;
+    paint_map_horizon(nullptr, target, horizon_w, horizon_h);
   }
   // 2D overlay had a chance (even if Map2dPresenter no-ops before bind).
   if (role_ != Role::kScene3d) {

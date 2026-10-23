@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/view/shot/export.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include "content/browser/glang.runtime/host/view/pixel/bmp.h"
 #include "content/browser/glang.runtime/host/view/pixel/gate.h"
@@ -47,7 +47,7 @@ namespace {
 
 // Lower an export frame token onto the document camera.
 // Tokens: china_product, unit_square, document_extent, or a plugin frame name.
-bool resolve_export_frame(content::ShellBridge& browser, const std::string& frame) {
+bool resolve_export_frame(content::Shell& browser, const std::string& frame) {
   content::ViewFrame* vf = browser.view_frame();
   if (!vf) {
     return false;
@@ -174,7 +174,7 @@ void pin_map_column_for_capture(ui::views::View* root) {
 
 }  // namespace
 
-bool export_scene3d_bmp(content::ShellBridge* b, const wchar_t* bmp_w) {
+bool export_scene3d_bmp(content::Shell* b, const wchar_t* bmp_w) {
   if (!b || !bmp_w || !bmp_w[0]) {
     return false;
   }
@@ -222,8 +222,15 @@ bool export_scene3d_bmp(content::ShellBridge* b, const wchar_t* bmp_w) {
     force_reseed_splitters(root);
     scene->sync_native_bounds();
     pump_messages(100);
-    // Trackball drag can leave yaw on navy/ocean clear; re-frame China DEM.
-    b->apply_china_scene3d_orbit();
+    // Plugin showcases fit_scene_box onto a local overlay TIN (storm surge,
+    // orthogrid, mine). China orbit throws that framing away and the capture
+    // is a country DEM with no water or mesh.
+    const bool keep_plugin_frame = cam->gpu().overlay_tin_has_albedo() ||
+                                   cam->gpu().overlay_tin_has_drape();
+    if (!keep_plugin_frame) {
+      // Trackball drag can leave yaw on navy/ocean clear; re-frame China DEM.
+      b->apply_china_scene3d_orbit();
+    }
     scene->request_frame();
     pump_messages(120);
     for (int attempt = 0; attempt < 8; ++attempt) {
@@ -356,7 +363,7 @@ bool export_scene3d_bmp(content::ShellBridge* b, const wchar_t* bmp_w) {
   return ok;
 }
 
-bool export_map2d_bmp(content::ShellBridge* b,
+bool export_map2d_bmp(content::Shell* b,
                       const wchar_t* bmp_w,
                       const std::string& frame,
                       const Map2dExportOpts& opts) {
@@ -470,7 +477,12 @@ bool export_map2d_bmp(content::ShellBridge* b,
         }
       }
     }
-    run_map2d_showcase_gpu(*b, map2d, w, h);
+    // Plugin showcases already have a live HWND present. The extra owned-device
+    // GPU probe AVs under FlyCube after geochem heat layers (0xC0000005) and
+    // prevents the script from marking bmp-ok even though the BMP is written.
+    if (!wcsstr(bmp_w, L"plugin-showcase")) {
+      run_map2d_showcase_gpu(*b, map2d, w, h);
+    }
   }
   return true;
 }

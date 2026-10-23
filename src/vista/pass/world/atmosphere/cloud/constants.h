@@ -23,15 +23,23 @@ struct CloudConstants {
   float cam_x;
   float cam_y;
   float cam_z;
-  // World-space snap cell for density; 0 = full detail (quality >= 2).
+  // World-space snap cell for density; 0 = full detail (quality >= 1).
   float density_cell;
+  // Orbit deck half-extents for cover-texture UV (XZ centered at origin).
+  float deck_hx;
+  float deck_hz;
+  // 1 when cover_map SRV is bound; else density uses scalar cover only.
+  float has_cover_tex;
+  float pad0;
 };
 
-static_assert(sizeof(CloudConstants) == 48, "CloudCB is 48 bytes");
+static_assert(sizeof(CloudConstants) == 64, "CloudCB is 64 bytes");
 static_assert(offsetof(CloudConstants, cam_x) == 32,
               "CloudCB camera row follows eight floats");
 static_assert(offsetof(CloudConstants, density_cell) == 44,
-              "CloudCB density_cell is last float");
+              "CloudCB density_cell before deck row");
+static_assert(offsetof(CloudConstants, deck_hx) == 48,
+              "CloudCB deck extents start at byte 48");
 
 }  // namespace vista
 

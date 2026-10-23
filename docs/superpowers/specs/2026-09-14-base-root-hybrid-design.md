@@ -7,10 +7,11 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-14  
-**Updated:** 2026-10-05 — §Math 命名（guards / snake_case / Point2f / `base_math_simd`）。Prior same day — §Math 分层（scalar/linear/traits/geom/xform/simd）。Prior: 2026-10-03 memory / codecs / trace archived; PA-E + execution still open; 2026-10-01 §Math Eigen.
+**Updated:** 2026-10-23 — §DLL / STL trust model（Chromium 式同构 + 边界分拣 + `is_component_build` + 门禁）。Prior 2026-10-05 — §Math 命名（guards / snake_case / Point2f / `base_math_simd`）。Prior same day — §Math 分层（scalar/linear/traits/geom/xform/simd）。Prior: 2026-10-03 memory / codecs / trace archived; PA-E + execution still open; 2026-10-01 §Math Eigen.
 **Goal:** 将遗留 `src/base/core`（`Smt*`）对照 mogu **全部**替换到 foundation 树；制图 style / `sys` / `net` 留在产品层；分期 strangler，阶段末不留旧名转发壳。  
 **Related:** [`../src-layout.md`](../src-layout.md)、[`../mogu-mapping.md`](../mogu-mapping.md)、[`../abi-rename-map.md`](../abi-rename-map.md)、[`2026-09-13-code-style-include-abi-cutover-design.md`](../archive/specs/2026-09-13-code-style-include-abi-cutover-design.md)、[`2026-09-13-base-archive-design.md`](../archive/specs/2026-09-13-base-archive-design.md)、[`2026-09-13-base-ipc-mojom-design.md`](../archive/specs/2026-09-13-base-ipc-mojom-design.md)、[`2026-09-14-dll-reorganization-design.md`](../archive/specs/2026-09-14-dll-reorganization-design.md)  
-**Plan (Cursor):** `base_root_hybrid_fd0c40fd.plan.md`（会话外；本仓以本 spec + `docs/superpowers` 为准）；**§Memory:** [`../archive/plans/2026-09-28-base-memory.md`](../archive/plans/2026-09-28-base-memory.md)；**§PA-E:** [`../plans/2026-09-28-partition-alloc-everywhere.md`](../plans/2026-09-28-partition-alloc-everywhere.md)；**§Execution:** [`../plans/2026-09-28-base-execution.md`](../plans/2026-09-28-base-execution.md)
+**Plan (Cursor):** `base_root_hybrid_fd0c40fd.plan.md`（会话外；本仓以本 spec + `docs/superpowers` 为准）；**§Memory:** [`../archive/plans/2026-09-28-base-memory.md`](../archive/plans/2026-09-28-base-memory.md)；**§PA-E:** [`../plans/2026-09-28-partition-alloc-everywhere.md`](../plans/2026-09-28-partition-alloc-everywhere.md)；**§Execution:** [`../plans/2026-09-28-base-execution.md`](../plans/2026-09-28-base-execution.md)；**§DLL/STL:** [`../plans/2026-10-23-dll-stl-trust.md`](../plans/2026-10-23-dll-stl-trust.md)  
+**Diagram (DLL/STL):** [`../diagrams/dll-stl-trust.html`](../diagrams/dll-stl-trust.html)
 
 ## Amendment (2026-09-15)
 
@@ -323,6 +324,51 @@ Out of scope: glm; folding into `base.dll`; renaming leftover AABB fields; editi
 | Point/rect aliases | New TUs: `Point2f` / `Rect2f`. Leftover `fPoint` / `lRect` / `dbfPoint` stay as `using` |
 | POD fields | Leftover layout unchanged (`vcMin`, `m_vcN`, `_11`) |
 | `render::` | Type/`using` aliases until call-site cutover; no third public namespace |
+
+---
+
+## §DLL / STL trust model（2026-10-23）
+
+**Why not a new dated spec:** CRT / export / product DLL topology is owned by this living base row (plus plugin C-boundary on the Plugin host umbrella).
+
+**Diagram:** [`../diagrams/dll-stl-trust.html`](../diagrams/dll-stl-trust.html)  
+**Plan:** [`../plans/2026-10-23-dll-stl-trust.md`](../plans/2026-10-23-dll-stl-trust.md)  
+**Agent rule:** [`.cursor/rules/repo/dll-stl-trust.mdc`](../../../.cursor/rules/repo/dll-stl-trust.mdc)  
+**Gate:** `python build/tools/check_dll_homogeneity.py --out Debug|Release` (also hooked from `check_out_artifacts` product/harness/te)
+
+### Locked decisions
+
+| Topic | Choice |
+| --- | --- |
+| Product DLL model | Chromium **component-build analogue**: same toolchain, same `/MD` or `/MDd`, same gen root → **STL may cross A boundaries** |
+| `is_component_build` | GN arg **default `true`** → `product_shared_library` emits DLLs + defines `COMPONENT_BUILD`. Set `false` to static-link product modules into the exe (export macros become no-ops) |
+| CRT | Product **must** use dynamic CRT (`static_link_crt=false`). Debug `/MDd`, Release `/MD`. Never mix `_d` and non-`_d` product stems in one `out/<config>` |
+| Export ≠ public API | `*_EXPORT` / `COMPONENT_EXPORT(NAME)` are **link visibility** only. Public contracts stay `content/public`, GN `visibility`, and module READMEs |
+| New export helper | Prefer `#include "base/core/component_export.h"` + `COMPONENT_EXPORT(FOO)` with GN `IS_FOO_IMPL=1` on impl sources. Existing `BASE_EXPORT` / `GIS_EXPORT` / … remain valid when gated on `COMPONENT_BUILD` |
+| A-boundary export style | Near Chromium: class/`*_EXPORT` OK; C4251 accepted when same CRT |
+| B/C-boundary export style | Conservative: factory + vtable; new signatures prefer `string_view` / `span` / POD; no `std::string`/`vector` by value across C |
+| Exceptions | No `throw` across DLL / plugin boundaries; use error codes / status |
+| Deferred (P5) | Custom libc++ (`use_custom_libcxx`); shipping Release as mostly-static by default — keep `is_component_build=true` until a dedicated Release experiment |
+
+### Boundary classes
+
+| Class | Examples | STL across boundary |
+| --- | --- | --- |
+| **A** 仓内产品 DLL | `base` `gis` `content` `render` `vista` `ui_views` `tool` `net` `plugin_host` `scenic` | **Allowed** (homogeneous process) |
+| **B** 稳定嵌入面 | `content/public` | Prefer lean; thicken impl behind existing virtuals |
+| **C** 插件 / 脚本 | glang `ext`, `plugin.json` LoadLibrary, GetProcAddress | **Forbidden** — opaque / C buffer / serialize |
+| **D** 第三方预编译 | CPython (Debug stub), closed GPU | Isolate or stub; no mixed heaps |
+
+### Product stem catalog (homogeneity gate)
+
+Same list as `build/tools/check_dll_homogeneity.py` / [`abi-rename-map.md`](../abi-rename-map.md):  
+`base` `net` `gis` `vista` `scenic` `render` `content` `tool` `ui_views` `plugin_host` `ui_legacy` `legacy_render` `legacy_render_gl` `legacy_render_d3d` `legacy_tool`.
+
+### Cross-links
+
+- Plugin C-boundary: [`2026-09-13-plugin-host-design.md`](2026-09-13-plugin-host-design.md) §DLL / STL C-boundary  
+- PA-E (unified allocator): [`../plans/2026-09-28-partition-alloc-everywhere.md`](../plans/2026-09-28-partition-alloc-everywhere.md)  
+- `content/public` stability: [`.cursor/rules/repo/content-public-stable.mdc`](../../../.cursor/rules/repo/content-public-stable.mdc)
 
 ---
 

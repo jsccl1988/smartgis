@@ -32,10 +32,12 @@ Living specs, open plans, HTML diagrams, and as-built product notes live here. P
 | [`diagrams/vista-subdirectory-layers.html`](diagrams/vista-subdirectory-layers.html) | Vista 当前代：逻辑/物理 · CPU Emit×N · GPU 1 CL · 与 Scenic 的优缺点 |
 | [`diagrams/vista-scene-octree.html`](diagrams/vista-scene-octree.html) | Vista GpuScene：unibn octree 场景/mesh 索引 + 视锥外过滤 |
 | [`diagrams/base-math-layers.html`](diagrams/base-math-layers.html) | `base/math`：scalar / linear / traits / geom / xform / simd |
+| [`diagrams/dll-stl-trust.html`](diagrams/dll-stl-trust.html) | 产品 DLL / STL 信任模型（A/B/C/D + `is_component_build`） |
 | [`diagrams/gis-geo-layers.html`](diagrams/gis-geo-layers.html) | `gis/geo` Types / Traits / Ops / Codec / Present |
 | [`diagrams/gis-model-ogr-layers.html`](diagrams/gis-model-ogr-layers.html) | `gis/{feature,layer,map}` 产品面 vs leftover ABI；Map/Layer/Feature ↔ OGR |
 | [`diagrams/gis-algorithm-geometry-split.html`](diagrams/gis-algorithm-geometry-split.html) | 几何体 ⊥ 算法（补图） |
 | [`diagrams/map2d-present-frame.html`](diagrams/map2d-present-frame.html) | Map2d MapFrame 四层 + 双出口 |
+| [`diagrams/map2d-furniture-panel.html`](diagrams/map2d-furniture-panel.html) | Map2d 装饰面板：Inspector → Sink → furniture 绘制 |
 | [`diagrams/map2d-china-design-gate.html`](diagrams/map2d-china-design-gate.html) | 中国全图设计门禁：色带测量 × 具名合同 AND |
 | [`diagrams/hillshade-bake-profile.html`](diagrams/hillshade-bake-profile.html) | DEM/hillshade bake 相位 + CPU vs Thrust bench |
 | [`diagrams/scene3d-present-layers.html`](diagrams/scene3d-present-layers.html) | Scene3d present：facade / frame / GPU / software / scenic |
@@ -43,7 +45,9 @@ Living specs, open plans, HTML diagrams, and as-built product notes live here. P
 | [`diagrams/content-present-accelerate.html`](diagrams/content-present-accelerate.html) | present 三车道：cache / GPU 合成 / `base::execution` |
 | [`diagrams/render-accelerate-topology.html`](diagrams/render-accelerate-topology.html) | GPU-process × vista parallel（A×B） |
 | [`diagrams/ui-views-shell-architecture.html`](diagrams/ui-views-shell-architecture.html) | Views shell / compositor 泳道 |
+| [`diagrams/catalog-2d-3d-pairing.html`](diagrams/catalog-2d-3d-pairing.html) | Catalog 2D/3D ↔ Map/Scene3d 配对 |
 | [`diagrams/map-viewport-paint.html`](diagrams/map-viewport-paint.html) | DrawHost paint 分层 + 2D SoT（不 blit leftover SharedSurface） |
+| [`diagrams/map-eagle-eye.html`](diagrams/map-eagle-eye.html) | 2D 鹰眼：Views 浮动窗 × Browser extent 同步 × 主图 present |
 | [`diagrams/content-browser-layers.html`](diagrams/content-browser-layers.html) | `content/browser` 责任层 + C11 收紧 + MapSession / content.dll |
 | [`diagrams/views-runtime-layers.html`](diagrams/views-runtime-layers.html) | `il.runtime`（`src/app/views/il.runtime`）：capability / execution |
 | [`diagrams/codegen-gis-ir.html`](diagrams/codegen-gis-ir.html) | codegen：Python3 前端 → `app::code` 五种方言 → `app::ir` |
@@ -57,7 +61,7 @@ Living specs, open plans, HTML diagrams, and as-built product notes live here. P
 | [`diagrams/rhi3d-public-api-lanes.html`](diagrams/rhi3d-public-api-lanes.html) | Scenic `RenderDevice3d` 组合部件（`render_device.h`；几何源 XOR / 着色 XOR） |
 | [`diagrams/debug-console-agent.html`](diagrams/debug-console-agent.html) | Debug console agent |
 | [`diagrams/plugin-host-layers.html`](diagrams/plugin-host-layers.html) | `runtime/host`：catalog / native / capability 收紧 |
-| [`diagrams/plugin-python-runtime.html`](diagrams/plugin-python-runtime.html) | glang 拥有 CPython；`glang.plugin` 登记 `eval_*`；插件运行时只注册；opcode 管线退役 |
+| [`diagrams/plugin-python-runtime.html`](diagrams/plugin-python-runtime.html) | glang 拥有 CPython；`glang.plugin` + `glang.ext.<id>`；`python/` 冻结；样品在 `runtime/samples/` |
 | [`diagrams/plugin-host-capabilities.html`](diagrams/plugin-host-capabilities.html) | PluginHost：贡献点 + 不透明能力表（不识别具体插件） |
 | [`diagrams/plugin-product-showcase.html`](diagrams/plugin-product-showcase.html) | Harness showcase 族 → `plugin/product` 载荷；HWND 在 `il.runtime/capability`；登记表 `harness/run` |
 | [`diagrams/plugin-product-depth-gate.html`](diagrams/plugin-product-depth-gate.html) | 每个产品包 contract → compute → command → visual；浅层失败不写基线 |
@@ -75,7 +79,7 @@ Legacy UI/app deep-layer slices: `diagrams/legacy-{app,ui-widgets,ui-map,ui-shel
 | RHI + dual scene + map2d + atmosphere + model/compute | [`specs/2026-09-13-render-rhi-scene-design.md`](specs/2026-09-13-render-rhi-scene-design.md) | [`plans/2026-09-13-render-rhi-scene.md`](plans/2026-09-13-render-rhi-scene.md) · [`plans/2026-09-27-gpu-rhi-accelerate.md`](plans/2026-09-27-gpu-rhi-accelerate.md) · [`plans/2026-10-02-src-render-vista-parallel-accelerate.md`](plans/2026-10-02-src-render-vista-parallel-accelerate.md) · [`plans/2026-09-27-render-frame-graph.md`](plans/2026-09-27-render-frame-graph.md) · equal-profile + leftover GDI/rhi2d/rhi3d（**Scenic**）checklists on the umbrella **Plans:** line |
 | `app/views` shell + Views toolkit + markup + panels + debug console | [`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) | [`plans/2026-09-20-m0-views-main-path.md`](plans/2026-09-20-m0-views-main-path.md) · [`plans/2026-09-28-debug-console.md`](plans/2026-09-28-debug-console.md) · compositor / forensics / markup / harness on the umbrella |
 | Tool dispatch + `src/tool` | [`specs/2026-09-13-tool-event-dispatch-design.md`](specs/2026-09-13-tool-event-dispatch-design.md) | [`plans/2026-09-13-tool-event-dispatch.md`](plans/2026-09-13-tool-event-dispatch.md) |
-| `src/base` foundation (+ memory / PA-E / execution / codecs) | [`specs/2026-09-14-base-root-hybrid-design.md`](specs/2026-09-14-base-root-hybrid-design.md) | [`plans/2026-09-28-partition-alloc-everywhere.md`](plans/2026-09-28-partition-alloc-everywhere.md) · [`plans/2026-09-28-base-execution.md`](plans/2026-09-28-base-execution.md) |
+| `src/base` foundation (+ memory / PA-E / execution / codecs / DLL·STL trust) | [`specs/2026-09-14-base-root-hybrid-design.md`](specs/2026-09-14-base-root-hybrid-design.md) | [`plans/2026-09-28-partition-alloc-everywhere.md`](plans/2026-09-28-partition-alloc-everywhere.md) · [`plans/2026-09-28-base-execution.md`](plans/2026-09-28-base-execution.md) · [`plans/2026-10-23-dll-stl-trust.md`](plans/2026-10-23-dll-stl-trust.md) |
 | GIS datasource / GDAL / SDB / Session+Provider | [`specs/2026-09-13-gdal-layer-management-design.md`](specs/2026-09-13-gdal-layer-management-design.md) | [`plans/2026-09-28-datasource-session-provider.md`](plans/2026-09-28-datasource-session-provider.md) · [`plans/2026-09-13-ogr-db-datasource.md`](plans/2026-09-13-ogr-db-datasource.md) · [`plans/2026-09-19-sdbd-wsl-client.md`](plans/2026-09-19-sdbd-wsl-client.md) |
 | Plugin host / contributions / store | [`specs/2026-09-13-plugin-host-design.md`](specs/2026-09-13-plugin-host-design.md) | [`plans/2026-10-18-glang-cpython-plugin.md`](plans/2026-10-18-glang-cpython-plugin.md) · [`plans/2026-10-05-plugin-analysis-present-to-processing.md`](plans/2026-10-05-plugin-analysis-present-to-processing.md) · [`plans/2026-09-30-stormsurge-3d-disaster.md`](plans/2026-09-30-stormsurge-3d-disaster.md) · world3d / leftover-plugin checklists still open on the umbrella |
 | Algorithm layer (OSS) | [`specs/2026-09-13-algorithm-layer-oss-design.md`](specs/2026-09-13-algorithm-layer-oss-design.md) | [`plans/2026-09-13-algorithm-layer-oss.md`](plans/2026-09-13-algorithm-layer-oss.md) |
@@ -87,4 +91,4 @@ Open milestone: [`plans/2026-09-20-m1-carto-style-tile-export.md`](plans/2026-09
 
 Landed / superseded / fold-B children: [`archive/`](archive/).
 
-**最后更新:** 2026-10-18（living 仍 9 行；中国平地阶梯门禁见 [`diagrams/china-stack-gates.html`](diagrams/china-stack-gates.html)；world3d harness 编排进 glang，见 [`diagrams/world3d-harness-glang.html`](diagrams/world3d-harness-glang.html)）
+**最后更新:** 2026-10-23（§DLL / STL trust：同构门禁 + `is_component_build` + `COMPONENT_EXPORT`）

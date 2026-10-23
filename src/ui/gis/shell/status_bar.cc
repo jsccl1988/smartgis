@@ -4,6 +4,7 @@
 #include "ui/gis/shell/status_bar.h"
 
 #include <algorithm>
+#include <cstring>
 #include <format>
 #include <memory>
 #include <utility>
@@ -122,42 +123,40 @@ void StatusBar::set_scale(double scale) {
   set_scale_text(std::format("1:{:.0f}", scale));
 }
 
-void StatusBar::set_message(std::string text) {
-  set_status(std::move(text));
+void StatusBar::set_message(const char* text) {
+  set_status(text);
 }
 
-void StatusBar::set_scale_text(std::string text) {
+void StatusBar::set_scale_text(const char* text) {
   if (scale_) {
-    scale_->set_text(std::move(text));
+    scale_->set_text(text ? text : "");
   }
 }
 
-void StatusBar::set_crs_text(std::string text) {
+void StatusBar::set_crs_text(const char* text) {
   if (crs_) {
-    crs_->set_text(std::move(text));
+    crs_->set_text(text ? text : "");
   }
 }
 
-void StatusBar::set_coord_text(std::string text) {
+void StatusBar::set_coord_text(const char* text) {
   if (coord_) {
-    coord_->set_text(std::move(text));
+    coord_->set_text(text ? text : "");
   }
 }
 
-void StatusBar::set_status(std::string text) {
+void StatusBar::set_status(const char* text) {
   if (!status_) {
     return;
   }
   const Theme& t = Theme::current();
-  if (text.empty() || text == "Ready") {
-    if (text.empty()) {
-      text = "Ready";
-    }
+  const char* body = (text && text[0]) ? text : "Ready";
+  if (!text || !text[0] || std::strcmp(body, "Ready") == 0) {
     status_->set_color(t.text_muted);
   } else {
     status_->set_color(t.text_bright);
   }
-  status_->set_text(std::move(text));
+  status_->set_text(body);
 }
 
 const std::string& StatusBar::scale_text() const {
@@ -233,6 +232,10 @@ void StatusBar::paint_self(ui::gfx::Canvas* canvas) {
       draw_focus_ring(canvas, b);
     }
   }
+}
+
+std::unique_ptr<StatusBar> make_status_bar() {
+  return std::make_unique<StatusBar>();
 }
 
 }  // namespace views

@@ -289,19 +289,28 @@ namespace {
 
 bool camera_span_matches(const Map2dFrameCache::CameraKey& mesh,
                          const Map2dFrameCache::CameraKey& live) {
-  if (mesh.width_px == 0 || live.width_px == 0 ||
-      mesh.width_px != live.width_px || mesh.height_px != live.height_px) {
+  // Prefer ViewFrame::scale(). World AABB spans change when HWND aspect
+  // changes (tab / Diagnostic dock 1664x987 <-> 1664x1575) even at constant
+  // map scale — comparing those spans falsely set scale_changed, forced
+  // gesture_defer + SettleRebuild, and froze every pan for seconds while
+  // re-compositing hillshade (reads as a sudden dark sheet).
+  if (mesh.scale > 0.0 && live.scale > 0.0) {
+    constexpr double kRel = 1.0e-4;
+    return std::fabs(mesh.scale - live.scale) <= kRel * mesh.scale;
+  }
+  // Fallback: world-units-per-pixel (stable across aspect-preserving resize).
+  if (mesh.width_px == 0 || live.width_px == 0) {
     return false;
   }
   const double ax = mesh.max_x - mesh.min_x;
   const double bx = live.max_x - live.min_x;
-  const double ay = mesh.max_y - mesh.min_y;
-  const double by = live.max_y - live.min_y;
-  if (!(ax > 0.0) || !(ay > 0.0) || !(bx > 0.0) || !(by > 0.0)) {
+  if (!(ax > 0.0) || !(bx > 0.0)) {
     return false;
   }
+  const double mesh_wpp = ax / static_cast<double>(mesh.width_px);
+  const double live_wpp = bx / static_cast<double>(live.width_px);
   constexpr double kRel = 1.0e-4;
-  return std::fabs(ax - bx) <= kRel * ax && std::fabs(ay - by) <= kRel * ay;
+  return std::fabs(mesh_wpp - live_wpp) <= kRel * mesh_wpp;
 }
 
 double pan_pixels(const Map2dFrameCache::CameraKey& mesh,
@@ -555,10 +564,21 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
   }
 
   // Non-blocking drain of a finished worker job.
+  const uint64_t builds_at_entry =
+      layout_build_count_.load(std::memory_order_relaxed);
   PresentAction drained = PresentAction::kStaticReuse;
   if (drain_layout_jobs(/*wait_if_empty=*/false, &drained)) {
-    *action = drained;
-    last_present_reused_layout_.store(false, std::memory_order_release);
+    const uint64_t builds_after_drain =
+        layout_build_count_.load(std::memory_order_relaxed);
+    const bool layout_rebuilt = builds_after_drain > builds_at_entry;
+    if (layout_rebuilt) {
+      *action = drained;
+      last_present_reused_layout_.store(false, std::memory_order_release);
+    } else {
+      // Sync stage_frame already published; drain only clears the mailbox.
+      *action = PresentAction::kStaticReuse;
+      last_present_reused_layout_.store(true, std::memory_order_release);
+    }
     pending_interactive_clock_refresh_ = false;
     return true;
   }
@@ -576,7 +596,6 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
   std::chrono::steady_clock::time_point last_interactive_tp{};
   {
     std::lock_guard<std::mutex> lock(mu_);
-    last_present_reused_layout_.store(false, std::memory_order_release);
     scene = scene_;
     view_frame = frame_;
     has_frame = has_frame_cache_;
@@ -643,8 +662,12 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
   const bool fp_dirty = !has_frame || !(fp == cached_fp);
   const bool zoom_dirty =
       has_frame && cam.zoom_bucket != cached_cam.zoom_bucket;
+  // HWND pixel size can flicker (tab / Diagnostic dock) without a content
+  // edit. Folding that into content_dirty forced RebuildFull (china tess)
+  // after every gesture that also resized the swapchain — multi-second stalls
+  // and a hillshade re-composite that reads as a darker map.
   const bool pixels_dirty = has_frame && !cam.same_pixels(cached_cam);
-  const bool content_dirty = fp_dirty || pixels_dirty;
+  const bool content_dirty = fp_dirty;
   const bool camera_changed = has_frame && !cam.same_camera(cached_cam);
   const bool reuse_slices_on_rebuild =
       has_frame && !fp_dirty && !zoom_dirty;
@@ -680,14 +703,25 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
   if (!content_dirty && !camera_changed) {
     if (pending_hs && !hillshade_ready) {
       // E1: hillshade attach via mailbox (Display tess; no async+get).
+      const uint64_t builds_before =
+          layout_build_count_.load(std::memory_order_relaxed);
       prefetch_hillshade();
       PresentAction drained = PresentAction::kSettleRebuild;
       if (!drain_layout_jobs(/*wait_if_empty=*/!has_frame, &drained) &&
           !has_frame) {
         return false;
       }
-      *action = PresentAction::kSettleRebuild;
-      last_present_reused_layout_.store(false, std::memory_order_release);
+      const uint64_t builds_after =
+          layout_build_count_.load(std::memory_order_relaxed);
+      const bool layout_rebuilt = builds_after > builds_before;
+      if (layout_rebuilt) {
+        *action = drained;
+        last_present_reused_layout_.store(false, std::memory_order_release);
+      } else {
+        // Still presenting the published mesh while attach is staged.
+        *action = PresentAction::kStaticReuse;
+        last_present_reused_layout_.store(true, std::memory_order_release);
+      }
       pending_interactive_clock_refresh_ = false;
       return this->has_frame();
     } else if (last_interactive) {
@@ -700,11 +734,40 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
         pending_interactive_clock_refresh_ = false;
         return true;
       }
-      settle_rebuild = true;
+      // In-skirt pan never deferred labels — mesh + glyphs still match the
+      // camera. Skip SettleRebuild (china tess / hillshade) or every click and
+      // small drag freezes the map for seconds and re-composites hillshade
+      // (reads as a sudden dark sheet).
+      bool need_settle = false;
       {
         std::lock_guard<std::mutex> lock(mu_);
+        const bool had_label_defer = gesture_defer_labels_;
         gesture_defer_labels_ = false;
+        if (pending_zoom_rebuild_) {
+          need_settle = true;
+        } else if (had_label_defer || pending_gesture_settle_) {
+          const double moved = pan_pixels(mesh_cam_, cam);
+          const double rebuild_at =
+              static_cast<double>(vista::detail::kPanCoveragePx);
+          // Pan-only inside the full skirt: coverage mesh still valid; show
+          // labels on StaticReuse instead of SettleRebuild + emit_hillshade.
+          // Scale change (wheel within bucket) always settles to re-emit DEM.
+          need_settle = pending_gesture_settle_ || moved > rebuild_at;
+          pending_gesture_settle_ = false;
+          if (!need_settle) {
+            last_present_was_interactive_ = false;
+          }
+        } else {
+          last_present_was_interactive_ = false;
+        }
       }
+      if (!need_settle) {
+        *action = PresentAction::kStaticReuse;
+        last_present_reused_layout_.store(true, std::memory_order_release);
+        pending_interactive_clock_refresh_ = false;
+        return true;
+      }
+      settle_rebuild = true;
     } else {
       *action = PresentAction::kStaticReuse;
       last_present_reused_layout_.store(true, std::memory_order_release);
@@ -719,17 +782,19 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
     }
     const double moved = pan_pixels(mesh, cam);
     const bool scale_changed = !camera_span_matches(mesh, cam);
-    // Inside half the skirt at constant scale the published mesh still
-    // covers the window. Past that, or on any zoom, still present the mesh
-    // with the live camera and omit labels. A sync tess here froze the map
-    // for seconds; drawing the old glyph quads under the new span painted
-    // a white halo and oversized type. One settle after the quiet window
-    // rebuilds coverage and places labels on the matching camera.
+    // Inside the full pan skirt (kPanCoveragePx) at the same zoom bucket the
+    // published mesh still covers the window. Float scale / aspect drift must
+    // not defer labels when zoom_bucket is unchanged. Past the skirt or on
+    // bucket change, present world with the live camera and omit labels until
+    // quiet settle (or zoom rebuild). Sync tess here froze the map for
+    // seconds; replaying layout glyphs under a mismatched span paints halos.
     const double rebuild_at =
-        static_cast<double>(vista::detail::kPanCoveragePx) * 0.5;
-    if (!scale_changed && !zoom_dirty && moved <= rebuild_at) {
+        static_cast<double>(vista::detail::kPanCoveragePx);
+    if (!zoom_dirty && !scale_changed && moved <= rebuild_at) {
       std::lock_guard<std::mutex> lock(mu_);
       cached_cam_ = cam;
+      gesture_defer_labels_ = false;
+      pending_gesture_settle_ = false;
       *action = PresentAction::kInteractiveReuse;
       last_present_reused_layout_.store(true, std::memory_order_release);
       pending_interactive_clock_refresh_ = true;
@@ -744,6 +809,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
       }
       entered_defer = !gesture_defer_labels_;
       gesture_defer_labels_ = true;
+      pending_gesture_settle_ = true;
     }
     if (entered_defer) {
       LOGGING(LOG_INFO,
@@ -762,6 +828,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
       std::lock_guard<std::mutex> lock(mu_);
       last_present_was_interactive_ = false;
       pending_zoom_rebuild_ = false;
+      pending_gesture_settle_ = false;
     }
     // Display-tick mailbox: stage + drain for G0/G1 action. HWND never calls.
     stage_frame(cam, fp, reuse_slices_on_rebuild, /*force_publish=*/false,

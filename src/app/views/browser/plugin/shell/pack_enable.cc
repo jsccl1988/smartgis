@@ -23,7 +23,7 @@ bool enable_pack_by_id(content::PluginHost* host, std::string_view plugin_id) {
   if (!rec || rec->trust == plugin::TrustClass::kDenied) {
     return false;
   }
-  if (rec->state == plugin::PluginState::kEnabled) {
+  if (rec->state == plugin::PluginState::kEnabled && rec->handlers_loaded) {
     return true;
   }
   return g_pack_enable_registry->set_enabled(plugin_id, true, host);

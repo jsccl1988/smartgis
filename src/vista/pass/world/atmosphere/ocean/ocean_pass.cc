@@ -18,6 +18,11 @@
 #include "vista/pass/world/atmosphere/ocean/gpu_fields.h"
 #include "vista/pass/world/atmosphere/ocean/hlsl.h"
 #include "render/rhi/rhi.h"
+// After vista headers: windows.h via log must not inject min/max macros.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include "base/core/log.h"
 
 namespace vista {
 namespace {
@@ -508,6 +513,59 @@ bool OceanPass::ensure_resources(render::rhi::Device* device) {
   return true;
 }
 
+bool OceanPass::upload_topology(render::rhi::Device* device) {
+  if (!device || !vertex_buffer_ || !index_buffer_) {
+    return false;
+  }
+  if (!topology_dirty_) {
+    return true;
+  }
+  const uint32_t vb_bytes =
+      static_cast<uint32_t>(positions_.size() * sizeof(float));
+  const uint32_t ib_bytes =
+      static_cast<uint32_t>(indices_.size() * sizeof(uint32_t));
+  if (vb_bytes == 0 || ib_bytes == 0 || positions_.empty() || indices_.empty()) {
+    return false;
+  }
+  if (!device->upload(vertex_buffer_, positions_.data(), vb_bytes) ||
+      !device->upload(index_buffer_, indices_.data(), ib_bytes)) {
+    return false;
+  }
+  topology_dirty_ = false;
+  return true;
+}
+
+void OceanPass::disable_gpu_fft(const char* reason) {
+  if (params_.prefer_gpu_fft) {
+    LOGGING(LOG_WARNING,
+            "ocean: disable GPU FFT (%s); Gerstner fallback fft=%d mesh=%d",
+            reason ? reason : "unspecified", params_.fft_size,
+            params_.mesh_resolution);
+  }
+  params_.prefer_gpu_fft = false;
+  params_.use_gerstner_fallback = true;
+  height_prepared_ = false;
+  used_gpu_fft_ = false;
+}
+
+bool OceanPass::ensure_gerstner_height(render::rhi::Device* device) {
+  if (!device || !gpu_) {
+    return false;
+  }
+  advance_wave_fields();
+  if (!ensure_resources(device)) {
+    LOGGING(LOG_ERROR, "ocean.record fail: gerstner ensure_resources");
+    return false;
+  }
+  if (!gpu_->upload_height(device_, device, params_.mesh_resolution, heights_,
+                           disp_x_, disp_z_, height_scale_, disp_scale_)) {
+    LOGGING(LOG_ERROR, "ocean.record fail: gerstner upload_height mesh=%d",
+            params_.mesh_resolution);
+    return false;
+  }
+  return true;
+}
+
 bool OceanPass::prepare_gpu(render::rhi::Device* device) {
   if (!device) {
     return false;
@@ -520,21 +578,29 @@ bool OceanPass::prepare_gpu(render::rhi::Device* device) {
     return true;
   }
   if (!ensure_resources(device)) {
+    LOGGING(LOG_ERROR, "ocean.prepare_gpu fail: ensure_resources mesh=%d",
+            params_.mesh_resolution);
+    return false;
+  }
+  // Upload VB/IB before FFT so DEM sync cannot leave the first record() with
+  // a staged height but empty GPU mesh buffers.
+  if (!upload_topology(device)) {
+    LOGGING(LOG_ERROR, "ocean.prepare_gpu fail: upload_topology idx=%u",
+            index_count_);
     return false;
   }
 
   if (want_gpu_fft(device)) {
     // Cold-once: allocate FFT textures + PSOs before DEM, then one-shot
     // spectrum so the height SRV exists without a CPU FFT bake.
-    if (!gpu_->ensure_cold(device_, device, params_.fft_size)) {
-      return false;
+    if (gpu_->ensure_cold(device_, device, params_.fft_size) &&
+        run_gpu_fft_once(device)) {
+      height_prepared_ = true;
+      return true;
     }
-    if (!run_gpu_fft_once(device)) {
-      return false;
-    }
-    // Keep topology_dirty_ so record() still uploads VB/IB.
-    height_prepared_ = true;
-    return true;
+    // Keep ocean_draw: fall back to Gerstner height alloc on interactive
+    // FlyCube when GPU FFT cannot stage (do not kill the sea plane).
+    disable_gpu_fft("prepare_gpu staging failed");
   }
 
   // Gerstner / CPU FFT: reserve the height map with zeros so DEM sync cannot
@@ -550,6 +616,7 @@ bool OceanPass::prepare_gpu(render::rhi::Device* device) {
       (std::max)(0.05f, hs * 0.45f * (std::max)(params_.chop, 0.0f));
   if (!gpu_->upload_height(device_, device, mesh_n, heights_, disp_x_, disp_z_,
                            height_scale_, disp_scale_)) {
+    LOGGING(LOG_ERROR, "ocean.prepare_gpu fail: upload_height mesh=%d", mesh_n);
     return false;
   }
   // Force record() to advance waves this frame into the already-allocated map.
@@ -561,6 +628,8 @@ bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* li
                        uint32_t width, uint32_t height,
                        const render::rhi::CameraMatrices* camera) {
   if (!device || !list || width == 0 || height == 0) {
+    LOGGING(LOG_ERROR, "ocean.record fail: bad args device=%p list=%p size=%ux%u",
+            device, list, width, height);
     return false;
   }
   used_gpu_fft_ = false;
@@ -568,7 +637,7 @@ bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* li
   const bool want_gpu = want_gpu_fft(device);
   // Cold GPU FFT (prepare_gpu) stages a height SRV once. Warm frames reuse it
   // without realloc or a CPU FFT bake — do not dispatch FFT after DEM remesh.
-  const bool gpu_fft_staged =
+  bool gpu_fft_staged =
       want_gpu && gpu_ && gpu_->has_fft_resources(params_.fft_size) &&
       gpu_->height() != nullptr;
 
@@ -580,49 +649,70 @@ bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* li
   // Topology check once per record. Gerstner / CPU FFT advance waves into the
   // already-allocated height map; warm frames must not destroy/recreate it.
   remesh_topology_if_needed();
-  if (!height_prepared_ && (!want_gpu || !gpu_fft_staged)) {
-    // Gerstner (product warm) or CPU-FFT fallback without staged GPU FFT.
-    advance_wave_fields();
-  }
   if (index_count_ == 0) {
     height_prepared_ = false;
     return true;
   }
-  // After prepare_gpu(), mesh/height GPU objects must stay stable — realloc
-  // here would destroy height and FlyCube can recycle the live DEM albedo.
-  if (!height_prepared_) {
-    // Warm StaticReuse: ensure_resources keeps VB/IB when mesh_n + Device match;
-    // upload_height writes into the existing Rgba8 texture (in-place).
-    if (!ensure_resources(device)) {
-      return false;
-    }
-    if (!gpu_->upload_height(device_, device, params_.mesh_resolution, heights_,
-                             disp_x_, disp_z_, height_scale_, disp_scale_)) {
-      return false;
-    }
-  } else if (!vertex_buffer_ || !index_buffer_ || !gpu_->height()) {
-    height_prepared_ = false;
-    return false;
-  }
-  // Keep height_prepared_ across warm GPU-FFT frames; Gerstner clears so the
-  // next present advances waves into the already-allocated map.
-  if (!gpu_fft_staged) {
-    height_prepared_ = false;
+
+  // GPU-FFT staged path: mesh/height must stay stable (realloc recycles DEM).
+  // If DEM sync invalidated height/VB after prepare_gpu, fall back to Gerstner
+  // instead of failing before_opaque (Design B FlyCube present spam).
+  bool use_gpu_height = height_prepared_ && gpu_fft_staged && vertex_buffer_ &&
+                        index_buffer_ && gpu_->height();
+  if (height_prepared_ && !use_gpu_height) {
+    disable_gpu_fft(vertex_buffer_ && index_buffer_
+                        ? (gpu_ && gpu_->height() ? "fft resources incomplete"
+                                                  : "height SRV missing")
+                        : "mesh buffers missing");
+    gpu_fft_staged = false;
   }
 
-  if (topology_dirty_) {
-    const uint32_t vb_bytes =
-        static_cast<uint32_t>(positions_.size() * sizeof(float));
-    const uint32_t ib_bytes =
-        static_cast<uint32_t>(indices_.size() * sizeof(uint32_t));
-    if (!device->upload(vertex_buffer_, positions_.data(), vb_bytes) ||
-        !device->upload(index_buffer_, indices_.data(), ib_bytes)) {
+  if (!use_gpu_height) {
+    if (!ensure_gerstner_height(device)) {
       return false;
     }
-    topology_dirty_ = false;
+    height_prepared_ = false;
+  } else {
+    used_gpu_fft_ = true;
+  }
+
+  if (!upload_topology(device)) {
+    // Mesh grew after a warm remesh while height_prepared_ skipped
+    // ensure_resources — rebuild buffers then retry once.
+    if (!ensure_resources(device) || !upload_topology(device)) {
+      LOGGING(LOG_ERROR,
+              "ocean.record fail: upload_topology idx=%u vb=%p ib=%p "
+              "prepared=%d gpu_fft=%d",
+              index_count_, vertex_buffer_, index_buffer_,
+              height_prepared_ ? 1 : 0, use_gpu_height ? 1 : 0);
+      if (use_gpu_height) {
+        disable_gpu_fft("upload_topology after GPU height");
+        if (!ensure_gerstner_height(device) || !upload_topology(device)) {
+          return false;
+        }
+        use_gpu_height = false;
+      } else {
+        return false;
+      }
+    }
   }
 
   if (!ensure_pipeline(device)) {
+    LOGGING(LOG_ERROR, "ocean.record fail: ensure_pipeline");
+    if (use_gpu_height) {
+      disable_gpu_fft("ensure_pipeline after GPU height");
+      if (!ensure_gerstner_height(device) || !upload_topology(device) ||
+          !ensure_pipeline(device)) {
+        return false;
+      }
+      use_gpu_height = false;
+    } else {
+      return false;
+    }
+  }
+
+  if (!gpu_->height()) {
+    LOGGING(LOG_ERROR, "ocean.record fail: height null before draw");
     return false;
   }
 

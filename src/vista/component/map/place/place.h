@@ -62,7 +62,7 @@ struct PlacedMesh {
   // Fill, line, and circle with a symbol id draw solid when the icon is
   // missing. Icons do not.
   bool solid_if_icon_missing = false;
-  // Line/circle strokes paint after DEM rasters (fill → hillshade → stroke).
+  // Line/circle strokes paint after DEM bake and area fills.
   bool stroke = false;
   // Text/icon quads are placed in lon/lat from the current view's pixel
   // mapping. Camera-only DrawCache reuse must not keep them across zooms.

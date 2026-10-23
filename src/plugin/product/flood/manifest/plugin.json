@@ -24,6 +24,7 @@
     ],
     "processing": [
       {"id": "flood.inundate", "title": "DEM flood inundation"},
+      {"id": "flood.level_mask", "title": "One water level mask without present"},
       {"id": "flood.export_mask", "title": "Export flood mask"}
     ]
   }

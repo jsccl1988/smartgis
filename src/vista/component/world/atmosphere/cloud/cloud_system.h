@@ -4,6 +4,8 @@
 #ifndef VISTA_COMPONENT_WORLD_ATMOSPHERE_CLOUD_CLOUD_SYSTEM_H_
 #define VISTA_COMPONENT_WORLD_ATMOSPHERE_CLOUD_CLOUD_SYSTEM_H_
 
+#include <cstddef>
+
 #include "vista/component/world/atmosphere/field/field_store.h"
 #include "vista/vista_export.h"
 
@@ -47,6 +49,11 @@ class VISTA_EXPORT CloudSystem {
 
   // Maps AtmosphereParams::quality to raymarch step budget.
   static int raymarch_steps_for_quality(int quality);
+
+  // Fill a regular lon/lat grid from kCloudCover (same layout as sea_mask).
+  bool fill_cover_grid(const FieldStore& store, const FieldGrid& extent,
+                       int cols, int rows, double time_sec, float* out_cover,
+                       std::size_t out_count) const;
 
   // When params.enabled, advects kCloudCover cells by wind + noise and
   // writebacks via set_layer. Returns false if no cover layer or bad dt.

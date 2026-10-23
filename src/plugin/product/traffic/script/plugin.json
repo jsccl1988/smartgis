@@ -1,0 +1,15 @@
+{
+  "id": "smartgis.traffic_schemes",
+  "name": "路径方案费用对照",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "python",
+  "author": "The Mogu Authors",
+  "description": "Compare least-cost schemes and present the selected path",
+  "entry": "plugin.py",
+  "contributes": {
+    "commands": [
+      {"id": "traffic.scheme_table", "title": "路径方案费用对照", "menu": "tools"}
+    ]
+  }
+}

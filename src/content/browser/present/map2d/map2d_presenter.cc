@@ -159,7 +159,10 @@ uint64_t Map2dPresenter::layout_build_count() const {
 }
 
 bool Map2dPresenter::last_present_reused_layout() const {
-  return scenic_ ? false : cache_.last_present_reused_layout();
+  // Always reflect Map2dFrameCache (gpu / FlyCube path). scenic_ is lazily
+  // null when MAP2D_ENGINE!=scenic but the old scenic_ ? false guard made
+  // layout-cache unit tests read false after StaticReuse prepares.
+  return cache_.last_present_reused_layout();
 }
 
 void Map2dPresenter::paint(HDC hdc, int width_px, int height_px) const {

@@ -22,9 +22,11 @@
 #include "app/views/browser/nav/detail/seh_workspace.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "base/process/switches.h"
+#include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/view_navigation.h"
 #include "content/browser/session/browser_session.h"
 #include "content/public/gis_contents.h"
+#include "content/public/gis_document.h"
 #include "content/public/tool_session.h"
 #include "content/public/types.h"
 #include "plugin/product/world3d/commands.h"
@@ -259,6 +261,19 @@ void Browser::push_shared_extent() {
   }
   syncing_extent_ = false;
   refresh_scale();
+  if (ui::views::DrawHost* map = draw_host()) {
+    content::Extent2 world = content::kChinaLonLatExtent;
+    if (content::GisDocument* doc = session_->gis_contents()->gis_document()) {
+      content::Extent2 doc_extent{};
+      if (doc->compute_extent(&doc_extent)) {
+        world = content::china_or(doc_extent);
+      }
+    }
+    const content::Extent2 view = session_->view_world_extent(w, h);
+    map->set_eagle_eye_world_extent(world);
+    map->set_eagle_eye_view_extent(view);
+    map->sync_eagle_eye();
+  }
 }
 
 void Browser::pull_orbit_extent() {

@@ -1,0 +1,15 @@
+{
+  "id": "smartgis.mine_reserves",
+  "name": "地层对体积对照",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "python",
+  "author": "The Mogu Authors",
+  "description": "Compare prism volumes across stratum pairs and present the selected top",
+  "entry": "plugin.py",
+  "contributes": {
+    "commands": [
+      {"id": "mine.reserve_table", "title": "地层对体积对照", "menu": "tools"}
+    ]
+  }
+}

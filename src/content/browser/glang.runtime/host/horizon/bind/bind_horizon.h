@@ -5,7 +5,7 @@
 #define IL_RUNTIME_CAPABILITY_HORIZON_BIND_H_
 
 #include "content/browser/capability/host.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 namespace content {
 
@@ -13,7 +13,7 @@ namespace content {
 namespace detail {
 
 // Horizon slots only: clock, inject, shell UI, and shell gates.
-void register_horizon(content::ShellBridge& browser,
+void register_horizon(content::Shell& browser,
                       content::CapabilityHost* out,
                       const wchar_t* mark_leaf);
 

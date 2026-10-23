@@ -4,6 +4,7 @@
 #include "ui/views/kernel/layout/layout.h"
 
 #include <algorithm>
+#include <memory>
 #include <vector>
 
 namespace ui {
@@ -352,6 +353,23 @@ template void BoxLayout::layout_along<Axis::kHorizontal>(View*);
 template void BoxLayout::layout_along<Axis::kVertical>(View*);
 template Size BoxLayout::preferred_along<Axis::kHorizontal>(const View*) const;
 template Size BoxLayout::preferred_along<Axis::kVertical>(const View*) const;
+
+void install_fill_layout(View* host) {
+  if (!host) {
+    return;
+  }
+  host->set_layout_manager(std::make_unique<FillLayout>());
+}
+
+BoxLayout* install_box_layout(View* host, BoxLayout::Orientation orientation) {
+  if (!host) {
+    return nullptr;
+  }
+  auto layout = std::make_unique<BoxLayout>(orientation);
+  BoxLayout* raw = layout.get();
+  host->set_layout_manager(std::move(layout));
+  return raw;
+}
 
 }  // namespace views
 }  // namespace ui

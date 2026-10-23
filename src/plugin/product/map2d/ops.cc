@@ -10,6 +10,7 @@
 #include <rapidjson/document.h>
 
 #include "content/public/plugin_host.h"
+#include "plugin/product/map2d/pyramid/pyramid.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/capability/contribute.h"
 #include "plugin/runtime/host/processing/args_json.h"
@@ -127,6 +128,8 @@ bool process_frame_to(content::PluginHost* host, std::string_view args_json) {
         "{\"error\":\"frame_failed\",\"op\":\"map2d.frame_to\"}");
     return false;
   }
+  const double half = (span_deg > 0.05) ? (span_deg * 0.5) : 2.0;
+  note_view_extent(lon - half, lat - half, lon + half, lat + half);
   set_operation_result("{\"ok\":true,\"op\":\"map2d.frame_to\"}");
   return true;
 }

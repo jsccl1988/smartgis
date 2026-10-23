@@ -63,6 +63,8 @@ class UI_EXPORT View {
   // Layout-aware preferred size: asks LayoutManager when present.
   Size get_preferred_size() const;
 
+  // From EXEs prefer install_fill_layout / install_box_layout (layout.h):
+  // Debug STL unique_ptr<LayoutManager> must be allocated inside ui_views.dll.
   void set_layout_manager(std::unique_ptr<LayoutManager> layout);
   LayoutManager* layout_manager() const { return layout_.get(); }
 

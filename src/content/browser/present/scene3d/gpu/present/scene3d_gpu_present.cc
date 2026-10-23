@@ -657,7 +657,12 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       }
       // Zone / lithology atlases must stay textured 鈥?solid albedo paint
       // collapses orthogrid3d to one amber parallelogram (color_buckets=2).
-      if (overlays_.tin_has_drape()) {
+      // Storm-surge cyan still needs the solid fill: the depth atlas often
+      // samples as DEM green, so the free surface never clears water_on_land.
+      const bool water_albedo = tin_albedo[2] >= 140 && tin_albedo[1] >= 100 &&
+                                tin_albedo[0] < 90 &&
+                                tin_albedo[2] > tin_albedo[0] + 40;
+      if (overlays_.tin_has_drape() && !water_albedo) {
         break;
       }
       gis::style::ResolvedPaint fill;
@@ -777,12 +782,16 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   const bool skip_ocean_for_dem_albedo =
       ocean_on && !skip_ocean &&
       look_preset_ != Scene3dLookPreset::kLegacyStereo && !dem_bake_usable;
-  // Olive solid gate when bake is missing/unusable, or whenever ocean runs:
-  // FlyCube recycles the DEM albedo SRV during ocean height alloc (alpha 0)
-  // even when the CPU bake looks healthy (tex_mean>=16) and sky is off.
-  // SrcAlpha then keeps the navy clear. atmosphere.full landish score needs
-  // solid PSO + olive ColorCB (see TerrainPass / draw.cc).
-  const bool flycube_ocean_churn = ocean_on;
+  // Olive solid gate when bake is missing/unusable, or on the cold ocean
+  // height-alloc frame only: FlyCube recycles the DEM albedo SRV during
+  // prepare_gpu (alpha 0) even when the CPU bake looks healthy. Warm frames
+  // skip prepare_gpu and must keep textured DEM — forcing the gate for every
+  // ocean_on frame left China olive forever and (with skip below) never drew
+  // the sea plane (ocean_draw=0 bake=1 albedo_gate=1).
+  // atmosphere.full landish score needs solid PSO + olive ColorCB on cold
+  // churn only (see TerrainPass / draw.cc).
+  const bool flycube_ocean_churn =
+      ocean_on && !dem_gpu_synced_after_ocean_;
   const bool need_albedo_gate =
       (!dem_bake_usable || flycube_ocean_churn) &&
       (sky_on || ocean_on ||
@@ -861,9 +870,11 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   gpu_scene_.set_solid_color(1.f, 1.f, 1.f, 1.f);
   gpu_scene_.update_solid_terrain(terrain_world_.generation(),
                                   need_albedo_gate);
-  // Skip ocean draw when prepare was skipped for DEM albedo (or solid gate).
-  const bool skip_ocean_for_solid_gate =
-      skip_ocean_for_dem_albedo || (need_albedo_gate && ocean_on);
+  // Skip ocean draw only when DEM bake is unusable. The solid albedo gate
+  // protects textured DEM during cold height alloc; it must not suppress the
+  // sea plane — (need_albedo_gate && ocean_on) was always true under the old
+  // flycube_ocean_churn=ocean_on rule and forced ocean_draw=0 forever.
+  const bool skip_ocean_for_solid_gate = skip_ocean_for_dem_albedo;
 
   // Pipelines before HUD fill / graph::present. Mesh upload stays inside
   // record_draws so sky/depth allocation in the pre slot happens first.
@@ -1038,12 +1049,24 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   view_input.effects.push_back(atmosphere_effects.post_effect());
   view_input.effects.push_back(&hud_effect);
 
+  // Latch cold-ocean / cold-sky bookkeeping before graph::present. Locals
+  // above already captured this frame's churn; delaying the flags until after
+  // a successful present left dem_gpu_synced_after_ocean_/sky_ false on every
+  // Design B FlyCube fail and forced prepare_gpu + mark_meshes_dirty forever
+  // (scene3d.present fail spam + sub-5 FPS with ocean=1).
+  if (ocean_on && !skip_ocean) {
+    dem_gpu_synced_after_ocean_ = true;
+  }
+  if (sky_on) {
+    dem_gpu_synced_after_sky_ = true;
+  }
+
   base::ElapsedTimer record_timer;
   const bool ok = render::graph::present(device, view_input);
   if (!ok) {
     LOGGING(LOG_ERROR,
             "scene3d.present fail: graph::present size=%ux%u nodes=%zu "
-            "backend=%s",
+            "backend=%s (cold ocean/sky already latched; next frame warm)",
             width_px, height_px, terrain_world_.node_count(),
             render_engine_name);
     return false;
@@ -1056,12 +1079,6 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   // graph::present owns execute + present. No second clock without a new
   // signature.
   note_scene3d_phase_present(0);
-  if (ocean_on && !skip_ocean) {
-    dem_gpu_synced_after_ocean_ = true;
-  }
-  if (sky_on) {
-    dem_gpu_synced_after_sky_ = true;
-  }
   return true;
 }
 

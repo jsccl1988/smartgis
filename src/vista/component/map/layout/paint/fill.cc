@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/process/switches.h"
 #include "gis/style/eval/style_rules.h"
 #include "gis/style/paint_resolve.h"
 #include "gis/style/style_types.h"
@@ -262,9 +263,21 @@ void note_geom_edges(
   }
 }
 
-// Map four-color on land polygons that share a quantized border. One feature
-// keeps the style color. Greedy coloring uses four pastels; a fifth conflict
-// reuses the least-used neighbor color.
+// Opt-in (--map2d-province-colors=1): greedy four-color pastels on adjacent
+// land polygons. Default off so product carto keeps style fill-color (cream).
+bool province_colors_enabled() {
+  const char* e = base::switch_cstr("map2d-province-colors");
+  if (!e || !e[0]) {
+    return false;
+  }
+  if (e[0] == '0' || e[0] == 'n' || e[0] == 'N' || e[0] == 'f' || e[0] == 'F') {
+    return false;
+  }
+  return true;
+}
+
+// Map four-color on land polygons that share a quantized border. Greedy
+// coloring uses four pastels; a fifth conflict reuses the least-used neighbor.
 void apply_province_colors(
     const std::vector<const gis::style::StyleLayer*>& fill_layers,
     std::vector<FillJob>* jobs) {
@@ -425,8 +438,8 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
       return;
     }
     const gis::style::StyleLayer& layer = *fill_layers[li];
-    // Area is omitted entirely when a raster sheet hits the view (see
-    // order_paint_bands). This clip only runs for the area-only band.
+    // Area draws above DEM bake. Clip land to the DEM footprint so cream does
+    // not spill past the hillshade sheet as a second body.
     batches.visit(layer, layers, [&](const LayerBatch& batch) {
       for (size_t i = 0; i < batch.geoms.size(); ++i) {
         if (layout_gen_stale(in)) {
@@ -434,9 +447,6 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
         }
         const OGRGeometry* raw = batch.geoms[i];
         const OGRGeometry* geom = nullptr;
-        // Cream land stays under the jet sheet. Clip it to the DEM footprint
-        // so the fill does not spill past the hillshade as a second body,
-        // and so a missing sheet still has a land polygon.
         LayoutTile land_clip;
         const LayoutTile* use_tile = clip_tile;
         LayoutTile hs;
@@ -467,7 +477,16 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
   if (jobs.empty()) {
     return;
   }
-  apply_province_colors(fill_layers, &jobs);
+  if (province_colors_enabled()) {
+    apply_province_colors(fill_layers, &jobs);
+  }
+  if (!in.hillshade_tiles.empty()) {
+    for (FillJob& job : jobs) {
+      if (job.paint.fill_opacity > 0.55f) {
+        job.paint.fill_opacity = 0.55f;
+      }
+    }
+  }
   FillTessOptions fill_opts;
   fill_opts.world_units_per_pixel = wupp;
   auto to_item = [fill_opts](const FillJob& job) -> std::optional<DrawItem> {

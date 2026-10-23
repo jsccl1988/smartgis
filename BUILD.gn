@@ -74,6 +74,11 @@ group("test_shell") {
     "//src/plugin:plugin_host_test",
     "//src/plugin/runtime/host:plugin_manager_test",
     "//src/plugin/runtime/processing:processing_ops_test",
+    "//src/plugin/runtime/extension:plugin_python_test",
+    "//src/plugin/runtime/extension:script_main_test",
+    "//src/plugin/runtime/samples:sample_start_test",
+    "//src/content/browser/glang.runtime:ext_module_test",
+    "//src/content/browser/glang.runtime:plugin_fn_test",
     "//src/plugin/product:product_native",
     # world3d orthogrid / hexgrid: 4-edge gridbnd Laplace + 3D hex Laplace.
     "//src/plugin/product/world3d:orthogrid_laplace_test",

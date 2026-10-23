@@ -86,25 +86,47 @@ if (cuda_home == "") {
 }
 has_cuda = cuda_home != ""
 
+# When is_component_build (default): shared_library + _USRDLL (DLL).
+# When false: static_library into the exe; COMPONENT_BUILD unset → export
+# macros no-op. See docs/superpowers §DLL / STL trust model.
 template("product_shared_library") {
-  shared_library(target_name) {
-    forward_variables_from(invoker, "*", [ "configs", "dll_stem" ])
-    configs += [ "//build:legacy" ]
-    if (defined(invoker.configs)) {
-      configs += invoker.configs
-    }
-    if (!defined(defines)) {
-      defines = []
-    }
-    defines += [ "_USRDLL" ]
-    if (defined(invoker.dll_stem)) {
-      if (is_debug) {
-        output_name = invoker.dll_stem + "_d"
-      } else {
-        output_name = invoker.dll_stem
+  if (is_component_build) {
+    shared_library(target_name) {
+      forward_variables_from(invoker, "*", [ "configs", "dll_stem" ])
+      configs += [ "//build:legacy" ]
+      if (defined(invoker.configs)) {
+        configs += invoker.configs
       }
-    } else if (is_debug && !defined(invoker.output_name)) {
-      output_name = target_name + "_d"
+      if (!defined(defines)) {
+        defines = []
+      }
+      defines += [ "_USRDLL" ]
+      if (defined(invoker.dll_stem)) {
+        if (is_debug) {
+          output_name = invoker.dll_stem + "_d"
+        } else {
+          output_name = invoker.dll_stem
+        }
+      } else if (is_debug && !defined(invoker.output_name)) {
+        output_name = target_name + "_d"
+      }
+    }
+  } else {
+    static_library(target_name) {
+      forward_variables_from(invoker, "*", [ "configs", "dll_stem" ])
+      configs += [ "//build:legacy" ]
+      if (defined(invoker.configs)) {
+        configs += invoker.configs
+      }
+      if (defined(invoker.dll_stem)) {
+        if (is_debug) {
+          output_name = invoker.dll_stem + "_d"
+        } else {
+          output_name = invoker.dll_stem
+        }
+      } else if (is_debug && !defined(invoker.output_name)) {
+        output_name = target_name + "_d"
+      }
     }
   }
 }

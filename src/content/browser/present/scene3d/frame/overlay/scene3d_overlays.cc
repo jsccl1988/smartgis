@@ -559,7 +559,9 @@ void Scene3dOverlays::attach_tin(vista::World* world, const OrbitGeoFrame& geo,
     constexpr int kBins = 48;
     constexpr float kSurfEps = 0.045f;
     // Lift free-surface above DEM so cyan reads in HWND captures.
-    const float water_eps = water_albedo ? 0.14f : kSurfEps;
+    // 0.14 sat in the DEM roof and z-fought to green. A taller lift keeps
+    // the cyan sheet in the HWND capture.
+    const float water_eps = water_albedo ? 0.45f : kSurfEps;
     const float dx = (std::max)(dem_max_x - dem_min_x, 1.0e-4f);
     const float dz = (std::max)(dem_max_z - dem_min_z, 1.0e-4f);
     const size_t nbin = static_cast<size_t>(kBins) * static_cast<size_t>(kBins);

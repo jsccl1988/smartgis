@@ -43,4 +43,22 @@ void Map2dSink::set_present_bridges(PresentGpuFn present_gpu,
   present_bridges_installed_ = static_cast<bool>(export_bmp_);
 }
 
+void Map2dSink::set_furniture_bridges(SetFurnitureFn set_furniture) {
+  set_furniture_ = std::move(set_furniture);
+  furniture_bridges_installed_ = static_cast<bool>(set_furniture_);
+  if (set_furniture_) {
+    set_furniture_(furniture_scale_bar_, furniture_north_arrow_,
+                   furniture_border_);
+  }
+}
+
+void Map2dSink::set_furniture(bool scale_bar, bool north_arrow, bool border) {
+  furniture_scale_bar_ = scale_bar;
+  furniture_north_arrow_ = north_arrow;
+  furniture_border_ = border;
+  if (set_furniture_) {
+    set_furniture_(scale_bar, north_arrow, border);
+  }
+}
+
 }  // namespace plugin

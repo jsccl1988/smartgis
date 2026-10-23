@@ -136,6 +136,7 @@ class AtmosphereSession {
  private:
   vista::atmosphere::FieldGrid field_grid() const;
   Extent2 world_extent() const;
+  void bind_frame_passes();
   bool prepare_ocean();
   bool prepare_clouds();
   bool prepare_sky();
@@ -148,8 +149,10 @@ class AtmosphereSession {
   const GisScene* scene_ = nullptr;
   Scene3dGpuPresent* gpu_ = nullptr;
 
-  // Flags first -?pass POD sizes shift often; keep enable bits at stable
-  // offsets so inlined getters in other TUs cannot read a stale layout.
+  // Flags + frame first: OceanPass / CloudPass POD sizes shift across vista
+  // rebuilds. Keeping AtmosphereFrame before the passes prevents a larger
+  // OceanPass (Design B GPU FFT) in vista_d.dll from clobbering ocean_pass_
+  // pointers when content_d.dll was compiled against an older sizeof.
   bool wind_overlay_enabled_ = false;
   bool globe_enabled_ = false;
   bool sat_cloud_enabled_ = false;
@@ -162,13 +165,13 @@ class AtmosphereSession {
   std::uint64_t last_sim_qpc_ = 0;
 
   vista::atmosphere::EnvironmentPtr atmosphere_;
+  vista::AtmosphereFrame atmosphere_frame_;
   vista::OceanPass ocean_pass_;
   vista::CloudPass cloud_pass_;
   vista::SkyPass sky_pass_;
   vista::FogPass fog_pass_;
   vista::GlobePass globe_pass_;
   vista::SatCloudPass sat_cloud_pass_;
-  vista::AtmosphereFrame atmosphere_frame_;
 
   // Sea-mask FieldStore sample is static for a fixed geo extent; refill only
   // when the orbit frame extent changes (was 32x32 samples every present).

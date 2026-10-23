@@ -5,11 +5,13 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <fstream>
 #include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
 
+#include "base/core/log.h"
 #include "content/public/plugin_host.h"
 #include "gis/analysis/geochem/grade.h"
 #include "gis/analysis/geochem/idw.h"
@@ -419,6 +421,127 @@ bool geochem_style_apply(content::PluginHost* host, std::string_view args_json) 
       });
 }
 
+// Last threshold tally. Present does not paint; the grades pack batches
+// k_sigma rows, then presents one selected threshold via geochem.stats.
+bool g_tally_ok = false;
+
+int count_at_or_above(const gis::detail::GeochemSampleSet& set,
+                      std::string_view element, double threshold) {
+  const int index = gis::detail::geochem_element_index(set, element);
+  if (index < 0) {
+    return -1;
+  }
+  int exceed = 0;
+  for (const gis::detail::GeochemSample& sample : set.samples) {
+    if (index >= static_cast<int>(sample.values.size())) {
+      continue;
+    }
+    const double value = sample.values[static_cast<size_t>(index)];
+    if (std::isfinite(value) && value >= threshold) {
+      ++exceed;
+    }
+  }
+  return exceed;
+}
+
+bool write_tally_json(const std::string& path, const std::string& element,
+                      double k_sigma, const gis::detail::GeochemElementStats& stats,
+                      int exceed_count) {
+  rapidjson::StringBuffer buf;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+  writer.StartObject();
+  writer.Key("element");
+  writer.String(element.c_str());
+  writer.Key("k_sigma");
+  writer.Double(k_sigma);
+  writer.Key("count");
+  writer.Int(stats.count);
+  writer.Key("mean");
+  writer.Double(stats.mean);
+  writer.Key("background");
+  writer.Double(stats.background);
+  writer.Key("threshold");
+  writer.Double(stats.threshold);
+  writer.Key("exceed_count");
+  writer.Int(exceed_count);
+  writer.EndObject();
+  std::ofstream out(path, std::ios::binary | std::ios::trunc);
+  if (!out) {
+    LOGGING(LOG_ERROR, "geochem.threshold_tally: cannot write %s", path.c_str());
+    return false;
+  }
+  out << buf.GetString() << "\n";
+  return static_cast<bool>(out);
+}
+
+bool geochem_threshold_tally_compute(std::string_view args_json) {
+  g_tally_ok = false;
+  rapidjson::Document args;
+  if (!parse_args_json(args_json, &args)) {
+    set_operation_result(
+        "{\"error\":\"bad_args\",\"op\":\"geochem.threshold_tally\"}");
+    return false;
+  }
+  std::string input;
+  std::string element = "Cu";
+  std::string output;
+  double k_sigma = 0;
+  if (!args_json_string(args, "input", &input) || input.empty() ||
+      !args_json_string(args, "output", &output) || output.empty() ||
+      !args_json_double(args, "k_sigma", &k_sigma) || !(k_sigma > 0.0)) {
+    set_operation_result(
+        "{\"error\":\"bad_args\",\"op\":\"geochem.threshold_tally\"}");
+    return false;
+  }
+  args_json_string(args, "element", &element);
+  std::string err;
+  const gis::detail::GeochemSampleSet set = load_samples(args, element, &err);
+  if (!set.ok) {
+    set_operation_result(std::string("{\"error\":\"") +
+                         (err.empty() ? "load_failed" : err) +
+                         "\",\"op\":\"geochem.threshold_tally\"}");
+    return false;
+  }
+  const gis::detail::GeochemElementStats stats =
+      gis::detail::compute_geochem_stats(set, element, /*bins=*/10, k_sigma);
+  if (!stats.ok) {
+    set_operation_result(
+        std::string("{\"error\":\"") +
+        (stats.error.empty() ? "stats_failed" : stats.error) +
+        "\",\"op\":\"geochem.threshold_tally\"}");
+    return false;
+  }
+  const int exceed = count_at_or_above(set, element, stats.threshold);
+  if (exceed < 0 || !write_tally_json(output, element, k_sigma, stats, exceed)) {
+    set_operation_result(
+        "{\"error\":\"write_failed\",\"op\":\"geochem.threshold_tally\"}");
+    return false;
+  }
+  g_tally_ok = true;
+  set_operation_result(
+      std::string("{\"ok\":true,\"op\":\"geochem.threshold_tally\",\"exceed_count\":") +
+      std::to_string(exceed) + ",\"threshold\":" + std::to_string(stats.threshold) +
+      "}");
+  return true;
+}
+
+bool geochem_threshold_tally_present(content::PluginHost*) {
+  if (!g_tally_ok) {
+    LOGGING(LOG_ERROR, "geochem.threshold_tally: no tally to keep");
+    set_operation_result(
+        "{\"error\":\"tally_failed\",\"op\":\"geochem.threshold_tally\"}");
+    return false;
+  }
+  set_operation_result("{\"ok\":true,\"op\":\"geochem.threshold_tally\"}");
+  return true;
+}
+
+bool geochem_threshold_tally(content::PluginHost* host,
+                             std::string_view args_json) {
+  return run_processing_phases(host, args_json, geochem_threshold_tally_compute,
+                               geochem_threshold_tally_present);
+}
+
 }  // namespace
 
 bool register_geochem(content::PluginHost* host) {
@@ -486,6 +609,11 @@ bool register_geochem(content::PluginHost* host) {
          host->contribute_processing(
              kPluginId, {"geochem.style_apply", "Apply graded sample style"},
              geochem_style_apply) &&
+         host->contribute_processing(
+             kPluginId,
+             {"geochem.threshold_tally",
+              "Sample exceedance at one threshold without present"},
+             geochem_threshold_tally) &&
          host->contribute_export_frame(
              kPluginId, {"geochem_samples", 114.18, 30.45, 114.36, 30.60});
 }

@@ -59,6 +59,11 @@ declare_args() {
   is_msan = false
   is_tsan = false
 
+  # Chromium-style component build analogue (DLL / STL trust §).
+  # true (default): product_shared_library → DLL + COMPONENT_BUILD.
+  # false: product modules link as static_library; export macros no-op.
+  is_component_build = true
+
   # Deprecated: no longer drives cmake() for //third_party.
   # Install prefix is third_party/.install via `build.bat t`.
   is_build_third_party = false
@@ -118,6 +123,7 @@ _compile_defaults = [
   "//build/config:default",
   "//build/config:c_std",
   "//build/config:cc_std",
+  "//build/config:component_build",
 ]
 
 if (is_posix) {

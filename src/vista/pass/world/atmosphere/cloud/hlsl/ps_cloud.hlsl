@@ -12,7 +12,14 @@ cbuffer CloudCB : register(b1)
     float cam_y;
     float cam_z;
     float density_cell;
+    float deck_hx;
+    float deck_hz;
+    float has_cover_tex;
+    float pad0;
 };
+
+Texture2D cover_map : register(t0);
+SamplerState linear_sampler : register(s0);
 
 struct PSIn
 {
@@ -34,16 +41,32 @@ float3 snap_cell(float3 p, float cell)
     return floor(p / cell + 0.5) * cell;
 }
 
+float cover_at(float3 p, float c)
+{
+    float local = c;
+    if (has_cover_tex > 0.5)
+    {
+        float hx = max(deck_hx, 1e-3);
+        float hz = max(deck_hz, 1e-3);
+        float2 uv = float2(p.x / hx, p.z / hz) * 0.5 + 0.5;
+        float tex = cover_map.Sample(linear_sampler, saturate(uv)).r;
+        // Field cover texture modulates the slab; scalar cover is the floor.
+        local = saturate(c * (0.35 + 0.65 * tex));
+    }
+    return local;
+}
+
 float density_at(float3 p, float base_y, float top_y, float c)
 {
     float lo = min(base_y, top_y);
     float hi = max(base_y, top_y);
-    if (p.y < lo || p.y > hi || c <= 0.0)
+    float local = cover_at(p, c);
+    if (p.y < lo || p.y > hi || local <= 0.0)
         return 0.0;
     float t = (p.y - lo) / max(hi - lo, 1e-3);
     float falloff = 4.0 * t * (1.0 - t);
     float n = hash31(p * 0.35);
-    return c * falloff * (0.35 + 0.65 * n);
+    return local * falloff * (0.35 + 0.65 * n);
 }
 
 float4 main(PSIn input) : SV_TARGET
@@ -80,7 +103,8 @@ float4 main(PSIn input) : SV_TARGET
     float silver = toward_sun * toward_sun;
     const float k_powder = 8.0;
     const float k_silver = 1.5;
-    for (int i = 0; i < 64; ++i)
+    // Cap loop at 128 to match Design B quality-3 step budget.
+    for (int i = 0; i < 128; ++i)
     {
         if (i >= nsteps)
             break;

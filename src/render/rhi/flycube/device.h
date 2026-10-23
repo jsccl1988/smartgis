@@ -92,6 +92,8 @@ class FlycubeDevice : public Device {
   bool ensure_compute();
   bool output_color_format(gli::format* format) const;
   FlycubeProgram* find_program(Pipeline* pipeline) const;
+  // Clears retained BindingSets on every program (call with epoch bump).
+  void begin_frame_bindings();
   void clear_imported_shared();
   void replay_draws(::CommandList* fc_list, const Pass& segment,
                     bool pass_has_depth);

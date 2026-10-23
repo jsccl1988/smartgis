@@ -43,16 +43,16 @@ int main() {
   setvbuf(stdout, nullptr, _IONBF, 0);
   setvbuf(stderr, nullptr, _IONBF, 0);
 
-  expect(CloudPass::step_count_for_quality(0) == 8, "steps q0");
-  expect(CloudPass::step_count_for_quality(1) == 16, "steps q1");
-  expect(CloudPass::step_count_for_quality(2) == 32, "steps q2");
-  expect(CloudPass::step_count_for_quality(3) == 64, "steps q3");
+  expect(CloudPass::step_count_for_quality(0) == 16, "steps q0");
+  expect(CloudPass::step_count_for_quality(1) == 32, "steps q1");
+  expect(CloudPass::step_count_for_quality(2) == 64, "steps q2");
+  expect(CloudPass::step_count_for_quality(3) == 128, "steps q3");
 
   expect(CloudPass::uses_half_res_proxy(0), "proxy q0");
-  expect(CloudPass::uses_half_res_proxy(1), "proxy q1");
+  expect(!CloudPass::uses_half_res_proxy(1), "no proxy q1");
   expect(!CloudPass::uses_half_res_proxy(2), "no proxy q2");
   expect(CloudPass::density_cell_for_quality(0) > 0.0f, "cell q0");
-  expect(CloudPass::density_cell_for_quality(1) > 0.0f, "cell q1");
+  expect_near(CloudPass::density_cell_for_quality(1), 0.0f, 1.0e-6f, "cell q1");
   expect_near(CloudPass::density_cell_for_quality(2), 0.0f, 1.0e-6f, "cell q2");
   expect_near(CloudPass::density_cell_for_quality(3), 0.0f, 1.0e-6f, "cell q3");
 
@@ -164,7 +164,7 @@ int main() {
     expect(list != nullptr, "cmd list");
     CameraMatrices cam = render::rhi::make_perspective_camera(
         0.785398f, 1.0f, 0.1f, 10000.0f);
-    // quality 1 exercises half-res proxy constants; quality 2 full detail.
+    // Design B: quality ≥ 1 is full detail; quality 0 keeps half-res proxy.
     expect(pass.record(device.get(), list, 128, 72, &cam, 1), "record q1");
     {
       auto* stub = static_cast<StubCommandList*>(list);
@@ -176,8 +176,8 @@ int main() {
       if (cloud_cb && cloud_cb->has_bytes) {
         vista::CloudConstants cb{};
         std::memcpy(&cb, cloud_cb->bytes, sizeof(cb));
-        expect(cb.steps == 16.0f, "q1 steps in CB");
-        expect(cb.density_cell > 0.0f, "q1 density_cell in CB");
+        expect(cb.steps == 32.0f, "q1 steps in CB");
+        expect_near(cb.density_cell, 0.0f, 1.0e-6f, "q1 density_cell zero");
       }
     }
 
@@ -195,7 +195,7 @@ int main() {
     if (cloud_cb && cloud_cb->has_bytes) {
       vista::CloudConstants cb{};
       std::memcpy(&cb, cloud_cb->bytes, sizeof(cb));
-      expect(cb.steps == 32.0f, "q2 steps in CB");
+      expect(cb.steps == 64.0f, "q2 steps in CB");
       expect_near(cb.density_cell, 0.0f, 1.0e-6f, "q2 density_cell zero");
     }
     expect(stub->begin_render_pass_calls >= 1, "load pass marker");

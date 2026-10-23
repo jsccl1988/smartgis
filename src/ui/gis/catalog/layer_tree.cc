@@ -762,15 +762,31 @@ bool LayerTree::move_layer(const std::string& id, int delta) {
 }
 
 void LayerTree::set_visible_changed(VisibleChanged fn) {
+  visible_changed_fn_ = nullptr;
+  visible_changed_baton_ = nullptr;
   visible_changed_ = std::move(fn);
 }
 
 void LayerTree::set_selection_changed(SelectionChanged fn) {
+  selection_changed_fn_ = nullptr;
+  selection_changed_baton_ = nullptr;
   selection_changed_ = std::move(fn);
 }
 
 void LayerTree::set_context_requested(ContextRequested fn) {
   context_requested_ = std::move(fn);
+}
+
+void LayerTree::set_visible_changed_fn(VisibleChangedFn fn, void* baton) {
+  visible_changed_ = {};
+  visible_changed_fn_ = fn;
+  visible_changed_baton_ = baton;
+}
+
+void LayerTree::set_selection_changed_fn(SelectionChangedFn fn, void* baton) {
+  selection_changed_ = {};
+  selection_changed_fn_ = fn;
+  selection_changed_baton_ = baton;
 }
 
 bool LayerTree::layer_at(size_t index,
@@ -828,13 +844,17 @@ void LayerTree::select_id(const std::string& id) {
       row->set_selected(row->id() == selected_id_);
     }
   }
-  if (selection_changed_) {
+  if (selection_changed_fn_) {
+    selection_changed_fn_(selection_changed_baton_, selected_id_.c_str());
+  } else if (selection_changed_) {
     selection_changed_(selected_id_);
   }
 }
 
 void LayerTree::notify_visible(const std::string& id, bool visible) {
-  if (visible_changed_) {
+  if (visible_changed_fn_) {
+    visible_changed_fn_(visible_changed_baton_, id.c_str(), visible);
+  } else if (visible_changed_) {
     visible_changed_(id, visible);
   }
 }

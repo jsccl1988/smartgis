@@ -148,9 +148,63 @@ int main() {
     expect(reg.set_enabled("test.fixture", true, nullptr), "enable builtin");
     expect(reg.find("test.fixture")->state == plugin::PluginState::kEnabled,
            "enabled");
+    expect(!reg.find("test.fixture")->handlers_loaded,
+           "null-host enable is not handlers_loaded");
     expect(reg.set_enabled("test.fixture", false, nullptr), "disable");
     expect(reg.find("test.fixture")->state == plugin::PluginState::kDisabled,
            "disabled");
+  }
+  {
+    // Want-enabled persisted in enabled_ids_ must not mark kEnabled before
+    // start_plugin — that used to short-circuit set_enabled and leave Catalog
+    // clicks with no contributed handlers.
+    plugin::Registry reg;
+    const auto tmp =
+        std::filesystem::temp_directory_path() / "smartgis_plugin_want_enabled";
+    std::filesystem::create_directories(tmp);
+    const auto state_path = tmp / "enabled.json";
+    {
+      std::ofstream out(state_path);
+      out << "{\"enabled\":[\"want.native\"]}\n";
+    }
+    reg.set_state_path(state_path.string());
+    expect(reg.load_state(), "load want-enabled state");
+    plugin::Manifest m;
+    m.id = "want.native";
+    m.name = "W";
+    m.version = "1.0.0";
+    m.api_version = 2;
+    m.kind = plugin::PluginKind::kNative;
+    m.library = "want.dll";
+    expect(reg.add_manifest(m, plugin::TrustClass::kUnsignedTrusted),
+           "add want.native");
+    expect(reg.find("want.native")->state == plugin::PluginState::kDisabled,
+           "want-list does not pre-mark Enabled");
+    expect(!reg.find("want.native")->handlers_loaded,
+           "want-list handlers not loaded");
+    int starts = 0;
+    reg.set_native_starter(
+        [&](const plugin::PluginRecord&, content::PluginHost*) {
+          ++starts;
+          return true;
+        },
+        [](const plugin::PluginRecord&) {},
+        [](const plugin::PluginRecord&, std::string_view, std::string_view) {
+          return 0;
+        });
+    content::EventBus bus;
+    tool::CommandCatalog catalog;
+    content::PluginHost* host =
+        content::create_plugin_host(&catalog, &bus, nullptr);
+    expect(reg.set_enabled("want.native", true, host),
+           "set_enabled starts despite want-list");
+    expect(starts == 1, "native start invoked once");
+    expect(reg.find("want.native")->handlers_loaded, "handlers_loaded after start");
+    expect(reg.set_enabled("want.native", true, host), "second enable is noop");
+    expect(starts == 1, "handlers_loaded short-circuits second start");
+    delete host;
+    std::error_code ec;
+    std::filesystem::remove_all(tmp, ec);
   }
   {
     plugin::Registry reg;
@@ -501,8 +555,13 @@ int main() {
       expect(reg.find("user.persist")->trust ==
                  plugin::TrustClass::kUnsignedTrusted,
              "trust persisted");
+      // enabled_ids_ is a want-list; state stays Disabled until set_enabled.
+      expect(reg.find("user.persist")->state == plugin::PluginState::kDisabled,
+             "want-list does not pre-mark Enabled");
+      expect(reg.set_enabled("user.persist", true, nullptr),
+             "re-enable from want-list");
       expect(reg.find("user.persist")->state == plugin::PluginState::kEnabled,
-             "enabled persisted");
+             "enabled after set_enabled");
     }
     fs::remove_all(tmp, ec);
   }

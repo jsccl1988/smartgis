@@ -338,6 +338,10 @@ copy("gdal_runtime_dlls") {
       "$_tp/bin/geos$_d.dll",
       "$_tp/bin/geos_c$_d.dll",
       "$_tp/bin/proj_9_4.dll",
+      # gdal.dll imports libcurl.dll, which imports zlib1.dll. Static
+      # delay-load runs before SetDllDirectory, so both must sit beside the exe.
+      "$_tp/bin/libcurl.dll",
+      "$_tp/bin/zlib1.dll",
     ]
   }
   outputs = [ "$root_out_dir/{{source_file_part}}" ]

@@ -85,53 +85,52 @@ All rights reserved.
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>glang 拥有 CPython，插件只登记</h1>
-    <p class="meta">进程内一个解释器：<code>app::py::Interpreter</code>（<code>glang.runtime/exec/session/cpython</code>）。脚本 <code>import glang.plugin</code>。插件运行时不调用 <code>Py_Initialize</code>。内核仍是 C++。套件门禁仍是 <code>required_marks</code> + <code>score_id</code>。</p>
+    <h1>glang 拥有 CPython · plugin + ext</h1>
+    <p class="meta">进程内一个解释器：<code>content::py::Interpreter</code>。<code>PythonRuntime</code> 在 <code>plugin/runtime/extension</code>。Host / ui / gis 装在 <code>glang.plugin</code>（<code>exec/session/embed</code>）。第三方 <code>import glang.ext.&lt;plugin_id&gt;</code>。<code>plugin/runtime/python</code> 已删除。</p>
   </header>
 
   <section class="panel">
     <h2>分层（谁拥有什么）</h2>
     <div class="lanes">
       <div class="lane ui">
-        <h3>脚本</h3>
+        <h3>脚本 / samples</h3>
         <ul>
-          <li><code>import glang.plugin</code></li>
-          <li>返回值是变量，终态去掉 <code>as_</code></li>
-          <li><code>kind=python</code> 的 <code>start</code> / <code>stop</code> 按目录</li>
-          <li>插件 UI 留在 chrome 进程</li>
+          <li><code>import glang.plugin</code>（核心）</li>
+          <li><code>import glang.ext.&lt;id&gt;</code>（扩展）</li>
+          <li>新样品：<code>plugin/runtime/samples/</code></li>
+          <li>样品在 <code>plugin/runtime/samples/</code></li>
         </ul>
       </div>
       <div class="lane sched">
-        <h3>glang · 解释器</h3>
+        <h3>glang.runtime · 解释器</h3>
         <ul>
-          <li><code>app::py::Interpreter</code></li>
-          <li>隔离 <code>Py_InitializeFromConfig</code></li>
-          <li><code>eval</code> / <code>exec_source</code> / <code>exec_file</code></li>
-          <li>Debug 为桩（<code>python_enabled</code> 在 <code>is_debug</code> 时关闭）</li>
-          <li>回调由 glang 持有，进内核前放 GIL</li>
+          <li><code>content::py::Interpreter</code></li>
+          <li><code>install_glang_plugin</code> + <code>install_glang_ext</code></li>
+          <li><code>mount_extension</code> / <code>unmount_extension</code></li>
+          <li>Debug 为桩（不链 <code>python312.lib</code>）</li>
         </ul>
       </div>
       <div class="lane cpu">
-        <h3><code>glang.plugin</code> 登记表</h3>
+        <h3><code>glang.plugin</code> + <code>glang.ext</code></h3>
         <ul>
-          <li>C++：<code>app::py::register_fn</code></li>
-          <li>按名调用既有 <code>eval_*</code></li>
-          <li>不增长 <code>Op</code>（<code>kCount == 105</code> 直到删表）</li>
-          <li>落到 <code>CapabilityHost</code></li>
-          <li>插件运行时只登记 / 注销</li>
+          <li>核心：<code>register_fn</code> → <code>eval_*</code></li>
+          <li>扩展：包内 <code>ext/</code> 或 <code>ext.py</code></li>
+          <li>可选：<code>register_extension_fn</code></li>
+          <li><code>id</code> == <code>plugin.json</code> id</li>
         </ul>
       </div>
       <div class="lane retire">
-        <h3>退役 · opcode 管线</h3>
+        <h3>插件运行时</h3>
         <ul>
-          <li>今天套件仍走 <code>parse_python</code> → <code>check_suite</code> → <code>lower_program</code> → <code>eval_module</code></li>
-          <li>阶段 3 起套件改走 <code>main()</code>，本车道不再执行套件</li>
-          <li>转绿后删除 ANTLR / sema / lower / <code>Op</code> / <code>LanguageExtension</code></li>
-          <li>本车道不加入实时调用</li>
+          <li><code>extension/runtime</code>：<code>PythonRuntime</code></li>
+          <li><code>extension/bind</code>：start 前 mount</li>
+          <li>stop 后 unmount</li>
+          <li>不调用 <code>Py_Initialize</code></li>
+          <li>Host 贡献点仍走 <code>PluginHost</code></li>
         </ul>
       </div>
     </div>
-    <p class="note">停用一个包：先 <code>unregister_fn</code>，再丢掉 glang 持有的回调，然后卸载模块。进程退出才 <code>Py_FinalizeEx</code>。</p>
+    <p class="note">停用：先 unmount 扩展，再卸插件模块；进程退出才 <code>Py_FinalizeEx</code>。门禁：<code>ext_module_test</code>。</p>
   </section>
 
   <section class="panel">
@@ -150,17 +149,17 @@ All rights reserved.
   <section class="panel">
     <h2>原理流：脚本调用一个能力</h2>
     <div class="flow" id="live">
-      <div class="step"><strong>1</strong>脚本 <code>import glang.plugin</code></div>
+      <div class="step"><strong>1</strong>Registry start 包</div>
       <span class="arrow">→</span>
-      <div class="step"><strong>2</strong>按名查登记表</div>
+      <div class="step"><strong>2</strong><code>mount_extension(id, dir)</code></div>
       <span class="arrow">→</span>
-      <div class="step"><strong>3</strong>既有 <code>eval_*</code></div>
+      <div class="step"><strong>3</strong>脚本 <code>import glang.plugin</code> / <code>glang.ext.*</code></div>
       <span class="arrow">→</span>
-      <div class="step"><strong>4</strong><code>CapabilityHost</code></div>
+      <div class="step"><strong>4</strong>核心表或扩展 leaf</div>
       <span class="arrow">→</span>
-      <div class="step"><strong>5</strong>C++ 内核 / 截图（已放 GIL）</div>
+      <div class="step"><strong>5</strong>C++ 内核（已放 GIL）</div>
     </div>
-    <p class="note">高亮沿 1→5 循环，表示调用顺序。退役车道不在这条链上。阶段 2 期间旧源码的 <code>smartgis.script._dispatch</code> 也查同一张表；阶段 3 起 <code>run_suite_script</code> 直接 <code>exec_file</code> 调 <code>main()</code>。</p>
+    <p class="note">高亮沿 1→5：先挂载扩展再跑 <code>plugin.py</code> 的 <code>start</code>。纯 Python <code>ext.ping</code> 不经 <code>eval_*</code>；原生 <code>register_extension_fn</code> 仍落到 CapabilityHost。</p>
   </section>
 
   <section class="panel">

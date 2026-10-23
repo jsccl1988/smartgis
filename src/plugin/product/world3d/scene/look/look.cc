@@ -3,6 +3,7 @@
 
 #include "plugin/product/world3d/scene/look/look.h"
 
+#include "base/core/log.h"
 #include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
@@ -10,8 +11,6 @@
 #include "plugin/product/world3d/scene/fly/globe_fly.h"
 #include "plugin/product/world3d/scene/present/contour.h"
 #include "vista/component/world/atmosphere/environment.h"
-
-#include <cstdio>
 
 namespace plugin {
 namespace {
@@ -47,6 +46,8 @@ const char* world3d_look_name(World3dLook look) {
       return "legacy";
     case World3dLook::kEastChina:
       return "east_china";
+    case World3dLook::kEarthSystem:
+      return "earth_system";
   }
   return "unknown";
 }
@@ -81,6 +82,10 @@ bool parse_world3d_look(std::string_view id, World3dLook* out) {
   }
   if (id == "east_china") {
     *out = World3dLook::kEastChina;
+    return true;
+  }
+  if (id == "earth_system") {
+    *out = World3dLook::kEarthSystem;
     return true;
   }
   return false;
@@ -197,6 +202,36 @@ bool apply_world3d_look(content::Scene3dPresenter* cam,
       orbit->set_pitch(0.52f);
       orbit->set_yaw(2.25f);
       break;
+    case World3dLook::kEarthSystem: {
+      // Startup picture: high-orbit globe (space context), sky limb, satellite
+      // cloud, and globe DEM for land and sea. Flat Gerstner ocean and
+      // volumetric cloud are skipped while globe_on (present draws them only
+      // when the globe is off — they fight the sphere). Fog, the planar China
+      // contour stack, hex/ortho grids, point clouds, and model water are not
+      // seeded. t=0.40 is the flythrough high-China hold (~2.2 R): China DEM
+      // starts to blend, still above the surface skim.
+      if (!apply_world3d_look(cam, orbit, World3dLook::kGlobe, seed)) {
+        return false;
+      }
+      constexpr float kHighOrbitT = 0.40f;
+      apply_world3d_globe_flythrough(
+          orbit, kHighOrbitT, seed->globe_china_yaw, seed->globe_china_pitch,
+          &cam->atmosphere_session().globe_pass(), &cam->atmosphere_session());
+      content::AtmosphereSession& session = cam->atmosphere_session();
+      session.set_globe_enabled(true);
+      session.set_sat_cloud_enabled(true);
+      session.set_sky_enabled(true);
+      session.set_fog_enabled(false);
+      session.set_ocean_enabled(false);
+      session.set_cloud_enabled(false);
+      session.set_wind_overlay_enabled(false);
+      session.set_elevation_overlay(false, false);
+      if (vista::atmosphere::Environment* env = session.environment()) {
+        env->set_contour_enabled(false);
+      }
+      cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
+      break;
+    }
   }
   return true;
 }
@@ -217,47 +252,57 @@ bool verify_world3d_look(World3dLook look, content::Scene3dPresenter* cam) {
   const bool want_sky = look == World3dLook::kFull ||
                         look == World3dLook::kCoast ||
                         look == World3dLook::kGlobe ||
-                        look == World3dLook::kEastChina;
+                        look == World3dLook::kEastChina ||
+                        look == World3dLook::kEarthSystem;
   const bool want_fog = look == World3dLook::kCoast ||
                         look == World3dLook::kFull ||
                         look == World3dLook::kEastChina;
   if (look == World3dLook::kLand) {
     if (env && (env->ocean_enabled() || env->cloud_enabled() ||
                 env->sky_enabled() || env->fog_enabled())) {
-      std::fprintf(stderr, "world3d.look: land still has passes on\n");
+      LOGGING(LOG_ERROR, "world3d.look: land still has passes on");
       return false;
     }
     return true;
   }
   if (!env) {
-    std::fprintf(stderr, "world3d.look: Environment missing\n");
+    LOGGING(LOG_ERROR, "world3d.look: Environment missing");
     return false;
   }
   if (env->ocean_enabled() != want_ocean ||
       env->cloud_enabled() != want_cloud || env->sky_enabled() != want_sky ||
       env->fog_enabled() != want_fog) {
-    std::fprintf(stderr,
-                 "world3d.look: flag mismatch ocean=%d cloud=%d sky=%d fog=%d "
-                 "(want %d/%d/%d/%d)\n",
-                 env->ocean_enabled() ? 1 : 0, env->cloud_enabled() ? 1 : 0,
-                 env->sky_enabled() ? 1 : 0, env->fog_enabled() ? 1 : 0,
-                 want_ocean ? 1 : 0, want_cloud ? 1 : 0, want_sky ? 1 : 0,
-                 want_fog ? 1 : 0);
+    LOGGING(LOG_ERROR,
+            "world3d.look: flag mismatch ocean=%d cloud=%d sky=%d fog=%d "
+            "(want %d/%d/%d/%d)",
+            env->ocean_enabled() ? 1 : 0, env->cloud_enabled() ? 1 : 0,
+            env->sky_enabled() ? 1 : 0, env->fog_enabled() ? 1 : 0,
+            want_ocean ? 1 : 0, want_cloud ? 1 : 0, want_sky ? 1 : 0,
+            want_fog ? 1 : 0);
     return false;
   }
   if (look != World3dLook::kGlobe && look != World3dLook::kEastChina &&
+      look != World3dLook::kEarthSystem &&
       env->field_store().layer_count() == 0) {
-    std::fprintf(stderr, "world3d.look: FieldStore empty\n");
+    LOGGING(LOG_ERROR, "world3d.look: FieldStore empty");
     return false;
   }
-  if (look == World3dLook::kGlobe &&
+  if ((look == World3dLook::kGlobe || look == World3dLook::kEarthSystem) &&
       !cam->atmosphere_session().globe_enabled()) {
-    std::fprintf(stderr, "world3d.look: globe flag off\n");
+    LOGGING(LOG_ERROR, "world3d.look: globe flag off");
+    return false;
+  }
+  if (look == World3dLook::kEarthSystem &&
+      (!cam->atmosphere_session().sat_cloud_enabled() ||
+       cam->atmosphere_session().wind_overlay_enabled())) {
+    LOGGING(LOG_ERROR, "world3d.look: earth_system sat=%d wind=%d",
+            cam->atmosphere_session().sat_cloud_enabled() ? 1 : 0,
+            cam->atmosphere_session().wind_overlay_enabled() ? 1 : 0);
     return false;
   }
   if (look == World3dLook::kLegacy &&
       cam->look_preset() != content::Scene3dLookPreset::kLegacyStereo) {
-    std::fprintf(stderr, "world3d.look: look preset not legacy\n");
+    LOGGING(LOG_ERROR, "world3d.look: look preset not legacy");
     return false;
   }
   return true;
@@ -306,13 +351,13 @@ bool ensure_world3d_legacy_overlays(content::Scene3dPresenter* cam) {
     return false;
   }
   if (!cam->ensure_legacy_overlays()) {
-    std::fprintf(stderr, "world3d.look: legacy overlays failed\n");
+    LOGGING(LOG_ERROR, "world3d.look: legacy overlays failed");
     return false;
   }
   // Use Presenter out-of-line count — cam->gpu() in this plugin TU can land on
   // a skewed GpuPresent (stale AtmosphereSession sizeof) and report empty.
   if (cam->legacy_label_count() <= 0) {
-    std::fprintf(stderr, "world3d.look: legacy labels empty\n");
+    LOGGING(LOG_ERROR, "world3d.look: legacy labels empty");
     return false;
   }
   return true;

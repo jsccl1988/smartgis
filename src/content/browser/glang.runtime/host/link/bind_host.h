@@ -5,7 +5,7 @@
 #define IL_RUNTIME_CAPABILITY_LINK_BIND_HOST_H_
 
 #include "content/browser/capability/host.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 namespace content {
 
@@ -13,7 +13,7 @@ namespace content {
 // Runtime link: fill |out| from the standard-library packs (capture, plugin,
 // horizon, expect). Does not parse a script and does not choose a frontend.
 // |mark_leaf| is the exe-sidecar mark file name. No-op if |out| is null.
-void bind_host(content::ShellBridge& browser,
+void bind_host(content::Shell& browser,
                content::CapabilityHost* out,
                const wchar_t* mark_leaf);
 

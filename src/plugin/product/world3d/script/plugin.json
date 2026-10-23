@@ -1,0 +1,15 @@
+{
+  "id": "smartgis.world3d_earth",
+  "name": "太空天地海记录",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "python",
+  "author": "The Mogu Authors",
+  "description": "Drive world3d.earth_system once and record the command report",
+  "entry": "plugin.py",
+  "contributes": {
+    "commands": [
+      {"id": "world3d.earth_brief", "title": "太空天地海记录", "menu": "tools"}
+    ]
+  }
+}

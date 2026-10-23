@@ -7,12 +7,12 @@
 #define IL_RUNTIME_HOST_SCENE_BIND_H_
 
 #include "content/browser/capability/host.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 namespace content {
 namespace detail {
 
-void register_scene_slots(content::ShellBridge& browser,
+void register_scene_slots(content::Shell& browser,
                           content::CapabilityHost* out,
                           const wchar_t* mark_leaf);
 

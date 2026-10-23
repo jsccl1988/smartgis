@@ -15,14 +15,11 @@ float clampf(float v, float lo, float hi) {
 }
 
 int fft_size_for_quality(int quality) {
-  // quality 0 → Gerstner; 1 → 32; 2 → 64; 3+ → 128.
+  // Design B tiers: quality 0 → Gerstner; 1 → 64; 2 → 128; 3+ → 128.
   if (quality <= 0) {
     return 0;
   }
   if (quality == 1) {
-    return 32;
-  }
-  if (quality == 2) {
     return 64;
   }
   return 128;

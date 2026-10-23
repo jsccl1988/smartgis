@@ -4,8 +4,6 @@
 #include "plugin/runtime/host/catalog/manifest.h"
 
 #include <cctype>
-#include <chrono>
-#include <cstdio>
 #include <set>
 #include <string_view>
 #include <utility>
@@ -457,60 +455,12 @@ bool fill_manifest(const JsonValue& root, Manifest* out, std::string* err) {
             &dialog_ids, err)) {
       return false;
     }
-    // #region agent log
-    {
-      FILE* f = nullptr;
-      if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
-          f) {
-        const auto ms =
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch())
-                .count();
-        const JsonValue* parr = member(*contrib, "processing");
-        const size_t pn =
-            (parr && parr->IsArray()) ? parr->GetArray().Size() : 0;
-        std::fprintf(
-            f,
-            "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"A\","
-            "\"location\":\"manifest.cc:before_processing\",\"message\":"
-            "\"before processing parse\",\"data\":{\"id\":\"%s\",\"proc_"
-            "json_n\":%zu,\"cmd_n\":%zu,\"dlg_n\":%zu},\"timestamp\":%lld}\n",
-            m.id.c_str(), pn, m.contributes.commands.size(),
-            m.contributes.dialogs.size(), static_cast<long long>(ms));
-        std::fclose(f);
-      }
-    }
-    // #endregion
     if (!parse_contrib_array(
             member(*contrib, "processing"),
             [&](const JsonValue& item) {
               ProcessingContrib c;
               c.id = member(item, "id")->GetString();
               title_of(item, &c.title);
-              // #region agent log
-              {
-                FILE* f = nullptr;
-                if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log",
-                            "a") == 0 &&
-                    f) {
-                  const auto ms =
-                      std::chrono::duration_cast<std::chrono::milliseconds>(
-                          std::chrono::system_clock::now().time_since_epoch())
-                          .count();
-                  std::fprintf(
-                      f,
-                      "{\"sessionId\":\"778a24\",\"runId\":\"pre\","
-                      "\"hypothesisId\":\"A\",\"location\":\"manifest.cc:"
-                      "proc_push\",\"message\":\"processing "
-                      "push_back\",\"data\":{\"plugin\":\"%s\",\"cid\":\"%s\","
-                      "\"vec_n\":%zu},\"timestamp\":%lld}\n",
-                      m.id.c_str(), c.id.c_str(),
-                      m.contributes.processing.size(),
-                      static_cast<long long>(ms));
-                  std::fclose(f);
-                }
-              }
-              // #endregion
               m.contributes.processing.push_back(std::move(c));
               return true;
             },

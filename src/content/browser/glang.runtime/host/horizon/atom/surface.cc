@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/horizon/atom/surface.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <string_view>
 #include <utility>
@@ -23,7 +23,7 @@ LPARAM client_lparam(int x, int y) {
   return MAKELPARAM(static_cast<WORD>(x), static_cast<WORD>(y));
 }
 
-HWND shell_hwnd(const content::ShellBridge& browser) {
+HWND shell_hwnd(const content::Shell& browser) {
   HWND hwnd = browser.hwnd();
   if (!hwnd || !IsWindow(hwnd)) {
     return nullptr;
@@ -125,7 +125,7 @@ unsigned vk_from_name(const std::string& name) {
   return 0;
 }
 
-ShellSurface::ShellSurface(content::ShellBridge& browser) : browser_(&browser) {}
+ShellSurface::ShellSurface(content::Shell& browser) : browser_(&browser) {}
 
 bool ShellSurface::alive() const {
   return shell_hwnd(*browser_) != nullptr;
@@ -244,7 +244,7 @@ bool ShellSurface::action(const std::string& name, int w, int h) const {
   return true;
 }
 
-bool fill_hwnd_status(content::ShellBridge& browser, content::HwndStatus* out) {
+bool fill_hwnd_status(content::Shell& browser, content::HwndStatus* out) {
   if (!out) {
     return false;
   }

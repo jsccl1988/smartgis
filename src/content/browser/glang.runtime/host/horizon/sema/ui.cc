@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/horizon/sema/ui.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include "content/browser/glang.runtime/host/horizon/atom/capture.h"
 #include "content/browser/glang.runtime/host/view/host/capture_host.h"
@@ -141,7 +141,7 @@ ModeSpec spec_for(UiMode mode) {
   }
 }
 
-content::Pane* host_for(content::ShellBridge& browser,
+content::Pane* host_for(content::Shell& browser,
                               PaneId pane,
                               bool fallback_to_map) {
   content::Pane* host = nullptr;
@@ -210,7 +210,7 @@ void run_scene_ticks(content::Pane& scene, const SceneTick& tick) {
 // sync_native_bounds against a live FlyCube Display thread (ExitProcess -1).
 // Capture path still hides-then-warms around force_ui_shell_repaint so Widget
 // layout never runs with a visible scene present (timeout 124).
-void hide_inactive_scene3d_presents(content::ShellBridge& browser,
+void hide_inactive_scene3d_presents(content::Shell& browser,
                                     content::Pane* active) {
   auto hide = [active](content::Pane* pane) {
     if (!pane || pane == active) {
@@ -234,7 +234,7 @@ void hide_inactive_scene3d_presents(content::ShellBridge& browser,
 
 // Soft-hide only: no sync_native_bounds (avoids Display race). Used before
 // shell layout/repaint while the scene tab stays selected.
-void soft_hide_scene3d_presents(content::ShellBridge& browser) {
+void soft_hide_scene3d_presents(content::Shell& browser) {
   auto hide = [](content::Pane* pane) {
     if (!pane || pane->role() != content::Pane::Role::kScene3d) {
       return;
@@ -349,7 +349,7 @@ void warm_visible_scene(content::Pane& scene) {
 
 // layout_contents / UpdateWindow can snap the strip. Scene must stay on 3D;
 // interact must end on Map so the BMP does not keep a 3D accent.
-void reassert_after_layout(content::ShellBridge& browser,
+void reassert_after_layout(content::Shell& browser,
                            content::Pane*& active,
                            const ModeSpec& spec) {
   if (spec.post_layout_pump_ms <= 0) {
@@ -401,12 +401,12 @@ void apply_ui_harness_theme() {
   ui::views::ThemeService::get().set_theme(id, /*persist_to_disk=*/false);
 }
 
-void stop_ui_map_present(content::ShellBridge& browser) {
+void stop_ui_map_present(content::Shell& browser) {
   // Drain queued WM_TIMER as well as KillTimer (see stop_present_timers).
   stop_present_timers(browser);
 }
 
-void force_ui_shell_repaint(content::ShellBridge& browser) {
+void force_ui_shell_repaint(content::Shell& browser) {
   if (ui::views::View* contents = browser.contents_view()) {
     if (ui::views::Widget* w = contents->widget()) {
       w->layout_contents();
@@ -439,11 +439,11 @@ int ui_linger_ms() {
   return 0;
 }
 
-void run_horizon_map2d_fps_bench(content::ShellBridge& browser) {
+void run_horizon_map2d_fps_bench(content::Shell& browser) {
   run_map2d_fps_bench(browser);
 }
 
-void apply_ui_scenario_panels(content::ShellBridge& browser, UiMode mode) {
+void apply_ui_scenario_panels(content::Shell& browser, UiMode mode) {
   switch (mode) {
     case UiMode::kData:
       browser.select_view_tab(0);
@@ -542,7 +542,7 @@ void apply_ui_scenario_panels(content::ShellBridge& browser, UiMode mode) {
   }
 }
 
-int run_ui_layout_gate(content::ShellBridge& browser, UiMode mode) {
+int run_ui_layout_gate(content::Shell& browser, UiMode mode) {
   ui::views::View* root = browser.contents_view();
   if (!root) {
     ui_mark("root-fail");
@@ -615,7 +615,7 @@ int run_ui_layout_gate(content::ShellBridge& browser, UiMode mode) {
   return 0;
 }
 
-int run_ui_present_capture(content::ShellBridge& browser, UiMode mode) {
+int run_ui_present_capture(content::Shell& browser, UiMode mode) {
   const ModeSpec spec = spec_for(mode);
   const int linger = ui_linger_ms();
   if (linger > 0) {
@@ -632,9 +632,9 @@ int run_ui_present_capture(content::ShellBridge& browser, UiMode mode) {
       // does not sample a clear swapchain mid-rebuild.
       const DWORD t0 = GetTickCount();
       while (GetTickCount() - t0 < 2500u) {
-        if (browser.session().map2d_last_gpu_present_drew() ||
-            (browser.session().map2d_last_gpu_present_ok() &&
-             browser.session().map2d_layout_build_count() > 0)) {
+        if (browser.session()->map2d_last_gpu_present_drew() ||
+            (browser.session()->map2d_last_gpu_present_ok() &&
+             browser.session()->map2d_layout_build_count() > 0)) {
           break;
         }
         if (content::Pane* pane = browser.draw_host()) {
@@ -735,7 +735,7 @@ int run_ui_present_capture(content::ShellBridge& browser, UiMode mode) {
   if ((mode == UiMode::kShell || mode == UiMode::kData ||
        mode == UiMode::kCatalog) &&
       map_hwnd && browser.map2d() &&
-      browser.session().document_has_land_surface()) {
+      browser.session()->document_has_land_surface()) {
     wchar_t map_export[MAX_PATH] = {};
     if (exe_capture_path(map_export, MAX_PATH, L"ui-showcase-shell-map.tmp.bmp")) {
       DeleteFileW(map_export);

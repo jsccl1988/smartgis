@@ -22,7 +22,9 @@ class UI_EXPORT FrameView : public View {
   FrameView();
   ~FrameView() override;
 
-  void set_title(std::string title);
+  // Cross-DLL: pass C string. Inline std::string overload stays in the caller.
+  void set_title(const char* title);
+  void set_title(std::string title) { set_title(title.c_str()); }
   const std::string& title() const { return title_; }
 
   // When false, hide maximize/restore (typical for modal dialogs).
@@ -57,6 +59,9 @@ class UI_EXPORT FrameView : public View {
   CaptionButton* max_btn_ = nullptr;
   CaptionButton* close_btn_ = nullptr;
 };
+
+// Cross-DLL: allocate inside ui_views.dll (see make_draw_host).
+UI_EXPORT std::unique_ptr<FrameView> make_frame_view();
 
 }  // namespace views
 }  // namespace ui

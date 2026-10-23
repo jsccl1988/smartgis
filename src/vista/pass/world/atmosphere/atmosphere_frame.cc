@@ -10,6 +10,10 @@
 #include "vista/pass/world/atmosphere/ocean/ocean_pass.h"
 #include "vista/pass/world/atmosphere/sky/sky_pass.h"
 #include "render/rhi/rhi.h"
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include "base/core/log.h"
 
 namespace vista {
 
@@ -43,13 +47,18 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
                                         uint32_t height,
                                         const render::rhi::CameraMatrices* camera) {
   if (!device || !list) {
+    LOGGING(LOG_ERROR,
+            "atmosphere.pre fail: bad args device=%p list=%p size=%ux%u", device,
+            list, width, height);
     return false;
   }
 
   if (sky_enabled_ && !sky_pass_) {
+    LOGGING(LOG_ERROR, "atmosphere.pre fail: sky_enabled but sky_pass null");
     return false;
   }
   if (globe_enabled_ && !globe_pass_) {
+    LOGGING(LOG_ERROR, "atmosphere.pre fail: globe_enabled but globe_pass null");
     return false;
   }
 
@@ -169,6 +178,7 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
   // on land; gaps around the mesh stay water.
   if (ocean_enabled_ && !globe_enabled_) {
     if (!ocean_pass_) {
+      LOGGING(LOG_ERROR, "atmosphere.pre fail: ocean_enabled but ocean_pass null");
       return false;
     }
     render::rhi::RenderPassDesc ocean_pass;
@@ -182,12 +192,21 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
       list->bind_camera(*camera);
     }
     if (!ocean_pass_->record(device, list, width, height, camera)) {
+      LOGGING(LOG_ERROR,
+              "atmosphere.pre fail: ocean.record size=%ux%u globe=%d", width,
+              height, globe_enabled_ ? 1 : 0);
       list->end_render_pass();
       return false;
     }
     list->end_render_pass();
   }
 
+  if (!ok) {
+    LOGGING(LOG_ERROR,
+            "atmosphere.pre fail: sky/globe record ok=0 sky=%d globe=%d ocean=%d",
+            sky_enabled_ ? 1 : 0, globe_enabled_ ? 1 : 0,
+            ocean_enabled_ ? 1 : 0);
+  }
   return ok;
 }
 

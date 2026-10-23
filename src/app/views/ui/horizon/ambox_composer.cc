@@ -40,16 +40,23 @@ std::vector<ui::views::AmboxView::Group> enabled_plugin_groups(
     return groups;
   }
   std::map<std::string, size_t> index;
-  for (const plugin::PluginRecord& rec : registry->list()) {
-    if (rec.state != plugin::PluginState::kEnabled) {
-      continue;
-    }
-    ui::views::AmboxView::Group group;
-    group.name =
-        rec.manifest.name.empty() ? rec.manifest.id : rec.manifest.name;
-    index.emplace(rec.manifest.id, groups.size());
-    groups.push_back(std::move(group));
-  }
+  struct VisitCtx {
+    std::vector<ui::views::AmboxView::Group>* groups;
+    std::map<std::string, size_t>* index;
+  } ctx{&groups, &index};
+  registry->visit(
+      [](const char* id, const char* name, int state, int, int, void* baton) {
+        auto* c = static_cast<VisitCtx*>(baton);
+        if (state != static_cast<int>(plugin::PluginState::kEnabled) || !id ||
+            !id[0]) {
+          return;
+        }
+        ui::views::AmboxView::Group group;
+        group.name = (name && name[0]) ? std::string(name) : std::string(id);
+        c->index->emplace(id, c->groups->size());
+        c->groups->push_back(std::move(group));
+      },
+      &ctx);
   if (!host) {
     return groups;
   }
@@ -131,9 +138,30 @@ void AmboxComposer::populate_ambox() {
   }
   // Map tool bar owns Select/Edit workspace chips. Right dock lists plugin
   // AMBox groups only — twin chip strips failed visual_review #3.
-  host_->ambox_->populate_from_commands(catalogs, plugin_groups);
+  // Cross-DLL: copy plugin group strings into the DLL via replace_groups_*,
+  // then populate_from_catalogs (pointer array). Do not pass std::vector<Group>
+  // into ui_views.dll (Debug STL → heap 0xC0000374).
+  auto push_plugin_groups = [](ui::views::AmboxView* ambox,
+                               const std::vector<ui::views::AmboxView::Group>&
+                                   groups) {
+    if (!ambox) {
+      return;
+    }
+    ambox->replace_groups_begin();
+    for (const auto& group : groups) {
+      ambox->replace_groups_add(group.name.c_str());
+      for (const auto& item : group.items) {
+        ambox->replace_groups_add_item(item.id.c_str(), item.label.c_str());
+      }
+    }
+  };
+  push_plugin_groups(host_->ambox_, plugin_groups);
+  host_->ambox_->populate_from_catalogs(
+      catalogs.empty() ? nullptr : catalogs.data(), catalogs.size(),
+      !plugin_groups.empty());
   if (host_->side_ambox_) {
-    host_->side_ambox_->set_groups(std::move(plugin_groups));
+    push_plugin_groups(host_->side_ambox_, plugin_groups);
+    host_->side_ambox_->replace_groups_commit();
   }
 }
 

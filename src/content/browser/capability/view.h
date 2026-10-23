@@ -5,6 +5,7 @@
 #define CONTENT_BROWSER_CAPABILITY_VIEW_H_
 
 #include <concepts>
+#include <cstdint>
 #include <string>
 
 #include "content/browser/capability/op.h"
@@ -133,6 +134,9 @@ struct ViewCapability {
   // Map / Data / 3D tab id ("map2d", "data", "scene3d"). Empty until bound.
   detail::Op<std::string()> present_mode;
   detail::Op<bool(const std::string& mode)> set_present_mode;
+
+  // Console digitize: activate tool on a view id. Unset → try_activate_tool false.
+  detail::Op<bool(uint32_t view_id, const std::string& tool_id)> activate_tool_at;
 };
 
 template <typename T>
@@ -167,6 +171,7 @@ concept view_capability = requires(T& t,
   { t.camera_fly(s, n, n) } -> std::convertible_to<bool>;
   { t.present_mode() } -> std::convertible_to<std::string>;
   { t.set_present_mode(s) } -> std::convertible_to<bool>;
+  { t.activate_tool_at(static_cast<uint32_t>(n), s) } -> std::convertible_to<bool>;
 };
 
 static_assert(view_capability<ViewCapability>);

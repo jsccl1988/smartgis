@@ -7,7 +7,7 @@ namespace gis {
 namespace style {
 
 std::string default_carto_style_json() {
-  // Land / water / river / road casing+fill / admin stroke / labels.
+  // Bake → translucent land/water → rivers/roads → labels.
   // Colors are the cartographic RGB values, stored only in this document.
   // Road casing is an earlier line layer on source-layer "road".
   return "{"
@@ -20,20 +20,7 @@ std::string default_carto_style_json() {
          "\"paint\":{\"background-color\":\"#aad3df\",\"background-opacity\":1}"
          "},"
          "{"
-         "\"id\":\"land\","
-         "\"type\":\"fill\","
-         "\"source-layer\":\"land\","
-         "\"paint\":{\"fill-color\":\"#f5f3e9\",\"fill-opacity\":1}"
-         "},"
-         "{"
-         "\"id\":\"water\","
-         "\"type\":\"fill\","
-         "\"source-layer\":\"water\","
-         "\"paint\":{\"fill-color\":\"#a3ccff\",\"fill-opacity\":1}"
-         "},"
-         "{"
-         // DEM second surface after land/water: jet + isolines over carto
-         // (stacked Origin look). Ocean cells stay transparent.
+         // DEM bake underlay. Ocean cells stay transparent.
          "\"id\":\"hillshade\","
          "\"type\":\"hillshade\","
          "\"paint\":{"
@@ -41,11 +28,22 @@ std::string default_carto_style_json() {
          "\"hillshade-illumination-altitude\":28,"
          "\"hillshade-exaggeration\":3.4,"
          "\"hillshade-color-ramp\":\"jet\","
-         // Deep umber umbra for grayscale fallback / jet lighting reconstruction.
          "\"hillshade-shadow-color\":\"#1c1810\","
          "\"hillshade-highlight-color\":\"#c8c0b0\","
          "\"hillshade-accent-color\":\"#12100c\""
          "}"
+         "},"
+         "{"
+         "\"id\":\"land\","
+         "\"type\":\"fill\","
+         "\"source-layer\":\"land\","
+         "\"paint\":{\"fill-color\":\"#f5f3e9\",\"fill-opacity\":0.55}"
+         "},"
+         "{"
+         "\"id\":\"water\","
+         "\"type\":\"fill\","
+         "\"source-layer\":\"water\","
+         "\"paint\":{\"fill-color\":\"#a3ccff\",\"fill-opacity\":0.55}"
          "},"
          "{"
          // Optional density overlay (source-layer \"heatmap\"); silent when

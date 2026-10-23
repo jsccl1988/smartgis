@@ -17,6 +17,7 @@
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/present/gis_present.h"
+#include "plugin/product/map2d/pyramid/pyramid.h"
 #include "plugin/product/map2d/seed/seed.h"
 #include "vista/terrain/dem/raster/dem_raster.h"
 
@@ -294,6 +295,14 @@ void install_map2d_host_bridges(const Map2dHostContext& ctx) {
         }
         return ctx.session->map2d_export_bmp(std::string(path), w, h);
       });
+
+  sink->set_furniture_bridges([](bool scale_bar, bool north_arrow, bool border) {
+    plugin::FurnitureOptions options;
+    options.scale_bar = scale_bar;
+    options.north_arrow = north_arrow;
+    options.border = border;
+    plugin::set_map_furniture(options);
+  });
 }
 
 }  // namespace detail

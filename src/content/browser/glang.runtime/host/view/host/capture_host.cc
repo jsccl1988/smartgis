@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/view/host/capture_host.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include "content/browser/glang.runtime/host/horizon/atom/pump.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
@@ -13,7 +13,7 @@ namespace detail {
 namespace {
 
 template <typename Fn>
-void for_each_draw_host(content::ShellBridge& browser, Fn&& fn) {
+void for_each_draw_host(content::Shell& browser, Fn&& fn) {
   fn(browser.draw_host());
   fn(browser.data_draw_host());
   fn(browser.scene_draw_host());
@@ -37,7 +37,7 @@ bool keep_live_views() {
   return g_keep_live_views > 0;
 }
 
-void detach_views(content::ShellBridge& browser) {
+void detach_views(content::Shell& browser) {
   // Timers first: detach alone leaves queued WM_TIMER presents racing
   // ContentMapView / session teardown under Debug CRT ExitProcess.
   // Do NOT abandon_mesh here — under FlyCube Scene3D that remaps heap and
@@ -53,7 +53,7 @@ void detach_views(content::ShellBridge& browser) {
   });
 }
 
-void stop_present_timers(content::ShellBridge& browser) {
+void stop_present_timers(content::Shell& browser) {
   // pause_present KillTimer + ignore queued ticks (no PeekMessage: that
   // processes sent Display messages and deadlocks UI↔Display).
   for_each_draw_host(browser, [](content::Pane* pane) {
@@ -63,7 +63,7 @@ void stop_present_timers(content::ShellBridge& browser) {
   });
 }
 
-void resume_present_timers(content::ShellBridge& browser) {
+void resume_present_timers(content::Shell& browser) {
   content::Pane* active =
       browser.has_ui() ? browser.active_map() : browser.draw_host();
   for_each_draw_host(browser, [active](content::Pane* pane) {
@@ -149,7 +149,7 @@ HWND shell_scene3d_capture_hwnd(content::Pane* scene) {
   return nullptr;
 }
 
-void finish_scene3d(content::ShellBridge& browser, bool borrowed_shell) {
+void finish_scene3d(content::Shell& browser, bool borrowed_shell) {
   if (!borrowed_shell) {
     detach_views(browser);
     return;

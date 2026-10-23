@@ -4,7 +4,7 @@
 #ifndef IL_RUNTIME_BACKEND_VIEW_SHOT_EXPORT_H_
 #define IL_RUNTIME_BACKEND_VIEW_SHOT_EXPORT_H_
 
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <string>
 
@@ -14,7 +14,7 @@ namespace content {
 namespace detail {
 
 // GPU present when live, then software hypsometric fallback to |bmp_w|.
-bool export_scene3d_bmp(content::ShellBridge* b, const wchar_t* bmp_w);
+bool export_scene3d_bmp(content::Shell* b, const wchar_t* bmp_w);
 
 // Frames the document then software-exports Map2d to |bmp_w|.
 struct Map2dExportOpts {
@@ -27,7 +27,7 @@ struct Map2dExportOpts {
   int height = 0;
 };
 
-bool export_map2d_bmp(content::ShellBridge* b,
+bool export_map2d_bmp(content::Shell* b,
                       const wchar_t* bmp_w,
                       const std::string& frame,
                       const Map2dExportOpts& opts = {});

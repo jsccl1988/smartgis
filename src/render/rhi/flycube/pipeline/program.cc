@@ -34,6 +34,10 @@ void bump_flycube_constant_epoch() { ++g_flycube_cb_epoch; }
 
 uint64_t flycube_constant_epoch() { return g_flycube_cb_epoch; }
 
+void FlycubeProgram::begin_frame_bindings() {
+  frame_binding_sets_.clear();
+}
+
 namespace {
 
 GpuTexture* find_texture(const std::vector<TextureBind>& binds, uint32_t slot) {
@@ -523,6 +527,8 @@ bool FlycubeProgram::replay_draw(::CommandList* list, const Draw& draw,
             draw.textures.size());
     return false;
   }
+  // Keep alive until begin_frame_bindings (post-fence). See program.h.
+  frame_binding_sets_.push_back(set);
   list->BindPipeline(pso);
   list->BindBindingSet(set);
   list->IASetVertexBuffer(0, draw.vertex->shared(), draw.vb_offset);
@@ -576,6 +582,7 @@ bool FlycubeProgram::replay_dispatch(::CommandList* list, const Dispatch& item) 
   if (!set) {
     return false;
   }
+  frame_binding_sets_.push_back(set);
   list->BindPipeline(compute_pipeline_);
   list->BindBindingSet(set);
   list->Dispatch(item.groups_x, item.groups_y, item.groups_z);

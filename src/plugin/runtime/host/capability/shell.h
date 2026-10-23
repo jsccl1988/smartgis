@@ -20,7 +20,7 @@
 
 namespace content {
 class GisContents;
-class Pane;
+struct Pane;
 class PluginHost;
 }  // namespace content
 

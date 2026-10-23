@@ -6,14 +6,19 @@
 
 // GN defines PLUGIN_HOST_EXPORTS when building the plugin host DLL
 // (dll_stem = plugin_host).
+// When is_component_build=false, COMPONENT_BUILD is unset → no-op.
 
+#if defined(COMPONENT_BUILD)
 #if defined(PLUGIN_HOST_EXPORTS)
 #define PLUGIN_HOST_EXPORT __declspec(dllexport)
 #else
 #define PLUGIN_HOST_EXPORT __declspec(dllimport)
 #endif
+#else
+#define PLUGIN_HOST_EXPORT
+#endif
 
-#if !defined(PLUGIN_HOST_EXPORTS)
+#if defined(COMPONENT_BUILD) && !defined(PLUGIN_HOST_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "plugin_host_d.lib")
 #else

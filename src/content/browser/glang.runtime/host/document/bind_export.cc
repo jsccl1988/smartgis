@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/document/document_bind.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <cstdlib>
 #include <string>
@@ -22,7 +22,7 @@ namespace content {
 namespace detail {
 namespace {
 
-bool export_bmp_leaf(content::ShellBridge& browser,
+bool export_bmp_leaf(content::Shell& browser,
                      const std::string& leaf,
                      const std::string& frame) {
   if (leaf.empty()) {
@@ -55,8 +55,8 @@ bool export_bmp_leaf(content::ShellBridge& browser,
 
 }  // namespace
 
-void bind_export(content::ShellBridge& browser, content::CapabilityHost* out) {
-  content::ShellBridge* b = &browser;
+void bind_export(content::Shell& browser, content::CapabilityHost* out) {
+  content::Shell* b = &browser;
   bind_tagged_slots(
       out, base::tagged_tuple{
                base::tag_resolver<slot_export_bmp> =

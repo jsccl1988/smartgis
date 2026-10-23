@@ -40,19 +40,20 @@ float3 sample_day_sky(float2 ndc)
     // Hardcoded product Rayleigh — FlyCube SkyCB uploads are unreliable on the
     // color-only sky pass (zeros / stale → black or washed BMP). CB still
     // drives space_blend / starfield via sample_space.
-    float3 zenith = float3(0.04, 0.16, 0.86);
-    float3 horizon = float3(0.42, 0.64, 0.90);
+    // Design B Bruneton-lite (matches project_sky_draw_params flat path).
+    float3 zenith = float3(0.03, 0.14, 0.92);
+    float3 horizon = float3(0.36, 0.58, 0.88);
     zenith.g = min(zenith.g, zenith.b * 0.55);
     zenith.r = min(zenith.r, zenith.b * 0.35);
     float3 ground = horizon;
     ground.r = min(ground.r, ground.b * 0.55);
     ground.g = min(ground.g, lerp(ground.g, ground.b, 0.30));
-    float blend = pow(saturate(elev_screen * 1.25), 0.50);
+    float blend = pow(saturate(elev_screen * 1.25), 0.48);
     float3 rgb = lerp(ground, zenith, blend);
-    float rayleigh = pow(elev_screen, 0.55);
-    rgb.r *= lerp(1.0, 0.72, rayleigh);
-    rgb.g *= lerp(1.0, 0.88, rayleigh);
-    rgb.b *= lerp(1.0, 1.22, rayleigh);
+    float rayleigh = pow(elev_screen, 0.50);
+    rgb.r *= lerp(1.0, 0.68, rayleigh);
+    rgb.g *= lerp(1.0, 0.86, rayleigh);
+    rgb.b *= lerp(1.0, 1.28, rayleigh);
     return saturate(rgb);
 }
 

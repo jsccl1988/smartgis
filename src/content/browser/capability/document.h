@@ -40,13 +40,20 @@ struct DocumentCapability {
   detail::Op<bool(const std::string& path_utf8)> write_document;
   detail::Op<bool()> clear_selection;
 
-  // Façade reads the shell already exposes to the console bridge. Empty until
-  // that bridge (or a later bind) is installed on this host. Not a public API.
+  // Façade reads the shell already exposes to the console. Empty until bind
+  // installs them on this host. Not a public API.
   detail::Op<std::string()> layers_json;
   detail::Op<std::string()> extent_json;
   detail::Op<bool()> has_style_document;
   detail::Op<void()> clear_style;
   detail::Op<std::string()> style_summary_json;
+
+  // Console / analysis write-back (was GisConsoleBridge). Bound by the shell
+  // when Diagnostic Tools / Python init; empty → analysis refuses.
+  detail::Op<bool(const std::string& path)> write_active_geojson;
+  detail::Op<bool(const std::string& path)> load_result_geojson;
+  detail::Op<void()> refresh_gis;
+  detail::Op<void()> flush_processing;
 };
 
 template <typename T>
@@ -70,6 +77,10 @@ concept document_capability = requires(T& t, const std::string& s, bool visible)
   { t.has_style_document() } -> std::convertible_to<bool>;
   { t.clear_style() };
   { t.style_summary_json() } -> std::convertible_to<std::string>;
+  { t.write_active_geojson(s) } -> std::convertible_to<bool>;
+  { t.load_result_geojson(s) } -> std::convertible_to<bool>;
+  { t.refresh_gis() };
+  { t.flush_processing() };
 };
 
 static_assert(document_capability<DocumentCapability>);

@@ -33,10 +33,13 @@ class UI_EXPORT CatalogView : public View {
   };
 
   using Command = std::function<void(const std::string& command_id)>;
+  // Cross-DLL (SmartGIS.exe → ui_views.dll): Debug STL is not ABI.
+  using CommandFn = void (*)(void* baton, const char* command_id);
 
   CatalogView();
 
-  void set_title(std::string title);
+  void set_title(const char* title);
+  void set_title(std::string title) { set_title(title.c_str()); }
   const std::string& title() const;
 
   LayerTree* layer_tree() { return layer_tree_; }
@@ -49,10 +52,17 @@ class UI_EXPORT CatalogView : public View {
   const TreeView* map_tree() const { return map_tree_; }
 
   // Flat names become root nodes on the Datasources page (legacy helper).
+  // Same-module: vector form. Cross-DLL: set_source_names_c.
   void set_source_names(const std::vector<std::string>& names);
+  void set_source_names_c(const char* const* names, size_t count);
 
   void set_source_tree(const std::vector<CatalogNode>& nodes);
   void set_map_docs(const std::vector<CatalogNode>& nodes);
+  void clear_map_docs();
+  void add_map_doc(const char* id,
+                   const char* parent_id,
+                   const char* label,
+                   bool checked);
 
   // Replace Layers page from a host layer list (open-map / CatalogCall mirror).
   // Non-empty |layers| clears demo rows. Empty |layers| installs demo fallback.
@@ -65,7 +75,9 @@ class UI_EXPORT CatalogView : public View {
   bool using_demo_layers() const { return using_demo_layers_; }
 
   // Host callback for context-menu command ids such as catalog.layer.create.
+  // Same-module: set_command. Cross-DLL: set_command_fn.
   void set_command(Command fn);
+  void set_command_fn(CommandFn fn, void* baton);
 
   TabStrip* source_tabs() { return tabs_; }
   const TabStrip* source_tabs() const { return tabs_; }
@@ -89,6 +101,8 @@ class UI_EXPORT CatalogView : public View {
   TreeView* source_tree_ = nullptr;
   TreeView* map_tree_ = nullptr;
   Command command_;
+  CommandFn command_fn_ = nullptr;
+  void* command_baton_ = nullptr;
   bool using_demo_layers_ = false;
 };
 

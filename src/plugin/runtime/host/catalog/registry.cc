@@ -4,8 +4,10 @@
 #include "plugin/runtime/host/catalog/registry.h"
 
 #include "content/public/plugin_host.h"
+#include "tool/command/command.h"
 
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 
 #ifndef NOMINMAX
@@ -70,6 +72,99 @@ std::vector<PluginRecord> Registry::list() const {
   return out;
 }
 
+void Registry::visit(PluginVisitFn fn, void* baton) const {
+  if (!fn) {
+    return;
+  }
+  for (const auto& kv : records_) {
+    const PluginRecord& rec = kv.second;
+    fn(rec.manifest.id.c_str(), rec.manifest.name.c_str(),
+       static_cast<int>(rec.state), static_cast<int>(rec.manifest.kind),
+       static_cast<int>(rec.trust), baton);
+  }
+}
+
+void Registry::for_each_record(void (*fn)(const PluginRecord& rec, void* baton),
+                               void* baton) const {
+  if (!fn) {
+    return;
+  }
+  for (const auto& kv : records_) {
+    fn(kv.second, baton);
+  }
+}
+
+namespace {
+
+void copy_capped(char* dst, size_t cap, const std::string& src) {
+  if (!dst || cap == 0) {
+    return;
+  }
+  const size_t n = src.size() < cap - 1 ? src.size() : cap - 1;
+  if (n > 0) {
+    std::memcpy(dst, src.data(), n);
+  }
+  dst[n] = '\0';
+}
+
+}  // namespace
+
+bool Registry::apply_startup(content::PluginHost* host, char* viewport_out,
+                             size_t viewport_cap, char* scenario_out,
+                             size_t scenario_cap) {
+  if (viewport_out && viewport_cap) {
+    viewport_out[0] = '\0';
+  }
+  if (scenario_out && scenario_cap) {
+    scenario_out[0] = '\0';
+  }
+  if (!host) {
+    return false;
+  }
+
+  int best_viewport = 0;
+  int best_scenario = 0;
+  bool have_viewport = false;
+  bool have_scenario = false;
+
+  for (const auto& kv : records_) {
+    const PluginRecord& rec = kv.second;
+    if (rec.trust == TrustClass::kDenied) {
+      continue;
+    }
+    const ManifestStartup& st = rec.manifest.startup;
+    if (!st.activate) {
+      continue;
+    }
+    if (!st.viewport.empty() &&
+        (!have_viewport || st.priority > best_viewport)) {
+      have_viewport = true;
+      best_viewport = st.priority;
+      copy_capped(viewport_out, viewport_cap, st.viewport);
+    }
+    if (!st.scenario.empty() &&
+        (!have_scenario || st.priority > best_scenario)) {
+      have_scenario = true;
+      best_scenario = st.priority;
+      copy_capped(scenario_out, scenario_cap, st.scenario);
+    }
+    if (!st.commands.empty() || !st.seed.empty()) {
+      (void)set_enabled(rec.manifest.id, true, host);
+    }
+    for (const std::string& cmd : st.commands) {
+      if (cmd.empty()) {
+        continue;
+      }
+      (void)host->execute(cmd, tool::CommandArgs{});
+    }
+    if (!st.seed.empty()) {
+      const int face = st.viewport == "scene3d" ? 1 : 0;
+      (void)host->present_dataset(rec.manifest.id, st.seed, face);
+    }
+  }
+  return true;
+}
+
 bool Registry::add_builtin_manifest(const char* id, const char* name) {
   last_error_.clear();
   if (!id || !id[0]) {
@@ -104,11 +199,8 @@ bool Registry::add_manifest(const Manifest& m, TrustClass trust) {
       rec.trust = TrustClass::kUnsignedTrusted;
     }
   }
-  for (const std::string& id : enabled_ids_) {
-    if (id == m.id && rec.trust != TrustClass::kDenied) {
-      rec.state = PluginState::kEnabled;
-    }
-  }
+  // Want-enabled from state stays in enabled_ids_ only. Do not mark kEnabled
+  // here — that made set_enabled short-circuit before start_plugin ran.
   records_.emplace(m.id, std::move(rec));
   return true;
 }
@@ -188,51 +280,62 @@ bool Registry::start_plugin(PluginRecord* rec, content::PluginHost* host) {
     const int rc = invoke_builtin_start(hit->second.start, host);
     if (rc < 0) {
       rec->state = PluginState::kError;
+      rec->handlers_loaded = false;
       last_error_ = "start crashed";
       return false;
     }
     if (rc == 0) {
       rec->state = PluginState::kError;
+      rec->handlers_loaded = false;
       last_error_ = "start failed";
       return false;
     }
     rec->state = PluginState::kEnabled;
+    rec->handlers_loaded = true;
     return true;
   }
 
   switch (rec->manifest.kind) {
     case PluginKind::kBuiltin:
       rec->state = PluginState::kEnabled;
+      rec->handlers_loaded = true;
       return true;
     case PluginKind::kLegacyAm:
       rec->state = PluginState::kError;
+      rec->handlers_loaded = false;
       last_error_ = "legacy am is not supported";
       return false;
     case PluginKind::kPython:
       if (python_start_) {
         if (!python_start_(*rec, host)) {
           rec->state = PluginState::kError;
+          rec->handlers_loaded = false;
           last_error_ = "python start failed";
           return false;
         }
         rec->state = PluginState::kEnabled;
+        rec->handlers_loaded = true;
         return true;
       }
       last_error_ = "python not wired";
       rec->state = PluginState::kError;
+      rec->handlers_loaded = false;
       return false;
     case PluginKind::kNative:
       if (native_start_) {
         if (!native_start_(*rec, host)) {
           rec->state = PluginState::kLoadFailed;
+          rec->handlers_loaded = false;
           last_error_ = "native init failed";
           return false;
         }
         rec->state = PluginState::kEnabled;
+        rec->handlers_loaded = true;
         return true;
       }
       last_error_ = "native not wired";
       rec->state = PluginState::kError;
+      rec->handlers_loaded = false;
       return false;
   }
   last_error_ = "unknown kind";
@@ -251,6 +354,7 @@ void Registry::stop_plugin(PluginRecord* rec, content::PluginHost* host) {
   } else if (rec->manifest.kind == PluginKind::kNative && native_stop_) {
     native_stop_(*rec);
   }
+  rec->handlers_loaded = false;
   (void)host;
 }
 
@@ -267,11 +371,14 @@ bool Registry::set_enabled(std::string_view id, bool enabled,
       last_error_ = "unsigned plugin is not trusted";
       return false;
     }
-    if (rec->state == PluginState::kEnabled) {
+    // Only skip when handlers are already live. kEnabled alone can mean
+    // "want enabled" from a null-host enable or stale state.
+    if (rec->state == PluginState::kEnabled && rec->handlers_loaded) {
       return true;
     }
     if (!host) {
       rec->state = PluginState::kEnabled;
+      rec->handlers_loaded = false;
       if (std::find(enabled_ids_.begin(), enabled_ids_.end(), rec->manifest.id) ==
           enabled_ids_.end()) {
         enabled_ids_.push_back(rec->manifest.id);
@@ -297,6 +404,8 @@ bool Registry::set_enabled(std::string_view id, bool enabled,
   if (host) {
     host->withdraw(id);
     stop_plugin(rec, host);
+  } else {
+    rec->handlers_loaded = false;
   }
   save_state();
   return true;
@@ -395,13 +504,7 @@ bool Registry::load_state() {
       }
     }
   }
-  for (const std::string& id : enabled_ids_) {
-    if (PluginRecord* rec = find_mut(id)) {
-      if (rec->trust != TrustClass::kDenied) {
-        rec->state = PluginState::kEnabled;
-      }
-    }
-  }
+  // Keep enabled_ids_ as the want-list. set_enabled(host) loads handlers.
   return true;
 }
 

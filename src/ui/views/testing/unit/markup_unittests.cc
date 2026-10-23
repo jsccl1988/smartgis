@@ -155,7 +155,7 @@ void test_load_markup_basename_resolves_ui_dir() {
   }
 
   const char* nested[] = {
-      "dialogs/add_basemap.ui.xml",
+      "catalog/add_basemap.ui.xml",
       "toolkit/input_text.ui.xml",
       "inspect/measure_panel.ui.xml",
       "inspect/selection_panel.ui.xml",

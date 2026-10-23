@@ -1,0 +1,15 @@
+{
+  "id": "smartgis.geochem_grades",
+  "name": "品位阈值超标对照",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "python",
+  "author": "The Mogu Authors",
+  "description": "Count samples at or above each geochem threshold and present the selected grade",
+  "entry": "plugin.py",
+  "contributes": {
+    "commands": [
+      {"id": "geochem.exceedance", "title": "品位阈值超标对照", "menu": "tools"}
+    ]
+  }
+}

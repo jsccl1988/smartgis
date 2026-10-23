@@ -5,7 +5,7 @@
 #define IL_RUNTIME_BACKEND_VIEW_BIND_H_
 
 #include "content/browser/capability/host.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 namespace content {
 
@@ -14,7 +14,7 @@ namespace detail {
 
 // Generic view slots: tools, load facts, present timers.
 // Scene slots are composed by register_scene_slots.
-void register_view(content::ShellBridge& browser,
+void register_view(content::Shell& browser,
                    content::CapabilityHost* out,
                    const wchar_t* mark_leaf);
 

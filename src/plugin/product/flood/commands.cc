@@ -4,12 +4,12 @@
 #include "plugin/product/flood/commands.h"
 
 #include <cmath>
-#include <cstdio>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
 
+#include "base/core/log.h"
 #include "content/public/plugin_host.h"
 #include "cpl_conv.h"
 #include "gdal_priv.h"
@@ -72,6 +72,8 @@ bool sample_dem_z(const std::string& dem, double x, double y, double* z) {
 }
 
 bool flood_inundate_compute(std::string_view args_json) {
+  // A failed level must not leave the previous mask looking current.
+  g_last_fill.ok = false;
   rapidjson::Document args;
   if (!parse_args_json(args_json, &args)) {
     set_operation_result("{\"error\":\"bad_args\",\"op\":\"flood.inundate\"}");
@@ -151,8 +153,7 @@ bool flood_inundate_present(content::PluginHost* host) {
   content::GisDocument* gis =
       require_gis_document(host, "flood.inundate", "no_flood_seam");
   if (!gis) {
-    std::fprintf(stderr, "flood.inundate: gis document missing\n");
-    std::fflush(stderr);
+    LOGGING(LOG_ERROR, "flood.inundate: gis document missing");
     return false;
   }
   bool painted = present_flood_style(gis);
@@ -162,10 +163,9 @@ bool flood_inundate_present(content::PluginHost* host) {
         result.water_level, i == 0, /*add_water_standin=*/false);
   }
   if (!painted) {
-    std::fprintf(stderr,
-                 "flood.inundate: present_flood_mask failed frames=%d %dx%d\n",
-                 frame_count, result.width, result.height);
-    std::fflush(stderr);
+    LOGGING(LOG_ERROR,
+            "flood.inundate: present_flood_mask failed frames=%d %dx%d",
+            frame_count, result.width, result.height);
     set_operation_result(
         "{\"error\":\"no_flood_seam\",\"op\":\"flood.inundate\"}");
     return false;
@@ -182,6 +182,26 @@ bool flood_inundate_present(content::PluginHost* host) {
 bool flood_inundate(content::PluginHost* host, std::string_view args_json) {
   return run_processing_phases(host, args_json, flood_inundate_compute,
                                flood_inundate_present);
+}
+
+// Same fill as flood.inundate, but the present phase does not paint.
+// The level-curve pack batches masks, then presents one selected level.
+bool flood_level_mask_present(content::PluginHost*) {
+  if (!g_last_fill.ok) {
+    set_operation_result(
+        "{\"error\":\"flood_failed\",\"op\":\"flood.level_mask\"}");
+    return false;
+  }
+  set_operation_result(
+      std::string("{\"ok\":true,\"op\":\"flood.level_mask\",\"width\":") +
+      std::to_string(g_last_fill.width) + ",\"height\":" +
+      std::to_string(g_last_fill.height) + "}");
+  return true;
+}
+
+bool flood_level_mask(content::PluginHost* host, std::string_view args_json) {
+  return run_processing_phases(host, args_json, flood_inundate_compute,
+                               flood_level_mask_present);
 }
 
 bool flood_export_mask(content::PluginHost*, std::string_view args_json) {
@@ -263,6 +283,10 @@ bool register_flood(content::PluginHost* host) {
   return host->contribute_processing(
              kPluginId, {"flood.inundate", "DEM flood inundation"},
              flood_inundate) &&
+         host->contribute_processing(
+             kPluginId,
+             {"flood.level_mask", "One water level mask without present"},
+             flood_level_mask) &&
          host->contribute_processing(
              kPluginId, {"flood.export_mask", "Export flood mask GeoTIFF"},
              flood_export_mask) &&

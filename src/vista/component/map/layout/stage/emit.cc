@@ -41,58 +41,15 @@ bool splice_retained(const LayoutInput& in, uint64_t key, MapIR* frame) {
   return true;
 }
 
-bool slot_hits_view(const TileSlot& tile, const View& view) {
-  const double tw = tile.max_x - tile.min_x;
-  const double th = tile.max_y - tile.min_y;
-  if (tw <= 0.0 || th <= 0.0) {
-    return false;
-  }
-  const double pad = layout_pan_coverage_world(view);
-  const double x0 = (std::max)(tile.min_x, view.min_x - pad);
-  const double x1 = (std::min)(tile.max_x, view.max_x + pad);
-  const double y0 = (std::max)(tile.min_y, view.min_y - pad);
-  const double y1 = (std::min)(tile.max_y, view.max_y + pad);
-  return x1 > x0 && y1 > y0;
-}
-
-// Raster and area share the bottom band. A hillshade or imagery tile that
-// actually intersects this view wins; area fill stays only when that sheet
-// is absent (missed view, bake not ready). Heatmap is a density overlay,
-// not the basemap raster.
-bool raster_surface_covers_view(
-    const LayoutInput& in,
-    const std::vector<const gis::style::StyleLayer*>& visible) {
-  bool want_hillshade = false;
-  bool want_raster = false;
-  for (const gis::style::StyleLayer* layer : visible) {
-    if (!layer) {
-      continue;
-    }
-    if (layer->type == gis::style::LayerType::kHillshade) {
-      want_hillshade = true;
-    } else if (layer->type == gis::style::LayerType::kRaster) {
-      want_raster = true;
-    }
-  }
-  // Hillshade is drawn over land. Do not treat the slot as a replacement
-  // sheet: a slot without a GPU texture used to drop the fill and leave ocean.
-  (void)want_hillshade;
-  if (want_raster) {
-    for (const TileSlot& tile : in.tiles) {
-      if (slot_hits_view(tile, in.view)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 std::vector<const gis::style::StyleLayer*> order_paint_bands(
     const LayoutInput& in,
     const std::vector<const gis::style::StyleLayer*>& visible) {
-  const bool raster_on = raster_surface_covers_view(in, visible);
+  (void)in;
+  // Bands match GPU encode: bake/raster underlay → area → heatmap → lines →
+  // points → labels. Style document order inside a band is preserved.
   std::vector<const gis::style::StyleLayer*> background;
-  std::vector<const gis::style::StyleLayer*> surface;
+  std::vector<const gis::style::StyleLayer*> underlay;
+  std::vector<const gis::style::StyleLayer*> areas;
   std::vector<const gis::style::StyleLayer*> heatmap;
   std::vector<const gis::style::StyleLayer*> lines;
   std::vector<const gis::style::StyleLayer*> points;
@@ -109,13 +66,11 @@ std::vector<const gis::style::StyleLayer*> order_paint_bands(
         break;
       case gis::style::LayerType::kHillshade:
       case gis::style::LayerType::kRaster:
-        surface.push_back(layer);
+        underlay.push_back(layer);
         break;
       case gis::style::LayerType::kFill:
       case gis::style::LayerType::kFillExtrusion:
-        if (!raster_on) {
-          surface.push_back(layer);
-        }
+        areas.push_back(layer);
         break;
       case gis::style::LayerType::kHeatmap:
         heatmap.push_back(layer);
@@ -140,7 +95,8 @@ std::vector<const gis::style::StyleLayer*> order_paint_bands(
     ordered.insert(ordered.end(), band.begin(), band.end());
   };
   append(background);
-  append(surface);
+  append(underlay);
+  append(areas);
   append(heatmap);
   append(lines);
   append(points);
@@ -208,7 +164,7 @@ void emit_visible_layers(const LayoutInput& in,
   }
   const double wupp = world_units_per_pixel(in.view);
   const float fblc = device_px_per_world(in.view);
-  // Bands: background, raster xor area, heatmap, lines, points, labels.
+  // Bands: background, bake/raster, area, heatmap, lines, points, labels.
   // Cold full rebuilds: consecutive fill/line layers share one parallel_for.
   // Warm retained-slice path stays per-layer so cache_key tagging remains correct.
   const std::vector<const gis::style::StyleLayer*> ordered =

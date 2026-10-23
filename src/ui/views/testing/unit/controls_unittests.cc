@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "ui/gis/shell/atmosphere_panel.h"
+#include "ui/gis/shell/map_furniture_panel.h"
 #include "ui/gis/analysis/geoprocessing_history_panel.h"
 #include "ui/gis/analysis/processing_panel.h"
 #include "ui/gis/analysis/spatial_analysis_panel.h"
@@ -198,6 +199,18 @@ void test_slider_and_atmosphere_panel() {
   (void)time_n;
   (void)time_last;
   (void)ocean_last;
+
+  MapFurniturePanel furniture;
+  furniture.set_bounds({0, 0, 280, 160});
+  expect(furniture.scale_bar_checked(), "furniture scale default");
+  expect(furniture.north_arrow_checked(), "furniture north default");
+  expect(furniture.border_checked(), "furniture border default");
+  expect(!furniture.eagle_eye_enabled(), "furniture eagle eye disabled");
+  int scale_n = 0;
+  furniture.set_scale_bar_change([&](bool) { ++scale_n; });
+  furniture.set_scale_bar_checked(false);
+  expect(!furniture.scale_bar_checked(), "furniture scale off");
+  expect(scale_n == 0, "furniture setter does not fire");
 
   ProcessingPanel proc;
   proc.set_bounds({0, 0, 280, 200});

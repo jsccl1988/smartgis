@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "content/browser/capability/horizon.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 namespace content {
 
@@ -19,13 +19,13 @@ namespace detail {
 unsigned vk_from_name(const std::string& name);
 
 // Shell HWND liveness. No pass/fail.
-bool fill_hwnd_status(content::ShellBridge& browser, content::HwndStatus* out);
+bool fill_hwnd_status(content::Shell& browser, content::HwndStatus* out);
 
 // Posts input and resizes one live shell HWND. Inject and window share the
 // same alive-window check so slot binders do not re-resolve the handle.
 class ShellSurface {
  public:
-  explicit ShellSurface(content::ShellBridge& browser);
+  explicit ShellSurface(content::Shell& browser);
 
   bool alive() const;
   void* hwnd_ptr() const;
@@ -44,7 +44,7 @@ class ShellSurface {
   bool activate() const;
   bool resize(int w, int h) const;
 
-  content::ShellBridge* browser_ = nullptr;
+  content::Shell* browser_ = nullptr;
 };
 
 }  // namespace detail

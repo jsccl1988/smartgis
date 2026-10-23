@@ -69,12 +69,12 @@ int main() {
       CloudSystem::density_from_cover(1.0f, 2000.f, 1000.f, 3000.f, 0.25f),
       0.25f, 1.0e-4f, "noise quarter");
 
-  expect(CloudSystem::raymarch_steps_for_quality(0) == 8, "q0 steps");
-  expect(CloudSystem::raymarch_steps_for_quality(1) == 16, "q1 steps");
-  expect(CloudSystem::raymarch_steps_for_quality(2) == 32, "q2 steps");
-  expect(CloudSystem::raymarch_steps_for_quality(3) == 64, "q3 steps");
-  expect(CloudSystem::raymarch_steps_for_quality(99) == 64, "q clamp high");
-  expect(CloudSystem::raymarch_steps_for_quality(-3) == 8, "q clamp low");
+  expect(CloudSystem::raymarch_steps_for_quality(0) == 16, "q0 steps");
+  expect(CloudSystem::raymarch_steps_for_quality(1) == 32, "q1 steps");
+  expect(CloudSystem::raymarch_steps_for_quality(2) == 64, "q2 steps");
+  expect(CloudSystem::raymarch_steps_for_quality(3) == 128, "q3 steps");
+  expect(CloudSystem::raymarch_steps_for_quality(99) == 128, "q clamp high");
+  expect(CloudSystem::raymarch_steps_for_quality(-3) == 16, "q clamp low");
 
   // Advection writeback on an explicit cover layer (does not need sample()).
   {

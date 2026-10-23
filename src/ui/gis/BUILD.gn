@@ -72,6 +72,8 @@ source_set("gis_sources") {
     "shell/ambox_view.h",
     "shell/atmosphere_panel.cc",
     "shell/atmosphere_panel.h",
+    "shell/map_furniture_panel.cc",
+    "shell/map_furniture_panel.h",
     "shell/chart_view.cc",
     "shell/chart_view.h",
     "shell/status_bar.cc",

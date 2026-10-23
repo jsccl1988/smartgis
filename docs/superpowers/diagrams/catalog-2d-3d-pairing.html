@@ -1,0 +1,157 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalog 2D / 3D 与 Map / Scene3d 配对</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --map: #e8f1fa; --scene: #e8f5ef; --doc: #f7f3e8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    background: var(--bg);
+  }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 0.88em;
+    background: #eef2f6;
+    padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  p, li { color: var(--muted); }
+  .lanes {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .lane {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    min-height: 140px;
+  }
+  .lane.map { background: var(--map); }
+  .lane.scene { background: var(--scene); }
+  .lane h3 { margin: 0 0 8px; font-size: 0.9rem; color: var(--text); }
+  .lane ul { margin: 0; padding-left: 1.1em; }
+  .mid {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent);
+    font-weight: 650;
+    font-size: 0.85rem;
+  }
+  .doc {
+    margin-top: 12px;
+    border: 1px dashed var(--border);
+    background: var(--doc);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+  }
+  .chip {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  .arrow { color: var(--accent); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Catalog 2D / 3D ↔ Map / Scene3d</h1>
+    <p>同一 <code>GisDocument</code>；两个 <code>CatalogView</code>；外层 2D|3D 与 Map|3D 双向同步。</p>
+  </header>
+
+  <section class="panel">
+    <h2>分层</h2>
+    <div class="lanes">
+      <div class="lane map">
+        <h3>2D 车道</h3>
+        <ul>
+          <li><code>catalog_2d_</code> — Layers / Sources / Maps</li>
+          <li>过滤：carto 全量（含 hillshade / basemap）</li>
+          <li>可见性 → <code>invalidate_map2d_frame_cache</code></li>
+          <li>配对 <code>map_tabs_[0]</code> Map</li>
+        </ul>
+      </div>
+      <div class="mid">
+        <div>catalog_mode_tabs_</div>
+        <div>⟷</div>
+        <div>map_tabs_</div>
+      </div>
+      <div class="lane scene">
+        <h3>3D 车道</h3>
+        <ul>
+          <li><code>catalog_3d_</code> — 同结构 TOC</li>
+          <li>过滤：land-surface affinity</li>
+          <li>可见性 → <code>invalidate_native_scene</code> + <code>request_frame</code></li>
+          <li>配对 <code>map_tabs_[1]</code> 3D</li>
+        </ul>
+      </div>
+    </div>
+    <div class="doc">
+      <strong>Document</strong> — 共享 <code>BrowserSession::document_layer_descs()</code>；
+      <code>detail::filter_layer_descs_for_mode</code> 在壳侧过滤（不改 <code>content/public</code>）。
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原则流</h2>
+    <div class="flow">
+      <span class="chip">1. 用户点 Catalog「3D」</span>
+      <span class="arrow">→</span>
+      <span class="chip">on_catalog_mode_changed(1)</span>
+      <span class="arrow">→</span>
+      <span class="chip">catalog_ = catalog_3d_</span>
+      <span class="arrow">→</span>
+      <span class="chip">switch_map_tab(1)</span>
+    </div>
+    <div class="flow">
+      <span class="chip">2. 用户点 Map「3D」</span>
+      <span class="arrow">→</span>
+      <span class="chip">switch_map_tab(1)</span>
+      <span class="arrow">→</span>
+      <span class="chip">on_map_tab_changed(1)</span>
+      <span class="arrow">→</span>
+      <span class="chip">catalog_mode_tabs_ → 3D</span>
+    </div>
+    <p style="margin-top:12px">防重入：<code>CatalogComposer::syncing_mode_</code>；<code>TabStrip::set_active</code> 不触发 <code>change_</code>。</p>
+  </section>
+</div>
+</body>
+</html>

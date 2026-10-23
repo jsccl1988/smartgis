@@ -44,6 +44,9 @@ class UI_EXPORT LayerTree : public View {
   using SelectionChanged = std::function<void(const std::string& id)>;
   using ContextRequested =
       std::function<void(const std::string& id, Point screen)>;
+  // Cross-DLL (EXE → ui_views.dll): prefer fn+baton over std::function.
+  using VisibleChangedFn = void (*)(void* baton, const char* id, bool visible);
+  using SelectionChangedFn = void (*)(void* baton, const char* id);
 
   LayerTree();
   ~LayerTree() override;
@@ -65,6 +68,8 @@ class UI_EXPORT LayerTree : public View {
   void set_visible_changed(VisibleChanged fn);
   void set_selection_changed(SelectionChanged fn);
   void set_context_requested(ContextRequested fn);
+  void set_visible_changed_fn(VisibleChangedFn fn, void* baton);
+  void set_selection_changed_fn(SelectionChangedFn fn, void* baton);
 
   const std::string& selected_id() const { return selected_id_; }
   size_t layer_count() const { return rows_.size(); }
@@ -155,6 +160,10 @@ class UI_EXPORT LayerTree : public View {
   VisibleChanged visible_changed_;
   SelectionChanged selection_changed_;
   ContextRequested context_requested_;
+  VisibleChangedFn visible_changed_fn_ = nullptr;
+  void* visible_changed_baton_ = nullptr;
+  SelectionChangedFn selection_changed_fn_ = nullptr;
+  void* selection_changed_baton_ = nullptr;
 };
 
 }  // namespace views

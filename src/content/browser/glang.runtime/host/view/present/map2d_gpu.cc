@@ -4,7 +4,7 @@
 #include "content/browser/glang.runtime/host/view/present/map2d_gpu.h"
 
 #include "content/browser/glang.runtime/host/horizon/atom/mark.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/map2d/profile/map2d_phase_profile.h"
 #include "render/rhi/rhi.h"
@@ -50,7 +50,7 @@ HWND create_showcase_gpu_hwnd(int showcase_w, int showcase_h) {
                          nullptr, GetModuleHandleW(nullptr), nullptr);
 }
 
-render::rhi::Device* acquire_device(content::ShellBridge& browser,
+render::rhi::Device* acquire_device(content::Shell& browser,
                                     int showcase_w,
                                     int showcase_h,
                                     bool* out_owned) {
@@ -123,7 +123,7 @@ void sample_present(content::Map2dPresenter* map2d,
 
 }  // namespace
 
-void run_map2d_showcase_gpu(content::ShellBridge& browser,
+void run_map2d_showcase_gpu(content::Shell& browser,
                             content::Map2dPresenter* map2d,
                             int showcase_w,
                             int showcase_h) {

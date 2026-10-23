@@ -50,6 +50,10 @@ AtmosphereSession::Ptr AtmosphereSession::create() {
 }
 
 AtmosphereSession::AtmosphereSession() {
+  bind_frame_passes();
+}
+
+void AtmosphereSession::bind_frame_passes() {
   atmosphere_frame_.set_ocean_pass(&ocean_pass_);
   atmosphere_frame_.set_cloud_pass(&cloud_pass_);
   atmosphere_frame_.set_sky_pass(&sky_pass_);
@@ -91,6 +95,9 @@ Extent2 AtmosphereSession::world_extent() const {
 
 bool AtmosphereSession::prepare_for_present() {
   BASE_TRACE_EVENT("atmosphere", "scene3d.atmosphere");
+  // Re-bind every present: vista OceanPass growth must not leave a stale
+  // nullptr on AtmosphereFrame after a cross-DLL sizeof skew write.
+  bind_frame_passes();
   // Best-effort: mesh rebuild usually already filled geo_frame; fill from
   // extent when atmosphere needs it before DEM sync.
   ensure_geo_frame();
@@ -1047,10 +1054,11 @@ bool AtmosphereSession::prepare_ocean() {
       (gpu_->look_preset() == Scene3dLookPreset::kLegacyStereo)
           ? vista::atmosphere::OceanLookPreset::kLegacyStereo
           : vista::atmosphere::OceanLookPreset::kInteractive;
-  // Field -> OceanDrawParams POD (session-free); geo_frame metrics stay here.
-  ocean_pass_.set_params(vista::atmosphere::project_ocean_draw_params(
-      tile.spectrum, hs_orbit, patch, look));
   const vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
+  // Field -> OceanDrawParams POD (session-free); geo_frame metrics stay here.
+  // Design B: quality ≥ 1 prefers GPU FFT + denser mesh (DEM-safe Hs cap).
+  ocean_pass_.set_params(vista::atmosphere::project_ocean_draw_params(
+      tile.spectrum, hs_orbit, patch, look, p.quality));
   ocean_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad,
                                              p.sun_elevation_rad);
   ocean_pass_.set_time_sec(atmosphere_->time_sec());
@@ -1126,6 +1134,29 @@ bool AtmosphereSession::prepare_clouds() {
   cloud_pass_.set_cover_modulation(deck.cover);
   cloud_pass_.set_deck_orbit(deck.half_x, deck.half_z, deck.deck_y);
   cloud_pass_.set_slab_orbit(deck.base_y, deck.top_y);
+
+  // Design B: upload kCloudCover field so raymarch density is spatially
+  // modulated (scalar cover alone painted a uniform veil).
+  constexpr int kCover = 32;
+  vista::atmosphere::FieldGrid cover_extent;
+  cover_extent.min_lon = e.xmin;
+  cover_extent.min_lat = e.ymin;
+  cover_extent.max_lon = e.xmax;
+  cover_extent.max_lat = e.ymax;
+  cover_extent.cols = kCover;
+  cover_extent.rows = kCover;
+  std::vector<float> cover_grid(
+      static_cast<std::size_t>(kCover) * static_cast<std::size_t>(kCover),
+      deck.cover);
+  if (atmosphere_->cloud_system().fill_cover_grid(
+          atmosphere_->field_store(), cover_extent, kCover, kCover,
+          atmosphere_->time_sec(), cover_grid.data(), cover_grid.size())) {
+    cloud_pass_.set_cover_cpu(kCover, kCover, cover_grid.data(),
+                              cover_grid.size());
+  } else {
+    // Fail soft: keep scalar cover; do not invent a full-screen opaque deck.
+    cloud_pass_.set_cover_cpu(0, 0, nullptr, 0);
+  }
   return true;
 }
 

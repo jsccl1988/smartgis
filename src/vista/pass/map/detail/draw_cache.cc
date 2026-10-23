@@ -52,6 +52,25 @@ std::vector<UploadedDraw> world_only_draws(
   return out;
 }
 
+// Zoom changes world span. Hillshade quads were clipped/UV-mapped for the
+// layout view (+ pan skirt); replaying them under a new ortho camera stretches
+// the DEM sheet into horizontal gray bands (DX12 present).
+std::vector<UploadedDraw> world_without_dem_raster(
+    const std::vector<UploadedDraw>& draws) {
+  std::vector<UploadedDraw> out;
+  out.reserve(draws.size());
+  for (const UploadedDraw& d : draws) {
+    if (d.overlay || (d.textured && !d.dem_raster)) {
+      continue;
+    }
+    if (d.textured && d.dem_raster) {
+      continue;
+    }
+    out.push_back(d);
+  }
+  return out;
+}
+
 bool has_overlay_draws(const std::vector<UploadedDraw>& draws) {
   for (const UploadedDraw& d : draws) {
     if (d.overlay || (d.textured && !d.dem_raster)) {
@@ -115,13 +134,12 @@ bool DrawCache::ensure_overlays_for_view(const vista::View& view) {
   if (view_scale_matches(placed_view, view)) {
     return true;
   }
-  // Zoom: drop stale overlays. Replaying them under the new span reads as
-  // huge white-backed characters.
+  // Zoom: drop stale overlays and DEM rasters tied to the old view skirt.
   if (!full_draws.empty()) {
-    full_draws = world_only_draws(full_draws);
+    full_draws = world_without_dem_raster(full_draws);
   }
   if (!world_draws.empty()) {
-    world_draws = world_only_draws(world_draws);
+    world_draws = world_without_dem_raster(world_draws);
   }
   // Slice hits keep place-time glyph verts — drop the index so Settle
   // cannot briefly replay overview-sized labels under the new camera.

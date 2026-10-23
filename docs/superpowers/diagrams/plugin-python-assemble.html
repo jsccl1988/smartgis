@@ -1,0 +1,152 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Python runtime · kernel / surface / assemble</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --kernel: #e8f0f8; --surface: #eaf4ee; --gis: #f4eee6; --run: #eef3ea;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  @media (max-width: 720px) { .lanes { grid-template-columns: 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    min-height: 140px;
+  }
+  .lane.kernel { background: var(--kernel); }
+  .lane.surface { background: var(--surface); }
+  .lane.gis { background: var(--gis); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; }
+  .lane p, .lane li { margin: 0 0 4px; font-size: 0.8rem; color: var(--muted); }
+  .lane ul { margin: 0; padding-left: 1.1em; }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    font-size: 0.82rem;
+  }
+  .step {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; min-width: 110px;
+  }
+  .step strong { display: block; color: var(--accent); font-size: 0.75rem; }
+  .step.run { background: var(--run); }
+  .arrow { color: var(--muted); font-weight: 700; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+  .step.active { animation: pulse 1.6s ease-in-out infinite; border-color: var(--accent); }
+  .note { color: var(--muted); font-size: 0.8rem; margin: 8px 0 0; }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  table.map th, table.map td {
+    border: 1px solid var(--border); padding: 6px 8px; text-align: left;
+  }
+  table.map th { background: #e8edf3; color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Python runtime：kernel · 功能体 · assemble</h1>
+    <p class="meta">Living · plugin-host §Python runtime 深度抽象合并 · 2026-10-21</p>
+  </header>
+
+  <section class="panel">
+    <h2>核心分层</h2>
+    <div class="lanes">
+      <div class="lane kernel">
+        <h3>kernel/</h3>
+        <ul>
+          <li><code>py_compat</code> · <code>gil</code></li>
+          <li><code>session</code>（holds / call_py_*）</li>
+          <li><code>py_util</code>（bool / retain / AddObject）</li>
+        </ul>
+      </div>
+      <div class="lane surface">
+        <h3>surface/ · script/</h3>
+        <ul>
+          <li>Host（含原 tool.execute/activate）</li>
+          <li>events · ui · debug</li>
+          <li>script <code>_dispatch</code></li>
+        </ul>
+      </div>
+      <div class="lane gis">
+        <h3>gis/</h3>
+        <ul>
+          <li><code>marshal</code> → glang 能力表</li>
+          <li>analysis · scene · style</li>
+          <li>工厂由 assemble 挂载</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原则流（装配）</h2>
+    <div class="flow" id="flow">
+      <div class="step" data-i="0"><strong>1</strong>init_host_type / debug</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="1"><strong>2</strong>content · events · ui · debug</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="2"><strong>3</strong>attach gis 子模块</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="3"><strong>4</strong>attach script</div>
+      <span class="arrow">→</span>
+      <div class="step run" data-i="4"><strong>runner</strong><code>assemble.cc</code></div>
+    </div>
+    <p class="note">功能体不互相装配；只有 <code>assemble.cc</code> 调用工厂并把对象挂到 <code>smartgis</code>。</p>
+  </section>
+
+  <section class="panel">
+    <h2>表面对照</h2>
+    <table class="map">
+      <thead><tr><th>旧</th><th>新</th></tr></thead>
+      <tbody>
+        <tr><td><code>smartgis.tool.*</code></td><td><code>Host.execute</code> / <code>Host.activate</code></td></tr>
+        <tr><td><code>debug.profile</code></td><td>删除 → <code>trace_event</code></td></tr>
+        <tr><td><code>bind/</code> + 双 attach</td><td><code>kernel/</code> + <code>surface/</code> + <code>assemble</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+(function () {
+  var steps = document.querySelectorAll("#flow .step");
+  var i = 0;
+  function tick() {
+    steps.forEach(function (el) { el.classList.remove("active"); });
+    steps[i % steps.length].classList.add("active");
+    i += 1;
+  }
+  tick();
+  setInterval(tick, 1400);
+})();
+</script>
+</body>
+</html>

@@ -213,6 +213,13 @@ void BrowserView::ensure_inspector_tab(int index) {
   inspector_host_->ensure_inspector_tab(index);
 }
 
+void BrowserView::on_inspector_tab_changed(int index) {
+  if (inspector_host_) {
+    inspector_host_->note_tab_activated(index);
+  }
+  ensure_inspector_tab(index);
+}
+
 void BrowserView::sync_status() {
   ui::views::DrawHost* pane = active_map();
   if (!status_bar_ || !pane) {

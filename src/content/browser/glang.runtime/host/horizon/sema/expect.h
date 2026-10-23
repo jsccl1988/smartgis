@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "content/browser/capability/horizon.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 #include "content/browser/capability/view.h"
 
 namespace ui {
@@ -51,15 +51,15 @@ void write_layout_forensics(const LayoutForensics& note,
 bool layout_forensics_forced();
 
 // Contents tree counts. No pass/fail.
-bool fill_shell_status(content::ShellBridge& browser, content::ShellStatus* out);
+bool fill_shell_status(content::Shell& browser, content::ShellStatus* out);
 
 // Layout violation and overlap counts. Dumps forensics when violations
 // exist or the ui-forensics switch is on. No pass/fail.
-bool fill_layout_status(content::ShellBridge& browser, content::LayoutStatus* out);
+bool fill_layout_status(content::Shell& browser, content::LayoutStatus* out);
 
 // Fill load facts for |face| ("map" or "scene"). |timeout_ms| > 0 waits
 // for a presented frame before the snapshot. No pass/fail.
-bool fill_map_load_status(content::ShellBridge& browser,
+bool fill_map_load_status(content::Shell& browser,
                           const std::string& face,
                           int timeout_ms,
                           content::ViewLoadStatus* out);

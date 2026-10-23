@@ -2,15 +2,16 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/exec/op/register.h"
+#include "content/browser/capability/host.h"
+#include "content/browser/glang.runtime/exec/op/install.h"
 
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 
-#include "content/browser/glang.runtime/language/ir/horizon.h"
-#include "content/browser/glang.runtime/language/ir/plugin.h"
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -22,6 +23,76 @@
 namespace content {
 namespace code {
 namespace {
+void mark(content::CapabilityHost& host, std::string_view token) {
+  if (host.horizon.mark) {
+    host.horizon.mark(std::string(token));
+  }
+}
+
+bool run_processing(content::CapabilityHost& host,
+                           std::string_view id,
+                           std::string_view args_json) {
+  return !id.empty() && host.plugin.run_processing &&
+         host.plugin.run_processing(std::string(id), std::string(args_json));
+}
+
+bool run_plugin_command(content::CapabilityHost& host,
+                               std::string_view id) {
+  return !id.empty() && host.plugin.run_plugin_command &&
+         host.plugin.run_plugin_command(std::string(id));
+}
+
+bool resolve_data(content::CapabilityHost& host,
+                         std::string_view kind,
+                         std::string_view leaf,
+                         std::string* out_path) {
+  return host.plugin.resolve_data &&
+         host.plugin.resolve_data(std::string(kind), std::string(leaf),
+                                  out_path) &&
+         out_path && !out_path->empty();
+}
+
+bool capture_path(content::CapabilityHost& host,
+                         std::string_view leaf,
+                         std::string* out_path) {
+  return host.plugin.capture_path &&
+         host.plugin.capture_path(std::string(leaf), out_path) && out_path &&
+         !out_path->empty();
+}
+
+bool sidecar_path(content::CapabilityHost& host,
+                         std::string_view rel,
+                         std::string* out_path) {
+  return host.plugin.sidecar_path &&
+         host.plugin.sidecar_path(std::string(rel), out_path) && out_path &&
+         !out_path->empty();
+}
+
+bool require_plugins(content::CapabilityHost& host) {
+  return host.plugin.require_plugins && host.plugin.require_plugins();
+}
+
+bool analysis_set_frame(content::CapabilityHost& host, int index) {
+  return host.plugin.analysis_set_frame && host.plugin.analysis_set_frame(index);
+}
+
+bool analysis_export_frames(content::CapabilityHost& host,
+                                   std::string_view dir) {
+  return host.plugin.analysis_export_frames &&
+         host.plugin.analysis_export_frames(std::string(dir)) > 0;
+}
+
+bool open_report(content::CapabilityHost& host, std::string_view path) {
+  return !path.empty() && host.plugin.open_report &&
+         host.plugin.open_report(std::string(path));
+}
+
+bool post_to_report(content::CapabilityHost& host,
+                           std::string_view json) {
+  return host.plugin.post_to_report &&
+         host.plugin.post_to_report(std::string(json));
+}
+
 
 std::string json_escape(const std::string& text) {
   std::string out;
@@ -136,7 +207,7 @@ bool eval_run_processing(content::CapabilityHost& host,
     args = "{}";
   }
   return ok_step(inst,
-                 ir::run_processing(host, arg_str_param(module, inst, slots, 0), args),
+                 run_processing(host, arg_str_param(module, inst, slots, 0), args),
                  error);
 }
 
@@ -146,7 +217,7 @@ bool eval_run_plugin_command(content::CapabilityHost& host,
                              SlotTable& slots,
                              std::string* error) {
   return ok_step(inst,
-                 ir::run_plugin_command(host, arg_str_param(module, inst, slots, 0)),
+                 run_plugin_command(host, arg_str_param(module, inst, slots, 0)),
                  error);
 }
 
@@ -156,7 +227,7 @@ bool eval_resolve_data(content::CapabilityHost& host,
                        SlotTable& slots,
                        std::string* error) {
   std::string path;
-  if (!ir::resolve_data(host, arg_str_param(module, inst, slots, 0),
+  if (!resolve_data(host, arg_str_param(module, inst, slots, 0),
                         arg_str_param(module, inst, slots, 1), &path)) {
     return fail_step(inst, "resolve_data", error);
   }
@@ -169,7 +240,7 @@ bool eval_capture_path(content::CapabilityHost& host,
                        SlotTable& slots,
                        std::string* error) {
   std::string path;
-  if (!ir::capture_path(host, arg_str_param(module, inst, slots, 0), &path)) {
+  if (!capture_path(host, arg_str_param(module, inst, slots, 0), &path)) {
     return fail_step(inst, "capture_path", error);
   }
   return store_result(inst, slots, std::move(path), error);
@@ -181,7 +252,7 @@ bool eval_sidecar_path(content::CapabilityHost& host,
                        SlotTable& slots,
                        std::string* error) {
   std::string path;
-  if (!ir::sidecar_path(host, arg_str_param(module, inst, slots, 0), &path)) {
+  if (!sidecar_path(host, arg_str_param(module, inst, slots, 0), &path)) {
     return fail_step(inst, "sidecar_path", error);
   }
   return store_result(inst, slots, std::move(path), error);
@@ -199,9 +270,9 @@ bool eval_require_var(content::CapabilityHost& host,
   if (!value.empty()) {
     return true;
   }
-  const std::string mark = arg_str_param(module, inst, slots, 1);
-  if (!mark.empty()) {
-    ir::mark(host, mark);
+  const std::string token = arg_str_param(module, inst, slots, 1);
+  if (!token.empty()) {
+    mark(host, token);
   }
   return fail_step(inst, "missing var", error);
 }
@@ -211,7 +282,7 @@ bool eval_require_plugins(content::CapabilityHost& host,
                           const Inst& inst,
                           SlotTable&,
                           std::string* error) {
-  return ok_step(inst, ir::require_plugins(host), error);
+  return ok_step(inst, require_plugins(host), error);
 }
 
 bool eval_analysis_set_frame(content::CapabilityHost& host,
@@ -220,7 +291,7 @@ bool eval_analysis_set_frame(content::CapabilityHost& host,
                              SlotTable& slots,
                              std::string* error) {
   return ok_step(inst,
-                 ir::analysis_set_frame(host, arg_i32_param(module, inst, slots, 0)),
+                 analysis_set_frame(host, arg_i32_param(module, inst, slots, 0)),
                  error);
 }
 
@@ -230,7 +301,7 @@ bool eval_analysis_export_frames(content::CapabilityHost& host,
                                  SlotTable& slots,
                                  std::string* error) {
   return ok_step(
-      inst, ir::analysis_export_frames(host, arg_str_param(module, inst, slots, 0)),
+      inst, analysis_export_frames(host, arg_str_param(module, inst, slots, 0)),
       error);
 }
 
@@ -239,7 +310,7 @@ bool eval_open_report(content::CapabilityHost& host,
                       const Inst& inst,
                       SlotTable& slots,
                       std::string* error) {
-  return ok_step(inst, ir::open_report(host, arg_str_param(module, inst, slots, 0)),
+  return ok_step(inst, open_report(host, arg_str_param(module, inst, slots, 0)),
                  error);
 }
 
@@ -258,7 +329,7 @@ bool eval_post_to_report(content::CapabilityHost& host,
   if (json.empty()) {
     json = "{}";
   }
-  return ok_step(inst, ir::post_to_report(host, json), error);
+  return ok_step(inst, post_to_report(host, json), error);
 }
 
 constexpr Param kProcessingParams[] = {
@@ -297,67 +368,46 @@ constexpr Param kPostParams[] = {
     {"data", -1, ArgKind::kStr, false, 0, "{}"},
 };
 
-const OpDesc kRunProcessing{
-    Op::kRunProcessing, "run_processing", nullptr, kProcessingParams, 3, false,
-    &eval_run_processing,
-};
-const OpDesc kRunPluginCommand{
-    Op::kRunPluginCommand, "run_plugin_command", nullptr, kCommandParams, 1, false,
-    &eval_run_plugin_command,
-};
-const OpDesc kResolveData{
-    Op::kResolveData, "resolve_data", nullptr, kResolveParams, 2, true,
-    &eval_resolve_data,
-};
-const OpDesc kCapturePath{
-    Op::kCapturePath, "capture_path", nullptr, kCaptureParams, 1, true,
-    &eval_capture_path,
-};
-const OpDesc kSidecarPath{
-    Op::kSidecarPath, "sidecar_path", nullptr, kSidecarParams, 1, true,
-    &eval_sidecar_path,
-};
-const OpDesc kRequireVar{
-    Op::kRequireVar, "require_var", nullptr, kRequireVarParams, 2, false,
-    &eval_require_var,
-};
-const OpDesc kRequirePlugins{
-    Op::kRequirePlugins, "require_plugins", nullptr, nullptr, 0, false,
-    &eval_require_plugins,
-};
-const OpDesc kAnalysisSetFrame{
-    Op::kAnalysisSetFrame, "analysis_set_frame", nullptr, kFrameParams, 1, false,
-    &eval_analysis_set_frame,
-};
-const OpDesc kAnalysisExportFrames{
-    Op::kAnalysisExportFrames, "analysis_export_frames", nullptr, kExportFramesParams,
-    1, false, &eval_analysis_export_frames,
-};
-const OpDesc kOpenReport{
-    Op::kOpenReport, "open_report", nullptr, kReportParams, 1, false, &eval_open_report,
-};
-const OpDesc kPostToReport{
-    Op::kPostToReport, "post_to_report", nullptr, kPostParams, 2, false,
-    &eval_post_to_report,
-};
+CONTENT_LANE_OP(RunProcessingOp, Op::kRunProcessing, "run_processing", nullptr,
+                kProcessingParams, 3, false, eval_run_processing);
+CONTENT_LANE_OP(RunPluginCommandOp, Op::kRunPluginCommand, "run_plugin_command", nullptr,
+                kCommandParams, 1, false, eval_run_plugin_command);
+CONTENT_LANE_OP(ResolveDataOp, Op::kResolveData, "resolve_data", nullptr, kResolveParams,
+                2, true, eval_resolve_data);
+CONTENT_LANE_OP(CapturePathOp, Op::kCapturePath, "capture_path", nullptr, kCaptureParams,
+                1, true, eval_capture_path);
+CONTENT_LANE_OP(SidecarPathOp, Op::kSidecarPath, "sidecar_path", nullptr, kSidecarParams,
+                1, true, eval_sidecar_path);
+CONTENT_LANE_OP(RequireVarOp, Op::kRequireVar, "require_var", nullptr, kRequireVarParams,
+                2, false, eval_require_var);
+CONTENT_LANE_OP(RequirePluginsOp, Op::kRequirePlugins, "require_plugins", nullptr,
+                nullptr, 0, false, eval_require_plugins);
+CONTENT_LANE_OP(AnalysisSetFrameOp, Op::kAnalysisSetFrame, "analysis_set_frame", nullptr,
+                kFrameParams, 1, false, eval_analysis_set_frame);
+CONTENT_LANE_OP(AnalysisExportFramesOp, Op::kAnalysisExportFrames,
+                "analysis_export_frames", nullptr, kExportFramesParams, 1, false,
+                eval_analysis_export_frames);
+CONTENT_LANE_OP(OpenReportOp, Op::kOpenReport, "open_report", nullptr, kReportParams, 1,
+                false, eval_open_report);
+CONTENT_LANE_OP(PostToReportOp, Op::kPostToReport, "post_to_report", nullptr, kPostParams,
+                2, false, eval_post_to_report);
+
+using PluginOps = std::tuple<RunProcessingOp,
+                             RunPluginCommandOp,
+                             ResolveDataOp,
+                             CapturePathOp,
+                             SidecarPathOp,
+                             RequireVarOp,
+                             RequirePluginsOp,
+                             AnalysisSetFrameOp,
+                             AnalysisExportFramesOp,
+                             OpenReportOp,
+                             PostToReportOp>;
 
 }  // namespace
 
 void fill_plugin_ops(const OpDesc** by_op) {
-  if (!by_op) {
-    return;
-  }
-  by_op[static_cast<std::size_t>(Op::kRunProcessing)] = &kRunProcessing;
-  by_op[static_cast<std::size_t>(Op::kRunPluginCommand)] = &kRunPluginCommand;
-  by_op[static_cast<std::size_t>(Op::kResolveData)] = &kResolveData;
-  by_op[static_cast<std::size_t>(Op::kCapturePath)] = &kCapturePath;
-  by_op[static_cast<std::size_t>(Op::kSidecarPath)] = &kSidecarPath;
-  by_op[static_cast<std::size_t>(Op::kRequireVar)] = &kRequireVar;
-  by_op[static_cast<std::size_t>(Op::kRequirePlugins)] = &kRequirePlugins;
-  by_op[static_cast<std::size_t>(Op::kAnalysisSetFrame)] = &kAnalysisSetFrame;
-  by_op[static_cast<std::size_t>(Op::kAnalysisExportFrames)] = &kAnalysisExportFrames;
-  by_op[static_cast<std::size_t>(Op::kOpenReport)] = &kOpenReport;
-  by_op[static_cast<std::size_t>(Op::kPostToReport)] = &kPostToReport;
+  detail::install_ops<PluginOps>(by_op);
 }
 
 }  // namespace code

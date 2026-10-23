@@ -28,6 +28,8 @@ steps under `testing/tools/harness/_shared/steps/`, called from their suite scri
 | --- | --- |
 | `map2d.seed` `{mode}` | `china` / `align` / `orthogrid` document seed |
 | `map2d.open_map` / `frame_to` / `frame_fly` / `apply_look` | `Map2dSink` 2D analogue of world3d earth/look (chrome bridges) |
+| `map2d.open_pyramid` | XYZ URL template (`{z}/{x}/{y}`); paints the pyramid, neatline, and scale bar |
+| `map2d.furniture_panel` | Opens inspector dock `map2d.furniture` (scale bar / north arrow / border; eagle eye reserved) |
 | `map2d.load_hillshade` / `present_gpu` / `export_bmp` | DEM hillshade + GPU present + BMP |
 | `map2d.attach_dataset` / `add_standin_layer` | Vector/raster attach + stand-in polygon |
 | `print.preview` | Print preview dialog + `PrintComposer` (`print.save`) |

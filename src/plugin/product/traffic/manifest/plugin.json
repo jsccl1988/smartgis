@@ -24,6 +24,7 @@
     ],
     "processing": [
       {"id": "traffic.cost_path", "title": "Traffic cost path"},
+      {"id": "traffic.cost_quote", "title": "Traffic path cost without present"},
       {"id": "traffic.export_path", "title": "Export traffic path"}
     ]
   }

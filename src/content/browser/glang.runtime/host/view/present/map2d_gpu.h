@@ -6,7 +6,7 @@
 
 namespace content {
 class Map2dPresenter;
-class ShellBridge;
+struct Shell;
 }  // namespace content
 
 namespace content {
@@ -15,7 +15,7 @@ namespace detail {
 // Cold+warm present_gpu on a dedicated HWND when the map pane already owns
 // a flip-model chain. Skips when no device can be created. Does not fail
 // the BMP that already landed.
-void run_map2d_showcase_gpu(content::ShellBridge& browser,
+void run_map2d_showcase_gpu(content::Shell& browser,
                             content::Map2dPresenter* map2d,
                             int showcase_w,
                             int showcase_h);

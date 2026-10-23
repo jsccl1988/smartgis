@@ -49,9 +49,11 @@ struct CloudOrbitDeck {
 
 // Spectrum (GIS meters Hs already converted to |hs_orbit|) + orbit rect →
 // OceanDrawParams. No GisScene / CommandList.
+// |quality| mirrors AtmosphereParams::quality (0 = Gerstner calm; ≥1 GPU FFT
+// for interactive look). DEM-safe Hs / sea_mask stay caller-owned.
 VISTA_EXPORT OceanDrawParams project_ocean_draw_params(
     const OceanSpectrumParams& spectrum, float hs_orbit,
-    const OrbitPatchRect& patch, OceanLookPreset look);
+    const OrbitPatchRect& patch, OceanLookPreset look, int quality = 1);
 
 // CloudSample + orbit patch → deck/slab knobs. |lift_orbit| / |thick_orbit|
 // are raw meters_to_orbit_y results; clamps live here.

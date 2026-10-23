@@ -1,9 +1,23 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
+import("//build/python.gni")
 import("//build/smartgis.gni")
 import("//src/plugin/product/native_plugin.gni")
 import("//testing/test.gni")
+
+copy("report_deliver_plugin") {
+  sources = [
+    "script/plugin.json",
+    "script/plugin.py",
+  ]
+  outputs = [ "$root_out_dir/plugins/report_deliver/{{source_file_part}}" ]
+}
+
+copy("report_deliver_ext") {
+  sources = [ "script/ext/__init__.py" ]
+  outputs = [ "$root_out_dir/plugins/report_deliver/ext/__init__.py" ]
+}
 
 copy("report_resources") {
   sources = [ "manifest/plugin.json" ]
@@ -43,9 +57,36 @@ test("report_gate_test") {
   ldflags = [ "/ENTRY:mainCRTStartup" ]
 }
 
+test("report_deliver_test") {
+  output_name = "report_deliver_test"
+  sources = [ "tests/deliver_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ "//third_party:rapidjson" ]
+  defines = [
+    "REPORT_DELIVER_DIR=\"" +
+        rebase_path("//src/plugin/product/report/script") + "\"",
+  ]
+  data_deps = [
+    ":report_resources",
+    ":report_deliver_plugin",
+    ":report_deliver_ext",
+  ]
+  if (python_enabled && python_dll != "") {
+    data_deps += [
+      "//src/plugin/runtime/extension:python312_dll",
+      "//src/plugin/runtime/extension:python3_dll",
+    ]
+  }
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
+}
+
 native_plugin("report_native") {
   package = "report"
   entry = "dll_entry.cc"
   deps = [ ":report_views" ]
-  data_deps = [ ":report_resources" ]
+  data_deps = [
+    ":report_resources",
+    ":report_deliver_plugin",
+    ":report_deliver_ext",
+  ]
 }

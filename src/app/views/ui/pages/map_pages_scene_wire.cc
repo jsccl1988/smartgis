@@ -21,6 +21,7 @@
 #include "base/process/switches.h"
 #include "content/browser/session/browser_session.h"
 #include "content/public/gis_contents.h"
+#include "content/public/types.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
 #include "ui/views/map/viewport/draw_host.h"
@@ -137,6 +138,34 @@ void MapPagesComposer::wire_map_scene() {
       continue;
     }
     pane->set_overlay_paint(paint2d_for(pane));
+    pane->set_eagle_eye_commit([this, pane](const content::Extent2& extent) {
+      if (!host_->browser_) {
+        return;
+      }
+      int w = 800;
+      int h = 600;
+      HWND surface = pane->present_hwnd();
+      if (!surface || !IsWindow(surface)) {
+        surface = pane->native_view();
+      }
+      if (surface && IsWindow(surface)) {
+        RECT rc = {};
+        GetClientRect(surface, &rc);
+        if (rc.right > 32 && rc.bottom > 32) {
+          w = rc.right;
+          h = rc.bottom;
+        }
+      }
+      content::BrowserSession& session = host_->browser_->session();
+      session.apply_view_world_extent(extent, w, h);
+      if (host_->browser_->navigation_baselined()) {
+        session.navigation_commit(extent);
+      }
+      host_->browser_->push_shared_extent();
+      host_->invalidate_map_overlays();
+      host_->browser_->refresh_scale();
+      pane->request_frame();
+    });
     // Per-pane shell: shared Map2dPresenter content, pane-local DrawRequest.shell.
     pane->set_gpu_present(
         [this, pane](void* device, uint32_t w, uint32_t h) -> bool {

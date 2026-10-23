@@ -3,7 +3,7 @@
 
 # IL runtime. Language core does not dep //src/app/views or the Views toolkit.
 # :backend / :session bind CapabilityHost. They must not dep //src/app/views.
-# The shell fills ShellBridge from Browser (app/views/app/startup/shell_runtime.cc).
+# The shell fills Shell from Browser (app/views/app/startup/shell_runtime.cc).
 # Suite entry is content::run_suite_script.
 
 import("//build/python.gni")
@@ -158,9 +158,10 @@ source_set("code") {
 source_set("op") {
   assert_no_deps = _il_no_shell_deps
   sources = [
-    "exec/extend/exec.cc",
-    "exec/extend/exec.h",
-    "exec/extend/language.h",
+    "exec/vm/exec.h",
+    "exec/vm/language.h",
+    "exec/vm/registry.cc",
+    "exec/vm/verb.h",
     "exec/op/document.cc",
     "exec/op/gesture.cc",
     "exec/op/gis/dispatch/dispatch.cc",
@@ -170,21 +171,31 @@ source_set("op") {
     "exec/op/gis/eval/feature.cc",
     "exec/op/gis/eval/geometry.cc",
     "exec/op/gis/eval/host_call.h",
+    "exec/op/gis/geom/construct.cc",
+    "exec/op/gis/geom/construct.h",
+    "exec/op/gis/geom/feature_scan.cc",
+    "exec/op/gis/geom/gis.h",
+    "exec/op/gis/geom/host.cc",
+    "exec/op/gis/geom/measure.cc",
+    "exec/op/gis/geom/transform.cc",
+    "exec/op/gis/geom/verb.cc",
+    "exec/op/gis/geom/write.cc",
+    "exec/op/gis/geom/write.h",
     "exec/op/gis/pack/pack.cc",
     "exec/op/gis/pack/pack.h",
     "exec/op/horizon.cc",
     "exec/op/plugin.cc",
     "exec/op/host_verb.h",
-    "exec/op/register.cc",
+    "exec/op/install.h",
     "exec/op/register.h",
     "exec/op/view.cc",
   ]
   deps = [
     ":code",
-    ":ir",
     "//src/base:base",
     "//src/content:capability",
     "//src/gis:gis",
+    "//src/gis/analysis:analysis",
     "//third_party:gdal",
   ]
   include_dirs += [ "//src" ]
@@ -223,8 +234,8 @@ source_set("lower") {
 source_set("plugin_fn") {
   assert_no_deps = _il_no_shell_deps
   sources = [
-    "exec/session/plugin_fn.cc",
-    "exec/session/plugin_fn.h",
+    "exec/py/plugin_fn.cc",
+    "exec/py/plugin_fn.h",
   ]
   deps = [
     ":op",
@@ -238,16 +249,16 @@ source_set("plugin_fn") {
 source_set("script_call") {
   assert_no_deps = _il_no_shell_deps
   sources = [
-    "exec/session/script_call.cc",
-    "exec/session/script_call.h",
+    "exec/py/script_call.cc",
+    "exec/py/script_call.h",
   ]
   include_dirs += [ "//src" ]
 }
 
-source_set("gis_console") {
+source_set("console") {
   sources = [
-    "host/bind/gis_console.cc",
-    "host/bind/gis_console.h",
+    "host/bind/console.cc",
+    "host/bind/console.h",
   ]
   deps = [
     ":op",
@@ -258,55 +269,45 @@ source_set("gis_console") {
   include_dirs += [ "//src" ]
 }
 
+source_set("tile_grid") {
+  sources = [
+    "host/tile/script.cc",
+    "host/tile/web_mercator.cc",
+    "host/tile/web_mercator.h",
+    "host/tile/xyz_source.cc",
+    "host/tile/xyz_source.h",
+    "host/tile/verbs.h",
+  ]
+  deps = [ "//src/base:base" ]
+  libs = [ "wininet.lib" ]
+  include_dirs += [ "//src" ]
+}
+
+# Dynamic verb names. Linked from :backend only so map2d does not pull :op.
+source_set("tile_verbs") {
+  sources = [ "host/tile/verbs.cc" ]
+  deps = [
+    ":plugin_fn",
+    ":tile_grid",
+  ]
+  include_dirs += [ "//src" ]
+}
+
 source_set("eval") {
   assert_no_deps = _il_no_shell_deps
   sources = [
-    "exec/eval/eval.cc",
-    "exec/eval/eval.h",
+    "exec/vm/eval.cc",
+    "exec/vm/eval.h",
   ]
   deps = [
     ":code",
     ":lower",
     ":op",
     ":sema",
-    ":ir",
+    ":tile_grid",
     "//src/base:base",
     "//src/content:capability",
     ":script_call",
-  ]
-  include_dirs += [ "//src" ]
-}
-
-# Language-neutral instructions. ir/gis links GDAL for geometry;
-# the other headers stay inline over CapabilityHost.
-source_set("ir") {
-  assert_no_deps = _il_no_shell_deps
-  sources = [
-    "language/ir/api.h",
-    "language/ir/document.h",
-    "language/ir/fail.h",
-    "language/ir/gesture.h",
-    "language/ir/gis.h",
-    "language/ir/gis/construct/construct.cc",
-    "language/ir/gis/construct/construct.h",
-    "language/ir/gis/eval/write.cc",
-    "language/ir/gis/eval/write.h",
-    "language/ir/gis/feature/feature.cc",
-    "language/ir/gis/host/host.cc",
-    "language/ir/gis/measure/measure.cc",
-    "language/ir/gis/transform/transform.cc",
-    "language/ir/gis/verb/verb.cc",
-    "language/ir/visit.h",
-    "language/ir/horizon.h",
-    "language/ir/plugin.h",
-    "language/ir/view.h",
-  ]
-  deps = [
-    "//src/base:base",
-    "//src/content:capability",
-    "//src/gis:gis",
-    # WKT / feature kernels are linked through gis.dll.
-    "//src/gis/analysis:analysis",
   ]
   include_dirs += [ "//src" ]
 }
@@ -334,7 +335,6 @@ source_set("scene_policy") {
     "host/scene/policy/gate.h",
   ]
   deps = [
-    ":ir",
     "//src/base:base",
     "//src/content:capability",
   ]
@@ -346,7 +346,6 @@ group("il") {
     ":code",
     ":eval",
     ":front",
-    ":ir",
     ":lower",
     ":op",
     ":script_runtime",
@@ -432,7 +431,7 @@ source_set("backend") {
     "host/view/view_bind.cc",
     "host/view/view_bind.h",
     "host/bind/pane.h",
-    "host/bind/shell_bridge.h",
+    "host/bind/shell.h",
     "host/bind/slots.h",
     "host/utils/charset.cc",
     "host/utils/charset.h",
@@ -443,9 +442,9 @@ source_set("backend") {
     "host/utils/view_tree.h",
   ]
   deps = [
-    ":ir",
     ":op",
     ":scene_policy",
+    ":tile_verbs",
     "//src/base:base",
     "//src/base:foundation",
     "//src/content:capability",
@@ -473,6 +472,55 @@ source_set("backend") {
   ]
 }
 
+# Host / ui / gis / script types installed onto glang.plugin.
+# Not part of the IL core: this target may depend on Views.
+source_set("plugin_embed") {
+  sources = [
+    "exec/py/embed/assemble.cc",
+    "exec/py/embed/assemble.h",
+    "exec/py/embed/gis/analysis.cc",
+    "exec/py/embed/gis/gis.h",
+    "exec/py/embed/gis/marshal.cc",
+    "exec/py/embed/gis/marshal.h",
+    "exec/py/embed/gis/scene.cc",
+    "exec/py/embed/gis/style.cc",
+    "exec/py/embed/kernel/gil.h",
+    "exec/py/embed/kernel/py_compat.h",
+    "exec/py/embed/kernel/py_util.cc",
+    "exec/py/embed/kernel/py_util.h",
+    "exec/py/embed/kernel/session.cc",
+    "exec/py/embed/kernel/session.h",
+    "exec/py/embed/script/dispatch.cc",
+    "exec/py/embed/script/script.h",
+    "exec/py/embed/surface/debug.cc",
+    "exec/py/embed/surface/events.cc",
+    "exec/py/embed/surface/host.cc",
+    "exec/py/embed/surface/surface.h",
+    "exec/py/embed/surface/ui.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":eval",
+    ":console",
+    ":op",
+    ":plugin_fn",
+    ":script_call",
+    "//src/base:base",
+    "//src/content:capability",
+    "//src/plugin:host",
+    "//src/plugin/runtime/processing:processing_ops",
+    "//src/ui/gis:gis",
+    "//src/ui/views:views",
+  ]
+  if (python_enabled) {
+    include_dirs += [ python_include ]
+    defines += [
+      "HAS_PYTHON=1",
+      "PYTHON_HOME=\"" + python_prefix + "\"",
+    ]
+  }
+}
+
 # Process-wide CPython. Debug (python_enabled false) is the stub and must
 # not link python312.lib. Plugin packs depend on this target; they do not
 # compile cpython.cc themselves.
@@ -482,10 +530,12 @@ source_set("cpython") {
     "//src/app/*",
   ]
   sources = [
-    "exec/session/cpython.cc",
-    "exec/session/cpython.h",
-    "exec/session/plugin_module.cc",
-    "exec/session/plugin_module.h",
+    "exec/py/cpython.cc",
+    "exec/py/cpython.h",
+    "exec/py/ext_module.cc",
+    "exec/py/ext_module.h",
+    "exec/py/plugin_module.cc",
+    "exec/py/plugin_module.h",
   ]
   deps = [
     ":plugin_fn",
@@ -509,10 +559,10 @@ source_set("session") {
     "//src/app/*",
   ]
   sources = [
-    "exec/session/script_load.cc",
-    "exec/session/script_load.h",
-    "exec/session/session.cc",
-    "exec/session/session.h",
+    "exec/py/script_load.cc",
+    "exec/py/script_load.h",
+    "exec/py/session.cc",
+    "exec/py/session.h",
   ]
   public_deps = [ ":backend" ]
   deps = [
@@ -538,7 +588,7 @@ test("capture_present_test") {
 
 test("plugin_fn_test") {
   output_name = "plugin_fn_test"
-  sources = [ "exec/session/plugin_fn_test.cc" ]
+  sources = [ "exec/py/plugin_fn_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
     ":plugin_fn",
@@ -555,8 +605,33 @@ test("plugin_fn_test") {
     ]
     if (python_dll != "") {
       data_deps = [
-        "//src/plugin/runtime/python:python312_dll",
-        "//src/plugin/runtime/python:python3_dll",
+        "//src/plugin/runtime/extension:python312_dll",
+        "//src/plugin/runtime/extension:python3_dll",
+      ]
+    }
+  }
+}
+
+test("ext_module_test") {
+  output_name = "ext_module_test"
+  sources = [ "exec/py/ext_module_test.cc" ]
+  include_dirs += [ "//src" ]
+  use_gtest = false
+  deps = [
+    ":cpython",
+    "//src/base:base",
+  ]
+  defines += [
+    "PLUGIN_HELLO_EXT_DIR=\"" +
+        rebase_path("//src/plugin/runtime/samples/hello_ext") + "\"",
+  ]
+  if (python_enabled) {
+    include_dirs += [ python_include ]
+    defines += [ "HAS_PYTHON=1" ]
+    if (python_dll != "") {
+      data_deps = [
+        "//src/plugin/runtime/extension:python312_dll",
+        "//src/plugin/runtime/extension:python3_dll",
       ]
     }
   }
@@ -571,6 +646,18 @@ test("scene_gate_test") {
     "//src/base:base",
     "//src/content:capability",
   ]
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
+}
+
+test("tile_grid_test") {
+  output_name = "tile_grid_test"
+  sources = [ "host/tile/web_mercator_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":tile_grid",
+    "//src/base:base",
+  ]
+  libs = [ "wininet.lib" ]
   ldflags = [ "/ENTRY:mainCRTStartup" ]
 }
 
@@ -593,7 +680,6 @@ test("codegen_ir_test") {
     ":code",
     ":eval",
     ":front",
-    ":ir",
     ":lower",
     ":op",
     ":sema",

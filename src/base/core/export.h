@@ -10,7 +10,9 @@
 // GN sets BASE_EXPORTS on the source_sets compiled into that DLL.
 // Foundation (:foundation) does not set BASE_EXPORTS; do not annotate
 // header-only foundation symbols with BASE_EXPORT.
+// When is_component_build=false, COMPONENT_BUILD is unset → no-op.
 
+#if defined(COMPONENT_BUILD)
 #if defined(BASE_EXPORTS)
 #if defined(COMPILER_MSVC) || defined(_WIN32)
 #define BASE_EXPORT __declspec(dllexport)
@@ -19,6 +21,9 @@
 #endif
 #elif defined(COMPILER_MSVC) || defined(_WIN32)
 #define BASE_EXPORT __declspec(dllimport)
+#else
+#define BASE_EXPORT
+#endif
 #else
 #define BASE_EXPORT
 #endif

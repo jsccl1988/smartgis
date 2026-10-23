@@ -42,6 +42,15 @@ config("cc_std") {
   }
 }
 
+# Chromium-style: when is_component_build, product DLLs share COMPONENT_BUILD
+# so *_EXPORT / COMPONENT_EXPORT expand to dllexport/dllimport. When false,
+# export macros are empty (static link). See base §DLL / STL trust model.
+config("component_build") {
+  if (is_component_build) {
+    defines = [ "COMPONENT_BUILD" ]
+  }
+}
+
 # Named warnings config (mogu //build/config/compiler:warnings).
 # Not in default configs — flipping /W3 → /W4 would flood existing targets.
 # Opt in: configs += [ "//build/config:warnings" ]

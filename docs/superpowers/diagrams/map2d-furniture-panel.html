@@ -1,0 +1,79 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map2d 装饰面板</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #e7eef8; --ui-ink: #1d4f91;
+    --sched: #e7f2ea; --sched-ink: #1f6b45;
+    --cpu: #f8f1e6; --cpu-ink: #8a5a12;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; }
+  h1 { margin: 0 0 6px; font-size: 1.25rem; }
+  h2 { margin: 0 0 10px; font-size: 1rem; }
+  .muted { color: var(--muted); margin: 0; }
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .lane b { display: block; margin-bottom: 4px; }
+  .ui { background: var(--ui); color: var(--ui-ink); }
+  .sched { background: var(--sched); color: var(--sched-ink); }
+  .cpu { background: var(--cpu); color: var(--cpu-ink); }
+  ol.flow { margin: 0; padding-left: 1.2rem; }
+  ol.flow li { margin: 6px 0; padding: 4px 6px; border-radius: 6px; }
+  ol.flow li.on { outline: 2px solid var(--accent); background: #eef4fb; }
+  .note { font-size: 0.85rem; color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Map2d 装饰面板</h1>
+    <p class="muted">对齐 Atmosphere：右侧 Inspector 只发开关，绘制仍在 map2d furniture。鹰眼仅占位。</p>
+  </header>
+
+  <section class="panel">
+    <h2>分层</h2>
+    <div class="lanes">
+      <div class="lane ui"><b>UI</b><code>ui/gis/shell/map_furniture_panel</code> — Scale bar / North arrow / Border；Eagle eye <code>set_enabled(false)</code>。不 include map2d / vista。</div>
+      <div class="lane sched"><b>插件 / Sink</b><code>cartography/panel.cc</code> 贡献 dock <code>map2d.furniture</code> 与命令 <code>map2d.furniture_panel</code>。<code>Map2dSink::set_furniture</code> 后 <code>invalidate()</code>。</div>
+      <div class="lane cpu"><b>绘制</b>shell bridge 把 <code>FurnitureOptions</code> 写入 pyramid session。<code>paint_furniture</code> 按 flag 画边框、比例尺、指北。bridge 已安装时绘制读 Sink。</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>开关到重绘</h2>
+    <ol class="flow" id="flow">
+      <li>勾选变化：面板回调，不直接画地图。</li>
+      <li><code>Map2dSink::set_furniture</code> 记下三项 flag，并调用 shell bridge。</li>
+      <li>bridge 写入 pyramid session 的 <code>FurnitureOptions</code>（默认全开，仅进程内）。</li>
+      <li><code>invalidate()</code> 走现有 map2d 路径；<code>paint_furniture</code> 跳过关掉的件。鹰眼不参与。</li>
+    </ol>
+    <p class="note">动画只标出谁在等下一步。鹰眼没有第 5 步。</p>
+  </section>
+</div>
+<script>
+  const items = document.querySelectorAll("#flow li");
+  let i = 0;
+  function tick() {
+    items.forEach((el, n) => el.classList.toggle("on", n === i));
+    i = (i + 1) % items.length;
+  }
+  tick();
+  setInterval(tick, 1400);
+</script>
+</body>
+</html>

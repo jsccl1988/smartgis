@@ -41,21 +41,14 @@ namespace {
 constexpr int kCatalogWDip = 288;
 constexpr int kInspectorWDip = 320;
 
-void clear_children(ui::views::View* host) {
-  if (!host) {
-    return;
-  }
-  while (host->child_count() > 0) {
-    (void)host->remove_child(host->child_at(0));
-  }
-}
-
 void mount_fill(ui::views::View* host, std::unique_ptr<ui::views::View> child) {
   if (!host || !child) {
     return;
   }
-  clear_children(host);
-  host->set_layout_manager(std::make_unique<ui::views::FillLayout>());
+  // Destroy markup children inside ui_views.dll — do not pull unique_ptr<View>
+  // into this EXE TU (Debug STL free of DLL-owned nodes poisons the heap).
+  host->remove_all_children();
+  ui::views::install_fill_layout(host);
   host->add_child(std::move(child));
 }
 
@@ -65,9 +58,66 @@ std::unique_ptr<ui::views::View> make_inspector_placeholder() {
   return page;
 }
 
+std::unique_ptr<ui::views::CatalogView> make_catalog_page(const char* title) {
+  auto catalog = std::make_unique<ui::views::CatalogView>();
+  catalog->set_preferred_size({kCatalogWDip, 0});
+  catalog->set_title(title ? title : "Catalog");
+  if (catalog->source_tabs()) {
+    catalog->source_tabs()->set_header_placement(
+        ui::views::TabStrip::HeaderPlacement::kTop);
+  }
+  return catalog;
+}
+
+// Cross-DLL AmboxView callback: no std::function from EXE into ui_views.dll.
+void ambox_command_trampoline(void* baton, const char* id) {
+  auto* bv = static_cast<BrowserView*>(baton);
+  if (!bv || !id || !id[0]) {
+    return;
+  }
+  Browser* browser = bv->browser();
+  if (!browser) {
+    return;
+  }
+  if (browser->plugins() && browser->plugins()->execute(id)) {
+    return;
+  }
+  browser->run_tool_command(id);
+}
+
 }  // namespace
 
 ShellLayoutComposer::ShellLayoutComposer(BrowserView* host) : host_(host) {}
+
+void ShellLayoutComposer::map_tab_change_trampoline(void* baton, int index) {
+  auto* bv = static_cast<BrowserView*>(baton);
+  if (bv) {
+    bv->switch_map_tab(index);
+  }
+}
+
+void ShellLayoutComposer::inspector_tab_change_trampoline(void* baton,
+                                                          int index) {
+  auto* bv = static_cast<BrowserView*>(baton);
+  if (bv) {
+    bv->on_inspector_tab_changed(index);
+  }
+}
+
+std::unique_ptr<ui::views::TabStrip> ShellLayoutComposer::make_catalog_mode_tabs() {
+  auto mode = std::make_unique<ui::views::TabStrip>();
+  mode->set_preferred_size({kCatalogWDip, 0});
+  mode->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
+  auto c2d = make_catalog_page("Catalog");
+  auto c3d = make_catalog_page("Catalog");
+  host_->catalog_2d_ = c2d.get();
+  host_->catalog_3d_ = c3d.get();
+  host_->catalog_ = host_->catalog_2d_;
+  mode->add_tab("2D", std::move(c2d));
+  mode->add_tab("3D", std::move(c3d));
+  host_->catalog_mode_tabs_ = mode.get();
+  return mode;
+}
 
 void ShellLayoutComposer::build_contents() {
   if (build_from_markup()) {
@@ -82,9 +132,12 @@ bool ShellLayoutComposer::build_from_markup() {
   if (!host_) {
     return false;
   }
-  ui::views::MarkupRoot loaded =
-      ui::views::load_markup("shell/main_app.ui.xml", {});
-  if (!loaded.ok() || !loaded.root) {
+  // Cross-DLL: construct MarkupRoot in this TU and fill via load_markup_into.
+  // Returning MarkupRoot by value from ui_views.dll (load_markup) NRVO-corrupts
+  // the EXE slot → heap 0xC0000374 on a later free (often AmboxView pugixml).
+  ui::views::MarkupRoot loaded;
+  if (!ui::views::load_markup_into("shell/main_app.ui.xml", {}, &loaded) ||
+      !loaded.ok() || !loaded.root) {
     if (!loaded.error.empty()) {
       std::fprintf(stderr, "shell: load_markup: %s\n", loaded.error.c_str());
     }
@@ -114,23 +167,15 @@ bool ShellLayoutComposer::build_from_markup() {
   // (CSS width:100% is rejected by the px parser).
   host_->rebuild_menus();
 
-  auto catalog = std::make_unique<ui::views::CatalogView>();
-  catalog->set_preferred_size({kCatalogWDip, 0});
-  catalog->set_title("Catalog");
-  host_->catalog_ = catalog.get();
-  // Top headers (QGIS/ArcGIS Pro): bottom-aligned catalog+map+inspector strips
-  // merged into one overcrowded band with dual active underlines.
-  if (host_->catalog_->source_tabs()) {
-    host_->catalog_->source_tabs()->set_header_placement(
-        ui::views::TabStrip::HeaderPlacement::kTop);
-  }
+  // Dual Catalog: outer 2D|3D mirrors Map|3D; each page is a full CatalogView.
+  auto catalog_modes = make_catalog_mode_tabs();
   catalog_host->set_preferred_size({kCatalogWDip, 0});
-  mount_fill(catalog_host, std::move(catalog));
+  mount_fill(catalog_host, std::move(catalog_modes));
   host_->wire_catalog();
 
   auto map_tabs = std::make_unique<ui::views::TabStrip>();
-  auto map_edit = std::make_unique<ui::views::DrawHost>();
-  auto gis_scene = std::make_unique<ui::views::DrawHost>();
+  auto map_edit = ui::views::make_draw_host();
+  auto gis_scene = ui::views::make_draw_host();
   host_->map_edit_ = map_edit.get();
   host_->map_data_ = nullptr;
   host_->map_scene_ = gis_scene.get();
@@ -140,7 +185,8 @@ bool ShellLayoutComposer::build_from_markup() {
   map_tabs->add_tab("3D", std::move(gis_scene));
   map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   map_tabs->set_preferred_size({0, 0});
-  map_tabs->set_change([this](int i) { host_->switch_map_tab(i); });
+  map_tabs->set_change_fn(&ShellLayoutComposer::map_tab_change_trampoline,
+                          host_);
   host_->map_tabs_ = map_tabs.get();
   map_tabs_host->set_preferred_size({0, 0});
   mount_fill(map_tabs_host, std::move(map_tabs));
@@ -155,12 +201,7 @@ bool ShellLayoutComposer::build_from_markup() {
   // .tool_bar CSS height caps the band; do not copy a stretched host height.
   tool_bar->set_preferred_size({0, 48});
   host_->ambox_ = tool_bar.get();
-  host_->ambox_->set_command_handler([this](const std::string& id) {
-    if (host_->browser_->plugins() && host_->browser_->plugins()->execute(id)) {
-      return;
-    }
-    host_->browser_->run_tool_command(id);
-  });
+  host_->ambox_->set_command_handler_fn(&ambox_command_trampoline, host_);
   tool_bar_host->set_preferred_size({0, 48});
   mount_fill(tool_bar_host, std::move(tool_bar));
 
@@ -169,12 +210,7 @@ bool ShellLayoutComposer::build_from_markup() {
   side->set_preferred_size({kInspectorWDip, 0});
   auto ambox_page = std::make_unique<ui::views::AmboxView>();
   ambox_page->set_preferred_size({kInspectorWDip, 0});
-  ambox_page->set_command_handler([this](const std::string& id) {
-    if (host_->browser_->plugins() && host_->browser_->plugins()->execute(id)) {
-      return;
-    }
-    host_->browser_->run_tool_command(id);
-  });
+  ambox_page->set_command_handler_fn(&ambox_command_trampoline, host_);
   host_->side_ambox_ = ambox_page.get();
   side->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   side->add_tab("Tools", std::move(ambox_page));
@@ -239,7 +275,7 @@ bool ShellLayoutComposer::build_from_markup() {
         InspectorGroupBar::Group::kExtend, /*materialize=*/false);
   }
 
-  auto status = std::make_unique<ui::views::StatusBar>();
+  auto status = ui::views::make_status_bar();
   host_->status_bar_ = status.get();
   status_host->set_preferred_size({0, 32});
   mount_fill(status_host, std::move(status));
@@ -253,7 +289,7 @@ bool ShellLayoutComposer::build_from_markup() {
   // Prefer flex fill over designer CSS fixed canvas size.
   loaded.root->set_preferred_size({0, 0});
 
-  auto frame = std::make_unique<ui::views::FrameView>();
+  auto frame = ui::views::make_frame_view();
   frame->set_title("SmartGIS Views");
   frame->set_can_maximize(true);
   frame->set_client(std::move(loaded.root));
@@ -293,26 +329,19 @@ bool ShellLayoutComposer::build_from_markup() {
 
 void ShellLayoutComposer::build_imperative() {
   auto root = std::make_unique<ui::views::View>();
-  auto root_box = std::make_unique<ui::views::BoxLayout>(
-      ui::views::BoxLayout::Orientation::kVertical);
+  // root_box installed after children exist (see install_box_layout below).
+  ui::views::BoxLayout* root_box = nullptr;
 
   auto menu = std::make_unique<ui::views::MenuBar>();
   host_->menu_bar_ = menu.get();
   host_->rebuild_menus();
 
-  auto catalog = std::make_unique<ui::views::CatalogView>();
-  catalog->set_preferred_size({kCatalogWDip, 0});
-  catalog->set_title("Catalog");
-  host_->catalog_ = catalog.get();
-  if (host_->catalog_->source_tabs()) {
-    host_->catalog_->source_tabs()->set_header_placement(
-        ui::views::TabStrip::HeaderPlacement::kTop);
-  }
+  auto catalog_modes = make_catalog_mode_tabs();
   host_->wire_catalog();
 
   auto map_tabs = std::make_unique<ui::views::TabStrip>();
-  auto map_edit = std::make_unique<ui::views::DrawHost>();
-  auto gis_scene = std::make_unique<ui::views::DrawHost>();
+  auto map_edit = ui::views::make_draw_host();
+  auto gis_scene = ui::views::make_draw_host();
   host_->map_edit_ = map_edit.get();
   host_->map_data_ = nullptr;
   host_->map_scene_ = gis_scene.get();
@@ -322,32 +351,29 @@ void ShellLayoutComposer::build_imperative() {
   map_tabs->add_tab("3D", std::move(gis_scene));
   map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   map_tabs->set_preferred_size({0, 0});
-  map_tabs->set_change([this](int i) { host_->switch_map_tab(i); });
+  map_tabs->set_change_fn(&ShellLayoutComposer::map_tab_change_trampoline,
+                          host_);
   host_->map_tabs_ = map_tabs.get();
 
   auto tool_bar = std::make_unique<ui::views::AmboxView>();
   tool_bar->set_orientation(ui::views::AmboxView::Orientation::kHorizontal);
   tool_bar->set_preferred_size({0, 48});
   host_->ambox_ = tool_bar.get();
-  host_->ambox_->set_command_handler([this](const std::string& id) {
-    if (host_->browser_->plugins() && host_->browser_->plugins()->execute(id)) {
-      return;
-    }
-    host_->browser_->run_tool_command(id);
-  });
+  host_->ambox_->set_command_handler_fn(&ambox_command_trampoline, host_);
 
   auto catalog_map = std::make_unique<ui::views::Splitter>(
       ui::views::Splitter::Orientation::kHorizontal);
   catalog_map->set_preferred_size({0, 0});
-  catalog_map->add_child(std::move(catalog));
+  catalog_map->add_child(std::move(catalog_modes));
   catalog_map->add_child(std::move(map_tabs));
   host_->catalog_map_ = catalog_map.get();
 
   auto map_column = std::make_unique<ui::views::View>();
-  auto map_column_box = std::make_unique<ui::views::BoxLayout>(
-      ui::views::BoxLayout::Orientation::kVertical);
-  map_column_box->set_flex_for_view(catalog_map.get(), 1);
-  map_column->set_layout_manager(std::move(map_column_box));
+  ui::views::BoxLayout* map_column_box = ui::views::install_box_layout(
+      map_column.get(), ui::views::BoxLayout::Orientation::kVertical);
+  if (map_column_box) {
+    map_column_box->set_flex_for_view(catalog_map.get(), 1);
+  }
   map_column->set_preferred_size({0, 0});
   map_column->add_child(std::move(tool_bar));
   map_column->add_child(std::move(catalog_map));
@@ -356,12 +382,7 @@ void ShellLayoutComposer::build_imperative() {
   side->set_preferred_size({kInspectorWDip, 0});
   auto ambox_page = std::make_unique<ui::views::AmboxView>();
   ambox_page->set_preferred_size({kInspectorWDip, 0});
-  ambox_page->set_command_handler([this](const std::string& id) {
-    if (host_->browser_->plugins() && host_->browser_->plugins()->execute(id)) {
-      return;
-    }
-    host_->browser_->run_tool_command(id);
-  });
+  ambox_page->set_command_handler_fn(&ambox_command_trampoline, host_);
   host_->side_ambox_ = ambox_page.get();
   side->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   side->add_tab("Tools", std::move(ambox_page));
@@ -412,7 +433,7 @@ void ShellLayoutComposer::build_imperative() {
   main_split->add_child(std::move(work));
   main_split->add_child(std::move(diagnostic_tools));
 
-  auto status = std::make_unique<ui::views::StatusBar>();
+  auto status = ui::views::make_status_bar();
   host_->status_bar_ = status.get();
   if (host_->status_bar_) {
     host_->status_bar_->set_message("Ready");
@@ -421,13 +442,16 @@ void ShellLayoutComposer::build_imperative() {
     host_->status_bar_->set_coord_text("XY");
   }
 
-  root_box->set_flex_for_view(main_split.get(), 1);
-  root->set_layout_manager(std::move(root_box));
+  root_box = ui::views::install_box_layout(
+      root.get(), ui::views::BoxLayout::Orientation::kVertical);
+  if (root_box) {
+    root_box->set_flex_for_view(main_split.get(), 1);
+  }
   root->add_child(std::move(menu));
   root->add_child(std::move(main_split));
   root->add_child(std::move(status));
 
-  auto frame = std::make_unique<ui::views::FrameView>();
+  auto frame = ui::views::make_frame_view();
   frame->set_title("SmartGIS Views");
   frame->set_can_maximize(true);
   frame->set_client(std::move(root));
@@ -446,17 +470,14 @@ std::unique_ptr<ui::views::View> ShellLayoutComposer::wrap_inspector(
   if (host_->inspector_host_) {
     host_->inspector_host_->bind_group_bar(bar.get());
   }
-  side->set_change([this](int index) {
-    if (host_->inspector_host_) {
-      host_->inspector_host_->note_tab_activated(index);
-    }
-    host_->ensure_inspector_tab(index);
-  });
+  side->set_change_fn(&ShellLayoutComposer::inspector_tab_change_trampoline,
+                      host_);
   auto column = std::make_unique<ui::views::View>();
-  auto box = std::make_unique<ui::views::BoxLayout>(
-      ui::views::BoxLayout::Orientation::kVertical);
-  box->set_flex_for_view(side.get(), 1);
-  column->set_layout_manager(std::move(box));
+  ui::views::BoxLayout* box = ui::views::install_box_layout(
+      column.get(), ui::views::BoxLayout::Orientation::kVertical);
+  if (box) {
+    box->set_flex_for_view(side.get(), 1);
+  }
   column->set_preferred_size({kInspectorWDip, 0});
   column->add_child(std::move(bar));
   column->add_child(std::move(side));

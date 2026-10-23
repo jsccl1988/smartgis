@@ -37,7 +37,7 @@ using byte = unsigned char;
 // Do not key these off RENDER_EXPORTS — that belongs to //src/render.
 // Do not key these off SCENIC_EXPORTS — that belongs to scenic.dll.
 
-#if defined(DEM_HEIGHT_FIELD_STATIC)
+#if defined(DEM_HEIGHT_FIELD_STATIC) || !defined(COMPONENT_BUILD)
 #define SCENIC_IMPL_EXPORT
 #elif defined(SCENIC_IMPL_EXPORTS)
 #define SCENIC_IMPL_EXPORT __declspec(dllexport)
@@ -45,19 +45,23 @@ using byte = unsigned char;
 #define SCENIC_IMPL_EXPORT __declspec(dllimport)
 #endif
 
-#if defined(SCENIC_RHI2D_DEVICE_EXPORTS)
+#if defined(SCENIC_RHI2D_DEVICE_EXPORTS) && defined(COMPONENT_BUILD)
 #define SCENIC_RHI2D_DEVICE_EXPORT __declspec(dllexport)
 #else
 #define SCENIC_RHI2D_DEVICE_EXPORT
 #endif
 
-#if defined(SCENIC_RENDER_GL_EXPORTS)
+#if !defined(COMPONENT_BUILD)
+#define SCENIC_RENDER_GL_EXPORT
+#elif defined(SCENIC_RENDER_GL_EXPORTS)
 #define SCENIC_RENDER_GL_EXPORT __declspec(dllexport)
 #else
 #define SCENIC_RENDER_GL_EXPORT __declspec(dllimport)
 #endif
 
-#if defined(SCENIC_RENDER_D3D_EXPORTS)
+#if !defined(COMPONENT_BUILD)
+#define SCENIC_RENDER_D3D_EXPORT
+#elif defined(SCENIC_RENDER_D3D_EXPORTS)
 #define SCENIC_RENDER_D3D_EXPORT __declspec(dllexport)
 #else
 #define SCENIC_RENDER_D3D_EXPORT __declspec(dllimport)

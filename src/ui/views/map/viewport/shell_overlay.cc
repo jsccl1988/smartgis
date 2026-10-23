@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -23,7 +24,8 @@ namespace views {
 
 void DrawHost::clear_shell_overlay() {
   std::lock_guard<std::mutex> lock(shell_mu_);
-  shell_bgra_.clear();
+  shell_bgra_.reset();
+  shell_bgra_bytes_ = 0;
   shell_width_px_ = 0;
   shell_height_px_ = 0;
   shell_stride_bytes_ = 0;
@@ -53,12 +55,15 @@ void DrawHost::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
     if (generation != 0 &&
         generation == shell_generation_.load(std::memory_order_relaxed) &&
         shell_width_px_ == width_px && shell_height_px_ == height_px &&
-        !shell_bgra_.empty()) {
+        shell_bgra_ && shell_bgra_bytes_ > 0) {
       return;
     }
-    shell_bgra_.resize(static_cast<size_t>(width_px) * height_px * 4u);
+    const size_t nbytes =
+        static_cast<size_t>(width_px) * height_px * 4u;
+    shell_bgra_ = std::make_unique<uint8_t[]>(nbytes);
+    shell_bgra_bytes_ = nbytes;
     for (uint32_t y = 0; y < height_px; ++y) {
-      std::memcpy(shell_bgra_.data() + static_cast<size_t>(y) * width_px * 4u,
+      std::memcpy(shell_bgra_.get() + static_cast<size_t>(y) * width_px * 4u,
                   bgra + static_cast<size_t>(y) * stride,
                   static_cast<size_t>(width_px) * 4u);
     }
@@ -71,7 +76,7 @@ void DrawHost::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
     uint32_t hole_bgr[detail::kOverlayHoleKeyCap] = {};
     const int hole_n = detail::collect_overlay_hole_bgr_keys(
         hole_clear_argb, hole_clear_argb_alt, hole_bgr);
-    uint8_t* px = shell_bgra_.data();
+    uint8_t* px = shell_bgra_.get();
     const size_t n = static_cast<size_t>(width_px) * height_px;
     for (size_t i = 0; i < n; ++i, px += 4) {
       // DIB is BGRA; pack as 0x00RRGGBB to match color_rgb / Theme ARGB.
@@ -115,14 +120,17 @@ bool DrawHost::snapshot_shell_overlay(std::vector<uint8_t>* out_bgra,
     return false;
   }
   std::lock_guard<std::mutex> lock(shell_mu_);
-  if (shell_bgra_.empty() || shell_width_px_ == 0 || shell_height_px_ == 0) {
+  if (!shell_bgra_ || shell_bgra_bytes_ == 0 || shell_width_px_ == 0 ||
+      shell_height_px_ == 0) {
     *out_shell = {};
     if (out_generation) {
       *out_generation = 0;
     }
     return false;
   }
-  *out_bgra = shell_bgra_;
+  // Byte copy into caller buffer — do not assign std::vector across DLL.
+  out_bgra->resize(shell_bgra_bytes_);
+  std::memcpy(out_bgra->data(), shell_bgra_.get(), shell_bgra_bytes_);
   out_shell->bgra = out_bgra->data();
   out_shell->width_px = shell_width_px_;
   out_shell->height_px = shell_height_px_;

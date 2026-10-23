@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/horizon/bind/bind_horizon.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <string>
 #include <vector>
@@ -32,10 +32,10 @@ bool suppress_dialogs_slot(bool on) {
   return true;
 }
 
-void bind_chrome(content::ShellBridge& browser,
+void bind_chrome(content::Shell& browser,
                  const wchar_t* leaf,
                  content::CapabilityHost* out) {
-  content::ShellBridge* b = &browser;
+  content::Shell* b = &browser;
   bind_tagged_slots(
       out, base::tagged_tuple{
                base::tag_resolver<slot_pump> =
@@ -73,7 +73,7 @@ void bind_chrome(content::ShellBridge& browser,
   }
 }
 
-void bind_surface(content::ShellBridge& browser, content::CapabilityHost* out) {
+void bind_surface(content::Shell& browser, content::CapabilityHost* out) {
   ShellSurface surface(browser);
   bind_tagged_slots(
       out, base::tagged_tuple{
@@ -115,10 +115,10 @@ void bind_surface(content::ShellBridge& browser, content::CapabilityHost* out) {
            });
 }
 
-void bind_observe(content::ShellBridge& browser,
+void bind_observe(content::Shell& browser,
                  const wchar_t* leaf,
                  content::CapabilityHost* out) {
-  content::ShellBridge* b = &browser;
+  content::Shell* b = &browser;
   // Build std::function locals then move-assign onto the Host. Returning
   // lambdas funneled through host_member/tagged_tuple have AVd on
   // operator() under harness (same class as suppress_dialogs).
@@ -143,8 +143,8 @@ void bind_observe(content::ShellBridge& browser,
       [b, leaf]() { return console_pan_bench(*b, leaf); };
 }
 
-void bind_ui_slots(content::ShellBridge& browser, content::CapabilityHost* out) {
-  content::ShellBridge* b = &browser;
+void bind_ui_slots(content::Shell& browser, content::CapabilityHost* out) {
+  content::Shell* b = &browser;
   bind_tagged_slots(
       out, base::tagged_tuple{
                base::tag_resolver<slot_apply_ui_theme> =
@@ -170,7 +170,7 @@ void bind_ui_slots(content::ShellBridge& browser, content::CapabilityHost* out) 
 
 }  // namespace
 
-void register_horizon(content::ShellBridge& browser,
+void register_horizon(content::Shell& browser,
                       content::CapabilityHost* out,
                       const wchar_t* mark_leaf) {
   const wchar_t* leaf =

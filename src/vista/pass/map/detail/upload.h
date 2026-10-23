@@ -33,7 +33,7 @@ namespace detail {
 // and texture binding but differ in color/opacity.
 struct UploadedDraw {
   bool textured = false;
-  // True for DEM / hillshade rasters (painter: fill -> dem -> stroke -> glyphs).
+  // True for DEM / hillshade rasters (painter: dem -> fill -> stroke -> glyphs).
   bool dem_raster = false;
   // Line/circle solids drawn after DEM so rivers/admin sit above hillshade.
   bool stroke = false;

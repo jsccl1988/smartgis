@@ -4,7 +4,9 @@
 #ifndef VISTA_PASS_WORLD_ATMOSPHERE_CLOUD_CLOUD_PASS_H_
 #define VISTA_PASS_WORLD_ATMOSPHERE_CLOUD_CLOUD_PASS_H_
 
+#include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace render {
 namespace rhi {
@@ -17,6 +19,7 @@ struct CameraMatrices;
 
 }  // namespace render
 
+#include "vista/pass/world/atmosphere/detail/field_texture.h"
 #include "vista/vista_export.h"
 
 namespace vista {
@@ -64,6 +67,10 @@ class VISTA_EXPORT CloudPass {
   void set_cover_modulation(float cover);
   void set_extinction(float sigma);
 
+  // Optional kCloudCover field grid (1 = opaque). Uploaded as SRV for PS.
+  void set_cover_cpu(int cols, int rows, const float* values,
+                     std::size_t value_count);
+
   // Orbit-normalized deck + slab (same frame as Scene3dPresenter terrain).
   // When orbit_slab_set_ is true, record() uses these instead of meter defaults.
   void set_deck_orbit(float half_x, float half_z, float y);
@@ -73,8 +80,8 @@ class VISTA_EXPORT CloudPass {
   // Opens a ColorLoadOp::kLoad pass only (never clears). GPU path uses the
   // cloud graphics pipeline with alpha blend and depth test (no write) so
   // DEM land stays landish; deck still raymarches over sky/ocean.
-  // quality <= 1 uses a half-res *proxy* (fewer steps + coarser density snap);
-  // no offscreen RT until RHI grows color attachments.
+  // quality == 0 uses a half-res *proxy* (coarser density snap); quality ≥ 1
+  // is full detail (Design B). No offscreen RT until RHI grows color attachments.
   bool record(render::rhi::Device* device, render::rhi::CommandList* list, uint32_t width,
               uint32_t height, const render::rhi::CameraMatrices* camera, int quality);
 
@@ -84,7 +91,7 @@ class VISTA_EXPORT CloudPass {
   void release();
 
   static int step_count_for_quality(int quality);
-  // World snap cell for density; >0 when quality <= 1 (half-res proxy).
+  // World snap cell for density; >0 when quality == 0 (half-res proxy).
   static float density_cell_for_quality(int quality);
   static bool uses_half_res_proxy(int quality);
 
@@ -125,6 +132,12 @@ class VISTA_EXPORT CloudPass {
   float orbit_top_y_ = 1.10f;
   bool orbit_slab_set_ = false;
   bool deck_dirty_ = true;
+
+  int cover_cols_ = 0;
+  int cover_rows_ = 0;
+  std::vector<float> cover_cpu_;
+  bool cover_dirty_ = false;
+  FieldTexture cover_field_;
 
   render::rhi::Device* device_ = nullptr;
   render::rhi::Device* pipeline_device_ = nullptr;

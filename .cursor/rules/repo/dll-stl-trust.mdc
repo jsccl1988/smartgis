@@ -1,0 +1,39 @@
+---
+description: Product DLL / STL trust — Chromium-style A boundaries; flat ABI for plugins
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# DLL / STL trust model
+
+Living: `docs/superpowers/specs/2026-09-14-base-root-hybrid-design.md` §DLL / STL trust model.  
+Diagram: `docs/superpowers/diagrams/dll-stl-trust.html`.
+
+## Boundaries
+
+| Class | Rule |
+| --- | --- |
+| **A** 仓内产品 DLL（同 `out/<config>`、同 `/MD(d)`） | STL **allowed** across modules |
+| **B** `content/public` | Lean signatures; no drive-by public thickening |
+| **C** 插件 / glang ext / GetProcAddress | **No** `std::string` / `vector` / STL by value on the wire |
+| **D** 第三方预编译 | Isolate / stub; do not mix heaps or CRT |
+
+## Do
+
+- Keep product CRT dynamic (`static_link_crt=false`). Debug stems `*_d.dll`; never mix with Release stems in one gen root.
+- Prefer `COMPONENT_EXPORT(NAME)` + GN `IS_NAME_IMPL` for **new** modules; keep existing `*_EXPORT` when editing.
+- Treat export macros as **link visibility**, not public API.
+- On C boundaries: opaque handles, C buffers, or serialize; create/destroy on the owning side.
+- Run / respect `build/tools/check_dll_homogeneity.py` after product link.
+
+## Don’t
+
+- Don’t pass STL across plugin / script / foreign DLL edges.
+- Don’t `#pragma comment` import libs when `COMPONENT_BUILD` is off (static component build).
+- Don’t enable `/MT` for product modules.
+- Don’t throw C++ exceptions across DLL or plugin boundaries.
+- Don’t invent a second CRT or a second STL for product DLLs.

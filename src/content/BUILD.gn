@@ -399,6 +399,8 @@ source_set("gis_present") {
     "browser/present/map2d/profile/map2d_phase_profile.h",
     "browser/present/map2d/gpu/present/map2d_gpu_present.cc",
     "browser/present/map2d/gpu/present/map2d_gpu_present.h",
+    "browser/present/map2d/gpu/furniture/map2d_scale_bar_overlay.cc",
+    "browser/present/map2d/gpu/furniture/map2d_scale_bar_overlay.h",
     "browser/present/map2d/gpu/selection/map2d_selection_overlay.cc",
     "browser/present/map2d/gpu/selection/map2d_selection_overlay.h",
   ]

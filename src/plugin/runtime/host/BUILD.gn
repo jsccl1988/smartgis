@@ -121,6 +121,8 @@ product_shared_library("host") {
 test("plugin_host_test") {
   output_name = "plugin_host_test"
   sources = [ "tests/host_test.cc" ]
+  # Handwritten expect + main gate; not a gtest runner yet.
+  use_gtest = false
   include_dirs += [ "//src" ]
   deps = [
     ":host",

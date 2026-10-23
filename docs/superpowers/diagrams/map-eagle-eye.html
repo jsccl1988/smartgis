@@ -1,0 +1,96 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2D 鹰眼 — 分层与交互</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #eef2fa; --cpu: #eef6f2; --gpu: #f8efe4;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; background: #eef2f6; padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; }
+  h1 { margin: 0 0 6px; font-size: 1.25rem; }
+  .hero p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .lane { border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+  .lane.ui { background: var(--ui); }
+  .lane.cpu { background: var(--cpu); }
+  .lane.gpu { background: var(--gpu); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; }
+  .lane p { margin: 0; font-size: 0.8rem; color: var(--muted); }
+  ol.flow { margin: 0; padding-left: 1.2rem; color: var(--muted); font-size: 0.88rem; }
+  ol.flow li { margin: 4px 0; }
+  .stage { stroke-dasharray: 6 4; animation: dash 1.2s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -20; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>2D 鹰眼（Overview）</h1>
+    <p>M1：角上浮动 HWND + 范围框交互；主图仍只有一条 present。图：<code>map-eagle-eye.html</code></p>
+  </div>
+
+  <div class="panel">
+    <h2>分层</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>UI · Views</h3>
+        <p><code>EagleEyeHost</code> 右下角小窗；View → Eagle Eye 开关；<code>eagle_eye_visible.txt</code> 记忆。</p>
+      </div>
+      <div class="lane cpu">
+        <h3>Host · Browser</h3>
+        <p><code>push_shared_extent</code> 刷新 world/view；commit → <code>apply_view_world_extent</code> + navigation。</p>
+      </div>
+      <div class="lane gpu">
+        <h3>Present · 主图</h3>
+        <p>FlyCube / DXGI 仍是 SoT；鹰眼是独立 GDI/分层 popup，不跑第二套 map present（M1）。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>原理流</h2>
+    <svg class="flow" viewBox="0 0 900 220" xmlns="http://www.w3.org/2000/svg" aria-label="eagle eye flow">
+      <rect x="20" y="30" width="200" height="70" rx="8" fill="#fff" stroke="#d8dee6"/>
+      <text x="120" y="60" text-anchor="middle" font-size="13" fill="#1a2330">主图手势 / 导航</text>
+      <text x="120" y="80" text-anchor="middle" font-size="11" fill="#5a6a7e">ViewFrame extent</text>
+
+      <rect x="280" y="30" width="200" height="70" rx="8" fill="#eef2fa" stroke="#d8dee6"/>
+      <text x="380" y="60" text-anchor="middle" font-size="13" fill="#1a2330">push_shared_extent</text>
+      <text x="380" y="80" text-anchor="middle" font-size="11" fill="#5a6a7e">同步鹰眼 view 框</text>
+
+      <rect x="540" y="30" width="200" height="70" rx="8" fill="#fff" stroke="#d8dee6"/>
+      <text x="640" y="60" text-anchor="middle" font-size="13" fill="#1a2330">EagleEyeHost</text>
+      <text x="640" y="80" text-anchor="middle" font-size="11" fill="#5a6a7e">画简化底图 + 框</text>
+
+      <path d="M220 65 H280" fill="none" stroke="#2563a8" stroke-width="2" class="stage"/>
+      <path d="M480 65 H540" fill="none" stroke="#2563a8" stroke-width="2" class="stage"/>
+
+      <rect x="280" y="130" width="340" height="70" rx="8" fill="#eef6f2" stroke="#d8dee6"/>
+      <text x="450" y="160" text-anchor="middle" font-size="13" fill="#1a2330">鹰眼点击 / 拖框 / 缩放柄</text>
+      <text x="450" y="180" text-anchor="middle" font-size="11" fill="#5a6a7e">commit → apply_view_world_extent → 主图重 present</text>
+
+      <path d="M640 100 V130 H450" fill="none" stroke="#2f7d62" stroke-width="2" class="stage"/>
+      <path d="M280 165 H120 V100" fill="none" stroke="#2f7d62" stroke-width="2" class="stage"/>
+    </svg>
+    <ol class="flow">
+      <li>主图范围变化 → <code>Browser::push_shared_extent</code> 写入鹰眼 world/view 并 <code>sync_eagle_eye</code>。</li>
+      <li>用户在鹰眼内导航 → commit 回调改 ViewFrame → 再 push，主图 DXGI present。</li>
+      <li>M2：同一控件可贴低频缩略图层；仍不常驻第二 DrawHost。</li>
+    </ol>
+  </div>
+</div>
+</body>
+</html>

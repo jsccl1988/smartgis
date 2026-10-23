@@ -21,9 +21,16 @@ namespace detail {
 // True when |a| and |b| share the same pixel size and lon/lat extent.
 bool view_extent_matches(const vista::View& a, const vista::View& b);
 
+// Same pixel size and world span (pure translation). Zoom changes span.
+bool view_scale_matches(const vista::View& placed, const vista::View& view);
+
 // Drop pixel-space text/icon (and non-DEM textured draws). Interactive
 // world-only encode reuses lon/lat buffers under a live camera.
 std::vector<UploadedDraw> world_only_draws(
+    const std::vector<UploadedDraw>& draws);
+
+// Drop overlays and DEM hillshade rasters (zoom / stale skirt UVs).
+std::vector<UploadedDraw> world_without_dem_raster(
     const std::vector<UploadedDraw>& draws);
 
 bool has_overlay_draws(const std::vector<UploadedDraw>& draws);

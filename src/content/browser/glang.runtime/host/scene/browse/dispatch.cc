@@ -40,7 +40,7 @@ void register_still_face(StillFaceAdapter adapter) {
   table.items[table.count++] = adapter;
 }
 
-bool capture_still_face(content::ShellBridge& browser,
+bool capture_still_face(content::Shell& browser,
                         const wchar_t* mark_leaf,
                         std::string_view face) {
   const FaceTable& table = faces();

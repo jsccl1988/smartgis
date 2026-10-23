@@ -26,6 +26,7 @@
     ],
     "processing": [
       {"id": "stormsurge.run", "title": "Storm surge inundation"},
+      {"id": "stormsurge.level_mask", "title": "One surge level mask without present"},
       {"id": "stormsurge.export", "title": "Export storm-surge mask"},
       {"id": "stormsurge.stats", "title": "Storm-surge disaster stats"},
       {"id": "stormsurge.load_coast", "title": "Load coast polyline"}

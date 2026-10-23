@@ -4,7 +4,9 @@
 #include "plugin/product/map2d/commands.h"
 
 #include "content/public/plugin_host.h"
+#include "plugin/product/map2d/cartography/panel.h"
 #include "plugin/product/map2d/print/register.h"
+#include "plugin/product/map2d/pyramid/pyramid.h"
 #include "plugin/product/map2d/seed/seed.h"
 #include "plugin/product/map2d/ops.h"
 #include "plugin/runtime/host/capability/pack_ensure.h"
@@ -17,6 +19,11 @@ constexpr const char* kPluginId = "smartgis.map2d";
 
 bool process_seed(content::PluginHost* host, std::string_view args_json) {
   return seed_map2d_from_json(host, args_json);
+}
+
+bool process_open_pyramid(content::PluginHost* host, std::string_view args_json) {
+  bind_map_horizon(host);
+  return open_pyramid(args_json);
 }
 
 }  // namespace
@@ -49,9 +56,25 @@ bool register_map2d(content::PluginHost* host) {
   if (!detail::contribute_print(host)) {
     return false;
   }
+  if (!detail::contribute_map_furniture_panel(host)) {
+    return false;
+  }
+  bind_map_horizon(host);
+  if (!host->contribute_command(
+          kPluginId, "map2d.open_pyramid", "打开影像金字塔", "tools",
+          [host](const tool::CommandArgs& args) {
+            bind_map_horizon(host);
+            return open_pyramid(args.payload);
+          })) {
+    return false;
+  }
   return host->contribute_processing(
              kPluginId, {"map2d.seed", "Seed map2d showcase document"},
              process_seed) &&
+         host->contribute_processing(
+             kPluginId,
+             {"map2d.open_pyramid", "Open an XYZ imagery pyramid"},
+             process_open_pyramid) &&
          host->contribute_export_frame(
              kPluginId, {"map2d_china", 80.0, 20.0, 128.0, 53.5}) &&
          host->contribute_export_frame(

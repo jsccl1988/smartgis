@@ -8,7 +8,6 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
-#include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -30,10 +29,13 @@
 namespace content {
 class GisContents;
 class ToolSession;
+struct Extent2;
 }
 
 namespace ui {
 namespace views {
+
+class EagleEyeHost;
 
 // Primary draw surface of the Views shell (HWND canvas). Hang is mgis-like:
 // parent HWND + child HWND. Pixels come from content/render below UI, or
@@ -139,6 +141,16 @@ class UI_EXPORT DrawHost : public View {
   void sync_identity_frame();
   // Throttled (~250ms) sync_identity_frame after note_hud_frame.
   void maybe_sync_identity_hud();
+  // 2D eagle-eye (overview) overlay: sync HWND to the live present surface.
+  void sync_eagle_eye();
+  void set_eagle_eye_enabled(bool enabled);
+  bool eagle_eye_enabled() const;
+  void toggle_eagle_eye();
+  void set_eagle_eye_world_extent(const content::Extent2& world);
+  void set_eagle_eye_view_extent(const content::Extent2& view);
+  void set_eagle_eye_commit(
+      std::function<void(const content::Extent2& extent)> fn);
+  EagleEyeHost* eagle_eye();
   // Sample present cadence into hud_fps_ (Display or UI thread).
   void note_hud_frame();
   // Publish GPU/engine present FPS into the title / identity HUD (Scene3D).
@@ -241,6 +253,14 @@ class UI_EXPORT DrawHost : public View {
                            uint32_t frame_token);
   void signal_display();
 
+  // POD ring — not std::deque (Debug _Orphan_all AV on first push_back when
+  // DrawHost lives across EXE↔ui_views.dll, same class as shell_bgra_).
+  bool display_queue_empty() const { return display_ring_size_ == 0; }
+  void display_queue_clear();
+  void display_queue_erase_resizes();
+  void display_queue_push_back(DisplayTask task);
+  DisplayTask display_queue_pop_front();
+
   // Top-level DXGI present HWND for GPU present (flip-model is unreliable on
   // WS_CHILD embed panes). Sized/moved over native_view().
   HWND ensure_gpu_present_hwnd(uint32_t width_px, uint32_t height_px);
@@ -316,6 +336,8 @@ class UI_EXPORT DrawHost : public View {
   std::atomic<float> hud_fps_{0.f};
   // Throttle identity HUD text / geometry sync (WM_TIMER ~16 ms).
   DWORD last_hud_sync_tick_ = 0;
+  // 2D map overview inset (MapEdit only). Created lazily.
+  std::unique_ptr<EagleEyeHost> eagle_eye_;
   // Owned top-level GPU present present surface (Scene3d / Map2d DXGI).
   HWND gpu_present_hwnd_ = nullptr;
   // Tab wants the DXGI popup visible; stay hidden until Init has Present'd
@@ -337,7 +359,10 @@ class UI_EXPORT DrawHost : public View {
   bool display_started_ = false;
   bool display_destroy_ack_ = false;
   DisplayInit display_init_ = DisplayInit::kIdle;
-  std::deque<DisplayTask> display_queue_;
+  static constexpr size_t kDisplayQueueCap = 32;
+  DisplayTask display_ring_[kDisplayQueueCap]{};
+  size_t display_ring_head_ = 0;
+  size_t display_ring_size_ = 0;
   uint32_t display_client_w_ = 0;
   uint32_t display_client_h_ = 0;
   HWND display_hwnd_ = nullptr;
@@ -345,13 +370,20 @@ class UI_EXPORT DrawHost : public View {
   // QPC at last BeginFrame tick (Display thread); for latency counters.
   std::uint64_t last_begin_frame_qpc_ = 0;
   // Pane-cropped shell overlay for DrawRequest.shell / GPU overlay.
+  // Not std::vector: Debug iterator proxies on vector members have AV'd across
+  // EXE↔ui_views.dll ownership (clear_shell_overlay on first HWND create).
   mutable std::mutex shell_mu_;
-  std::vector<uint8_t> shell_bgra_;
+  std::unique_ptr<uint8_t[]> shell_bgra_;
+  size_t shell_bgra_bytes_ = 0;
   uint32_t shell_width_px_ = 0;
   uint32_t shell_height_px_ = 0;
   uint32_t shell_stride_bytes_ = 0;
   std::atomic<uint64_t> shell_generation_{0};
 };
+
+// Cross-DLL: allocate inside ui_views.dll (EXE make_unique uses the wrong
+// Debug sizeof / STL member layout → shell_bgra_ clear AV on first HWND).
+UI_EXPORT std::unique_ptr<DrawHost> make_draw_host();
 
 }  // namespace views
 }  // namespace ui

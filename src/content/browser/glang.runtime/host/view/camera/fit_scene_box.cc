@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/view/camera/fit_scene_box.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <algorithm>
 #include <cmath>
@@ -54,7 +54,7 @@ float distance_for_radius(float radius) {
   return r / tan_half * 1.35f;
 }
 
-void invalidate_scene(content::ShellBridge& browser) {
+void invalidate_scene(content::Shell& browser) {
   if (content::Pane* pane = browser.scene_draw_host()) {
     pane->invalidate_native();
   }
@@ -62,7 +62,7 @@ void invalidate_scene(content::ShellBridge& browser) {
 
 }  // namespace
 
-bool fit_scene_box(content::ShellBridge& browser) {
+bool fit_scene_box(content::Shell& browser) {
   content::OrbitFrame* orbit = browser.orbit_frame();
   content::Scene3dPresenter* cam = browser.scene3d();
   if (!orbit || !cam) {
@@ -79,8 +79,26 @@ bool fit_scene_box(content::ShellBridge& browser) {
   {
     content::Scene3dGpuPresent& gpu = cam->gpu();
     std::lock_guard<std::recursive_mutex> lock(gpu.mutex());
-    have_box = mesh_aabb(gpu.local_xyz(), &mn_x, &mn_y, &mn_z, &mx_x, &mx_y,
-                         &mx_z);
+    const std::vector<float>& xyz = gpu.local_xyz();
+    // Plugin overlays (storm water / hex FE) append after DEM verts. Frame the
+    // overlay slab so a China DEM apron cannot bury a local free-surface.
+    const size_t dem_n = gpu.dem_local_xyz_count();
+    // Hex / lithology studio volumes: frame the overlay. Storm-surge water
+    // drapes (512²) stay on the DEM apron — use the full mesh so landish and
+    // water_on_land both clear in the HWND capture.
+    const bool studio_overlay =
+        (gpu.overlay_tin_has_albedo() || gpu.overlay_tin_has_drape()) &&
+        !(gpu.overlay_tin_has_drape() && gpu.overlay_tin_tex_w() >= 256);
+    if (studio_overlay && dem_n > 0 && dem_n + 9 <= xyz.size()) {
+      std::vector<float> overlay(xyz.begin() + static_cast<std::ptrdiff_t>(dem_n),
+                                 xyz.end());
+      have_box =
+          mesh_aabb(overlay, &mn_x, &mn_y, &mn_z, &mx_x, &mx_y, &mx_z);
+    }
+    if (!have_box) {
+      have_box =
+          mesh_aabb(xyz, &mn_x, &mn_y, &mn_z, &mx_x, &mx_y, &mx_z);
+    }
   }
 
   float radius = 1.6f;

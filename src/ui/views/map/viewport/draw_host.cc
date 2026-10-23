@@ -24,6 +24,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
+#include "ui/views/map/eagle_eye/eagle_eye_host.h"
 #include "ui/views/map/frame/identity_hud.h"
 #include "ui/views/map/device/device_load.h"
 #include "ui/views/map/frame/embed_fill.h"
@@ -319,6 +320,9 @@ void DrawHost::detach() {
     identity_badge_ = nullptr;
     identity_badge_parent_ = nullptr;
   }
+  if (eagle_eye_) {
+    eagle_eye_->destroy();
+  }
 #ifdef HAS_CONTENT_MAP_SESSION
   if (owns_session_ && session_) {
     session_->Shutdown();
@@ -606,6 +610,10 @@ bool DrawHost::try_oop_render() {
   CloseHandle(pi.hThread);
   render_process_ = pi.hProcess;
   return true;
+}
+
+std::unique_ptr<DrawHost> make_draw_host() {
+  return std::make_unique<DrawHost>();
 }
 
 }  // namespace views

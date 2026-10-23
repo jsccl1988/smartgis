@@ -23,14 +23,15 @@
 #include "content/browser/session/browser_session.h"
 #include "content/public/tool_session.h"
 #include "content/public/types.h"
-#include "content/browser/glang.runtime/host/bind/gis_console.h"
+#include "content/browser/capability/host.h"
+#include "content/browser/glang.runtime/host/bind/console.h"
 #include "gis/style/document/style_document.h"
 #include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 
 namespace app {
 
-// Python GIS console bridge (Debug Console / GisConsoleBridge).
+// Python GIS console: fill CapabilityHost document/view lanes (no GisConsoleBridge).
 
 void ProcessingComposer::bind_gis_python_bridge() {
   // Out-of-line BrowserView::browser() keeps browser_ offsetof in browser_view
@@ -39,13 +40,13 @@ void ProcessingComposer::bind_gis_python_bridge() {
   if (!browser || !browser->plugins()) {
     return;
   }
-  content::GisConsoleBridge bridge;
-  bridge.write_active_geojson = [this](const std::string& path) {
+  content::CapabilityHost host;
+  host.document.write_active_geojson = [this](const std::string& path) {
     return host_->browser_ && host_->browser_->document() &&
            host_->browser_->session().write_document(path);
   };
-  bridge.write_path = bridge.write_active_geojson;
-  bridge.load_result_geojson = [this](const std::string& path) {
+  host.document.write_document = host.document.write_active_geojson;
+  host.document.load_result_geojson = [this](const std::string& path) {
     if (!host_->browser_ || !host_->browser_->document()) {
       return false;
     }
@@ -57,13 +58,14 @@ void ProcessingComposer::bind_gis_python_bridge() {
     host_->invalidate_map_overlays();
     return host_->browser_->session().document_feature_count() >= 1;
   };
-  bridge.open_path = bridge.load_result_geojson;
-  bridge.feature_count = [this]() {
+  host.document.open_document = host.document.load_result_geojson;
+  host.document.feature_count = [this]() {
     return host_->browser_ && host_->browser_->document()
-               ? static_cast<int>(host_->browser_->session().document_feature_count())
+               ? static_cast<int>(
+                     host_->browser_->session().document_feature_count())
                : 0;
   };
-  bridge.refresh_gis = [this]() {
+  host.document.refresh_gis = [this]() {
     host_->sync_catalog_from_scene();
     host_->sync_inspectors_from_scene();
     host_->invalidate_map_overlays();
@@ -71,45 +73,33 @@ void ProcessingComposer::bind_gis_python_bridge() {
       host_->browser_->fit_map_extent();
     }
   };
-  bridge.flush_processing = [this]() {
+  host.document.flush_processing = [this]() {
     if (host_->browser_ && host_->browser_->plugins()) {
       host_->browser_->plugins()->flush_processing_for_test();
     }
   };
-  bridge.layers_json = [this]() {
+  host.document.layers_json = [this]() {
     if (!host_->browser_ || !host_->browser_->document()) {
       return std::string("[]");
     }
-    std::ostringstream oss;
-    oss << "[";
-    bool first = true;
-    for (const content::LayerDesc& d : host_->browser_->session().document_layer_descs()) {
-      if (!first) {
-        oss << ",";
-      }
-      first = false;
-      oss << "{\"id\":\"" << content::json_escape_string(d.id) << "\",\"name\":\""
-          << content::json_escape_string(d.name)
-          << "\",\"visible\":" << (d.visible ? "true" : "false")
-          << ",\"active\":" << (d.active ? "true" : "false") << "}";
-    }
-    oss << "]";
-    return oss.str();
+    return content::layers_to_catalog_json(
+        host_->browser_->session().document_layer_descs());
   };
-  bridge.select_layer = [this](const std::string& id) {
+  host.document.select_layer = [this](const std::string& id) {
     return host_->browser_ && host_->browser_->document() &&
            host_->browser_->session().select_layer(id);
   };
-  bridge.set_layer_visible = [this](const std::string& id, bool on) {
+  host.document.set_layer_visible = [this](const std::string& id, bool on) {
     return host_->browser_ && host_->browser_->document() &&
            host_->browser_->session().set_layer_visible(id, on);
   };
-  bridge.extent_json = [this]() {
+  host.document.extent_json = [this]() {
     if (!host_->browser_ || !host_->browser_->document()) {
       return std::string("null");
     }
     double min_x = 0, min_y = 0, max_x = 0, max_y = 0;
-    if (!host_->browser_->session().document_compute_extent(&min_x, &min_y, &max_x, &max_y)) {
+    if (!host_->browser_->session().document_compute_extent(&min_x, &min_y,
+                                                            &max_x, &max_y)) {
       return std::string("null");
     }
     char buf[192];
@@ -118,17 +108,16 @@ void ProcessingComposer::bind_gis_python_bridge() {
                   min_x, min_y, max_x, max_y);
     return std::string(buf);
   };
-  bridge.present_mode = [this]() {
+  host.view.present_mode = [this]() {
     if (!host_->map_tabs_) {
       return std::string("map2d");
     }
-    // Shell map tabs are Map=0, 3D=1 (no separate data map tab).
     if (host_->map_tabs_->active() == 1) {
       return std::string("scene3d");
     }
     return std::string("map2d");
   };
-  bridge.set_present_mode = [this](const std::string& mode) {
+  host.view.set_present_mode = [this](const std::string& mode) {
     if (!host_->map_tabs_) {
       return false;
     }
@@ -140,24 +129,23 @@ void ProcessingComposer::bind_gis_python_bridge() {
     } else if (mode != "map2d") {
       return false;
     }
-    // Full tab switch (lazy FlyCube attach + China orbit), not set_active alone.
     host_->switch_map_tab(idx);
     return true;
   };
-  bridge.has_style_document = [this]() {
+  host.document.has_style_document = [this]() {
     return host_->browser_ && host_->browser_->document() &&
            host_->browser_->session().document_has_style();
   };
-  bridge.load_style_path = [this](const std::string& path) {
+  host.document.apply_style_file = [this](const std::string& path) {
     return host_->browser_ && host_->browser_->document() &&
            host_->browser_->session().load_style_path(path);
   };
-  bridge.clear_style = [this]() {
+  host.document.clear_style = [this]() {
     if (host_->browser_ && host_->browser_->document()) {
       host_->browser_->session().clear_style_document();
     }
   };
-  bridge.style_summary_json = [this]() {
+  host.document.style_summary_json = [this]() {
     if (!host_->browser_ || !host_->browser_->document() ||
         !host_->browser_->session().document_style()) {
       return std::string("null");
@@ -176,7 +164,8 @@ void ProcessingComposer::bind_gis_python_bridge() {
     oss << "]}";
     return oss.str();
   };
-  bridge.activate_tool = [this](uint32_t view_id, const std::string& tool_id) {
+  host.view.activate_tool_at = [this](uint32_t view_id,
+                                      const std::string& tool_id) {
     if (!host_->browser_ || !host_->browser_->map_session()) {
       return false;
     }
@@ -198,7 +187,7 @@ void ProcessingComposer::bind_gis_python_bridge() {
     }
     return true;
   };
-  content::set_gis_console_bridge(std::move(bridge));
+  content::set_console_host(std::move(host));
   // --self-test / --self-test-console must not ensure_builtins (traffic start
   // has called a null fn under cdb; product packs are not the suite).
   if (!base::switch_is_one("harness-run")) {

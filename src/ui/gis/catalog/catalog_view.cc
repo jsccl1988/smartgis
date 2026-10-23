@@ -123,9 +123,9 @@ CatalogView::CatalogView() {
   set_preferred_size({360, 0});
 }
 
-void CatalogView::set_title(std::string title) {
+void CatalogView::set_title(const char* title) {
   if (title_) {
-    title_->set_text(std::move(title));
+    title_->set_text(title ? title : "");
   }
 }
 
@@ -148,12 +148,44 @@ void CatalogView::set_source_names(const std::vector<std::string>& names) {
   set_source_tree(nodes);
 }
 
+void CatalogView::set_source_names_c(const char* const* names, size_t count) {
+  std::vector<CatalogNode> nodes;
+  nodes.reserve(count);
+  for (size_t i = 0; i < count; ++i) {
+    CatalogNode node;
+    const char* name = names ? names[i] : nullptr;
+    node.id = (name && name[0]) ? name : std::to_string(i);
+    node.parent_id.clear();
+    node.label = name ? name : "";
+    node.checked = false;
+    nodes.push_back(std::move(node));
+  }
+  set_source_tree(nodes);
+}
+
 void CatalogView::set_source_tree(const std::vector<CatalogNode>& nodes) {
   populate_tree(source_tree_, nodes);
 }
 
 void CatalogView::set_map_docs(const std::vector<CatalogNode>& nodes) {
   populate_tree(map_tree_, nodes);
+}
+
+void CatalogView::clear_map_docs() {
+  if (map_tree_) {
+    map_tree_->clear();
+  }
+}
+
+void CatalogView::add_map_doc(const char* id,
+                              const char* parent_id,
+                              const char* label,
+                              bool checked) {
+  if (!map_tree_ || !id || !id[0]) {
+    return;
+  }
+  map_tree_->add_node(parent_id ? parent_id : "", id, label ? label : id,
+                      checked);
 }
 
 void CatalogView::relayout_layers_page() {
@@ -224,7 +256,15 @@ void CatalogView::populate_demo_layers() {
 }
 
 void CatalogView::set_command(Command fn) {
+  command_fn_ = nullptr;
+  command_baton_ = nullptr;
   command_ = std::move(fn);
+}
+
+void CatalogView::set_command_fn(CommandFn fn, void* baton) {
+  command_ = {};
+  command_fn_ = fn;
+  command_baton_ = baton;
 }
 
 void CatalogView::populate_tree(TreeView* tree,
@@ -239,6 +279,10 @@ void CatalogView::populate_tree(TreeView* tree,
 }
 
 void CatalogView::fire_command(const std::string& command_id) {
+  if (command_fn_) {
+    command_fn_(command_baton_, command_id.c_str());
+    return;
+  }
   if (command_) {
     command_(command_id);
   }

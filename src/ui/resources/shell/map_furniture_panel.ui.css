@@ -1,0 +1,13 @@
+/* MapFurniturePanel — title plus chrome toggles. Eagle eye stays disabled. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  width: 260px;
+  height: 160px;
+}
+
+#title { width: 240px; height: 24px; }
+#scale, #north, #border, #eagle { width: 240px; height: 22px; }

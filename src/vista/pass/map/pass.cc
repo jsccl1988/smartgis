@@ -196,12 +196,18 @@ bool MapPass::record(
     // they were placed for a prior view and read as huge glyphs on a clear.
     // An empty filter must fall through and place world meshes; encoding
     // nothing still clears the target (blank frame mid-drag).
+    const bool same_scale =
+        detail::view_scale_matches(cache->placed_view, view);
+    const auto pick_world = [&](const std::vector<detail::UploadedDraw>& src) {
+      return same_scale ? detail::world_only_draws(src)
+                        : detail::world_without_dem_raster(src);
+    };
     std::vector<detail::UploadedDraw> world;
     if (!cache->world_draws.empty()) {
-      world = detail::world_only_draws(cache->world_draws);
+      world = pick_world(cache->world_draws);
     }
     if (world.empty() && !cache->full_draws.empty()) {
-      world = detail::world_only_draws(cache->full_draws);
+      world = pick_world(cache->full_draws);
     }
     if (!world.empty()) {
       if (!ensure_pipelines()) {

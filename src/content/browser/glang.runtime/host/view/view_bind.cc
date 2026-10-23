@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/view/view_bind.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include "content/browser/glang.runtime/host/document/document.h"
 #include "content/browser/glang.runtime/host/view/host/capture_host.h"
@@ -14,10 +14,10 @@
 namespace content {
 namespace detail {
 
-void register_view(content::ShellBridge& browser,
+void register_view(content::Shell& browser,
                    content::CapabilityHost* out,
                    const wchar_t* mark_leaf) {
-  content::ShellBridge* b = &browser;
+  content::Shell* b = &browser;
   const wchar_t* leaf = mark_leaf;
   bind_tagged_slots(
       out, base::tagged_tuple{

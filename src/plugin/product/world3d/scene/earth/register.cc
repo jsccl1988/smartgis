@@ -245,6 +245,35 @@ bool process_fly_globe(content::PluginHost* host, std::string_view args_json) {
   return true;
 }
 
+// One entry for the composed globe: high orbit, sky, sat cloud, globe DEM.
+// Planar ocean/cloud, fog, China contour, and debug drapes stay off.
+bool process_earth_system(content::PluginHost* host, std::string_view) {
+  Scene3dSink* sink = detail::world3d_scene_sink(host);
+  if (!sink || !sink->look_bridges_installed()) {
+    return detail::fail_no_scene_processing("world3d.earth_system");
+  }
+  sink->set_wind_overlay(false);
+  sink->clear_overlay_tin_mesh();
+  std::string result;
+  if (!sink->apply_look("earth_system", &result)) {
+    if (result.empty()) {
+      set_operation_result(
+          "{\"error\":\"look_failed\",\"op\":\"world3d.earth_system\"}");
+    } else {
+      set_operation_result(result);
+    }
+    return false;
+  }
+  set_operation_result(
+      "{\"ok\":true,\"op\":\"world3d.earth_system\",\"mode\":\"earth_system\","
+      "\"space\":\"high_orbit\",\"sky\":true,\"sat_cloud\":true,"
+      "\"land\":\"globe_dem\",\"sea\":\"globe_terrain\","
+      "\"planar_ocean\":false,\"planar_cloud\":false,\"fog\":false,"
+      "\"china_stack\":false,\"contour\":false,\"hex\":false,\"ortho\":false,"
+      "\"wind\":false}");
+  return true;
+}
+
 bool handle_open_earth(const tool::CommandArgs&) {
   if (!detail::world3d_earth_ready(g_host)) {
     return detail::fail_no_scene("world3d.open_earth");
@@ -303,6 +332,14 @@ bool handle_fly_globe(const tool::CommandArgs& args) {
   return process_fly_globe(g_host, args.payload);
 }
 
+bool handle_earth_system(const tool::CommandArgs&) {
+  Scene3dSink* sink = detail::world3d_scene_sink(g_host);
+  if (!g_host || !sink || !sink->look_bridges_installed()) {
+    return detail::fail_no_scene("world3d.earth_system");
+  }
+  return process_earth_system(g_host, {});
+}
+
 }  // namespace
 
 namespace detail {
@@ -341,6 +378,10 @@ bool register_world3d_earth(content::PluginHost* host) {
          contribute_command_aliases(
              host, kWorld3dPluginId, {{"world3d.fly_globe", "地球飞入"}},
              "tools", handle_fly_globe) &&
+         contribute_command_aliases(
+             host, kWorld3dPluginId,
+             {{"world3d.earth_system", "太空天地海"}}, "tools",
+             handle_earth_system) &&
          contribute_processing_aliases(
              host, kWorld3dPluginId,
              {{"world3d.open_earth", "打开真三维地球"}},
@@ -369,7 +410,11 @@ bool register_world3d_earth(content::PluginHost* host) {
              process_apply_look) &&
          contribute_processing_aliases(
              host, kWorld3dPluginId, {{"world3d.fly_globe", "地球飞入"}},
-             process_fly_globe);
+             process_fly_globe) &&
+         contribute_processing_aliases(
+             host, kWorld3dPluginId,
+             {{"world3d.earth_system", "太空天地海"}},
+             process_earth_system);
 }
 
 }  // namespace detail

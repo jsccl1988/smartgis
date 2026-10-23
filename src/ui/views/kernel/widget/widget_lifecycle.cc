@@ -17,6 +17,43 @@
 
 namespace ui {
 namespace views {
+namespace {
+
+// ShowWindow(SW_SHOW) alone often leaves a newly created shell behind the
+// previous foreground app (console / IDE / browser). Prefer SetForegroundWindow;
+// if Windows blocks focus-steal, briefly TOPMOST + synthetic Alt unlock (do not
+// AttachThreadInput — that deadlocks against Unreal/other UI threads).
+void bring_widget_to_foreground(HWND hwnd) {
+  if (!hwnd || !IsWindow(hwnd)) {
+    return;
+  }
+  if (IsIconic(hwnd)) {
+    ShowWindow(hwnd, SW_RESTORE);
+  }
+  BringWindowToTop(hwnd);
+  if (SetForegroundWindow(hwnd)) {
+    return;
+  }
+  // Unlock the foreground lock with a no-op Alt press, then retry.
+  INPUT keys[2] = {};
+  keys[0].type = INPUT_KEYBOARD;
+  keys[0].ki.wVk = VK_MENU;
+  keys[1].type = INPUT_KEYBOARD;
+  keys[1].ki.wVk = VK_MENU;
+  keys[1].ki.dwFlags = KEYEVENTF_KEYUP;
+  SendInput(2, keys, sizeof(INPUT));
+  if (SetForegroundWindow(hwnd)) {
+    return;
+  }
+  // Last resort: flash above others without joining another thread's input.
+  SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+  SetForegroundWindow(hwnd);
+  SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+}
+
+}  // namespace
 
 // Forwards ThemeService notifications into Widget (friend of Widget).
 class WidgetThemeWatch : public ThemeObserver {
@@ -132,6 +169,7 @@ void Widget::show() {
   }
   ensure_compositor_started();
   ShowWindow(hwnd_, SW_SHOW);
+  bring_widget_to_foreground(hwnd_);
   // CreateWindow-time GetDpiForWindow can still report 96 until the HWND is
   // shown on its monitor; without a resync horizon stays at 1.0x until the
   // first hover/scroll paint makes text suddenly jump larger.

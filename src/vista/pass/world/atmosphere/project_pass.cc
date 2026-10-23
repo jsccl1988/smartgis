@@ -7,11 +7,30 @@
 
 namespace vista {
 namespace atmosphere {
+namespace {
+
+int ocean_mesh_resolution_for_quality(int quality) {
+  // Displaceable verts/edge. Independent of FFT size; raise with quality for
+  // Design B interactive look without blowing Hs over DEM.
+  if (quality <= 0) {
+    return 33;
+  }
+  if (quality == 1) {
+    return 65;
+  }
+  if (quality == 2) {
+    return 97;
+  }
+  return 129;
+}
+
+}  // namespace
 
 OceanDrawParams project_ocean_draw_params(const OceanSpectrumParams& spectrum,
                                           float hs_orbit,
                                           const OrbitPatchRect& patch,
-                                          OceanLookPreset look) {
+                                          OceanLookPreset look,
+                                          int quality) {
   OceanDrawParams draw;
   // Wave height: GIS meters already converted to orbit Y by the caller.
   draw.significant_wave_height = (std::max)(0.01f, hs_orbit);
@@ -54,27 +73,45 @@ OceanDrawParams project_ocean_draw_params(const OceanSpectrumParams& spectrum,
     draw.shallow_b = 0.62f;
     draw.fresnel_bias = 0.04f;
     draw.fresnel_power = 5.0f;
-  } else {
-    // China orbit DEM peaks ~±0.14. The old *4.5 + floor 0.10 / cap 0.22
-    // painted a wall of water over the mainland (ocean visible, DEM gone).
-    // Cap Hs like kLegacyStereo so coastal DEM survives; mild floor keeps a
-    // readable lip. Prefer Gerstner (GPU FFT energy is tiny at this scale).
+  } else if (quality <= 0) {
+    // Quality 0: calm Gerstner shelf (same DEM-safe Hs cap).
     draw.significant_wave_height =
         (std::min)((std::max)(draw.significant_wave_height, 0.01f), 0.035f);
     draw.use_gerstner_fallback = true;
     draw.prefer_gpu_fft = false;
-    // High chop laterally displaces verts over land quads; keep modest.
-    draw.chop = (std::min)((std::max)(draw.chop, 0.35f), 0.65f);
-    draw.shininess = (std::max)(draw.shininess, 180.0f);
-    draw.mesh_resolution = 33;
+    draw.chop = (std::min)((std::max)(draw.chop, 0.35f), 0.55f);
+    draw.shininess = (std::max)(draw.shininess, 160.0f);
+    draw.mesh_resolution = ocean_mesh_resolution_for_quality(0);
     draw.deep_r = 0.02f;
     draw.deep_g = 0.07f;
     draw.deep_b = 0.18f;
     draw.shallow_r = 0.06f;
     draw.shallow_g = 0.22f;
     draw.shallow_b = 0.32f;
-    draw.fresnel_bias = 0.03f;
-    draw.fresnel_power = 6.0f;
+    draw.fresnel_bias = 0.035f;
+    draw.fresnel_power = 5.5f;
+  } else {
+    // Design B interactive: GPU FFT when spectrum allows; keep DEM-safe Hs.
+    // Sea-mask discard stays on OceanPass (caller fills kSeaMask).
+    draw.significant_wave_height =
+        (std::min)((std::max)(draw.significant_wave_height, 0.01f), 0.035f);
+    // Prefer GPU FFT for quality ≥ 1; spectrum.use_gerstner_fallback only when
+    // fft_size < 16 (quality 0). Do not force Gerstner here.
+    draw.prefer_gpu_fft = true;
+    draw.use_gerstner_fallback = (draw.fft_size < 16);
+    // Modest chop: readable fold without sliding verts over land quads.
+    draw.chop = (std::min)((std::max)(draw.chop, 0.45f), 0.85f);
+    draw.shininess = (std::max)(draw.shininess, 220.0f);
+    draw.mesh_resolution = ocean_mesh_resolution_for_quality(quality);
+    draw.deep_r = 0.015f;
+    draw.deep_g = 0.06f;
+    draw.deep_b = 0.20f;
+    draw.shallow_r = 0.05f;
+    draw.shallow_g = 0.24f;
+    draw.shallow_b = 0.36f;
+    // Stronger Fresnel rim without blowing a cyan sheet.
+    draw.fresnel_bias = 0.045f;
+    draw.fresnel_power = 4.5f;
   }
   return draw;
 }
@@ -85,8 +122,9 @@ CloudOrbitDeck project_cloud_orbit_deck(const CloudSample& sample,
   CloudOrbitDeck deck;
   deck.base_m = sample.base_m;
   deck.top_m = sample.top_m;
-  // Broken deck: visible but soft enough that landish greens survive.
-  deck.cover = (std::max)(0.38f, (std::min)(sample.cover, 0.62f));
+  // Broken deck: field cover drives texture modulation; keep a soft floor /
+  // ceiling so DEM greens survive under sparse cover.
+  deck.cover = (std::max)(0.28f, (std::min)(sample.cover, 0.72f));
 
   const float pad = patch.pad;
   deck.half_x = 0.5f * (patch.max_x - patch.min_x) + pad;
@@ -119,20 +157,19 @@ SkyDrawParams project_sky_draw_params(bool globe_enabled) {
     sky.sunset_b = sky.horizon_b;
     sky.sun_glow_strength = 0.55f;
   } else {
-    // Industry mid-tier analytical dome: deep Rayleigh zenith, cool haze
-    // horizon. Collapse sunset into horizon so screen-space ground never
-    // samples a magenta sunset leg.
+    // Design B Bruneton-lite: deeper Rayleigh zenith, cooler horizon haze.
+    // Still analytical — no Hillaire LUT tables.
     sky.dome_radius = 40.0f;
-    sky.zenith_r = 0.04f;
-    sky.zenith_g = 0.16f;
-    sky.zenith_b = 0.86f;
-    sky.horizon_r = 0.42f;
-    sky.horizon_g = 0.64f;
-    sky.horizon_b = 0.90f;
+    sky.zenith_r = 0.03f;
+    sky.zenith_g = 0.14f;
+    sky.zenith_b = 0.92f;
+    sky.horizon_r = 0.36f;
+    sky.horizon_g = 0.58f;
+    sky.horizon_b = 0.88f;
     sky.sunset_r = sky.horizon_r;
     sky.sunset_g = sky.horizon_g;
     sky.sunset_b = sky.horizon_b;
-    sky.sun_glow_strength = 0.18f;
+    sky.sun_glow_strength = 0.24f;
   }
   return sky;
 }
@@ -145,13 +182,12 @@ FogDrawParams project_fog_draw_params(const AtmosphereParams& p,
                                       float sea_level_y,
                                       const SkyDrawParams& sky) {
   FogDrawParams fog;
-  // Soft aerial haze on terrain only. Cap opacity so hypsometric greens
-  // still pass showcase landish gates.
-  fog.density = (std::max)((std::min)(p.fog_density, 0.08f), 0.03f);
-  // China orbit frame span ~3.2: keep haze visible without washing terrain.
-  fog.visibility = (std::max)(2.8f, (std::min)(p.fog_visibility, 5.0f));
-  fog.height_falloff = p.fog_height_falloff;
-  fog.max_opacity = (std::min)((std::max)(p.fog_max_opacity, 0.06f), 0.12f);
+  // Design B: stronger depth-aware aerial haze; still capped so hypsometric
+  // greens survive landish gates (no near-white wash).
+  fog.density = (std::max)((std::min)(p.fog_density, 0.11f), 0.04f);
+  fog.visibility = (std::max)(2.4f, (std::min)(p.fog_visibility, 4.5f));
+  fog.height_falloff = (std::max)(p.fog_height_falloff, 1.15f);
+  fog.max_opacity = (std::min)((std::max)(p.fog_max_opacity, 0.10f), 0.22f);
   fog.base_height = sea_level_y;
 
   // Tint haze toward the analytical sky horizon. Zero sun_glow for the tint

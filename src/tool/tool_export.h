@@ -7,11 +7,16 @@
 // GN defines TOOL_EXPORTS when building //src/tool:tool (dll_stem = tool).
 // Leftover IATool uses LEGACY_TOOL_EXPORT / LEGACY_TOOL_EXPORTS
 // (//src/legacy/tool:legacy_tool). Link consumers via GN deps — no pragma lib.
+// When is_component_build=false, COMPONENT_BUILD is unset → no-op.
 
+#if defined(COMPONENT_BUILD)
 #if defined(TOOL_EXPORTS)
 #define TOOL_EXPORT __declspec(dllexport)
 #else
 #define TOOL_EXPORT __declspec(dllimport)
+#endif
+#else
+#define TOOL_EXPORT
 #endif
 
 #endif  // TOOL_TOOL_EXPORT_H_

@@ -5,6 +5,7 @@
 
 #include "content/content_export.h"
 #include "content/browser/present/map2d/profile/map2d_phase_profile.h"
+#include "content/browser/present/map2d/gpu/furniture/map2d_scale_bar_overlay.h"
 #include "content/browser/present/map2d/gpu/selection/map2d_selection_overlay.h"
 
 #include <atomic>
@@ -234,10 +235,20 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       // not leave last_present_ok_ true for a later hollow skip.
       last_present_ok_ = false;
       last_present_drew_ = false;
-      LOGGING(LOG_ERROR,
-              "map2d.present fail: prepare_for_present size=%ux%u "
-              "(extent/layout)",
-              width_px, height_px);
+      // Cold GPU present often races the first china layout / hillshade bake.
+      // That empty prepare is expected once; do not paint the console FATAL
+      // band (LOG_ERROR) until a layout has already published.
+      if (cache_->layout_build_count() == 0) {
+        LOGGING(LOG_INFO,
+                "map2d.present: prepare waiting for first layout "
+                "size=%ux%u",
+                width_px, height_px);
+      } else {
+        LOGGING(LOG_ERROR,
+                "map2d.present fail: prepare_for_present size=%ux%u "
+                "(extent/layout)",
+                width_px, height_px);
+      }
       return false;
     }
     note_action(action);
@@ -287,10 +298,8 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
 
     // G0/G1: Interactive never invalidate_uploaded (kReuseIfCached).
     // Settle = kIncremental. RebuildFull = invalidate + kReplace.
-    // Interactive is world-only. river-label / label quads are pixel-space
-    // glyphs baked into lon/lat; replaying them under the live camera paints
-    // white-halo navy smears (text-halo #ffffff, text-color #1a4a6a).
-    // Selection and labels wait for SettleRebuild / RebuildFull.
+    // Same-scale pan keeps placed lon/lat glyphs (DrawCache). Zoom / span
+    // change defers labels until settle; scale-bar furniture is re-appended.
     const bool interactive =
         action == Map2dFrameCache::PresentAction::kInteractiveReuse;
     const bool record_all =
@@ -340,15 +349,9 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
 
     vista::reset_last_pass_record_ms();
     const auto gpu_t0 = std::chrono::steady_clock::now();
-    size_t text_items = 0;
-    for (const vista::DrawItem& item : frame_snap.items) {
-      if (item.kind == vista::DrawKind::kText) {
-        ++text_items;
-      }
-    }
     const bool defer_labels = cache_->gesture_defer_labels();
-    // Labels are placed in the layout camera. A live pan/resize that changed
-    // the span would replay those quads as a white halo over the clear.
+    // Labels are placed in the layout camera. Same-scale pan reuses quads;
+    // a span change would smear halo glyphs — strip them until settle.
     const bool label_camera_ok = [&] {
       if (snap.camera.width_px != cam.width_px ||
           snap.camera.height_px != cam.height_px) {
@@ -364,22 +367,41 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       constexpr double kRel = 1.0e-4;
       return std::fabs(ax - bx) <= kRel * ax && std::fabs(ay - by) <= kRel * ay;
     }();
-    const bool draw_labels =
-        !interactive && !defer_labels && label_camera_ok &&
-        (action == Map2dFrameCache::PresentAction::kRebuildFull ||
-         action == Map2dFrameCache::PresentAction::kSettleRebuild ||
-         action == Map2dFrameCache::PresentAction::kStaticReuse);
-    if (defer_labels || draw_labels ||
+    const bool keep_labels = !defer_labels && label_camera_ok;
+    if (!keep_labels) {
+      std::vector<vista::DrawItem> kept;
+      kept.reserve(frame_snap.items.size());
+      for (vista::DrawItem& item : frame_snap.items) {
+        if (item.kind == vista::DrawKind::kText ||
+            item.kind == vista::DrawKind::kIcon) {
+          continue;
+        }
+        kept.push_back(std::move(item));
+      }
+      frame_snap.items = std::move(kept);
+    }
+    // Fresh pixel-space furniture every present (independent of label defer).
+    detail::append_map2d_scale_bar(width_px, height_px, cam.min_x, cam.min_y,
+                                   cam.max_x, cam.max_y, &frame_snap);
+    size_t text_items = 0;
+    for (const vista::DrawItem& item : frame_snap.items) {
+      if (item.kind == vista::DrawKind::kText) {
+        ++text_items;
+      }
+    }
+    // Always record overlays so the scale bar stays on during interactive.
+    const bool draw_overlays = true;
+    if (defer_labels || keep_labels ||
         action == Map2dFrameCache::PresentAction::kRebuildFull) {
       LOGGING(LOG_INFO,
               "map2d.present action=%d size=%ux%u text=%zu labels=%d "
               "defer=%d",
               static_cast<int>(action), width_px, height_px, text_items,
-              draw_labels ? 1 : 0, defer_labels ? 1 : 0);
+              keep_labels ? 1 : 0, defer_labels ? 1 : 0);
     }
     phase = "present_frame";
     const bool ok = present_frame(device, frame_snap, cam, record_all,
-                                  draw_labels, shell, shell_generation);
+                                  draw_overlays, shell, shell_generation);
     const int64_t gpu_wall_ms =
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - gpu_t0)
@@ -410,9 +432,14 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       size_t line_verts = 0;
       int raster_blend = -1;
       float raster_v0 = -1.f;
+      uint32_t fill_rgba_sample[4] = {};
+      size_t fill_rgba_n = 0;
       for (const vista::DrawItem& it : frame_snap.items) {
         switch (it.kind) {
           case vista::DrawKind::kFill:
+            if (fill_rgba_n < 4) {
+              fill_rgba_sample[fill_rgba_n++] = it.rgba;
+            }
             ++n_fill;
             fill_verts += it.vertices.size();
             break;
@@ -435,11 +462,13 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       std::fprintf(stderr,
                    "map2d: present frame_items=%zu size=%ux%u builds=%llu "
                    "fill=%zu/%zu line=%zu/%zu raster=%zu blend=%d v0=%.0f "
-                   "other=%zu bg=0x%08x\n",
+                   "other=%zu bg=0x%08x fill_rgba=%08x,%08x,%08x,%08x\n",
                    frame_snap.items.size(), width_px, height_px,
                    static_cast<unsigned long long>(builds), n_fill, fill_verts,
                    n_line, line_verts, n_raster, raster_blend, raster_v0,
-                   n_other, frame_snap.background_rgba);
+                   n_other, frame_snap.background_rgba, fill_rgba_sample[0],
+                   fill_rgba_sample[1], fill_rgba_sample[2],
+                   fill_rgba_sample[3]);
       std::fflush(stderr);
     }
     if (!ok) {

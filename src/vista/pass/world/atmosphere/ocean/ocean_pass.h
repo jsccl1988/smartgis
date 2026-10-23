@@ -148,6 +148,12 @@ class VISTA_EXPORT OceanPass {
   bool mesh_topology_matches_params() const;
   bool want_gpu_fft(render::rhi::Device* device) const;
   bool run_gpu_fft_once(render::rhi::Device* device);
+  // Upload VB/IB when topology_dirty_; false on empty mesh or Device reject.
+  bool upload_topology(render::rhi::Device* device);
+  // Drop prefer_gpu_fft so warm frames use Gerstner (Design B present safety).
+  void disable_gpu_fft(const char* reason);
+  // Advance Gerstner + ensure mesh/height for the CPU path.
+  bool ensure_gerstner_height(render::rhi::Device* device);
 
   OceanDrawParams params_;
   double time_sec_ = 0.0;

@@ -1,0 +1,15 @@
+{
+  "id": "smartgis.report_deliver",
+  "name": "结论报告落盘",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "python",
+  "author": "The Mogu Authors",
+  "description": "Write a conclusion table as an openable HTML report and open that one pack",
+  "entry": "plugin.py",
+  "contributes": {
+    "commands": [
+      {"id": "report.materialize", "title": "结论报告落盘", "menu": "tools"}
+    ]
+  }
+}

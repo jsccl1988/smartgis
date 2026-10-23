@@ -5,17 +5,17 @@
 #define IL_RUNTIME_RUNTIME_DOCUMENT_BIND_H_
 
 #include "content/browser/capability/host.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 namespace content {
 
 
 namespace detail {
 
-void bind_export(content::ShellBridge& browser, content::CapabilityHost* out);
+void bind_export(content::Shell& browser, content::CapabilityHost* out);
 
 // Document slots, including export_bmp.
-void register_document(content::ShellBridge& browser, content::CapabilityHost* out);
+void register_document(content::Shell& browser, content::CapabilityHost* out);
 
 }  // namespace detail
 }  // namespace content

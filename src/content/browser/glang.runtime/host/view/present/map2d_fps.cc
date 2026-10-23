@@ -5,7 +5,7 @@
 
 #include "content/browser/glang.runtime/host/horizon/atom/mark.h"
 #include "content/browser/glang.runtime/host/view/host/capture_host.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 #include "content/browser/glang.runtime/host/utils/exe_path.h"
 #include "content/browser/present/map2d/gpu/present/map2d_gpu_present.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
@@ -22,7 +22,7 @@
 namespace content {
 namespace detail {
 
-void run_map2d_fps_bench(content::ShellBridge& browser) {
+void run_map2d_fps_bench(content::Shell& browser) {
   const char* bench_env = base::switch_cstr("map2d-fps-bench-ms");
   if (!bench_env) {
     return;

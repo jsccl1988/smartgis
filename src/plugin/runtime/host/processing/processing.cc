@@ -182,7 +182,18 @@ void attach_host_processing(content::PluginHost* host, ProcessingPool* pool) {
         return pool->submit(
             std::move(processing_id), std::move(args_json),
             [factory](content::PluginHost*, std::string_view args) {
-              return factory(nullptr, args);
+              // Scene factories fail closed on a null host (no_scene_device).
+              // That is the worker probe, not the result: present below runs
+              // the same factory with the real host on the UI thread.
+              if (factory(nullptr, args)) {
+                return true;
+              }
+              const std::string probe = operation_result();
+              if (probe.find("\"no_scene_device\"") != std::string::npos) {
+                set_operation_result("");
+                return true;
+              }
+              return false;
             },
             [host, factory](content::PluginHost*, std::string_view args) {
               return factory(host, args);

@@ -31,11 +31,15 @@ class PLUGIN_HOST_EXPORT PluginManager {
   PluginManager(const PluginManager&) = delete;
   PluginManager& operator=(const PluginManager&) = delete;
 
-  int scan_directory(const std::string& plugins_dir);
+  // |plugins_dir| is a path C string from the caller (EXE-safe). Do not pass
+  // an EXE std::string by const-ref — Debug STL is not a DLL ABI.
+  int scan_directory(const char* plugins_dir);
   bool init_all(content::PluginHost* host);
   int dispatch_event(std::string_view event_id, std::string_view payload);
   void destroy_all(content::PluginHost* host);
+  // Same-module / DLL-local only (returns a std::string living in this DLL).
   const std::string& last_error() const { return last_error_; }
+  // Same-module only — DiscoveredPlugin embeds Manifest/std::string.
   const std::vector<DiscoveredPlugin>& discovered() const { return discovered_; }
 
  private:

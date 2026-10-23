@@ -62,12 +62,14 @@ void rebuild_contribute_index(const Registry& registry) {
   std::lock_guard<std::mutex> lock(g_mu);
   g_exact.clear();
   g_stem.clear();
-  for (const PluginRecord& rec : registry.list()) {
-    if (rec.trust == TrustClass::kDenied) {
-      continue;
-    }
-    index_manifest_locked(rec.manifest);
-  }
+  registry.for_each_record(
+      [](const PluginRecord& rec, void*) {
+        if (rec.trust == TrustClass::kDenied) {
+          return;
+        }
+        index_manifest_locked(rec.manifest);
+      },
+      nullptr);
 }
 
 bool lookup_contribute_owner(std::string_view id, std::string* out_plugin_id) {

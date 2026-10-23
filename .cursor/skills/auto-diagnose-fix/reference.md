@@ -113,6 +113,16 @@ Kill residual `cdb` / target PE with a non-sandbox terminal (`Stop-Process` / `t
 - Private frames show as `module+0xoffset`: confirm matching PDB timestamp next to the PE.
 - Hang attach fails: process may have exited, or needs a non-sandbox shell / matching integrity level.
 
+## Root-cause casebook
+
+| Artifact | Role |
+| --- | --- |
+| [cases.md](cases.md) | Distilled mechanism + fix guardrails (commit with the fix) |
+| `out/crash/*-console-digest.txt` | Raw LOG_* / AV breadcrumbs (regenerable) |
+| `out/crash/LATEST.md` | Pointer to newest digest only |
+
+After parse: match Index in `cases.md`. After confirmed root cause: append Case + Index row (template in `cases.md`).
+
 ## Related skills
 
 - `auto-bug-fix` — harness / te green after crash/hang is fixed

@@ -1,0 +1,175 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DLL / STL 信任模型</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --a: #2f7d62; --b: #2563a8; --c: #b06a1a; --d: #8a3d4a;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  @media (max-width: 900px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2); min-height: 150px;
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.78rem; color: var(--muted); }
+  .lane.a { border-top: 3px solid var(--a); }
+  .lane.b { border-top: 3px solid var(--b); }
+  .lane.c { border-top: 3px solid var(--c); }
+  .lane.d { border-top: 3px solid var(--d); }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .stage {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; font-size: 0.8rem; min-width: 110px; max-width: 170px;
+    transition: box-shadow 0.25s ease, background 0.25s ease;
+  }
+  .stage strong { display: block; color: var(--accent); font-size: 0.7rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  .stage.active {
+    box-shadow: inset 0 0 0 1px var(--accent);
+    background: #eef5fc;
+  }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  .map th, .map td {
+    border: 1px solid var(--border); padding: 6px 8px; text-align: left;
+  }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>DLL / STL 信任模型</h1>
+    <p>仓内产品 DLL 同构（Chromium component 式）可传 STL；插件 / 脚本 / 第三方走扁平 ABI。Export 只服务链接，不等于公共 API。</p>
+    <p class="meta">规范：<code>specs/2026-09-14-base-root-hybrid-design.md</code> §DLL / STL trust · 门禁：<code>build/tools/check_dll_homogeneity.py</code></p>
+  </header>
+
+  <section class="panel">
+    <h2>四类边界</h2>
+    <div class="lanes">
+      <div class="lane a">
+        <h3>A · 仓内产品</h3>
+        <ul>
+          <li><code>base</code> / <code>gis</code> / <code>content</code> / <code>render</code> / <code>vista</code> / <code>ui_views</code> / <code>tool</code> / <code>net</code> / <code>plugin_host</code> …</li>
+          <li>同 <code>out/Debug|Release</code>、同 <code>/MD(d)</code></li>
+          <li><strong>允许</strong> <code>std::string</code> / <code>vector</code></li>
+        </ul>
+      </div>
+      <div class="lane b">
+        <h3>B · 稳定嵌入面</h3>
+        <ul>
+          <li><code>content/public</code></li>
+          <li>虚接口；新 API 优先 <code>string_view</code> / <code>span</code> / POD</li>
+          <li>实现可厚，契约保持瘦</li>
+        </ul>
+      </div>
+      <div class="lane c">
+        <h3>C · 插件 / 脚本</h3>
+        <ul>
+          <li>glang ext · <code>plugin.json</code> · GetProcAddress</li>
+          <li><strong>禁止</strong> STL 进出</li>
+          <li>opaque handle / C 缓冲 / 序列化</li>
+        </ul>
+      </div>
+      <div class="lane d">
+        <h3>D · 第三方预编译</h3>
+        <ul>
+          <li>CPython（Debug 桩）· 闭源 GPU</li>
+          <li>隔离或 stub；不混堆</li>
+          <li>对齐 PA-E / CRT 同构</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>同构链路（动画）</h2>
+    <div class="flow" id="flow">
+      <div class="stage" data-i="0"><strong>1</strong>同一 gn gen</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="1"><strong>2</strong><code>/MD</code> 或 <code>/MDd</code></div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="2"><strong>3</strong>产品 DLL 同配置 stem</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="3"><strong>4</strong>A 边界可传 STL</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="4"><strong>5</strong>C/D 仍扁平 ABI</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Export 风格</h2>
+    <table class="map">
+      <thead>
+        <tr><th>边界</th><th>风格</th><th>要点</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>A</td>
+          <td>近 Chromium</td>
+          <td><code>*_EXPORT</code> / <code>COMPONENT_EXPORT(NAME)</code>；可整类导出；依赖同构</td>
+        </tr>
+        <tr>
+          <td>B / C</td>
+          <td>偏稳</td>
+          <td>工厂 + 虚表；签名少 STL；谁 create 谁 destroy</td>
+        </tr>
+        <tr>
+          <td>P4</td>
+          <td><code>is_component_build</code></td>
+          <td>true（默认）= 多 DLL；false = 产品模块 static 链入 exe</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+(function () {
+  var stages = document.querySelectorAll("#flow .stage");
+  var i = 0;
+  function tick() {
+    stages.forEach(function (el, idx) {
+      el.classList.toggle("active", idx === i);
+    });
+    i = (i + 1) % stages.length;
+  }
+  tick();
+  setInterval(tick, 1400);
+})();
+</script>
+</body>
+</html>

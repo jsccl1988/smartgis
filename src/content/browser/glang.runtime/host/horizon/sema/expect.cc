@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/horizon/sema/expect.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include "content/browser/glang.runtime/host/horizon/atom/pump.h"
 #include "content/browser/glang.runtime/host/view/probe.h"
@@ -79,7 +79,7 @@ bool layout_forensics_forced() {
   return v && v[0] && !(v[0] == '0' && v[1] == '\0');
 }
 
-bool fill_shell_status(content::ShellBridge& browser, content::ShellStatus* out) {
+bool fill_shell_status(content::Shell& browser, content::ShellStatus* out) {
   if (!out) {
     return false;
   }
@@ -103,7 +103,7 @@ bool fill_shell_status(content::ShellBridge& browser, content::ShellStatus* out)
   return true;
 }
 
-bool fill_layout_status(content::ShellBridge& browser, content::LayoutStatus* out) {
+bool fill_layout_status(content::Shell& browser, content::LayoutStatus* out) {
   if (!out) {
     return false;
   }
@@ -130,7 +130,7 @@ bool fill_layout_status(content::ShellBridge& browser, content::LayoutStatus* ou
   return true;
 }
 
-bool fill_map_load_status(content::ShellBridge& browser,
+bool fill_map_load_status(content::Shell& browser,
                           const std::string& face,
                           int timeout_ms,
                           content::ViewLoadStatus* out) {

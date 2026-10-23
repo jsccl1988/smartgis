@@ -155,10 +155,12 @@ int main() {
   const uint32_t road = layer_paint_color(carto, "road", "line-color");
   const uint32_t bg = layer_paint_color(carto, "background", "background-color");
   const uint32_t label = layer_paint_color(carto, "label", "text-color");
+  // Colors must match src/ui/resources/carto/default.style.json (loaded via
+  // vista::default_carto_style_json).
   expect(land == 0xFFF5F3E9u, "Baidu cream land");
-  expect(river == 0xFF4A8AB8u, "river blue");
-  expect(admin == 0xFF2C2418u, "admin stroke");
-  expect(label == 0xFF141820u, "label ink");
+  expect(river == 0xFF01579Bu, "river blue");
+  expect(admin == 0xFFD35400u, "admin stroke");
+  expect(label == 0xFF1A1A1Au, "label ink");
   expect(bg == 0xFFAAD3DFu, "ocean bg");
 
   // MultiPolygon must expand every part (Xinjiang/Qinghai holes otherwise).
@@ -212,21 +214,21 @@ int main() {
     }
   }
 
-  // china_city "line" layer: Siberia stub must be clipped to mainland.
+  // Runtime ingest no longer clips Siberia stubs (offline in carto_prep).
+  // Opening a line.geojson with a high-lat stub keeps the full extent.
   {
     char tmp[MAX_PATH] = {};
-    expect(GetTempPathA(MAX_PATH, tmp) > 0, "temp path for line clip");
-    std::string dir = std::string(tmp) + "gis_scene_line_clip_dir";
+    expect(GetTempPathA(MAX_PATH, tmp) > 0, "temp path for line open");
+    std::string dir = std::string(tmp) + "gis_scene_line_open_dir";
     CreateDirectoryA(dir.c_str(), nullptr);
     std::string path = dir + "\\line.geojson";
     expect(write_line_with_siberia_stub(path.c_str()), "write line.geojson");
     content::GisScene scene;
     expect(scene.open_path(path), "open line.geojson");
-    expect(scene.last_open_was_ogr(), "line clip via OGR");
+    expect(scene.last_open_was_ogr(), "line open via OGR");
     const content::Extent2 world = scene.world_extent();
-    expect(world.ymax <= 54.5, "Siberia stub clipped from line layer");
-    expect(world.ymin >= 18.0 && world.ymax <= 54.0,
-           "remaining run is mainland lat");
+    expect(world.ymax >= 57.0, "high-lat stub kept without runtime clip");
+    expect(scene.feature_count() >= 1, "line feature ingested");
     DeleteFileA(path.c_str());
     RemoveDirectoryA(dir.c_str());
   }
@@ -311,7 +313,8 @@ int main() {
         gis::style::ResolvedPaint rp;
         expect(styled.resolve_style_for_test("line", line_attrs, 8.0, &rp),
                "resolve line from file");
-        expect(rp.line_color == 0xFF1565C0u, "line #1565c0");
+        // china_city.style.json line-water paint (river kind).
+        expect(rp.line_color == 0xFF4A8AB8u, "line-water #4a8ab8");
         break;
       }
     }

@@ -3,10 +3,8 @@
 
 #include "app/views/browser/plugin/shell/plugin_shell.h"
 
-#include <cstdio>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "app/views/browser/plugin/shell/builtins.h"
 #include "app/views/browser/plugin/shell/pack_enable.h"
@@ -22,8 +20,9 @@
 #include "plugin/runtime/host/catalog/resource_roots.h"
 #include "plugin/runtime/host/native/manager.h"
 #include "plugin/runtime/host/processing/processing.h"
-#include "content/browser/glang.runtime/host/bind/gis_console.h"
-#include "plugin/runtime/python/runtime.h"
+#include "content/browser/glang.runtime/host/bind/console.h"
+#include "plugin/runtime/extension/bind.h"
+#include "plugin/runtime/extension/runtime.h"
 #include "tool/command/command.h"
 #include "ui/views/kernel/paint/painter_registry.h"
 
@@ -55,7 +54,8 @@ void PluginShell::init_python() {
     // Soft: product runs without embeddable CPython.
     return;
   }
-  plugin::bind_registry_python(registry_.get(), python_.get());
+  // Mounts glang.ext.<plugin_id> around PythonRuntime start/stop.
+  plugin::bind_registry_python_ext(registry_.get(), python_.get());
   python_->bind_host(host_);
 }
 
@@ -136,16 +136,23 @@ void PluginShell::shutdown() {
     if (manager_) {
       manager_->destroy_all(host_);
     }
-    const std::vector<plugin::PluginRecord> records = registry_->list();
-    for (const plugin::PluginRecord& rec : records) {
-      if (rec.state == plugin::PluginState::kEnabled) {
-        registry_->set_enabled(rec.manifest.id, false, host_);
-      }
-    }
+    struct DisableCtx {
+      plugin::Registry* registry;
+      content::PluginHost* host;
+    } ctx{registry_.get(), host_};
+    registry_->visit(
+        [](const char* id, const char*, int state, int, int, void* baton) {
+          auto* c = static_cast<DisableCtx*>(baton);
+          if (state == static_cast<int>(plugin::PluginState::kEnabled) && id &&
+              id[0]) {
+            (void)c->registry->set_enabled(id, false, c->host);
+          }
+        },
+        &ctx);
   }
   if (python_) {
-    content::clear_gis_console_bridge();
-    content::bind_gis_host_for_analysis(nullptr);
+    content::clear_console_host();
+    content::bind_console_plugin(nullptr);
     python_->shutdown();
     python_.reset();
   }
@@ -305,24 +312,8 @@ bool PluginShell::ensure_discovered() {
   if (root.empty()) {
     root = default_plugins_dir();
   }
-  // #region agent log
-  {
-    FILE* f = nullptr;
-    if (fopen_s(&f, "C:/Dev/src/gis/smartgis/debug-778a24.log", "a") == 0 &&
-        f) {
-      std::fprintf(
-          f,
-          "{\"sessionId\":\"778a24\",\"runId\":\"pre\",\"hypothesisId\":\"D\","
-          "\"location\":\"plugin_shell.cc:ensure_discovered\",\"message\":"
-          "\"ensure_discovered scan\",\"data\":{\"root\":\"%s\"},\"timestamp\":"
-          "0}\n",
-          root.c_str());
-      std::fclose(f);
-    }
-  }
-  // #endregion
   if (manager_) {
-    (void)manager_->scan_directory(root);
+    (void)manager_->scan_directory(root.c_str());
   }
   discovered_ = true;
   return true;
@@ -348,17 +339,19 @@ bool PluginShell::start_builtins() {
   // manifests; init_all LoadLibrary + init so every discovered pack is on.
   if (manager_) {
     (void)manager_->init_all(host_);
-    for (const plugin::PluginRecord& rec : registry_->list()) {
-      if (rec.manifest.kind != plugin::PluginKind::kNative) {
-        continue;
-      }
-      if (rec.state == plugin::PluginState::kEnabled) {
-        LOGGING(LOG_INFO, "plugin shell: loaded %s", rec.manifest.id.c_str());
-        continue;
-      }
-      LOGGING(LOG_ERROR, "plugin shell: native pack not loaded id=%s",
-              rec.manifest.id.c_str());
-    }
+    registry_->visit(
+        [](const char* id, const char*, int state, int kind, int, void*) {
+          if (kind != static_cast<int>(plugin::PluginKind::kNative) || !id ||
+              !id[0]) {
+            return;
+          }
+          if (state == static_cast<int>(plugin::PluginState::kEnabled)) {
+            LOGGING(LOG_INFO, "plugin shell: loaded %s", id);
+            return;
+          }
+          LOGGING(LOG_ERROR, "plugin shell: native pack not loaded id=%s", id);
+        },
+        nullptr);
   }
   plugin::rebuild_contribute_index(*registry_);
   return true;

@@ -27,6 +27,19 @@ copy("world3d_data_stub") {
   outputs = [ "$root_out_dir/plugins/world3d/data/{{source_file_part}}" ]
 }
 
+copy("world3d_earth_plugin") {
+  sources = [
+    "script/plugin.json",
+    "script/plugin.py",
+  ]
+  outputs = [ "$root_out_dir/plugins/world3d_earth/{{source_file_part}}" ]
+}
+
+copy("world3d_earth_ext") {
+  sources = [ "script/ext/__init__.py" ]
+  outputs = [ "$root_out_dir/plugins/world3d_earth/ext/__init__.py" ]
+}
+
 # DEM XYZ/heightmap kernels (Views + leftover plugin_dem / plugin_model3d).
 source_set("world3d_dem") {
   sources = [
@@ -287,6 +300,8 @@ native_plugin("world3d_native") {
   data_deps = [
     ":world3d_data_stub",
     ":world3d_resources",
+    ":world3d_earth_plugin",
+    ":world3d_earth_ext",
   ]
 }
 
@@ -321,6 +336,18 @@ test("world3d_loader_test") {
   ]
 }
 
+test("world3d_earth_system_test") {
+  output_name = "world3d_earth_system_test"
+  sources = [ "scene/tests/earth_system_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":world3d_views",
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+  ]
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
+}
+
 test("world3d_scene_writer_test") {
   output_name = "world3d_scene_writer_test"
   sources = [ "scene/tests/scene_writer_test.cc" ]
@@ -345,6 +372,22 @@ test("orthogrid_laplace_test") {
     "//third_party:eigen",
   ]
   data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+test("world3d_earth_brief_test") {
+  output_name = "world3d_earth_brief_test"
+  sources = [ "tests/earth_brief_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ "//third_party:rapidjson" ]
+  defines = [
+    "WORLD3D_EARTH_DIR=\"" +
+        rebase_path("//src/plugin/product/world3d/script") + "\"",
+  ]
+  data_deps = [
+    ":world3d_earth_plugin",
+    ":world3d_earth_ext",
+  ]
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
 }
 
 test("orthogrid3d_laplace_test") {

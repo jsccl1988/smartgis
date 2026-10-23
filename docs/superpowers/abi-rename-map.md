@@ -11,6 +11,14 @@ Spec (foundation Hybrid；真源仅 `src/base/`，无仓库根物�?`base/`): [`
 Plan: [`plans/2026-09-14-dll-reorganization.md`](archive/plans/2026-09-14-dll-reorganization.md)
 
 Status: **in progress** (include/snake_case cutover still open；foundation Hybrid Phases 0�? 已收口，真源�?`src/base`)�?*DLL reorg as-built 2026-09-28�?* 产品 import-link stems �?`base` · `gis` · `render` · `net`（从 base 抽出）�?`content` · `ui_views` · `tool` · `plugin_host`�? app-gated `ui_legacy` / optional `legacy_*`。Phase 2 域插�?stem 保持；`*.am` �?LoadLibrary�?
+## DLL / STL trust (2026-10-23)
+
+Living: [`specs/2026-09-14-base-root-hybrid-design.md`](specs/2026-09-14-base-root-hybrid-design.md) �DLL / STL trust model.  
+Diagram: [`diagrams/dll-stl-trust.html`](diagrams/dll-stl-trust.html).  
+Gate: `python build/tools/check_dll_homogeneity.py --out Debug|Release`.  
+GN: `is_component_build` (default true) ? `COMPONENT_BUILD` + DLLs; false ? static product libs.  
+New modules: `#include "base/core/component_export.h"` + `COMPONENT_EXPORT(NAME)`.
+
 ## Include root
 
 - Foundation + product: `//src` �?`#include "base/..."` and `"layer/module/file.h"`.

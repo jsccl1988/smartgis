@@ -4,6 +4,7 @@
 #ifndef PLUGIN_REGISTRY_H_
 #define PLUGIN_REGISTRY_H_
 
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <string>
@@ -40,6 +41,10 @@ struct PluginRecord {
   PluginState state = PluginState::kDisabled;
   TrustClass trust = TrustClass::kDenied;
   std::string directory;
+  // True after a successful start_plugin with a host (handlers contributed).
+  // Persisted "enabled" may set state to kEnabled without this bit — UI must
+  // still call set_enabled(host) so LoadLibrary / contribute_* actually run.
+  bool handlers_loaded = false;
 };
 
 class PLUGIN_HOST_EXPORT Registry {
@@ -56,7 +61,22 @@ class PLUGIN_HOST_EXPORT Registry {
   bool trust_unsigned(std::string_view id);
   bool unload(std::string_view id, content::PluginHost* host);
   const PluginRecord* find(std::string_view id) const;
+  // Same-module only (plugin_host DLL / host_sources tests). SmartGIS.exe must
+  // use visit() / apply_startup() — returning vector<PluginRecord> across the
+  // DLL boundary corrupts the Debug CRT heap.
   std::vector<PluginRecord> list() const;
+  // EXE-safe: |id|/|name| valid only for the duration of |fn|.
+  using PluginVisitFn = void (*)(const char* id, const char* name, int state,
+                                 int kind, int trust, void* baton);
+  void visit(PluginVisitFn fn, void* baton) const;
+  // Same-module / DLL-internal iteration (contribute index, etc.).
+  void for_each_record(void (*fn)(const PluginRecord& rec, void* baton),
+                       void* baton) const;
+  // Apply plugin.json startup inside this DLL. Writes viewport/scenario into
+  // caller buffers (EXE constructs std::string from the C strings afterward).
+  bool apply_startup(content::PluginHost* host, char* viewport_out,
+                     size_t viewport_cap, char* scenario_out,
+                     size_t scenario_cap);
   const std::string& last_error() const;
   bool register_builtin_hooks(std::string_view id,
                               bool (*start)(content::PluginHost*),

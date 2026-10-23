@@ -9,6 +9,8 @@ Layers:
   L0 writable — exclusive open on existing closure PEs; list lock holders
   L1 ninja    — ``ninja -n`` on SmartGIS + import DLLs (or test_all)
   L2 pe       — PE import table vs ninja closure + DLL-newer-than-exe skew
+  L2b homo    — Debug/Release product stem homogeneity (see
+                check_dll_homogeneity.py; DLL / STL trust model)
 
 Usage:
   python build/tools/check_out_artifacts.py --out Debug --mode writable
@@ -25,6 +27,12 @@ import struct
 import subprocess
 import sys
 from pathlib import Path
+
+# Sibling gate: Debug/Release product stem homogeneity (DLL / STL trust).
+_TOOLS_DIR = Path(__file__).resolve().parent
+if str(_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TOOLS_DIR))
+import check_dll_homogeneity as _dll_homo  # noqa: E402
 
 # Keep in sync with build.bat te runner list. Names that are not ninja targets
 # are treated as optional leftovers (warn only).
@@ -595,6 +603,12 @@ def check(
         ninja_dlls = closure[1:] if closure else []
         _check_pe_imports(out_dir, _PRODUCT_EXE, ninja_dlls, errors, warnings)
 
+    # L2b — Debug/Release product stem homogeneity (CRT/STL trust)
+    if mode in ("harness", "product", "te"):
+        homo_err, homo_warn = _dll_homo.collect_issues(out_dir, config)
+        errors.extend(homo_err)
+        warnings.extend(homo_warn)
+
     for w in warnings:
         print(f"warn: {w}")
     if errors:
@@ -607,11 +621,14 @@ def check(
     pe_note = ""
     if mode in ("harness", "product") and not skip_pe:
         pe_note = " pe=ok"
+    homo_note = ""
+    if mode in ("harness", "product", "te"):
+        homo_note = " homo=ok"
     print(
         f"check_out_artifacts: OK out/{config} mode={mode} "
         f"closure={','.join(closure[:6])}"
         f"{'...' if len(closure) > 6 else ''} "
-        f"({dll_n} import dlls / dry-run clean){pe_note}"
+        f"({dll_n} import dlls / dry-run clean){pe_note}{homo_note}"
     )
     return 0
 

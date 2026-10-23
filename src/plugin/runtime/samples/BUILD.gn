@@ -1,0 +1,41 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/python.gni")
+import("//testing/test.gni")
+
+test("sample_start_test") {
+  output_name = "sample_start_test"
+  sources = [ "sample_start_test.cc" ]
+  include_dirs += [ "//src" ]
+  use_gtest = false
+  deps = [
+    "//src/plugin/runtime/extension:extension",
+    "//src/plugin:host",
+    "//src/content:content",
+    "//src/content/browser/glang.runtime:cpython",
+    "//src/tool:dispatch",
+  ]
+  defines += [
+    "PLUGIN_HELLO_EXT_DIR=\"" +
+        rebase_path("//src/plugin/runtime/samples/hello_ext") + "\"",
+    "PLUGIN_HELLO_DIR=\"" +
+        rebase_path("//src/plugin/runtime/samples/hello") + "\"",
+    "PLUGIN_ANALYSIS_DIR=\"" +
+        rebase_path("//src/plugin/runtime/samples/analysis") + "\"",
+    "PLUGIN_INDUSTRY_DIR=\"" +
+        rebase_path("//src/plugin/runtime/samples/industry_pack") + "\"",
+    "PLUGIN_ORCHESTRATE_DIR=\"" +
+        rebase_path("//src/plugin/runtime/samples/product_orchestrate") +
+        "\"",
+  ]
+  if (python_enabled) {
+    defines += [ "HAS_PYTHON=1" ]
+    if (python_dll != "") {
+      data_deps = [
+        "//src/plugin/runtime/extension:python312_dll",
+        "//src/plugin/runtime/extension:python3_dll",
+      ]
+    }
+  }
+}

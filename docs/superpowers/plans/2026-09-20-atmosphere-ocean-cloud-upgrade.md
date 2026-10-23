@@ -228,10 +228,29 @@ REM 例: build.bat src/app/views:scene3d_controller_test
 
 ---
 
-## 9. 修订记录
+## 9. Design B — 产品高观感（交互档，非 LUT / 非 C）
+
+**Status:** active（2026-10-21）  
+**Scope:** 在已修复的 `ocean_draw` 门禁之上，把交互档（`quality≥1`）外观拉到「业务 GIS 可读 + 游戏中上」而不做完整 Hillaire LUT（那是 Design C / Deferred）。
+
+| 子系统 | Design B 决议 | 明确不做 |
+| --- | --- | --- |
+| **Ocean** | `quality≥1` 优先 GPU FFT（保留 DEM-safe Hs≤0.035 + `kSeaMask`）；抬 mesh/FFT 档；加强 foam + Fresnel 高光（防 blowout） | 影视碎浪、SSR、抬 Hs 盖住 DEM |
+| **Cloud** | `kCloudCover` 纹理调制 raymarch；默认步数抬档；depth test / soft alpha 不擦 DEM | 多次散射体云、白幕盖陆 |
+| **Sky / Fog** | 加强 Bruneton-lite 解析天空 + depth-aware fog | 完整 Hillaire / Bruneton LUT 表 |
+| **Gate** | 保持 `flycube_ocean_churn = ocean_on && !dem_gpu_synced_after_ocean_`；`skip_ocean_for_solid_gate` 仅 DEM albedo 特例 | 回退到「ocean_on ⇒ forever ocean_draw=0」 |
+
+**接线真源：** `project_ocean_draw_params(..., quality)`、`OceanSystem::fft_size_for_quality`、`CloudPass::set_cover_cpu` + `ps_cloud.hlsl` cover_map、`project_sky_draw_params` / `project_fog_draw_params`、`Scene3dGpuPresent::present` ocean_draw 门禁。
+
+**验收提示：** `ocean_draw=1` + warm DEM `tex=1`；Vista 下可见 FFT 浪纹 / 泡沫；云为破碎罩而非灰卡；天空更蓝、雾贴地不洗绿。
+
+---
+
+## 10. 修订记录
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-10-21 | **Design B**（§9）：交互档 GPU FFT + 云 cover 纹理 + Bruneton-lite/fog 加强；保留 ocean_draw 门禁；不做完整 LUT |
 | 2026-09-20 | **重写并合入** Phase 1 API（并行冲突后磁盘丢失）：`ingest_gdal_field_series`、`FieldStore::timed_slice_range`、`Environment::{load_external_series,scrub_time_sec,advance_time_sec,clamp_time_to_field,timed_field_range}`；Views 宿主从 shim 改接真 API；CLI `--atmosphere-fields=` 兼容 |
 | 2026-09-20 | Phase 3 Views 独占合入：Slider + AtmospherePanel；GDI 风场箭头；当时仍用 ingest shim（已由上条替换） |
 | 2026-09-20 | Phase 2 landed：foam-lite + cloud cover FieldTexture 调制 + 质量档 Null 回归 |

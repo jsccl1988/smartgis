@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/plugin/bind_plugin.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -56,8 +56,8 @@ bool want_fake_report_browser() {
 
 }  // namespace
 
-void bind_plugin(content::ShellBridge& browser, content::CapabilityHost* out) {
-  content::ShellBridge* b = &browser;
+void bind_plugin(content::Shell& browser, content::CapabilityHost* out) {
+  content::Shell* b = &browser;
   bind_tagged_slots(
       out,
       base::tagged_tuple{

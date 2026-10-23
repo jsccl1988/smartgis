@@ -7,6 +7,31 @@
 #include <rapidjson/writer.h>
 
 namespace content {
+namespace {
+
+void write_layer(rapidjson::Writer<rapidjson::StringBuffer>& w,
+                 const LayerDesc& layer) {
+  w.StartObject();
+  w.Key("id");
+  w.String(layer.id.c_str(),
+           static_cast<rapidjson::SizeType>(layer.id.size()));
+  w.Key("name");
+  w.String(layer.name.c_str(),
+           static_cast<rapidjson::SizeType>(layer.name.size()));
+  w.Key("visible");
+  w.Bool(layer.visible);
+  if (!layer.children.empty()) {
+    w.Key("children");
+    w.StartArray();
+    for (const LayerDesc& child : layer.children) {
+      write_layer(w, child);
+    }
+    w.EndArray();
+  }
+  w.EndObject();
+}
+
+}  // namespace
 
 std::string json_escape_string(std::string_view text) {
   rapidjson::StringBuffer buf;
@@ -26,16 +51,7 @@ std::string layers_to_catalog_json(const std::vector<LayerDesc>& layers) {
   rapidjson::Writer<rapidjson::StringBuffer> w(buf);
   w.StartArray();
   for (const LayerDesc& layer : layers) {
-    w.StartObject();
-    w.Key("id");
-    w.String(layer.id.c_str(),
-             static_cast<rapidjson::SizeType>(layer.id.size()));
-    w.Key("name");
-    w.String(layer.name.c_str(),
-             static_cast<rapidjson::SizeType>(layer.name.size()));
-    w.Key("visible");
-    w.Bool(layer.visible);
-    w.EndObject();
+    write_layer(w, layer);
   }
   w.EndArray();
   return std::string(buf.GetString(), buf.GetSize());

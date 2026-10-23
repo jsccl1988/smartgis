@@ -191,6 +191,9 @@ class Map2dFrameCache {
   // Zoom bucket changed during a gesture. Quiet settle must full-rebuild
   // slices; interactive presents keep the previous mesh and omit labels.
   bool pending_zoom_rebuild_ = false;
+  // Pan past skirt or scale change during a gesture. Quiet settle must
+  // refresh layout/hillshade; interactive presents omit labels and DEM.
+  bool pending_gesture_settle_ = false;
   std::atomic<bool> last_present_reused_layout_{false};
   std::atomic<uint64_t> layout_build_count_{0};
   // Bumped on bind/invalidate/rebuild so in-flight Layout::build can see a

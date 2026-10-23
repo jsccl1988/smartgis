@@ -224,36 +224,44 @@ if "!PUBLISH_SDK!"=="1" (
   if !ERR! NEQ 0 goto :finish
 )
 
-REM te / harness runners use Debug binaries only (unlocked when PHASE=compile+tests split).
+REM te / harness runners follow the requested config.
+REM Suite scripts need CPython: python_enabled is Release-only.
+REM Prefer: build.bat release harness
 if /I "!SMARTGIS_BUILD_PHASE!"=="compile" goto :finish
-if "!BUILD_DEBUG!"=="1" (
-  if /I "!NINJA_TARGET!"=="harness" (
-    call :check_out_artifacts harness
-    if errorlevel 1 (
-      set "ERR=1"
-      goto :finish
-    )
-    call :run_harness_gate
-  ) else if /I "!NINJA_TARGET!"=="test_all" (
-    call :check_out_artifacts te
-    if errorlevel 1 (
-      set "ERR=1"
-      goto :finish
-    )
-    set "UNIT_ERR=0"
-    REM leftover_session_test / leftover_record_test / leftover rhi2d-gdi/gl/dem_stereo
-    REM PEs removed with src/legacy; run scenic_* twins instead.
-    REM Presence of ninja-target exes is enforced by check_out_artifacts --mode te.
-    for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_tool_session_test.exe feature_attrs_test.exe content_catalog_layers_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe gis_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe scenic_gdi_map_paint_test.exe scenic_map_carto2d_test.exe scenic_gl_map_paint_test.exe scenic_dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe plugin_builtins_test.exe views_launch_options_test.exe) do (
-      if exist ".\out\Debug\%%T" (
-        echo Running out\Debug\%%T
-        ".\out\Debug\%%T"
-        if !ERRORLEVEL! NEQ 0 set "UNIT_ERR=!ERRORLEVEL!"
-      )
-    )
-    if !UNIT_ERR! NEQ 0 set "ERR=!UNIT_ERR!"
+set "RUN_OUT="
+if "!BUILD_RELEASE!"=="1" if "!BUILD_DEBUG!"=="0" set "RUN_OUT=Release"
+if "!BUILD_DEBUG!"=="1" if "!BUILD_RELEASE!"=="0" set "RUN_OUT=Debug"
+if "!RUN_OUT!"=="" set "RUN_OUT=Debug"
+if /I "!NINJA_TARGET!"=="harness" goto :run_harness_after_build
+if /I "!NINJA_TARGET!"=="test_all" goto :run_te_after_build
+goto :finish
+
+:run_harness_after_build
+call :check_out_artifacts harness !RUN_OUT!
+if errorlevel 1 (
+  set "ERR=1"
+  goto :finish
+)
+call :run_harness_gate !RUN_OUT!
+goto :finish
+
+:run_te_after_build
+call :check_out_artifacts te !RUN_OUT!
+if errorlevel 1 (
+  set "ERR=1"
+  goto :finish
+)
+set "UNIT_ERR=0"
+REM Presence of ninja-target exes is enforced by check_out_artifacts --mode te.
+for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_tool_session_test.exe feature_attrs_test.exe content_catalog_layers_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe gis_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe scenic_gdi_map_paint_test.exe scenic_map_carto2d_test.exe scenic_gl_map_paint_test.exe scenic_dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe plugin_builtins_test.exe views_launch_options_test.exe ext_module_test.exe plugin_fn_test.exe plugin_python_test.exe script_main_test.exe sample_start_test.exe) do (
+  if exist ".\out\!RUN_OUT!\%%T" (
+    echo Running out\!RUN_OUT!\%%T
+    ".\out\!RUN_OUT!\%%T"
+    if !ERRORLEVEL! NEQ 0 set "UNIT_ERR=!ERRORLEVEL!"
   )
 )
+if !UNIT_ERR! NEQ 0 set "ERR=!UNIT_ERR!"
+goto :finish
 
 :finish
 echo Exit code: !ERR!
@@ -289,21 +297,19 @@ if /I "!TARGET_ARG!"=="te" (
 )
 set "ERR=0"
 set "LAST_LOG="
-if "!BUILD_DEBUG!"=="0" (
-  echo WARNING: te/harness runners only use Debug binaries; nothing to run.
-  goto :finish
-)
+set "RUN_OUT=Debug"
+if "!BUILD_RELEASE!"=="1" if "!BUILD_DEBUG!"=="0" set "RUN_OUT=Release"
 if /I "!NINJA_TARGET!"=="harness" (
-  call :check_out_artifacts harness
+  call :check_out_artifacts harness !RUN_OUT!
   if errorlevel 1 (
     set "ERR=1"
     goto :finish
   )
-  call :run_harness_gate
+  call :run_harness_gate !RUN_OUT!
   goto :finish
 )
 if /I "!NINJA_TARGET!"=="test_all" (
-  call :check_out_artifacts te
+  call :check_out_artifacts te !RUN_OUT!
   if errorlevel 1 (
     set "ERR=1"
     goto :finish
@@ -312,10 +318,10 @@ if /I "!NINJA_TARGET!"=="test_all" (
   REM leftover_session_test / leftover_record_test / leftover rhi2d-gdi/gl/dem_stereo
   REM PEs removed with src/legacy; run scenic_* twins instead.
   REM Presence of ninja-target exes is enforced by check_out_artifacts --mode te.
-  for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_tool_session_test.exe feature_attrs_test.exe content_catalog_layers_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe gis_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe scenic_gdi_map_paint_test.exe scenic_map_carto2d_test.exe scenic_gl_map_paint_test.exe scenic_dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe plugin_builtins_test.exe views_launch_options_test.exe) do (
-    if exist ".\out\Debug\%%T" (
-      echo Running out\Debug\%%T
-      ".\out\Debug\%%T"
+  for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_tool_session_test.exe feature_attrs_test.exe content_catalog_layers_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe gis_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe scenic_gdi_map_paint_test.exe scenic_map_carto2d_test.exe scenic_gl_map_paint_test.exe scenic_dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe plugin_builtins_test.exe views_launch_options_test.exe ext_module_test.exe plugin_fn_test.exe plugin_python_test.exe script_main_test.exe sample_start_test.exe) do (
+    if exist ".\out\!RUN_OUT!\%%T" (
+      echo Running out\!RUN_OUT!\%%T
+      ".\out\!RUN_OUT!\%%T"
       if !ERRORLEVEL! NEQ 0 set "UNIT_ERR=!ERRORLEVEL!"
     )
   )
@@ -363,8 +369,14 @@ REM ---------------------------------------------------------------------------
 REM Product runtime gate: testing/tools loop_runner --gate (gpu + --harness)
 REM ---------------------------------------------------------------------------
 :run_harness_gate
-echo Running testing\tools\loop_runner.py --gate --no-build --out Debug
-python ".\testing\tools\loop_runner.py" --gate --no-build --out Debug --rounds 1
+set "GATE_OUT=%~1"
+if "!GATE_OUT!"=="" set "GATE_OUT=Debug"
+echo Running testing\tools\loop_runner.py --gate --no-build --out !GATE_OUT!
+if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
+  "%LocalAppData%\Programs\Python\Python312\python.exe" ".\testing\tools\loop_runner.py" --gate --no-build --out !GATE_OUT! --rounds 1
+) else (
+  py -3 ".\testing\tools\loop_runner.py" --gate --no-build --out !GATE_OUT! --rounds 1
+)
 set "ERR=!ERRORLEVEL!"
 goto :eof
 

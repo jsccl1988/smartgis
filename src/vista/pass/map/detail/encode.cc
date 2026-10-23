@@ -89,10 +89,8 @@ void encode_draws(render::rhi::CommandList* list, const vista::View& view,
                      static_cast<float>(view.height_px), 0.f, 1.f);
   list->set_depth_mode(render::rhi::DepthMode::kDisabled);
 
-  // Painter order: land fills → DEM hillshade → line/circle strokes →
-  // glyph/icon overlays (halo is atlas coverage, src-alpha over the map).
-  // Strokes after DEM so
-  // rivers/admin are not buried under the jet sheet.
+  // Painter order: DEM bake (basemap) → area fills (often translucent over
+  // bake) → line/circle strokes (rivers/admin) → glyph/icon overlays.
   auto is_dem_raster = [](const UploadedDraw& d) {
     return d.textured && d.dem_raster && d.texture != nullptr;
   };
@@ -113,12 +111,12 @@ void encode_draws(render::rhi::CommandList* list, const vista::View& view,
     }
   };
   for (const UploadedDraw& draw : draws) {
-    if (!draw.textured && !draw.stroke && !is_overlay_draw(draw)) {
+    if (is_dem_raster(draw)) {
       emit(draw);
     }
   }
   for (const UploadedDraw& draw : draws) {
-    if (is_dem_raster(draw)) {
+    if (!draw.textured && !draw.stroke && !is_overlay_draw(draw)) {
       emit(draw);
     }
   }

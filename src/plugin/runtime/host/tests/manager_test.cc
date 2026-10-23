@@ -74,7 +74,7 @@ int main() {
 
   plugin::Registry reg;
   plugin::PluginManager mgr(&reg);
-  const int added = mgr.scan_directory(tmp.string());
+  const int added = mgr.scan_directory(tmp.string().c_str());
   expect(added >= 2, "manager added packs");
   expect(reg.find("smartgis.scanstub") != nullptr, "registry has scanstub");
   expect(reg.find("smartgis.map2d") != nullptr, "registry has map2d");

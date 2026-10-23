@@ -9,11 +9,9 @@
 #include "content/browser/capability/host.h"
 #include "content/browser/glang.runtime/exec/op/gis/eval/eval.h"
 #include "content/browser/glang.runtime/exec/op/gis/eval/host_call.h"
-#include "base/tuple/algorithm.h"
+#include "content/browser/glang.runtime/exec/op/install.h"
 
-#include <cstddef>
 #include <tuple>
-#include <type_traits>
 #include <utility>
 
 namespace content {
@@ -52,33 +50,6 @@ constexpr Param kModeParams[] = {
     {"mode", 0, ArgKind::kStr, true, 0, nullptr},
 };
 
-template <std::size_t N>
-struct OpName {
-  char text[N];
-  constexpr OpName(const char (&literal)[N]) : text{} {
-    for (std::size_t i = 0; i < N; ++i) {
-      text[i] = literal[i];
-    }
-  }
-};
-
-// One opcode row: id, script name, parameter list, and eval.
-template <typename Fn>
-const OpDesc* registered_op() {
-  static const OpDesc desc{
-      Fn::id, Fn::name, nullptr, Fn::params, Fn::arity, false, &Fn::apply};
-  return &desc;
-}
-
-template <typename Tuple>
-void install_ops(const OpDesc** by_op) {
-  base::tuple::for_each(Tuple{}, [&](auto sample) {
-    using Fn = std::decay_t<decltype(sample)>;
-    by_op[static_cast<std::size_t>(Fn::id)] = registered_op<Fn>();
-    return 0;
-  });
-}
-
 // Binary GisCapability method bound as an opcode.
 template <Op kId, auto kName, auto kMethod>
 struct HostBinaryOp {
@@ -87,6 +58,7 @@ struct HostBinaryOp {
   static constexpr const char* name = stored_name.text;
   static constexpr const Param* params = kBinaryParams;
   static constexpr int arity = 2;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -104,6 +76,7 @@ struct HostUnaryOp {
   static constexpr const char* name = stored_name.text;
   static constexpr const Param* params = kUnaryParams;
   static constexpr int arity = 1;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -119,6 +92,7 @@ struct BufferOp {
   static constexpr const char* name = "buffer";
   static constexpr const Param* params = kBinaryParams;
   static constexpr int arity = 2;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -134,6 +108,7 @@ struct SimplifyOp {
   static constexpr const char* name = "simplify";
   static constexpr const Param* params = kBinaryParams;
   static constexpr int arity = 2;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -149,6 +124,7 @@ struct TransformOp {
   static constexpr const char* name = "transform";
   static constexpr const Param* params = kTransformParams;
   static constexpr int arity = 2;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -164,6 +140,7 @@ struct ScanOp {
   static constexpr const char* name = "scan_features";
   static constexpr const Param* params = kPathParams;
   static constexpr int arity = 1;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -179,6 +156,7 @@ struct FilterOp {
   static constexpr const char* name = "filter_features";
   static constexpr const Param* params = kFilterParams;
   static constexpr int arity = 3;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -194,6 +172,7 @@ struct ReadFieldOp {
   static constexpr const char* name = "read_feature_field";
   static constexpr const Param* params = kFieldParams;
   static constexpr int arity = 3;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -209,6 +188,7 @@ struct ProjectOp {
   static constexpr const char* name = "project_features";
   static constexpr const Param* params = kProjectParams;
   static constexpr int arity = 2;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -224,6 +204,7 @@ struct ListLayersOp {
   static constexpr const char* name = "list_layers";
   static constexpr const Param* params = nullptr;
   static constexpr int arity = 0;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -233,12 +214,13 @@ struct ListLayersOp {
   }
 };
 
-// Feature count of the bound document.
+// Feature count of the bound document. Python callers read the count string.
 struct FeatureCountOp {
   static constexpr Op id = Op::kFeatureCount;
   static constexpr const char* name = "feature_count";
   static constexpr const Param* params = nullptr;
   static constexpr int arity = 0;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -254,6 +236,7 @@ struct MapExtentOp {
   static constexpr const char* name = "map_extent";
   static constexpr const Param* params = nullptr;
   static constexpr int arity = 0;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -269,6 +252,7 @@ struct PresentModeOp {
   static constexpr const char* name = "present_mode";
   static constexpr const Param* params = nullptr;
   static constexpr int arity = 0;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -284,6 +268,7 @@ struct SetPresentModeOp {
   static constexpr const char* name = "set_present_mode";
   static constexpr const Param* params = kModeParams;
   static constexpr int arity = 1;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -299,6 +284,7 @@ struct StyleHasOp {
   static constexpr const char* name = "style_has_document";
   static constexpr const Param* params = nullptr;
   static constexpr int arity = 0;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -314,6 +300,7 @@ struct StyleClearOp {
   static constexpr const char* name = "style_clear";
   static constexpr const Param* params = nullptr;
   static constexpr int arity = 0;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -329,6 +316,7 @@ struct StyleSummaryOp {
   static constexpr const char* name = "style_summary";
   static constexpr const Param* params = nullptr;
   static constexpr int arity = 0;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -344,6 +332,7 @@ struct ListAnalysisOp {
   static constexpr const char* name = "list_analysis_ops";
   static constexpr const Param* params = nullptr;
   static constexpr int arity = 0;
+  static constexpr bool produces = true;
   static bool apply(content::CapabilityHost& host,
                     const Module& module,
                     const Inst& inst,
@@ -354,34 +343,34 @@ struct ListAnalysisOp {
 };
 
 using IntersectionOp = HostBinaryOp<Op::kIntersection,
-                                    OpName("intersection"),
+                                    detail::OpName("intersection"),
                                     &content::GisCapability::intersection>;
-using UnionOp = HostBinaryOp<Op::kUnion, OpName("geom_union"), &content::GisCapability::geom_union>;
+using UnionOp = HostBinaryOp<Op::kUnion, detail::OpName("geom_union"), &content::GisCapability::geom_union>;
 using DifferenceOp =
-    HostBinaryOp<Op::kDifference, OpName("difference"), &content::GisCapability::difference>;
+    HostBinaryOp<Op::kDifference, detail::OpName("difference"), &content::GisCapability::difference>;
 using SymDifferenceOp = HostBinaryOp<Op::kSymDifference,
-                                     OpName("symmetric_difference"),
+                                     detail::OpName("symmetric_difference"),
                                      &content::GisCapability::sym_difference>;
-using CentroidOp = HostUnaryOp<Op::kCentroid, OpName("centroid"), &content::GisCapability::centroid>;
-using EnvelopeOp = HostUnaryOp<Op::kEnvelope, OpName("envelope"), &content::GisCapability::envelope>;
+using CentroidOp = HostUnaryOp<Op::kCentroid, detail::OpName("centroid"), &content::GisCapability::centroid>;
+using EnvelopeOp = HostUnaryOp<Op::kEnvelope, detail::OpName("envelope"), &content::GisCapability::envelope>;
 using ConvexHullOp =
-    HostUnaryOp<Op::kConvexHull, OpName("convex_hull"), &content::GisCapability::convex_hull>;
-using BoundaryOp = HostUnaryOp<Op::kBoundary, OpName("boundary"), &content::GisCapability::boundary>;
+    HostUnaryOp<Op::kConvexHull, detail::OpName("convex_hull"), &content::GisCapability::convex_hull>;
+using BoundaryOp = HostUnaryOp<Op::kBoundary, detail::OpName("boundary"), &content::GisCapability::boundary>;
 using IntersectsOp =
-    HostBinaryOp<Op::kIntersects, OpName("intersects"), &content::GisCapability::intersects>;
-using ContainsOp = HostBinaryOp<Op::kContains, OpName("contains"), &content::GisCapability::contains>;
-using WithinOp = HostBinaryOp<Op::kWithin, OpName("within"), &content::GisCapability::within>;
-using DisjointOp = HostBinaryOp<Op::kDisjoint, OpName("disjoint"), &content::GisCapability::disjoint>;
-using EqualsOp = HostBinaryOp<Op::kEquals, OpName("geom_equals"), &content::GisCapability::equals>;
-using TouchesOp = HostBinaryOp<Op::kTouches, OpName("touches"), &content::GisCapability::touches>;
-using CrossesOp = HostBinaryOp<Op::kCrosses, OpName("crosses"), &content::GisCapability::crosses>;
-using OverlapsOp = HostBinaryOp<Op::kOverlaps, OpName("overlaps"), &content::GisCapability::overlaps>;
+    HostBinaryOp<Op::kIntersects, detail::OpName("intersects"), &content::GisCapability::intersects>;
+using ContainsOp = HostBinaryOp<Op::kContains, detail::OpName("contains"), &content::GisCapability::contains>;
+using WithinOp = HostBinaryOp<Op::kWithin, detail::OpName("within"), &content::GisCapability::within>;
+using DisjointOp = HostBinaryOp<Op::kDisjoint, detail::OpName("disjoint"), &content::GisCapability::disjoint>;
+using EqualsOp = HostBinaryOp<Op::kEquals, detail::OpName("geom_equals"), &content::GisCapability::equals>;
+using TouchesOp = HostBinaryOp<Op::kTouches, detail::OpName("touches"), &content::GisCapability::touches>;
+using CrossesOp = HostBinaryOp<Op::kCrosses, detail::OpName("crosses"), &content::GisCapability::crosses>;
+using OverlapsOp = HostBinaryOp<Op::kOverlaps, detail::OpName("overlaps"), &content::GisCapability::overlaps>;
 using GeomDistanceOp =
-    HostBinaryOp<Op::kGeomDistance, OpName("geom_distance"), &content::GisCapability::distance>;
-using GeomAreaOp = HostUnaryOp<Op::kGeomArea, OpName("geom_area"), &content::GisCapability::area>;
+    HostBinaryOp<Op::kGeomDistance, detail::OpName("geom_distance"), &content::GisCapability::distance>;
+using GeomAreaOp = HostUnaryOp<Op::kGeomArea, detail::OpName("geom_area"), &content::GisCapability::area>;
 using GeomLengthOp =
-    HostUnaryOp<Op::kGeomLength, OpName("geom_length"), &content::GisCapability::length>;
-using IsEmptyOp = HostUnaryOp<Op::kIsEmpty, OpName("is_empty"), &content::GisCapability::is_empty>;
+    HostUnaryOp<Op::kGeomLength, detail::OpName("geom_length"), &content::GisCapability::length>;
+using IsEmptyOp = HostUnaryOp<Op::kIsEmpty, detail::OpName("is_empty"), &content::GisCapability::is_empty>;
 
 using GisOpTable = std::tuple<IntersectionOp,
                               UnionOp,
@@ -424,14 +413,11 @@ void fill_buffer_op(const OpDesc** by_op) {
   if (!by_op) {
     return;
   }
-  by_op[static_cast<std::size_t>(Op::kBuffer)] = registered_op<BufferOp>();
+  detail::install_ops<std::tuple<BufferOp>>(by_op);
 }
 
 void fill_gis_ops(const OpDesc** by_op) {
-  if (!by_op) {
-    return;
-  }
-  install_ops<GisOpTable>(by_op);
+  detail::install_ops<GisOpTable>(by_op);
 }
 
 }  // namespace code

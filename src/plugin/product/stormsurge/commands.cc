@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/core/log.h"
 #include "content/public/plugin_host.h"
 #include "gis/analysis/raster/dem/storm_surge.h"
 #include "gis/analysis/raster/dem/storm_surge_stats.h"
@@ -369,6 +370,28 @@ bool stormsurge_run(content::PluginHost* host, std::string_view args_json) {
                                stormsurge_present);
 }
 
+// Same surge fill as stormsurge.run. Present does not paint, so a level
+// curve can batch masks and then present one selected water level.
+bool stormsurge_level_mask_present(content::PluginHost*) {
+  if (!g_last_surge.ok) {
+    LOGGING(LOG_ERROR, "stormsurge.level_mask: no surge result");
+    set_operation_result(
+        "{\"error\":\"stormsurge_failed\",\"op\":\"stormsurge.level_mask\"}");
+    return false;
+  }
+  set_operation_result(
+      std::string("{\"ok\":true,\"op\":\"stormsurge.level_mask\",\"width\":") +
+      std::to_string(g_last_surge.width) + ",\"height\":" +
+      std::to_string(g_last_surge.height) + "}");
+  return true;
+}
+
+bool stormsurge_level_mask(content::PluginHost* host,
+                           std::string_view args_json) {
+  return run_processing_phases(host, args_json, stormsurge_run_compute,
+                               stormsurge_level_mask_present);
+}
+
 bool stormsurge_export(content::PluginHost*, std::string_view args_json) {
   return reexport_cached_file(&g_last_output, args_json, "stormsurge.export");
 }
@@ -546,6 +569,11 @@ bool register_stormsurge(content::PluginHost* host) {
   return host->contribute_processing(
              kPluginId, {"stormsurge.run", "Storm surge inundation"},
              stormsurge_run) &&
+         host->contribute_processing(
+             kPluginId,
+             {"stormsurge.level_mask",
+              "One surge level mask without present"},
+             stormsurge_level_mask) &&
          host->contribute_processing(
              kPluginId, {"stormsurge.export", "Export storm-surge mask"},
              stormsurge_export) &&

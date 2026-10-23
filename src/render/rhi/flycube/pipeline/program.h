@@ -55,6 +55,11 @@ class FlycubeProgram : public Pipeline {
                    bool* sampled);
   bool replay_dispatch(::CommandList* list, const Dispatch& item);
 
+  // Drop BindingSets retained for the previous Execute. Call after the
+  // frame fence wait (with bump_flycube_constant_epoch) so GPU reads of
+  // descriptors / upload CBs have finished.
+  void begin_frame_bindings();
+
  private:
   struct SlotBinding {
     BindingKind kind = BindingKind::kConstantBuffer;
@@ -120,6 +125,11 @@ class FlycubeProgram : public Pipeline {
   std::vector<SlotBinding> bindings_;
   std::vector<UploadCb> constants_;
   uint64_t cb_epoch_seen_ = 0;
+  // BindBindingSet records by reference. Destroying the BindingSet at the
+  // end of replay_draw (before Execute) left every solid draw reading the
+  // last ColorCB write — land filled with admin umber. Keep sets alive for
+  // the open frame (cleared in begin_frame_bindings after the fence wait).
+  std::vector<std::shared_ptr<::BindingSet>> frame_binding_sets_;
 };
 
 // Bump once per Execute, after the previous frame's fence wait, so the

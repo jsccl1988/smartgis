@@ -22,12 +22,18 @@ class UI_EXPORT StatusBar : public View {
 
   void set_xy(double x, double y);
   void set_scale(double scale);
-  void set_message(std::string text);
+  // Cross-DLL: const char*. Inline std::string overloads copy only the C string.
+  void set_message(const char* text);
+  void set_message(std::string text) { set_message(text.c_str()); }
 
-  void set_scale_text(std::string text);
-  void set_crs_text(std::string text);
-  void set_coord_text(std::string text);
-  void set_status(std::string text);
+  void set_scale_text(const char* text);
+  void set_scale_text(std::string text) { set_scale_text(text.c_str()); }
+  void set_crs_text(const char* text);
+  void set_crs_text(std::string text) { set_crs_text(text.c_str()); }
+  void set_coord_text(const char* text);
+  void set_coord_text(std::string text) { set_coord_text(text.c_str()); }
+  void set_status(const char* text);
+  void set_status(std::string text) { set_status(text.c_str()); }
 
   const std::string& scale_text() const;
   const std::string& crs_text() const;
@@ -54,6 +60,9 @@ class UI_EXPORT StatusBar : public View {
   Label* status_ = nullptr;
   int highlight_index_ = 0;
 };
+
+// Cross-DLL: allocate inside ui_views.dll (see make_draw_host).
+UI_EXPORT std::unique_ptr<StatusBar> make_status_bar();
 
 }  // namespace views
 }  // namespace ui

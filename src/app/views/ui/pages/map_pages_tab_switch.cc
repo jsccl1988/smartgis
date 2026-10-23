@@ -3,6 +3,7 @@
 
 #include "app/views/ui/pages/map_pages_composer.h"
 #include "app/views/ui/browser_view.h"
+#include "app/views/ui/horizon/catalog_composer.h"
 
 #include "app/views/browser/browser.h"
 
@@ -267,8 +268,17 @@ void MapPagesComposer::switch_map_tab(int i) {
           host_->diagnostic_tools_->set_visible_tools(false);
           restore_diagnostic = true;
         }
-        // Re-pin Catalog to the product dock width before reseed �?china
-        // catalog sync can leave preferred �?50 and crush the map column.
+        // Re-pin Catalog to the product dock width before reseed — china
+        // catalog sync can leave preferred ≤50 and crush the map column.
+        if (host_->catalog_mode_tabs_) {
+          host_->catalog_mode_tabs_->set_preferred_size({288, 0});
+        }
+        if (host_->catalog_2d_) {
+          host_->catalog_2d_->set_preferred_size({288, 0});
+        }
+        if (host_->catalog_3d_) {
+          host_->catalog_3d_->set_preferred_size({288, 0});
+        }
         if (host_->catalog_) {
           host_->catalog_->set_preferred_size({288, 0});
         }
@@ -346,6 +356,15 @@ void MapPagesComposer::switch_map_tab(int i) {
                 split->enforce_primary_floor(2.f / 3.f);
                 break;
               }
+            }
+            if (host_->catalog_mode_tabs_) {
+              host_->catalog_mode_tabs_->set_preferred_size({288, 0});
+            }
+            if (host_->catalog_2d_) {
+              host_->catalog_2d_->set_preferred_size({288, 0});
+            }
+            if (host_->catalog_3d_) {
+              host_->catalog_3d_->set_preferred_size({288, 0});
             }
             if (host_->catalog_) {
               host_->catalog_->set_preferred_size({288, 0});
@@ -584,6 +603,10 @@ void MapPagesComposer::switch_map_tab(int i) {
             (host_->map_scene_ && host_->map_scene_->last_gpu_present_ok())
                 ? 1
                 : 0);
+  }
+  // Pair Catalog 2D|3D with Map|3D (catalog_ alias + mode tabs).
+  if (host_->catalog_composer_) {
+    host_->catalog_composer_->on_map_tab_changed(i);
   }
 }
 

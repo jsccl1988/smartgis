@@ -1,0 +1,15 @@
+{
+  "id": "smartgis.flood_levels",
+  "name": "水位淹没面积对照",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "python",
+  "author": "The Mogu Authors",
+  "description": "Compare inundated map-unit area across water levels and present the selected mask",
+  "entry": "plugin.py",
+  "contributes": {
+    "commands": [
+      {"id": "flood.level_curve", "title": "水位淹没面积对照", "menu": "tools"}
+    ]
+  }
+}

@@ -184,6 +184,8 @@ class BrowserView : public BrowserUiDelegate {
   void toggle_debug_console();
   void show_inspector_tab_index(int index);
   void ensure_inspector_tab(int index);
+  // TabStrip change trampoline (cross-DLL): remember group slot + materialize.
+  void on_inspector_tab_changed(int index);
   void commit_widget_shell_to_maps();
   void commit_widget_shell_to_maps(const ui::views::Rect& dirty);
   void attach_hwnd_gestures();
@@ -318,6 +320,12 @@ class BrowserView : public BrowserUiDelegate {
   // Append-only: right-dock Plugins catalog tab (do not insert above map_*).
   PluginCatalogView* plugin_catalog_ = nullptr;
   int plugins_tab_ = -1;
+
+  // Append-only: dual Catalog (2D ↔ Map, 3D ↔ Scene3d). catalog_ is the active
+  // alias; do not insert above map_*.
+  ui::views::TabStrip* catalog_mode_tabs_ = nullptr;
+  ui::views::CatalogView* catalog_2d_ = nullptr;
+  ui::views::CatalogView* catalog_3d_ = nullptr;
 };
 
 }  // namespace app

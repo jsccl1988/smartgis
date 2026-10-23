@@ -101,6 +101,7 @@ test("cloud_pass_test") {
   sources = [
     "cloud/cloud_pass.cc",
     "cloud/cloud_pass_test.cc",
+    "detail/field_texture.cc",
   ]
   include_dirs += [ "//src" ]
   configs = [ ":atmosphere_hlsl_gen" ]

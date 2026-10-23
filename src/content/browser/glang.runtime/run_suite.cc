@@ -5,9 +5,9 @@
 
 #include "base/core/log.h"
 #include "content/browser/capability/host.h"
-#include "content/browser/glang.runtime/exec/eval/eval.h"
-#include "content/browser/glang.runtime/exec/session/cpython.h"
-#include "content/browser/glang.runtime/exec/session/script_call.h"
+#include "content/browser/glang.runtime/exec/vm/eval.h"
+#include "content/browser/glang.runtime/exec/py/cpython.h"
+#include "content/browser/glang.runtime/exec/py/script_call.h"
 
 #include <string>
 #include <string_view>

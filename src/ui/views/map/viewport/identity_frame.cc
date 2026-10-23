@@ -213,6 +213,7 @@ void DrawHost::sync_identity_frame() {
     }
     InvalidateRect(identity_badge_, nullptr, FALSE);
   }
+  sync_eagle_eye();
 }
 
 }  // namespace views

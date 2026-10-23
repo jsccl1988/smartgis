@@ -346,12 +346,26 @@ void ShellLifecycleComposer::show_shell() {
   host_->widget_.layout_contents();
   // Catalog|Map splitter can lock a both-flex seed before preferred widths
   // settle (grey slab + squeezed map). Re-assert Catalog 288 DIP and reseed.
-  if (host_->catalog_ && host_->catalog_map_) {
-    host_->catalog_->set_preferred_size({288, 0});
+  if (host_->catalog_map_ &&
+      (host_->catalog_mode_tabs_ || host_->catalog_)) {
+    if (host_->catalog_mode_tabs_) {
+      host_->catalog_mode_tabs_->set_preferred_size({288, 0});
+    }
+    if (host_->catalog_2d_) {
+      host_->catalog_2d_->set_preferred_size({288, 0});
+    }
+    if (host_->catalog_3d_) {
+      host_->catalog_3d_->set_preferred_size({288, 0});
+    }
+    if (host_->catalog_) {
+      host_->catalog_->set_preferred_size({288, 0});
+    }
     host_->catalog_map_->reseed(/*force=*/true);
     host_->widget_.layout_contents();
     LOGGING(LOG_INFO, "layout: catalog_map reseed catalog_w=%d map_tabs_x=%d",
-            host_->catalog_->bounds().width,
+            host_->catalog_mode_tabs_
+                ? host_->catalog_mode_tabs_->bounds().width
+                : (host_->catalog_ ? host_->catalog_->bounds().width : -1),
             host_->map_tabs_ ? host_->map_tabs_->bounds().x : -1);
   }
   // Work splitter: re-pin inspector 320 and reseed so map_column stays flex

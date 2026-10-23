@@ -113,6 +113,7 @@ constexpr ShellRow kFileEditLayer[] = {
 
 constexpr ShellRow kViewTail[] = {
     {"View", "Refresh", "view.refresh"},
+    {"View", "Eagle Eye", "view.eagle_eye"},
     {"View", "Theme: Dark", "view.theme.dark"},
     {"View", "Theme: Light", "view.theme.light"},
     {"View", "Preferences…", "view.preferences"},

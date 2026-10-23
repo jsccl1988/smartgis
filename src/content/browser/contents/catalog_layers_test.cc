@@ -47,9 +47,8 @@ int main() {
 
   // active must not appear on the CEF-compatible wire.
   expect(json.find("active") == std::string::npos, "no active field");
-  // kind / children stay off the flat CEF wire this round.
+  // kind stays off the catalog wire; children nest for china PLPT groups.
   expect(json.find("kind") == std::string::npos, "no kind field");
-  expect(json.find("children") == std::string::npos, "no children field");
 
   expect(content::json_escape_string("a\"b\\c") == "a\\\"b\\\\c",
          "json_escape_string");
@@ -203,7 +202,7 @@ int main() {
   }
 
   // Synthetic style.hillshade Catalog leaf + toggle (DEM path may be absent
-  // in bare unit runs â€” only assert when has_resolvable_dem()).
+  // in bare unit runs â€?only assert when has_resolvable_dem()).
   {
     content::GisScene scene;
     expect(scene.hillshade_visible(), "hillshade default on");

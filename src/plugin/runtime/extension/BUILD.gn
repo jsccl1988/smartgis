@@ -1,0 +1,85 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# kind=python runtime plus glang.ext mount wiring.
+# Host types are //src/content/browser/glang.runtime:plugin_embed.
+
+import("//build/python.gni")
+import("//testing/test.gni")
+
+source_set("extension") {
+  sources = [
+    "bind.cc",
+    "bind.h",
+    "runtime.cc",
+    "runtime.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/content/browser/glang.runtime:cpython",
+    "//src/content/browser/glang.runtime:plugin_embed",
+    "//src/plugin:host",
+  ]
+  if (python_enabled) {
+    include_dirs += [ python_include ]
+    defines += [
+      "HAS_PYTHON=1",
+      "PYTHON_HOME=\"" + python_prefix + "\"",
+    ]
+  }
+}
+
+test("script_main_test") {
+  output_name = "script_main_test"
+  sources = [ "script_main_test.cc" ]
+  include_dirs += [ "//src" ]
+  # Handwritten main(). Not a gtest runner.
+  use_gtest = false
+  deps = [ ":extension" ]
+  if (python_enabled) {
+    defines += [ "HAS_PYTHON=1" ]
+    if (python_dll != "") {
+      data_deps = [
+        ":python312_dll",
+        ":python3_dll",
+      ]
+    }
+  }
+}
+
+test("plugin_python_test") {
+  output_name = "plugin_python_test"
+  sources = [ "python_test.cc" ]
+  include_dirs += [ "//src" ]
+  # Handwritten main(). Not a gtest runner.
+  use_gtest = false
+  deps = [ ":extension" ]
+  # plugin_python_test starts hello and analysis. product_orchestrate and
+  # industry_pack are not started by that binary.
+  defines += [
+    "PLUGIN_HELLO_DIR=\"" +
+        rebase_path("//src/plugin/runtime/samples/hello") + "\"",
+    "PLUGIN_ANALYSIS_DIR=\"" +
+        rebase_path("//src/plugin/runtime/samples/analysis") + "\"",
+  ]
+  if (python_enabled) {
+    defines += [ "HAS_PYTHON=1" ]
+    if (python_dll != "") {
+      data_deps = [
+        ":python312_dll",
+        ":python3_dll",
+      ]
+    }
+  }
+}
+
+if (python_enabled && python_dll != "") {
+  copy("python312_dll") {
+    sources = [ rebase_path(python_dll) ]
+    outputs = [ "$root_out_dir/python312.dll" ]
+  }
+  copy("python3_dll") {
+    sources = [ rebase_path(python_prefix + "/python3.dll") ]
+    outputs = [ "$root_out_dir/python3.dll" ]
+  }
+}

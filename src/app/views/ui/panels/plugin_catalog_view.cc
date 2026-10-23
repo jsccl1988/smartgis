@@ -13,7 +13,9 @@
 
 #include "app/views/app/startup/scenario.h"
 #include "app/views/browser/browser.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "content/public/plugin_host.h"
+#include "plugin/runtime/host/capability/pack_ensure.h"
 #include "plugin/runtime/host/catalog/registry.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
 #include "tool/command/command.h"
@@ -123,7 +125,10 @@ PluginCatalogView::PluginCatalogView(plugin::Registry* registry,
       [this](int row, int col) { on_plugin_activate(row, col); });
   plugins_->set_preferred_size({264, 96});
   add_child(std::move(plugins));
-  plugin_scroll_ = ui::views::wrap_markup_table_in_scroll(plugins_, 72.f);
+  plugin_scroll_ = ui::views::wrap_markup_table_in_scroll(plugins_, 96.f);
+  if (plugin_scroll_) {
+    plugin_scroll_->set_preferred_size({264, 96});
+  }
 
   auto actions = std::make_unique<ui::views::View>();
   auto actions_layout = std::make_unique<ui::views::BoxLayout>(
@@ -364,17 +369,19 @@ void PluginCatalogView::collect_tools(const std::string& plugin_id) {
     entry.title = title.empty() ? id : title;
     tool_entries_.push_back(std::move(entry));
   };
-  for (const plugin::CommandContrib& item : manifest->contributes.commands) {
-    push(ToolKind::kCommand, item.id, item.title);
-  }
-  for (const plugin::ProcessingContrib& item : manifest->contributes.processing) {
-    push(ToolKind::kProcessing, item.id, item.title);
-  }
+  // Prefer dialog/dock/processing over a bare command when the same id is
+  // listed in several contribute sections (flood.inundate, etc.).
   for (const plugin::DialogContrib& item : manifest->contributes.dialogs) {
     push(ToolKind::kDialog, item.id, item.title);
   }
   for (const plugin::DockContrib& item : manifest->contributes.docks) {
     push(ToolKind::kDock, item.id, item.title);
+  }
+  for (const plugin::ProcessingContrib& item : manifest->contributes.processing) {
+    push(ToolKind::kProcessing, item.id, item.title);
+  }
+  for (const plugin::CommandContrib& item : manifest->contributes.commands) {
+    push(ToolKind::kCommand, item.id, item.title);
   }
 }
 
@@ -500,7 +507,7 @@ void PluginCatalogView::on_plugin_activate(int row, int /*col*/) {
     if (rec.manifest.id != selected_plugin_id_) {
       continue;
     }
-    if (rec.state == plugin::PluginState::kEnabled) {
+    if (rec.state == plugin::PluginState::kEnabled && rec.handlers_loaded) {
       on_disable();
     } else {
       on_enable();
@@ -571,7 +578,7 @@ bool PluginCatalogView::ensure_enabled(const std::string& plugin_id) {
     if (rec.manifest.id != plugin_id) {
       continue;
     }
-    if (rec.state == plugin::PluginState::kEnabled) {
+    if (rec.state == plugin::PluginState::kEnabled && rec.handlers_loaded) {
       return true;
     }
     break;
@@ -596,16 +603,23 @@ bool PluginCatalogView::execute_tool(const std::string& plugin_id,
   if (!host_) {
     return false;
   }
+  PluginShell* shell = browser_ ? browser_->plugins() : nullptr;
+  if (shell) {
+    (void)shell->ensure_command(tool.id);
+  } else {
+    (void)plugin::ensure_for_command(host_, tool.id);
+  }
   bool ok = false;
   switch (tool.kind) {
     case ToolKind::kCommand:
-      ok = host_->execute(tool.id, {});
+      ok = shell ? shell->execute(tool.id, {}) : host_->execute(tool.id, {});
       if (!ok) {
         ok = host_->open_dialog(tool.id);
       }
       break;
     case ToolKind::kProcessing:
-      ok = host_->run_processing(tool.id, "{}");
+      ok = shell ? shell->run_processing(tool.id, "{}")
+                 : host_->run_processing(tool.id, "{}");
       break;
     case ToolKind::kDialog:
       ok = host_->open_dialog(tool.id);
@@ -706,12 +720,7 @@ void PluginCatalogView::on_run() {
     return;
   }
   const ToolEntry& tool = tool_entries_[static_cast<size_t>(selected_tool_)];
-  bool ok = false;
-  if (tool.kind == ToolKind::kProcessing) {
-    ok = host_ && host_->run_processing(tool.id, "{}");
-  } else {
-    ok = execute_tool(plugin_id, tool);
-  }
+  const bool ok = execute_tool(plugin_id, tool);
   if (presented_) {
     return;
   }
@@ -886,22 +895,30 @@ void PluginCatalogView::mount_body() {
     show_run_card(tool);
     return;
   }
+  PluginShell* shell = browser_ ? browser_->plugins() : nullptr;
+  if (shell) {
+    (void)shell->ensure_command(tool.id);
+  } else {
+    (void)plugin::ensure_for_command(host_, tool.id);
+  }
   bool opened = false;
   if (tool.kind == ToolKind::kDock) {
     opened = host_->open_dock(tool.id);
   } else if (tool.kind == ToolKind::kDialog || dialog_registered(tool.id)) {
     opened = host_->open_dialog(tool.id);
-  } else if (tool.kind == ToolKind::kCommand &&
-             !processing_registered(tool.id)) {
+  } else if (tool.kind == ToolKind::kProcessing ||
+             processing_registered(tool.id)) {
+    // Parameter card + Run; do not auto-fire processing with "{}".
+  } else if (tool.kind == ToolKind::kCommand) {
     opened = execute_tool(selected_plugin_id_, tool);
   }
   if (presented_) {
     return;
   }
   if (tool.kind == ToolKind::kDock || tool.kind == ToolKind::kDialog ||
-      dialog_registered(tool.id) ||
-      (tool.kind == ToolKind::kCommand && !processing_registered(tool.id))) {
-    if (!opened && error_) {
+      dialog_registered(tool.id) || tool.kind == ToolKind::kCommand) {
+    if (!opened && error_ && tool.kind != ToolKind::kProcessing &&
+        !processing_registered(tool.id)) {
       error_->set_text("Open failed: " + tool.title);
     }
   }

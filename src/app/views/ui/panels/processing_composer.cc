@@ -38,7 +38,7 @@
 #include "plugin/runtime/web/fake_report_browser.h"
 #include "plugin/runtime/web/webview2_report_browser.h"
 #include "plugin/runtime/processing/builtin_ops.h"
-#include "plugin/runtime/python/runtime.h"
+#include "plugin/runtime/extension/runtime.h"
 #include "ui/gis/analysis/geoprocessing_history_panel.h"
 #include "ui/gis/analysis/processing_panel.h"
 #include "ui/gis/analysis/result_playback_panel.h"

@@ -1,9 +1,23 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
+import("//build/python.gni")
 import("//build/smartgis.gni")
 import("//src/plugin/product/native_plugin.gni")
 import("//testing/test.gni")
+
+copy("geochem_grades_plugin") {
+  sources = [
+    "script/plugin.json",
+    "script/plugin.py",
+  ]
+  outputs = [ "$root_out_dir/plugins/geochem_grades/{{source_file_part}}" ]
+}
+
+copy("geochem_grades_ext") {
+  sources = [ "script/ext/__init__.py" ]
+  outputs = [ "$root_out_dir/plugins/geochem_grades/ext/__init__.py" ]
+}
 
 copy("geochem_resources") {
   sources = [
@@ -29,6 +43,7 @@ source_set("geochem_views") {
     "//src",
   ]
   deps = [
+    "//src/base:base",
     "//src/content:content",
     # GisScene lives in the shell-linked source_set (not content.dll).
     "//src/content:gis_scene",
@@ -47,7 +62,11 @@ native_plugin("geochem_native") {
   package = "geochem"
   entry = "dll_entry.cc"
   deps = [ ":geochem_views" ]
-  data_deps = [ ":geochem_resources" ]
+  data_deps = [
+    ":geochem_resources",
+    ":geochem_grades_plugin",
+    ":geochem_grades_ext",
+  ]
 }
 
 test("geochem_analyze_test") {
@@ -65,5 +84,39 @@ test("geochem_analyze_test") {
     "//third_party/gn:dll_search",
   ]
   data_deps = [ "//third_party:gdal_runtime_dlls" ]
+  ldflags = [ "/ENTRY:mainCRTStartup", "/INCLUDE:__pfnDliNotifyHook2" ]
+}
+
+test("geochem_exceedance_test") {
+  output_name = "geochem_exceedance_test"
+  sources = [ "tests/exceedance_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":geochem_views",
+    "//src/base:base",
+    "//src/content:content",
+    "//src/content/browser/glang.runtime:cpython",
+    "//src/gis:gis",
+    "//src/plugin/runtime/extension:extension",
+    "//src/plugin/runtime/host:host",
+    "//src/ui/views:views",
+    "//third_party:rapidjson",
+    "//third_party/gn:dll_search",
+  ]
+  defines = [
+    "GEOCHEM_GRADES_DIR=\"" +
+        rebase_path("//src/plugin/product/geochem/script") + "\"",
+  ]
+  data_deps = [
+    ":geochem_resources",
+    ":geochem_grades_plugin",
+    ":geochem_grades_ext",
+  ]
+  if (python_enabled && python_dll != "") {
+    data_deps += [
+      "//src/plugin/runtime/extension:python312_dll",
+      "//src/plugin/runtime/extension:python3_dll",
+    ]
+  }
   ldflags = [ "/ENTRY:mainCRTStartup", "/INCLUDE:__pfnDliNotifyHook2" ]
 }

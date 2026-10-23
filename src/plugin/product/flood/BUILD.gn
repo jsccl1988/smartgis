@@ -1,6 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
+import("//build/python.gni")
 import("//build/smartgis.gni")
 import("//src/plugin/product/native_plugin.gni")
 import("//testing/test.gni")
@@ -13,6 +14,19 @@ copy("flood_resources") {
     "resources/inundate.ui.xml",
   ]
   outputs = [ "$root_out_dir/plugins/flood/{{source_file_part}}" ]
+}
+
+copy("flood_levels_plugin") {
+  sources = [
+    "script/plugin.json",
+    "script/plugin.py",
+  ]
+  outputs = [ "$root_out_dir/plugins/flood_levels/{{source_file_part}}" ]
+}
+
+copy("flood_levels_ext") {
+  sources = [ "script/ext/__init__.py" ]
+  outputs = [ "$root_out_dir/plugins/flood_levels/ext/__init__.py" ]
 }
 
 source_set("flood_views") {
@@ -29,6 +43,7 @@ source_set("flood_views") {
     "//src",
   ]
   deps = [
+    "//src/base:base",
     "//src/content:content",
     "//src/gis:gis",
     "//src/plugin/runtime/host:host",
@@ -45,7 +60,11 @@ native_plugin("flood_native") {
   package = "flood"
   entry = "dll_entry.cc"
   deps = [ ":flood_views" ]
-  data_deps = [ ":flood_resources" ]
+  data_deps = [
+    ":flood_resources",
+    ":flood_levels_plugin",
+    ":flood_levels_ext",
+  ]
 }
 
 test("flood_inundate_test") {
@@ -54,19 +73,37 @@ test("flood_inundate_test") {
     "gate.cc",
     "gate.h",
     "tests/inundate_test.cc",
+    "tests/level_curve_test.cc",
   ]
   include_dirs += [ "//src" ]
   deps = [
     ":flood_views",
+    "//src/base:base",
     "//src/content:content",
+    "//src/content/browser/glang.runtime:cpython",
     "//src/gis:gis",
+    "//src/plugin/runtime/extension:extension",
     "//src/plugin/runtime/host:host",
+    "//src/ui/views:views",
     "//third_party:gdal",
+    "//third_party:rapidjson",
     "//third_party/gn:dll_search",
+  ]
+  defines = [
+    "FLOOD_LEVELS_DIR=\"" +
+        rebase_path("//src/plugin/product/flood/script") + "\"",
   ]
   data_deps = [
     ":flood_resources",
+    ":flood_levels_plugin",
+    ":flood_levels_ext",
     "//third_party:gdal_runtime_dlls",
   ]
+  if (python_enabled && python_dll != "") {
+    data_deps += [
+      "//src/plugin/runtime/extension:python312_dll",
+      "//src/plugin/runtime/extension:python3_dll",
+    ]
+  }
   ldflags = [ "/ENTRY:mainCRTStartup", "/INCLUDE:__pfnDliNotifyHook2" ]
 }

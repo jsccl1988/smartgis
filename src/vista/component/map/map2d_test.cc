@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "base/process/switches.h"
 #include "vista/component/map/batch.h"
 #include "vista/component/map/carto/filter.h"
 #include "vista/component/map/carto/collision.h"
@@ -168,8 +169,9 @@ TEST_F(Map2dFrame, PainterOrderFillBeforeLine) {
              !frame.items[1].pixel_space) << "painter order fill before line";
 }
 
-// Adjacent land polygons take different colors of a four-coloring.
+// Adjacent land polygons take different colors of a four-coloring when opted in.
 TEST_F(Map2dFrame, ProvinceFourColor) {
+  base::set_switch("map2d-province-colors", "1");
   gis::style::StyleDocument doc;
   EXPECT_TRUE(parse_style(
              "{"
@@ -203,12 +205,56 @@ TEST_F(Map2dFrame, ProvinceFourColor) {
   in.style = &doc;
   in.zoom = 8;
   const vista::MapIR frame = layout.build(in, {land});
+  base::clear_switch("map2d-province-colors");
   EXPECT_TRUE(frame.items.size() == 2) << "province four-color emits both fills";
   EXPECT_TRUE(frame.items.size() == 2 && frame.items[0].kind == DrawKind::kFill &&
              frame.items[1].kind == DrawKind::kFill &&
              frame.items[0].rgba != frame.items[1].rgba &&
              frame.items[0].rgba != 0xFF111111u &&
              frame.items[1].rgba != 0xFF111111u) << "province four-color adjacent fills differ";
+}
+
+// Default: land keeps style fill-color (product carto cream), no province tint.
+TEST_F(Map2dFrame, LandKeepsStyleFillWithoutProvinceSwitch) {
+  base::clear_switch("map2d-province-colors");
+  gis::style::StyleDocument doc;
+  EXPECT_TRUE(parse_style(
+             "{"
+             "\"version\":8,\"layers\":[{"
+             "\"id\":\"land\",\"type\":\"fill\",\"source-layer\":\"land\","
+             "\"paint\":{\"fill-color\":\"#f5f3e9\",\"fill-opacity\":1}"
+             "}]}",
+             &doc)) << "cream land style";
+  OGRLinearRing left_ring;
+  left_ring.addPoint(0, 0);
+  left_ring.addPoint(2, 0);
+  left_ring.addPoint(2, 2);
+  left_ring.addPoint(0, 2);
+  left_ring.closeRings();
+  OGRLinearRing right_ring;
+  right_ring.addPoint(2, 0);
+  right_ring.addPoint(4, 0);
+  right_ring.addPoint(4, 2);
+  right_ring.addPoint(2, 2);
+  right_ring.closeRings();
+  OGRPolygon left_poly;
+  OGRPolygon right_poly;
+  left_poly.addRing(&left_ring);
+  right_poly.addRing(&right_ring);
+  LayerBatch land;
+  land.source_layer = "land";
+  land.geoms.push_back(&left_poly);
+  land.geoms.push_back(&right_poly);
+  LayoutInput in;
+  in.view = square_view(100, 10);
+  in.style = &doc;
+  in.zoom = 8;
+  const vista::MapIR frame = layout.build(in, {land});
+  // Same cream coalesces to one DrawItem; color must stay style #f5f3e9.
+  EXPECT_TRUE(count_kind(frame, DrawKind::kFill) == 1 && !frame.items.empty() &&
+             frame.items[0].kind == DrawKind::kFill &&
+             frame.items[0].rgba == 0xFFf5f3e9u)
+      << "default land keeps cream fill-color";
 }
 
 // Two labels on the same point: the higher priority (lower score) stays.
@@ -794,7 +840,10 @@ TEST_F(Map2dFrame, HillshadeRasterUnderlay) {
   EXPECT_TRUE(!frame.items.empty() && frame.items[0].kind == DrawKind::kRaster &&
              frame.items[0].codepoint == 0x48534844u &&
              frame.items[0].blend == vista::DrawBlend::kOver) << "hillshade underlay first";
-  EXPECT_TRUE(count_kind(frame, DrawKind::kFill) == 0) << "raster sheet excludes area fill";
+  EXPECT_TRUE(count_kind(frame, DrawKind::kFill) == 1) << "area fill over bake underlay";
+  EXPECT_TRUE(frame.items.size() >= 2 &&
+             frame.items[1].kind == DrawKind::kFill &&
+             frame.items[1].opacity <= 0.55f + 1e-3f) << "area translucent over bake";
 }
 
 // Points and labels stay above lines even when the style lists them first.
@@ -848,8 +897,8 @@ TEST_F(Map2dFrame, PointsAboveLines) {
   EXPECT_TRUE(line_i >= 0 && circle_i > line_i && text_i > circle_i) << "lines then points then labels";
 }
 
-// Jet ramp overpaints land and drops area fill once the sheet hits the view.
-TEST_F(Map2dFrame, JetHillshadeExcludesFill) {
+// Jet bake underlay then translucent land so both remain readable.
+TEST_F(Map2dFrame, JetHillshadeUnderFill) {
   gis::style::StyleDocument doc;
   EXPECT_TRUE(parse_style("{\"version\":8,\"layers\":["
                      "{\"id\":\"shade\",\"type\":\"hillshade\",\"paint\":{"
@@ -883,9 +932,8 @@ TEST_F(Map2dFrame, JetHillshadeExcludesFill) {
   land.geoms = {&land_poly};
   const vista::MapIR frame = layout.build(in, {land});
   EXPECT_TRUE(!frame.items.empty() && frame.items[0].kind == DrawKind::kRaster &&
-             frame.items[0].blend == vista::DrawBlend::kOver) << "jet hillshade overpaints land";
-  // Raster and area are mutually exclusive once the sheet hits the view.
-  EXPECT_TRUE(count_kind(frame, DrawKind::kFill) == 0) << "jet hillshade excludes area fill";
+             frame.items[0].blend == vista::DrawBlend::kOver) << "jet bake underlay first";
+  EXPECT_TRUE(count_kind(frame, DrawKind::kFill) == 1) << "jet bake keeps translucent area";
   EXPECT_TRUE(!frame.items.empty() && frame.items[0].vertices.size() == 4 &&
              frame.items[0].vertices[0].y >
                  frame.items[0].vertices[2].y &&

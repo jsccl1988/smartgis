@@ -180,6 +180,49 @@ std::vector<AmboxView::Group> groups_from_catalogs(
   return groups;
 }
 
+std::vector<AmboxView::Group> merge_catalog_and_extras(
+    std::vector<AmboxView::Group> groups,
+    std::vector<AmboxView::Group> extra_groups) {
+  if (extra_groups.empty()) {
+    return groups;
+  }
+  for (AmboxView::Group& bucket : groups) {
+    if (bucket.name != "Tools") {
+      continue;
+    }
+    std::vector<AmboxView::Item> kept;
+    kept.reserve(bucket.items.size());
+    for (const AmboxView::Item& item : bucket.items) {
+      bool owned = false;
+      for (const AmboxView::Group& extra : extra_groups) {
+        if (has_item_id(extra.items, item.id)) {
+          owned = true;
+          break;
+        }
+      }
+      if (!owned) {
+        kept.push_back(item);
+      }
+    }
+    bucket.items = std::move(kept);
+  }
+  std::vector<AmboxView::Group> kept_groups;
+  kept_groups.reserve(groups.size() + extra_groups.size());
+  for (AmboxView::Group& group : groups) {
+    if (group.name == "Tools" && group.items.empty()) {
+      continue;
+    }
+    kept_groups.push_back(std::move(group));
+  }
+  for (AmboxView::Group& extra : extra_groups) {
+    if (extra.name.empty()) {
+      continue;
+    }
+    kept_groups.push_back(std::move(extra));
+  }
+  return kept_groups;
+}
+
 }  // namespace
 
 // Icon + optional label chip. Active tool: accent plate + left rail.
@@ -404,8 +447,41 @@ void AmboxView::set_groups(std::vector<Group> groups) {
   schedule_paint();
 }
 
+void AmboxView::replace_groups_begin() {
+  pending_groups_.clear();
+}
+
+void AmboxView::replace_groups_add(const char* name) {
+  Group group;
+  group.name = (name && name[0]) ? name : "";
+  pending_groups_.push_back(std::move(group));
+}
+
+void AmboxView::replace_groups_add_item(const char* id, const char* label) {
+  if (pending_groups_.empty() || !id || !id[0]) {
+    return;
+  }
+  Item item;
+  item.id = id;
+  item.label = (label && label[0]) ? label : item.id;
+  pending_groups_.back().items.push_back(std::move(item));
+}
+
+void AmboxView::replace_groups_commit() {
+  set_groups(std::move(pending_groups_));
+  pending_groups_.clear();
+}
+
 void AmboxView::set_command_handler(CommandHandler handler) {
+  handler_fn_ = nullptr;
+  handler_baton_ = nullptr;
   handler_ = std::move(handler);
+}
+
+void AmboxView::set_command_handler_fn(CommandHandlerFn fn, void* baton) {
+  handler_ = {};
+  handler_fn_ = fn;
+  handler_baton_ = baton;
 }
 
 void AmboxView::populate_from_plugin_host(content::PluginHost* host) {
@@ -413,53 +489,33 @@ void AmboxView::populate_from_plugin_host(content::PluginHost* host) {
 }
 
 void AmboxView::populate_from_commands(tool::CommandCatalog* catalog) {
-  std::vector<tool::CommandCatalog*> catalogs;
-  if (catalog) {
-    catalogs.push_back(catalog);
-  }
-  populate_from_commands(catalogs);
+  tool::CommandCatalog* one = catalog;
+  populate_from_catalogs(catalog ? &one : nullptr, catalog ? 1u : 0u, false);
 }
 
 void AmboxView::populate_from_commands(
     const std::vector<tool::CommandCatalog*>& catalogs,
     std::vector<Group> extra_groups) {
-  std::vector<Group> groups = groups_from_catalogs(catalogs);
-  if (!extra_groups.empty()) {
-    for (Group& bucket : groups) {
-      if (bucket.name != "Tools") {
-        continue;
-      }
-      std::vector<Item> kept;
-      kept.reserve(bucket.items.size());
-      for (const Item& item : bucket.items) {
-        bool owned = false;
-        for (const Group& extra : extra_groups) {
-          if (has_item_id(extra.items, item.id)) {
-            owned = true;
-            break;
-          }
-        }
-        if (!owned) {
-          kept.push_back(item);
-        }
-      }
-      bucket.items = std::move(kept);
+  pending_groups_ = std::move(extra_groups);
+  populate_from_catalogs(catalogs.empty() ? nullptr : catalogs.data(),
+                         catalogs.size(), !pending_groups_.empty());
+}
+
+void AmboxView::populate_from_catalogs(tool::CommandCatalog* const* catalogs,
+                                       size_t catalog_count,
+                                       bool merge_extras) {
+  std::vector<tool::CommandCatalog*> list;
+  list.reserve(catalog_count);
+  for (size_t i = 0; i < catalog_count; ++i) {
+    if (catalogs && catalogs[i]) {
+      list.push_back(catalogs[i]);
     }
-    std::vector<Group> kept_groups;
-    kept_groups.reserve(groups.size() + extra_groups.size());
-    for (Group& group : groups) {
-      if (group.name == "Tools" && group.items.empty()) {
-        continue;
-      }
-      kept_groups.push_back(std::move(group));
-    }
-    for (Group& extra : extra_groups) {
-      if (extra.name.empty()) {
-        continue;
-      }
-      kept_groups.push_back(std::move(extra));
-    }
-    groups = std::move(kept_groups);
+  }
+  std::vector<Group> groups = groups_from_catalogs(list);
+  if (merge_extras) {
+    groups = merge_catalog_and_extras(std::move(groups),
+                                      std::move(pending_groups_));
+    pending_groups_.clear();
   }
   set_groups(std::move(groups));
 }
@@ -480,10 +536,15 @@ void AmboxView::rebuild() {
 }
 
 void AmboxView::set_active_command(std::string id) {
-  if (active_id_ == id) {
+  set_active_command_id(id.c_str());
+}
+
+void AmboxView::set_active_command_id(const char* id) {
+  const std::string next = (id && id[0]) ? id : "";
+  if (active_id_ == next) {
     return;
   }
-  active_id_ = std::move(id);
+  active_id_ = next;
   schedule_paint();
   for (GroupBlock* block : blocks_) {
     if (!block) {
@@ -498,7 +559,11 @@ void AmboxView::set_active_command(std::string id) {
 }
 
 void AmboxView::fire_command(const std::string& id) {
-  set_active_command(id);
+  set_active_command_id(id.c_str());
+  if (handler_fn_) {
+    handler_fn_(handler_baton_, id.c_str());
+    return;
+  }
   if (handler_) {
     handler_(id);
   }

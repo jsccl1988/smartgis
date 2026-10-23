@@ -82,9 +82,10 @@ bool TerrainPass::prepare_mesh(render::rhi::Device* device, const Instance& inst
   }
   // Ocean/sky albedo gate: hypsometric SRVs sample near-black after FlyCube
   // heap churn. draw.cc uses solid PSO + olive ColorCB under the gate.
+  // Overlay TIN / water keep_albedo drapes stay textured (plugin showcases).
   render::rhi::Texture* terrain_gpu_tex = nullptr;
   bool olive_gate_tex = false;
-  if (solid_terrain_forced_) {
+  if (solid_terrain_forced_ && !inst.terrain.is_overlay_albedo_tex()) {
     // Drop any SRV — draw.cc uses solid PSO + olive ColorCB under the gate.
     // Fresh 1x1 textured uploads still sampled near-black on FlyCube after
     // ocean/sky heap churn (atmosphere.full landish≈0).
@@ -118,7 +119,8 @@ bool TerrainPass::prepare_mesh(render::rhi::Device* device, const Instance& inst
   // Enlarge XZ under the olive gate so atmosphere.full landish clears 3%
   // (default FOV framing leaves ~1.5% of the score BMP as DEM).
   std::vector<float> scaled_xz;
-  if (solid_terrain_forced_ && positions && position_count >= 3) {
+  if (solid_terrain_forced_ && !inst.terrain.is_overlay_albedo_tex() &&
+      positions && position_count >= 3) {
     constexpr float kGateScale = 1.85f;
     scaled_xz.resize(position_count);
     for (size_t i = 0; i + 2 < position_count; i += 3) {

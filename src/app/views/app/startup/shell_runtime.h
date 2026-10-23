@@ -12,7 +12,7 @@
 
 #include "content/browser/glang.runtime/host/horizon/atom/mark.h"
 #include "content/browser/glang.runtime/host/horizon/atom/pump.h"
-#include "content/browser/glang.runtime/exec/session/session.h"
+#include "content/browser/glang.runtime/exec/py/session.h"
 
 namespace app {
 

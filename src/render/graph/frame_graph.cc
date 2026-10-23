@@ -6,6 +6,8 @@
 
 #include "render/graph/frame_graph.h"
 
+#include "base/core/log.h"
+
 namespace render {
 namespace graph {
 namespace {
@@ -53,6 +55,26 @@ bool record_effects(rhi::Device* device, rhi::CommandList* list,
       ctx.color_op = color_op;
       ctx.shared_depth = shared_depth;
       if (!effect->record(ctx)) {
+        // Slot names match EffectSlot order for Design B present triage.
+        const char* slot_name = "unknown";
+        switch (slot) {
+          case EffectSlot::kBeforeOpaque:
+            slot_name = "before_opaque";
+            break;
+          case EffectSlot::kOpaque:
+            slot_name = "opaque";
+            break;
+          case EffectSlot::kAfterOpaque:
+            slot_name = "after_opaque";
+            break;
+          case EffectSlot::kOverlay:
+            slot_name = "overlay";
+            break;
+        }
+        LOGGING(LOG_ERROR,
+                "graph::present fail: record_effects slot=%s size=%ux%u "
+                "effects=%zu",
+                slot_name, in.width_px, in.height_px, in.effects.size());
         return false;
       }
       if (effect->clears_color()) {
@@ -85,16 +107,21 @@ bool present(rhi::Device* device, const ViewInput& in) {
     clear_once(list, in.width_px, in.height_px);
   }
   if (!recorded) {
+    // Detail logged inside record_effects (slot=...).
     device->destroy_command_list(list);
     return false;
   }
   list->close();
   const bool ok = device->execute(list);
   device->destroy_command_list(list);
-  if (ok) {
-    device->present();
+  if (!ok) {
+    LOGGING(LOG_ERROR,
+            "graph::present fail: device->execute size=%ux%u effects=%zu",
+            in.width_px, in.height_px, in.effects.size());
+    return false;
   }
-  return ok;
+  device->present();
+  return true;
 }
 
 }  // namespace graph

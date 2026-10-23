@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/link/bind_host.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include "content/browser/glang.runtime/host/horizon/bind/bind_horizon.h"
 #include "content/browser/glang.runtime/host/plugin/bind_plugin.h"
@@ -13,7 +13,7 @@
 
 namespace content {
 
-void bind_host(content::ShellBridge& browser,
+void bind_host(content::Shell& browser,
                content::CapabilityHost* out,
                const wchar_t* mark_leaf) {
   if (!out) {

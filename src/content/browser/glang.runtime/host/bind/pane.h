@@ -1,11 +1,13 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Viewport pane seen by the IL runtime. The shell adapts DrawHost to this
-// surface so glang.runtime does not include the Views viewport type.
+// Viewport pane bag the IL runtime sees. The shell fills each Op from
+// DrawHost so glang.runtime does not include the Views viewport type.
+// Same shape as DocumentCapability: traits-constrained detail::Op slots,
+// no virtual pane ABI.
 
-#ifndef CONTENT_BROWSER_GLANG_RUNTIME_BIND_PANE_H_
-#define CONTENT_BROWSER_GLANG_RUNTIME_BIND_PANE_H_
+#ifndef CONTENT_BROWSER_GLANG_RUNTIME_HOST_BIND_PANE_H_
+#define CONTENT_BROWSER_GLANG_RUNTIME_HOST_BIND_PANE_H_
 
 #include <cstdint>
 
@@ -14,6 +16,7 @@
 #endif
 #include <windows.h>
 
+#include "content/browser/capability/op.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/kernel/view/view.h"
 
@@ -21,12 +24,8 @@ namespace content {
 
 class GisContents;
 
-// Shell-owned map / data / scene surface. Methods match the viewport
-// operations the runtime already calls; the shell supplies the body.
-class Pane {
- public:
-  virtual ~Pane() = default;
-
+// Shell-owned map / data / scene surface. Empty Ops are false / no-ops.
+struct Pane {
   enum class AttachMode {
     kNone,
     kContentMapView,
@@ -42,34 +41,34 @@ class Pane {
     kScene3d,
   };
 
-  virtual Role role() const = 0;
-  virtual AttachMode attach_mode() const = 0;
-  virtual bool is_visible() const = 0;
-  virtual HWND native_view() const = 0;
-  virtual void sync_native_bounds() = 0;
-  virtual void invalidate_native() = 0;
-  virtual void set_gpu_present_visible(bool show) = 0;
-  virtual void resume_present_timer() = 0;
-  virtual void pause_present() = 0;
-  virtual HWND present_hwnd() const = 0;
-  virtual HWND input_hwnd() const = 0;
-  virtual HWND identity_hud_hwnd() const = 0;
-  virtual void request_frame() = 0;
-  virtual bool attach() = 0;
-  virtual void detach() = 0;
-  virtual void realize_native() = 0;
-  virtual void sync_identity_frame() = 0;
-  virtual void* rhi_device() const = 0;
-  virtual bool wait_ready(std::uint32_t timeout_ms) = 0;
-  virtual bool last_gpu_present_ok() const = 0;
-  virtual std::uint32_t frame_presented() const = 0;
-  virtual std::uint32_t view_id() const = 0;
-  virtual GisContents* gis_contents() const = 0;
-  virtual float hud_fps() const = 0;
-  virtual ui::views::Rect bounds() const = 0;
-  virtual ui::views::View* as_view() = 0;
+  detail::Op<Role()> role;
+  detail::Op<AttachMode()> attach_mode;
+  detail::Op<bool()> is_visible;
+  detail::Op<HWND()> native_view;
+  detail::Op<void()> sync_native_bounds;
+  detail::Op<void()> invalidate_native;
+  detail::Op<void(bool)> set_gpu_present_visible;
+  detail::Op<void()> resume_present_timer;
+  detail::Op<void()> pause_present;
+  detail::Op<HWND()> present_hwnd;
+  detail::Op<HWND()> input_hwnd;
+  detail::Op<HWND()> identity_hud_hwnd;
+  detail::Op<void()> request_frame;
+  detail::Op<bool()> attach;
+  detail::Op<void()> detach;
+  detail::Op<void()> realize_native;
+  detail::Op<void()> sync_identity_frame;
+  detail::Op<void*()> rhi_device;
+  detail::Op<bool(std::uint32_t)> wait_ready;
+  detail::Op<bool()> last_gpu_present_ok;
+  detail::Op<std::uint32_t()> frame_presented;
+  detail::Op<std::uint32_t()> view_id;
+  detail::Op<GisContents*()> gis_contents;
+  detail::Op<float()> hud_fps;
+  detail::Op<ui::views::Rect()> bounds;
+  detail::Op<ui::views::View*()> as_view;
 };
 
 }  // namespace content
 
-#endif  // CONTENT_BROWSER_GLANG_RUNTIME_BIND_PANE_H_
+#endif  // CONTENT_BROWSER_GLANG_RUNTIME_HOST_BIND_PANE_H_

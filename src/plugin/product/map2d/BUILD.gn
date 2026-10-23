@@ -10,6 +10,19 @@ copy("map2d_resources") {
   outputs = [ "$root_out_dir/plugins/map2d/{{source_file_part}}" ]
 }
 
+copy("map2d_coverage_plugin") {
+  sources = [
+    "script/plugin.json",
+    "script/plugin.py",
+  ]
+  outputs = [ "$root_out_dir/plugins/map2d_coverage/{{source_file_part}}" ]
+}
+
+copy("map2d_coverage_ext") {
+  sources = [ "script/ext/__init__.py" ]
+  outputs = [ "$root_out_dir/plugins/map2d_coverage/ext/__init__.py" ]
+}
+
 # Views-free compositor used by harness print present and chrome layout.
 source_set("print_composer") {
   sources = [
@@ -25,8 +38,14 @@ source_set("print_composer") {
 
 source_set("map2d_views") {
   sources = [
+    "cartography/furniture.cc",
+    "cartography/furniture.h",
+    "cartography/panel.cc",
+    "cartography/panel.h",
     "commands.cc",
     "commands.h",
+    "pyramid/pyramid.cc",
+    "pyramid/pyramid.h",
     "print/register.cc",
     "print/register.h",
     "print/views/print_preview_dialog.cc",
@@ -44,6 +63,7 @@ source_set("map2d_views") {
     ":print_composer",
     "//src/content:browser_session",
     "//src/content:content",
+    "//src/content/browser/glang.runtime:tile_grid",
     "//src/plugin/product/world3d:world3d_views",
     "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/widgets:widgets",
@@ -51,7 +71,11 @@ source_set("map2d_views") {
     "//src/ui/views:views",
     "//third_party:rapidjson",
   ]
-  libs = [ "user32.lib" ]
+  libs = [
+    "ole32.lib",
+    "user32.lib",
+    "windowscodecs.lib",
+  ]
   data_deps = [ ":map2d_resources" ]
 }
 
@@ -70,7 +94,11 @@ native_plugin("map2d_native") {
   package = "map2d"
   entry = "dll_entry.cc"
   deps = [ ":map2d_views" ]
-  data_deps = [ ":map2d_resources" ]
+  data_deps = [
+    ":map2d_resources",
+    ":map2d_coverage_plugin",
+    ":map2d_coverage_ext",
+  ]
 }
 
 test("map2d_gate_test") {
@@ -105,6 +133,36 @@ test("map2d_sink_test") {
     "//src/content:content",
     "//src/plugin/runtime/host:host",
   ]
+}
+
+test("map2d_furniture_test") {
+  output_name = "map2d_furniture_test"
+  sources = [ "cartography/furniture_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":map2d_views",
+    "//src/content/browser/glang.runtime:tile_grid",
+  ]
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
+}
+
+test("map2d_coverage_test") {
+  output_name = "map2d_coverage_test"
+  sources = [ "tests/coverage_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/content/browser/glang.runtime:tile_grid",
+    "//third_party:rapidjson",
+  ]
+  defines = [
+    "MAP2D_COVERAGE_DIR=\"" +
+        rebase_path("//src/plugin/product/map2d/script") + "\"",
+  ]
+  data_deps = [
+    ":map2d_coverage_plugin",
+    ":map2d_coverage_ext",
+  ]
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
 }
 
 test("print_composer_test") {

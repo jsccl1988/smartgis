@@ -4,7 +4,7 @@
 #ifndef IL_RUNTIME_BACKEND_VIEW_HOST_CAPTURE_HOST_H_
 #define IL_RUNTIME_BACKEND_VIEW_HOST_CAPTURE_HOST_H_
 
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <cstdint>
 #include <windows.h>
@@ -29,17 +29,17 @@ bool keep_live_views();
 
 // Viewport teardown: stop present timers then detach all DrawHost panes.
 // Does not abandon_mesh (unsafe under FlyCube Scene3D teardown).
-void detach_views(content::ShellBridge& browser);
+void detach_views(content::Shell& browser);
 
 // Borrowed shell FlyCube: KillTimer + pause_present only. Full detach of a
 // live Display-thread Device races the next process (0xC000041D).
-void finish_scene3d(content::ShellBridge& browser, bool borrowed_shell);
+void finish_scene3d(content::Shell& browser, bool borrowed_shell);
 
 // Stops DrawHost present timers (timer id 1) without full detach.
-void stop_present_timers(content::ShellBridge& browser);
+void stop_present_timers(content::Shell& browser);
 
 // Restarts present timers + one frame request (browse BMP after stress).
-void resume_present_timers(content::ShellBridge& browser);
+void resume_present_timers(content::Shell& browser);
 
 // Invalidate + UpdateWindow + sync_identity_frame. One paint kick.
 void kick_draw_host_paint(content::Pane* pane);

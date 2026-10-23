@@ -7,7 +7,7 @@ All rights reserved.
 
 > 规格：[`../specs/2026-09-13-plugin-host-design.md`](../specs/2026-09-13-plugin-host-design.md) **§glang 独占解释器与 glang.plugin 能力表**。图：[`../diagrams/plugin-python-runtime.html`](../diagrams/plugin-python-runtime.html)。
 
-**目标：** 进程内唯一 CPython 3.12 归 `app::py::Interpreter`。能力按名进 `glang.plugin`。套件脚本改为真 Python 的 `main()`。opcode 管线与 `smartgis` 扩展面在转绿后删除。
+**目标：** 进程内唯一 CPython 3.12 归 `content::py::Interpreter`。能力按名进 `glang.plugin`；第三方扩展进 `glang.ext.<plugin_id>`（见 living **§glang.ext**）。套件脚本改为真 Python 的 `main()`。opcode 管线与 `smartgis` 扩展面在转绿后删除。`src/plugin/runtime/python/` 已冻结——新样品与 mount 线在 `runtime/samples/` + `runtime/extension/`。
 
 **架构：** 插件运行时只做清单、`start` / `stop`、登记 / 注销。`eval_*` 留在 C++。`content/public` 的 `PluginHost` 签名不动。Debug 保持桩（`python_enabled` 在 `is_debug` 时为 false）。
 

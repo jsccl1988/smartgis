@@ -1,0 +1,15 @@
+{
+  "id": "smartgis.stormsurge_levels",
+  "name": "风暴潮水位面积对照",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "python",
+  "author": "The Mogu Authors",
+  "description": "Compare inundated map-unit area across surge levels and present the selected mask",
+  "entry": "plugin.py",
+  "contributes": {
+    "commands": [
+      {"id": "stormsurge.level_curve", "title": "风暴潮水位面积对照", "menu": "tools"}
+    ]
+  }
+}

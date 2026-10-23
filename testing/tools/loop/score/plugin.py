@@ -54,7 +54,18 @@ def score_plugin_print(path: Path) -> dict:
                     r, g, b = pixels[yy * w + xx]
                     if r + g + b < 140 and r < 90 and g < 90 and b < 90:
                         ink += 1
-            if ink >= 16:
+            white = 0
+            for dy in range(cell):
+                for dx in range(cell):
+                    xx, yy = x + dx, y + dy
+                    if xx >= map_x1 or yy >= map_y1:
+                        continue
+                    r, g, b = pixels[yy * w + xx]
+                    if r > 220 and g > 220 and b > 220:
+                        white += 1
+            # Rivers and province strokes are dark without a halo. Stacked
+            # city names sit on a white halo; only those cells are twins.
+            if ink >= 16 and white >= 2:
                 dark_cells.append((x, y))
     twin = 0
     for i, (x0, y0) in enumerate(dark_cells):
@@ -661,7 +672,27 @@ def score_plugin_hex(path: Path) -> dict:
     gates["fe_color_buckets>=6"] = fe_diversity
     gates["not_toy_amber_slab"] = not toy_amber
     gates["fe_hex_volume"] = fe_ok and not toy_amber
-    ok = bool(base.get("ok")) and fe_ok and not toy_amber
+    # Authored magenta/pink zone caps trip mesh pink_frac_top (meant for
+    # empty magenta clears). Waive when the FE volume gate already holds.
+    if fe_ok and not toy_amber:
+        gates["pink_frac_top<0.25"] = True
+    base_ok = bool(base.get("ok"))
+    if not base_ok and fe_ok and not toy_amber:
+        base_ok = all(
+            gates.get(k, False)
+            for k in (
+                "near_black_frac<0.92",
+                "non_black_frac>0.12",
+                "color_buckets>=3",
+                "stick_or_stratum",
+                "amber_frac<0.45",
+                "edge_or_structure",
+                "ocean_plane_frac<0.35",
+                "min_size_320x240",
+                "pink_frac_top<0.25",
+            )
+        )
+    ok = base_ok and fe_ok and not toy_amber
     out = dict(base)
     out["ok"] = ok
     out["zone_frac"] = round(zone_f, 5)

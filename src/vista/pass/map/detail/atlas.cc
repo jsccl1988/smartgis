@@ -12,6 +12,8 @@
 #include <utility>
 #include <vector>
 
+#include <cstdio>
+
 #include "vista/component/map/color.h"
 #include "vista/pass/map/pass.h"
 
@@ -168,14 +170,30 @@ AtlasLayout pack_atlas(GlyphRasterizer* glyphs,
   };
   std::vector<Pending> pending;
   std::unordered_set<GlyphKey, GlyphKeyHash> seen;
+  size_t text_n = 0;
+  size_t size0_n = 0;
+  size_t dup_n = 0;
+  size_t rast_fail_n = 0;
+  uint32_t sample_cp = 0;
+  float sample_size = 0.f;
   for (const vista::DrawItem& item : frame.items) {
     if (item.kind != vista::DrawKind::kText) {
       continue;
     }
+    ++text_n;
+    if (sample_cp == 0) {
+      sample_cp = item.codepoint;
+      sample_size = item.text_size_px;
+    }
     const GlyphKey key =
         glyph_key(item.codepoint, item.text_size_px, item.rgba, item.opacity,
                   static_cast<uint8_t>(item.font));
-    if (key.size_q == 0 || !seen.insert(key).second) {
+    if (key.size_q == 0) {
+      ++size0_n;
+      continue;
+    }
+    if (!seen.insert(key).second) {
+      ++dup_n;
       continue;
     }
     GlyphRasterizer::Bitmap bitmap;
@@ -183,6 +201,7 @@ AtlasLayout pack_atlas(GlyphRasterizer* glyphs,
     if (!glyphs->rasterize(item.codepoint, size_px,
                            static_cast<uint8_t>(item.font), &bitmap) ||
         bitmap.width <= 0 || bitmap.height <= 0) {
+      ++rast_fail_n;
       continue;
     }
     Pending row;
@@ -192,15 +211,35 @@ AtlasLayout pack_atlas(GlyphRasterizer* glyphs,
     pending.push_back(std::move(row));
   }
   if (pending.empty()) {
+    // Instrumentation: distinguish size0 / dup / rasterize-fail for empty atlas.
+    std::fprintf(stderr,
+                 "map2d.atlas pack empty text=%zu size0=%zu dup=%zu "
+                 "rast_fail=%zu unique_try=%zu sample_cp=U+%04X size=%.1f\n",
+                 text_n, size0_n, dup_n, rast_fail_n, seen.size(), sample_cp,
+                 sample_size);
+    std::fflush(stderr);
     return atlas;
   }
 
+  // Shelf width must be the atlas max, not max(64, widest_glyph). Growing the
+  // shelf only to the widest cell left a 64px strip for typical CJK (~18–40px):
+  // china's ~120 unique glyphs then stacked past the 2048 height cap and the
+  // whole atlas was discarded (labels=1 in present, zero overlay draws).
+  constexpr int kAtlasMaxPx = 2048;
   constexpr int kPad = 1;
-  int limit = 64;
+  int widest = 0;
   for (const Pending& row : pending) {
-    limit = std::max(limit, row.bitmap.width + kGlyphHaloPadPx * 2 + 2);
+    widest = std::max(widest, row.bitmap.width + kGlyphHaloPadPx * 2 + kPad);
   }
-  limit = std::min(limit, 2048);
+  if (widest > kAtlasMaxPx) {
+    std::fprintf(stderr,
+                 "map2d.atlas pack reject widest=%d > atlas max %d "
+                 "pending=%zu\n",
+                 widest, kAtlasMaxPx, pending.size());
+    std::fflush(stderr);
+    return atlas;
+  }
+  const int limit = kAtlasMaxPx;
 
   int cx = kPad;
   int cy = kPad;
@@ -222,7 +261,12 @@ AtlasLayout pack_atlas(GlyphRasterizer* glyphs,
     used_w = std::max(used_w, cx);
     used_h = std::max(used_h, cy + h + kPad);
   }
-  if (used_w <= 0 || used_h <= 0 || used_h > 2048) {
+  if (used_w <= 0 || used_h <= 0 || used_h > kAtlasMaxPx) {
+    std::fprintf(stderr,
+                 "map2d.atlas pack reject pending=%zu limit=%d used=%dx%d "
+                 "(height/width cap %d)\n",
+                 pending.size(), limit, used_w, used_h, kAtlasMaxPx);
+    std::fflush(stderr);
     return atlas;
   }
   // Pad width to a multiple of 64 so RGBA8 row bytes are 256-aligned (D3D12
@@ -230,7 +274,12 @@ AtlasLayout pack_atlas(GlyphRasterizer* glyphs,
   // path; keeping the atlas itself aligned avoids any remaining shear.
   constexpr int kPitchAlignPx = 64;
   used_w = (used_w + kPitchAlignPx - 1) / kPitchAlignPx * kPitchAlignPx;
-  if (used_w > 2048) {
+  if (used_w > kAtlasMaxPx) {
+    std::fprintf(stderr,
+                 "map2d.atlas pack reject after pitch-align used_w=%d "
+                 "pending=%zu\n",
+                 used_w, pending.size());
+    std::fflush(stderr);
     return atlas;
   }
 

@@ -131,7 +131,7 @@ All rights reserved.
 <div class="wrap">
   <header class="hero">
     <h1>IL 下沉 content</h1>
-    <p>整棵运行时在 <code>src/content/browser/glang.runtime/</code>（GIS language runtime）。顶层三条车道：<code>language/</code>（opcode 管线）、<code>exec/</code>（求值与解释器）、<code>host/</code>（CapabilityHost 绑定）。壳侧只从外部 bind。</p>
+    <p>整棵运行时在 <code>src/content/browser/glang.runtime/</code>（GIS language runtime）。顶层四条车道：<code>language/</code>（opcode 管线）、<code>ir/</code>（Capability 动词）、<code>exec/</code>（求值与解释器）、<code>host/</code>（CapabilityHost 绑定）。壳侧只从外部 bind。</p>
     <p class="meta">规格：<a href="../specs/2026-09-27-views-desktop-shell-design.md">views desktop shell</a> §IL 下沉 content · 编译器设计仍见 §Codegen GIS IR</p>
   </header>
 
@@ -143,13 +143,15 @@ All rights reserved.
         <p class="path"><code>src/content/browser/glang.runtime/</code></p>
         <p>
           <span class="chip">language</span>
+          <span class="chip">ir</span>
           <span class="chip">exec</span>
           <span class="chip">host</span>
         </p>
         <ul class="own">
-          <li><code>language/</code>：front → sema → lower → <code>app::code</code>，IR 在 <code>language/ir</code>。</li>
+          <li><code>language/</code>：front → sema → lower → <code>app::code</code>。不含 IR。</li>
+          <li><code>ir/</code>：车道头文件同层；<code>ir/gis/</code> 是扁平模块（verb、measure、transform、feature、host、construct、write）。</li>
           <li><code>exec/</code>：op、eval、extend，以及 <code>exec/session</code> 里的解释器。</li>
-          <li><code>host/</code> 通过 <code>content::ShellBridge</code> / <code>content::Pane</code> 填 <code>CapabilityHost</code>。不包含 <code>Browser</code>、<code>DrawHost</code>、<code>PluginShell</code>。</li>
+          <li><code>host/</code> 通过 <code>content::Shell</code> / <code>content::Pane</code>（均为 <code>detail::Op</code> 袋，无虚表）填 <code>CapabilityHost</code>。不包含 <code>Browser</code>、<code>DrawHost</code>、<code>PluginShell</code>。</li>
           <li>GN <code>:backend</code> 与 <code>:session</code> 不依赖 <code>//src/app/views</code>。</li>
         </ul>
       </article>
@@ -157,11 +159,11 @@ All rights reserved.
         <h3>壳侧只从外部 bind</h3>
         <p class="path"><code>app/views/app/startup/shell_runtime.cc</code></p>
         <p>
-          <span class="chip">ShellBridge</span>
+          <span class="chip">Shell Op袋</span>
           <span class="chip">Browser</span>
         </p>
         <ul class="own">
-          <li>把 <code>Browser</code> / <code>DrawHost</code> / <code>PluginShell</code> 适配成 <code>ShellBridge</code> 与 <code>Pane</code>。</li>
+          <li>把 <code>Browser</code> / <code>DrawHost</code> / <code>PluginShell</code> 填进 <code>Shell</code> 与 <code>Pane</code> 的 Op 槽（无虚适配器）。</li>
           <li>然后调用 <code>content::run_suite_script</code>。</li>
           <li>这里没有 <code>host/</code>，也没有 <code>exec/session</code>。控制台任意 <code>:py</code> 仍是壳内嵌入式 CPython。</li>
         </ul>
@@ -193,7 +195,7 @@ All rights reserved.
       </div>
       <div class="stage" data-step="1">
         <h3>2 壳侧 bind</h3>
-        <p><code>app/views</code> 注册 <code>ShellBridge</code>，把 <code>Browser</code> 槽写入 <code>CapabilityHost</code>。</p>
+        <p><code>app/views</code> 填充 <code>content::Shell</code>，把 <code>Browser</code> 槽写入 <code>CapabilityHost</code>。</p>
       </div>
       <div class="stage" data-step="2">
         <h3>3 唯一入口</h3>

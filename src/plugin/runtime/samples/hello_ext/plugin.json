@@ -1,0 +1,13 @@
+{
+  "id": "smartgis.sample_hello_ext",
+  "name": "Hello + glang.ext",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "python",
+  "author": "The Mogu Authors",
+  "description": "Sample: glang.plugin core + glang.ext.<id> contribution",
+  "entry": "plugin.py",
+  "contributes": {
+    "commands": [{"id": "sample.hello_ext", "title": "Hello Ext", "menu": "tools"}]
+  }
+}

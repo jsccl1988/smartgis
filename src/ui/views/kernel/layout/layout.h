@@ -106,6 +106,13 @@ class UI_EXPORT BoxLayout : public LayoutCrtp<BoxLayout> {
   int between_child_ = 0;
 };
 
+// Cross-DLL helpers: allocate LayoutManager inside ui_views.dll. EXE TUs must
+// not std::make_unique<FillLayout|BoxLayout> then pass unique_ptr into
+// View::set_layout_manager (Debug STL heap poison → Yoga/~list free AV).
+UI_EXPORT void install_fill_layout(View* host);
+UI_EXPORT BoxLayout* install_box_layout(View* host,
+                                        BoxLayout::Orientation orientation);
+
 }  // namespace views
 }  // namespace ui
 

@@ -34,7 +34,7 @@ int main() {
     const auto s = make_ocean_spectrum(2.0f, 0.5f, 0.0f, 0.0f, 2);
     expect(s.significant_wave_height == 2.0f, "hs passthrough");
     expect(std::fabs(s.mean_direction_rad - 0.5f) < 1.0e-5f, "dir");
-    expect(s.fft_size == 64, "quality 2 → 64");
+    expect(s.fft_size == 128, "quality 2 → 128");
     expect(!s.use_gerstner_fallback, "fft path");
     expect(s.use_jonswap, "jonswap default");
   }
@@ -51,7 +51,7 @@ int main() {
   {
     const auto s = make_ocean_spectrum(0.0f, 0.0f, 10.0f, 0.0f, 1);
     expect(s.significant_wave_height > 0.05f, "wind-driven hs");
-    expect(s.fft_size == 32, "quality 1 → 32");
+    expect(s.fft_size == 64, "quality 1 → 64");
   }
 
   OceanSystem ocean;
@@ -90,7 +90,7 @@ int main() {
   expect(tile.extent.cols == 4, "tile extent");
   expect(std::fabs(tile.hs - 1.5f) < 1.0e-4f, "tile hs from FieldStore");
   expect(std::fabs(tile.sea_mask - 1.0f) < 1.0e-4f, "tile sea mask");
-  expect(tile.spectrum.fft_size == 64, "tile spectrum fft");
+  expect(tile.spectrum.fft_size == 128, "tile spectrum fft");
   expect(std::fabs(tile.spectrum.significant_wave_height - 1.5f) < 1.0e-4f,
          "spectrum hs");
 

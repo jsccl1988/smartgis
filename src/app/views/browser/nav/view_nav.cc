@@ -180,6 +180,14 @@ bool Browser::dispatch_shell_navigation(std::string_view command_id,
                                            int bookmark_index,
                                            bool from_context, int view_x,
                                            int view_y) {
+  if (command_id == "view.eagle_eye") {
+    if (ui::views::DrawHost* map = draw_host()) {
+      map->toggle_eagle_eye();
+      ui_->set_status_message(map->eagle_eye_enabled() ? "Eagle Eye on"
+                                                       : "Eagle Eye off");
+    }
+    return true;
+  }
   if (command_id == "view.zoom_layer") {
     content::Extent2 box{};
     const content::Extent2* target =

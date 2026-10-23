@@ -75,6 +75,49 @@ bool invoke_shared_gpu_present(void* ctx, void* device, uint32_t w,
 
 }  // namespace
 
+void DrawHost::display_queue_clear() {
+  display_ring_head_ = 0;
+  display_ring_size_ = 0;
+}
+
+void DrawHost::display_queue_erase_resizes() {
+  if (display_ring_size_ == 0) {
+    return;
+  }
+  DisplayTask kept[kDisplayQueueCap];
+  size_t n = 0;
+  for (size_t i = 0; i < display_ring_size_; ++i) {
+    const DisplayTask& t =
+        display_ring_[(display_ring_head_ + i) % kDisplayQueueCap];
+    if (t.op != DisplayOp::kResize) {
+      kept[n++] = t;
+    }
+  }
+  display_ring_head_ = 0;
+  display_ring_size_ = n;
+  for (size_t i = 0; i < n; ++i) {
+    display_ring_[i] = kept[i];
+  }
+}
+
+void DrawHost::display_queue_push_back(DisplayTask task) {
+  if (display_ring_size_ >= kDisplayQueueCap) {
+    // Mailbox is coalesce-heavy; drop oldest rather than grow STL.
+    display_ring_head_ = (display_ring_head_ + 1) % kDisplayQueueCap;
+    --display_ring_size_;
+  }
+  display_ring_[(display_ring_head_ + display_ring_size_) % kDisplayQueueCap] =
+      task;
+  ++display_ring_size_;
+}
+
+DrawHost::DisplayTask DrawHost::display_queue_pop_front() {
+  DisplayTask task = display_ring_[display_ring_head_];
+  display_ring_head_ = (display_ring_head_ + 1) % kDisplayQueueCap;
+  --display_ring_size_;
+  return task;
+}
+
 void DrawHost::ensure_display_thread() {
   std::lock_guard<std::mutex> lock(display_mu_);
   if (display_started_) {
@@ -100,7 +143,7 @@ void DrawHost::stop_display_thread() {
   {
     std::lock_guard<std::mutex> lock(display_mu_);
     display_started_ = false;
-    display_queue_.clear();
+    display_queue_clear();
     // release_rhi_device may still be waiting on destroy ack; wake it.
     display_destroy_ack_ = true;
   }
@@ -117,15 +160,9 @@ void DrawHost::enqueue_display_task(DisplayTask task) {
     std::lock_guard<std::mutex> lock(display_mu_);
     // Coalesce resize ops; keep ordering for init/destroy.
     if (task.op == DisplayOp::kResize) {
-      for (auto it = display_queue_.begin(); it != display_queue_.end();) {
-        if (it->op == DisplayOp::kResize) {
-          it = display_queue_.erase(it);
-        } else {
-          ++it;
-        }
-      }
+      display_queue_erase_resizes();
     }
-    display_queue_.push_back(task);
+    display_queue_push_back(task);
   }
   display_cv_.notify_one();
 }
@@ -279,25 +316,24 @@ void DrawHost::display_thread_main() {
     bool have_task = false;
     {
       std::unique_lock<std::mutex> lock(display_mu_);
-      if (display_stop_ && display_queue_.empty()) {
+      if (display_stop_ && display_queue_empty()) {
         break;
       }
-      if (display_queue_.empty() && !display_stop_) {
+      if (display_queue_empty() && !display_stop_) {
         display_cv_.wait_for(lock, std::chrono::milliseconds(16), [this]() {
           // frame_request_ is not a queue item. Without it in the predicate,
           // notify_all from request_frame is ignored and the mailbox sleeps
           // out the full 16ms, so StaticReuse presents land near 40Hz.
-          return display_stop_ || !display_queue_.empty() ||
+          return display_stop_ || !display_queue_empty() ||
                  frame_request_.load(std::memory_order_acquire) !=
                      frame_presented_.load(std::memory_order_acquire);
         });
       }
-      if (display_stop_ && display_queue_.empty()) {
+      if (display_stop_ && display_queue_empty()) {
         break;
       }
-      if (!display_queue_.empty()) {
-        task = display_queue_.front();
-        display_queue_.pop_front();
+      if (!display_queue_empty()) {
+        task = display_queue_pop_front();
         have_task = true;
       }
     }
@@ -308,7 +344,7 @@ void DrawHost::display_thread_main() {
       HWND hwnd = nullptr;
       {
         std::lock_guard<std::mutex> lock(display_mu_);
-        if (!display_queue_.empty()) {
+        if (!display_queue_empty()) {
           continue;
         }
         hwnd = display_hwnd_;
@@ -324,7 +360,7 @@ void DrawHost::display_thread_main() {
         if (display_stop_) {
           break;
         }
-        if (!display_queue_.empty()) {
+        if (!display_queue_empty()) {
           continue;
         }
       }

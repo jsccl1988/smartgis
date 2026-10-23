@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-18 — 步骤库在 `testing/tools/harness/_shared/steps/`（发现跳过 `_shared/`）；套件只组合差异。`browser.campaign` 顺序为种子中国底图、追加一点、`native.buffer`、`native.clip`、打印样式与 BMP、场景轨道；前一步失败则不写后续 mark。图 [`../diagrams/map2d-harness-glang.html`](../diagrams/map2d-harness-glang.html)。Prior same day — map2d / world3d 编排曾分别放在产品树与 `plugin.world3d.*` 目录，现已收进同一 `_shared/steps`。Prior same day — **glang.runtime 顶层三车道** `language/` · `exec/` · `host/`（解释器在 `exec/session/cpython`，控制台桥在 `host/bind/gis_console`）。Prior same day — **§map2d harness 编排进 glang**（`browser.map2d.{china,align,orthogrid}` 是 showcase 唯一编排；暖缓存、可见像素门、专用 HWND 的 cold/warm `present_gpu`、`fps_bench` 在 `glang.runtime`。`edit_m0` / `layers_m1` / `navigate` / `present` / `milestones` / `print_page` 曾在 `testing/tools/harness/plugin/map2d/*.py`；该目录已删除，步骤在 `testing/tools/harness/_shared/steps/`。图 [`../diagrams/map2d-harness-glang.html`](../diagrams/map2d-harness-glang.html)）。Prior same day — **§world3d harness 编排进 glang**（路径 A：套件脚本拥有顺序、mark、退出码与计时窗口参数；C++ 只留具名 `eval_*`，不新增 `Op`。command id 改为执行同一脚本函数。图 [`../diagrams/world3d-harness-glang.html`](../diagrams/world3d-harness-glang.html)）。Prior same day — **§glang 独占解释器与 glang.plugin 能力表**（进程内唯一 CPython 归 `app::py::Interpreter`；Python 模块 `glang.plugin` 按名登记既有 `eval_*`，不增长 `Op`；opcode 管线退役。图 [`../diagrams/plugin-python-runtime.html`](../diagrams/plugin-python-runtime.html)。计划 [`../plans/2026-10-18-glang-cpython-plugin.md`](../plans/2026-10-18-glang-cpython-plugin.md)；各阶段门禁与最终门禁见该计划）。Prior same day — `runtime/python` 按解释器 / 宿主槽 / 子模块 / GIS 编组拆层（`runtime.*`、`bind/`、`gis/`、`script/`）；行为不变。Same day — Python 非插件能力进 glang：`ScriptCall` / 现场脚本绑定在 `glang.runtime/session`，GIS 控制台桥与地图分析编排在 `bind/gis_console`；`runtime/python` 只留 CPython 嵌入与 `contribute_*` 编组。Prior same day — **§Python 唯一脚本语言与插件门禁**（删掉 IL 前端，不留 `.il` 双轨；脚本只走进程内 CPython。11 个插件 suite 的失败条件不变：`required_marks` 全部落地；有 BMP 的 suite 还要 `score_id` 为 ok。`visual_review` 不参与失败。`plugin.report` 无 BMP）。Prior 2026-10-13 — **§plugin.json startup** cold start ignores `startup.scenario`; demos via `PluginCatalogView` Run / CI `HARNESS_SUITE` (Views §Cold start product-only；diagram `views-startup-decision.html`). Prior 2026-10-10 — chrome `browser/plugin/{shell,host,present,harness,detail}` role dirs (Views §browser/plugin subdirectory). Prior 2026-10-08 — **processing dual-phase + playback frames** (host `run_processing_phases` / `fill_playback_index_frames` / `parse_frame_index_arg` / `require_gis_document`; flood/traffic/stormsurge/geochem/mine/orthogrid rewired). Same day — **product pack deep dedup** (host `bind_map2d_harness_shell` / `map2d_mark`; delete orphan world3d `plugin_io` + atmosphere `progress` TLS twins + no-op `label_composite`; widgets `show_view_dialog` + `dialog_fields` for sample dir / parse / empty textfield). Prior 2026-10-07 — **plugins install root** (`out/<config>/plugins` ≡ `<exe>/plugins`; vista DEM/imagery sample fallbacks drop bare `../plugins` → `out/plugins`). Same day — **map2d showcase IL-first** (`browser.map2d.{china,align,orthogrid}` atomic `.il` + `--map2d-showcase-il=1`; C++ `run_map2d_showcase` / `map2d.scenario.*` kept for Interact `map2d_run` and non-IL argv). Same day — **atmosphere mode in world3d** (`scenario/atmosphere/mode.h`; Views CLI drops `AtmosphereShowcaseMode` / map2d|ui showcase enums — suite id via plugin.json only). Same day — **scenario_shell host** (`capability/scenario_shell.*`: TLS binders / marks / `resolve_rel_under_exe` / `json_escape_path`; mine/traffic/stormsurge drop world3d `plugin_io`). Same day — **product pack dedup** (host `register_harness_command_op` / `register_harness_mode_op`; `scenario_command.h` + optional `HarnessPrepFn`; `reexport_cached_file`; report uses `args_json`; mode tables stay in product `scenario/interact.cc`). Same day — **runtime slim** (`args_json`; `contribute.h` for contribute_* only; harness helpers in `scenario_command.h`). Same day — **pack ensure** / contribute_index / scenario verb—op (see body). Prior 2026-10-06 — **`src/app/views/harness/` deleted** (LaunchPolicy in `app/startup`; HWND in `il.runtime/capability`). Same day — **plugin.json owns launch** (`startup.scenario` / `activate` replace Views `--plugin-showcase` and sibling showcase flags; harness patches `out/<config>/plugins/<pkg>/plugin.json`, chrome suites use `flood`). **harness leftover dirs deleted** (`showcase/` `chrome/` `self_test/` `capture/` `browse/` `input/`; HWND/RHI helpers in `il.runtime/capability`). Same day — **§Python runtime L2** (`runtime/python`: isolated embed, per-directory `kind=python` modules, Host capability/present/playback bindings; samples moved to `runtime/python/samples/`). Same day — **§runtime/host subdirectory tighten** (`catalog/` + `native/` + flat capability facades including HarnessShell). Same day — **§world3d subdirectory tighten** fold `grid/` + root `detail/` into `scene/`; drop `scenario/showcase/`. Same day — Chrome Interact Language runtime moved `app/views/runtime` → `src/app/views/il.runtime` (`il.runtime`). Same day — **§Harness pipeline vs product scenarios** Scene3D plugin suites (`plugin.world3d` / `mine` / `stormsurge` / `orthogrid3d`) are thin IL `*_run` verbs → `dispatch_plugin_command`; C++ HWND/BMP bodies stay. Same day — Chrome `PluginPlayback` / present / pretool_session moved to `app/views/browser/plugin/`. Same day — **§PluginHost capabilities** `plugin.ui.shell` (`ShellUiSink`) + world3d Atmosphere dock. Same day — **§Harness pipeline vs product scenarios** `src/app/views/harness/showcase/` **deleted**. Atmosphere + plugin Scene3D/Map2d showcase bodies live under `plugin/product/<pkg>/scenario/` (`*_harness` exe-only). Chrome HWND remainder is `harness/{run,capture,analyze,bugs,repair,browse,input,ui}` (`harness/chrome/` **deleted**). Same day — **§plugin.json startup** desktop product launch reads `startup` on each pack (`activate` / `viewport` / `seed` / `commands` / `priority`); `--plugin-showcase` stays harness-only. Same day — **§Plugin manager lifecycle** plugin roots are per-config `$root_out_dir/plugins` (`out/Debug/plugins`, `out/Release/plugins`; `--plugins-dir` default `<exe>/plugins`). Prior same day — **§Harness pipeline vs product scenarios** map2d china/align/orthogrid/print in `product/map2d/scenario/` (`map2d_harness` exe/test only; native DLL `map2d_scenario` GIS); chrome is dispatcher + HWND. Prior same day — **§Plugin manager lifecycle** (each product pack is `kind=native` DLL under `out/<config>/plugins/<id>/`; scan not a god-list). Prior same day — **§Plugin manager lifecycle** (`init`/`run`/`destroy`; scan plugins root — historically bare `out/plugins`, now `out/<config>/plugins` ≡ `<exe>/plugins`; `PluginCatalogView`). Prior same day — **§Harness pipeline vs product scenarios** (no `smartgis.self_test`; GIS payloads are `map2d.scenario.*`; harness is run/capture/analyze/bugs/repair). Prior same day — **§Builtin self-append** (`app/views/browser/plugin/shell/builtins.*`; packs call `app::append_builtin_plugin` at TU init; no `plugin/product/builtins` table). Prior same day — **§Showcase product counterparts** print pack merged into `smartgis.map2d` (`product/map2d/print/`; command `print.preview`). Prior same day — **§Showcase product counterparts** (`smartgis.map2d` / `smartgis.report`; atmosphere looks stay in world3d; ui/browse/input remain chrome HWND). Prior same day — **§PluginHost capabilities** (`runtime/host/capability/{capability.h,scene3d,report}`; `present/` is GisDocument helpers only). Prior same day — `set_capability` / `query_capability`; Scene3dSink + ReportBridge + ProcessingPool leave `content/public/plugin_host.h`. Prior same day — **§Atmosphere showcase looks in world3d** (`scene/look` + `scene/fly`; `world3d.apply_look` / `world3d.fly_globe`). Prior same day — **§Chrome runtime: execution only** (`contribute_export_frame`; drop `plugin_run` / `PluginShowcaseMode`; recursive harness leaf; `plugin/product/builtins` façade so `PluginShell` does not `#include` product `commands.h`). Same day — **§Main View dataset** allows `present_surface` main|{map|world}_preview. Prior same day — chrome `PluginPlayback` is plugin-agnostic; product payload stays in `src/plugin/product`. Prior 2026-10-05 — **§Analysis present in plugin** (kill chrome `analysis_writer_*`; compute+present are processing steps). Prior same day — **§Main View dataset** (`PluginHost::present_dataset`; product 2D/3D/model results in the shell Map / Scene3D tab). Prior same day — **§Showcase 3D HWND** (main Scene3D pane; `--plugin-showcase=report`). Prior same day — Views `--plugin-showcase` bodies nested under `app/views/harness/showcase/plugin/{product,seed,session,present,capture,common}` (same lanes as map2d/atmosphere; `device_session` keeps HWND+RHI+teardown). Prior same day — flatten attempt withdrawn. Prior same day — `PluginHost::open_dock` append-only after `close_report`; `for_each_command` / `for_each_processing` / `for_each_dialog` / `for_each_dock` stay public. Prior 2026-10-04 — world3d top-level: DEM/ortho/hex live under `scene/`; `register_world3d_scene`. Prior: sink inner `loader/dialog` / lattice/session/solve. Prior: tighten flattened `dem/views`/`dem/resources`. Prior: domain subdirs (`dem/` `scene/` `orthogrid/` `hexgrid/`; no root `scene_commands.cc` / `processing/` / `views/`). Prior: command stack layered (`register_world3d` façade + `detail::contribute_*` aliases). Prior: product `orthogrid` + `orthogrid3d` merged into `smartgis.world3d`; leftover `plugin_orthogrid` AM stem maps to `smartgis.world3d`. Prior: world3d DEM loaders renamed (`heightmap` / `trimesh`); orthogrid3d ABI: `geo::HexGrid` deleted from gis.dll; 3D structured grid is `OGRMultiPoint` XYZ + nx/ny/nz owned by `world3d/scene/hexgrid` (`HexLattice` non-exported). Prior 2026-10-03 — v1 host checklist archived; follow-on product plugins (world3d / stormsurge / analysis) still open. Prior 2026-10-02 — world3d True Earth P0b (global DEM / satellite / atmosphere); geochem; mine/stratum; traffic+flood; `runtime/host` role subdirs; leftover `legacy/plugin` layout; product Python / gis analysis ownership.  
+**Updated:** 2026-10-23 — **§DLL / STL C-boundary**（插件线禁止 STL；见 base §DLL / STL trust）。Prior 2026-10-22 — **§host/bind Op 袋**：`Shell` / `Pane` 改为 `detail::Op` 指针袋（无虚表）；`GisConsoleBridge` 并入 `CapabilityHost` document/view；`shell_runtime` 只填槽。图 [`../diagrams/il-runtime-content-sink.html`](../diagrams/il-runtime-content-sink.html)。Prior same day — **§exec 三车道**：`exec/vm` 一张动词表 + 一个调用构建器，`exec/op` 用 `install_ops` 安装功能体，`exec/py` 只留 CPython 嵌入。图 [`../diagrams/glang-exec-lanes.html`](../diagrams/glang-exec-lanes.html)。Prior 2026-10-21 — **§glang.ext**：`PythonRuntime` 迁到 `plugin/runtime/extension`（`smartgis` 方法表仍在 `python/`）。Prior same day — **§Python runtime 深度抽象合并**：`bind/` 拆为 `kernel/` + `surface/`；`assemble.cc` 唯一 runner；删 `smartgis.tool`（并入 `Host.execute`/`activate`）；删 `debug.profile`；图 [`../diagrams/plugin-python-assemble.html`](../diagrams/plugin-python-assemble.html)。Prior 2026-10-18 — 步骤库在 `testing/tools/harness/_shared/steps/`（发现跳过 `_shared/`）；套件只组合差异。`browser.campaign` 顺序为种子中国底图、追加一点、`native.buffer`、`native.clip`、打印样式与 BMP、场景轨道；前一步失败则不写后续 mark。图 [`../diagrams/map2d-harness-glang.html`](../diagrams/map2d-harness-glang.html)。Prior same day — map2d / world3d 编排曾分别放在产品树与 `plugin.world3d.*` 目录，现已收进同一 `_shared/steps`。Prior same day — **glang.runtime 顶层三车道** `language/` · `exec/` · `host/`（解释器在 `exec/session/cpython`，控制台桥在 `host/bind/gis_console`）。Prior same day — **§map2d harness 编排进 glang**（`browser.map2d.{china,align,orthogrid}` 是 showcase 唯一编排；暖缓存、可见像素门、专用 HWND 的 cold/warm `present_gpu`、`fps_bench` 在 `glang.runtime`。`edit_m0` / `layers_m1` / `navigate` / `present` / `milestones` / `print_page` 曾在 `testing/tools/harness/plugin/map2d/*.py`；该目录已删除，步骤在 `testing/tools/harness/_shared/steps/`。图 [`../diagrams/map2d-harness-glang.html`](../diagrams/map2d-harness-glang.html)）。Prior same day — **§world3d harness 编排进 glang**（路径 A：套件脚本拥有顺序、mark、退出码与计时窗口参数；C++ 只留具名 `eval_*`，不新增 `Op`。command id 改为执行同一脚本函数。图 [`../diagrams/world3d-harness-glang.html`](../diagrams/world3d-harness-glang.html)）。Prior same day — **§glang 独占解释器与 glang.plugin 能力表**（进程内唯一 CPython 归 `app::py::Interpreter`；Python 模块 `glang.plugin` 按名登记既有 `eval_*`，不增长 `Op`；opcode 管线退役。图 [`../diagrams/plugin-python-runtime.html`](../diagrams/plugin-python-runtime.html)。计划 [`../plans/2026-10-18-glang-cpython-plugin.md`](../plans/2026-10-18-glang-cpython-plugin.md)；各阶段门禁与最终门禁见该计划）。Prior same day — `runtime/python` 按解释器 / 宿主槽 / 子模块 / GIS 编组拆层（`runtime.*`、`bind/`、`gis/`、`script/`）；行为不变。Same day — Python 非插件能力进 glang：`ScriptCall` / 现场脚本绑定在 `glang.runtime/session`，GIS 控制台桥与地图分析编排在 `bind/gis_console`；`runtime/python` 只留 CPython 嵌入与 `contribute_*` 编组。Prior same day — **§Python 唯一脚本语言与插件门禁**（删掉 IL 前端，不留 `.il` 双轨；脚本只走进程内 CPython。11 个插件 suite 的失败条件不变：`required_marks` 全部落地；有 BMP 的 suite 还要 `score_id` 为 ok。`visual_review` 不参与失败。`plugin.report` 无 BMP）。Prior 2026-10-13 — **§plugin.json startup** cold start ignores `startup.scenario`; demos via `PluginCatalogView` Run / CI `HARNESS_SUITE` (Views §Cold start product-only；diagram `views-startup-decision.html`). Prior 2026-10-10 — chrome `browser/plugin/{shell,host,present,harness,detail}` role dirs (Views §browser/plugin subdirectory). Prior 2026-10-08 — **processing dual-phase + playback frames** (host `run_processing_phases` / `fill_playback_index_frames` / `parse_frame_index_arg` / `require_gis_document`; flood/traffic/stormsurge/geochem/mine/orthogrid rewired). Same day — **product pack deep dedup** (host `bind_map2d_harness_shell` / `map2d_mark`; delete orphan world3d `plugin_io` + atmosphere `progress` TLS twins + no-op `label_composite`; widgets `show_view_dialog` + `dialog_fields` for sample dir / parse / empty textfield). Prior 2026-10-07 — **plugins install root** (`out/<config>/plugins` ≡ `<exe>/plugins`; vista DEM/imagery sample fallbacks drop bare `../plugins` → `out/plugins`). Same day — **map2d showcase IL-first** (`browser.map2d.{china,align,orthogrid}` atomic `.il` + `--map2d-showcase-il=1`; C++ `run_map2d_showcase` / `map2d.scenario.*` kept for Interact `map2d_run` and non-IL argv). Same day — **atmosphere mode in world3d** (`scenario/atmosphere/mode.h`; Views CLI drops `AtmosphereShowcaseMode` / map2d|ui showcase enums — suite id via plugin.json only). Same day — **scenario_shell host** (`capability/scenario_shell.*`: TLS binders / marks / `resolve_rel_under_exe` / `json_escape_path`; mine/traffic/stormsurge drop world3d `plugin_io`). Same day — **product pack dedup** (host `register_harness_command_op` / `register_harness_mode_op`; `scenario_command.h` + optional `HarnessPrepFn`; `reexport_cached_file`; report uses `args_json`; mode tables stay in product `scenario/interact.cc`). Same day — **runtime slim** (`args_json`; `contribute.h` for contribute_* only; harness helpers in `scenario_command.h`). Same day — **pack ensure** / contribute_index / scenario verb—op (see body). Prior 2026-10-06 — **`src/app/views/harness/` deleted** (LaunchPolicy in `app/startup`; HWND in `il.runtime/capability`). Same day — **plugin.json owns launch** (`startup.scenario` / `activate` replace Views `--plugin-showcase` and sibling showcase flags; harness patches `out/<config>/plugins/<pkg>/plugin.json`, chrome suites use `flood`). **harness leftover dirs deleted** (`showcase/` `chrome/` `self_test/` `capture/` `browse/` `input/`; HWND/RHI helpers in `il.runtime/capability`). Same day — **§Python runtime L2** (`runtime/python`: isolated embed, per-directory `kind=python` modules, Host capability/present/playback bindings; samples moved to `runtime/python/samples/`). Same day — **§runtime/host subdirectory tighten** (`catalog/` + `native/` + flat capability facades including HarnessShell). Same day — **§world3d subdirectory tighten** fold `grid/` + root `detail/` into `scene/`; drop `scenario/showcase/`. Same day — Chrome Interact Language runtime moved `app/views/runtime` → `src/app/views/il.runtime` (`il.runtime`). Same day — **§Harness pipeline vs product scenarios** Scene3D plugin suites (`plugin.world3d` / `mine` / `stormsurge` / `orthogrid3d`) are thin IL `*_run` verbs → `dispatch_plugin_command`; C++ HWND/BMP bodies stay. Same day — Chrome `PluginPlayback` / present / pretool_session moved to `app/views/browser/plugin/`. Same day — **§PluginHost capabilities** `plugin.ui.shell` (`ShellUiSink`) + world3d Atmosphere dock. Same day — **§Harness pipeline vs product scenarios** `src/app/views/harness/showcase/` **deleted**. Atmosphere + plugin Scene3D/Map2d showcase bodies live under `plugin/product/<pkg>/scenario/` (`*_harness` exe-only). Chrome HWND remainder is `harness/{run,capture,analyze,bugs,repair,browse,input,ui}` (`harness/chrome/` **deleted**). Same day — **§plugin.json startup** desktop product launch reads `startup` on each pack (`activate` / `viewport` / `seed` / `commands` / `priority`); `--plugin-showcase` stays harness-only. Same day — **§Plugin manager lifecycle** plugin roots are per-config `$root_out_dir/plugins` (`out/Debug/plugins`, `out/Release/plugins`; `--plugins-dir` default `<exe>/plugins`). Prior same day — **§Harness pipeline vs product scenarios** map2d china/align/orthogrid/print in `product/map2d/scenario/` (`map2d_harness` exe/test only; native DLL `map2d_scenario` GIS); chrome is dispatcher + HWND. Prior same day — **§Plugin manager lifecycle** (each product pack is `kind=native` DLL under `out/<config>/plugins/<id>/`; scan not a god-list). Prior same day — **§Plugin manager lifecycle** (`init`/`run`/`destroy`; scan plugins root — historically bare `out/plugins`, now `out/<config>/plugins` ≡ `<exe>/plugins`; `PluginCatalogView`). Prior same day — **§Harness pipeline vs product scenarios** (no `smartgis.self_test`; GIS payloads are `map2d.scenario.*`; harness is run/capture/analyze/bugs/repair). Prior same day — **§Builtin self-append** (`app/views/browser/plugin/shell/builtins.*`; packs call `app::append_builtin_plugin` at TU init; no `plugin/product/builtins` table). Prior same day — **§Showcase product counterparts** print pack merged into `smartgis.map2d` (`product/map2d/print/`; command `print.preview`). Prior same day — **§Showcase product counterparts** (`smartgis.map2d` / `smartgis.report`; atmosphere looks stay in world3d; ui/browse/input remain chrome HWND). Prior same day — **§PluginHost capabilities** (`runtime/host/capability/{capability.h,scene3d,report}`; `present/` is GisDocument helpers only). Prior same day — `set_capability` / `query_capability`; Scene3dSink + ReportBridge + ProcessingPool leave `content/public/plugin_host.h`. Prior same day — **§Atmosphere showcase looks in world3d** (`scene/look` + `scene/fly`; `world3d.apply_look` / `world3d.fly_globe`). Prior same day — **§Chrome runtime: execution only** (`contribute_export_frame`; drop `plugin_run` / `PluginShowcaseMode`; recursive harness leaf; `plugin/product/builtins` façade so `PluginShell` does not `#include` product `commands.h`). Same day — **§Main View dataset** allows `present_surface` main|{map|world}_preview. Prior same day — chrome `PluginPlayback` is plugin-agnostic; product payload stays in `src/plugin/product`. Prior 2026-10-05 — **§Analysis present in plugin** (kill chrome `analysis_writer_*`; compute+present are processing steps). Prior same day — **§Main View dataset** (`PluginHost::present_dataset`; product 2D/3D/model results in the shell Map / Scene3D tab). Prior same day — **§Showcase 3D HWND** (main Scene3D pane; `--plugin-showcase=report`). Prior same day — Views `--plugin-showcase` bodies nested under `app/views/harness/showcase/plugin/{product,seed,session,present,capture,common}` (same lanes as map2d/atmosphere; `device_session` keeps HWND+RHI+teardown). Prior same day — flatten attempt withdrawn. Prior same day — `PluginHost::open_dock` append-only after `close_report`; `for_each_command` / `for_each_processing` / `for_each_dialog` / `for_each_dock` stay public. Prior 2026-10-04 — world3d top-level: DEM/ortho/hex live under `scene/`; `register_world3d_scene`. Prior: sink inner `loader/dialog` / lattice/session/solve. Prior: tighten flattened `dem/views`/`dem/resources`. Prior: domain subdirs (`dem/` `scene/` `orthogrid/` `hexgrid/`; no root `scene_commands.cc` / `processing/` / `views/`). Prior: command stack layered (`register_world3d` façade + `detail::contribute_*` aliases). Prior: product `orthogrid` + `orthogrid3d` merged into `smartgis.world3d`; leftover `plugin_orthogrid` AM stem maps to `smartgis.world3d`. Prior: world3d DEM loaders renamed (`heightmap` / `trimesh`); orthogrid3d ABI: `geo::HexGrid` deleted from gis.dll; 3D structured grid is `OGRMultiPoint` XYZ + nx/ny/nz owned by `world3d/scene/hexgrid` (`HexLattice` non-exported). Prior 2026-10-03 — v1 host checklist archived; follow-on product plugins (world3d / stormsurge / analysis) still open. Prior 2026-10-02 — world3d True Earth P0b (global DEM / satellite / atmosphere); geochem; mine/stratum; traffic+flood; `runtime/host` role subdirs; leftover `legacy/plugin` layout; product Python / gis analysis ownership.  
 **Plans:** glang CPython [`../plans/2026-10-18-glang-cpython-plugin.md`](../plans/2026-10-18-glang-cpython-plugin.md) · v1 [`../archive/plans/2026-09-13-plugin-host.md`](../archive/plans/2026-09-13-plugin-host.md) (landed) · leftover plugin [`../plans/2026-09-29-legacy-plugin-subdirectory-layout.md`](../plans/2026-09-29-legacy-plugin-subdirectory-layout.md) · stormsurge [`../plans/2026-09-30-stormsurge-3d-disaster.md`](../plans/2026-09-30-stormsurge-3d-disaster.md) · analysis present [`../plans/2026-10-05-plugin-analysis-present-to-processing.md`](../plans/2026-10-05-plugin-analysis-present-to-processing.md) · world3d / analysis checklists still open on later § Plan lines  
 **Diagram:** [`../diagrams/world3d-harness-glang.html`](../diagrams/world3d-harness-glang.html) · [`../diagrams/views-startup-decision.html`](../diagrams/views-startup-decision.html) · [`../diagrams/plugin-host-layers.html`](../diagrams/plugin-host-layers.html) · [`../diagrams/plugin-python-runtime.html`](../diagrams/plugin-python-runtime.html) · [`../diagrams/plugin-host-capabilities.html`](../diagrams/plugin-host-capabilities.html) · [`../diagrams/plugin-product-world3d.html`](../diagrams/plugin-product-world3d.html) · [`../diagrams/plugin-product-showcase.html`](../diagrams/plugin-product-showcase.html) · [`../diagrams/plugin-analysis-processing.html`](../diagrams/plugin-analysis-processing.html) · chrome runtime [`../diagrams/views-runtime-layers.html`](../diagrams/views-runtime-layers.html) · manager lifecycle [`../diagrams/plugin-manager-lifecycle.html`](../diagrams/plugin-manager-lifecycle.html)  
 **Scope:** one implementation plan, one cycle. Land a QGIS-shaped extension platform: host + contribution points, in-process Python, QGIS-style store, Views rewrite of leftover plugin dialogs, and processing isolation for algorithm workers only. Do not implement product C++ in this document.
@@ -597,10 +597,12 @@ No gtest.
 | `src/plugin/manager_view.h` `.cc` | Plugin Manager Views |
 | `src/plugin/widgets/map_preview.h` `.cc` | shared preview |
 | `src/plugin/widgets/about_dialog.h` `.cc` | shared about |
-| `src/plugin/runtime/python/runtime.h` `.cc` | CPython embed (isolated; per-directory modules) |
-| `src/plugin/runtime/python/bind/` | Host slot, `smartgis` / content / tool / ui / debug / events |
+| `src/plugin/runtime/extension/runtime.h` `.cc` | CPython embed lifecycle (`PythonRuntime`) |
+| `src/plugin/runtime/python/assemble.*` | Sole `PyInit_smartgis` runner; host bind/unbind |
+| `src/plugin/runtime/python/kernel/` | `py_compat` / `gil` / `session` / `py_util` |
+| `src/plugin/runtime/python/surface/` | Host / content.events / ui / debug factories |
 | `src/plugin/runtime/python/gis/` | `smartgis.gis` analysis / scene / style marshal |
-| `src/plugin/runtime/python/script/attach.*` | `smartgis.script` verbs → `app::code::ScriptHandler` |
+| `src/plugin/runtime/python/script/` | `smartgis.script` → `call_registered` |
 | `src/plugin/runtime/python/smartgis.pyi` | Shared embed/worker names |
 | `src/plugin/runtime/python/samples/` | hello / analysis / product_orchestrate / industry_pack |
 | `src/plugin/dem/*_dialog.*` | DEM Views |
@@ -2081,6 +2083,44 @@ Python 模块名是 `glang.plugin`。C++ 类型与函数留在 `app::py`。按�
 | 5 | 仅在阶段 3、4 都绿之后。ANTLR / `Op` / `smartgis` 源已删除。`codegen_ir_test` 目标不存在。Debug 桩仍能编能跑。 |
 | 最终 | Release 且 `python_enabled`：(a) `script_main_test`、`plugin_fn_test`、`plugin_python_test` 覆盖调用、返回值、关键字参数、`main`、未知名字异常；(b) 计划列出的浏览器场景 suite 与 11 个插件 suite，`required_marks` 全部落地，有 BMP 的 `score_id` 为 ok。`visual_review` 不参与失败。`plugin.report` 无 BMP。不用 `loop_runner.py --gate`（它只跑 `browser.gpu` 与 `browser.harness`）代替 (b)。 |
 
+## §glang.ext 扩展面（2026-10-21）
+
+**Status:** active  
+**Updated:** 2026-10-21  
+**Diagram:** [`../diagrams/plugin-python-runtime.html`](../diagrams/plugin-python-runtime.html)（含 `glang.ext` 泳道）  
+**Freeze:** [`.cursor/rules/repo/plugin-python-freeze.mdc`](../../../.cursor/rules/repo/plugin-python-freeze.mdc) — `src/plugin/runtime/python/` 冻结；新样品在 `src/plugin/runtime/samples/`。
+
+在 **§glang 独占解释器与 glang.plugin 能力表** 之上，第三方插件向 **`src/content/browser/glang.runtime`** 贡献可 `import` 的扩展包。脚本可同时使用核心与扩展。
+
+### 目标
+
+| 面 | Python 名 | 属主 | 内容 |
+| --- | --- | --- | --- |
+| 核心 | `glang.plugin` | glang.runtime | 既有 `register_fn` → `eval_*` |
+| 扩展 | `glang.ext.<plugin_id>` | glang.runtime 挂载；内容由插件包贡献 | `plugin_id` == `plugin.json` 的 `id`（点号分段 → 嵌套包） |
+
+贡献形态（两者都支持）：
+
+1. **纯 Python**：包目录下 `ext/`（含 `__init__.py`）或 `ext.py`，挂载后成为 `glang.ext.<id>`。
+2. **原生登记**：`content::py::register_extension_fn(plugin_id, name, …)` 把 C++ `EvalFn` 挂到已挂载的 leaf（经 `__getattr__` / `_dispatch`）。
+
+### 生命周期
+
+- 解释器 `after_initialize`：`install_glang_plugin()` 与 `install_glang_ext()`（空父包 `glang.ext`）。
+- `PythonRuntime` 在 `plugin/runtime/extension/`。Registry **python** start：`bind_registry_python_ext` 在 `start` **之前** `mount_extension(id, directory)`，stop 之后 `unmount_extension`。
+- Host / content / ui / debug / gis / script 装在 `glang.plugin` 上（`exec/session/embed`，`:plugin_embed`）。`sys.modules["smartgis"]` 是同一模块。`src/plugin/runtime/python/` 已删除。样品在 `plugin/runtime/samples/`。不扩 `content/public/plugin_host.h`。
+
+### 样品
+
+- 新树：`src/plugin/runtime/samples/hello_ext/`（`id=smartgis.sample_hello_ext`）。
+- 门禁：`ext_module_test`（Debug 桩：`mount` 失败且 stdout `ext_module_test: ok`；Release + `python_enabled`：mount → `import glang.ext.smartgis.sample_hello_ext` → `ping()=="pong"`）。
+
+### 非目标
+
+- 不在本 § 删除 `smartgis` / opcode（仍按上一节阶段 5）。
+- 不要求 `kind=native` DLL 自动 mount（原生包若需 ext，在自身 `start` 调 `mount_extension`，或后续加 native 包装）。
+- 不把扩展动词并进固定 `Op` 枚举。
+
 ## §world3d harness 编排进 glang（2026-10-18）
 
 **Status:** accepted  
@@ -2190,4 +2230,91 @@ GPU smoke 使用隐藏 popup HWND，不在已占用的 `ContentMapView` 上再�
 
 启动走已有的 `HARNESS_SUITE=browser.campaign`。`suite.json` 的 argv 仍是已有的 `--harness`（启动器会剥掉，不用它选脚本）。mark 文件是 `browser-campaign-mark.txt`。
 
+## §Python runtime 深度抽象合并（2026-10-21）
+
+**Status:** landed  
+**Diagram:** [`../diagrams/plugin-python-assemble.html`](../diagrams/plugin-python-assemble.html)
+
+`src/plugin/runtime/python` 按 **kernel · surface/gis/script · assemble** 三层收拢（方案 A）。行为门禁：`plugin_python_test`（Release，`HAS_PYTHON`）绿。
+
+### 分层
+
+| 层 | 路径 | 职责 |
+| --- | --- | --- |
+| kernel | `kernel/` | `py_compat`、`ReleaseGil`、session（holds / `call_py_*`）、`py_bool` / `retain_callback` / `add_module_object` |
+| 功能体 | `surface/` `gis/` `script/` | Host / events / ui / debug；analysis/scene/style；script dispatch |
+| runner | `assemble.cc` | 唯一 `PyInit_smartgis`；挂载 content/ui/debug/gis/script；`bind_python_host` |
+
+### Python 表面变化（无长期 shim）
+
+| 旧 | 新 |
+| --- | --- |
+| `smartgis.tool.execute` / `activate` | `Host.execute` / `Host.activate`（`content.host`） |
+| `smartgis.debug.profile` | 删除（用 `trace_event`） |
+| `bind/forward.h` `bind/surface.h` `gis/attach.*` `script/attach.*` | 删除；装配进 `assemble` |
+
+### 不做
+
+- 不新增迷你绑定 DSL / 宏层。
+- 不把本树解冻为可随意加 `PyMethodDef` 的扩展面（新能力仍走 glang / extension 缝）。
+
+## §exec 三车道（2026-10-22）
+
+**Status:** accepted  
+**Diagram:** [`../diagrams/glang-exec-lanes.html`](../diagrams/glang-exec-lanes.html)
+
+`glang.runtime/exec` 按虚拟机、操作码、嵌入拆开。脚本动词、`EvalFn` 签名、`register_fn` / `eval_script_call` / `eval_gis_call` / `lower_gis_call` 的对外名字不变。`content/public` 不改。
+
+| 车道 | 路径 | 职责 |
+| --- | --- | --- |
+| vm | `exec/vm` | `invoke_inst` 执行一条指令；动词表含内建槽、动态名、exec 扩展、语言降级钩子；`eval_script_call` 与 `eval_gis_call` 都进这一条执行路径 |
+| op | `exec/op` | 各通道功能体。`install_ops` 把 trait 行装进操作码表。求值函数体仍按 document / view / plugin / horizon / gesture / gis 分文件 |
+| py | `exec/py` | CPython 隔离解释器、套件装载、`glang.ext`、`embed`。不复制操作码描述符 |
+
+名字查找顺序：动态名（`register_fn`，可 `unregister_fn` 藏起内建名）→ 操作码槽（`eval` 为空时用 exec 扩展）→ 语言降级钩子（只负责「名字 → 指令」，GIS 内建降级优先）。`call_registered` 在动态名和操作码都没有时仍走 `lookup_method`，所以 `rclick` 这类语法糖不是操作码名也能进 handler。
+
+`eval_gis_call` 继续用 `GisArg` 的 kind / i32 / crs，失败文案不加行号。`eval_script_call` 仍把 `produces_slot` 写回变量表，未知动词仍是 `unknown verb '…'`，未知 GIS 操作仍是 `unknown op …`。
+
+`ir/` 这一层已去掉。document / view / gesture / horizon / plugin 的空检查写在对应 `eval_*` 里，直接调 `CapabilityHost`。几何内核在 `exec/op/gis/geom`，由 `gis_traits` 调用。`host/` 仍负责把壳侧槽填进这些回调。
+
+## §host/bind Op 袋（2026-10-22）
+
+**Status:** accepted  
+**Diagram:** [`../diagrams/il-runtime-content-sink.html`](../diagrams/il-runtime-content-sink.html)
+
+语言宿主绑定统一为 **traits + `detail::Op` + concepts**，一次去掉虚 `ShellBridge` / `Pane`：
+
+| 旧名 | 现形态 | 路径 |
+| --- | --- | --- |
+| `ShellBridge`（虚） | `content::Shell`（`detail::Op` 袋） | `host/bind/shell.h` |
+| `Pane`（虚） | `content::Pane`（`detail::Op` 袋） | `host/bind/pane.h` |
+| `GisConsoleBridge` | 并入 `CapabilityHost` 的 `document` / `view` | `capability/document.h` · `view.h`；`set_console_host` |
+| （槽表） | `host_member` + `bind_tagged_slots` | `host/bind/slots.h` |
+| `gis_console.*` | `console.*`（分析 / `:py` runner） | `host/bind/console.h` |
+
+壳侧 `shell_runtime.cc`：`fill_pane` + `BrowserShell` 只填 `content::Shell`。host 调用仍是 `browser.document()` / `pane->present_hwnd()`（Op `operator()`）。`session` 为 `Op<BrowserSession*()>`。
+
+Console：`set_console_host` / `console_host` / `bind_console_plugin`；已删 `shell_bridge.h` 兼容层。
+
+---
+
+## §DLL / STL C-boundary（2026-10-23）
+
+**Why not a new dated spec:** Plugin / glang wire is the **C** class of the base living §DLL / STL trust model.
+
+**Owning umbrella (A/B/CRT/export):** [`2026-09-14-base-root-hybrid-design.md`](2026-09-14-base-root-hybrid-design.md) §DLL / STL trust model  
+**Diagram:** [`../diagrams/dll-stl-trust.html`](../diagrams/dll-stl-trust.html)  
+**Plan:** [`../plans/2026-10-23-dll-stl-trust.md`](../plans/2026-10-23-dll-stl-trust.md)
+
+| Edge | STL on the wire |
+| --- | --- |
+| `plugin_host.dll` ↔ other **A** product DLLs | Allowed (same gen / same `/MD(d)`) |
+| Host ↔ native plugin / `*.am` GetProcAddress | **Forbidden** — C / opaque / fixed buffers |
+| glang `ext` / `plugin.json` contribution | **Forbidden** — serialize or host-owned buffers |
+| CPython embed (when enabled) | Treat as **D**; Debug remains stub (`python_enabled` false) |
+
+**Do:** New plugin contribution APIs stay flat (handles, `const char*` + len, POD). STL containers stay inside the owning DLL.  
+**Don’t:** Add `std::string` / `std::vector` parameters on LoadLibrary exports or glang extension C seams. Don’t grow `src/plugin/runtime/python/` (frozen).
+
+---
 

@@ -22,6 +22,8 @@ enum class World3dLook {
   kGlobe,
   kLegacy,
   kEastChina,
+  // One picture: high-orbit globe, sky, satellite cloud, globe DEM land/sea.
+  kEarthSystem,
 };
 
 // Outputs from seeding orbit / globe fly for a look.
@@ -40,7 +42,7 @@ bool apply_world3d_look(content::Scene3dPresenter* cam,
                         World3dLook look,
                         World3dLookSeed* out);
 
-// Contract check used by harness gates. Logs mismatches to stderr.
+// Contract check used by harness gates. Logs mismatches via LOGGING.
 bool verify_world3d_look(World3dLook look, content::Scene3dPresenter* cam);
 
 // Planar East-China product face: kEastChina look, optional perf-bare strip

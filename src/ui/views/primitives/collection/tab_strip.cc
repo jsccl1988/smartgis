@@ -62,10 +62,10 @@ void TabStrip::on_device_scale_factor_changed(float old_scale, float new_scale) 
   layout();
 }
 
-int TabStrip::add_tab(std::string title, std::unique_ptr<View> page) {
+int TabStrip::add_tab(const char* title, std::unique_ptr<View> page) {
   View* raw = page.get();
   add_child(std::move(page));
-  titles_.push_back(std::move(title));
+  titles_.push_back(title ? title : "");
   pages_.push_back(raw);
   const int index = static_cast<int>(pages_.size()) - 1;
   if (index >= 0 && index < kMaxTabs) {
@@ -124,7 +124,25 @@ int TabStrip::tab_count() const {
 }
 
 void TabStrip::set_change(std::function<void(int)> fn) {
+  change_fn_ = nullptr;
+  change_baton_ = nullptr;
   change_ = std::move(fn);
+}
+
+void TabStrip::set_change_fn(ChangeFn fn, void* baton) {
+  change_ = {};
+  change_fn_ = fn;
+  change_baton_ = baton;
+}
+
+void TabStrip::notify_change(int index) {
+  if (change_fn_) {
+    change_fn_(change_baton_, index);
+    return;
+  }
+  if (change_) {
+    change_(index);
+  }
 }
 
 int TabStrip::natural_tab_width_at(int i) const {
@@ -370,9 +388,7 @@ void TabStrip::open_overflow_menu() {
       if (index == active_) {
         return;
       }
-      if (change_) {
-        change_(index);
-      }
+      notify_change(index);
       if (active_ != index) {
         set_active(index);
       }
@@ -410,9 +426,7 @@ bool TabStrip::on_mouse_event(const MouseEvent& e) {
     }
     if (i >= 0) {
       if (i != active_) {
-        if (change_) {
-          change_(i);
-        }
+        notify_change(i);
         if (active_ != i) {
           set_active(i);
         }

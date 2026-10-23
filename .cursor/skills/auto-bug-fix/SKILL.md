@@ -30,7 +30,7 @@ When this skill is invoked, attached (`@auto-bug-fix` / `/auto-bug-fix`), or fol
 
 ## Hard rules — how to run
 
-1. **Entry:** from the **smartgis** repo root, run `.\build.bat debug harness`. Then `.\build.bat debug te` — `harness` compiles Views + GPU (`//:harness`) then runs `testing/tools/loop_runner.py --gate` (`gpu` + `SmartGIS.exe --harness`). `te` compiles `//:test_all` and runs listed `*_test.exe` only. Prefer a single config when iterating.
+1. **Entry:** from the **smartgis** repo root, run `.\build.bat release harness` then `.\build.bat release te` for the product gate — suite scripts need in-process CPython (`python_enabled`, Release-only; Debug is the stub). `harness` compiles Views + GPU (`//:harness`) then runs `testing/tools/loop_runner.py --gate` (`gpu` + `SmartGIS.exe --harness`) against the matching `out/<config>`. `te` compiles `//:test_all` and runs listed `*_test.exe` (includes `ext_module_test` / `plugin_python_test` / `script_main_test` when present). Prefer a single config when iterating. Use `debug te` only for CRT-Debug unit binaries that do not need CPython.
 2. **Engineering management is GN.** Gen roots `out/Debug` + `out/Release`. Aliases: `harness` / `te` / `a`. `e2e` is a synonym of `harness` (no `testing/e2e` tree). Do not invent bare `gn gen` / `ninja` as the primary loop unless `build.bat` is missing/broken. **`out/.build.lock` covers compile only**; `te`/`harness` runners run unlocked after ninja. Exit **3** = compile busy — wait/report, do not bypass. Prefer `build.bat debug …`. See `.cursor/rules/build/build-lock.mdc`.
 3. **Do not** use `SmartGIS.sln` / MSBuild / `build.bat sln`. `vs2008/` is leftover only.
 4. Product sources are **`src/`**. Hosts: Views (`SmartGIS.exe`) is the destination; leftover MFC is not the default gate. Do not treat WinUI / CEF as the endgame shell.
@@ -39,38 +39,38 @@ When this skill is invoked, attached (`@auto-bug-fix` / `/auto-bug-fix`), or fol
 7. Layers: `docs/superpowers/ui-testing.md`. Mapping: `docs/superpowers/mogu-mapping.md`.
 
 ```bat
-.\build.bat debug harness
-.\build.bat debug te
+.\build.bat release harness
+.\build.bat release te
 ```
 
 ## Fix loop (log + runner)
 
-1. Run `.\build.bat debug harness` from repo root (builds chrome / GPU, then `loop_runner --gate`).
-2. Run `.\build.bat debug te` (builds `//:test_all`, then listed `*_test.exe`).
-3. Parse **`out/Debug/build.log`** (and `out/Release/build.log` if built) *and* the harness / unit transcript:
+1. Run `.\build.bat release harness` from repo root (builds chrome / GPU, then `loop_runner --gate --out Release`).
+2. Run `.\build.bat release te` (builds `//:test_all`, then listed `*_test.exe` under `out/Release`).
+3. Parse **`out/Release/build.log`** (and Debug logs if also built) *and* the harness / unit transcript:
    - ninja: `FAILED:` / `ninja: build stopped` / `error:` / linker failure
    - gate: `FAIL product gate` / `FAIL gpu` / `FAIL harness` / missing `SmartGisRender.exe` / missing marks (`hwnd-ok`, `pass`, …)
    - unit tests: non-zero exit, `FAILED`, assertion text, `--harness` / `--self-test` codes (`docs/superpowers/ui-testing.md`)
 4. **Reproduce** the failing exe or `--harness` (alias `--self-test`) in isolation when the log is ambiguous. Extra suites: `py -3 testing\tools\loop_runner.py --suite <id> --no-build`.
 5. **Hypothesis** (systematic-debugging). Fix **root cause** in source or `BUILD.gn`.
    - Not `#if 0`, not deleting / `#ifdef`-hiding tests, not `-Wno-*` unless asked.
-6. Re-run the same `.\build.bat debug harness` and `.\build.bat debug te` (or the specific failing exe after a focused rebuild).
+6. Re-run the same `.\build.bat release harness` and `.\build.bat release te` (or the specific failing exe after a focused rebuild).
 7. Repeat until the **done bar**.
 
 **Native crash / hang / `.dmp`:** if the runner shows access violation, crash exit, WER dump, hang/timeout (`rc=124`), or a frozen PE, **follow `auto-diagnose-fix` first** (cdb → crash catch or hang dump / `!analyze` → CBM → root-cause fix), then return here and re-run harness/te until green. Do not treat a crash/hang as a vague “test failed” without a stack.
 
-**Done bar:** `.\build.bat debug harness` exit **0** (`loop_runner --gate` PASS) **and** `.\build.bat debug te` exit **0** (unit tests). Ninja-only exit 0 is **not** enough.
+**Done bar:** `.\build.bat release harness` exit **0** (`loop_runner --gate` PASS on Release) **and** `.\build.bat release te` exit **0** (unit tests). Ninja-only exit 0 is **not** enough.
 
 ## Evidence before success
 
-Claim green **only** after a fresh successful `.\build.bat debug harness` and `.\build.bat debug te`. Show commands, exit 0, and log / runner confirmation (`PASS`, no remaining `FAIL` / `FAILED` / `error:`).
+Claim green **only** after a fresh successful `.\build.bat release harness` and `.\build.bat release te`. Show commands, exit 0, and log / runner confirmation (`PASS`, no remaining `FAIL` / `FAILED` / `error:`).
 
 ## LNK1168 (exe locked)
 
 `LNK1168` / cannot open the PE for write: a running `SmartGis*.exe` / test / harness PE holds the file.
 
 1. Stop the locker (Windows: `Stop-Process` / `taskkill` **without** `/F` first; wait; `/F` only if still alive). Use a non-sandbox / system terminal so the signal lands.
-2. Relink via the same `.\build.bat debug harness` or `.\build.bat debug te`.
+2. Relink via the same `.\build.bat release harness` or `.\build.bat release te` (or the matching debug command if iterating CRT-Debug-only units).
 3. Tell the user to **restart** the product if they had it open.
 
 Do not treat LNK1168 as a source bug.
@@ -110,9 +110,11 @@ MFC component ID (VS 18): `Microsoft.VisualStudio.Component.VC.v145.MFC.x86.x64`
 ## Example commands (isolation)
 
 ```bat
-.\build.bat debug harness
-py -3 testing\tools\loop_runner.py --gate --no-build
-.\out\Debug\views_unittests.exe
-.\out\Debug\SmartGIS.exe --harness
-.\out\Debug\SmartGisRender.exe --self-test
+.\build.bat release harness
+py -3 testing\tools\loop_runner.py --gate --no-build --out Release
+.\out\Release\views_unittests.exe
+.\out\Release\SmartGIS.exe --harness
+.\out\Release\SmartGisRender.exe --self-test
+.\out\Release\ext_module_test.exe
+.\out\Release\plugin_python_test.exe
 ```

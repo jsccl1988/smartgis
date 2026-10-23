@@ -4,12 +4,42 @@
 #include "content/browser/glang.runtime/host/scene/policy/gate.h"
 
 #include <cstdlib>
+#include <string>
+#include <string_view>
 
-#include "content/browser/glang.runtime/language/ir/view.h"
+#include "content/browser/capability/host.h"
 
 namespace content {
 namespace detail {
 namespace {
+
+bool apply_rc(content::CapabilityHost& host, int rc) {
+  if (rc != 0) {
+    host.fail_rc = rc;
+    return false;
+  }
+  return true;
+}
+
+void detach_views(content::CapabilityHost& host) {
+  if (host.view.detach_views) {
+    host.view.detach_views();
+  }
+}
+
+bool read_view_load(content::CapabilityHost& host,
+                    std::string_view face,
+                    int timeout_ms,
+                    content::ViewLoadStatus* out) {
+  if (!out || !host.view.load_status ||
+      !host.view.load_status(std::string(face), timeout_ms, out)) {
+    return false;
+  }
+  if (host.view.on_app_event) {
+    host.view.on_app_event("map.load", *out);
+  }
+  return true;
+}
 
 // Product faces that share the scene gate codes. Other faces use the map codes.
 bool is_scene_face(std::string_view face) {
@@ -23,23 +53,23 @@ bool wait_viewport(content::CapabilityHost& host,
                    int timeout_ms,
                    int want_frame) {
   content::ViewLoadStatus status;
-  if (!ir::read_view_load(host, face, timeout_ms, &status)) {
+  if (!read_view_load(host, face, timeout_ms, &status)) {
     return false;
   }
   const bool scene = is_scene_face(face);
   const int pane_rc = scene ? 9 : 3;
   const int frame_rc = scene ? 10 : 3;
   if (!status.pane_present) {
-    return ir::apply_rc(host, pane_rc);
+    return apply_rc(host, pane_rc);
   }
   if (!status.content_view) {
     return true;
   }
   if (!status.hwnd_alive) {
-    return ir::apply_rc(host, pane_rc);
+    return apply_rc(host, pane_rc);
   }
   if (want_frame && !status.frame_ready) {
-    return ir::apply_rc(host, frame_rc);
+    return apply_rc(host, frame_rc);
   }
   return true;
 }
@@ -47,41 +77,41 @@ bool wait_viewport(content::CapabilityHost& host,
 bool expect_scene_visible(content::CapabilityHost& host) {
   content::ViewLoadStatus scene;
   content::ViewLoadStatus map;
-  if (!ir::read_view_load(host, "scene", 0, &scene) ||
-      !ir::read_view_load(host, "map", 0, &map)) {
+  if (!read_view_load(host, "scene", 0, &scene) ||
+      !read_view_load(host, "map", 0, &map)) {
     return false;
   }
   if (!scene.hwnd_alive) {
-    return ir::apply_rc(host, 9);
+    return apply_rc(host, 9);
   }
   if (map.hwnd_alive && map.visible) {
-    return ir::apply_rc(host, 36);
+    return apply_rc(host, 36);
   }
   if (!scene.visible) {
-    return ir::apply_rc(host, 37);
+    return apply_rc(host, 37);
   }
   return true;
 }
 
 bool expect_orbit_moved(content::CapabilityHost& host) {
   content::ViewLoadStatus status;
-  if (!ir::read_view_load(host, "scene", 0, &status)) {
+  if (!read_view_load(host, "scene", 0, &status)) {
     return false;
   }
   if (!status.orbit_moved) {
-    return ir::apply_rc(host, 25);
+    return apply_rc(host, 25);
   }
   return true;
 }
 
 bool expect_map_hwnd_sync(content::CapabilityHost& host) {
   content::ViewLoadStatus status;
-  if (!ir::read_view_load(host, "map", 0, &status)) {
+  if (!read_view_load(host, "map", 0, &status)) {
     return false;
   }
   const auto fail = [&](int rc) {
-    ir::detach_views(host);
-    return ir::apply_rc(host, rc);
+detach_views(host);
+    return apply_rc(host, rc);
   };
   if (status.view_w <= 0 || status.view_h <= 0) {
     return fail(31);

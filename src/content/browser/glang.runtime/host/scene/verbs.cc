@@ -7,6 +7,7 @@
 #include "content/browser/glang.runtime/host/scene/verbs.h"
 
 #include "content/browser/glang.runtime/exec/op/host_verb.h"
+#include "content/browser/glang.runtime/host/tile/verbs.h"
 
 #include "content/browser/glang.runtime/host/scene/policy/gate.h"
 
@@ -165,6 +166,7 @@ const OpDesc kHwnd{
 };
 
 void install_scene_verbs() {
+  content::tile::install_script_verbs();
   register_host_verb(&kInvalidate);
   register_host_verb(&kViewport);
   register_host_verb(&kBrowse);
@@ -182,7 +184,10 @@ void install_scene_verb_table() {
 }
 
 struct SceneVerbInstaller {
-  SceneVerbInstaller() { install_scene_verb_table(); }
+  SceneVerbInstaller() {
+    install_scene_verb_table();
+    content::tile::install_script_verbs();
+  }
 };
 
 const SceneVerbInstaller kSceneVerbInstaller;

@@ -1,9 +1,23 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
+import("//build/python.gni")
 import("//build/smartgis.gni")
 import("//src/plugin/product/native_plugin.gni")
 import("//testing/test.gni")
+
+copy("traffic_schemes_plugin") {
+  sources = [
+    "script/plugin.json",
+    "script/plugin.py",
+  ]
+  outputs = [ "$root_out_dir/plugins/traffic_schemes/{{source_file_part}}" ]
+}
+
+copy("traffic_schemes_ext") {
+  sources = [ "script/ext/__init__.py" ]
+  outputs = [ "$root_out_dir/plugins/traffic_schemes/ext/__init__.py" ]
+}
 
 copy("traffic_resources") {
   sources = [
@@ -29,6 +43,7 @@ source_set("traffic_views") {
     "//src",
   ]
   deps = [
+    "//src/base:base",
     "//src/content:content",
     "//src/gis:gis",
     "//src/plugin/runtime/host:host",
@@ -45,7 +60,11 @@ native_plugin("traffic_native") {
   package = "traffic"
   entry = "dll_entry.cc"
   deps = [ ":traffic_views" ]
-  data_deps = [ ":traffic_resources" ]
+  data_deps = [
+    ":traffic_resources",
+    ":traffic_schemes_plugin",
+    ":traffic_schemes_ext",
+  ]
 }
 
 test("traffic_path_test") {
@@ -68,5 +87,41 @@ test("traffic_path_test") {
     ":traffic_resources",
     "//third_party:gdal_runtime_dlls",
   ]
+  ldflags = [ "/ENTRY:mainCRTStartup", "/INCLUDE:__pfnDliNotifyHook2" ]
+}
+
+test("traffic_scheme_test") {
+  output_name = "traffic_scheme_test"
+  sources = [ "tests/scheme_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":traffic_views",
+    "//src/base:base",
+    "//src/content:content",
+    "//src/content/browser/glang.runtime:cpython",
+    "//src/gis:gis",
+    "//src/plugin/runtime/extension:extension",
+    "//src/plugin/runtime/host:host",
+    "//src/ui/views:views",
+    "//third_party:gdal",
+    "//third_party:rapidjson",
+    "//third_party/gn:dll_search",
+  ]
+  defines = [
+    "TRAFFIC_SCHEMES_DIR=\"" +
+        rebase_path("//src/plugin/product/traffic/script") + "\"",
+  ]
+  data_deps = [
+    ":traffic_resources",
+    ":traffic_schemes_plugin",
+    ":traffic_schemes_ext",
+    "//third_party:gdal_runtime_dlls",
+  ]
+  if (python_enabled && python_dll != "") {
+    data_deps += [
+      "//src/plugin/runtime/extension:python312_dll",
+      "//src/plugin/runtime/extension:python3_dll",
+    ]
+  }
   ldflags = [ "/ENTRY:mainCRTStartup", "/INCLUDE:__pfnDliNotifyHook2" ]
 }

@@ -61,20 +61,19 @@ float4 main(PSIn input) : SV_TARGET
         discard;
     float f = fresnel_bias + (1.0 - fresnel_bias) * pow(1.0 - ndotv, fresnel_power);
     float3 rgb = lerp(shallow.rgb, deep.rgb, f);
-    // Grazing water should pick up sky blue, not a blown cyan albedo.
-    float3 sky_refl = float3(0.30, 0.48, 0.78);
-    rgb = lerp(rgb, sky_refl, saturate(f * 0.45));
+    // Grazing water picks up sky blue; keep below blowout for far-field sky.
+    float3 sky_refl = float3(0.28, 0.50, 0.82);
+    rgb = lerp(rgb, sky_refl, saturate(f * 0.55));
 
     float3 L = normalize(float3(sun_x, sun_y, sun_z));
     float3 H = normalize(L + V);
-    // Tiny sun glint only — strong Spec blew a cyan flare over the orbit
-    // patch and replaced the sky far-field in 640x480 captures.
-    float spec = pow(saturate(dot(n, H)), max(shininess, 96.0));
-    rgb += spec * float3(0.10, 0.12, 0.14);
+    // Design B: stronger Fresnel specular without the old cyan flare wash.
+    float spec = pow(saturate(dot(n, H)), max(shininess, 128.0));
+    rgb += spec * float3(0.18, 0.20, 0.24);
 
     float slope = length(float2(pr.y - pl.y, pu.y - pd.y));
-    float foam = saturate(slope * 1.8 - 0.28) * 0.08;
-    rgb = lerp(rgb, float3(0.55, 0.68, 0.78), foam);
+    float foam = saturate(slope * 2.4 - 0.18) * 0.18;
+    rgb = lerp(rgb, float3(0.62, 0.74, 0.84), foam);
     rgb = saturate(rgb);
 
     return float4(rgb, lerp(shallow.a, deep.a, f));

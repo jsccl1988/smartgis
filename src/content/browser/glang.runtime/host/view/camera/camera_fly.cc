@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/host/view/camera/camera_fly.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <algorithm>
 #include <cmath>
@@ -25,13 +25,13 @@ float ease_smooth(float t) {
   return t * t * (3.f - 2.f * t);
 }
 
-void invalidate_scene(content::ShellBridge& browser) {
+void invalidate_scene(content::Shell& browser) {
   if (content::Pane* pane = browser.scene_draw_host()) {
     pane->invalidate_native();
   }
 }
 
-bool fly_orbit(content::ShellBridge& browser, content::OrbitFrame* orbit, int ms,
+bool fly_orbit(content::Shell& browser, content::OrbitFrame* orbit, int ms,
                int steps) {
   const float yaw0 = orbit->yaw();
   const float pitch0 = orbit->pitch();
@@ -58,7 +58,7 @@ bool fly_orbit(content::ShellBridge& browser, content::OrbitFrame* orbit, int ms
   return true;
 }
 
-bool fly_spherical(content::ShellBridge& browser, content::OrbitFrame* orbit, int ms,
+bool fly_spherical(content::Shell& browser, content::OrbitFrame* orbit, int ms,
                    int steps) {
   content::Scene3dPresenter* cam = browser.scene3d();
   if (!cam) {
@@ -129,7 +129,7 @@ bool fly_spherical(content::ShellBridge& browser, content::OrbitFrame* orbit, in
 
 }  // namespace
 
-bool camera_fly(content::ShellBridge& browser, const std::string& mode, int ms, int steps) {
+bool camera_fly(content::Shell& browser, const std::string& mode, int ms, int steps) {
   content::OrbitFrame* orbit = browser.orbit_frame();
   if (!orbit) {
     return false;

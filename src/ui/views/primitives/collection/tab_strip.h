@@ -27,14 +27,22 @@ class UI_EXPORT TabStrip : public View {
   };
 
   TabStrip();
-  int add_tab(std::string title, std::unique_ptr<View> page);
+  // Cross-DLL: pass title as const char*. Inline string overload copies only
+  // the C string across the EXE↔ui_views boundary (Debug STL is not ABI).
+  int add_tab(const char* title, std::unique_ptr<View> page);
+  int add_tab(std::string title, std::unique_ptr<View> page) {
+    return add_tab(title.c_str(), std::move(page));
+  }
   // Replace the page View at |i| (keeps title). Returns false if index invalid.
   bool replace_page(int i, std::unique_ptr<View> page);
   void set_active(int i);
   int active() const;
   View* page_at(int i) const;
   int tab_count() const;
+  // Same-module: std::function. Cross-DLL (SmartGIS.exe): set_change_fn.
   void set_change(std::function<void(int)> fn);
+  using ChangeFn = void (*)(void* baton, int index);
+  void set_change_fn(ChangeFn fn, void* baton);
   void set_header_placement(HeaderPlacement placement);
   HeaderPlacement header_placement() const { return header_placement_; }
   bool on_mouse_event(const MouseEvent& e) override;
@@ -73,6 +81,7 @@ class UI_EXPORT TabStrip : public View {
   };
 
   void apply_page_visibility();
+  void notify_change(int index);
   int tab_at(int x, int y) const;
   int natural_tab_width_at(int i) const;
   void layout_slots(SlotLayout* out) const;
@@ -85,6 +94,8 @@ class UI_EXPORT TabStrip : public View {
   int active_ = -1;
   HeaderPlacement header_placement_ = HeaderPlacement::kTop;
   std::function<void(int)> change_;
+  ChangeFn change_fn_ = nullptr;
+  void* change_baton_ = nullptr;
 };
 
 }  // namespace views

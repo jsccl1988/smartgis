@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/glang.runtime/language/code/verify.h"
-#include "content/browser/glang.runtime/exec/eval/eval.h"
+#include "content/browser/glang.runtime/exec/vm/eval.h"
 #include "content/browser/glang.runtime/language/front/parse.h"
 #include "content/browser/glang.runtime/language/lower/lower.h"
 #include "content/browser/glang.runtime/language/sema/check.h"

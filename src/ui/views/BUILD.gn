@@ -231,6 +231,9 @@ source_set("views_map") {
     "map/frame/embed_fill.h",
     "map/frame/identity_hud.cc",
     "map/frame/identity_hud.h",
+    "map/eagle_eye/eagle_eye_geom.h",
+    "map/eagle_eye/eagle_eye_host.cc",
+    "map/eagle_eye/eagle_eye_host.h",
     "map/device/device_load.cc",
     "map/device/device_load.h",
     "map/input/touch_multitouch.cc",
@@ -241,8 +244,11 @@ source_set("views_map") {
     "map/viewport/display.cc",
     "map/viewport/draw_host.cc",
     "map/viewport/draw_host.h",
+    "map/viewport/eagle_eye_frame.cc",
     "map/viewport/features.h",
     "map/viewport/gpu_present.cc",
+    "map/viewport/horizon_paint.cc",
+    "map/viewport/horizon_paint.h",
     "map/viewport/paint_policy.h",
     "map/viewport/present.cc",
     "map/viewport/shell_overlay.cc",
@@ -347,6 +353,8 @@ copy("markup_resources_shell") {
     "//src/ui/resources/shell/ambox_view.ui.xml",
     "//src/ui/resources/shell/atmosphere_panel.ui.css",
     "//src/ui/resources/shell/atmosphere_panel.ui.xml",
+    "//src/ui/resources/shell/map_furniture_panel.ui.css",
+    "//src/ui/resources/shell/map_furniture_panel.ui.xml",
     "//src/ui/resources/shell/chart_view.ui.css",
     "//src/ui/resources/shell/chart_view.ui.xml",
     "//src/ui/resources/shell/main_app.ui.css",
@@ -488,6 +496,14 @@ benchmark("views_bench") {
     ":views_test_harness",
     "//src/ui/gis:gis",
   ]
+}
+
+# Eagle-eye overview geometry (header-only helpers; no HWND).
+test("eagle_eye_geom_test") {
+  output_name = "eagle_eye_geom_test"
+  use_gtest = false
+  sources = [ "map/eagle_eye/eagle_eye_geom_test.cc" ]
+  deps = [ ":views" ]
 }
 
 # Console self-test for primitive / kernel behavior (no MFC).

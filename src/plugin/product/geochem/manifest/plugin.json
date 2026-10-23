@@ -27,7 +27,8 @@
       {"id": "geochem.analyze", "title": "Geochem IDW + grade + stats"},
       {"id": "geochem.stats", "title": "Geochem sample stats"},
       {"id": "geochem.style_apply", "title": "Apply graded sample style"},
-      {"id": "geochem.load", "title": "Load geochem CSV or vector"}
+      {"id": "geochem.load", "title": "Load geochem CSV or vector"},
+      {"id": "geochem.threshold_tally", "title": "One threshold exceedance count without present"}
     ]
   }
 }

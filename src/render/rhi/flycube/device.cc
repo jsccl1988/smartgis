@@ -236,6 +236,14 @@ bool FlycubeDevice::execute(CommandList* list) {
       return true;
     }
     auto* fly_list = static_cast<FlycubeCommandList*>(list);
+    // Compute-only lists must not call Swapchain::NextImage (no Present pair).
+    // OceanPass::run_gpu_fft_once submits a throwaway CL; routing it through
+    // execute_recorded advances the backbuffer without Present and makes the
+    // following graph::present fail forever (Design B interactive GPU FFT).
+    if (fly_list->has_dispatches() && !fly_list->had_pass() &&
+        !fly_list->has_draws()) {
+      return execute_offscreen(fly_list);
+    }
     if (swapchain_ && fence_ &&
         (fly_list->had_pass() || fly_list->has_draws() ||
          fly_list->has_dispatches())) {
@@ -305,6 +313,14 @@ FlycubeProgram* FlycubeDevice::find_program(Pipeline* pipeline) const {
       return nullptr;
     }
     return it->second.get();
+}
+
+void FlycubeDevice::begin_frame_bindings() {
+  for (auto& entry : programs_) {
+    if (entry.second) {
+      entry.second->begin_frame_bindings();
+    }
+  }
 }
 
 Pipeline* FlycubeDevice::create_graphics_pipeline(const GraphicsPipelineDesc& desc) {

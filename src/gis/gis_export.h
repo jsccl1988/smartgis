@@ -6,13 +6,19 @@
 
 // GN defines GIS_EXPORTS when building the gis DLL (dll_stem = gis).
 // SDB_EXPORTS remains accepted as a transitional synonym.
+// When is_component_build=false, COMPONENT_BUILD is unset → no-op.
+
+#if defined(COMPONENT_BUILD)
 #if defined(GIS_EXPORTS) || defined(SDB_EXPORTS)
 #define GIS_EXPORT __declspec(dllexport)
 #else
 #define GIS_EXPORT __declspec(dllimport)
 #endif
+#else
+#define GIS_EXPORT
+#endif
 
-#if !defined(GIS_EXPORTS) && !defined(SDB_EXPORTS)
+#if defined(COMPONENT_BUILD) && !defined(GIS_EXPORTS) && !defined(SDB_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "gis_d.lib")
 #else

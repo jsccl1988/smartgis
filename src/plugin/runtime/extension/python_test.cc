@@ -1,0 +1,275 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#include "content/public/event_bus.h"
+#include "content/public/plugin_host.h"
+#include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/extension/bind.h"
+#include "plugin/runtime/extension/runtime.h"
+#include "plugin/runtime/host/catalog/registry.h"
+#include "tool/command/command.h"
+#include "ui/views/dialogs/file_picker.h"
+#include "ui/views/dialogs/message_box.h"
+
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <string>
+
+namespace {
+
+int g_fails = 0;
+
+void expect(bool ok, const char* msg) {
+  if (!ok) {
+    std::fprintf(stderr, "FAIL: %s\n", msg);
+    ++g_fails;
+  }
+}
+
+#ifndef PLUGIN_HELLO_DIR
+#define PLUGIN_HELLO_DIR ""
+#endif
+
+#ifndef PLUGIN_ANALYSIS_DIR
+#define PLUGIN_ANALYSIS_DIR ""
+#endif
+
+bool write_text(const std::filesystem::path& path, const char* body) {
+  std::ofstream out(path, std::ios::binary);
+  if (!out) {
+    return false;
+  }
+  out << body;
+  return static_cast<bool>(out);
+}
+
+}  // namespace
+
+int main() {
+  plugin::PythonRuntime py;
+  if (!py.init()) {
+    std::puts("plugin_python_test: skip (no python)");
+    return 0;
+  }
+
+  namespace fs = std::filesystem;
+  const fs::path tmp = fs::temp_directory_path() / "smartgis_plugin_python";
+  std::error_code ec;
+  fs::remove_all(tmp, ec);
+  fs::create_directories(tmp / "ok");
+  fs::create_directories(tmp / "boom");
+
+  expect(write_text(tmp / "ok" / "plugin.py",
+                    "def start(host):\n"
+                    "    def _run(args):\n"
+                    "        return True\n"
+                    "    def _dlg():\n"
+                    "        return None\n"
+                    "    def _proc(args_json):\n"
+                    "        return args_json == '{}'\n"
+                    "    host.contribute_command('smartgis.sample_hello',"
+                    " 'sample.hello', 'Hello', 'tools', _run)\n"
+                    "    host.contribute_dialog('smartgis.sample_hello',"
+                    " 'sample.dlg', 'Dlg', _dlg)\n"
+                    "    host.contribute_dock('smartgis.sample_hello',"
+                    " 'sample.dock', 'Dock', 'right', _dlg)\n"
+                    "    host.contribute_processing('smartgis.sample_hello',"
+                    " 'sample.proc', 'Proc', _proc)\n"
+                    "def stop():\n"
+                    "    pass\n"),
+         "write ok plugin");
+  expect(write_text(tmp / "boom" / "plugin.py",
+                    "def start(host):\n"
+                    "    raise RuntimeError('boom')\n"),
+         "write boom plugin");
+
+  content::EventBus bus;
+  tool::CommandCatalog catalog;
+  content::PluginHost* host =
+      content::create_plugin_host(&catalog, &bus, nullptr);
+  expect(py.start((tmp / "ok").string(), "plugin.py", host), "start ok");
+  expect(host->execute("sample.hello", {}), "sample.hello");
+  {
+    tool::CommandArgs ping;
+    ping.payload = "ping";
+    expect(host->execute("sample.hello", ping), "sample.hello payload");
+  }
+  expect(host->open_dialog("sample.dlg"), "open sample.dlg");
+  expect(host->run_processing("sample.proc", "{}"), "run sample.proc");
+
+  plugin::HostCapabilities caps;
+  caps.attach(host);
+  {
+    const std::string out = py.eval(
+        "import smartgis\n"
+        "h = smartgis.content.host\n"
+        "print(h.execute('sample.hello', 'from-eval'))\n"
+        "print(len(h.list_contributions('command')) >= 1)\n"
+        "print(h.playback_push('{\"i\":0}'))\n"
+        "print(h.playback_count())\n"
+        "print(h.has_capability('plugin.report'))\n"
+        "print(h.has_capability('plugin.scene3d'))\n"
+        "print(h.map2d_open_map())\n"
+        "print(h.scene3d_open_earth())\n"
+        "h.set_present_surface(1)\n"
+        "print(h.present_surface())");
+    expect(out.find("True") != std::string::npos, "host L2 via eval");
+    expect(out.find("1") != std::string::npos, "playback/surface counts");
+  }
+  caps.detach(host);
+
+  {
+    const std::string out = py.eval(
+        "import smartgis\n"
+        "print(smartgis.content.host.open_dialog('sample.dlg'))\n"
+        "print(smartgis.content.host.run_processing('sample.proc', '{}'))");
+    expect(out.find("True") != std::string::npos, "host open/run via eval");
+  }
+
+  ui::views::set_file_picker_modals_suppressed_for_test(true);
+  ui::views::set_message_box_suppressed_for_test(true);
+  {
+    const std::string out = py.eval(
+        "import smartgis\n"
+        "r = smartgis.ui.pick_open_file('*.txt')\n"
+        "smartgis.ui.show_message_box('info', 'x')\n"
+        "print(repr(r))");
+    expect(out.find("False") != std::string::npos, "pick_open suppressed");
+  }
+  ui::views::set_file_picker_modals_suppressed_for_test(false);
+  ui::views::set_message_box_suppressed_for_test(false);
+
+  {
+    const std::string out = py.eval("1 + 1");
+    expect(out.find("2") != std::string::npos, "eval 1+1");
+  }
+  {
+    const std::string out = py.eval("import smartgis.gis.analysis as a; len(a.ops())");
+    expect(!out.empty() && out.find("error") == std::string::npos,
+           "import smartgis.gis.analysis");
+  }
+  {
+    const std::string out = py.eval(
+        "import smartgis\n"
+        "smartgis.debug.set_tracing(True)\n"
+        "print(smartgis.debug.tracing_enabled())\n"
+        "cm = smartgis.debug.trace_event('py_test', 'plugin')\n"
+        "cm.__enter__()\n"
+        "cm.__exit__(None, None, None)\n"
+        "print(smartgis.debug.show_tab('trace'))\n"
+        "print(smartgis.ui.show_inspect('measure'))\n"
+        "print(smartgis.ui.AtmospherePanel() is not None)\n"
+        "smartgis.debug.set_tracing(False)\n"
+        "print(smartgis.debug.tracing_enabled())");
+    expect(out.find("True") != std::string::npos, "debug tracing on");
+    expect(out.find("False") != std::string::npos, "debug tracing off");
+  }
+  {
+    const std::string out = py.eval(
+        "import smartgis\n"
+        "print(smartgis.content.host.activate('edit.append.linestring'))");
+    expect(out.find("False") != std::string::npos ||
+               out.find("True") != std::string::npos,
+           "host.activate no crash");
+  }
+
+  host->withdraw("smartgis.sample_hello");
+  py.stop();
+
+  expect(write_text(tmp / "ok" / "plugin_a.py",
+                    "def start(host):\n"
+                    "    host.contribute_command('p.a', 'sample.a', 'A', 'tools',"
+                    " lambda args: True)\n"
+                    "def stop():\n"
+                    "    pass\n"),
+         "write plugin a");
+  fs::create_directories(tmp / "b");
+  expect(write_text(tmp / "b" / "plugin.py",
+                    "def start(host):\n"
+                    "    host.contribute_command('p.b', 'sample.b', 'B', 'tools',"
+                    " lambda args: True)\n"
+                    "def stop():\n"
+                    "    pass\n"),
+         "write plugin b");
+  expect(py.start((tmp / "ok").string(), "plugin_a.py", host), "start a");
+  expect(py.start((tmp / "b").string(), "plugin.py", host), "start b");
+  expect(host->execute("sample.a", {}), "sample.a with b loaded");
+  expect(host->execute("sample.b", {}), "sample.b with a loaded");
+  host->withdraw("p.a");
+  py.stop((tmp / "ok").string());
+  expect(host->execute("sample.b", {}), "sample.b after stop a");
+
+  expect(!py.start((tmp / "boom").string(), "plugin.py", host),
+         "start raises");
+
+  plugin::Registry reg;
+  plugin::bind_registry_python_ext(&reg, &py);
+  plugin::Manifest m;
+  m.id = "user.pyboom";
+  m.name = "B";
+  m.version = "1.0.0";
+  m.api_version = 2;
+  m.kind = plugin::PluginKind::kPython;
+  m.entry = "plugin.py";
+  expect(reg.add_manifest(m, plugin::TrustClass::kUnsignedTrusted), "add py");
+  if (plugin::PluginRecord* rec =
+          const_cast<plugin::PluginRecord*>(reg.find("user.pyboom"))) {
+    rec->directory = (tmp / "boom").string();
+  }
+  expect(!reg.set_enabled("user.pyboom", true, host), "registry start fail");
+  expect(reg.find("user.pyboom")->state == plugin::PluginState::kError,
+         "kError after raise");
+
+  const char* hello_dir = PLUGIN_HELLO_DIR;
+  if (hello_dir && hello_dir[0]) {
+    const fs::path hello(hello_dir);
+    if (fs::exists(hello / "plugin.py")) {
+      content::PluginHost* hello_host =
+          content::create_plugin_host(&catalog, &bus, nullptr);
+      expect(py.start(hello.string(), "plugin.py", hello_host),
+             "hello sample start");
+      expect(hello_host->execute("sample.hello", {}), "hello sample.hello");
+      py.stop();
+      delete hello_host;
+    } else {
+      std::fprintf(stderr, "hello sample missing at %s\n", hello_dir);
+      ++g_fails;
+    }
+  }
+
+  const char* analysis_dir = PLUGIN_ANALYSIS_DIR;
+  if (analysis_dir && analysis_dir[0]) {
+    const fs::path analysis(analysis_dir);
+    if (fs::exists(analysis / "plugin.py")) {
+      content::PluginHost* analysis_host =
+          content::create_plugin_host(&catalog, &bus, nullptr);
+      expect(py.start(analysis.string(), "plugin.py", analysis_host),
+             "analysis sample start");
+      expect(analysis_host->run_processing("sample.flood_fill", "{}"),
+             "analysis sample.flood_fill");
+      expect(analysis_host->run_processing("sample.cost_path", "{}"),
+             "analysis sample.cost_path");
+      ui::views::set_message_box_suppressed_for_test(true);
+      expect(analysis_host->execute("sample.analysis.open", {}),
+             "analysis sample.analysis.open");
+      ui::views::set_message_box_suppressed_for_test(false);
+      py.stop();
+      delete analysis_host;
+    } else {
+      std::fprintf(stderr, "analysis sample missing at %s\n", analysis_dir);
+      ++g_fails;
+    }
+  }
+
+  delete host;
+  py.shutdown();
+  fs::remove_all(tmp, ec);
+
+  if (g_fails) {
+    std::fprintf(stderr, "plugin_python_test: %d fail(s)\n", g_fails);
+    return 1;
+  }
+  std::puts("plugin_python_test: ok");
+  return 0;
+}

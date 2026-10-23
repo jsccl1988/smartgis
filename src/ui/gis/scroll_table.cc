@@ -26,6 +26,7 @@ ScrollView* wrap_markup_table_in_scroll(TableView* table,
     return nullptr;
   }
   auto* yoga = dynamic_cast<YogaLayoutManager*>(parent->layout_manager());
+  const Size table_pref = table->preferred_size();
   std::unique_ptr<View> owned = parent->remove_child(table);
   auto scroll = std::make_unique<ScrollView>();
   ScrollView* scroll_ptr = scroll.get();
@@ -38,6 +39,15 @@ ScrollView* wrap_markup_table_in_scroll(TableView* table,
       grow.min_height = min_height_dip;
     }
     yoga->set_child_style(scroll_ptr, grow);
+  } else {
+    // BoxLayout / FillLayout: keep the table's width and a usable viewport.
+    // Without this the scroll inherits ScrollView's 160x120 default while the
+    // table's preferred size is orphaned after reparent.
+    const int height = min_height_dip > 0.f
+                           ? static_cast<int>(min_height_dip)
+                           : (table_pref.height > 0 ? table_pref.height : 96);
+    const int width = table_pref.width > 0 ? table_pref.width : 264;
+    scroll_ptr->set_preferred_size({width, height});
   }
   parent->add_child(std::move(scroll));
   return scroll_ptr;

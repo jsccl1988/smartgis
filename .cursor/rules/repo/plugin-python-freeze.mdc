@@ -1,0 +1,40 @@
+---
+description: HARD RULE — src/plugin/runtime/python is frozen (historical debt); redesign elsewhere
+globs: src/plugin/runtime/python/**
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# `src/plugin/runtime/python` is frozen
+
+**This rule is always on.** The tree **`src/plugin/runtime/python/`** (bindings, `smartgis` surface, `kernel/` / `surface/` / `gis/` / `script/` / `assemble.*`, samples under that path) is **historical debt**. Agents must **not** grow, rewrite, or “thin” it while the glang **extension** contribution surface is redesigned.
+
+## Default
+
+- Implement new Python / glang script capability in **product seams** owned by the living redesign:
+  - glang core (`glang.plugin`) + extension (`glang.ext.<id>`) under **`src/content/browser/glang.runtime/`** (`ext_module.*`);
+  - mount wire under **`src/plugin/runtime/extension/`**; new samples under **`src/plugin/runtime/samples/`**;
+  - plugin package contribution / catalog under **`src/plugin/runtime/host/`** (and product packs), **not** by adding more `PyMethodDef` / parallel modules under `python/`.
+- Treat existing `python/samples/` as **read-only references** until an explicit unlock migrates or deletes them.
+
+## Unlock (only)
+
+Edit or delete files under **`src/plugin/runtime/python/`** only when the user’s **current** message explicitly unlocks that tree (names the path or says the freeze is lifted for this turn). Do **not** infer unlock from an open plan, an earlier turn, or “samples need a small fix.”
+
+## Don’t
+
+- **Don’t** add new `PyMethodDef` tables, `smartgis` methods, or surface/gis helpers under this tree.
+- **Don’t** relocate the debt into another `src/plugin/runtime/python_*` twin; new surface lives on the glang / host seams above.
+- **Don’t** treat “compile fix in python/” as automatic unlock — prefer stubs / deps outside the freeze, or stop and ask.
+
+## Relation
+
+**`.cursor/rules/repo/superpowers-docs.mdc`** — revise living **Plugin host** umbrella (`docs/superpowers/specs/2026-09-13-plugin-host-design.md`) + plan [`docs/superpowers/plans/2026-10-18-glang-cpython-plugin.md`](docs/superpowers/plans/2026-10-18-glang-cpython-plugin.md); diagram [`docs/superpowers/diagrams/plugin-python-runtime.html`](docs/superpowers/diagrams/plugin-python-runtime.html).
+
+**`.cursor/rules/repo/content-public-stable.mdc`** — `content/public` still needs an explicit ask.
+
+**`.cursor/rules/repo/legacy-freeze.mdc`** — leftover ABI pattern; this rule is the same class of gate for the Python runtime debt.

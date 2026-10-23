@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 
 #include "vista/pass/world/atmosphere/cloud/constants.h"
 #include "vista/pass/world/atmosphere/cloud/hlsl.h"
@@ -22,9 +23,8 @@ constexpr uint32_t kCloudConstantSlot = 1;
 // Matches kPsCloud powder / silver constants.
 constexpr float kPowderScale = 8.0f;
 constexpr float kSilverBoost = 1.5f;
-// Coarse world snap for quality <= 1 (half-res proxy; no offscreen RT).
-// Orbit-normalized China frame spans ~±2. A 64-unit snap collapsed every
-// sample to the origin and made the deck look empty at quality ≤ 1.
+// Coarse world snap for quality == 0 only (half-res proxy; no offscreen RT).
+// Orbit-normalized China frame spans ~±2. Design B: quality ≥ 1 is full detail.
 constexpr float kHalfResDensityCell = 0.22f;
 
 float snap_axis(float v, float cell) {
@@ -46,6 +46,16 @@ render::rhi::GraphicsPipelineDesc cloud_graphics_desc() {
        .stage = render::rhi::ShaderStage::kPixel,
        .size_bytes = sizeof(CloudConstants),
        .hlsl_name = "CloudCB"},
+      {.slot = 0,
+       .kind = render::rhi::BindingKind::kSrv,
+       .stage = render::rhi::ShaderStage::kPixel,
+       .size_bytes = 0,
+       .hlsl_name = "cover_map"},
+      {.slot = 0,
+       .kind = render::rhi::BindingKind::kSampler,
+       .stage = render::rhi::ShaderStage::kPixel,
+       .size_bytes = 0,
+       .hlsl_name = "linear_sampler"},
   };
   render::rhi::GraphicsPipelineDesc desc;
   desc.vertex.hlsl = kVsCloud;
@@ -208,17 +218,44 @@ void CloudPass::set_cover_modulation(float cover) {
   cover_ = detail::clampf(cover, 0.0f, 1.0f);
 }
 
+void CloudPass::set_cover_cpu(int cols, int rows, const float* values,
+                              std::size_t value_count) {
+  if (!values || cols < 1 || rows < 1) {
+    if (cover_cols_ != 0 || cover_rows_ != 0 || !cover_cpu_.empty()) {
+      cover_cols_ = 0;
+      cover_rows_ = 0;
+      cover_cpu_.clear();
+      cover_dirty_ = true;
+    }
+    return;
+  }
+  const std::size_t need =
+      static_cast<std::size_t>(cols) * static_cast<std::size_t>(rows);
+  if (value_count != need) {
+    return;
+  }
+  if (cover_cols_ == cols && cover_rows_ == rows && cover_cpu_.size() == need &&
+      std::memcmp(cover_cpu_.data(), values, need * sizeof(float)) == 0) {
+    return;
+  }
+  cover_cols_ = cols;
+  cover_rows_ = rows;
+  cover_cpu_.assign(values, values + value_count);
+  cover_dirty_ = true;
+}
+
 void CloudPass::set_extinction(float sigma) {
   extinction_ = std::max(0.0f, sigma);
 }
 
 int CloudPass::step_count_for_quality(int quality) {
+  // Design B: 16 / 32 / 64 / 128.
   const int q = std::max(0, std::min(3, quality));
-  return 8 << q;
+  return 16 << q;
 }
 
 bool CloudPass::uses_half_res_proxy(int quality) {
-  return quality <= 1;
+  return quality <= 0;
 }
 
 float CloudPass::density_cell_for_quality(int quality) {
@@ -414,8 +451,27 @@ bool CloudPass::record(render::rhi::Device* device, render::rhi::CommandList* li
   cloud.extinction = extinction_ * 28.0f;
   cloud.steps = static_cast<float>(step_count_for_quality(quality));
   cloud.density_cell = density_cell_for_quality(quality);
+  cloud.deck_hx = deck_half_x_;
+  cloud.deck_hz = deck_half_z_;
+  cloud.has_cover_tex = 0.0f;
+  cloud.pad0 = 0.0f;
   if (camera) {
     detail::eye_from_view(camera->view, &cloud.cam_x, &cloud.cam_y, &cloud.cam_z);
+  }
+
+  render::rhi::Texture* cover_srv = nullptr;
+  if (!cover_cpu_.empty() && cover_cols_ > 0 && cover_rows_ > 0) {
+    if (cover_dirty_ || cover_field_.empty() ||
+        cover_field_.cols() != cover_cols_ ||
+        cover_field_.rows() != cover_rows_) {
+      if (!cover_field_.upload(device, cover_cols_, cover_rows_,
+                               cover_cpu_.data(), cover_cpu_.size())) {
+        return false;
+      }
+      cover_dirty_ = false;
+    }
+    cover_srv = cover_field_.texture();
+    cloud.has_cover_tex = cover_srv ? 1.0f : 0.0f;
   }
 
   detail::set_fullscreen_viewport(list, width, height);
@@ -428,15 +484,20 @@ bool CloudPass::record(render::rhi::Device* device, render::rhi::CommandList* li
                               render::rhi::DepthMode::kTestOnly});
   list->set_constants(kCloudConstantSlot, &cloud,
                       static_cast<uint32_t>(sizeof(cloud)));
+  if (cover_srv) {
+    list->bind_texture(cover_srv, 0);
+  }
   detail::draw_indexed_mesh(list, vertex_, index_, 3 * sizeof(float), 6);
   list->end_render_pass();
   return true;
 }
 
 void CloudPass::release() {
-  // Same FlyCube shutdown policy as OceanPass::release ? do not destroy_* on a
+  // Same FlyCube shutdown policy as OceanPass::release — do not destroy_* on a
   // facade that may already have been shut down / leaked.
   detail::release_static_mesh(&device_, &vertex_, &index_, nullptr);
+  cover_field_.release();
+  cover_dirty_ = true;
   pipeline_ = nullptr;
   pipeline_device_ = nullptr;
   deck_dirty_ = true;

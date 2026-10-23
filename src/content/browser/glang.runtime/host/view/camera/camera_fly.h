@@ -4,7 +4,7 @@
 #ifndef IL_RUNTIME_BACKEND_VIEW_CAMERA_CAMERA_FLY_H_
 #define IL_RUNTIME_BACKEND_VIEW_CAMERA_CAMERA_FLY_H_
 
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include <string>
 
@@ -17,7 +17,7 @@ namespace detail {
 //   mode "orbit"     — yaw arc around the framed world component
 //   mode "spherical" — far→near approach with yaw/pitch (globe / skim feel)
 // |ms| total wall time; |steps| keyframes (pumps between).
-bool camera_fly(content::ShellBridge& browser, const std::string& mode, int ms, int steps);
+bool camera_fly(content::Shell& browser, const std::string& mode, int ms, int steps);
 
 }  // namespace detail
 }  // namespace content

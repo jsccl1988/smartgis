@@ -5,7 +5,7 @@
 #define IL_RUNTIME_CAPABILITY_PLUGIN_BIND_H_
 
 #include "content/browser/capability/host.h"
-#include "content/browser/glang.runtime/host/bind/shell_bridge.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
 
 namespace content {
 
@@ -13,7 +13,7 @@ namespace content {
 namespace detail {
 
 // Processing, scenario bodies, ResultPlayback, and the report dock.
-void bind_plugin(content::ShellBridge& browser, content::CapabilityHost* out);
+void bind_plugin(content::Shell& browser, content::CapabilityHost* out);
 
 }  // namespace detail
 }  // namespace content

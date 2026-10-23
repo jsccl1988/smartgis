@@ -10,7 +10,7 @@
 #include "content/browser/glang.runtime/host/utils/exe_path.h"
 #include "content/browser/glang.runtime/host/view/host/capture_host.h"
 #include "content/browser/glang.runtime/host/view/pixel/gate.h"
-#include "content/browser/glang.runtime/exec/session/session.h"
+#include "content/browser/glang.runtime/exec/py/session.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/harness.h"
 #include "plugin/runtime/host/capability/shell.h"
@@ -20,117 +20,55 @@
 namespace app {
 namespace {
 
-class DrawHostPane final : public content::Pane {
- public:
-  explicit DrawHostPane(ui::views::DrawHost* host = nullptr) : host_(host) {}
+void fill_pane(ui::views::DrawHost* host, content::Pane* out) {
+  if (!out) {
+    return;
+  }
+  *out = content::Pane{};
+  if (!host) {
+    return;
+  }
+  out->role = [host] {
+    return static_cast<content::Pane::Role>(host->role());
+  };
+  out->attach_mode = [host] {
+    return static_cast<content::Pane::AttachMode>(host->attach_mode());
+  };
+  out->is_visible = [host] { return host->is_visible(); };
+  out->native_view = [host] { return host->native_view(); };
+  out->sync_native_bounds = [host] { host->sync_native_bounds(); };
+  out->invalidate_native = [host] { host->invalidate_native(); };
+  out->set_gpu_present_visible = [host](bool show) {
+    host->set_gpu_present_visible(show);
+  };
+  out->resume_present_timer = [host] { host->resume_present_timer(); };
+  out->pause_present = [host] { host->pause_present(); };
+  out->present_hwnd = [host] { return host->present_hwnd(); };
+  out->input_hwnd = [host] { return host->input_hwnd(); };
+  out->identity_hud_hwnd = [host] { return host->identity_hud_hwnd(); };
+  out->request_frame = [host] { host->request_frame(); };
+  out->attach = [host] { return host->attach(); };
+  out->detach = [host] { host->detach(); };
+  out->realize_native = [host] { host->realize_native(); };
+  out->sync_identity_frame = [host] { host->sync_identity_frame(); };
+  out->rhi_device = [host] { return host->rhi_device(); };
+  out->wait_ready = [host](std::uint32_t timeout_ms) {
+    return host->wait_ready(timeout_ms);
+  };
+  out->last_gpu_present_ok = [host] { return host->last_gpu_present_ok(); };
+  out->frame_presented = [host] { return host->frame_presented(); };
+  out->view_id = [host] { return host->view_id(); };
+  out->gis_contents = [host] { return host->gis_contents(); };
+  out->hud_fps = [host] { return host->hud_fps(); };
+  out->bounds = [host] { return host->bounds(); };
+  out->as_view = [host]() -> ui::views::View* { return host; };
+}
 
-  void reset(ui::views::DrawHost* host) { host_ = host; }
-  ui::views::DrawHost* raw() const { return host_; }
-
-  Role role() const override {
-    if (!host_) {
-      return Role::kMapEdit;
-    }
-    return static_cast<Role>(host_->role());
-  }
-  AttachMode attach_mode() const override {
-    if (!host_) {
-      return AttachMode::kNone;
-    }
-    return static_cast<AttachMode>(host_->attach_mode());
-  }
-  bool is_visible() const override { return host_ && host_->is_visible(); }
-  HWND native_view() const override {
-    return host_ ? host_->native_view() : nullptr;
-  }
-  void sync_native_bounds() override {
-    if (host_) {
-      host_->sync_native_bounds();
-    }
-  }
-  void invalidate_native() override {
-    if (host_) {
-      host_->invalidate_native();
-    }
-  }
-  void set_gpu_present_visible(bool show) override {
-    if (host_) {
-      host_->set_gpu_present_visible(show);
-    }
-  }
-  void resume_present_timer() override {
-    if (host_) {
-      host_->resume_present_timer();
-    }
-  }
-  void pause_present() override {
-    if (host_) {
-      host_->pause_present();
-    }
-  }
-  HWND present_hwnd() const override {
-    return host_ ? host_->present_hwnd() : nullptr;
-  }
-  HWND input_hwnd() const override {
-    return host_ ? host_->input_hwnd() : nullptr;
-  }
-  HWND identity_hud_hwnd() const override {
-    return host_ ? host_->identity_hud_hwnd() : nullptr;
-  }
-  void request_frame() override {
-    if (host_) {
-      host_->request_frame();
-    }
-  }
-  bool attach() override { return host_ && host_->attach(); }
-  void detach() override {
-    if (host_) {
-      host_->detach();
-    }
-  }
-  void realize_native() override {
-    if (host_) {
-      host_->realize_native();
-    }
-  }
-  void sync_identity_frame() override {
-    if (host_) {
-      host_->sync_identity_frame();
-    }
-  }
-  void* rhi_device() const override {
-    return host_ ? host_->rhi_device() : nullptr;
-  }
-  bool wait_ready(std::uint32_t timeout_ms) override {
-    return host_ && host_->wait_ready(timeout_ms);
-  }
-  bool last_gpu_present_ok() const override {
-    return host_ && host_->last_gpu_present_ok();
-  }
-  std::uint32_t frame_presented() const override {
-    return host_ ? host_->frame_presented() : 0;
-  }
-  std::uint32_t view_id() const override {
-    return host_ ? host_->view_id() : 0;
-  }
-  content::GisContents* gis_contents() const override {
-    return host_ ? host_->gis_contents() : nullptr;
-  }
-  float hud_fps() const override { return host_ ? host_->hud_fps() : 0.f; }
-  ui::views::Rect bounds() const override {
-    return host_ ? host_->bounds() : ui::views::Rect{};
-  }
-  ui::views::View* as_view() override { return host_; }
-
- private:
-  ui::views::DrawHost* host_ = nullptr;
-};
-
-class BrowserShellBridge;
+class BrowserShell;
 
 class BrowserHarnessShell final : public plugin::HarnessShell {
  public:
-  BrowserHarnessShell(Browser& browser, BrowserShellBridge& bridge)
+  BrowserHarnessShell(Browser& browser, BrowserShell& bridge)
       : browser_(browser), bridge_(bridge) {}
 
   HWND hwnd() const override { return browser_.hwnd(); }
@@ -238,195 +176,216 @@ class BrowserHarnessShell final : public plugin::HarnessShell {
 
  private:
   Browser& browser_;
-  BrowserShellBridge& bridge_;
+  BrowserShell& bridge_;
 };
 
-class BrowserShellBridge final : public content::ShellBridge {
+// Owns Pane Op bags and fills a content::Shell (no virtual Shell).
+class BrowserShell {
  public:
-  explicit BrowserShellBridge(Browser& browser) : browser_(browser) {}
+  explicit BrowserShell(Browser& browser) : browser_(browser) {
+    bind_shell();
+  }
 
-  content::GisScene* document() override { return browser_.document(); }
-  content::Map2dPresenter* map2d() override { return browser_.map2d(); }
-  content::Scene3dPresenter* scene3d() override { return browser_.scene3d(); }
-  content::ViewFrame* view_frame() override { return browser_.view_frame(); }
-  content::OrbitFrame* orbit_frame() override { return browser_.orbit_frame(); }
-  content::BrowserSession& session() override { return browser_.session(); }
-  HWND hwnd() const override { return browser_.hwnd(); }
-  content::Pane* draw_host() override { return bind(map_, browser_.draw_host()); }
-  content::Pane* data_draw_host() override {
-    return bind(data_, browser_.data_draw_host());
-  }
-  content::Pane* scene_draw_host() override {
-    return bind(scene_, browser_.scene_draw_host());
-  }
-  content::ToolSession* edit_tool_session() override {
-    return browser_.edit_tool_session();
-  }
-  content::ToolSession* data_tool_session() override {
-    return browser_.data_tool_session();
-  }
-  content::ToolSession* scene_tool_session() override {
-    return browser_.scene_tool_session();
-  }
-  bool run_tool_command(std::string_view command_id) override {
-    return browser_.run_tool_command(command_id);
-  }
-  void select_view_tab(int index) override { browser_.select_view_tab(index); }
-  void on_view_command(std::string_view command_id, int bookmark_index,
-                       bool from_context, int view_x, int view_y) override {
-    browser_.on_view_command(command_id, bookmark_index, from_context, view_x,
-                             view_y);
-  }
-  void fit_map_extent() override { browser_.fit_map_extent(); }
-  void pump(std::uint32_t ms) override { content::detail::pump_messages(ms); }
-  ui::views::View* contents_view() const override {
-    return browser_.contents_view();
-  }
-  ui::views::CatalogView* catalog_view() override {
-    return browser_.catalog_view();
-  }
-  ui::views::StatusBar* status_bar() override { return browser_.status_bar(); }
-  content::GisContents* gis_contents() override {
-    return browser_.map_session();
-  }
-  content::BlitFrameCache* blit() override { return browser_.blit(); }
-  bool has_ui() const override { return browser_.ui() != nullptr; }
-  void invalidate_native_map() override {
-    if (browser_.ui()) {
-      browser_.ui()->invalidate_native_map();
-    }
-  }
-  void invalidate_map_overlays() override {
-    if (browser_.ui()) {
-      browser_.ui()->invalidate_map_overlays();
-    }
-  }
-  void schedule_overlay_full_redraw() override {
-    if (browser_.ui()) {
-      browser_.ui()->schedule_overlay_full_redraw();
-    }
-  }
-  void for_each_draw_host(const std::function<void(content::Pane*)>& fn) override {
-    if (!browser_.ui() || !fn) {
-      return;
-    }
-    browser_.ui()->for_each_draw_host([&](ui::views::DrawHost* raw) {
-      DrawHostPane pane(raw);
-      fn(raw ? &pane : nullptr);
-    });
-  }
-  content::ToolSession* active_tool_session() override {
-    return browser_.ui() ? browser_.ui()->active_tool_session() : nullptr;
-  }
-  content::Pane* active_map() override {
-    return browser_.ui() ? bind(active_, browser_.ui()->active_map()) : nullptr;
-  }
-  void activate_inspector_tab(int index) override {
-    if (browser_.ui()) {
-      browser_.ui()->activate_inspector_tab(index);
-    }
-  }
-  ui::views::TabStrip* inspector_tabs() override {
-    return browser_.ui() ? browser_.ui()->inspector_tabs() : nullptr;
-  }
-  bool note_product_map2d_surface_after_show() override {
-    return app::note_product_map2d_surface_after_show(browser_);
-  }
-  void ensure_china_maplibre_carto() override {
-    app::ensure_china_maplibre_carto(browser_);
-  }
-  void frame_china_map2d(int view_w, int view_h) override {
-    app::frame_china_map2d(browser_, view_w, view_h);
-  }
-  void apply_china_scene3d_product_defaults() override {
-    app::apply_china_scene3d_product_defaults(browser_);
-  }
-  void apply_china_scene3d_orbit() override {
-    app::apply_china_scene3d_orbit(browser_);
-  }
-  bool has_plugins() const override { return browser_.plugins() != nullptr; }
-  void ensure_plugins() override {
-    if (PluginShell* plugins = browser_.plugins()) {
-      (void)plugins->ensure_discovered();
-      (void)plugins->ensure_builtins();
-    }
-  }
-  std::string eval_python(const std::string& code) override {
-    PluginShell* plugins = browser_.plugins();
-    return plugins ? plugins->eval_python(code) : "error: no plugin shell";
-  }
-  content::PluginHost* plugin_host() override {
-    PluginShell* plugins = browser_.plugins();
-    return plugins ? plugins->host() : nullptr;
-  }
-  bool ensure_command(const char* command_id) override {
-    PluginShell* plugins = browser_.plugins();
-    return plugins && command_id && plugins->ensure_command(command_id);
-  }
-  bool run_processing(const std::string& id, const std::string& args) override {
-    PluginShell* plugins = browser_.plugins();
-    return plugins && plugins->run_processing(id, args);
-  }
-  bool apply_plugin_frame(int index) override {
-    return browser_.apply_plugin_frame(index);
-  }
-  int export_plugin_frames(const std::string& dir_leaf) override {
-    return browser_.export_plugin_frames(dir_leaf);
-  }
-  int with_harness_shell(int (*fn)(plugin::HarnessShell&)) override {
-    content::PluginHost* host = plugin_host();
-    if (!host || !fn) {
-      return 1;
-    }
-    BrowserHarnessShell adapter(browser_, *this);
-    (void)host->set_capability(plugin::kCapabilityHarness,
-                               static_cast<void*>(&adapter));
-    const int rc = fn(adapter);
-    (void)host->set_capability(plugin::kCapabilityHarness, nullptr);
-    return rc;
-  }
+  content::Shell& shell() { return shell_; }
+  operator content::Shell&() { return shell_; }
+
   int dispatch_plugin_command(const char* command_id,
-                              std::string_view payload) override {
-    content::PluginHost* host = plugin_host();
-    if (!host || !command_id || !command_id[0]) {
-      return 1;
-    }
-    BrowserHarnessShell adapter(browser_, *this);
-    (void)host->set_capability(plugin::kCapabilityHarness,
-                               static_cast<void*>(&adapter));
-    if (PluginShell* plugins = browser_.plugins()) {
-      (void)plugins->ensure_command(command_id);
-    }
-    tool::CommandArgs args;
-    args.payload = std::string(payload);
-    const bool ok = host->execute(command_id, args);
-    const std::string_view id(command_id);
-    int rc = ok ? 0 : 1;
-    if (id.find(".scenario") != std::string_view::npos) {
-      const int harness_rc = plugin::harness_exit();
-      if (ok) {
-        if (harness_rc == 0 || harness_rc > 1) {
-          rc = harness_rc;
-        }
-      } else if (harness_rc != 0) {
-        rc = harness_rc;
-      }
-    }
-    (void)host->set_capability(plugin::kCapabilityHarness, nullptr);
-    return rc;
+                              std::string_view payload) {
+    return shell_.dispatch_plugin_command
+               ? shell_.dispatch_plugin_command(command_id, payload)
+               : 1;
+  }
+
+  content::Pane* draw_host() { return shell_.draw_host ? shell_.draw_host() : nullptr; }
+  content::Pane* data_draw_host() {
+    return shell_.data_draw_host ? shell_.data_draw_host() : nullptr;
+  }
+  content::Pane* scene_draw_host() {
+    return shell_.scene_draw_host ? shell_.scene_draw_host() : nullptr;
   }
 
  private:
-  static content::Pane* bind(DrawHostPane& slot, ui::views::DrawHost* raw) {
-    slot.reset(raw);
+  content::Pane* bind_pane_slot(content::Pane& slot, ui::views::DrawHost* raw) {
+    fill_pane(raw, &slot);
     return raw ? &slot : nullptr;
   }
 
+  content::PluginHost* plugin_host_raw() {
+    PluginShell* plugins = browser_.plugins();
+    return plugins ? plugins->host() : nullptr;
+  }
+
+  void bind_shell() {
+    Browser* b = &browser_;
+    shell_.document = [b] { return b->document(); };
+    shell_.map2d = [b] { return b->map2d(); };
+    shell_.scene3d = [b] { return b->scene3d(); };
+    shell_.view_frame = [b] { return b->view_frame(); };
+    shell_.orbit_frame = [b] { return b->orbit_frame(); };
+    shell_.session = [b] { return &b->session(); };
+    shell_.hwnd = [b] { return b->hwnd(); };
+    shell_.draw_host = [this] {
+      return bind_pane_slot(map_, browser_.draw_host());
+    };
+    shell_.data_draw_host = [this] {
+      return bind_pane_slot(data_, browser_.data_draw_host());
+    };
+    shell_.scene_draw_host = [this] {
+      return bind_pane_slot(scene_, browser_.scene_draw_host());
+    };
+    shell_.edit_tool_session = [b] { return b->edit_tool_session(); };
+    shell_.data_tool_session = [b] { return b->data_tool_session(); };
+    shell_.scene_tool_session = [b] { return b->scene_tool_session(); };
+    shell_.run_tool_command = [b](std::string_view command_id) {
+      return b->run_tool_command(command_id);
+    };
+    shell_.select_view_tab = [b](int index) { b->select_view_tab(index); };
+    shell_.on_view_command = [b](std::string_view command_id, int bookmark_index,
+                                 bool from_context, int view_x, int view_y) {
+      b->on_view_command(command_id, bookmark_index, from_context, view_x,
+                         view_y);
+    };
+    shell_.fit_map_extent = [b] { b->fit_map_extent(); };
+    shell_.pump = [](std::uint32_t ms) { content::detail::pump_messages(ms); };
+    shell_.contents_view = [b] { return b->contents_view(); };
+    shell_.catalog_view = [b] { return b->catalog_view(); };
+    shell_.status_bar = [b] { return b->status_bar(); };
+    shell_.gis_contents = [b] { return b->map_session(); };
+    shell_.blit = [b] { return b->blit(); };
+    shell_.has_ui = [b] { return b->ui() != nullptr; };
+    shell_.invalidate_native_map = [b] {
+      if (b->ui()) {
+        b->ui()->invalidate_native_map();
+      }
+    };
+    shell_.invalidate_map_overlays = [b] {
+      if (b->ui()) {
+        b->ui()->invalidate_map_overlays();
+      }
+    };
+    shell_.schedule_overlay_full_redraw = [b] {
+      if (b->ui()) {
+        b->ui()->schedule_overlay_full_redraw();
+      }
+    };
+    shell_.for_each_draw_host =
+        [b](const std::function<void(content::Pane*)>& fn) {
+          if (!b->ui() || !fn) {
+            return;
+          }
+          b->ui()->for_each_draw_host([&](ui::views::DrawHost* raw) {
+            content::Pane pane;
+            fill_pane(raw, &pane);
+            fn(raw ? &pane : nullptr);
+          });
+        };
+    shell_.active_tool_session = [b] {
+      return b->ui() ? b->ui()->active_tool_session() : nullptr;
+    };
+    shell_.active_map = [this] {
+      return browser_.ui()
+                 ? bind_pane_slot(active_, browser_.ui()->active_map())
+                 : nullptr;
+    };
+    shell_.activate_inspector_tab = [b](int index) {
+      if (b->ui()) {
+        b->ui()->activate_inspector_tab(index);
+      }
+    };
+    shell_.inspector_tabs = [b] {
+      return b->ui() ? b->ui()->inspector_tabs() : nullptr;
+    };
+    shell_.note_product_map2d_surface_after_show = [b] {
+      return app::note_product_map2d_surface_after_show(*b);
+    };
+    shell_.ensure_china_maplibre_carto = [b] {
+      app::ensure_china_maplibre_carto(*b);
+    };
+    shell_.frame_china_map2d = [b](int view_w, int view_h) {
+      app::frame_china_map2d(*b, view_w, view_h);
+    };
+    shell_.apply_china_scene3d_product_defaults = [b] {
+      app::apply_china_scene3d_product_defaults(*b);
+    };
+    shell_.apply_china_scene3d_orbit = [b] {
+      app::apply_china_scene3d_orbit(*b);
+    };
+    shell_.has_plugins = [b] { return b->plugins() != nullptr; };
+    shell_.ensure_plugins = [b] {
+      if (PluginShell* plugins = b->plugins()) {
+        (void)plugins->ensure_discovered();
+        (void)plugins->ensure_builtins();
+      }
+    };
+    shell_.eval_python = [b](const std::string& code) {
+      PluginShell* plugins = b->plugins();
+      return plugins ? plugins->eval_python(code) : "error: no plugin shell";
+    };
+    shell_.plugin_host = [this] { return plugin_host_raw(); };
+    shell_.ensure_command = [b](const char* command_id) {
+      PluginShell* plugins = b->plugins();
+      return plugins && command_id && plugins->ensure_command(command_id);
+    };
+    shell_.run_processing = [b](const std::string& id, const std::string& args) {
+      PluginShell* plugins = b->plugins();
+      return plugins && plugins->run_processing(id, args);
+    };
+    shell_.apply_plugin_frame = [b](int index) {
+      return b->apply_plugin_frame(index);
+    };
+    shell_.export_plugin_frames = [b](const std::string& dir_leaf) {
+      return b->export_plugin_frames(dir_leaf);
+    };
+    shell_.with_harness_shell = [this](int (*fn)(plugin::HarnessShell&)) {
+      content::PluginHost* host = plugin_host_raw();
+      if (!host || !fn) {
+        return 1;
+      }
+      BrowserHarnessShell adapter(browser_, *this);
+      (void)host->set_capability(plugin::kCapabilityHarness,
+                                 static_cast<void*>(&adapter));
+      const int rc = fn(adapter);
+      (void)host->set_capability(plugin::kCapabilityHarness, nullptr);
+      return rc;
+    };
+    shell_.dispatch_plugin_command =
+        [this](const char* command_id, std::string_view payload) {
+          content::PluginHost* host = plugin_host_raw();
+          if (!host || !command_id || !command_id[0]) {
+            return 1;
+          }
+          BrowserHarnessShell adapter(browser_, *this);
+          (void)host->set_capability(plugin::kCapabilityHarness,
+                                     static_cast<void*>(&adapter));
+          if (PluginShell* plugins = browser_.plugins()) {
+            (void)plugins->ensure_command(command_id);
+          }
+          tool::CommandArgs args;
+          args.payload = std::string(payload);
+          const bool ok = host->execute(command_id, args);
+          const std::string_view id(command_id);
+          int rc = ok ? 0 : 1;
+          if (id.find(".scenario") != std::string_view::npos) {
+            const int harness_rc = plugin::harness_exit();
+            if (ok) {
+              if (harness_rc == 0 || harness_rc > 1) {
+                rc = harness_rc;
+              }
+            } else if (harness_rc != 0) {
+              rc = harness_rc;
+            }
+          }
+          (void)host->set_capability(plugin::kCapabilityHarness, nullptr);
+          return rc;
+        };
+  }
+
   Browser& browser_;
-  DrawHostPane map_;
-  DrawHostPane data_;
-  DrawHostPane scene_;
-  DrawHostPane active_;
+  content::Shell shell_;
+  content::Pane map_;
+  content::Pane data_;
+  content::Pane scene_;
+  content::Pane active_;
 };
 
 content::Pane* BrowserHarnessShell::map_pane() {
@@ -439,24 +398,22 @@ content::Pane* BrowserHarnessShell::scene_pane() {
   return bridge_.scene_draw_host();
 }
 void BrowserHarnessShell::detach_views() {
-  content::detail::detach_views(static_cast<content::ShellBridge&>(bridge_));
+  content::detail::detach_views(bridge_.shell());
 }
 void BrowserHarnessShell::finish_scene3d(bool borrowed_shell) {
-  content::detail::finish_scene3d(static_cast<content::ShellBridge&>(bridge_),
-                         borrowed_shell);
+  content::detail::finish_scene3d(bridge_.shell(), borrowed_shell);
 }
 void BrowserHarnessShell::stop_present_timers() {
-  content::detail::stop_present_timers(static_cast<content::ShellBridge&>(bridge_));
+  content::detail::stop_present_timers(bridge_.shell());
 }
 void BrowserHarnessShell::resume_present_timers() {
-  content::detail::resume_present_timers(static_cast<content::ShellBridge&>(bridge_));
+  content::detail::resume_present_timers(bridge_.shell());
 }
 
 template <typename Fn, typename... Args>
 auto call_bridge(Browser& browser, Fn fn, Args&&... args) {
-  BrowserShellBridge bridge(browser);
-  return fn(static_cast<content::ShellBridge&>(bridge),
-            std::forward<Args>(args)...);
+  BrowserShell bridge(browser);
+  return fn(bridge.shell(), std::forward<Args>(args)...);
 }
 
 }  // namespace
@@ -469,7 +426,7 @@ content::ScriptStatus run_script(Browser& browser, const content::ScriptCall& ca
   }
   return call_bridge(
       browser,
-      static_cast<content::ScriptStatus (*)(content::ShellBridge&,
+      static_cast<content::ScriptStatus (*)(content::Shell&,
                                             const content::ScriptCall&)>(
           &content::run_script),
       call);
@@ -478,25 +435,27 @@ content::ScriptStatus run_script(Browser& browser, const content::ScriptCall& ca
 int dispatch_plugin_command(Browser& browser,
                             const char* command_id,
                             std::string_view payload) {
-  BrowserShellBridge bridge(browser);
+  BrowserShell bridge(browser);
   return bridge.dispatch_plugin_command(command_id, payload);
 }
 
 namespace detail {
 
 void detach_views(Browser& browser) {
-  BrowserShellBridge bridge(browser);
-  content::detail::detach_views(static_cast<content::ShellBridge&>(bridge));
+  BrowserShell bridge(browser);
+  content::detail::detach_views(bridge.shell());
 }
 
 bool present_shell_scene3d_frame(ui::views::DrawHost* scene, DWORD wait_ms) {
-  DrawHostPane pane(scene);
+  content::Pane pane;
+  fill_pane(scene, &pane);
   return content::detail::present_shell_scene3d_frame(scene ? &pane : nullptr,
                                                       wait_ms);
 }
 
 HWND shell_scene3d_capture_hwnd(ui::views::DrawHost* scene) {
-  DrawHostPane pane(scene);
+  content::Pane pane;
+  fill_pane(scene, &pane);
   return content::detail::shell_scene3d_capture_hwnd(scene ? &pane : nullptr);
 }
 
