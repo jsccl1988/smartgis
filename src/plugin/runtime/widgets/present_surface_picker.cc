@@ -3,12 +3,12 @@
 
 #include "plugin/runtime/widgets/present_surface_picker.h"
 
-#include <memory>
 #include <utility>
 
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/widgets/debug_inspect_bar.h"
 #include "ui/views/kernel/layout/layout.h"
+#include "ui/views/kernel/view/view.h"
 #include "ui/views/primitives/input/combobox.h"
 #include "ui/views/primitives/text/label.h"
 
@@ -16,13 +16,15 @@ namespace plugin {
 
 PresentSurfacePicker::PresentSurfacePicker(content::PluginHost* host)
     : host_(host) {
-  auto box = std::make_unique<ui::views::BoxLayout>(
-      ui::views::BoxLayout::Orientation::kHorizontal);
-  box->set_inside_border(4, 4, 4, 4);
-  box->set_between_child_spacing(8);
-  auto label = std::make_unique<ui::views::Label>("Present:");
-  auto combo = std::make_unique<ui::views::Combobox>();
-  combo_ = combo.get();
+  ui::views::BoxLayout* box = ui::views::install_box_layout(
+      this, ui::views::BoxLayout::Orientation::kHorizontal);
+  if (box) {
+    box->set_inside_border(4, 4, 4, 4);
+    box->set_between_child_spacing(8);
+  }
+  auto* label = new ui::views::Label("Present:");
+  auto* combo = new ui::views::Combobox();
+  combo_ = combo;
   combo_->add_item("Main window");
   combo_->add_item("Map / World preview");
   const int surface = host_ ? host_->present_surface() : 0;
@@ -36,9 +38,8 @@ PresentSurfacePicker::PresentSurfacePicker(content::PluginHost* host)
       on_change_(surface);
     }
   });
-  set_layout_manager(std::move(box));
-  add_child(std::move(label));
-  add_child(std::move(combo));
+  ui::views::view_adopt_child(this, label);
+  ui::views::view_adopt_child(this, combo);
   set_preferred_size({480, 28});
 }
 
@@ -57,23 +58,24 @@ int PresentSurfacePicker::surface() const {
 std::unique_ptr<ui::views::View> wrap_with_present_surface(
     content::PluginHost* host,
     std::unique_ptr<ui::views::View> body) {
+  // Same-DLL (plugin_host) assembly: unique_ptr stays inside this module until
+  // the host adopts the returned root.
   auto root = std::make_unique<ui::views::View>();
-  auto box = std::make_unique<ui::views::BoxLayout>(
-      ui::views::BoxLayout::Orientation::kVertical);
-  auto picker = std::make_unique<PresentSurfacePicker>(host);
-  auto tools = std::make_unique<DebugInspectBar>(host);
+  ui::views::BoxLayout* box = ui::views::install_box_layout(
+      root.get(), ui::views::BoxLayout::Orientation::kVertical);
+  auto* picker = new PresentSurfacePicker(host);
+  auto* tools = new DebugInspectBar(host);
   ui::views::View* body_ptr = body.get();
-  if (body_ptr) {
+  if (box && body_ptr) {
     box->set_flex_for_view(body_ptr, 1);
   }
-  root->set_layout_manager(std::move(box));
-  root->add_child(std::move(picker));
-  root->add_child(std::move(tools));
+  ui::views::view_adopt_child(root.get(), picker);
+  ui::views::view_adopt_child(root.get(), tools);
   if (body) {
     const auto pref = body->preferred_size();
     root->set_preferred_size(
         {pref.width > 0 ? pref.width : 520, pref.height + 60});
-    root->add_child(std::move(body));
+    ui::views::view_adopt_child(root.get(), body.release());
   } else {
     root->set_preferred_size({480, 60});
   }

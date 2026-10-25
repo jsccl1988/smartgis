@@ -3,12 +3,13 @@
 
 #include "plugin/runtime/widgets/debug_inspect_bar.h"
 
-#include <memory>
+#include <functional>
 #include <utility>
 
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "ui/views/kernel/layout/layout.h"
+#include "ui/views/kernel/view/view.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/text/label.h"
 
@@ -27,24 +28,31 @@ void show_inspect(content::PluginHost* host, const char* panel) {
   }
 }
 
+ui::views::Button* make_tool_button(const char* title,
+                                    std::function<void()> on_click) {
+  auto* btn = new ui::views::Button(title);
+  btn->set_click(std::move(on_click));
+  return btn;
+}
+
 }  // namespace
 
 DebugInspectBar::DebugInspectBar(content::PluginHost* host) {
-  auto box = std::make_unique<ui::views::BoxLayout>(
-      ui::views::BoxLayout::Orientation::kHorizontal);
-  box->set_inside_border(4, 4, 4, 4);
-  box->set_between_child_spacing(8);
-  set_layout_manager(std::move(box));
+  ui::views::BoxLayout* box = ui::views::install_box_layout(
+      this, ui::views::BoxLayout::Orientation::kHorizontal);
+  if (box) {
+    box->set_inside_border(4, 4, 4, 4);
+    box->set_between_child_spacing(8);
+  }
 
-  add_child(std::make_unique<ui::views::Label>("Tools:"));
-  auto mk = [host](const char* title, auto on_click) {
-    auto btn = std::make_unique<ui::views::Button>(title);
-    btn->set_click(std::move(on_click));
-    return btn;
-  };
-  add_child(mk("Debug", [host]() { show_debug(host, 1); }));
-  add_child(mk("Inspect", [host]() { show_inspect(host, "measure"); }));
-  add_child(mk("Trace", [host]() { show_debug(host, 2); }));
+  ui::views::view_adopt_child(this, new ui::views::Label("Tools:"));
+  ui::views::view_adopt_child(
+      this, make_tool_button("Debug", [host]() { show_debug(host, 1); }));
+  ui::views::view_adopt_child(
+      this,
+      make_tool_button("Inspect", [host]() { show_inspect(host, "measure"); }));
+  ui::views::view_adopt_child(
+      this, make_tool_button("Trace", [host]() { show_debug(host, 2); }));
   set_preferred_size({480, 28});
 }
 

@@ -66,14 +66,15 @@ UI_EXPORT bool load_markup_into(std::string_view path_or_name,
                                 MarkupRoot* out);
 
 // Cross-DLL: allocate / destroy MarkupRoot only inside ui_views.dll.
-// SmartGIS.exe must not stack-allocate MarkupRoot or hold std::unique_ptr
-// returned from the DLL (Debug STL is not EXE↔DLL ABI).
+// SmartGIS.exe and product plugin DLLs must not stack-allocate MarkupRoot or
+// hold std::unique_ptr returned from the toolkit (Debug STL is not cross-DLL
+// ABI). Prefer plugin::load_dialog_markup / take_dialog_markup_root.
 UI_EXPORT MarkupRoot* markup_root_acquire();
 UI_EXPORT void markup_root_release(MarkupRoot* root);
-// Cross-DLL: do not call NamedViewMap methods from SmartGIS.exe.
+// Cross-DLL: prefer this over NamedViewMap::find from foreign modules.
 UI_EXPORT View* markup_root_find_view(MarkupRoot* root, const char* id);
-// Cross-DLL: release ownership of |root->root| inside ui_views.dll. SmartGIS.exe
-// must not std::move MarkupRoot::root (Debug unique_ptr is not EXE↔DLL ABI).
+// Cross-DLL: release ownership of |root->root| inside ui_views.dll. Foreign
+// modules must not std::move MarkupRoot::root (Debug unique_ptr is not ABI).
 UI_EXPORT View* markup_root_take_root(MarkupRoot* root);
 
 // Same-module convenience. Cross-DLL callers should use load_markup_into

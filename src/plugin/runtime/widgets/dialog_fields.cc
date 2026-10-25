@@ -8,6 +8,7 @@
 
 #include "base/process/switches.h"
 #include "content/browser/glang.runtime/host/utils/exe_path.h"
+#include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/text/textfield.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -81,6 +82,26 @@ void set_textfield_if_empty(ui::views::Textfield* field,
   if (field && field->text().empty()) {
     field->set_text(value);
   }
+}
+
+ui::views::MarkupRoot* load_dialog_markup(std::string_view path_or_name) {
+  ui::views::MarkupRoot* loaded = ui::views::markup_root_acquire();
+  if (!loaded) {
+    return nullptr;
+  }
+  if (path_or_name.empty() ||
+      !ui::views::load_markup_into(path_or_name, {}, loaded) ||
+      !loaded->ok()) {
+    ui::views::markup_root_release(loaded);
+    return nullptr;
+  }
+  return loaded;
+}
+
+ui::views::View* take_dialog_markup_root(ui::views::MarkupRoot* root) {
+  ui::views::View* body = ui::views::markup_root_take_root(root);
+  ui::views::markup_root_release(root);
+  return body;
 }
 
 }  // namespace plugin

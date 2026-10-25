@@ -12,6 +12,7 @@
 #include "plugin/runtime/widgets/dialog_fields.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
+#include "ui/views/kernel/view/view.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/text/textfield.h"
@@ -26,29 +27,26 @@ AnalyzeDialog::AnalyzeDialog(content::PluginHost* host) : host_(host) {
   constexpr int kH = 420;
   set_preferred_size({kW, kH});
 
-  ui::views::MarkupRoot loaded;
   const std::string markup =
       plugin::resolve_resource("smartgis.geochem", "analyze.ui.xml");
-  if (!markup.empty()) {
-    ui::views::load_markup_into(markup, {}, &loaded);
-  }
-  if (!loaded.ok()) {
+  ui::views::MarkupRoot* loaded = load_dialog_markup(markup);
+  if (!loaded) {
     return;
   }
 
-  input_path_ = loaded.ids.find_as<ui::views::Textfield>("input_path");
-  vector_path_ = loaded.ids.find_as<ui::views::Textfield>("vector_path");
-  output_path_ = loaded.ids.find_as<ui::views::Textfield>("output_path");
-  element_ = loaded.ids.find_as<ui::views::Textfield>("element");
-  correlate_ = loaded.ids.find_as<ui::views::Textfield>("correlate");
-  threshold_ = loaded.ids.find_as<ui::views::Textfield>("threshold");
-  cells_ = loaded.ids.find_as<ui::views::Textfield>("cells");
-  classes_ = loaded.ids.find_as<ui::views::Textfield>("classes");
+  input_path_ = loaded->ids.find_as<ui::views::Textfield>("input_path");
+  vector_path_ = loaded->ids.find_as<ui::views::Textfield>("vector_path");
+  output_path_ = loaded->ids.find_as<ui::views::Textfield>("output_path");
+  element_ = loaded->ids.find_as<ui::views::Textfield>("element");
+  correlate_ = loaded->ids.find_as<ui::views::Textfield>("correlate");
+  threshold_ = loaded->ids.find_as<ui::views::Textfield>("threshold");
+  cells_ = loaded->ids.find_as<ui::views::Textfield>("cells");
+  classes_ = loaded->ids.find_as<ui::views::Textfield>("classes");
 
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("browse_input")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("browse_input")) {
     btn->set_click([this] { on_pick_input(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("browse_vector")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("browse_vector")) {
     btn->set_click([this] {
       const ui::views::FilePickerResult picked = ui::views::pick_open_file(
           L"Vector (*.geojson;*.shp;*.gpkg)\0"
@@ -58,19 +56,23 @@ AnalyzeDialog::AnalyzeDialog(content::PluginHost* host) : host_(host) {
       }
     });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("browse_output")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("browse_output")) {
     btn->set_click([this] { on_pick_output(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("ok")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("ok")) {
     btn->set_click([this] { on_ok(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("stats")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("stats")) {
     btn->set_click([this] { on_stats(); });
   }
 
-  set_layout_manager(std::make_unique<ui::views::FillLayout>());
-  loaded.root->set_preferred_size({kW, kH});
-  add_child(std::move(loaded.root));
+  ui::views::View* body = take_dialog_markup_root(loaded);
+  if (!body) {
+    return;
+  }
+  body->set_preferred_size({kW, kH});
+  ui::views::install_fill_layout(this);
+  ui::views::view_adopt_child(this, body);
 
   const std::string base = plugin_sample_dir();
   set_textfield_if_empty(input_path_, base + "/geochem/geochem_samples.csv");

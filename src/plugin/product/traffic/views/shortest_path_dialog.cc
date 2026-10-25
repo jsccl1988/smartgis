@@ -12,6 +12,7 @@
 #include "plugin/runtime/widgets/dialog_fields.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
+#include "ui/views/kernel/view/view.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/text/textfield.h"
@@ -27,38 +28,39 @@ ShortestPathDialog::ShortestPathDialog(content::PluginHost* host)
   constexpr int kH = 360;
   set_preferred_size({kW, kH});
 
-  ui::views::MarkupRoot loaded;
   const std::string markup =
       plugin::resolve_resource("smartgis.traffic", "shortest_path.ui.xml");
-  if (!markup.empty()) {
-    ui::views::load_markup_into(markup, {}, &loaded);
-  }
-  if (!loaded.ok()) {
+  ui::views::MarkupRoot* loaded = load_dialog_markup(markup);
+  if (!loaded) {
     return;
   }
 
-  network_path_ = loaded.ids.find_as<ui::views::Textfield>("network_path");
-  output_path_ = loaded.ids.find_as<ui::views::Textfield>("output_path");
-  start_x_ = loaded.ids.find_as<ui::views::Textfield>("start_x");
-  start_y_ = loaded.ids.find_as<ui::views::Textfield>("start_y");
-  end_x_ = loaded.ids.find_as<ui::views::Textfield>("end_x");
-  end_y_ = loaded.ids.find_as<ui::views::Textfield>("end_y");
-  weight_field_ = loaded.ids.find_as<ui::views::Textfield>("weight_field");
-  frames_ = loaded.ids.find_as<ui::views::Textfield>("frames");
+  network_path_ = loaded->ids.find_as<ui::views::Textfield>("network_path");
+  output_path_ = loaded->ids.find_as<ui::views::Textfield>("output_path");
+  start_x_ = loaded->ids.find_as<ui::views::Textfield>("start_x");
+  start_y_ = loaded->ids.find_as<ui::views::Textfield>("start_y");
+  end_x_ = loaded->ids.find_as<ui::views::Textfield>("end_x");
+  end_y_ = loaded->ids.find_as<ui::views::Textfield>("end_y");
+  weight_field_ = loaded->ids.find_as<ui::views::Textfield>("weight_field");
+  frames_ = loaded->ids.find_as<ui::views::Textfield>("frames");
 
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("browse_network")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("browse_network")) {
     btn->set_click([this] { on_pick_network(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("browse_output")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("browse_output")) {
     btn->set_click([this] { on_pick_output(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("ok")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("ok")) {
     btn->set_click([this] { on_ok(); });
   }
 
-  set_layout_manager(std::make_unique<ui::views::FillLayout>());
-  loaded.root->set_preferred_size({kW, kH});
-  add_child(std::move(loaded.root));
+  ui::views::View* body = take_dialog_markup_root(loaded);
+  if (!body) {
+    return;
+  }
+  body->set_preferred_size({kW, kH});
+  ui::views::install_fill_layout(this);
+  ui::views::view_adopt_child(this, body);
 
   const std::string base = plugin_sample_dir();
   set_textfield_if_empty(network_path_, base + "/traffic_network_sample.geojson");

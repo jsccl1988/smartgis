@@ -12,9 +12,11 @@
 
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/resource_roots.h"
+#include "plugin/runtime/widgets/dialog_fields.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/dialogs/message_box.h"
 #include "ui/views/kernel/layout/layout.h"
+#include "ui/views/kernel/view/view.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/button/checkbox.h"
@@ -89,50 +91,51 @@ TrimeshLoaderDialog::TrimeshLoaderDialog(content::PluginHost* host) : host_(host
   constexpr int kH = 520;
   set_preferred_size({kW, kH});
 
-  ui::views::MarkupRoot loaded;
   const std::string markup =
       plugin::resolve_resource("smartgis.world3d", "trimesh_loader.ui.xml");
-  if (!markup.empty()) {
-    ui::views::load_markup_into(markup, {}, &loaded);
-  }
-  if (!loaded.ok()) {
+  ui::views::MarkupRoot* loaded = load_dialog_markup(markup);
+  if (!loaded) {
     return;
   }
 
-  vertex_path_ = loaded.ids.find_as<ui::views::Textfield>("vertex_path");
-  radio_tab_ = loaded.ids.find_as<ui::views::RadioButton>("radio_tab");
-  radio_space_ = loaded.ids.find_as<ui::views::RadioButton>("radio_space");
-  radio_comma_ = loaded.ids.find_as<ui::views::RadioButton>("radio_comma");
-  head_skip_ = loaded.ids.find_as<ui::views::Textfield>("head_skip");
-  line_skip_ = loaded.ids.find_as<ui::views::Textfield>("line_skip");
-  col_x_ = loaded.ids.find_as<ui::views::Combobox>("col_x");
-  col_y_ = loaded.ids.find_as<ui::views::Combobox>("col_y");
-  col_z_ = loaded.ids.find_as<ui::views::Combobox>("col_z");
-  x_scale_ = loaded.ids.find_as<ui::views::Textfield>("x_scale");
-  y_scale_ = loaded.ids.find_as<ui::views::Textfield>("y_scale");
-  z_scale_ = loaded.ids.find_as<ui::views::Textfield>("z_scale");
-  use_texture_ = loaded.ids.find_as<ui::views::Checkbox>("use_texture");
-  texture_path_ = loaded.ids.find_as<ui::views::Textfield>("texture_path");
-  gen_2d_trimesh_ = loaded.ids.find_as<ui::views::Checkbox>("gen_2d_trimesh");
-  trimesh_layer_ = loaded.ids.find_as<ui::views::Combobox>("trimesh_layer");
-  preview_ = loaded.ids.find_as<ui::views::TableView>("preview");
+  vertex_path_ = loaded->ids.find_as<ui::views::Textfield>("vertex_path");
+  radio_tab_ = loaded->ids.find_as<ui::views::RadioButton>("radio_tab");
+  radio_space_ = loaded->ids.find_as<ui::views::RadioButton>("radio_space");
+  radio_comma_ = loaded->ids.find_as<ui::views::RadioButton>("radio_comma");
+  head_skip_ = loaded->ids.find_as<ui::views::Textfield>("head_skip");
+  line_skip_ = loaded->ids.find_as<ui::views::Textfield>("line_skip");
+  col_x_ = loaded->ids.find_as<ui::views::Combobox>("col_x");
+  col_y_ = loaded->ids.find_as<ui::views::Combobox>("col_y");
+  col_z_ = loaded->ids.find_as<ui::views::Combobox>("col_z");
+  x_scale_ = loaded->ids.find_as<ui::views::Textfield>("x_scale");
+  y_scale_ = loaded->ids.find_as<ui::views::Textfield>("y_scale");
+  z_scale_ = loaded->ids.find_as<ui::views::Textfield>("z_scale");
+  use_texture_ = loaded->ids.find_as<ui::views::Checkbox>("use_texture");
+  texture_path_ = loaded->ids.find_as<ui::views::Textfield>("texture_path");
+  gen_2d_trimesh_ = loaded->ids.find_as<ui::views::Checkbox>("gen_2d_trimesh");
+  trimesh_layer_ = loaded->ids.find_as<ui::views::Combobox>("trimesh_layer");
+  preview_ = loaded->ids.find_as<ui::views::TableView>("preview");
 
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("browse_vertex")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("browse_vertex")) {
     btn->set_click([this] { on_pick_vertex(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("browse_texture")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("browse_texture")) {
     btn->set_click([this] { on_pick_texture(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("ok")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("ok")) {
     btn->set_click([this] { on_ok(); });
   }
   if (radio_comma_ && !radio_comma_->is_selected()) {
     radio_comma_->set_selected(true);
   }
 
-  set_layout_manager(std::make_unique<ui::views::FillLayout>());
-  loaded.root->set_preferred_size({kW, kH});
-  add_child(std::move(loaded.root));
+  ui::views::View* body = take_dialog_markup_root(loaded);
+  if (!body) {
+    return;
+  }
+  body->set_preferred_size({kW, kH});
+  ui::views::install_fill_layout(this);
+  ui::views::view_adopt_child(this, body);
 
   if (host_) {
     host_->present_dataset("smartgis.world3d", "", 1);

@@ -4,7 +4,9 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 <ui name="flood_inundate">
-  <style src="inundate.ui.css"/>
+  <!-- CSS omitted: Debug heap corruption observed in CssParser::parse while
+       flood.dll opens this dialog (load_style_links → load_css). vbox/hbox
+       sugar still lays out the form; restyle once markup CSS is heap-safe. -->
   <vbox id="root" class="form">
     <label id="dem_label" text="DEM raster"/>
     <hbox id="dem_row" class="row">

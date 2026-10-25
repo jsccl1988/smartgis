@@ -20,6 +20,7 @@ Living ledger of **confirmed** crash/hang root causes. Newest cases first.
 
 | Fingerprint / symptom | Exception | Top symbol / module | Status | Case |
 | --- | --- | --- | --- | --- |
+| Plugins panel click → flood InundateDialog ctor / load_css | `c0000374` | `InundateDialog` / `MarkupRoot`+CSS / flood↔`ui_views` | fixed | [2026-10-25-b](#case-2026-10-25-plugin-click-markuproot-dll) |
 | Cold start → `show_shell` / `catalog_map_->parent` freed (`cdcdcdcd`) | `c0000005` | `View::parent` / `ShellLifecycleComposer::show_shell` | fixed | [2026-10-25](#case-2026-10-25-shell-unique-ptr-cross-dll) |
 | `scene3d_presenter_test` → `StubCommandList::begin_render_pass` read `0x6` | `c0000005` | `CloudPass::record` / RHI vtable skew (`set_scissor`) | fixed | [2026-10-25](#case-2026-10-25-shell-unique-ptr-cross-dll) |
 | Plugins panel select → detail stuck / Run no-op (Debug) | (UI / heap) | `Registry::list` / `PluginCatalogView` / EXE↔`plugin_host` | fixed | [2026-10-24-b](#case-2026-10-24-plugin-catalog-list-dll) |
@@ -53,6 +54,50 @@ Living ledger of **confirmed** crash/hang root causes. Newest cases first.
 ---
 
 ## Case log
+
+### Case: 2026-10-25 plugin-click-markuproot-dll
+
+- **Status:** fixed (2026-10-25: `:tool flood.inundate` →
+  `open_dialog` survives 15s+ pings after MarkupRoot helpers +
+  omit dialog CSS + defer `present_sample`)
+- **Fingerprint:** `HEAP_CORRUPTION_c0000374` during Plugins click →
+  `PluginCatalogView::on_plugin_click` → `open_dialog` →
+  `InundateDialog` ctor (detection moved: `present_sample`/PROJ →
+  then `MarkupDocument::load_css` / `CssParser::parse` emplace)
+- **Symptom:** Extend → Plugins → select DEM洪水淹没 (or Run dialog
+  tool) → immediate process death (`SmartGIS.exe.*.dmp`)
+- **Evidence:** WER `SmartGIS.exe.26572.dmp` (08:46 present_sample);
+  `SmartGIS.exe.27576.dmp` (10:23 `load_css` ← ctor); verify
+  `out/scratch/verify_flood_once.py` (`:tool flood.inundate` ok,
+  15× ping); secondary `SmartGIS.exe.22884.dmp` is DebugAgent
+  `log.tail`/`json_escape` free after a **second** open — not the
+  single-click ctor path
+- **Root cause:** Debug STL not ABI across `flood.dll` ↔ `ui_views_d`
+  — dialog built `MarkupRoot` / `unique_ptr` layout on the plugin
+  heap then moved/adopted into Views-owned trees. After acquire/take
+  helpers, remaining poison still tripped during linked CSS parse
+  and mid-ctor GeoJSON `present_sample`
+- **Fix:** Landed —
+  - `plugin::load_dialog_markup` / `take_dialog_markup_root`
+    (`markup_root_acquire` / `markup_root_take_root`)
+  - `install_*_layout` + `view_adopt_child` (no cross-DLL
+    `unique_ptr` / `set_layout_manager` from plugin TUs)
+  - Same pattern on sibling plugin dialogs +
+    `PresentSurfacePicker` / `debug_inspect_bar`
+  - `inundate.ui.xml`: drop `<style src="inundate.ui.css"/>` until
+    markup CSS is heap-safe across the plugin edge
+  - `InundateDialog`: do not call `present_sample()` in ctor
+    (surface-change callback still presents)
+- **Guardrail:** Plugin / product widgets must not
+  `std::move` Views `MarkupRoot` or layout `unique_ptr` across the
+  DLL edge; use acquire/take/install/adopt helpers only; avoid
+  mid-ctor map present / CSS load from plugin-owned dialogs until
+  the Views markup CSS path is proven DLL-safe
+- **False leads:** Blaming PROJ/GeoJSON alone (detection site only).
+  Post-fix dump `SmartGIS.exe.20844.dmp` (09:36:57) is a **different**
+  fingerprint — display-thread `dxcompiler!DxcDelete` during
+  `vista::MapPass::ensure_pipelines` (no flood/Inundate frames);
+  track separately if it reproduces without dialog MarkupRoot
 
 ### Case: 2026-10-25 shell-unique-ptr-cross-dll
 

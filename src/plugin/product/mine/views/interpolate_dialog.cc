@@ -12,6 +12,7 @@
 #include "plugin/runtime/widgets/dialog_fields.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
+#include "ui/views/kernel/view/view.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/text/textfield.h"
@@ -26,38 +27,39 @@ InterpolateDialog::InterpolateDialog(content::PluginHost* host) : host_(host) {
   constexpr int kH = 360;
   set_preferred_size({kW, kH});
 
-  ui::views::MarkupRoot loaded;
   const std::string markup =
       plugin::resolve_resource("smartgis.mine", "interpolate.ui.xml");
-  if (!markup.empty()) {
-    ui::views::load_markup_into(markup, {}, &loaded);
-  }
-  if (!loaded.ok()) {
+  ui::views::MarkupRoot* loaded = load_dialog_markup(markup);
+  if (!loaded) {
     return;
   }
 
-  csv_path_ = loaded.ids.find_as<ui::views::Textfield>("csv_path");
-  output_path_ = loaded.ids.find_as<ui::views::Textfield>("output_path");
-  stratum_id_ = loaded.ids.find_as<ui::views::Textfield>("stratum_id");
-  top_stratum_ = loaded.ids.find_as<ui::views::Textfield>("top_stratum");
-  bottom_stratum_ = loaded.ids.find_as<ui::views::Textfield>("bottom_stratum");
+  csv_path_ = loaded->ids.find_as<ui::views::Textfield>("csv_path");
+  output_path_ = loaded->ids.find_as<ui::views::Textfield>("output_path");
+  stratum_id_ = loaded->ids.find_as<ui::views::Textfield>("stratum_id");
+  top_stratum_ = loaded->ids.find_as<ui::views::Textfield>("top_stratum");
+  bottom_stratum_ = loaded->ids.find_as<ui::views::Textfield>("bottom_stratum");
 
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("browse_csv")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("browse_csv")) {
     btn->set_click([this] { on_pick_csv(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("browse_output")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("browse_output")) {
     btn->set_click([this] { on_pick_output(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("ok")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("ok")) {
     btn->set_click([this] { on_ok(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("prism")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("prism")) {
     btn->set_click([this] { on_prism(); });
   }
 
-  set_layout_manager(std::make_unique<ui::views::FillLayout>());
-  loaded.root->set_preferred_size({kW, kH});
-  add_child(std::move(loaded.root));
+  ui::views::View* body = take_dialog_markup_root(loaded);
+  if (!body) {
+    return;
+  }
+  body->set_preferred_size({kW, kH});
+  ui::views::install_fill_layout(this);
+  ui::views::view_adopt_child(this, body);
 
   const std::string base = plugin_sample_dir();
   set_textfield_if_empty(csv_path_, base + "/mine_boreholes.csv");

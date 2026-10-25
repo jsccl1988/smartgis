@@ -10,8 +10,10 @@
 
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/resource_roots.h"
+#include "plugin/runtime/widgets/dialog_fields.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
+#include "ui/views/kernel/view/view.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/button/checkbox.h"
@@ -40,43 +42,44 @@ HeightmapLoaderDialog::HeightmapLoaderDialog(content::PluginHost* host) : host_(
   constexpr int kH = 420;
   set_preferred_size({kW, kH});
 
-  ui::views::MarkupRoot loaded;
   const std::string markup =
       plugin::resolve_resource("smartgis.world3d", "heightmap_loader.ui.xml");
-  if (!markup.empty()) {
-    ui::views::load_markup_into(markup, {}, &loaded);
-  }
-  if (!loaded.ok()) {
+  ui::views::MarkupRoot* loaded = load_dialog_markup(markup);
+  if (!loaded) {
     return;
   }
 
-  heightmap_path_ = loaded.ids.find_as<ui::views::Textfield>("heightmap_path");
-  x_scale_ = loaded.ids.find_as<ui::views::Textfield>("x_scale");
-  y_scale_ = loaded.ids.find_as<ui::views::Textfield>("y_scale");
-  z_scale_ = loaded.ids.find_as<ui::views::Textfield>("z_scale");
-  x_start_ = loaded.ids.find_as<ui::views::Textfield>("x_start");
-  y_start_ = loaded.ids.find_as<ui::views::Textfield>("y_start");
-  z_start_ = loaded.ids.find_as<ui::views::Textfield>("z_start");
-  use_texture_ = loaded.ids.find_as<ui::views::Checkbox>("use_texture");
-  texture_path_ = loaded.ids.find_as<ui::views::Textfield>("texture_path");
-  color_type_ = loaded.ids.find_as<ui::views::Combobox>("color_type");
+  heightmap_path_ = loaded->ids.find_as<ui::views::Textfield>("heightmap_path");
+  x_scale_ = loaded->ids.find_as<ui::views::Textfield>("x_scale");
+  y_scale_ = loaded->ids.find_as<ui::views::Textfield>("y_scale");
+  z_scale_ = loaded->ids.find_as<ui::views::Textfield>("z_scale");
+  x_start_ = loaded->ids.find_as<ui::views::Textfield>("x_start");
+  y_start_ = loaded->ids.find_as<ui::views::Textfield>("y_start");
+  z_start_ = loaded->ids.find_as<ui::views::Textfield>("z_start");
+  use_texture_ = loaded->ids.find_as<ui::views::Checkbox>("use_texture");
+  texture_path_ = loaded->ids.find_as<ui::views::Textfield>("texture_path");
+  color_type_ = loaded->ids.find_as<ui::views::Combobox>("color_type");
 
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("browse_heightmap")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("browse_heightmap")) {
     btn->set_click([this] { on_pick_heightmap(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("browse_texture")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("browse_texture")) {
     btn->set_click([this] { on_pick_texture(); });
   }
-  if (auto* btn = loaded.ids.find_as<ui::views::Button>("ok")) {
+  if (auto* btn = loaded->ids.find_as<ui::views::Button>("ok")) {
     btn->set_click([this] { on_ok(); });
   }
   if (color_type_ && color_type_->item_count() > 1) {
     color_type_->set_selected_index(1);
   }
 
-  set_layout_manager(std::make_unique<ui::views::FillLayout>());
-  loaded.root->set_preferred_size({kW, kH});
-  add_child(std::move(loaded.root));
+  ui::views::View* body = take_dialog_markup_root(loaded);
+  if (!body) {
+    return;
+  }
+  body->set_preferred_size({kW, kH});
+  ui::views::install_fill_layout(this);
+  ui::views::view_adopt_child(this, body);
 
   if (host_) {
     host_->present_dataset("smartgis.world3d", "", 1);
