@@ -7,9 +7,9 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-03 — DLL ABI / Workspace plan archived. Prior 2026-09-28 — §DLL ABI + Workspace composition (pimpl / DraftPipeline / NavBridge). Export macros: endgame `TOOL_EXPORT` / leftover `LEGACY_TOOL_EXPORT`. Leftover group / SP1: [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP1.  
-**Plans:** [`../plans/2026-09-13-tool-event-dispatch.md`](../plans/2026-09-13-tool-event-dispatch.md) · ABI/workspace [`../archive/plans/2026-09-28-tool-dll-abi-workspace.md`](../archive/plans/2026-09-28-tool-dll-abi-workspace.md)  
-**Related:** leftover path split [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md); archived layout twin [`../archive/specs/2026-09-27-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-tool-subdirectory-layout-design.md); as-built [`../../../src/tool/README.md`](../../../src/tool/README.md).  
+**Updated:** 2026-10-25 — §Topology validation 交叉链（几何 gap-pin P2 / Map2D P1-4）。Prior 2026-10-03 — DLL ABI / Workspace plan archived. Prior 2026-09-28 — §DLL ABI + Workspace composition (pimpl / DraftPipeline / NavBridge). Export macros: endgame `TOOL_EXPORT` / leftover `LEGACY_TOOL_EXPORT`. Leftover group / SP1: [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP1.  
+**Plans:** [`../plans/2026-09-13-tool-event-dispatch.md`](../plans/2026-09-13-tool-event-dispatch.md) · ABI/workspace [`../archive/plans/2026-09-28-tool-dll-abi-workspace.md`](../archive/plans/2026-09-28-tool-dll-abi-workspace.md) · 拓扑 [`../plans/2026-10-25-geometry-analysis-gap-pin.md`](../plans/2026-10-25-geometry-analysis-gap-pin.md) P2  
+**Related:** leftover path split [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md); archived layout twin [`../archive/specs/2026-09-27-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-tool-subdirectory-layout-design.md); as-built [`../../../src/tool/README.md`](../../../src/tool/README.md)；算法分责 [`2026-09-13-algorithm-layer-oss-design.md`](2026-09-13-algorithm-layer-oss-design.md) §9。  
 **Scope:** Session dispatch (Command / Input / Operation / Domain Event) + **endgame directory layout**. Do not open new tool-layout dated specs — revise §Subdirectory layout below.
 
 ## Goal
@@ -447,3 +447,17 @@ Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-b
 - `src/tool/**` builds with **no C4251** on tool types
 - `tool_dispatch_test` / `draft_test` / `tool_session_test` green
 - README + `docs/superpowers/src-layout.md` / abi-rename-map say `dll_stem=tool` + `TOOL_EXPORT` (not source_set / not `TOOL_*`)
+
+---
+
+## §Topology validation（2026-10-25）
+
+**一句话：** 顶点/边捕捉已在 `feature_edit`（Map2D gap-pin P0-4）。**叠盖 / 缝隙等拓扑规则** 的产品行为挂本伞状 + EditSession；几何谓词/集合算子仍走 `gis` / `geo::`（algorithm §9）。禁止在 `analysis/topology/` 新建规则神类。
+
+| 项 | 归属 | 真源 |
+| --- | --- | --- |
+| vertex/edge snap | `feature_edit` | industry-gap-matrix §8 **P0-4**（已关） |
+| must-not-overlap / gaps v1 | EditSession 校验 + 报告 | Map2D **P1-4** ≡ geometry gap-pin **P2-1…P2-3** |
+| 高级规则集 | 后置 | Map2D **P2-4** ≡ geometry gap-pin **P2-4** |
+
+执行勾选只维护一处：优先关 Map2D P1-4，并在 geometry gap-pin P2 同步打钩。谓词实现不复制——调用已有 `geo::` / `native.*`。

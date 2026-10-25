@@ -90,15 +90,16 @@ std::uint64_t OverlayScene::measure_commit_ns(int iters) const {
 
   const Rect dirty{0, 0, width_, height_};
   const ui::gfx::Color clear = Theme::current().shell_bg;
-  PaintCommit frame;
+  PaintCommit* frame = paint_commit_create();
 
   LARGE_INTEGER freq{};
   QueryPerformanceFrequency(&freq);
   LARGE_INTEGER t0{};
   QueryPerformanceCounter(&t0);
   for (int i = 0; i < iters; ++i) {
-    commit_view_tree(root_.get(), dirty, width_, height_, 12, clear, &frame);
+    commit_view_tree(root_.get(), dirty, width_, height_, 12, clear, frame);
   }
+  paint_commit_destroy(frame);
   LARGE_INTEGER t1{};
   QueryPerformanceCounter(&t1);
 

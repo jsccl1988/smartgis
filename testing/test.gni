@@ -18,6 +18,10 @@ template("test") {
                              "use_gtest",
                            ])
     testonly = true
+    if (is_win) {
+      # Without /SUBSYSTEM:CONSOLE, MSVC LNK1561 (no entry) with /NODEFAULTLIB.
+      configs += [ "//build/config/win:console_subsystem" ]
+    }
     if (defined(invoker.configs)) {
       configs += invoker.configs
     }

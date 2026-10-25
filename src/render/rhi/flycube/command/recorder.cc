@@ -48,6 +48,19 @@ void Recorder::begin_pass(const PassDesc& desc) {
   passes.push_back(std::move(pass));
 }
 
+void Recorder::set_scissor(int32_t x, int32_t y, uint32_t width,
+                           uint32_t height) {
+  if (passes.empty()) {
+    return;
+  }
+  Pass& pass = passes.back();
+  pass.scissor_enabled = width > 0 && height > 0;
+  pass.scissor_x = x;
+  pass.scissor_y = y;
+  pass.scissor_w = width;
+  pass.scissor_h = height;
+}
+
 void Recorder::bind_camera(const float view[16], const float proj[16]) {
   if (!view || !proj) {
     return;

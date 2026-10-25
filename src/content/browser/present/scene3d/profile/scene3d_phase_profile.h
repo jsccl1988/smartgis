@@ -21,6 +21,8 @@ struct Scene3dPhaseSample {
   int64_t present_ms = 0;
   int64_t upload_ms = 0;
   int64_t pso_ms = 0;
+  // T2.0 probe: worker prep overlapping prior-frame present (0 until T2.1).
+  int64_t prep_overlap_ms = 0;
   int rebuild_count = 0;
 };
 
@@ -55,6 +57,7 @@ void note_scene3d_phase_record(int64_t record_ms);
 void note_scene3d_phase_present(int64_t present_ms);
 void note_scene3d_phase_upload(int64_t upload_ms);
 void note_scene3d_phase_pso(int64_t pso_ms);
+void note_scene3d_phase_prep_overlap(int64_t prep_overlap_ms);
 
 }  // namespace content
 

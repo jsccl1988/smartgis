@@ -270,48 +270,14 @@ bool Browser::init() {
   return ok;
 }
 
-namespace {
-
-bool seh_fit_map_extent(Browser* browser) {
-  if (!browser) {
-    return false;
-  }
-  __try {
-    browser->fit_map_extent();
-    return true;
-  } __except (EXCEPTION_EXECUTE_HANDLER) {
-    return false;
-  }
-}
-
-}  // namespace
-
 void Browser::show() {
   if (ui_) {
-    // show_shell shows the shell and schedules the first map invalidate.
-    // Full first-map present wait is opt-in (SYNC_FIRST_MAP_PRESENT=1).
+    // show_shell: PreShowLayout → ShowWindow → FitExtent → first present
+    // (opt-in WaitFirstMapPresent). Fit lives inside show_shell so the waited
+    // present is already mainland-framed (avoids rebuild-after-wait).
     ui_->show_shell();
   }
-  // Fit after horizon is visible (final client size). show_shell may already
-  // have pumped a first carto layout (layout_build_count > 0) at a pre-reseed
-  // size / FlyCube latch — do not skip fit on that count or DefaultChina keeps
-  // the smeared HWND face. Harness (skip-ambox-catalog): demo-only seed AVs
-  // inside fit_map_extent. Scene3D framing is applied later via product defaults.
-  const bool skip_fit = []() {
-    const char* skip = base::switch_cstr("skip-ambox-catalog");
-    return skip && skip[0] != '\0' && skip[0] != '0';
-  }();
-  if (!skip_fit) {
-    if (!seh_fit_map_extent(this)) {
-      LOGGING(LOG_WARNING, "startup: Browser::show fit_map_extent SEH");
-    }
-  }
-  // Sync China: always drop latch + invalidate so the post-fit present records
-  // final-client carto (gate on layout_build_count contradicted this).
-  if (note_product_map2d_surface_after_show(*this) && ui_) {
-    ui_->invalidate_native_map();
-  }
-  // Opt-in dump after fit+reset (overwrites show_shell's early pre-fit dump).
+  // Opt-in dump after show_shell's fit + first present.
   if (const char* dump = base::switch_cstr("map2d-dump-bmp")) {
     if (dump[0]) {
       const bool ok = session_->map2d_export_bmp(dump, 1280, 720);

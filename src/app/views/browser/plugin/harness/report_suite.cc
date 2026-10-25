@@ -14,7 +14,7 @@
 #include "app/views/browser/ui_delegate.h"
 #include "app/views/app/startup/shell_runtime.h"
 #include "content/browser/glang.runtime/host/plugin/paths.h"
-#include "content/browser/glang.runtime/host/view/host/capture_host.h"
+#include "content/browser/debug/capture/capture_host.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/web/fake_report_browser.h"
 #include "plugin/runtime/host/capability/capability.h"

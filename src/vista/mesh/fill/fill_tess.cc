@@ -238,6 +238,11 @@ void tessellate_ring_fan(const OGRLinearRing* ring, const FillTessOptions& opts,
   // Thread-safe interior seed (emit_fills parallel_for). Do not call OGR
   // PointOnSurface / GEOS here — not safe under concurrent tessellation and
   // ExitProcess(-1) mid browse export.
+  //
+  // Cold china overview: each winding_contains is O(n). Prefer 1–2 cheap
+  // candidates (envelope mid / vertex mean) before scanning all triangle
+  // centroids or a 24² grid. Same fill coverage for any interior seed; avoids
+  // the O(n²) per-tri filter when have_seed stays false.
   auto try_seed = [&](double sx, double sy) {
     if (!have_seed && winding_contains(sx, sy)) {
       cx = sx;
@@ -245,33 +250,48 @@ void tessellate_ring_fan(const OGRLinearRing* ring, const FillTessOptions& opts,
       have_seed = true;
     }
   };
-  for (int i = 0; i < m0 && !have_seed; ++i) {
-    const PolyPt& a = pts[static_cast<size_t>(i)];
-    const PolyPt& b = pts[static_cast<size_t>((i + 1) % m0)];
-    const PolyPt& c = pts[static_cast<size_t>((i + 2) % m0)];
-    try_seed((a.x + b.x + c.x) / 3.0, (a.y + b.y + c.y) / 3.0);
-  }
-  if (!have_seed) {
+  {
     double min_x = pts[0].x;
     double max_x = min_x;
     double min_y = pts[0].y;
     double max_y = min_y;
+    double sum_x = 0.0;
+    double sum_y = 0.0;
     for (const PolyPt& p : pts) {
       min_x = (std::min)(min_x, p.x);
       max_x = (std::max)(max_x, p.x);
       min_y = (std::min)(min_y, p.y);
       max_y = (std::max)(max_y, p.y);
+      sum_x += p.x;
+      sum_y += p.y;
     }
-    constexpr int kGrid = 24;
-    for (int gy = 0; gy < kGrid && !have_seed; ++gy) {
-      for (int gx = 0; gx < kGrid && !have_seed; ++gx) {
-        const double sx = min_x + (static_cast<double>(gx) + 0.5) *
-                                      (max_x - min_x) /
-                                      static_cast<double>(kGrid);
-        const double sy = min_y + (static_cast<double>(gy) + 0.5) *
-                                      (max_y - min_y) /
-                                      static_cast<double>(kGrid);
-        try_seed(sx, sy);
+    try_seed(0.5 * (min_x + max_x), 0.5 * (min_y + max_y));
+    if (!have_seed) {
+      const double inv = 1.0 / static_cast<double>(m0);
+      try_seed(sum_x * inv, sum_y * inv);
+    }
+    // Sample triangle centroids (stride grows with n) before the dense grid.
+    if (!have_seed) {
+      const int stride = m0 > 256 ? (std::max)(1, m0 / 128) : 1;
+      for (int i = 0; i < m0 && !have_seed; i += stride) {
+        const PolyPt& a = pts[static_cast<size_t>(i)];
+        const PolyPt& b = pts[static_cast<size_t>((i + 1) % m0)];
+        const PolyPt& c = pts[static_cast<size_t>((i + 2) % m0)];
+        try_seed((a.x + b.x + c.x) / 3.0, (a.y + b.y + c.y) / 3.0);
+      }
+    }
+    if (!have_seed) {
+      constexpr int kGrid = 24;
+      for (int gy = 0; gy < kGrid && !have_seed; ++gy) {
+        for (int gx = 0; gx < kGrid && !have_seed; ++gx) {
+          const double sx = min_x + (static_cast<double>(gx) + 0.5) *
+                                        (max_x - min_x) /
+                                        static_cast<double>(kGrid);
+          const double sy = min_y + (static_cast<double>(gy) + 0.5) *
+                                        (max_y - min_y) /
+                                        static_cast<double>(kGrid);
+          try_seed(sx, sy);
+        }
       }
     }
   }

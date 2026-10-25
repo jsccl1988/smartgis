@@ -45,7 +45,9 @@ namespace {
 // rows. 140 DIP left about one clipped line (shell capture diag_dock_before).
 // SecondaryFixed still caps the dock at ~1/3 of the split so the map stays
 // primary when a short HiDPI client cannot honor this preferred height.
-constexpr int kDiagPreferredDip = 260;
+// Keep the Output dock compact so the map hero band (ui_shell_dark
+// lower_map_frac) stays carto, not dark panel chrome.
+constexpr int kDiagPreferredDip = 180;
 constexpr int kTabsHostMinDip = 110;
 constexpr int kToolbarHeightDip = 26;
 constexpr int kTitleHeightDip = 22;
@@ -934,6 +936,10 @@ DiagnosticToolsPanel::~DiagnosticToolsPanel() {
   console_ = nullptr;
   cpu_ = nullptr;
   memory_page_ = nullptr;
+}
+
+DiagnosticToolsPanel* diagnostic_tools_panel_new() {
+  return new DiagnosticToolsPanel();
 }
 
 std::unique_ptr<DiagnosticToolsPanel> make_diagnostic_tools_panel() {

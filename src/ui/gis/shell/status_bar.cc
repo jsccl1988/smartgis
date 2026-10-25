@@ -238,5 +238,9 @@ std::unique_ptr<StatusBar> make_status_bar() {
   return std::make_unique<StatusBar>();
 }
 
+StatusBar* status_bar_new() {
+  return new StatusBar();
+}
+
 }  // namespace views
 }  // namespace ui

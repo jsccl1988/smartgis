@@ -17,6 +17,7 @@
 #include <commctrl.h>
 
 #include "app/views/browser/browser.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "base/core/log.h"
 #include "base/process/switches.h"
 #include "base/trace/diag/startup_profile.h"
@@ -25,7 +26,9 @@
 #include "content/public/gis_contents.h"
 #include "ui/gis/catalog/catalog_view.h"
 #include "ui/gis/debug/diagnostic_tools_panel.h"
+#include "ui/gis/shell/ambox_view.h"
 #include "ui/views/kernel/layout/splitter.h"
+#include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/map/viewport/draw_host.h"
 #include "ui/views/primitives/collection/tab_strip.h"
@@ -38,9 +41,25 @@ constexpr UINT_PTR kDeferPluginPanelTimer = 0x504C4750u;  // 'PLGP'
 constexpr wchar_t kDeferPluginPanelProp[] = L"SmartGisDeferPluginPanel";
 // Let the first map frame paint before the plugin catalog scan.
 constexpr UINT kDeferPluginPanelMs = 400;
+
 }  // namespace
 
 ShellLifecycleComposer::ShellLifecycleComposer(BrowserView* host) : host_(host) {}
+
+void ShellLifecycleComposer::shell_will_close_trampoline(void* baton) {
+  auto* self = static_cast<ShellLifecycleComposer*>(baton);
+  if (self && self->host_ && self->host_->browser()) {
+    self->host_->browser()->prepare_close();
+  }
+}
+
+void ShellLifecycleComposer::shell_published_trampoline(
+    void* baton, const ui::views::Rect& dirty) {
+  auto* self = static_cast<ShellLifecycleComposer*>(baton);
+  if (self && self->host_) {
+    self->host_->commit_widget_shell_to_maps(dirty);
+  }
+}
 
 void ShellLifecycleComposer::install_shell_wheel_forward() {
   HWND shell = host_->widget_.hwnd();
@@ -170,13 +189,10 @@ bool ShellLifecycleComposer::init_shell() {
   }
   // Mid snapshots -- *.partial-*.txt; final dump is after first show only.
   base::trace::dump_startup_profile_partial("post-widget");
-  host_->widget_.set_will_close([this]() {
-    if (host_->browser_) {
-      host_->browser_->prepare_close();
-    }
-  });
-  host_->widget_.set_on_shell_published(
-      [this](const ui::views::Rect& dirty) { host_->commit_widget_shell_to_maps(dirty); });
+  host_->widget_.set_will_close_fn(&ShellLifecycleComposer::shell_will_close_trampoline,
+                                   this);
+  host_->widget_.set_on_shell_published_fn(
+      &ShellLifecycleComposer::shell_published_trampoline, this);
   host_->install_shell_wheel_forward();
 
   {
@@ -327,89 +343,133 @@ void ShellLifecycleComposer::finish_deferred_shell_wiring() {
   host_->sync_inspectors_from_scene();
   host_->sync_status();
   host_->attach_hwnd_gestures();
+  // Native pack LoadLibrary was deferred out of BuildContents.AmboxInspector
+  // so WaitFirstMapPresent is not blocked on plugin init. Start builtins then
+  // refresh AMBox so Tools dock matches visual_review #7 without Plugin Manager.
+  if (PluginShell* shell = host_->browser_->plugins()) {
+    BASE_TRACE_EVENT("WireShell.deferred.EnsureBuiltins", "startup");
+    (void)shell->ensure_builtins();
+  }
+  {
+    BASE_TRACE_EVENT("WireShell.deferred.PopulateAmbox", "startup");
+    host_->populate_ambox();
+  }
   schedule_deferred_plugin_panel();
 }
 
 
 void ShellLifecycleComposer::show_shell() {
   BASE_TRACE_EVENT("ShowShell", "startup");
+  // Pin splitter seeds + menus BEFORE ShowWindow. Doing this after the first
+  // paint resized the map HWND mid-flight, discarded the china layout /
+  // HillshadeBake from ShowWindow, and left WaitFirstMapPresent rebuilding
+  // MapIR for ~10s on the cold-start profile. Final geometry is unchanged.
+  {
+    BASE_TRACE_EVENT("ShowShell.PreShowLayout", "startup");
+    host_->widget_.layout_contents();
+    // Tools Ambox chips may have been rebuilt at 0x0 during build_contents;
+    // reflow now that the inspector page has a real client box.
+    if (host_->side_ambox_) {
+      const ui::views::Rect& sb = host_->side_ambox_->bounds();
+      if (sb.width > 0 && sb.height > 0) {
+        host_->side_ambox_->layout();
+      }
+    }
+    // BuildContents.Reseed already pinned 288/280 DIP. Force-reseed only when
+    // the live bounds drifted (grey slab / crushed map); unconditional force
+    // + menu rebuild made ShowWindow / WaitFirstMapPresent multi-second on
+    // the cold-start profile without changing final chrome.
+    const float scale = host_->widget_.device_scale_factor();
+    const int catalog_px = ui::views::dip_to_px(288, scale);
+    const int inspector_px = ui::views::dip_to_px(240, scale);
+    auto near_px = [](int got, int want) {
+      if (want <= 0) {
+        return true;
+      }
+      const int lo = want - want / 5;
+      const int hi = want + want / 5;
+      return got >= lo && got <= hi;
+    };
+    if (host_->catalog_map_ &&
+        (host_->catalog_mode_tabs_ || host_->catalog_)) {
+      if (host_->catalog_mode_tabs_) {
+        host_->catalog_mode_tabs_->set_preferred_size({288, 0});
+      }
+      if (host_->catalog_2d_) {
+        host_->catalog_2d_->set_preferred_size({288, 0});
+      }
+      if (host_->catalog_3d_) {
+        host_->catalog_3d_->set_preferred_size({288, 0});
+      }
+      if (host_->catalog_) {
+        host_->catalog_->set_preferred_size({288, 0});
+      }
+      const int catalog_w =
+          host_->catalog_mode_tabs_
+              ? host_->catalog_mode_tabs_->bounds().width
+              : (host_->catalog_ ? host_->catalog_->bounds().width : 0);
+      if (!near_px(catalog_w, catalog_px)) {
+        host_->catalog_map_->reseed(/*force=*/true);
+        host_->widget_.layout_contents();
+        LOGGING(LOG_INFO,
+                "layout: catalog_map reseed catalog_w=%d want=%d map_tabs_x=%d",
+                catalog_w, catalog_px,
+                host_->map_tabs_ ? host_->map_tabs_->bounds().x : -1);
+      }
+    }
+    if (host_->inspector_tabs_ && host_->catalog_map_) {
+      if (ui::views::View* insp_host = host_->inspector_tabs_->parent()) {
+        insp_host->set_preferred_size({inspector_px, 0});
+      }
+      host_->inspector_tabs_->set_preferred_size({inspector_px, 0});
+      ui::views::View* map_col = host_->catalog_map_->parent();
+      if (map_col) {
+        map_col->set_preferred_size({0, 0});
+      }
+      const int insp_w = host_->inspector_tabs_->bounds().width;
+      if (map_col && !near_px(insp_w, inspector_px)) {
+        if (auto* work =
+                dynamic_cast<ui::views::Splitter*>(map_col->parent())) {
+          work->reseed(/*force=*/true);
+          host_->widget_.layout_contents();
+        }
+      }
+    }
+    // Menus were built in BuildContents.RebuildMenus — do not clear/rebuild.
+    if (host_->menu_bar_) {
+      host_->menu_bar_->schedule_paint();
+    }
+    if (host_->diagnostic_tools_) {
+      const int diag_h = host_->diagnostic_tools_->bounds().height;
+      const int want_h =
+          host_->diagnostic_tools_->preferred_size().height > 0
+              ? host_->diagnostic_tools_->preferred_size().height
+              : ui::views::dip_to_px(260, scale);
+      if (!near_px(diag_h, want_h)) {
+        for (ui::views::View* p = host_->diagnostic_tools_->parent(); p;
+             p = p->parent()) {
+          if (auto* split = dynamic_cast<ui::views::Splitter*>(p)) {
+            split->reseed(/*force=*/true);
+            host_->widget_.layout_contents();
+            LOGGING(LOG_INFO,
+                    "layout: main_split reseed diagnostic_h=%d want=%d", diag_h,
+                    want_h);
+            break;
+          }
+        }
+      }
+    }
+  }
   {
     BASE_TRACE_EVENT("ShowWindow", "startup");
     host_->widget_.show();
   }
-  // ShowWindow may present an empty compositor front (async raster). Re-layout
-  // and schedule shell paint only -- do not call host_->invalidate_map_overlays() here:
+  // ShowWindow may present an empty compositor front (async raster). Schedule
+  // shell paint only -- do not call host_->invalidate_map_overlays() here:
   // that syncs paint_map_content while ContentMapView / Map2dPresenter are
   // still settling and has AVd in Map2dPresenter paint (STL orphan) under
   // --self-test. Kick the active map HWND asynchronously (InvalidateRect,
   // no UpdateWindow).
-  host_->widget_.layout_contents();
-  // Catalog|Map splitter can lock a both-flex seed before preferred widths
-  // settle (grey slab + squeezed map). Re-assert Catalog 288 DIP and reseed.
-  if (host_->catalog_map_ &&
-      (host_->catalog_mode_tabs_ || host_->catalog_)) {
-    if (host_->catalog_mode_tabs_) {
-      host_->catalog_mode_tabs_->set_preferred_size({288, 0});
-    }
-    if (host_->catalog_2d_) {
-      host_->catalog_2d_->set_preferred_size({288, 0});
-    }
-    if (host_->catalog_3d_) {
-      host_->catalog_3d_->set_preferred_size({288, 0});
-    }
-    if (host_->catalog_) {
-      host_->catalog_->set_preferred_size({288, 0});
-    }
-    host_->catalog_map_->reseed(/*force=*/true);
-    host_->widget_.layout_contents();
-    LOGGING(LOG_INFO, "layout: catalog_map reseed catalog_w=%d map_tabs_x=%d",
-            host_->catalog_mode_tabs_
-                ? host_->catalog_mode_tabs_->bounds().width
-                : (host_->catalog_ ? host_->catalog_->bounds().width : -1),
-            host_->map_tabs_ ? host_->map_tabs_->bounds().x : -1);
-  }
-  // Work splitter: re-pin inspector 320 and reseed so map_column stays flex
-  // primary (SecondaryFixed) -- proportional seed crushed Map beside Feature.
-  if (host_->inspector_tabs_ && host_->catalog_map_) {
-    if (ui::views::View* insp_host = host_->inspector_tabs_->parent()) {
-      insp_host->set_preferred_size({320, 0});
-    }
-    host_->inspector_tabs_->set_preferred_size({320, 0});
-    ui::views::View* map_col = host_->catalog_map_->parent();
-    if (map_col) {
-      map_col->set_preferred_size({0, 0});
-    }
-    if (map_col) {
-      if (auto* work = dynamic_cast<ui::views::Splitter*>(map_col->parent())) {
-        work->reseed(/*force=*/true);
-        host_->widget_.layout_contents();
-      }
-    }
-  }
-  if (host_->menu_bar_) {
-    // Re-measure File/Edit/View/Layer after DPI / font attach (DIP px height).
-    host_->menu_bar_->clear();
-    host_->rebuild_menus();
-    host_->widget_.layout_contents();
-    host_->menu_bar_->schedule_paint();
-  }
-  // Re-seed main_split after the HWND client is final so Diagnostic Tools
-  // preferred (DIP px) is not locked against a create-time tiny inner height.
-  if (host_->diagnostic_tools_) {
-    for (ui::views::View* p = host_->diagnostic_tools_->parent(); p;
-         p = p->parent()) {
-      if (auto* split = dynamic_cast<ui::views::Splitter*>(p)) {
-        split->reseed(/*force=*/true);
-        host_->widget_.layout_contents();
-        LOGGING(LOG_INFO,
-                "layout: main_split reseed diagnostic_h=%d work_h=%d",
-                host_->diagnostic_tools_->bounds().height,
-                split->child_count() > 0 ? split->child_at(0)->bounds().height
-                                         : -1);
-        break;
-      }
-    }
-  }
   host_->widget_.schedule_paint();
   if (HWND shell = host_->widget_.hwnd()) {
     if (IsWindow(shell)) {
@@ -421,11 +481,32 @@ void ShellLifecycleComposer::show_shell() {
   host_->widget_.pump_until_shell_published(400);
   if (ui::views::DrawHost* pane = host_->active_map()) {
     pane->sync_native_bounds();
+    // Frame china to the visible present HWND AFTER show (real embed size)
+    // and BEFORE Wait. Soft surface reset only — note_product force_invalidate
+    // when builds==0 bumps live_layout_gen and cancels in-flight MapIR.
+    {
+      const bool skip_fit = []() {
+        const char* skip = base::switch_cstr("skip-ambox-catalog");
+        return skip && skip[0] != '\0' && skip[0] != '0';
+      }();
+      if (!skip_fit) {
+        BASE_TRACE_EVENT("ShowShell.FitExtent", "startup");
+        if (!detail::seh_fit_and_push_extent(host_->browser_)) {
+          LOGGING(LOG_WARNING, "startup: ShowShell fit_map_extent SEH");
+        }
+        if (host_->browser_->session().document_has_land_surface()) {
+          host_->browser_->session().note_map2d_surface_reset();
+        }
+      }
+    }
     // Init may have finished while the shell was still hidden; lift the DXGI
     // popup now that horizon is shown (inactive tabs stay hidden below).
     // Also bumps request_frame for the first china present. Do this after the
     // shell-publish pump so Display is not recording Pass during Resize from
     // first WM_PAINT (early kick made WaitFirstMapPresent worse).
+    // Do NOT call Map2dPresenter::warm_frame_cache here: ensure_full pins
+    // export_layout_pin_ and blocks prepare_for_present until hillshade is
+    // forced — that stalls WaitFirstMapPresent on the cold-start profile.
     pane->set_gpu_present_visible(true);
     pane->invalidate_native();
     if (HWND map = pane->native_view()) {
@@ -474,6 +555,10 @@ void ShellLifecycleComposer::show_shell() {
       uint32_t want = pane->frame_request();
       HWND shell_hwnd = host_->widget_.hwnd();
       const DWORD t0 = GetTickCount();
+      // One empty-token kick only. Re-running note_map2d_surface_reset every
+      // poll cancelled in-flight china MapIR and stretched WaitFirstMapPresent
+      // to multi-second on the cold-start profile.
+      bool empty_token_kicked = false;
       // FlyCube alone owns DXGI tokens. Scenic/product HWND and ContentMapView
       // paint carto on the overlay path — layout/scenic present count is SoT.
       const bool gpu_sot =
@@ -498,7 +583,8 @@ void ShellLifecycleComposer::show_shell() {
           if (token_ok && layout_ready) {
             break;
           }
-          if (token_ok && !layout_ready) {
+          if (token_ok && !layout_ready && !empty_token_kicked) {
+            empty_token_kicked = true;
             host_->browser_->session().note_map2d_surface_reset();
             pane->invalidate_native();
             want = pane->frame_request();
@@ -509,7 +595,7 @@ void ShellLifecycleComposer::show_shell() {
           TranslateMessage(&msg);
           DispatchMessageW(&msg);
         }
-        Sleep(10);
+        Sleep(1);
       }
     }
     // Opt-in scenic/product present dump for bare-launch pixel verify.

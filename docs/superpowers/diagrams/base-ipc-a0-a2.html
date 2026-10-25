@@ -1,0 +1,92 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>common::ipc A0–A5 — invitation · DataPipe · Broker · GPU restart</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --border:#d8dee6; --text:#1a2330; --muted:#5a6a7e; --accent:#2563a8; --ok:#1b7a4e; }
+  body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:980px; margin:24px auto; padding:0 16px 48px; }
+  h1 { font-size:1.25rem; margin:0 0 8px; }
+  p.meta { color:var(--muted); margin:0 0 20px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 14px; flex:1 1 200px; }
+  .card h2 { font-size:0.95rem; margin:0 0 8px; color:var(--accent); }
+  .card code { font-size:12px; background:#eef2f6; padding:1px 4px; border-radius:3px; }
+  ol.flow { margin:0; padding-left:1.2rem; }
+  ol.flow li { margin:6px 0; }
+  .tag { display:inline-block; font-size:11px; font-weight:600; color:var(--ok); border:1px solid #b7e0c8; background:#e8f7ef; padding:1px 6px; border-radius:4px; }
+  .lane { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:8px; }
+  .lane div { background:#f8fafc; border:1px dashed var(--border); border-radius:6px; padding:8px; min-height:72px; }
+  .lane strong { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>common::ipc 产品路径 A0–A5</h1>
+  <p class="meta">Living: Views §四步升级 · RHI §GPU multiprocess · 不引入 Mojo</p>
+
+  <div class="row">
+    <div class="card">
+      <h2><span class="tag">A0</span> invitation</h2>
+      <ol class="flow">
+        <li><code>ChildProcessHost::launch</code></li>
+        <li><code>--ipc-channel-handle=</code></li>
+        <li><code>--pipe=</code> leftover only</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2><span class="tag">A1</span> ChannelProxy</h2>
+      <ol class="flow">
+        <li>入站 <code>Receiver</code></li>
+        <li>出站可 post IO</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2><span class="tag">A2</span> HostMsg 登记</h2>
+      <ol class="flow">
+        <li><code>host_msg_registry</code></li>
+        <li>未知 type 告警</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2><span class="tag">A3</span> DataPipe 大块</h2>
+      <ol class="flow">
+        <li>&gt;48KiB → <code>k_msg_data_pipe_offer</code></li>
+        <li>控制面仍小 pickle</li>
+        <li><code>Pipe::send_msg</code> 自动分流</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2><span class="tag">A4</span> GPU 重启</h2>
+      <ol class="flow">
+        <li><code>on_gpu_disconnected</code></li>
+        <li><code>try_restart_gpu</code> 重挂视图</li>
+        <li>失败才 <code>OnRenderDied</code></li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2><span class="tag">A5</span> Broker</h2>
+      <ol class="flow">
+        <li><code>BrokerHost</code> 在 browser</li>
+        <li><code>broker_create_section</code></li>
+        <li>代建 SHM / wrap 进子进程</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>进程角色（OOP GPU）</h2>
+    <div class="lane">
+      <div><strong>Browser</strong>GisContents · BrokerHost · Receiver · restart</div>
+      <div><strong>GPU</strong>invitation · Hello · SharedHandle · 可选 broker 建节</div>
+      <div><strong>大块</strong>DataPipe ring + 3 handles；非 inline pickle</div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

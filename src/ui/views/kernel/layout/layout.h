@@ -113,6 +113,9 @@ UI_EXPORT void install_fill_layout(View* host);
 UI_EXPORT BoxLayout* install_box_layout(View* host,
                                         BoxLayout::Orientation orientation);
 
+// Cross-DLL: |child| is adopted inside ui_views.dll (unique_ptr<View>).
+UI_EXPORT void view_mount_fill_child(View* host, View* child);
+
 }  // namespace views
 }  // namespace ui
 

@@ -102,5 +102,5 @@ All rights reserved.
 
 ### Follow-up — Map3D gap pin
 
-- [ ] 大云生产路径稳定（≥1M + 文档化 in-tree vs PDAL）— **map3d-gap-pin P1-A**；见 [`../industry-gap-matrix.md`](../industry-gap-matrix.md) §3.2.1  
+- [x] 大云生产路径稳定（≥1M + 文档化 in-tree vs PDAL）— **map3d-gap-pin P1-A**（2026-10-25）：`World::set_pointcloud_points` 500k 自动抽稀 + chunk；`pointcloud_test` 合成 1.1M；[`src/vista/assets/pointcloud/README.md`](../../../src/vista/assets/pointcloud/README.md)  
 - [ ] 活 PDAL install 可选绿 — **map3d-gap-pin P2-B**；计划 [`2026-09-30-map3d-gap-pin.md`](2026-09-30-map3d-gap-pin.md)

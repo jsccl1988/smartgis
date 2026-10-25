@@ -177,6 +177,10 @@ bool HudPass::record(render::rhi::Device* device,
 
   const float sw = static_cast<float>(width_px);
   const float sh = static_cast<float>(height_px);
+  render::rhi::RenderPassDesc desc;
+  desc.width = width_px;
+  desc.height = height_px;
+  desc.load_op = render::rhi::ColorLoadOp::kLoad;
   const float verts[20] = {
       0.f, sh, 0.f, 0.f, 0.f, sw, sh, 0.f, 1.f, 0.f,
       sw,  0.f, 0.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f,
@@ -192,10 +196,6 @@ bool HudPass::record(render::rhi::Device* device,
     return true;
   }
 
-  render::rhi::RenderPassDesc desc;
-  desc.width = width_px;
-  desc.height = height_px;
-  desc.load_op = render::rhi::ColorLoadOp::kLoad;
   list->begin_render_pass(desc);
   list->set_viewport(0.f, 0.f, sw, sh, 0.f, 1.f);
   list->set_depth_mode(render::rhi::DepthMode::kDisabled);

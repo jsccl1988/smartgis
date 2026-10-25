@@ -34,6 +34,12 @@ void FlycubeCommandList::begin_render_pass(const RenderPassDesc& desc) {
   StubCommandList::begin_render_pass(desc);
 }
 
+void FlycubeCommandList::set_scissor(int32_t x, int32_t y, uint32_t width,
+                                     uint32_t height) {
+  recorder.set_scissor(x, y, width, height);
+  StubCommandList::set_scissor(x, y, width, height);
+}
+
 void FlycubeCommandList::end_render_pass() {
   StubCommandList::end_render_pass();
 }

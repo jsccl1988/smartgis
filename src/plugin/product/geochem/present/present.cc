@@ -74,7 +74,7 @@ bool present_geochem(content::GisDocument* doc,
   }
 
   const int elem_idx =
-      gis::detail::geochem_element_index(commit.samples, commit.element);
+      gis::detail::element_index(commit.samples, commit.element);
 
   if (commit.has_idw && commit.idw.ok && !commit.idw.values.empty()) {
     if (!doc->create_layer("geochem_heat_raster", "Polygon")) {
@@ -133,11 +133,11 @@ bool present_geochem(content::GisDocument* doc,
             {min_x, max_y},
             {min_x, min_y},
         };
-        const double score = gis::detail::geochem_heat_score(
+        const double score = gis::detail::heat_score(
             static_cast<double>(raw), vmin, vmax);
         char heat_buf[32];
         const char* heat =
-            gis::detail::format_geochem_heat(score, heat_buf, sizeof(heat_buf));
+            gis::detail::format_heat(score, heat_buf, sizeof(heat_buf));
         if (!heat || !heat[0]) {
           continue;
         }
@@ -160,7 +160,7 @@ bool present_geochem(content::GisDocument* doc,
     uint32_t packed = 0xff3498db;
     if (elem_idx >= 0 && static_cast<size_t>(elem_idx) < s.values.size() &&
         commit.legend.ok) {
-      const int ci = gis::detail::geochem_grade_class_index(
+      const int ci = gis::detail::grade_class_index(
           commit.legend, s.values[static_cast<size_t>(elem_idx)]);
       if (ci >= 0) {
         packed = commit.legend.classes[static_cast<size_t>(ci)].rgba;

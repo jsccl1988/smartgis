@@ -7,13 +7,17 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-05 — vista terrain bake calls `horn_lambert_shade_grid` / `fill_ring_mask` in `gis/analysis`（RGBA、`DemRaster`、Thrust 留在 vista）。Prior same day — scene `vector_traits` canonical in `base/math/traits`（`geo::` 再导出）。Prior: 2026-10-04 — fold `gis/geo/mesh` into `gis/geo/ops`（`copy_envelope` / `k_ok` 在 `ops/geometry_traits.h`；`geo_mesh_test` 在 `ops/mesh_test.cc`）。Prior same day — P5：`geo::HexGrid` 从 `gis.dll` 删除；3D 结构化格网是 `OGRMultiPoint` XYZ + nx/ny/nz，由 `plugin/product/world3d/hexgrid` 拥有（`HexLattice` 非导出）。`geo::Grid` 保留（2D Feature sidecar）。`mesh_codec` 不再特化 HexGrid。不恢复 `SmtHexGrid`；不把 lattice 放回 `gis/geo` 几何头。`gis/geo/grid` 承接结构化椭圆光滑（`geo::solve_laplace` 2D 五点 / 3D 七点；`geo::solve_elliptic` 2D Thompson P=Q=0）与正交性热力（`geo::compute_orthogonality` 2D 结点+单元 |90−θ|、3D 单元 skew；`geo::sample_orthogonality_raster` 轴对齐双线性采样）。插件不再保留 `GridField` / `VolumeField` / 稀疏装配副本。不并入 `tin/`。TFI / 聚类 P,Q / Thomas–Middlecoff / 3D Thompson 未实现。`gis/geo/tin` 仅为 `geo::delaunay`（`geos_c` 2D）；无 `tin::` 命名空间、无 traits 后端、无 3D stub、无 XYZ、无 Div/Inc。P4：OGC TIN 身份锁定为 `OGRTriangulatedSurface` + `OGRTriangle`（`wkbTIN`）；`geo::Tin` / `geo::Surface3d` 弃用门面（索引 staging 不是 OGR 类型）；`geo::Grid` 保留。`gis/geo/proj` 仅保留 `geo::CoordinateTransform` 薄封装（`<proj.h>` 隔离在 `.cc`）；删除 `Projection` / `proj_backend_traits` / `proj_runtime` / `gaussprj`。  
+**Updated:** 2026-10-25 — **§6b geochem 内核分层**落地（model / load·io / kernel / op）；图 [`../diagrams/gis-analysis-kernel-layers.html`](../diagrams/gis-analysis-kernel-layers.html)。同日 §10 Network；§9 Geometry industry gap；§3.5 analysis ops deep layer。Prior 2026-10-05 — vista terrain bake / `vector_traits` / HexGrid 删除 / grid elliptic / TIN·PROJ 收紧（见正文 §2–§3）。  
 **Tree:** 源码在 `src/gis/{model,datasource,style,tile,geo/{ops,proj,tin,grid},stat,analysis}`，链入 `gis.dll`（`//src/gis:gis`；`//src/gis:algorithm` / `//src/gis/geo:geo` 仅转发）。CPU MapFrame / tessellate 在 **`src/vista`**（`vista.dll`），见 RHI **§Vista subdirectory tighten**。顶层 `src/algorithm/**` 为 **pre-move** 叙述，勿重建。  
-**Related:** 模型/渲染/计算伞状 → [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)；图层/Feature/WKB → [`2026-09-13-gdal-layer-management-design.md`](2026-09-13-gdal-layer-management-design.md)；Python 双运行时 → plugin-host。As-built：[`src/gis/geo/README.md`](../../../src/gis/geo/README.md)、[`src/gis/geo/proj/README.md`](../../../src/gis/geo/proj/README.md)、[`src/gis/geo/tin/README.md`](../../../src/gis/geo/tin/README.md)、[`src/gis/geo/grid/README.md`](../../../src/gis/geo/grid/README.md)、[`docs/superpowers/src-layout.md`](../src-layout.md)。  
+**Related:** 模型/渲染/计算伞状 → [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)；图层/Feature/WKB → [`2026-09-13-gdal-layer-management-design.md`](2026-09-13-gdal-layer-management-design.md)（§ analysis ops 浅分层由本文 §3.5 加深）；Python 双运行时 → plugin-host；业界总览 → [`../industry-gap-matrix.md`](../industry-gap-matrix.md) §9。As-built：[`src/gis/geo/README.md`](../../../src/gis/geo/README.md)、[`src/gis/geo/proj/README.md`](../../../src/gis/geo/proj/README.md)、[`src/gis/geo/tin/README.md`](../../../src/gis/geo/tin/README.md)、[`src/gis/geo/grid/README.md`](../../../src/gis/geo/grid/README.md)、[`src/gis/analysis/geometry/README.md`](../../../src/gis/analysis/geometry/README.md)、[`docs/superpowers/src-layout.md`](../src-layout.md)。  
 **Diagram（主）：** [`../diagrams/gis-geo-layers.html`](../diagrams/gis-geo-layers.html) — Types / Traits / Ops / Codec / Present 分层与原理流  
 **Diagram（补）：** [`../diagrams/gis-algorithm-geometry-split.html`](../diagrams/gis-algorithm-geometry-split.html) — 几何体 ↔ 算法依赖箭头与 P0–P5  
-**Plans:** [`../plans/2026-09-13-algorithm-layer-oss.md`](../plans/2026-09-13-algorithm-layer-oss.md)（历史勾选；新工作只改本文 P1–P5）  
-**Scope:** 锁定几何体层 vs 算法层契约；包装已随 `gdal_sdk` 交付的 GEOS C API 与 PROJ 9；不在本文实现 C++。
+**Diagram（analysis ops）：** [`../diagrams/analysis-ops-wkt.html`](../diagrams/analysis-ops-wkt.html) — codec / 薄 IR / `geo::` 功能体 / 域静态表  
+**Diagram（业界差距）：** [`../diagrams/geometry-analysis-gap.html`](../diagrams/geometry-analysis-gap.html) — 分责泳道 + P0/P1/P2  
+**Diagram（Network）：** [`../diagrams/gis-analysis-network.html`](../diagrams/gis-analysis-network.html) — `LineNetwork` 分层与三阶段求解流  
+**Diagram（geochem / 域内核）：** [`../diagrams/gis-analysis-kernel-layers.html`](../diagrams/gis-analysis-kernel-layers.html) — 域内 model / codec·io / kernel / op（§6b）  
+**Plans:** [`../plans/2026-09-13-algorithm-layer-oss.md`](../plans/2026-09-13-algorithm-layer-oss.md)（历史；P0–P5 收口）· [`../plans/2026-10-25-geometry-analysis-gap-pin.md`](../plans/2026-10-25-geometry-analysis-gap-pin.md)（几何对标；§9）· [`../plans/2026-10-25-network-line-graph.md`](../plans/2026-10-25-network-line-graph.md)（Network；§10）  
+**Scope:** 锁定几何体层 vs 算法层契约；包装已随 `gdal_sdk` 交付的 GEOS C API 与 PROJ 9；§9 几何业界差距；§10 路网分析内核。
 
 ---
 
@@ -100,7 +104,7 @@ ops/geometry_traits.h  →  OGR / gis::Envelope / base 类型
 | Raster DEM | `raster/dem/` | `dem_gradient` / `flood_fill` / `horn_lambert_shade` | `Map` 差分；Horn 朗伯因子 |
 | Raster mask | `raster/mask/` | `point_in_ring` / `fill_ring_mask` | 偶奇环；无 Eigen |
 | Raster filter | `raster/filter/` | `raster_convolve` / `raster_smooth` | 卷积；SparseLU |
-| Network | `network/` | `cost_path` | 小稠密矩阵 |
+| Network | `network/` | `LineNetwork` + `cost_path` / 双向·A* / 服务区 / APSP / 最大流（§10） | 长度范数；流用邻接表 |
 | Structured grid | `gis/geo/grid/` | `solve_laplace` / `solve_elliptic` / `compute_orthogonality` | Sparse LDLT / SparseLU |
 
 ### 3.3 Structured grid elliptic（`gis/geo/grid`）
@@ -121,6 +125,41 @@ orthogrid / orthogrid3d 插件只保留边界数字化、VTK / GisScene 写出�
 | 偶奇环掩膜 | `gis/analysis/raster/mask/ring_mask.h`（`point_in_ring` / `fill_ring_mask`） | `LonLatRing`、bbox 预处理、烘焙时钟 |
 
 `dem_gradient` 的坡度/坡向（度、GeoTIFF）与 Horn 着色因子不是同一公式，不合并。CUDA Thrust（`vista/terrain/dem/nv/thrust_gis.cu`）与 CPU AVX2 lit pack（`vista/terrain/dem/shade/lit_*.cc`）是烘焙侧加速；公式与 `gis::detail::horn_lambert_shade*` 对齐，不进 `gis.dll`。无新的 `native.*` / `OpsRunner` 入口。测试：`analysis_terrain_kernel_test`。
+
+### 3.5 analysis ops 深度分层（2026-10-25）
+
+**一句话：** 几何算法功能体在 `geo::`；`analysis/ops` 只做编解码、薄 IR 目录、域静态表与脚本边界。命名空间本轮仍为 `gis::` / `gis::detail`（不引入第三语义层 `gis::analysis`）。
+
+| 层 | Owner | 职责 | 不拥有 |
+| --- | --- | --- | --- |
+| **功能体** | `geo::`（`gis/geo/ops/{set,shape,predicate,measure,transform}` + 既有 `buffer`） | set/shape 走 GEOS；谓词/度量走 OGR；CRS 变换就地 | `native.*` 字符串；文件 I/O；UI |
+| **薄 IR** | `ops/ir` | `IrEnv` / `IrValue` / `eval_geometry_ir`：id → 调 `geo::*` | GEOS 实现副本（删除 `ops_geos`） |
+| **Codec** | `ops/wkt` · `ops/geojson` | 文本 ↔ `OGRGeometry`；`wkt_ops` 脚本面 | 空间运算 |
+| **要素** | `ops/features` | `scan_features` / `filter_features` / `project_features` / 字段读 | 几何 IR 节点表 |
+| **Runner** | `ops/runner` | 链各域 `const BuiltinOpEntry[]` 只读表；GeoJSON 文件几何 op；`apply_op` | 域内核公式 |
+| **域内核** | `analysis/{geometry,network,raster,geology,geochem}` | `run_*_op` 功能体；`ops/runner/ops_domain_tables.cc` 静态 `BuiltinOpEntry[]` 指向它们 | 平行 Shapely；动态 `register_*` |
+
+**锁：**
+
+- `native.*` / `plugin::run_builtin_op` / `gis::detail::apply_op` / `wkt_ops` 公开签名 **稳定**。
+- 域注册 = **进程内静态表**（非运行期 `register`、非 GetProcAddress）。
+- `ops_geos` **删除**；几何 GEOS 只在 `geo::`。
+- `src/content/public` **不动**。
+
+**依赖方向：**
+
+```
+wkt_ops / glang / run_builtin_op
+        │
+        ▼
+ops/{wkt,geojson,features,runner,ir}     ← 边界 + 目录
+        │
+        ▼
+geo::{buffer,set,shape,predicate,measure,transform}   ← 功能体
+        │
+        ▼
+OGRGeometry / geos_c / PROJ（经 CoordinateTransform）
+```
 
 ---
 
@@ -274,9 +313,33 @@ analysis / geo::ops / geo::delaunay / geo::solve_laplace / geo::compute_orthogon
 | **Eigen** | 已有 `//third_party:eigen` | analysis + `gis/geo/grid` 可依赖；不另 vendor |
 | **安装前缀** | `third_party/.install`（`out/third_party` junction） | 无第二 install root |
 
-TIN：**只包装 `geos_c`。** 2D 点集 → `GEOSDelaunayTriangulation_r`（`geo::delaunay`）；约束环 → `GEOSConstrainedDelaunayTriangulation_r`（`geo::delaunay_constrained`）。不提供 3D 四面体、不 vendor TetGen/CGAL、不保留 `namespace tin` / traits 后端 / XYZ 解析器 / Div/Inc。`analysis/geology/stratum_tin` 走 `geo::delaunay_triangles`。
+TIN：**只包装 `geos_c`。** 2D 点集 → `GEOSDelaunayTriangulation_r`（`geo::delaunay`）；约束环 → `GEOSConstrainedDelaunayTriangulation_r`（`geo::delaunay_constrained`）。不提供 3D 四面体、不 vendor TetGen/CGAL、不保留 `namespace tin` / traits 后端 / XYZ 解析器 / Div/Inc。`analysis/geology/kernel/stratum_tin` 走 `geo::delaunay_triangles`；棱柱体积 XY 足迹走 `geo::convex_hull_xy` / `polygon_area_xy`（`geo/xy/`）。
 
 错误面（保持既有约定）：DLL 边界不抛异常；PROJ 失败返回 `false`；GDAL/XYZ 失败返回 `ERR_*` 并打日志；缺 `geos_c.h`/`proj.h` 则编译失败，不做软件 Gauss 回退。
+
+---
+
+## 6b. analysis 内核分层（geochem 样板 · 2026-10-25）
+
+**Status:** active  
+**Diagram:** [`../diagrams/gis-analysis-kernel-layers.html`](../diagrams/gis-analysis-kernel-layers.html)  
+**As-built:** [`src/gis/analysis/geochem/README.md`](../../../src/gis/analysis/geochem/README.md)  
+**Relation:** 深化 §3.5「域内核」一格；不改 `ops/runner` 注册模型（仍可硬分支或日后静态表）。
+
+**约定（每个 analysis 域可照抄；本变更只迁 geochem）：**
+
+| 层 | 职责 | 禁止 |
+| --- | --- | --- |
+| **model** | 纯数据与表查询 | I/O、JSON、GDAL |
+| **load / io** | 编解码（CSV/OGR 入、GeoTIFF 出） | 统计 / IDW 本体 |
+| **kernel** | 纯计算（stats / idw / grade） | rapidjson、GDAL Driver 写出 |
+| **op** | `native.*` 调度：`ops_args` → load+kernel+io | 内嵌第二套 JSON 解析 |
+
+**geochem 树：** `model/` · `load/` · `stats/` · `idw/` · `grade/` · `io/` · `op/`。  
+**共享脚手架：** `ops/runner/ops_args`（`decode_op_args` / `op_arg_string` / `op_arg_double` / `op_arg_int`）。  
+**不变：** catalog id `native.geochem_stats` / `native.geochem_idw` 与 JSON 字段合同。  
+**C++ 符号：** 允许 break；仓内一次改齐；无长期 shim（例：`load_csv`、`run_idw`、`run_stats_op`）。  
+**Don't：** 不把其它 analysis 域强迁；不新建第二 op registry；不把纯内核上提到顶层 `src/algorithm/`。
 
 ---
 
@@ -317,4 +380,105 @@ TIN：**只包装 `geos_c`。** 2D 点集 → `GEOSDelaunayTriangulation_r`（`g
 
 **测试锚点：** `ops_test`、`indexed_tin_test`、`proj_test`、`tin_delaunay_test`、`geo_grid_laplace_test`、`analysis_eigen_test`；vista/effect 既有 tessellate / unified draw。
 
-**Plan：** [`../plans/2026-09-13-algorithm-layer-oss.md`](../plans/2026-09-13-algorithm-layer-oss.md)（历史勾选；新工作只改本文 P1–P5）。
+**Plan（历史）：** [`../plans/2026-09-13-algorithm-layer-oss.md`](../plans/2026-09-13-algorithm-layer-oss.md)（P0–P5 收口）。  
+**Plan（几何对标）：** [`../plans/2026-10-25-geometry-analysis-gap-pin.md`](../plans/2026-10-25-geometry-analysis-gap-pin.md) — 见 **§9**。
+
+---
+
+## 9. Geometry industry gap（2026-10-25）
+
+**一句话：** 对标 PostGIS / QGIS Processing / ArcGIS Pro 的**矢量几何分析**能力；文档分责落地，实现按 pin 勾选。`analysis/geometry` 只承载 Eigen 拟合/变换族；GEOS 单几何算子在 `analysis/ops`；图层批处理在 Processing 产品面；拓扑规则在 tool / EditSession。
+
+**Diagram:** [`../diagrams/geometry-analysis-gap.html`](../diagrams/geometry-analysis-gap.html)  
+**Pin:** [`../plans/2026-10-25-geometry-analysis-gap-pin.md`](../plans/2026-10-25-geometry-analysis-gap-pin.md)  
+**Overview:** [`../industry-gap-matrix.md`](../industry-gap-matrix.md) §9
+
+### 9.1 分责（locked）
+
+| 车道 | Owner | 放什么 | 不放什么 |
+| --- | --- | --- | --- |
+| **GEOS 单几何** | `gis/analysis/ops`（`ops_geos` / `geometry_ir` / `native.*`） | buffer/set/simplify/hull/valid/densify/offset/voronoi/… | 图层属性策略；EditSession |
+| **Eigen 几何核** | `gis/analysis/geometry` | fit_line / fit_plane / affine_align → rigid/similarity / PCA / constructive affine（P1-B） | GEOS 包装；UI |
+| **Delaunay / Voronoi 数学** | `gis/geo/tin` + ops 暴露 | `geo::delaunay*`；`native.delaunay` / `native.voronoi` | 自写 tet；CGAL |
+| **图层 dissolve / join / overlay** | Processing 产品面调内核 | 属性键 dissolve；spatial join；erase/identity 子集 | 插件内第二套几何核 |
+| **捕捉 / 拓扑规则** | tool + `feature_edit` + EditSession | snap（已有）；叠盖/缝隙校验与报告 | `analysis/topology/` 神类；ArcGIS 规则引擎照搬 |
+
+**分期（locked，与 pin 一致）：**
+
+| 阶段 | 规则 |
+| --- | --- |
+| **P0** | GEOS/OGR 已能算 → 只接线 catalog / IR / 测试 |
+| **P1** | 产品主路径（图层批处理 + Eigen 加深 + Processing 可发现） |
+| **P2** | 拓扑规则挂 EditSession；与 Map2D gap-pin P1-4 / P2-4 **同一门禁** |
+
+### 9.2 现状快照（2026-10-25）
+
+| 族 | 业界锚（例） | SmartGIS | 阶段 |
+| --- | --- | --- | --- |
+| 集合 / buffer / clip / hull / simplify / 谓词 / 量测 | `ST_Intersection`、`ST_Buffer`、`ST_Intersects`… | `native.*` + WKT 面已有一批 | —（维护） |
+| valid / make_valid / densify / offset / concave / MBR / unary_union | `ST_MakeValid`、`ST_OffsetCurve`、`ST_ConcaveHull` | **已暴露**（`geo::` + IR + catalog；WKT 子集） | **P0 done** |
+| line_merge / node / polygonize / snap(geom) | `ST_LineMerge`、`ST_Polygonize` | **已暴露** | **P0 done** |
+| Hausdorff / Frechet / shortest_line / covers | `ST_HausdorffDistance`、`ST_ClosestPoint` | **已暴露** | **P0 done** |
+| Delaunay / Voronoi 产品 id | `ST_DelaunayTriangles`、Thiessen | `native.delaunay` / `native.voronoi` | **P0 done** |
+| fit / affine 加深 | Affine / Spatial Adjustment | Umeyama rigid/similarity + PCA/oriented_bbox + `native.translate|rotate|scale` | **P1-B done** |
+| dissolve / spatial join / overlay | Dissolve、Spatial Join、Erase / Identity | `analysis/layer` + `native.dissolve|clip_layer|spatial_join|erase|identity|split_line|cut_polygon` | **P1-A done** |
+| Processing 可发现 | QGIS toolbox | 单一 `builtin_op_catalog` → Views Processing panel | **P1-C done** |
+| 拓扑校验 / 规则集 | Topology Checker、Pro topology | 叠盖/缝隙已挂 EditSession；高级规则集仍开 | **P2-1…3 done** / P2-4 |
+
+### 9.3 与既有锁的关系
+
+- **不** vendor 第二 GEOS / CGAL / Triangle（§6 / §7）。  
+- Python / Console **只** `plugin::run_builtin_op`（§3.2）。  
+- `analysis/geometry` README 保持「核在此、plugin 只转发」；扩算子时同改 pin + catalog。  
+- 拓扑 **不**在本伞状实现 UX；tool-event **§Topology validation** 与 Map2D **P1-4** 交叉引用本 pin **P2**。
+
+### 9.4 Done bar（文档）
+
+- [x] Living §9 + pin + HTML 图 + industry-gap-matrix §9 交叉链  
+- [x] Pin **P0 done-bar**（2026-10-25；`ops_test` + `analysis_wkt_ops_test`）  
+- [x] Pin **P1-A1–A3 + P1-C1**（2026-10-25；`analysis_layer_ops_test` + `analysis_eigen_test`；Processing ← catalog）  
+- [x] Pin **P2-1 + P2-3** 与 Map2D P1-4 同关（`topology_check_test`；P2-4 仍开）  
+
+---
+
+## 10. Network analysis（2026-10-25）
+
+**一句话：** `gis/analysis/network` 以共享有向 **`LineNetwork`** 为底座（可选单向、转向禁行、点/线障碍），求解器组合扩展；对标 pgRouting / QGIS Network / ArcGIS 高频子集，**不** vendor OSRM。
+
+**Diagram:** [`../diagrams/gis-analysis-network.html`](../diagrams/gis-analysis-network.html)  
+**Plan:** [`../plans/2026-10-25-network-line-graph.md`](../plans/2026-10-25-network-line-graph.md)
+
+### 10.1 分责（locked）
+
+| 单元 | Owner | 放什么 | 不放什么 |
+| --- | --- | --- | --- |
+| **建图** | `network/line_network` | 结点吸附、有向边、`weight`/`capacity`/`oneway`、转向三元组、障碍 | 求解状态；UI |
+| **最短路族** | `network/shortest_path` + `cost_path` | Dijkstra（靠右折中）、双向、A*；`native.cost_path` | VRP；转向几何交叉口 |
+| **服务区** | `network/service_area` | cutoff 可达边 → MultiLineString；`native.service_area` | 等时面多边形化（可后挂） |
+| **APSP 子集** | `network/apsp` | 多源 Dijkstra 代价矩阵；`native.apsp` | 全点 Floyd 默认路径 |
+| **最大流** | `network/max_flow` | Edmonds–Karp；`native.max_flow` | 最小费用流 / 多商品流 |
+| **产品转发** | `plugin::run_builtin_op` / traffic | 调内核；动画 present | 内核副本 |
+
+### 10.2 三阶段（locked）
+
+| 阶段 | 交付 |
+| --- | --- |
+| **①** | `LineNetwork` + 迁移 `cost_path`（默认无 `oneway` → 双向，保持 traffic 靠右 gate） |
+| **②** | `algorithm=bidirectional|astar` + `native.service_area` |
+| **③** | `native.apsp` + `native.max_flow` |
+
+### 10.3 字段约定（v1）
+
+| 字段 / 图层 | 语义 |
+| --- | --- |
+| `weight_field` | 阻抗倍率（× 段长）；空 → 欧氏长度 |
+| `capacity_field` | 边容量（最大流）；空 → 1.0 |
+| `oneway_field` | `>0`/`FT`/`F` → 数字化方向；`<0`/`TF`/`T` → 反向；`0`/`B`/缺省 → 双向 |
+| `turns_path` | 转向禁行：每要素 LineString ≥3 点 → 禁 `(p0,p1,p2)` |
+| `barriers_path` | 点禁最近结点；线禁吸附后的结点与共线边 |
+
+### 10.4 非目标
+
+- 不 vendor OSRM / Valhalla / Boost.Graph。  
+- 不做 VRP、层次路网、实时路况、复杂交叉口几何。  
+- 不改 `content/public`；traffic 插件仍只调内核。  

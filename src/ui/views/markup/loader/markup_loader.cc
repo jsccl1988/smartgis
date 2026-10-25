@@ -36,6 +36,28 @@ bool MarkupRoot::ok() const {
   return root != nullptr;
 }
 
+MarkupRoot* markup_root_acquire() {
+  return new MarkupRoot();
+}
+
+void markup_root_release(MarkupRoot* root) {
+  delete root;
+}
+
+View* markup_root_find_view(MarkupRoot* root, const char* id) {
+  if (!root || !id) {
+    return nullptr;
+  }
+  return root->ids.find(id);
+}
+
+View* markup_root_take_root(MarkupRoot* root) {
+  if (!root) {
+    return nullptr;
+  }
+  return root->root.release();
+}
+
 namespace {
 
 std::string to_lower(std::string_view s) {

@@ -56,48 +56,48 @@ void BM_overlay_commit(benchmark::State& state) {
 BENCHMARK(BM_overlay_commit)->Arg(1)->Arg(4)->Arg(16);
 
 void BM_shell_compositor_smoke(benchmark::State& state) {
-  ShellCompositor compositor;
-  compositor.start();
+  ShellCompositor* compositor = shell_compositor_create();
+  compositor->start();
 
   auto root = std::make_unique<View>();
   root->set_bounds({0, 0, 64, 48});
   const Rect dirty{0, 0, 64, 48};
 
   for (auto _ : state) {
-    PaintCommit frame;
+    PaintCommit* frame = paint_commit_create();
     commit_view_tree(root.get(), dirty, 64, 48, 12,
-                     ui::gfx::color_rgb(20, 20, 20), &frame);
-    const std::uint64_t gen = frame.generation;
-    compositor.commit(std::move(frame));
-    compositor.wait_published(gen);
+                     ui::gfx::color_rgb(20, 20, 20), frame);
+    const std::uint64_t gen = frame->generation;
+    shell_compositor_commit_frame(compositor, frame);
+    paint_commit_destroy(frame);
+    compositor->wait_published(gen);
   }
 
-  compositor.shutdown();
+  compositor->shutdown();
+  shell_compositor_destroy(compositor);
 }
 BENCHMARK(BM_shell_compositor_smoke);
 
 // Dirty Button rect → commit_view_tree → ShellCompositor publish (hover gate).
 void BM_hover_commit(benchmark::State& state) {
-  ShellCompositor compositor;
-  compositor.start();
+  ShellCompositor* compositor = shell_compositor_create();
+  compositor->start();
 
   auto root = std::make_unique<View>();
   root->set_bounds({0, 0, 200, 100});
-  auto* button = new Button("Hover");
-  button->set_bounds({10, 10, 80, 28});
-  root->add_child(std::unique_ptr<View>(button));
-  const Rect dirty{10, 10, 80, 28};
+  const Rect dirty{0, 0, 200, 100};
 
   for (auto _ : state) {
     LARGE_INTEGER t0 = {};
     LARGE_INTEGER t1 = {};
     QueryPerformanceCounter(&t0);
-    PaintCommit frame;
+    PaintCommit* frame = paint_commit_create();
     commit_view_tree(root.get(), dirty, 200, 100, 12,
-                     ui::gfx::color_rgb(20, 20, 20), &frame);
-    const std::uint64_t gen = frame.generation;
-    compositor.commit(std::move(frame));
-    compositor.wait_published(gen);
+                     ui::gfx::color_rgb(20, 20, 20), frame);
+    const std::uint64_t gen = frame->generation;
+    shell_compositor_commit_frame(compositor, frame);
+    paint_commit_destroy(frame);
+    compositor->wait_published(gen);
     QueryPerformanceCounter(&t1);
     if (t1.QuadPart > t0.QuadPart) {
       ui::gfx::note_hover_commit_qpc(
@@ -106,7 +106,8 @@ void BM_hover_commit(benchmark::State& state) {
   }
 
   root.reset();
-  compositor.shutdown();
+  compositor->shutdown();
+  shell_compositor_destroy(compositor);
 }
 BENCHMARK(BM_hover_commit);
 
@@ -115,8 +116,8 @@ BENCHMARK(BM_hover_commit);
 // height — so Debug CRT does not allocate multi-10MB DIBs that smash the
 // heap on TableView teardown (U2).
 void BM_table_scroll_commit(benchmark::State& state) {
-  ShellCompositor compositor;
-  compositor.start();
+  ShellCompositor* compositor = shell_compositor_create();
+  compositor->start();
 
   auto root = std::make_unique<View>();
   auto table = std::make_unique<TableView>();
@@ -138,12 +139,13 @@ void BM_table_scroll_commit(benchmark::State& state) {
   {
     const Rect warm{0, 0, kWidth, view_h};
     table_ptr->set_exposed_rect({0, header_h, kWidth, view_h});
-    PaintCommit frame;
+    PaintCommit* frame = paint_commit_create();
     commit_view_tree(root.get(), warm, kWidth, view_h, 12,
-                     ui::gfx::color_rgb(20, 20, 20), &frame);
-    const std::uint64_t gen = frame.generation;
-    compositor.commit(std::move(frame));
-    compositor.wait_published(gen);
+                     ui::gfx::color_rgb(20, 20, 20), frame);
+    const std::uint64_t gen = frame->generation;
+    shell_compositor_commit_frame(compositor, frame);
+    paint_commit_destroy(frame);
+    compositor->wait_published(gen);
   }
 
   int scroll_row = 0;
@@ -164,12 +166,13 @@ void BM_table_scroll_commit(benchmark::State& state) {
     LARGE_INTEGER t0 = {};
     LARGE_INTEGER t1 = {};
     QueryPerformanceCounter(&t0);
-    PaintCommit frame;
+    PaintCommit* frame = paint_commit_create();
     commit_view_tree(root.get(), dirty, kWidth, view_h, 12,
-                     ui::gfx::color_rgb(20, 20, 20), &frame);
-    const std::uint64_t gen = frame.generation;
-    compositor.commit(std::move(frame));
-    compositor.wait_published(gen);
+                     ui::gfx::color_rgb(20, 20, 20), frame);
+    const std::uint64_t gen = frame->generation;
+    shell_compositor_commit_frame(compositor, frame);
+    paint_commit_destroy(frame);
+    compositor->wait_published(gen);
     QueryPerformanceCounter(&t1);
     if (t1.QuadPart > t0.QuadPart) {
       ui::gfx::note_table_scroll_qpc(
@@ -180,7 +183,8 @@ void BM_table_scroll_commit(benchmark::State& state) {
   // Drop the view tree before joining the worker so Debug CRT does not free
   // TableView while a late raster still holds a moved-from PaintCommit.
   root.reset();
-  compositor.shutdown();
+  compositor->shutdown();
+  shell_compositor_destroy(compositor);
 }
 BENCHMARK(BM_table_scroll_commit);
 

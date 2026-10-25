@@ -31,7 +31,9 @@ bool seh_fit_and_push_extent(Browser* browser) {
     return false;
   }
   __try {
-    browser->fit_map_extent();
+    // Startup show_shell already invalidates the active map after Fit; skip
+    // paint_overlays so Scene3d / inactive panes are not woken mid china tess.
+    browser->fit_map_extent(/*paint_overlays=*/false);
     browser->push_shared_extent();
     return true;
   } __except (EXCEPTION_EXECUTE_HANDLER) {

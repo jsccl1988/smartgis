@@ -13,6 +13,7 @@
 #include <windows.h>
 
 #include "app/views/browser/commands/app_commands.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "content/browser/session/browser_session.h"
 #include "content/public/gis_contents.h"
 #include "content/public/tool_session.h"
@@ -34,7 +35,15 @@ bool Browser::run_tool_command(std::string_view command_id) {
   if (dispatch_shell_navigation(command_id, -1, false, 0, 0)) {
     return true;
   }
-  if (!ui_ || command_id.empty()) {
+  if (command_id.empty()) {
+    return false;
+  }
+  // Same order as Ambox Tools: plugin commands (flood.*, traffic.*, …) before
+  // the workspace ToolSession. DebugAgent :tool and catalog chips share this.
+  if (plugins_ && plugins_->execute(command_id)) {
+    return true;
+  }
+  if (!ui_) {
     return false;
   }
   content::ToolSession* host = ui_->active_tool_session();

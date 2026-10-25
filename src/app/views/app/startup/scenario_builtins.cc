@@ -5,6 +5,8 @@
 
 #include <mutex>
 
+#include "app/views/app/startup/atmosphere_showcase_run.h"
+#include "app/views/app/startup/map2d_showcase_run.h"
 #include "app/views/browser/plugin/harness/report_suite.h"
 #include "app/views/app/startup/shell_runtime.h"
 
@@ -60,27 +62,32 @@ void ensure_builtin_scenarios() {
     add_row(Scenario{"browser.map2d.browse", content::detail::kHarnessMarkLeaf,
                      "browser.map2d.browse", nullptr, nullptr,
                      k_browse_map2d_gdi});
+    // suite_id prefers IL; Debug CPython stub falls through to C++ run.
     add_row(Scenario{"browser.map2d.china", content::detail::kMap2dMarkLeaf,
-                     "browser.map2d.china", nullptr, nullptr,
+                     "browser.map2d.china", nullptr, run_map2d_china_showcase,
                      k_map2d_flycube_skip_catalog});
     add_row(Scenario{"browser.map2d.align", content::detail::kMap2dMarkLeaf,
-                     "browser.map2d.align", nullptr, nullptr,
+                     "browser.map2d.align", nullptr, run_map2d_align_showcase,
                      k_map2d_flycube_skip_catalog});
     add_row(Scenario{"browser.map2d.orthogrid", content::detail::kMap2dMarkLeaf,
-                     "browser.map2d.orthogrid", nullptr, nullptr,
-                     k_map2d_flycube_skip_catalog});
+                     "browser.map2d.orthogrid", nullptr,
+                     run_map2d_orthogrid_showcase, k_map2d_flycube_skip_catalog});
     add_row(Scenario{"browser.world3d.browse", content::detail::kBrowse3dMarkLeaf,
                      "browser.world3d.browse", nullptr, nullptr, k_browse_3d});
     // Atmosphere suites borrow shell FlyCube (rhi_device). kGdi policy forced
     // Scene3dEngine::kGdi over SCENE3D_ENGINE=flycube → device-missing (#5).
     // land / ocean / coast looks run inside browser.world3d.full (one process).
+    // IL script when CPython is ready; otherwise C++ land→ocean→coast→full.
+    // Keep plugin_command null so a stub/gate-only command cannot exit 0
+    // without BMPs (same pattern as browser.map2d.china).
     add_row(Scenario{"browser.world3d.full", content::detail::kAtmosphereMarkLeaf,
-                     "browser.world3d.full",
-                     "world3d.scenario.atmosphere.full", nullptr, k_browse_3d});
+                     "browser.world3d.full", nullptr,
+                     run_atmosphere_full_showcase, k_browse_3d});
+    // suite_id prefers IL; Debug CPython stub falls through to C++ run
+    // (gate-only plugin_command would exit 0 without a BMP / timed present).
     add_row(Scenario{"browser.world3d.legacy", content::detail::kAtmosphereMarkLeaf,
-                     "browser.world3d.legacy",
-                     "world3d.scenario.atmosphere.legacy", nullptr,
-                     k_browse_3d});
+                     "browser.world3d.legacy", nullptr,
+                     run_atmosphere_legacy_showcase, k_browse_3d});
     add_row(Scenario{"browser.world3d.globe", content::detail::kAtmosphereMarkLeaf,
                      "browser.world3d.globe",
                      "world3d.scenario.atmosphere.globe", nullptr, k_browse_3d});
@@ -106,14 +113,15 @@ void ensure_builtin_scenarios() {
                      "browser.campaign", nullptr, nullptr,
                      k_content_map_harness});
     // browser.gpu is SmartGisRender.exe-only (no Views ScenarioRegistry row).
+    // suite_id prefers IL; Debug CPython stub falls through to C++ capture.
     add_row(Scenario{"ui.shell", content::detail::kUiMarkLeaf, "ui.shell", nullptr,
-                     nullptr, k_ui_shell_flycube});
+                     run_ui_shell_showcase, k_ui_shell_flycube});
     add_row(Scenario{"ui.data", content::detail::kUiMarkLeaf, "ui.data", nullptr,
-                     nullptr, k_ui_shell_flycube});
+                     run_ui_data_showcase, k_ui_shell_flycube});
     add_row(Scenario{"ui.scene", content::detail::kUiMarkLeaf, "ui.scene", nullptr,
                      nullptr, k_ui_scene});
     add_row(Scenario{"ui.catalog", content::detail::kUiMarkLeaf, "ui.catalog", nullptr,
-                     nullptr, k_ui_shell_flycube});
+                     run_ui_catalog_showcase, k_ui_shell_flycube});
     // Plugins dock only. Index 12 matches shell_layout_composer add order
     // (Tools … Atmosphere, then Plugins). Own mark leaf so ui.catalog
     // captures do not clobber it.

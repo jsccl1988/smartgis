@@ -37,6 +37,11 @@ bool has_overlay_draws(const std::vector<UploadedDraw>& draws);
 
 bool frame_has_overlay_items(const vista::MapIR& frame);
 
+bool frame_has_screen_fixed_items(const vista::MapIR& frame);
+
+std::vector<UploadedDraw> without_screen_fixed(
+    const std::vector<UploadedDraw>& draws);
+
 // FNV-1a over the world or overlay slice of |frame.items|.
 uint64_t hash_items(const vista::MapIR& frame, bool overlay_slice);
 

@@ -57,6 +57,9 @@ struct DrawItem {
   // Pixel-space pivot for angle_rad. World-space items leave these at 0.
   float anchor_x = 0.f;
   float anchor_y = 0.f;
+  // Screen HUD (scale bar / north arrow): always re-place for the live view.
+  // Unlike geo labels, these must not ride DrawCache pan reuse or they drift.
+  bool screen_fixed = false;
   DrawBlend blend = DrawBlend::kOver;
   // C1 per-layer DrawItem cache: source × zoom × viewport tile (0 = untagged).
   uint64_t cache_key = 0;

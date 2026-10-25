@@ -557,5 +557,21 @@ Plan complete when saved. Implementation continues on `master` under the multi-G
 - [ ] Underlay: finish BGRA readback / blit into shared surface before overlay quads (`underlay_bridge` + `RhiComposer`)
 - [ ] effect::map color-target → compositor on same `AdapterId` (Task 6 Step 3)
 - [x] Assert: no Skia Ganesh map; no dual HWND Vista + shared-surface present; `view.backend.rhi` still = `ContentSource::kDirect`（locked in living § Non-goals / Env）
-- [ ] Human smoke: browser present-only SharedHandle; kill `--type=gpu` → recover; dual-adapter sticky software
+- [x] Automated smoke: `gis_contents_gpu_restart_test` kill `--type=gpu` → recover + re-Attach
+- [ ] Human smoke: browser present-only SharedHandle; dual-adapter sticky software
+
+## Task 9: Multiprocess upgrade gates（A → B → optional renderer）
+
+> Living: [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) **§GPU multiprocess upgrade**  
+> Diagram: [`../diagrams/gpu-multiprocess-upgrade.html`](../diagrams/gpu-multiprocess-upgrade.html)  
+> Shell peer: Views §Content process layers（四步升级对齐本 Task）
+
+**Goal:** Ship the locked product order without default three-process: harden Topology A + opt-in GPU, then flip **GPU-only** OOP as product default, then optional renderer on the same transport.
+
+- [x] Living § + HTML lock A → B → R; reject near-term default-C
+- [x] Cross-link Views §Content process layers + this plan Task 9
+- [x] **Phase A (kill-GPU):** `GisContentsImpl::try_restart_gpu` on pipe disconnect; re-Open/Attach/Resize/Extent + `kResetGpu`; test `gis_contents_gpu_restart_test`
+- [ ] **Phase A (Task 8):** Map2d/Scene3d cold path submit under OOP switch (still open on Task 8)
+- [ ] **Phase B:** product default Browser + `--type=gpu`; document/tools stay in browser; first-map budget gate; `--in-process-gpu` debug/CI only
+- [ ] **Phase R:** optional `--type=renderer` on same invitation + `host_protocol` as GPU; `OnRenderDied` restart; **not** product default unless separately decided
 

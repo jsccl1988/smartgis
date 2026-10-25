@@ -5,7 +5,7 @@
 
 #include "content/browser/glang.runtime/host/horizon/atom/mark.h"
 #include "content/browser/glang.runtime/host/link/bind_host.h"
-#include "content/browser/glang.runtime/host/view/host/capture_host.h"
+#include "content/browser/debug/capture/capture_host.h"
 #include "content/browser/glang.runtime/exec/py/script_load.h"
 #include "content/browser/glang.runtime/host/utils/charset.h"
 #include "base/core/log.h"
@@ -189,7 +189,9 @@ bool resolve_suite_logged(const char* suite_id, std::wstring* path) {
 ScriptStatus run_suite(content::Shell& browser, const ScriptCall& call) {
   std::wstring path;
   if (!resolve_suite_logged(call.suite_id, &path)) {
-    return {};
+    // Non-zero so HARNESS_SUITE can fall through to C++ scenario.run
+    // (Debug without CPython used to return {} → rc 0 and skip the BMP).
+    return ScriptStatus{1, "error: suite resolve failed"};
   }
   return ScriptStatus{run_linked(browser, path, call.mark_leaf, call.clear_marks),
                       {}};

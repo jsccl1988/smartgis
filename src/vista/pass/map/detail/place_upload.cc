@@ -21,6 +21,24 @@ std::vector<UploadedDraw> place_and_upload(
         load_icon,
     std::vector<render::rhi::Buffer*>* buffers,
     std::vector<render::rhi::Texture*>* textures) {
+  return place_and_upload(device, frame, view, glyphs, world_items,
+                          overlay_items, load_raster, load_icon, buffers,
+                          textures, {});
+}
+
+std::vector<UploadedDraw> place_and_upload(
+    render::rhi::Device* device, const vista::MapIR& frame,
+    const vista::View& view, GlyphRasterizer* glyphs, bool world_items,
+    bool overlay_items,
+    const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
+                             int* w, int* h)>& load_raster,
+    const std::function<bool(const std::string& symbol_id,
+                             std::vector<uint8_t>* rgba, int* w, int* h)>&
+        load_icon,
+    std::vector<render::rhi::Buffer*>* buffers,
+    std::vector<render::rhi::Texture*>* textures,
+    const std::function<bool(uint32_t texture_key, const uint8_t** rgba, int* w,
+                             int* h)>& borrow_raster) {
   std::vector<PlacedMesh> meshes =
       place_frame(frame, view, world_items, overlay_items);
   size_t placed_glyphs = 0;
@@ -46,7 +64,7 @@ std::vector<UploadedDraw> place_and_upload(
             placed_glyphs, layout.cells.size(), layout.width, layout.height);
   }
   return upload_draws(device, std::move(meshes), layout, load_raster, load_icon,
-                      buffers, textures);
+                      buffers, textures, borrow_raster);
 }
 
 }  // namespace detail

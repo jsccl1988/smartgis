@@ -1,0 +1,184 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>几何分析业界差距 — 分责与分期</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --p0: #1f6b4a; --p1: #2563a8; --p2: #8a5a12;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .note { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  @media (max-width: 860px) { .lanes { grid-template-columns: 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+    background: var(--panel2); min-height: 180px;
+  }
+  .lane h3 { margin: 0 0 8px; font-size: 0.85rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.1em; font-size: 0.8rem; color: var(--muted); }
+  .lane li { margin-bottom: 4px; }
+  .lane strong { color: var(--text); }
+  .lane.algo { border-top: 3px solid var(--p0); }
+  .lane.product { border-top: 3px solid var(--p1); }
+  .lane.tool { border-top: 3px solid var(--p2); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  }
+  .stage {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; font-size: 0.8rem; min-width: 130px; max-width: 190px;
+    transition: box-shadow 0.25s ease, background 0.25s ease;
+  }
+  .stage strong { display: block; font-size: 0.7rem; margin-bottom: 2px; }
+  .stage.p0 strong { color: var(--p0); }
+  .stage.p1 strong { color: var(--p1); }
+  .stage.p2 strong { color: var(--p2); }
+  .arrow { color: var(--muted); font-weight: 700; }
+  .stage.active {
+    box-shadow: inset 0 0 0 1px var(--accent);
+    background: #eef5fc;
+  }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .map th, .map td {
+    border: 1px solid var(--border); padding: 6px 8px; text-align: left;
+  }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .forbid {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .forbid span {
+    border: 1px solid #e0b0b0; background: #fdf2f2; color: #a33d3d;
+    border-radius: 6px; padding: 5px 8px; font-size: 0.76rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>几何分析业界差距 — 分责与分期</h1>
+    <p>对标 PostGIS / QGIS Processing / ArcGIS Pro；实现按 P0 GEOS 暴露 → P1 产品主路径 → P2 拓扑，分树落地。</p>
+    <p class="meta">Living：<code>algorithm-layer-oss</code> §9 · pin：<code>2026-10-25-geometry-analysis-gap-pin.md</code> · 总览：<code>industry-gap-matrix</code> §9</p>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层（谁拥有什么）</h2>
+    <div class="lanes">
+      <div class="lane algo">
+        <h3 style="color:var(--p0)">Algorithm / gis.analysis</h3>
+        <ul>
+          <li><strong>GEOS 单几何</strong>：<code>geo::{set,shape,…}</code> + 薄 IR + <code>native.*</code></li>
+          <li><strong>Eigen 拟合</strong>：<code>analysis/geometry</code></li>
+          <li><strong>Delaunay</strong>：<code>gis/geo/tin</code></li>
+          <li>不拥有 EditSession / UI 面板</li>
+        </ul>
+      </div>
+      <div class="lane product">
+        <h3 style="color:var(--p1)">Plugin Processing + 图层</h3>
+        <ul>
+          <li><strong>转发</strong>：<code>plugin::run_builtin_op</code></li>
+          <li><strong>图层 dissolve / join / overlay</strong>：产品面 + 调内核</li>
+          <li>禁止平行 Shapely / 插件内第二套核</li>
+        </ul>
+      </div>
+      <div class="lane tool">
+        <h3 style="color:var(--p2)">Tool / EditSession</h3>
+        <ul>
+          <li><strong>捕捉</strong>：vertex/edge（Map2D P0-4 已绿）</li>
+          <li><strong>拓扑规则</strong>：叠盖/缝隙校验与报告</li>
+          <li>规则引擎不进 <code>analysis/topology/</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（分期）</h2>
+    <div class="flow" id="flow">
+      <div class="stage p0" data-i="0"><strong>P0 GEOS 暴露</strong>MakeValid · densify · offset · Voronoi · Hausdorff · unary_union…</div>
+      <span class="arrow">→</span>
+      <div class="stage p1" data-i="1"><strong>P1 产品主路径</strong>dissolve · spatial join · overlay · Eigen align/affine · catalog</div>
+      <span class="arrow">→</span>
+      <div class="stage p2" data-i="2"><strong>P2 拓扑</strong>EditSession 叠盖/缝隙 · FeatureInfo 报告 · 高级规则后置</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="3"><strong>验收</strong>pin checkbox + matrix §9 回写 · 无第二 GEOS</div>
+    </div>
+    <p class="note" style="margin-top:10px">动画：仅高亮当前阶段；P0 不依赖图层会话，P2 不新建算法 DLL。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 对标入口（摘要）</h2>
+    <table class="map">
+      <thead>
+        <tr><th>族</th><th>业界锚</th><th>SmartGIS 现状</th><th>阶段</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>集合 / buffer / hull</td><td>ST_Intersection / Buffer / ConvexHull</td><td>已有 <code>native.*</code></td><td>—</td></tr>
+        <tr><td>valid / densify / offset / concave</td><td>MakeValid / OffsetCurve / ConcaveHull</td><td><code>geo::</code> + IR + catalog</td><td>P0 done</td></tr>
+        <tr><td>Voronoi / Delaunay 产品 id</td><td>ST_Voronoi / Create TIN</td><td><code>native.delaunay</code> / <code>native.voronoi</code></td><td>P0 done</td></tr>
+        <tr><td>拟合 / 仿射</td><td>Affine / Spatial Adjustment</td><td>Umeyama + PCA + translate/rotate/scale</td><td>P1-B done</td></tr>
+        <tr><td>图层 dissolve / join / overlay</td><td>Dissolve / Spatial Join / Erase / Identity / Split</td><td><code>analysis/layer</code> + catalog（含 split/cut）</td><td>P1-A done</td></tr>
+        <tr><td>拓扑规则</td><td>Topology Checker / Pro rules</td><td>叠盖/缝隙 + 报告；高级集仍开</td><td>P2-1…3 done</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>4. 禁止</h2>
+    <div class="forbid">
+      <span>第二套 GEOS / CGAL</span>
+      <span>插件内几何核副本</span>
+      <span>平行 Shapely</span>
+      <span>analysis 内拓扑神类</span>
+      <span>ArcGIS 规则引擎照搬</span>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var stages = document.querySelectorAll("#flow .stage");
+  if (!stages.length) return;
+  var i = 0;
+  function tick() {
+    for (var n = 0; n < stages.length; n++) stages[n].classList.remove("active");
+    stages[i].classList.add("active");
+    i = (i + 1) % stages.length;
+  }
+  tick();
+  setInterval(tick, 1600);
+})();
+</script>
+</body>
+</html>

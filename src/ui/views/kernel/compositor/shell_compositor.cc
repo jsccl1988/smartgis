@@ -620,5 +620,21 @@ HFONT ShellCompositor::ensure_font_locked(int height_px) {
   return font_;
 }
 
+ShellCompositor* shell_compositor_create() {
+  return new ShellCompositor();
+}
+
+void shell_compositor_destroy(ShellCompositor* compositor) {
+  delete compositor;
+}
+
+void shell_compositor_commit_frame(ShellCompositor* compositor,
+                                   PaintCommit* frame) {
+  if (!compositor || !frame) {
+    return;
+  }
+  compositor->commit(std::move(*frame));
+}
+
 }  // namespace views
 }  // namespace ui

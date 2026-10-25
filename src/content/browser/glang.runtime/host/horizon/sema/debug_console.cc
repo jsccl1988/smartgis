@@ -4,7 +4,7 @@
 #include "content/browser/glang.runtime/host/horizon/sema/debug_console.h"
 #include "content/browser/glang.runtime/host/bind/shell.h"
 
-#include "content/browser/glang.runtime/host/view/host/capture_host.h"
+#include "content/browser/debug/capture/capture_host.h"
 #include "content/browser/session/browser_session.h"
 #include "content/browser/glang.runtime/host/horizon/atom/mark.h"
 #include "content/browser/glang.runtime/host/utils/exe_path.h"

@@ -1,0 +1,169 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>content present dual-track — T1 GPU 脏区 · T2 Scene3d 并行</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 14px 16px 16px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta, .note { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .meta a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 12px; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  table.own { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .own th, .own td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .own th { background: #e8edf3; color: var(--muted); font-weight: 650; }
+  .note { margin-top: 10px; font-size: 0.82rem; }
+  .stage { opacity: 0.38; }
+  @keyframes beat {
+    0%, 12% { opacity: 0.38; }
+    8%, 20% { opacity: 1; }
+    28%, 100% { opacity: 0.38; }
+  }
+  .flow .s1 { animation: beat 9s 0s infinite; }
+  .flow .s2 { animation: beat 9s 1.5s infinite; }
+  .flow .s3 { animation: beat 9s 3s infinite; }
+  .flow .s4 { animation: beat 9s 4.5s infinite; }
+  .flow .s5 { animation: beat 9s 6s infinite; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>content present dual-track ceiling</h1>
+    <p>两轨冲上限：<strong>T1 GPU 脏区</strong>（Map2d reason → 可选 scissor）· <strong>T2 Scene3d 并行</strong>（FrameJob prep∥上一帧 GPU）。共享 Topology A · Display 独占 Device · <code>graph::present</code> 1 CL。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Present dual-track ceiling</a>
+      · 基线：<a href="./content-present-accelerate.html">C/G/E accelerate</a>
+      · 映射：<a href="./content-present-subdirectory-layers.html">Chromium↔Topology A</a>
+      · L0–L3：<a href="./render-accelerate-topology.html">render-accelerate-topology</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 层所有权（路径分区）</h2>
+    <svg class="diagram" viewBox="0 0 1040 280" role="img" aria-label="T1 T2 泳道">
+      <rect x="0" y="0" width="1040" height="56" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="24" fill="#2563a8">共享契约 — Topology A · Display 独占 Device · 1 CL · 无 FrameSink · 不改 content/public</text>
+      <text class="box-sub" x="16" y="44">UI 永不 join · 唯一池 base::execution · 禁 worker 碰 Device/HWND</text>
+
+      <rect x="0" y="72" width="508" height="196" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="96" fill="#8a5a12">T1 GPU 脏区 — Map2d</text>
+      <text class="box-sub" x="16" y="118">present/map2d · vista/pass/map · render/graph damage 入参</text>
+      <text class="box-sub" x="16" y="140">PresentDamageReasons → PresentAction</text>
+      <text class="box-sub" x="16" y="162">CameraOnly：全幅 encode · 不 re-upload（G0）</text>
+      <text class="box-sub" x="16" y="184">Selection/ShellOnly：可选 DamageRect scissor</text>
+      <text class="box-sub" x="16" y="206">禁止：DamageTracker 层树 · 复活 C1</text>
+      <text class="box-sub" x="16" y="228">Phases：T1.0 reasons · T1.1 scissor · T1.2 partial（可选）</text>
+      <text class="box-sub" x="16" y="250">Chromium：DamageReason / PrepareToDraw 语义</text>
+
+      <rect x="532" y="72" width="508" height="196" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="548" y="96" fill="#1d6b4f">T2 Scene3d 并行 — FrameJob</text>
+      <text class="box-sub" x="548" y="118">present/scene3d · vista/pass/world · atmosphere</text>
+      <text class="box-sub" x="548" y="140">stage_scene3d_frame(gen) mailbox</text>
+      <text class="box-sub" x="548" y="162">L2：atm POD ∥ terrain CPU · 无 Device</text>
+      <text class="box-sub" x="548" y="184">L3：drain → WorldPass/Atmosphere → present</text>
+      <text class="box-sub" x="548" y="206">warm：rebuild_count=0 跳过 prepare_gpu</text>
+      <text class="box-sub" x="548" y="228">Phases：T2.0 mailbox · T2.1 overlap · T2.2 warm · T2.3 frustum</text>
+      <text class="box-sub" x="548" y="250">对标：leftover rhi3d FrameJob 语义</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（动画：两轨并列 · Display 汇合）</h2>
+    <svg class="diagram flow" viewBox="0 0 1040 360" role="img" aria-label="双轨到 present">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="8" y="16" width="160" height="64" rx="8" fill="#e8f1fa" stroke="#2563a8" class="s1"/>
+      <text class="box-title" x="88" y="42" text-anchor="middle">L0 UI</text>
+      <text class="box-sub" x="88" y="60" text-anchor="middle">stage · 永不 join</text>
+
+      <rect x="200" y="8" width="280" height="88" rx="8" fill="#f8efe4" stroke="#8a5a12" class="s2"/>
+      <text class="box-title" x="340" y="36" text-anchor="middle">T1 Map2d</text>
+      <text class="box-sub" x="340" y="56" text-anchor="middle">damage reasons → action</text>
+      <text class="box-sub" x="340" y="74" text-anchor="middle">可选 scissor · MapPass encode</text>
+
+      <rect x="200" y="112" width="280" height="88" rx="8" fill="#e6f5ef" stroke="#1d6b4f" class="s3"/>
+      <text class="box-title" x="340" y="140" text-anchor="middle">T2 Scene3d</text>
+      <text class="box-sub" x="340" y="160" text-anchor="middle">mailbox prep∥ (t)</text>
+      <text class="box-sub" x="340" y="178" text-anchor="middle">上一帧 L3 仍在 present</text>
+
+      <rect x="520" y="48" width="240" height="112" rx="8" fill="#efe8f6" stroke="#6b4f8a" class="s4"/>
+      <text class="box-title" x="640" y="88" text-anchor="middle">Display 汇合</text>
+      <text class="box-sub" x="640" y="110" text-anchor="middle">sole Device</text>
+      <text class="box-sub" x="640" y="128" text-anchor="middle">一帧一轨一 CL</text>
+
+      <rect x="800" y="48" width="220" height="112" rx="8" fill="#f8efe4" stroke="#8a5a12" class="s5"/>
+      <text class="box-title" x="910" y="88" text-anchor="middle">graph::present</text>
+      <text class="box-sub" x="910" y="110" text-anchor="middle">1 CommandList</text>
+      <text class="box-sub" x="910" y="128" text-anchor="middle">失败 scissor → 全幅</text>
+
+      <path d="M168 48 H200" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M168 48 V156 H200" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M480 52 H520" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M480 156 H500 V104 H520" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M760 104 H800" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+
+      <rect x="8" y="232" width="1024" height="112" rx="8" fill="#fafbfc" stroke="#d8dee6"/>
+      <text class="lane-label" x="24" y="256" fill="#5a6a7e">T1 reason → scissor 门闩（动画强调：CameraOnly 不开局部 scissor）</text>
+      <rect x="24" y="276" width="160" height="44" rx="6" fill="#e8edf3" stroke="#d8dee6" class="s1"/>
+      <text class="box-sub" x="104" y="302" text-anchor="middle">kNone → skip</text>
+      <rect x="200" y="276" width="200" height="44" rx="6" fill="#f8efe4" stroke="#8a5a12" class="s2"/>
+      <text class="box-sub" x="300" y="302" text-anchor="middle">kCameraOnly → 全幅 G0</text>
+      <rect x="416" y="276" width="280" height="44" rx="6" fill="#e6f5ef" stroke="#1d6b4f" class="s3"/>
+      <text class="box-sub" x="556" y="302" text-anchor="middle">kSelection|kShell → DamageRect</text>
+      <rect x="712" y="276" width="300" height="44" rx="6" fill="#efe8f6" stroke="#6b4f8a" class="s4"/>
+      <text class="box-sub" x="862" y="302" text-anchor="middle">kContent|kSizeZoom → 全脏</text>
+    </svg>
+    <p class="note">两轨可并行改代码，但同一 Display 节拍不会同时双合成 Map2d+Scene3d 进一个 present；各 Presenter 各自 1 CL。T2 的 L2(t) 与 L3(t−1) 重叠。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 符号与禁令</h2>
+    <table class="own">
+      <thead><tr><th>轨</th><th>符号</th><th>禁令</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>T1</td>
+          <td><code>PresentDamageReasons</code> · <code>DamageRect</code> · MapPass scissor · phase <code>damage_reasons</code></td>
+          <td>cc <code>DamageTracker</code> 层树 · FrameSink · C1 <code>layer_slices_</code> · 改 Scene3d FrameJob</td>
+        </tr>
+        <tr>
+          <td>T2</td>
+          <td><code>stage_scene3d_frame</code> · prep mailbox · <code>prep_overlap_ms</code> · warm <code>rebuild_count=0</code></td>
+          <td>worker <code>rhi::Device</code> · FFT/SRV 进 worker · 改 Map2d DrawCache / damage 策略</td>
+        </tr>
+        <tr>
+          <td>共享</td>
+          <td><code>graph::present</code> 1 CL · <code>base::execution</code></td>
+          <td>Topology A+B 双合成 · 改 equal-profile 预算 · 加厚 <code>content/public</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

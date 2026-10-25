@@ -8,7 +8,7 @@
 
 #   carto/{style,tile}    — StyleDocument, symbols, tiles; inputs to MapIR.
 #   CPU MapIR / World / vista GPU live in //src/vista:vista (vista.dll).
-#   geo/{mesh,ops,proj,tin,grid} / stat  (no kernel/ parent; no sibling proj/tin)
+#   geo/{ops,proj,tin,grid,xy} / stat  (no kernel/ parent; no sibling proj/tin)
 #   analysis/{ops,geometry,raster} — processing kernels; plugin:: only forwards
 # //src/gis:algorithm and :geom forward to :gis.
 # In-DLL source_sets depend on //src/gis/geo:geo_sources (not :geo)
@@ -37,6 +37,7 @@ product_shared_library("gis") {
     "//src/gis/stat:stat_sources",
     "//src/gis/geo:tin_sources",
     "//src/gis/geo:grid_sources",
+    "//src/gis/geo:xy_sources",
     "//src/gis/analysis:analysis_sources",
   ]
   # TileProvider / Sdbd headers expose net::; consumers that include them need net.lib.
@@ -109,7 +110,9 @@ group("gis_test_all") {
     "//src/gis/edit:edit_conflict_test",
     "//src/gis/style:style_test",
     "//src/gis/tile:tile_test",
+    "//src/gis/analysis:analysis_wkt_ops_test",
     "//src/gis/analysis:analysis_eigen_test",
+    "//src/gis/analysis:analysis_network_test",
     "//src/gis/analysis:analysis_geology_test",
     "//src/gis/analysis:analysis_dem_gradient_profile_test",
   ]

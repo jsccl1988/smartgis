@@ -12,6 +12,12 @@
 
 // Facade RHI for 2D + 3D map drawing. GPU backends are FlyCube (DX12 / Vulkan);
 // GDI/GL remain leftover HWND adapters. FlyCube types do not appear here.
+//
+// Bump when CommandList / Device virtual order or RenderPassDesc layout changes
+// (DLL consumers: vista / content / scenic). Stale .obj → LNK2038.
+#if defined(_MSC_VER)
+#pragma detect_mismatch("smartgis_rhi_command_list", "2026-10-25.scissor1")
+#endif
 
 namespace render {
 namespace rhi {
@@ -476,6 +482,13 @@ class CommandList {
   virtual ~CommandList() = default;
   virtual void set_viewport(float x, float y, float w, float h, float min_depth,
                              float max_depth) = 0;
+  virtual void set_scissor(int32_t x, int32_t y, uint32_t width,
+                           uint32_t height) {
+    (void)x;
+    (void)y;
+    (void)width;
+    (void)height;
+  }
   virtual void begin_render_pass(const RenderPassDesc& desc) = 0;
   virtual void end_render_pass() = 0;
   virtual void bind_vertex_buffer(Buffer* buffer, uint32_t offset,
@@ -549,6 +562,11 @@ class StubCommandList : public CommandList {
   uint32_t bind_compute_uav_calls = 0;
   uint32_t dispatch_calls = 0;
   uint32_t uav_barrier_calls = 0;
+  uint32_t set_scissor_calls = 0;
+  int32_t last_scissor_x = 0;
+  int32_t last_scissor_y = 0;
+  uint32_t last_scissor_w = 0;
+  uint32_t last_scissor_h = 0;
   uint32_t last_dispatch_x = 0;
   uint32_t last_dispatch_y = 0;
   uint32_t last_dispatch_z = 0;
@@ -573,6 +591,14 @@ class StubCommandList : public CommandList {
   }
 
   void set_viewport(float, float, float, float, float, float) override {}
+  void set_scissor(int32_t x, int32_t y, uint32_t width,
+                   uint32_t height) override {
+    ++set_scissor_calls;
+    last_scissor_x = x;
+    last_scissor_y = y;
+    last_scissor_w = width;
+    last_scissor_h = height;
+  }
   void begin_render_pass(const RenderPassDesc& desc) override {
     pass_open = true;
     last_pass = desc;

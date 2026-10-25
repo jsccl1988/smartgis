@@ -84,6 +84,9 @@ class PluginShell {
   // Scan plugin.json, start in-process builtins, then LoadLibrary every
   // discovered native pack (product plugins under <exe>/plugins).
   bool ensure_builtins();
+  // True after a successful ensure_builtins() (init_all may still have failed
+  // individual packs). Used to skip LoadLibrary on the cold BuildContents path.
+  bool builtins_started() const { return builtins_started_; }
 
   // Scan manifests only (no enable-all). Safe for harness single-pack dispatch.
   bool ensure_discovered();

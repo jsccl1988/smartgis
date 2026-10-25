@@ -214,6 +214,8 @@ void Widget::request_close() {
 }
 
 void Widget::set_will_close(WillClose fn) {
+  will_close_fn_ = nullptr;
+  will_close_baton_ = nullptr;
   if (!fn) {
     will_close_.reset();
     return;
@@ -221,12 +223,26 @@ void Widget::set_will_close(WillClose fn) {
   will_close_ = std::make_unique<WillClose>(std::move(fn));
 }
 
+void Widget::set_will_close_fn(WillCloseFn fn, void* baton) {
+  will_close_.reset();
+  will_close_fn_ = fn;
+  will_close_baton_ = baton;
+}
+
 void Widget::set_on_shell_published(OnShellPublished fn) {
+  on_shell_published_fn_ = nullptr;
+  on_shell_published_baton_ = nullptr;
   if (!fn) {
     on_shell_published_.reset();
     return;
   }
   on_shell_published_ = std::make_unique<OnShellPublished>(std::move(fn));
+}
+
+void Widget::set_on_shell_published_fn(OnShellPublishedFn fn, void* baton) {
+  on_shell_published_.reset();
+  on_shell_published_fn_ = fn;
+  on_shell_published_baton_ = baton;
 }
 
 void Widget::fire_will_close() {
@@ -236,6 +252,8 @@ void Widget::fire_will_close() {
   will_close_fired_ = true;
   // Stop feeding MapViewport shell overlays before GPU / HWND teardown.
   on_shell_published_.reset();
+  on_shell_published_fn_ = nullptr;
+  on_shell_published_baton_ = nullptr;
   shell_wake_invalidate_pending_ = false;
   awaiting_publish_gen_ = 0;
   awaiting_publish_dirty_ = {};
@@ -248,6 +266,10 @@ void Widget::fire_will_close() {
     WillClose fn = std::move(*will_close_);
     will_close_.reset();
     fn();
+  } else if (will_close_fn_) {
+    will_close_fn_(will_close_baton_);
+    will_close_fn_ = nullptr;
+    will_close_baton_ = nullptr;
   } else {
     will_close_.reset();
   }

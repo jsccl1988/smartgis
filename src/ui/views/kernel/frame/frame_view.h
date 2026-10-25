@@ -32,7 +32,11 @@ class UI_EXPORT FrameView : public View {
   bool can_maximize() const { return can_maximize_; }
 
   // Own the client content (menu + workspace). Replaces any previous client.
+  // Same-module only — SmartGIS.exe must use adopt_client (Debug unique_ptr
+  // is not EXE↔DLL ABI).
   void set_client(std::unique_ptr<View> client);
+  // Cross-DLL: take ownership of |client| inside ui_views.dll.
+  void adopt_client(View* client);
   View* client() const { return client_; }
 
   int caption_height_px() const;
@@ -62,6 +66,8 @@ class UI_EXPORT FrameView : public View {
 
 // Cross-DLL: allocate inside ui_views.dll (see make_draw_host).
 UI_EXPORT std::unique_ptr<FrameView> make_frame_view();
+// Cross-DLL: raw pointer for adopt_contents_view (avoid unique_ptr return ABI).
+UI_EXPORT FrameView* make_frame_view_raw();
 
 }  // namespace views
 }  // namespace ui

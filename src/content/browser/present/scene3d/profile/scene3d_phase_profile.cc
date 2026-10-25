@@ -19,6 +19,7 @@ std::atomic<int64_t> g_record_ms{0};
 std::atomic<int64_t> g_present_ms{0};
 std::atomic<int64_t> g_upload_ms{0};
 std::atomic<int64_t> g_pso_ms{0};
+std::atomic<int64_t> g_prep_overlap_ms{0};
 std::atomic<int> g_rebuild_count{0};
 
 std::mutex g_cold_mu;
@@ -37,6 +38,7 @@ Scene3dPhaseSample scene3d_last_phase_sample() {
   s.present_ms = g_present_ms.load(std::memory_order_relaxed);
   s.upload_ms = g_upload_ms.load(std::memory_order_relaxed);
   s.pso_ms = g_pso_ms.load(std::memory_order_relaxed);
+  s.prep_overlap_ms = g_prep_overlap_ms.load(std::memory_order_relaxed);
   s.rebuild_count = g_rebuild_count.load(std::memory_order_relaxed);
   return s;
 }
@@ -55,6 +57,7 @@ void reset_scene3d_phase_sample() {
   g_present_ms.store(0, std::memory_order_relaxed);
   g_upload_ms.store(0, std::memory_order_relaxed);
   g_pso_ms.store(0, std::memory_order_relaxed);
+  g_prep_overlap_ms.store(0, std::memory_order_relaxed);
   g_rebuild_count.store(0, std::memory_order_relaxed);
   {
     std::lock_guard<std::mutex> lock(g_cold_mu);
@@ -122,6 +125,10 @@ void note_scene3d_phase_upload(int64_t upload_ms) {
 
 void note_scene3d_phase_pso(int64_t pso_ms) {
   g_pso_ms.store(pso_ms, std::memory_order_relaxed);
+}
+
+void note_scene3d_phase_prep_overlap(int64_t prep_overlap_ms) {
+  g_prep_overlap_ms.store(prep_overlap_ms, std::memory_order_relaxed);
 }
 
 }  // namespace content

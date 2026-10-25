@@ -14,9 +14,9 @@
 #endif
 #include <windows.h>
 
-#include "base/ipc/channel/channel.h"
-#include "base/ipc/codec/codec.h"
-#include "base/ipc/invitation/invitation.h"
+#include "common/ipc/channel/channel.h"
+#include "common/ipc/codec/codec.h"
+#include "common/ipc/invitation/invitation.h"
 #include "base/process/switches.h"
 #include "content/public/event_bus.h"
 #include "content/common/host_protocol.h"
@@ -82,7 +82,7 @@ InputEvent input_from_wire(const PointerEventWire& w) {
   return e;
 }
 
-bool run_renderer_loop(base::ipc::Channel* ch, HANDLE parent) {
+bool run_renderer_loop(common::ipc::Channel* ch, HANDLE parent) {
   std::map<uint32_t, std::unique_ptr<ViewSlot>> views;
 
   HelloBody hello;
@@ -104,7 +104,7 @@ bool run_renderer_loop(base::ipc::Channel* ch, HANDLE parent) {
       }
       continue;
     }
-    base::ipc::Frame h;
+    common::ipc::Frame h;
     std::vector<uint8_t> payload;
     if (!ch->recv(&h, &payload, 10000)) {
       if (!ch->is_open()) {
@@ -121,7 +121,7 @@ bool run_renderer_loop(base::ipc::Channel* ch, HANDLE parent) {
     }
     if (type == HostMsg::kOpenView) {
       OpenViewBody body;
-      base::ipc::decode(payload.data(), payload.size(), &body);
+      common::ipc::decode(payload.data(), payload.size(), &body);
       auto slot = std::make_unique<ViewSlot>();
       slot->kind = static_cast<ViewKind>(body.kind);
       slot->workspace =
@@ -141,7 +141,7 @@ bool run_renderer_loop(base::ipc::Channel* ch, HANDLE parent) {
     }
     if (type == HostMsg::kActivateTool) {
       ToolBody body;
-      if (base::ipc::decode(payload.data(), payload.size(), &body) && slot &&
+      if (common::ipc::decode(payload.data(), payload.size(), &body) && slot &&
           slot->workspace) {
         if (!slot->workspace->execute(body.tool_id,
                                       tool::CommandArgs{h.view_id, {}})) {
@@ -152,7 +152,7 @@ bool run_renderer_loop(base::ipc::Channel* ch, HANDLE parent) {
     }
     if (type == HostMsg::kPointerEvent || type == HostMsg::kTextCommit) {
       PointerEventWire w;
-      if (base::ipc::decode(payload.data(), payload.size(), &w) && slot &&
+      if (common::ipc::decode(payload.data(), payload.size(), &w) && slot &&
           slot->workspace) {
         slot->workspace->dispatch_input(input_from_wire(w));
       }
@@ -160,7 +160,7 @@ bool run_renderer_loop(base::ipc::Channel* ch, HANDLE parent) {
     }
     if (type == HostMsg::kSetExtent) {
       ExtentWire w;
-      if (base::ipc::decode(payload.data(), payload.size(), &w)) {
+      if (common::ipc::decode(payload.data(), payload.size(), &w)) {
         if (slot) {
           slot->extent.xmin = w.xmin;
           slot->extent.ymin = w.ymin;
@@ -175,7 +175,7 @@ bool run_renderer_loop(base::ipc::Channel* ch, HANDLE parent) {
     if (type == HostMsg::kCatalogOp) {
       JsonBody in;
       JsonBody out;
-      if (base::ipc::decode(payload.data(), payload.size(), &in) && slot &&
+      if (common::ipc::decode(payload.data(), payload.size(), &in) && slot &&
           slot->workspace && !in.json.empty()) {
         slot->workspace->execute(in.json, tool::CommandArgs{h.view_id, {}});
       }
@@ -191,7 +191,7 @@ bool run_renderer_loop(base::ipc::Channel* ch, HANDLE parent) {
     }
     if (type == HostMsg::kPluginCall) {
       PluginCallBody body;
-      if (base::ipc::decode(payload.data(), payload.size(), &body) && slot &&
+      if (common::ipc::decode(payload.data(), payload.size(), &body) && slot &&
           slot->workspace) {
         if (!slot->workspace->execute(body.method,
                                       tool::CommandArgs{h.view_id, {}})) {
@@ -225,9 +225,9 @@ int RendererMain(const ContentMainParams& params) {
     return 0;
   }
 
-  base::ipc::IncomingInvitation incoming =
-      base::ipc::IncomingInvitation::accept(params.argc, params.argv);
-  base::ipc::Channel ch = incoming.extract("renderer");
+  common::ipc::IncomingInvitation incoming =
+      common::ipc::IncomingInvitation::accept(params.argc, params.argv);
+  common::ipc::Channel ch = incoming.extract("renderer");
   if (!ch.is_open()) {
     std::fprintf(stderr, "renderer: invitation extract failed\n");
     return 3;

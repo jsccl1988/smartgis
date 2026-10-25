@@ -241,9 +241,28 @@ bool TableView::on_mouse_event(const MouseEvent& e) {
   if (e.type == MouseEvent::Type::kMove) {
     const int row = row_at_point(e.y);
     if (row != hovered_) {
+      const int prev = hovered_;
       hovered_ = row;
       invalidate_row_cache();
-      schedule_paint();
+      invalidate_commands();
+      const auto row_band = [this](int r) -> Rect {
+        if (r < 0) {
+          return {};
+        }
+        const Rect& b = bounds();
+        return {b.x, b.y + header_height() + r * row_height(), b.width,
+                row_height()};
+      };
+      if (Widget* w = widget()) {
+        if (prev >= 0) {
+          w->schedule_paint_rect(row_band(prev));
+        }
+        if (row >= 0) {
+          w->schedule_paint_rect(row_band(row));
+        }
+      } else {
+        schedule_paint();
+      }
       if (row_hover_) {
         row_hover_(hovered_);
       }

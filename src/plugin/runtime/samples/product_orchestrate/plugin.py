@@ -5,14 +5,14 @@
 
 import json
 
-import glang.plugin as smartgis
+import glang.plugin as gp
 
 
 PLUGIN_ID = "smartgis.sample_product_orchestrate"
 
 
 def _pick_path(pattern):
-    result = smartgis.ui.pick_open_file(pattern)
+    result = gp.ui.pick_open_file(pattern)
     if not result or not result.get("accepted"):
         return None
     path = result.get("path") or ""
@@ -22,7 +22,7 @@ def _pick_path(pattern):
 
 
 def start(host):
-    if smartgis is None:
+    if gp is None:
         raise RuntimeError("glang.plugin missing")
 
     def _trimesh_from_xyz(_args):
@@ -42,7 +42,7 @@ def start(host):
         )
         ok = bool(host.run_processing("world3d.trimesh_from_xyz", payload))
         if not ok:
-            smartgis.ui.show_message_box(
+            gp.ui.show_message_box(
                 "error",
                 "world3d.trimesh_from_xyz failed (check path / map seam / builtin world3d).",
             )
@@ -55,7 +55,7 @@ def start(host):
         payload = json.dumps({"path": path})
         ok = bool(host.run_processing("baogrid.create_orth_grid", payload))
         if not ok:
-            smartgis.ui.show_message_box(
+            gp.ui.show_message_box(
                 "error",
                 "baogrid.create_orth_grid failed (check boundary file / baogrid).",
             )

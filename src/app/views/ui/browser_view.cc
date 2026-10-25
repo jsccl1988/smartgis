@@ -409,6 +409,10 @@ void BrowserView::wire_processing_panel() {
   processing_->wire_processing_panel();
 }
 
+void BrowserView::refresh_processing_panel_operators() {
+  processing_->refresh_processing_operators();
+}
+
 void BrowserView::wire_result_playback_panel() {
   processing_->wire_result_playback_panel();
 }

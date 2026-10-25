@@ -64,13 +64,16 @@ std::vector<MenuItem> make_menu(const CatalogMenuEntry* entries,
 }  // namespace
 
 CatalogView::CatalogView() {
-  MarkupRoot loaded = load_markup("catalog/catalog_view.ui.xml");
-  if (!loaded.ok()) {
+  MarkupRoot* loaded = markup_root_acquire();
+  if (!loaded ||
+      !load_markup_into("catalog/catalog_view.ui.xml", {}, loaded) ||
+      !loaded->ok()) {
+    markup_root_release(loaded);
     set_preferred_size({240, 0});
     return;
   }
-  title_ = loaded.ids.find_as<Label>("title");
-  View* tabs_host = loaded.ids.find("tabs_host");
+  title_ = loaded->ids.find_as<Label>("title");
+  View* tabs_host = loaded->ids.find("tabs_host");
 
   // Keep Map/Data/3D and Layers/Sources/Maps on one horizontal band — a separate
   // Catalog title row used to push source tabs down into the map horizon.
@@ -116,11 +119,22 @@ CatalogView::CatalogView() {
 
   auto fill = std::make_unique<FillLayout>();
   set_layout_manager(std::move(fill));
-  loaded.root->set_preferred_size({0, 0});
-  add_child(std::move(loaded.root));
+  loaded->root->set_preferred_size({0, 0});
+  add_child(std::move(loaded->root));
+  markup_root_release(loaded);
   // Wide enough for Layers/Sources/Maps labels at 100–150% DPI before TabStrip
   // proportional shrink engages (visual_review #2).
   set_preferred_size({360, 0});
+}
+
+CatalogView::~CatalogView() = default;
+
+std::unique_ptr<CatalogView> CatalogView::create() {
+  return std::make_unique<CatalogView>();
+}
+
+CatalogView* CatalogView::create_raw() {
+  return new CatalogView();
 }
 
 void CatalogView::set_title(const char* title) {
@@ -189,16 +203,15 @@ void CatalogView::add_map_doc(const char* id,
 }
 
 void CatalogView::relayout_layers_page() {
+  mark_needs_layout();
   if (tabs_) {
-    tabs_->layout();
-  }
-  layout();
-  if (Widget* w = widget()) {
-    w->layout_contents();
+    tabs_->mark_needs_layout();
   }
   if (layer_tree_) {
-    layer_tree_->layout();
-    layer_tree_->schedule_paint();
+    layer_tree_->mark_needs_layout();
+  }
+  if (Widget* w = widget()) {
+    w->layout_contents();
   }
   schedule_paint();
 }

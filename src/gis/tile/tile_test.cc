@@ -21,6 +21,8 @@
 #include "gis/envelope.h"
 #include "gis/map/map_layer.h"
 
+#include "base/process/switches.h"
+
 #include <cstdint>
 
 namespace {
@@ -167,6 +169,59 @@ int main() {
     expect(http_calls == 1, "disk hit skips HTTP");
     provider->clear_disk_cache();
     std::filesystem::remove_all(dir, ec);
+  }
+
+  // Production default: make_xyz_map_layer enables disk cache; second open hits
+  // disk without a second HTTP fetch.
+  {
+    const auto root =
+        (std::filesystem::temp_directory_path() / "smartgis_xyz_prod_disk")
+            .string();
+    std::error_code ec;
+    std::filesystem::remove_all(root, ec);
+    base::set_switch("tile-disk-cache", root);
+
+    const char* k_tmpl = "http://prod-default.local/{z}/{x}/{y}.png";
+    int http_calls = 0;
+    auto inject_fetch = [&](const std::shared_ptr<TileProvider>& p) {
+      p->set_fetch_fn([&](const std::string&) {
+        ++http_calls;
+        net::HttpResult res;
+        res.ok = true;
+        res.status = 200;
+        res.body = "PROD-DEFAULT";
+        return res;
+      });
+    };
+
+    gis::MapLayer first = gis::tile::make_xyz_map_layer(k_tmpl);
+    expect(first.tile() != nullptr, "prod default layer");
+    auto prov1 = first.tile()->provider();
+    expect(prov1->disk_cache_enabled(), "prod default disk cache on");
+    expect(!prov1->disk_cache_dir().empty(), "prod default disk cache dir");
+    inject_fetch(prov1);
+
+    TileCoord c{2, 1, 1};
+    expect(prov1->fetch_tile(c).bytes == "PROD-DEFAULT", "prod first fetch");
+    expect(http_calls == 1, "prod first HTTP");
+    expect(prov1->http_tile_fetches() == 1, "prod http counter");
+    prov1->clear_cache();
+
+    expect(prov1->fetch_tile(c).bytes == "PROD-DEFAULT", "prod memory cleared");
+    expect(http_calls == 1, "prod disk hit same session");
+    expect(prov1->disk_cache_hits() >= 1, "prod disk hit counter");
+
+    first = gis::MapLayer{};
+    gis::MapLayer second = gis::tile::make_xyz_map_layer(k_tmpl);
+    expect(second.tile() != nullptr, "prod second open layer");
+    auto prov2 = second.tile()->provider();
+    inject_fetch(prov2);
+    expect(prov2->fetch_tile(c).bytes == "PROD-DEFAULT", "prod second open fetch");
+    expect(http_calls == 1, "prod second open skips HTTP");
+    expect(prov2->disk_cache_hits() >= 1, "prod second open disk hit");
+
+    base::clear_switch("tile-disk-cache");
+    std::filesystem::remove_all(root, ec);
   }
 
   // WMTS Capabilities fixture (no network).

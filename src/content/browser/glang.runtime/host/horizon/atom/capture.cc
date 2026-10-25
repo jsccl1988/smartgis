@@ -4,8 +4,8 @@
 #include "content/browser/glang.runtime/host/horizon/atom/capture.h"
 
 #include "content/browser/glang.runtime/host/horizon/atom/pump.h"
-#include "content/browser/glang.runtime/host/view/pixel/bmp.h"
-#include "content/browser/glang.runtime/host/view/pixel/gate.h"
+#include "content/browser/debug/capture/pixel/bmp.h"
+#include "content/browser/debug/capture/pixel/gate.h"
 
 #include <algorithm>
 #include <cstdio>

@@ -254,13 +254,20 @@ int collect_shell_layout_anomalies(const View* root,
   auto* cat_strip = dynamic_cast<TabStrip*>(catalog_tabs);
   if (map_strip && cat_strip && map_strip->is_visible() &&
       cat_strip->is_visible()) {
-    const int dy = map_strip->bounds().y - cat_strip->bounds().y;
+    // Dual catalog: align Map|3D with the outer 2D|3D mode strip, not the
+    // nested Layers/Sources/Maps header (one tab band lower by design).
+    TabStrip* align_cat = cat_strip;
+    for (View* p = cat_strip->parent(); p; p = p->parent()) {
+      if (auto* ts = dynamic_cast<TabStrip*>(p)) {
+        align_cat = ts;
+      }
+    }
+    const int dy = map_strip->bounds().y - align_cat->bounds().y;
     const int abs_dy = dy < 0 ? -dy : dy;
-    // Catalog Layers/Sources/Maps must share the Map/Data/3D band.
     if (abs_dy > 2) {
       note("catalog-map-tab-y-skew@dy=" + std::to_string(dy) + "@map=" +
            format_rect(map_strip->bounds()) + "@cat=" +
-           format_rect(cat_strip->bounds()));
+           format_rect(align_cat->bounds()));
     }
   }
 

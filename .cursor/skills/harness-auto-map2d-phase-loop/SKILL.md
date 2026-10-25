@@ -3,12 +3,13 @@ name: harness-auto-map2d-phase-loop
 description: >-
   Product Map2d phase-budget loop: profile every frame (phase clocks + FPS
   bench) and fix content present / effect/map / src/render until warm
-  present_gpu and paint budgets. Not the Scenic port matrix. Use when the
-  user invokes /harness-auto-map2d-phase-loop (formerly
-  /harness-auto-map2d-frame-opt), or says map2d 逐帧 profile, 每一帧性能,
-  src/render 2d 优化 loop, present_gpu warm, StaticReuse, layout_ms /
-  hillshade_ms, MAP2D_FPS_BENCH_MS, or asks to profile-then-optimize
-  Map2d frame by frame.
+  present_gpu and paint budgets. Fixes must preserve map visuals and stay
+  map-agnostic (no china/showcase-specialized shortcuts). Not the Scenic
+  port matrix. Use when the user invokes /harness-auto-map2d-phase-loop
+  (formerly /harness-auto-map2d-frame-opt), or says map2d 逐帧 profile,
+  每一帧性能, src/render 2d 优化 loop, present_gpu warm, StaticReuse,
+  layout_ms / hillshade_ms, MAP2D_FPS_BENCH_MS, or asks to
+  profile-then-optimize Map2d frame by frame.
 ---
 
 <!--
@@ -18,11 +19,11 @@ All rights reserved.
 
 # Harness auto map2d phase loop（产品路径逐帧相位 → 修到预算）
 
-**对产品 Map2d 每一帧做相位 profile，并 loop 驱动优化直至相位预算。**
+**对产品 Map2d 每一帧做相位 profile，并 loop 驱动优化直至相位预算。** 优化不得改变地图展现效果；修法必须走通用路径，禁止针对某张样例图的特化。
 
-Sibling of `harness-auto-map2d-port-matrix` (Scenic rhi2d GDI/GDI+/Skia × parallel **matrix**). This skill owns the **per-frame** profile + fix loop on the product path (`SmartGIS.exe --map2d-showcase=china`). Port-grid screenshots and `execute_ms` belong to the matrix skill.
+Sibling of `harness-auto-map2d-port-matrix` (Scenic rhi2d GDI/GDI+/Skia × parallel **matrix**). This skill owns the **per-frame** profile + fix loop on the product path (`SmartGIS.exe --map2d-showcase=china` as **bench fixture only**). Port-grid screenshots and `execute_ms` belong to the matrix skill.
 
-Closed loop: build → locked-profile bench → parse hot phase → CBM → root-cause fix → rebuild → re-bench → until done bar / hard stop.
+Closed loop: build → locked-profile bench → parse hot phase → CBM → **generic** root-cause fix → rebuild → re-bench (+ visual gate) → until done bar / hard stop.
 
 ## Authorization
 
@@ -30,40 +31,52 @@ When this skill is invoked, attached (`@harness-auto-map2d-phase-loop` / `/harne
 
 ## Hard rules
 
-1. **Equal profile (locked):** China mainland `[80,16]–[128,52]`, viewport **1280×720**, same sample / style richness (hillshade when DEM present). Do **not** strip carto to fake ms.
-2. **Fair metrics:** Scenic rhi2d `execute_ms` ≠ `export_ms` / `present_gpu_*`. Optimize against **phase columns** + warm StaticReuse, never claim IR ≡ product paint.
-3. Prefer **`build.bat debug //src/app/views:views`**. Compile lock stays **OFF**. Stay on **`master`**.
-4. CBM first (`user-codebase-memory-mcp`, project `smartgis`) before repo-wide Grep.
-5. Prefer `*.inspect.png` for visual gate (`Read`).
-6. Hypothesis first — one hot phase per iteration; no shotgun edits.
+1. **Equal profile (locked):** China mainland `[80,16]–[128,52]`, viewport **1280×720**, same sample / style richness (hillshade when DEM present). Do **not** strip carto to fake ms. `china` is only the **bench fixture**, not a license to specialize product code for that map.
+2. **Visual fidelity (non-negotiable):** Perf fixes must **not** change map presentation — same layers, symbology, hillshade, labels, LOD, and inspect pixels within the visual gate. No thinning style, dropping furniture, lowering DEM/shade quality, or “good enough” carts to win ms.
+3. **Generic only — no map-specialized opts:** Optimize **shared** Map2d / present / effect / render paths that apply to **any** document and viewport. Forbidden: hard-coded china / showcase / envelope / CRS shortcuts, `if (showcase==china)`, fixture-only caches, or sample-path branches that other maps would not take.
+4. **Fair metrics:** Scenic rhi2d `execute_ms` ≠ `export_ms` / `present_gpu_*`. Optimize against **phase columns** + warm StaticReuse, never claim IR ≡ product paint.
+5. Prefer **`build.bat debug //src/app/views:views`**. Compile lock stays **OFF**. Stay on **`master`**.
+6. CBM first (`user-codebase-memory-mcp`, project `smartgis`) before repo-wide Grep.
+7. Prefer `*.inspect.png` for visual gate (`Read`).
+8. Hypothesis first — one hot phase per iteration; no shotgun edits.
 
 ## Locked profile + budgets (Debug)
 
 | Axis | Value |
 | --- | --- |
-| Entry | `SmartGIS.exe --map2d-showcase=china` |
+| Entry | `MAP2D_PHASE_BENCH=china` + `SmartGIS.exe` (not retired `--map2d-showcase=`) |
 | Viewport | `MAP2D_SHOWCASE_W/H=1280/720` |
 | GPU | `MAP2D_SHOWCASE_GPU=1` |
 | Warm FPS window | `MAP2D_FPS_BENCH_MS=3000` (optional) |
 | Warm `present_gpu_ms` | ≤ **80** |
 | `paint_ms` | ≤ **100** |
 | Cold first present | ≤ **400** after layout warm |
-| Visual | hillshade + city labels still on inspect |
+| Visual | hillshade + city labels still on inspect; **pixel/present parity** vs pre-fix baseline (no intentional visual change) |
 
 Plan / §: `docs/superpowers/plans/2026-10-01-src-render-map2d-equal-profile-optimize.md` · living `docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md` §src_render Map2d equal-profile optimize.
 
 ## Entry commands
 
-From repo root:
+From repo root. `--map2d-showcase=` is a **retired** argv extra (does not select a
+suite). Prefer **product cold start** + `MAP2D_PHASE_BENCH` so china is seeded
+before FlyCube attach (honest GPU StaticReuse). Debug has no CPython embed;
+the C++ showcase runner (`map2d_showcase_run`) does seed → export_bmp →
+present_gpu → fps.
 
 ```bat
-.\build.bat debug //src/app/views:views
+.\build.bat debug src/app/views:views
+set MAP2D_PHASE_BENCH=china
 set MAP2D_SHOWCASE_W=1280
 set MAP2D_SHOWCASE_H=720
 set MAP2D_SHOWCASE_GPU=1
 set MAP2D_FPS_BENCH_MS=3000
-.\out\Debug\SmartGIS.exe --map2d-showcase=china
+set MAP2D_FORCE_HILLSHADE=1
+set FORCE_GDI_MAP_OVERLAY=0
+.\out\Debug\SmartGIS.exe
 ```
+
+CI harness (`HARNESS_SUITE=browser.map2d.china`) still works for marks/BMP; use
+`FORCE_GDI_MAP_OVERLAY=1` there. Phase-loop FPS/`gpu_skip` prefer `MAP2D_PHASE_BENCH`.
 
 Optional fair cold/warm export (bench-only reuse):
 
@@ -146,30 +159,33 @@ From stderr / files, fill:
 | `gpu_present_ms` / low `skip_pct` | `Map2dGpuPresent`, StaticReuse / dual-speed settle |
 | Frame graph / RHI | `src/render/{graph,rhi}/**` |
 
-Non-goals: delete hillshade/MapFrame; MapLibre Native port; touch `src/legacy/` (frozen).
+Non-goals: delete / thin hillshade or MapFrame; strip labels or carto furniture; MapLibre Native port; touch `src/legacy/` (frozen); **any china-/showcase-/envelope-specialized fast path**.
 
 ### Step 5 — Loop
 
-1. State hypothesis (one sentence) tied to the hot phase.
-2. Patch root cause.
+1. State hypothesis (one sentence) tied to the hot phase; confirm the fix is **path-generic** (would help a different map equally).
+2. Patch root cause — algorithm / cache / reuse / upload / layout churn on the **shared** stack only.
 3. `build.bat debug //src/app/views:views` (or focused target if known).
-4. Re-run the same locked-profile bench.
+4. Re-run the same locked-profile bench; **re-check inspect** (hillshade + labels + no obvious visual regress).
 5. Update the before/after table.
 6. Stop when **done bar** or **hard stop**.
 
 ### Done bar
 
-Debug china 1280×720:
+Debug china 1280×720 (**fixture only**; fixes remain map-agnostic):
 
 - warm `present_gpu_ms` ≤ **80**
 - `paint_ms` ≤ **100**
 - cold first present ≤ **400** after layout warm
-- FPS bench: `layout_builds_delta` near **0** on StaticReuse window; visual hillshade + labels on inspect
+- FPS bench: `layout_builds_delta` near **0** on StaticReuse window
+- Visual: hillshade + labels on inspect; **no intentional present/style change** vs baseline
+- Diff review: no showcase-/china-/bbox-gated product branches added for the win
 
 ### Hard stops
 
 - Same failure / same hot phase unchanged **3+** iterations
-- Visual gate broken (no hillshade / labels) after a “perf” change
+- Visual gate broken (no hillshade / labels / style regress) after a “perf” change
+- Proposed fix is map- or showcase-specialized (revert; find a generic root cause)
 - Crash / AV / hang → hand off `auto-diagnose-fix`, then return here
 
 ## Communication
@@ -183,7 +199,7 @@ Debug china 1280×720:
 - Port-matrix sibling: `.cursor/skills/harness-auto-map2d-port-matrix/SKILL.md`
 - Scene3d phase-loop sibling: `.cursor/skills/harness-auto-scene3d-phase-loop/SKILL.md`
 - Visual review: `.cursor/skills/harness-visual-review/SKILL.md`
-- FPS bench: `src/content/browser/glang.runtime/host/view/present/map2d_fps.*`
+- FPS bench: `src/content/browser/present/map2d/showcase/map2d_fps.*`
 - Phase clocks: `src/content/browser/present/map2d/profile/map2d_phase_profile.*`
 - Bake profile (CPU vs Thrust): `testing/tools/harness/browser/run_hillshade_bake_bench.py`
 - Detail: [reference.md](reference.md)

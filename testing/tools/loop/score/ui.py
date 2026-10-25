@@ -361,14 +361,17 @@ def score_ui_shell_dark(path: Path) -> dict:
         for x in range(right_x0, w, 3)
     ]
     right_n = max(1, len(right_band))
+    # Shell Feature dock chrome is a flat near-black panel (~30–55). Do not
+    # count DEM hillshade gray / dark jet land in the right map strip as chrome
+    # (map2d_china_dem makes that band terrain, not an overgrown inspector).
     right_chrome = sum(
         1
         for r, g, b in right_band
-        if 18 <= r <= 95
-        and 18 <= g <= 95
-        and 18 <= b <= 95
-        and abs(r - g) < 14
-        and abs(g - b) < 14
+        if 22 <= r <= 58
+        and 22 <= g <= 58
+        and 22 <= b <= 58
+        and abs(r - g) < 10
+        and abs(g - b) < 10
     )
     inspector_not_huge = (right_chrome / right_n) < 0.92
 

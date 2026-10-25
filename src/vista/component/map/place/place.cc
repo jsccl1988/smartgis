@@ -295,9 +295,14 @@ std::vector<PlacedMesh> place_frame(const vista::MapIR& frame,
   out.reserve(frame.items.size() * 2u);
   uint32_t next_group = 0;
   for (const vista::DrawItem& item : frame.items) {
-    const bool overlay = item.kind == vista::DrawKind::kIcon ||
-                         item.kind == vista::DrawKind::kText;
-    if (overlay ? !overlay_items : !world_items) {
+    const bool kind_overlay = item.kind == vista::DrawKind::kIcon ||
+                              item.kind == vista::DrawKind::kText;
+    // Screen HUD rides the overlay lane so world-only interactive pan skips it.
+    if (item.screen_fixed) {
+      if (!overlay_items) {
+        continue;
+      }
+    } else if (kind_overlay ? !overlay_items : !world_items) {
       continue;
     }
     // Skip insane meshes before indices_fit walks the index buffer.
@@ -370,6 +375,7 @@ std::vector<PlacedMesh> place_frame(const vista::MapIR& frame,
       PlacedMesh mesh;
       mesh.source = MeshSource::kGlyph;
       mesh.overlay = true;
+      mesh.screen_fixed = item.screen_fixed;
       mesh.vertices = std::move(verts);
       mesh.indices_src = &item.indices;
       tag_text(&mesh, item, group);
@@ -387,6 +393,7 @@ std::vector<PlacedMesh> place_frame(const vista::MapIR& frame,
       PlacedMesh mesh;
       mesh.source = MeshSource::kIcon;
       mesh.overlay = true;
+      mesh.screen_fixed = item.screen_fixed;
       mesh.vertices = std::move(verts);
       mesh.indices_src = &item.indices;
       mesh.symbol_id = item.symbol_id;
@@ -441,6 +448,13 @@ std::vector<PlacedMesh> place_frame(const vista::MapIR& frame,
     mesh.source = MeshSource::kSolid;
     mesh.stroke = item.kind == vista::DrawKind::kLine ||
                   item.kind == vista::DrawKind::kCircle;
+    if (item.screen_fixed) {
+      mesh.overlay = true;
+      mesh.screen_fixed = true;
+      // HUD strokes are pixel-perfect; skip world AA feather under them.
+      out.push_back(std::move(mesh));
+      continue;
+    }
     const float aa_pad = world_half_pixel(view);
     push_feather_under(std::move(mesh), aa_pad, &out);
   }

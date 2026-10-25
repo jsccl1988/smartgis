@@ -7,7 +7,7 @@ All rights reserved.
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>analysis ops — WKT 与 OGR 分层</title>
+<title>analysis ops — 深度分层</title>
 <style>
   :root {
     --bg: #f4f6f8;
@@ -16,12 +16,16 @@ All rights reserved.
     --text: #1a2330;
     --muted: #5a6a7e;
     --accent: #2563a8;
-    --wkt: #e8f1ea;
-    --wkt-ink: #1f6b45;
-    --ogr: #e7f0fa;
-    --ogr-ink: #1d4e89;
     --bound: #f8f1e6;
     --bound-ink: #8a5a12;
+    --codec: #e8f1ea;
+    --codec-ink: #1f6b45;
+    --ir: #e7f0fa;
+    --ir-ink: #1d4e89;
+    --geo: #ece8f8;
+    --geo-ink: #4a3d7a;
+    --dom: #f3e8e8;
+    --dom-ink: #7a3d3d;
   }
   * { box-sizing: border-box; }
   body {
@@ -30,7 +34,7 @@ All rights reserved.
     color: var(--text);
     background: var(--bg);
   }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 48px; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px 48px; }
   h1 { font-size: 1.35rem; margin: 0 0 8px; }
   p.lead { color: var(--muted); margin: 0 0 20px; }
   .stack { display: grid; gap: 10px; }
@@ -43,48 +47,73 @@ All rights reserved.
   .lane h2 { margin: 0 0 6px; font-size: 1rem; }
   .lane p { margin: 0; color: var(--muted); }
   .lane code { color: var(--text); }
-  .wkt { background: var(--wkt); }
-  .wkt h2 { color: var(--wkt-ink); }
-  .ogr { background: var(--ogr); }
-  .ogr h2 { color: var(--ogr-ink); }
   .bound { background: var(--bound); }
   .bound h2 { color: var(--bound-ink); }
+  .codec { background: var(--codec); }
+  .codec h2 { color: var(--codec-ink); }
+  .ir { background: var(--ir); }
+  .ir h2 { color: var(--ir-ink); }
+  .geo { background: var(--geo); }
+  .geo h2 { color: var(--geo-ink); }
+  .dom { background: var(--dom); }
+  .dom h2 { color: var(--dom-ink); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin: 18px 0 0; font-size: 0.85rem; color: var(--muted);
+  }
+  .flow span {
+    border: 1px solid var(--border); background: #fff;
+    border-radius: 6px; padding: 6px 10px; color: var(--text);
+  }
+  .flow .arr { border: none; background: transparent; padding: 0; color: var(--accent); }
   ol { margin: 18px 0 0; padding-left: 1.2rem; }
   li { margin: 6px 0; }
   code {
     font-family: Consolas, "Cascadia Mono", monospace;
     font-size: 0.92em;
   }
+  .meta { margin-top: 16px; font-size: 0.82rem; color: var(--muted); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>analysis ops：WKT 边界与 OGR 算法</h1>
-  <p class="lead">字符串只在边界进出。算法层看到的是 <code>OGRGeometry</code>。</p>
+  <h1>analysis ops：深度分层</h1>
+  <p class="lead">几何功能体在 <code>geo::</code>。<code>analysis/ops</code> 只做边界、薄目录与域静态表。</p>
   <div class="stack">
     <section class="lane bound">
       <h2>边界</h2>
-      <p><code>content/browser/glang.runtime/ir/gis/</code>（<code>verb</code> / <code>measure</code> / <code>transform</code> / <code>feature</code>）保持 opcode 的 WKT / 错误字符串签名。先检查 CRS，再调用 WKT 层，然后把 <code>OGRGeometry</code> 交给算法。</p>
+      <p><code>wkt_ops</code> / glang / <code>plugin::run_builtin_op</code> 保持稳定签名。CRS 检查与文本进出只在边界。</p>
     </section>
-    <section class="lane wkt">
-      <h2>编解码</h2>
-      <p><code>ops/wkt/</code> 做 WKT。<code>ops/geojson/</code> 做 GeoJSON。两边都不跑空间运算。几何所有权类型在 <code>ops/ir/ogr_geom.h</code>。</p>
+    <section class="lane codec">
+      <h2>编解码 · 要素</h2>
+      <p><code>ops/wkt</code> · <code>ops/geojson</code> 做文本 ↔ <code>OGRGeometry</code>。<code>ops/features</code> 做扫描 / 过滤 / 投影（迁出原 <code>ops/ir</code>）。</p>
     </section>
-    <section class="lane ogr">
-      <h2>一条几何 IR</h2>
-      <p><code>ops/ir/</code>：<code>geometry_ir</code> 每个 op 是一个节点，<code>eval_geometry_ir</code> 按 id 求值；GEOS 内核在 <code>ops_geos</code>。只见 <code>OGRGeometry</code>。</p>
+    <section class="lane ir">
+      <h2>薄 IR 目录</h2>
+      <p><code>ops/ir</code>：<code>eval_geometry_ir</code> 按 <code>native.*</code> id 调 <code>geo::*</code>。无 GEOS 实现副本。</p>
     </section>
-    <section class="lane bound">
-      <h2>调度</h2>
-      <p><code>ops/runner/</code> 组合边界编解码和 <code>eval_geometry_ir</code>。<code>apply_op</code> 只取出几何结果。栅格、地质、化探、拟合、路径按 id 转发，转发代码也在这个目录。</p>
+    <section class="lane geo">
+      <h2>功能体 <code>geo::</code></h2>
+      <p><code>buffer</code> / <code>set</code> / <code>shape</code>（GEOS）· <code>predicate</code> / <code>measure</code>（OGR）· <code>transform</code>（PROJ）。traits 约束 <code>ogr_geometry_like</code>。</p>
+    </section>
+    <section class="lane dom">
+      <h2>域静态表</h2>
+      <p>各域 <code>const BuiltinOpEntry[]</code>；<code>ops/runner</code> 链成只读总表。无运行期 register、无 GetProcAddress。</p>
     </section>
   </div>
+  <div class="flow">
+    <span>边界</span><span class="arr">→</span>
+    <span>codec / features / runner</span><span class="arr">→</span>
+    <span>薄 IR</span><span class="arr">→</span>
+    <span>geo:: 功能体</span><span class="arr">→</span>
+    <span>OGR / GEOS / PROJ</span>
+  </div>
   <ol>
-    <li>CRS 检查（未知 CRS、CRS 不一致、地理坐标系）发生在解析 WKT 之前。</li>
-    <li>WKT 层产出 <code>OgrGeom</code>。</li>
-    <li>算法返回新的 <code>OGRGeometry</code>，或就地改投影。</li>
-    <li>边界再导出 WKT、"1"/"0" 或数字字符串。</li>
+    <li>几何文件 op：GeoJSON 解码 → <code>apply_op</code> → <code>eval_geometry_ir</code> → <code>geo::*</code> → 编码。</li>
+    <li>WKT / glang：编解码 + 同一 IR 节点。</li>
+    <li>域内核：表查找 <code>run_*_op</code>，不经几何 IR。</li>
   </ol>
+  <p class="meta">Living：<code>specs/2026-09-13-algorithm-layer-oss-design.md</code> §3.5 · Updated 2026-10-25</p>
 </div>
 </body>
 </html>

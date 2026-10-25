@@ -19,6 +19,7 @@
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/host/overlay/shell_overlay_effect.h"
 #include "content/browser/present/scene3d/frame/orbit/orbit_geo_frame.h"
+#include "content/browser/present/scene3d/frame/prep/scene3d_prep_mailbox.h"
 #include "content/browser/present/scene3d/frame/overlay/scene3d_overlays.h"
 #include "content/browser/present/scene3d/frame/tileset/tileset_stream.h"
 #include "content/public/types.h"
@@ -51,8 +52,9 @@ struct Scene3dLegacyLabel {
 // GPU present path for 3D: DEM mesh / WorldPass / shell overlay / present mutex.
 class Scene3dGpuPresent {
  public:
-  Scene3dGpuPresent() = default;
-  ~Scene3dGpuPresent() = default;
+  // Defined in .cc so all TUs share one layout (avoid stale inlined default).
+  Scene3dGpuPresent();
+  ~Scene3dGpuPresent();
 
   Scene3dGpuPresent(const Scene3dGpuPresent&) = delete;
   Scene3dGpuPresent& operator=(const Scene3dGpuPresent&) = delete;
@@ -160,6 +162,9 @@ class Scene3dGpuPresent {
   // Caller must hold mutex(). Returns true when DEM LOD/extent changed.
   bool rebuild_local_mesh();
 
+  // True when rebuild_local_mesh would mutate DEM vectors (caller holds mutex).
+  bool needs_local_mesh_rebuild_locked() const;
+
   // Attach overlay_pointcloud_* into terrain_world_ (caller holds mutex).
   // When |force| is false, skip if the overlay node is already present.
   void attach_overlay_pointcloud_locked(bool force = true);
@@ -197,6 +202,9 @@ class Scene3dGpuPresent {
   }
 
  private:
+  void apply_async_prep_staging_locked(uint64_t published_gen);
+  void post_async_cold_prep_locked();
+
   const GisScene* scene_ = nullptr;
   const OrbitFrame* orbit_ = nullptr;
 
@@ -234,6 +242,23 @@ class Scene3dGpuPresent {
   // so FlyCube heap recycling cannot leave stale SRVs. Warm frames skip.
   bool dem_gpu_synced_after_ocean_ = false;
   bool dem_gpu_synced_after_sky_ = false;
+  // T2.1 worker output hub (shared so async work never captures `this`).
+  // Declared before prep_mailbox_ so hub outlives mailbox wait-on-invalidate.
+  struct PrepStagingBlob {
+    uint64_t gen = 0;
+    vista::World world;
+    std::vector<float> xyz;
+    std::vector<unsigned> idx;
+    OrbitGeoFrame geo;
+    int lod_edge = 0;
+  };
+  struct PrepStagingHub {
+    std::mutex mu;
+    std::shared_ptr<PrepStagingBlob> blob;
+  };
+  std::shared_ptr<PrepStagingHub> prep_staging_ =
+      std::make_shared<PrepStagingHub>();
+  detail::Scene3dPrepMailbox prep_mailbox_;
   std::vector<uint8_t> dem_drape_rgba_;
   uint32_t dem_drape_w_ = 0;
   uint32_t dem_drape_h_ = 0;

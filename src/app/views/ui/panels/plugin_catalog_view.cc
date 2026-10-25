@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -14,6 +15,7 @@
 #include "app/views/app/startup/scenario.h"
 #include "app/views/browser/browser.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
+#include "base/core/log.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/pack_ensure.h"
 #include "plugin/runtime/host/catalog/registry.h"
@@ -31,6 +33,16 @@
 
 namespace app {
 namespace {
+
+// Copy Registry::last_error via C string — do not assign std::string across
+// the EXE↔plugin_host Debug STL boundary.
+std::string registry_error_text(plugin::Registry* registry) {
+  if (!registry) {
+    return {};
+  }
+  const char* err = registry->last_error_cstr();
+  return (err && err[0]) ? std::string(err) : std::string();
+}
 
 const char* state_name(plugin::PluginState s) {
   switch (s) {
@@ -248,33 +260,25 @@ bool PluginCatalogView::record_matches(const std::string& id,
   if (!registry_) {
     return false;
   }
-  for (const plugin::PluginRecord& rec : registry_->list()) {
-    if (rec.manifest.id != id) {
-      continue;
-    }
-    const plugin::ManifestContributes& c = rec.manifest.contributes;
-    for (const plugin::CommandContrib& item : c.commands) {
-      if (contains_text(item.id, q) || contains_text(item.title, q)) {
-        return true;
-      }
-    }
-    for (const plugin::ProcessingContrib& item : c.processing) {
-      if (contains_text(item.id, q) || contains_text(item.title, q)) {
-        return true;
-      }
-    }
-    for (const plugin::DialogContrib& item : c.dialogs) {
-      if (contains_text(item.id, q) || contains_text(item.title, q)) {
-        return true;
-      }
-    }
-    for (const plugin::DockContrib& item : c.docks) {
-      if (contains_text(item.id, q) || contains_text(item.title, q)) {
-        return true;
-      }
-    }
-  }
-  return false;
+  struct MatchCtx {
+    const std::string* query;
+    bool hit;
+  } ctx{&q, false};
+  registry_->visit_tools(
+      id,
+      [](const char* /*kind*/, const char* tool_id, const char* title,
+         void* baton) {
+        auto* c = static_cast<MatchCtx*>(baton);
+        if (c->hit || !c->query) {
+          return;
+        }
+        if (contains_text(tool_id ? tool_id : "", *c->query) ||
+            contains_text(title ? title : "", *c->query)) {
+          c->hit = true;
+        }
+      },
+      &ctx);
+  return ctx.hit;
 }
 
 void PluginCatalogView::refresh() {
@@ -302,25 +306,48 @@ void PluginCatalogView::fill_plugins(bool rebuild_tools) {
     }
     return;
   }
-  int restore = -1;
-  for (const plugin::PluginRecord& rec : registry_->list()) {
-    if (!record_matches(rec.manifest.id, rec.manifest.name,
-                        rec.manifest.description)) {
-      continue;
-    }
-    if (rec.manifest.id == selected_plugin_id_) {
-      restore = static_cast<int>(visible_plugin_ids_.size());
-    }
-    visible_plugin_ids_.push_back(rec.manifest.id);
-    const std::string name =
-        rec.manifest.name.empty() ? rec.manifest.id : rec.manifest.name;
-    plugins_->add_row({std::string(state_name(rec.state)) + "   " + name});
-  }
-  if (restore < 0) {
+  struct FillCtx {
+    PluginCatalogView* self;
+    int restore;
+  } ctx{this, -1};
+  registry_->visit(
+      [](const char* id, const char* name, int state, int /*kind*/, int /*trust*/,
+         void* baton) {
+        auto* c = static_cast<FillCtx*>(baton);
+        if (!c || !c->self || !id || !id[0]) {
+          return;
+        }
+        std::string desc;
+        c->self->registry_->visit_detail(
+            id,
+            [](const char* /*pid*/, const char* /*pname*/, const char* /*ver*/,
+               const char* description, int /*st*/, int /*handlers*/,
+               void* db) {
+              auto* out = static_cast<std::string*>(db);
+              if (out && description) {
+                *out = description;
+              }
+            },
+            &desc);
+        const std::string id_s(id);
+        const std::string name_s = (name && name[0]) ? std::string(name) : id_s;
+        if (!c->self->record_matches(id_s, name_s, desc)) {
+          return;
+        }
+        if (id_s == c->self->selected_plugin_id_) {
+          c->restore = static_cast<int>(c->self->visible_plugin_ids_.size());
+        }
+        c->self->visible_plugin_ids_.push_back(id_s);
+        c->self->plugins_->add_row(
+            {std::string(state_name(static_cast<plugin::PluginState>(state))) +
+             "   " + name_s});
+      },
+      &ctx);
+  if (ctx.restore < 0) {
     selected_plugin_id_.clear();
     selected_tool_ = -1;
   } else {
-    plugins_->set_selected_row(restore);
+    plugins_->set_selected_row(ctx.restore);
   }
   ui::views::sync_scroll_table_content(plugins_, plugin_scroll_, 264);
   if (rebuild_tools) {
@@ -334,55 +361,86 @@ void PluginCatalogView::collect_tools(const std::string& plugin_id) {
   if (!registry_ || plugin_id.empty()) {
     return;
   }
-  const plugin::Manifest* manifest = nullptr;
-  plugin::Manifest held;
-  for (const plugin::PluginRecord& rec : registry_->list()) {
-    if (rec.manifest.id == plugin_id) {
-      held = rec.manifest;
-      manifest = &held;
-      break;
-    }
-  }
-  if (!manifest) {
+  std::string plugin_name;
+  std::string plugin_desc;
+  bool found = false;
+  struct DetailCtx {
+    std::string* name;
+    std::string* desc;
+    bool* found;
+  } detail{&plugin_name, &plugin_desc, &found};
+  registry_->visit_detail(
+      plugin_id,
+      [](const char* /*id*/, const char* name, const char* /*ver*/,
+         const char* description, int /*state*/, int /*handlers*/, void* baton) {
+        auto* c = static_cast<DetailCtx*>(baton);
+        if (!c) {
+          return;
+        }
+        if (c->found) {
+          *c->found = true;
+        }
+        if (c->name && name) {
+          *c->name = name;
+        }
+        if (c->desc && description) {
+          *c->desc = description;
+        }
+      },
+      &detail);
+  if (!found) {
     return;
   }
   const std::string q = query_text();
-  const bool plugin_hit =
-      q.empty() || contains_text(manifest->id, q) ||
-      contains_text(manifest->name, q) ||
-      contains_text(manifest->description, q);
-  auto accept = [&](const std::string& id, const std::string& title) {
-    return plugin_hit || contains_text(id, q) || contains_text(title, q);
-  };
+  const bool plugin_hit = q.empty() || contains_text(plugin_id, q) ||
+                          contains_text(plugin_name, q) ||
+                          contains_text(plugin_desc, q);
   std::vector<std::string> seen;
-  auto push = [&](ToolKind kind, const std::string& id, const std::string& title) {
-    if (!accept(id, title)) {
-      return;
-    }
-    if (std::find(seen.begin(), seen.end(), id) != seen.end()) {
-      return;
-    }
-    seen.push_back(id);
-    ToolEntry entry;
-    entry.kind = kind;
-    entry.id = id;
-    entry.title = title.empty() ? id : title;
-    tool_entries_.push_back(std::move(entry));
-  };
   // Prefer dialog/dock/processing over a bare command when the same id is
-  // listed in several contribute sections (flood.inundate, etc.).
-  for (const plugin::DialogContrib& item : manifest->contributes.dialogs) {
-    push(ToolKind::kDialog, item.id, item.title);
-  }
-  for (const plugin::DockContrib& item : manifest->contributes.docks) {
-    push(ToolKind::kDock, item.id, item.title);
-  }
-  for (const plugin::ProcessingContrib& item : manifest->contributes.processing) {
-    push(ToolKind::kProcessing, item.id, item.title);
-  }
-  for (const plugin::CommandContrib& item : manifest->contributes.commands) {
-    push(ToolKind::kCommand, item.id, item.title);
-  }
+  // listed in several contribute sections (flood.inundate, etc.). Order is
+  // owned by Registry::visit_tools.
+  struct ToolCtx {
+    std::vector<ToolEntry>* out;
+    std::vector<std::string>* seen;
+    const std::string* q;
+    bool plugin_hit;
+  } tool_ctx{&tool_entries_, &seen, &q, plugin_hit};
+  registry_->visit_tools(
+      plugin_id,
+      [](const char* kind, const char* id, const char* title, void* baton) {
+        auto* c = static_cast<ToolCtx*>(baton);
+        if (!c || !c->out || !c->seen || !id || !id[0]) {
+          return;
+        }
+        const std::string id_s(id);
+        const std::string title_s =
+            (title && title[0]) ? std::string(title) : id_s;
+        const std::string empty;
+        const std::string& query = c->q ? *c->q : empty;
+        if (!c->plugin_hit && !contains_text(id_s, query) &&
+            !contains_text(title_s, query)) {
+          return;
+        }
+        if (std::find(c->seen->begin(), c->seen->end(), id_s) !=
+            c->seen->end()) {
+          return;
+        }
+        c->seen->push_back(id_s);
+        ToolEntry entry;
+        if (kind && std::strcmp(kind, "dialog") == 0) {
+          entry.kind = ToolKind::kDialog;
+        } else if (kind && std::strcmp(kind, "dock") == 0) {
+          entry.kind = ToolKind::kDock;
+        } else if (kind && std::strcmp(kind, "processing") == 0) {
+          entry.kind = ToolKind::kProcessing;
+        } else {
+          entry.kind = ToolKind::kCommand;
+        }
+        entry.id = id_s;
+        entry.title = title_s;
+        c->out->push_back(std::move(entry));
+      },
+      &tool_ctx);
 }
 
 void PluginCatalogView::fill_tools() {
@@ -442,27 +500,37 @@ void PluginCatalogView::fill_detail() {
     detail_->set_text("Select a plugin. Its commands open here.");
     return;
   }
-  for (const plugin::PluginRecord& rec : registry_->list()) {
-    if (rec.manifest.id != selected_plugin_id_) {
-      continue;
-    }
-    std::string text =
-        rec.manifest.name.empty() ? rec.manifest.id : rec.manifest.name;
-    text += "  v";
-    text += rec.manifest.version.empty() ? "?" : rec.manifest.version;
-    text += "  ";
-    text += state_name(rec.state);
-    if (!rec.manifest.description.empty()) {
-      text += "  ";
-      text += rec.manifest.description;
-    }
-    if (tool_entries_.empty()) {
-      text += "  No tools in plugin.json.";
-    }
-    detail_->set_text(text);
-    return;
+  struct DetailCtx {
+    PluginCatalogView* self;
+    bool ok;
+  } ctx{this, false};
+  registry_->visit_detail(
+      selected_plugin_id_,
+      [](const char* id, const char* name, const char* version,
+         const char* description, int state, int /*handlers*/, void* baton) {
+        auto* c = static_cast<DetailCtx*>(baton);
+        if (!c || !c->self || !c->self->detail_ || !id) {
+          return;
+        }
+        c->ok = true;
+        std::string text = (name && name[0]) ? std::string(name) : std::string(id);
+        text += "  v";
+        text += (version && version[0]) ? version : "?";
+        text += "  ";
+        text += state_name(static_cast<plugin::PluginState>(state));
+        if (description && description[0]) {
+          text += "  ";
+          text += description;
+        }
+        if (c->self->tool_entries_.empty()) {
+          text += "  No tools in plugin.json.";
+        }
+        c->self->detail_->set_text(text);
+      },
+      &ctx);
+  if (!ctx.ok) {
+    detail_->set_text("Select a plugin. Its commands open here.");
   }
-  detail_->set_text("Select a plugin. Its commands open here.");
 }
 
 std::string PluginCatalogView::selected_id() const {
@@ -485,8 +553,11 @@ void PluginCatalogView::on_plugin_click(int row) {
   }
   selected_plugin_id_ = visible_plugin_ids_[static_cast<size_t>(row)];
   selected_tool_ = -1;
+  LOGGING(LOG_INFO, "ui.plugin_catalog: select %s", selected_plugin_id_.c_str());
   fill_tools();
   fill_detail();
+  LOGGING(LOG_INFO, "ui.plugin_catalog: tools=%d",
+          static_cast<int>(tool_entries_.size()));
   if (error_) {
     error_->set_text("");
   }
@@ -500,19 +571,35 @@ void PluginCatalogView::on_plugin_click(int row) {
 
 void PluginCatalogView::on_plugin_activate(int row, int /*col*/) {
   on_plugin_click(row);
-  if (!registry_) {
+  if (!registry_ || selected_plugin_id_.empty()) {
     return;
   }
-  for (const plugin::PluginRecord& rec : registry_->list()) {
-    if (rec.manifest.id != selected_plugin_id_) {
-      continue;
-    }
-    if (rec.state == plugin::PluginState::kEnabled && rec.handlers_loaded) {
-      on_disable();
-    } else {
-      on_enable();
-    }
+  struct StateCtx {
+    int state;
+    int handlers;
+    bool ok;
+  } st{-1, 0, false};
+  registry_->visit_detail(
+      selected_plugin_id_,
+      [](const char* /*id*/, const char* /*name*/, const char* /*ver*/,
+         const char* /*desc*/, int state, int handlers, void* baton) {
+        auto* c = static_cast<StateCtx*>(baton);
+        if (!c) {
+          return;
+        }
+        c->ok = true;
+        c->state = state;
+        c->handlers = handlers;
+      },
+      &st);
+  if (!st.ok) {
     return;
+  }
+  if (st.state == static_cast<int>(plugin::PluginState::kEnabled) &&
+      st.handlers) {
+    on_disable();
+  } else {
+    on_enable();
   }
 }
 
@@ -529,8 +616,8 @@ void PluginCatalogView::on_enable() {
   }
   if (!registry_->set_enabled(id, true, host_)) {
     if (error_) {
-      error_->set_text(registry_->last_error().empty() ? "Enable failed"
-                                                       : registry_->last_error());
+      const std::string err = registry_error_text(registry_);
+      error_->set_text(err.empty() ? "Enable failed" : err);
     }
     fill_plugins(true);
     return;
@@ -574,19 +661,32 @@ bool PluginCatalogView::ensure_enabled(const std::string& plugin_id) {
     }
     return false;
   }
-  for (const plugin::PluginRecord& rec : registry_->list()) {
-    if (rec.manifest.id != plugin_id) {
-      continue;
-    }
-    if (rec.state == plugin::PluginState::kEnabled && rec.handlers_loaded) {
-      return true;
-    }
-    break;
+  struct StateCtx {
+    int state;
+    int handlers;
+    bool ok;
+  } st{-1, 0, false};
+  registry_->visit_detail(
+      plugin_id,
+      [](const char* /*id*/, const char* /*name*/, const char* /*ver*/,
+         const char* /*desc*/, int state, int handlers, void* baton) {
+        auto* c = static_cast<StateCtx*>(baton);
+        if (!c) {
+          return;
+        }
+        c->ok = true;
+        c->state = state;
+        c->handlers = handlers;
+      },
+      &st);
+  if (st.ok && st.state == static_cast<int>(plugin::PluginState::kEnabled) &&
+      st.handlers) {
+    return true;
   }
   if (!registry_->set_enabled(plugin_id, true, host_)) {
     if (error_) {
-      error_->set_text(registry_->last_error().empty() ? "Enable failed"
-                                                       : registry_->last_error());
+      const std::string err = registry_error_text(registry_);
+      error_->set_text(err.empty() ? "Enable failed" : err);
     }
     fill_plugins(false);
     return false;
@@ -702,6 +802,8 @@ void PluginCatalogView::on_run() {
     return;
   }
   const std::string plugin_id = selected_id();
+  LOGGING(LOG_INFO, "ui.plugin_catalog: run plugin=%s tool=%d",
+          plugin_id.c_str(), selected_tool_);
   if (plugin_id.empty()) {
     if (error_) {
       error_->set_text("Select a plugin");
@@ -791,12 +893,23 @@ bool PluginCatalogView::plugin_enabled(const std::string& plugin_id) const {
   if (!registry_ || plugin_id.empty()) {
     return false;
   }
-  for (const plugin::PluginRecord& rec : registry_->list()) {
-    if (rec.manifest.id == plugin_id) {
-      return rec.state == plugin::PluginState::kEnabled;
-    }
-  }
-  return false;
+  struct StateCtx {
+    int state;
+    bool ok;
+  } st{-1, false};
+  registry_->visit_detail(
+      plugin_id,
+      [](const char* /*id*/, const char* /*name*/, const char* /*ver*/,
+         const char* /*desc*/, int state, int /*handlers*/, void* baton) {
+        auto* c = static_cast<StateCtx*>(baton);
+        if (!c) {
+          return;
+        }
+        c->ok = true;
+        c->state = state;
+      },
+      &st);
+  return st.ok && st.state == static_cast<int>(plugin::PluginState::kEnabled);
 }
 
 bool PluginCatalogView::dialog_registered(const std::string& tool_id) const {

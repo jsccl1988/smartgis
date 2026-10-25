@@ -65,6 +65,9 @@ OGRGeometry* ogr_from_geom(const FeatureGeom& geom) {
 struct MapEditSession::Impl {
   uint64_t next_token = 1;
   std::map<uint64_t, OGRFeature*> features;
+  TopologyLayerState topology;
+  TopologyValidationResult last_topology;
+  double topology_gap_tolerance = 1e-6;
 };
 
 MapEditSession::MapEditSession(Map* map)
@@ -108,6 +111,16 @@ OGRFeature* MapEditSession::build_feature_from_geom(const FeatureGeom& geom) {
 }
 
 bool MapEditSession::commit(const FeatureMutation& mutation) {
+  if (!impl_) {
+    return false;
+  }
+  impl_->last_topology = TopologyValidationResult{};
+  const TopologyValidationResult topo = validate_topology(
+      impl_->topology, mutation, impl_->topology_gap_tolerance);
+  if (!topo.ok()) {
+    impl_->last_topology = topo;
+    return false;
+  }
   FeatureMutation prepared = mutation;
   uint64_t new_token = 0;
   if (!prepared.geom.empty() && prepared.op == EditOp::kAppend &&
@@ -137,7 +150,20 @@ bool MapEditSession::commit(const FeatureMutation& mutation) {
     }
     return false;
   }
+  apply_topology_state(&impl_->topology, prepared);
   return true;
+}
+
+const TopologyValidationResult& MapEditSession::last_topology_result() const {
+  static const TopologyValidationResult k_empty{};
+  if (!impl_) {
+    return k_empty;
+  }
+  return impl_->last_topology;
+}
+
+TopologyLayerState* MapEditSession::topology_layer_state() {
+  return impl_ ? &impl_->topology : nullptr;
 }
 
 bool MapEditSession::commit_feature(EditOp op, OGRFeature* feature) {

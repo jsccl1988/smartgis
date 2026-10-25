@@ -33,9 +33,12 @@ Living specs, open plans, HTML diagrams, and as-built product notes live here. P
 | [`diagrams/vista-scene-octree.html`](diagrams/vista-scene-octree.html) | Vista GpuScene：unibn octree 场景/mesh 索引 + 视锥外过滤 |
 | [`diagrams/base-math-layers.html`](diagrams/base-math-layers.html) | `base/math`：scalar / linear / traits / geom / xform / simd |
 | [`diagrams/dll-stl-trust.html`](diagrams/dll-stl-trust.html) | 产品 DLL / STL 信任模型（A/B/C/D + `is_component_build`） |
-| [`diagrams/gis-geo-layers.html`](diagrams/gis-geo-layers.html) | `gis/geo` Types / Traits / Ops / Codec / Present |
+| [`diagrams/gis-geo-layers.html`](diagrams/gis-geo-layers.html) | `gis/geo` Types / Traits / Ops / Codec / Present（含 `xy/`） |
+| [`diagrams/gis-analysis-geology.html`](diagrams/gis-analysis-geology.html) | `analysis/geology` model/io/kernel/op + `geo/xy` |
 | [`diagrams/gis-model-ogr-layers.html`](diagrams/gis-model-ogr-layers.html) | `gis/{feature,layer,map}` 产品面 vs leftover ABI；Map/Layer/Feature ↔ OGR |
 | [`diagrams/gis-algorithm-geometry-split.html`](diagrams/gis-algorithm-geometry-split.html) | 几何体 ⊥ 算法（补图） |
+| [`diagrams/geometry-analysis-gap.html`](diagrams/geometry-analysis-gap.html) | 几何分析业界差距：分责 + P0/P1/P2 |
+| [`diagrams/gis-analysis-kernel-layers.html`](diagrams/gis-analysis-kernel-layers.html) | analysis 内核：model / codec·io / kernel / op（geochem 样板） |
 | [`diagrams/map2d-present-frame.html`](diagrams/map2d-present-frame.html) | Map2d MapFrame 四层 + 双出口 |
 | [`diagrams/map2d-furniture-panel.html`](diagrams/map2d-furniture-panel.html) | Map2d 装饰面板：Inspector → Sink → furniture 绘制 |
 | [`diagrams/map2d-china-design-gate.html`](diagrams/map2d-china-design-gate.html) | 中国全图设计门禁：色带测量 × 具名合同 AND |
@@ -43,7 +46,9 @@ Living specs, open plans, HTML diagrams, and as-built product notes live here. P
 | [`diagrams/scene3d-present-layers.html`](diagrams/scene3d-present-layers.html) | Scene3d present：facade / frame / GPU / software / scenic |
 | [`diagrams/china-stack-gates.html`](diagrams/china-stack-gates.html) | 中国平地阶梯门禁：DEM → 海洋 → 雾 → 天空 → 云，前阶失败则后阶 blocked |
 | [`diagrams/content-present-accelerate.html`](diagrams/content-present-accelerate.html) | present 三车道：cache / GPU 合成 / `base::execution` |
+| [`diagrams/content-present-dual-track.html`](diagrams/content-present-dual-track.html) | present 双轨上限：T1 GPU 脏区 scissor · T2 Scene3d FrameJob 并行 |
 | [`diagrams/render-accelerate-topology.html`](diagrams/render-accelerate-topology.html) | GPU-process × vista parallel（A×B） |
+| [`diagrams/gpu-multiprocess-upgrade.html`](diagrams/gpu-multiprocess-upgrade.html) | GPU 多进程升级：A 硬化 → B 默认仅 GPU → 可选 renderer |
 | [`diagrams/ui-views-shell-architecture.html`](diagrams/ui-views-shell-architecture.html) | Views shell / compositor 泳道 |
 | [`diagrams/catalog-2d-3d-pairing.html`](diagrams/catalog-2d-3d-pairing.html) | Catalog 2D/3D ↔ Map/Scene3d 配对 |
 | [`diagrams/map-viewport-paint.html`](diagrams/map-viewport-paint.html) | DrawHost paint 分层 + 2D SoT（不 blit leftover SharedSurface） |
@@ -77,12 +82,12 @@ Legacy UI/app deep-layer slices: `diagrams/legacy-{app,ui-widgets,ui-map,ui-shel
 | --- | --- | --- |
 | Leftover strangler SP0–SP5 | [`specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md`](specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) | [`plans/2026-09-19-tool-behavior-migration.md`](plans/2026-09-19-tool-behavior-migration.md) · [`plans/2026-09-19-scene3d-world-gpuscene.md`](plans/2026-09-19-scene3d-world-gpuscene.md) · [`plans/2026-09-28-scene3d-index-octree.md`](plans/2026-09-28-scene3d-index-octree.md) · [`plans/2026-09-29-legacy-mfc-ex-feature-pack.md`](plans/2026-09-29-legacy-mfc-ex-feature-pack.md) · [`plans/2026-10-02-legacy-ui-inspect-deep-layer.md`](plans/2026-10-02-legacy-ui-inspect-deep-layer.md) · [`plans/2026-09-29-legacy-core-subdirectory-layout.md`](plans/2026-09-29-legacy-core-subdirectory-layout.md) · [`plans/2026-09-29-legacy-plugin-subdirectory-layout.md`](plans/2026-09-29-legacy-plugin-subdirectory-layout.md) |
 | RHI + dual scene + map2d + atmosphere + model/compute | [`specs/2026-09-13-render-rhi-scene-design.md`](specs/2026-09-13-render-rhi-scene-design.md) | [`plans/2026-09-13-render-rhi-scene.md`](plans/2026-09-13-render-rhi-scene.md) · [`plans/2026-09-27-gpu-rhi-accelerate.md`](plans/2026-09-27-gpu-rhi-accelerate.md) · [`plans/2026-10-02-src-render-vista-parallel-accelerate.md`](plans/2026-10-02-src-render-vista-parallel-accelerate.md) · [`plans/2026-09-27-render-frame-graph.md`](plans/2026-09-27-render-frame-graph.md) · equal-profile + leftover GDI/rhi2d/rhi3d（**Scenic**）checklists on the umbrella **Plans:** line |
-| `app/views` shell + Views toolkit + markup + panels + debug console | [`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) | [`plans/2026-09-20-m0-views-main-path.md`](plans/2026-09-20-m0-views-main-path.md) · [`plans/2026-09-28-debug-console.md`](plans/2026-09-28-debug-console.md) · compositor / forensics / markup / harness on the umbrella |
+| `app/views` shell + Views toolkit + markup + panels + debug console | [`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) | [`plans/2026-09-20-m0-views-main-path.md`](plans/2026-09-20-m0-views-main-path.md) · [`plans/2026-09-28-debug-console.md`](plans/2026-09-28-debug-console.md) · [`plans/2026-10-25-ui-shell-perf-u6-roadmap.md`](plans/2026-10-25-ui-shell-perf-u6-roadmap.md) · compositor / forensics / markup / harness on the umbrella |
 | Tool dispatch + `src/tool` | [`specs/2026-09-13-tool-event-dispatch-design.md`](specs/2026-09-13-tool-event-dispatch-design.md) | [`plans/2026-09-13-tool-event-dispatch.md`](plans/2026-09-13-tool-event-dispatch.md) |
 | `src/base` foundation (+ memory / PA-E / execution / codecs / DLL·STL trust) | [`specs/2026-09-14-base-root-hybrid-design.md`](specs/2026-09-14-base-root-hybrid-design.md) | [`plans/2026-09-28-partition-alloc-everywhere.md`](plans/2026-09-28-partition-alloc-everywhere.md) · [`plans/2026-09-28-base-execution.md`](plans/2026-09-28-base-execution.md) · [`plans/2026-10-23-dll-stl-trust.md`](plans/2026-10-23-dll-stl-trust.md) |
 | GIS datasource / GDAL / SDB / Session+Provider | [`specs/2026-09-13-gdal-layer-management-design.md`](specs/2026-09-13-gdal-layer-management-design.md) | [`plans/2026-09-28-datasource-session-provider.md`](plans/2026-09-28-datasource-session-provider.md) · [`plans/2026-09-13-ogr-db-datasource.md`](plans/2026-09-13-ogr-db-datasource.md) · [`plans/2026-09-19-sdbd-wsl-client.md`](plans/2026-09-19-sdbd-wsl-client.md) |
 | Plugin host / contributions / store | [`specs/2026-09-13-plugin-host-design.md`](specs/2026-09-13-plugin-host-design.md) | [`plans/2026-10-18-glang-cpython-plugin.md`](plans/2026-10-18-glang-cpython-plugin.md) · [`plans/2026-10-05-plugin-analysis-present-to-processing.md`](plans/2026-10-05-plugin-analysis-present-to-processing.md) · [`plans/2026-09-30-stormsurge-3d-disaster.md`](plans/2026-09-30-stormsurge-3d-disaster.md) · world3d / leftover-plugin checklists still open on the umbrella |
-| Algorithm layer (OSS) | [`specs/2026-09-13-algorithm-layer-oss-design.md`](specs/2026-09-13-algorithm-layer-oss-design.md) | [`plans/2026-09-13-algorithm-layer-oss.md`](plans/2026-09-13-algorithm-layer-oss.md) |
+| Algorithm layer (OSS) | [`specs/2026-09-13-algorithm-layer-oss-design.md`](specs/2026-09-13-algorithm-layer-oss-design.md) | [`plans/2026-09-13-algorithm-layer-oss.md`](plans/2026-09-13-algorithm-layer-oss.md) · [`plans/2026-10-25-geometry-analysis-gap-pin.md`](plans/2026-10-25-geometry-analysis-gap-pin.md)（§9）· [`plans/2026-10-25-network-line-graph.md`](plans/2026-10-25-network-line-graph.md)（§10） |
 | Net (asio / httplib) | [`specs/2026-09-13-net-asio-httplib-design.md`](specs/2026-09-13-net-asio-httplib-design.md) | [`plans/2026-09-13-net-asio-httplib.md`](plans/2026-09-13-net-asio-httplib.md) |
 
 Open milestone: [`plans/2026-09-20-m1-carto-style-tile-export.md`](plans/2026-09-20-m1-carto-style-tile-export.md). Landed M2–M4 + other completed checklists: [`archive/plans/`](archive/plans/).
@@ -91,4 +96,4 @@ Open milestone: [`plans/2026-09-20-m1-carto-style-tile-export.md`](plans/2026-09
 
 Landed / superseded / fold-B children: [`archive/`](archive/).
 
-**最后更新:** 2026-10-23（§DLL / STL trust：同构门禁 + `is_component_build` + `COMPONENT_EXPORT`）
+**最后更新:** 2026-10-25（§GPU multiprocess upgrade A→B→R；§10 Network LineGraph；geometry gap pin）

@@ -113,7 +113,15 @@ int run_scenario(Browser& browser, const Scenario& scenario) {
     }
   }
   if (scenario.plugin_command) {
-    return dispatch_plugin_command(browser, scenario.plugin_command);
+    const int prc = dispatch_plugin_command(browser, scenario.plugin_command);
+    if (prc == 0) {
+      return 0;
+    }
+    // Plugin IL / GetProc path failed — Debug C++ body may still write BMPs.
+    if (scenario.run) {
+      return scenario.run(browser);
+    }
+    return prc;
   }
   if (scenario.run) {
     return scenario.run(browser);

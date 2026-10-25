@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "gis/edit/command_session.h"
+#include "gis/edit/topology_check.h"
 #include "gis/gis_export.h"
 
 class OGRFeature;
@@ -30,6 +31,9 @@ class GIS_EXPORT MapEditSession : public EditSession {
   bool can_redo() const override;
 
   bool commit_feature(EditOp op, OGRFeature* feature);
+
+  const TopologyValidationResult& last_topology_result() const;
+  TopologyLayerState* topology_layer_state();
 
  private:
   bool apply_map(const FeatureMutation& mutation, bool undo);

@@ -5,6 +5,7 @@
     "--ui-showcase",
     "shell"
   ],
+  "script": "ui.shell.py",
   "env": {
     "UI_SHOWCASE_LINGER_MS": "0",
     "UI_FORENSICS": "1",

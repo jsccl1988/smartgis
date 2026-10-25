@@ -244,22 +244,27 @@ void DrawHost::handle_size(HWND hwnd, int cx, int cy) {
       detail::clamp_scene3d_swapchain_size(&rw, &rh);
     }
     {
-      std::lock_guard<std::mutex> lock(display_mu_);
-      // Same swapchain extent: ignore no-op WM_SIZE (sync_draw_host_after_resize
-      // / SWP_FRAMECHANGED). Clearing shell + DXGI reinit punched StaticReuse
-      // every time and flapped shell_generation.
-      if (display_init_ == DisplayInit::kOk && rhi_device_ &&
-          display_client_w_ == rw && display_client_h_ == rh) {
-        // Scene3d Init presents a navy clear and deliberately skips
-        // present_gpu. Lazy attach then posts WM_SIZE at the same client
-        // size — a hard return left BeginFrame starved when the present
-        // timer had not yet advanced frame_request_ (HUD stuck on soft
-        // GDI / Fps~0). Wake the mailbox for the first real present_gpu.
-        if (!last_gpu_present_ok_.load(std::memory_order_acquire)) {
-          frame_request_.fetch_add(1, std::memory_order_acq_rel);
-          signal_display();
+      // try_lock: never block the UI thread on the Display mailbox. A sync
+      // WM_SIZE during attach raced Display's display_mu_ and deadlocked
+      // cold start (Init stayed kPending, shell HWND stayed hidden).
+      std::unique_lock<std::mutex> lock(display_mu_, std::try_to_lock);
+      if (lock.owns_lock()) {
+        // Same swapchain extent: ignore no-op WM_SIZE (sync_draw_host_after_resize
+        // / SWP_FRAMECHANGED). Clearing shell + DXGI reinit punched StaticReuse
+        // every time and flapped shell_generation.
+        if (display_init_ == DisplayInit::kOk && rhi_device_ &&
+            display_client_w_ == rw && display_client_h_ == rh) {
+          // Scene3d Init presents a navy clear and deliberately skips
+          // present_gpu. Lazy attach then posts WM_SIZE at the same client
+          // size — a hard return left BeginFrame starved when the present
+          // timer had not yet advanced frame_request_ (HUD stuck on soft
+          // GDI / Fps~0). Wake the mailbox for the first real present_gpu.
+          if (!last_gpu_present_ok_.load(std::memory_order_acquire)) {
+            frame_request_.fetch_add(1, std::memory_order_acq_rel);
+            signal_display();
+          }
+          return;
         }
-        return;
       }
     }
   }

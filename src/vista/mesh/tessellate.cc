@@ -85,6 +85,7 @@ bool tessellate_geoms(const OGRGeometry* const* geoms, size_t count,
   base::execution::parallel_for(executor, size_t{0}, count, [&](size_t i) {
     detail::clear_tessellate_tls_scratch();
     detail::tessellate_geom_into(geoms[i], opts, parts[i]);
+    detail::flush_tess_trace_tls();
   });
   for (size_t i = 0; i < count; ++i) {
     detail::append_mesh(out, parts[i]);

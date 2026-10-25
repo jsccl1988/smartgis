@@ -105,5 +105,25 @@ void note_measure_text() {
   ++g_counters.measure_text;
 }
 
+void note_paint_cache_hit() {
+  ++g_counters.paint_cache_hit;
+}
+
+void note_paint_cache_miss() {
+  ++g_counters.paint_cache_miss;
+}
+
+void note_layout_since_paint() {
+  ++g_counters.layouts_since_paint;
+}
+
+void reset_layouts_since_paint() {
+  g_counters.layouts_since_paint = 0;
+}
+
+void note_paint_lock_deferred() {
+  ++g_counters.paint_lock_deferred;
+}
+
 }  // namespace gfx
 }  // namespace ui

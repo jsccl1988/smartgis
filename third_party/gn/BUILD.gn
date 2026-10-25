@@ -37,11 +37,12 @@ config("glog_cfg") {
 }
 
 config("gtest_cfg") {
+  # Link gtest + gtest_main only. Do not also link gmock_main (second
+  # main / fat mis-packaged lib ? LNK1561 or LNK2005 on MSVC).
   libs += [
     "$_tp/lib/gtest$_d.lib",
     "$_tp/lib/gtest_main$_d.lib",
     "$_tp/lib/gmock$_d.lib",
-    "$_tp/lib/gmock_main$_d.lib",
   ]
 }
 

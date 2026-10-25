@@ -76,6 +76,8 @@ source_set("gis_sources") {
     "shell/map_furniture_panel.h",
     "shell/chart_view.cc",
     "shell/chart_view.h",
+    "shell/main_app_markup.cc",
+    "shell/main_app_markup.h",
     "shell/status_bar.cc",
     "shell/status_bar.h",
     "style/layer_properties_panel.cc",

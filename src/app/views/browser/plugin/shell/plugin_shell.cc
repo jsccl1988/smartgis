@@ -51,7 +51,10 @@ void PluginShell::install_builtin_resource_roots() {
 void PluginShell::init_python() {
   python_ = std::make_unique<plugin::PythonRuntime>();
   if (!python_->init()) {
-    // Soft: product runs without embeddable CPython.
+    // Soft: product runs without embeddable CPython. Debug builds force the
+    // stub (python_enabled = !is_debug) to avoid /MDd vs /MD CRT heap faults.
+    LOGGING(LOG_WARNING,
+            "plugin shell: CPython embed unavailable (python packs stay off)");
     return;
   }
   // Mounts glang.ext.<plugin_id> around PythonRuntime start/stop.

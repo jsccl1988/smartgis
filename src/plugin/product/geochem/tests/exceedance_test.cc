@@ -5,8 +5,9 @@
 
 #include "content/public/event_bus.h"
 #include "content/public/plugin_host.h"
-#include "gis/analysis/geochem/samples.h"
-#include "gis/analysis/geochem/stats.h"
+#include "gis/analysis/geochem/load/csv_load.h"
+#include "gis/analysis/geochem/model/sample.h"
+#include "gis/analysis/geochem/stats/stats.h"
 #include "tool/command/command.h"
 
 #include <cstdio>
@@ -41,14 +42,14 @@ std::string python312_exe() {
 }
 
 int count_exceed(const std::string& csv, double k_sigma, double* threshold) {
-  const gis::detail::GeochemSampleSet set = gis::detail::load_geochem_csv(csv);
+  const gis::detail::GeochemSampleSet set = gis::detail::load_csv(csv);
   const gis::detail::GeochemElementStats stats =
-      gis::detail::compute_geochem_stats(set, "Cu", 10, k_sigma);
+      gis::detail::compute_stats(set, "Cu", 10, k_sigma);
   if (!stats.ok || threshold == nullptr) {
     return -1;
   }
   *threshold = stats.threshold;
-  const int index = gis::detail::geochem_element_index(set, "Cu");
+  const int index = gis::detail::element_index(set, "Cu");
   int exceed = 0;
   for (const gis::detail::GeochemSample& sample : set.samples) {
     if (index >= 0 && index < static_cast<int>(sample.values.size()) &&

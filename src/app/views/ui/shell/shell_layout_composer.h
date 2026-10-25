@@ -33,10 +33,9 @@ class ShellLayoutComposer {
  private:
   bool build_from_markup();
   void build_imperative();
-  std::unique_ptr<ui::views::View> wrap_inspector(
-      std::unique_ptr<ui::views::TabStrip> side);
+  ui::views::View* wrap_inspector(ui::views::TabStrip* side);
   // Friend-only BrowserView catalog_* wiring (not anonymous-namespace helpers).
-  std::unique_ptr<ui::views::TabStrip> make_catalog_mode_tabs();
+  ui::views::TabStrip* make_catalog_mode_tabs();
 
   // Cross-DLL TabStrip::set_change_fn batons (BrowserView*); friend access.
   static void map_tab_change_trampoline(void* baton, int index);

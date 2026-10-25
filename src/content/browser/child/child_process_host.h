@@ -4,21 +4,20 @@
 #ifndef CONTENT_BROWSER_CHILD_CHILD_PROCESS_HOST_H_
 #define CONTENT_BROWSER_CHILD_CHILD_PROCESS_HOST_H_
 
-#include <functional>
-#include <string>
-
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
 
+#include "common/ipc/channel/channel.h"
 #include "content/app/process_type.h"
 
 namespace content {
 namespace detail {
 
 // Relaunches this executable as --type= under a job that kills the child
-// when the job handle closes. Pipe Hello stays with the caller.
+// when the job handle closes. Bootstrap is common::ipc invitation
+// (--ipc-channel-handle=); product path does not use --pipe=.
 class ChildProcessHost {
  public:
   enum class Status {
@@ -31,14 +30,14 @@ class ChildProcessHost {
   // The caller closes the handle.
   static HANDLE open_job();
 
-  // Same PE, --type= / --parent-pid= / --pipe= / --session=, then CreateProcess,
-  // assign |job|, and |wait_client| (pipe connect, not Hello).
-  // On kOk, |process| receives the process handle and the thread is closed.
-  // On kWaitFailed the process handle is already closed and |process| is null.
+  // Same PE, --type= / --parent-pid= / --session= / --ipc-channel-handle=,
+  // then invitation attach(|attach_name|). On kOk, |channel| is the local end
+  // and |process| receives the process handle (thread closed).
+  // |attach_name| is typically "gpu" or "renderer".
   static Status launch(ProcessType type,
-                       const std::wstring& pipe_name,
                        HANDLE job,
-                       const std::function<bool()>& wait_client,
+                       const char* attach_name,
+                       common::ipc::Channel* channel,
                        HANDLE* process);
 };
 

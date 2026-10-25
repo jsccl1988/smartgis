@@ -1490,7 +1490,7 @@ Ship **`smartgis.geochem`** (����ѧ����): sample-point graded co
 | # | Choice |
 | --- | --- |
 | 1 | Product package **`smartgis.geochem`** under `src/plugin/product/geochem/` �� Architecture **A**; **not** folded into mine/flood. |
-| 2 | Kernels in `src/gis/analysis/geochem/`: CSV/OGR load, stats, IDW, grade legend, heat normalize (`geochem_heat_score`). Catalog ids: **`native.geochem_stats`**, **`native.geochem_idw`**. |
+| 2 | Kernels in `src/gis/analysis/geochem/`（分层：`model` / `load`·`io` / `stats`·`idw`·`grade` / `op`；`heat_score`）。Catalog ids: **`native.geochem_stats`**, **`native.geochem_idw`**。约定见 algorithm-layer-oss **§6b** + [`../diagrams/gis-analysis-kernel-layers.html`](../diagrams/gis-analysis-kernel-layers.html)。 |
 | 3 | Data input **both**: selected Point layer in map session (`use_active_layer` + `GeochemLayerReader`) **and** CSV import (lon/lat + multi-element). Optional OGR vector path. |
 | 4 | Viz: graded sample circles + **full-extent** `geochem_heat_raster` fill (`heat` 0..100 interpolate ramp, orthogrid-style) via `GeochemWriter` in `Browser::init`. Unset �� `file_only` / structured seam error. |
 | 5 | Sample: `testing/data/plugin/geochem/geochem_samples.csv` (~120 pts). Harness: `plugin.geochem`. |

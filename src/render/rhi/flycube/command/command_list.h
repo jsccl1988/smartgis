@@ -23,6 +23,8 @@ class FlycubeCommandList : public StubCommandList {
   bool has_dispatches() const { return recorder.has_dispatches(); }
 
   void begin_render_pass(const RenderPassDesc& desc) override;
+  void set_scissor(int32_t x, int32_t y, uint32_t width,
+                   uint32_t height) override;
   void end_render_pass() override;
   void bind_camera(const CameraMatrices& matrices) override;
   void set_pipeline(Pipeline* pipeline) override;

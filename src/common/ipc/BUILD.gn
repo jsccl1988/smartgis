@@ -1,0 +1,49 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Named-pipe + BinarySink codec (via //src/base/archive). Lives under
+# src/common/ipc (namespace common::ipc). Static; pulled by //src/base:foundation
+# and content/gpu. Shell hosts must not include these headers.
+
+import("//testing/test.gni")
+
+source_set("ipc_sources") {
+  sources = [
+    "broker/broker.cc",
+    "broker/broker.h",
+    "bulk/bulk.cc",
+    "bulk/bulk.h",
+    "channel/channel.cc",
+    "channel/channel.h",
+    "codec/codec.h",
+    "data_pipe/data_pipe.cc",
+    "data_pipe/data_pipe.h",
+    "endpoint/endpoint.h",
+    "handle/handle.cc",
+    "handle/handle.h",
+    "invitation/invitation.cc",
+    "invitation/invitation.h",
+    "portal/portal.cc",
+    "portal/portal.h",
+    "proxy/channel_proxy.cc",
+    "proxy/channel_proxy.h",
+    "receiver/receiver.cc",
+    "receiver/receiver.h",
+  ]
+  public_deps = [
+    "//src/base/archive:archive",
+    "//src/base/concurrency:concurrency",
+  ]
+  public_configs = [ "//src/base:foundation_config" ]
+}
+
+group("ipc") {
+  public_deps = [ ":ipc_sources" ]
+}
+
+test("ipc_test") {
+  output_name = "ipc_test"
+  sources = [ "ipc_test.cc" ]
+  deps = [ ":ipc" ]
+  libs = [ "ws2_32.lib" ]
+}

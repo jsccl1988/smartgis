@@ -73,7 +73,7 @@ source_set("content_sources") {
   public_configs = [ ":content_config" ]
   defines = [ "CONTENT_EXPORTS" ]
   public_deps = [
-    "//src/base/ipc:ipc",
+    "//src/common/ipc:ipc",
     "//src/gis:gis",
     "//src/tool:tool",
     "//third_party:rapidjson",
@@ -155,6 +155,17 @@ test("content_main_test") {
   sources = [ "app/content_main_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":content_main" ]
+  use_gtest = false
+}
+
+# Phase A: kill --type=gpu child → GisContents auto-relaunch + re-Attach.
+# Dual-mode PE: parent runs the case; child argv --type=gpu → GpuMain.
+test("gis_contents_gpu_restart_test") {
+  output_name = "gis_contents_gpu_restart_test"
+  sources = [ "browser/contents/gis_contents_gpu_restart_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":content_main" ]
+  use_gtest = false
 }
 
 # HWND-free Catalog LayerDesc JSON (SP3 catalog snapshot).
@@ -358,6 +369,191 @@ source_set("gis_camera") {
   include_dirs += [ "//src" ]
 }
 
+# Harness sink (Views-linked; same bar as glang.runtime :backend, not content.dll).
+_harness_no_app_deps = [
+  "//src/app:*",
+  "//src/app/*",
+]
+
+# IL/harness camera verbs (fly / fit). Colocated under browser/camera/ but not
+# in :gis_camera — scene3d_present already deps gis_camera.
+source_set("harness_camera") {
+  assert_no_deps = _harness_no_app_deps
+  sources = [
+    "browser/camera/camera_fly.cc",
+    "browser/camera/camera_fly.h",
+    "browser/camera/fit_scene_box.cc",
+    "browser/camera/fit_scene_box.h",
+  ]
+  deps = [
+    ":gis_camera",
+    ":scene3d_present",
+    "//src/base:base",
+    ":capability",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+# Shared capture_host (breaks map2d_showcase <-> debug_capture cycle).
+source_set("debug_capture_host") {
+  assert_no_deps = _harness_no_app_deps
+  sources = [
+    "browser/debug/capture/capture_host.cc",
+    "browser/debug/capture/capture_host.h",
+  ]
+  deps = [
+    ":scene3d_present",
+    "//src/base:base",
+    "//src/render:rhi",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [ "user32.lib" ]
+}
+
+# Map2d/scene3d present harness (env, session, fps/gpu bench, warmup, timed).
+source_set("map2d_showcase") {
+  assert_no_deps = _harness_no_app_deps
+  sources = [
+    "browser/present/map2d/showcase/env.cc",
+    "browser/present/map2d/showcase/env.h",
+    "browser/present/map2d/showcase/map2d_fps.cc",
+    "browser/present/map2d/showcase/map2d_fps.h",
+    "browser/present/map2d/showcase/map2d_gpu.cc",
+    "browser/present/map2d/showcase/map2d_gpu.h",
+    "browser/present/map2d/showcase/session.cc",
+    "browser/present/map2d/showcase/session.h",
+    "browser/present/map2d/showcase/timed_present.cc",
+    "browser/present/map2d/showcase/timed_present.h",
+    "browser/present/map2d/showcase/warmup.cc",
+    "browser/present/map2d/showcase/warmup.h",
+  ]
+  deps = [
+    ":debug_capture_host",
+    ":gis_camera",
+    ":gis_present",
+    ":gis_scene",
+    ":scene3d_present",
+    ":content",
+    "//src/base:base",
+    "//src/base:foundation",
+    ":capability",
+    "//src/gpu:gpu_lib",
+    "//src/plugin/runtime/host:host",
+    "//src/render:rhi",
+    "//src/ui/gis:ui_gis",
+    "//src/ui/views:views",
+    "//src/vista:vista",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [
+    "gdi32.lib",
+    "imm32.lib",
+    "user32.lib",
+  ]
+}
+
+# BMP/DIB export, pixel gates, scene capture shots.
+source_set("debug_capture") {
+  assert_no_deps = _harness_no_app_deps
+  sources = [
+    "browser/debug/capture/dib/gdi.cc",
+    "browser/debug/capture/dib/gdi.h",
+    "browser/debug/capture/dib/read.cc",
+    "browser/debug/capture/dib/read.h",
+    "browser/debug/capture/pixel/bmp.cc",
+    "browser/debug/capture/pixel/bmp.h",
+    "browser/debug/capture/pixel/gate.cc",
+    "browser/debug/capture/pixel/gate.h",
+    "browser/debug/capture/shot/export.cc",
+    "browser/debug/capture/shot/export.h",
+    "browser/debug/capture/shot/paint.cc",
+    "browser/debug/capture/shot/paint.h",
+    "browser/debug/capture/shot/scene_capture.cc",
+    "browser/debug/capture/shot/scene_capture.h",
+  ]
+  deps = [
+    ":debug_capture_host",
+    ":gis_camera",
+    ":gis_present",
+    ":gis_scene",
+    ":map2d_showcase",
+    ":scene3d_present",
+    ":content",
+    "//src/base:base",
+    "//src/base:foundation",
+    ":capability",
+    "//src/gpu:gpu_lib",
+    "//src/plugin/product/world3d:world3d_views",
+    "//src/plugin/runtime/host:host",
+    "//src/render:rhi",
+    "//src/ui/gis:ui_gis",
+    "//src/ui/views:views",
+    "//src/vista:vista",
+    "//third_party:rapidjson",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+source_set("debug_browse") {
+  assert_no_deps = _harness_no_app_deps
+  sources = [
+    "browser/debug/browse/still.cc",
+    "browser/debug/browse/still.h",
+    "browser/debug/browse/stress.cc",
+    "browser/debug/browse/stress.h",
+  ]
+  deps = [
+    ":debug_capture",
+    ":debug_capture_host",
+    ":gis_camera",
+    ":gis_present",
+    ":gis_scene",
+    ":map2d_showcase",
+    ":scene3d_present",
+    ":content",
+    "//src/base:base",
+    ":capability",
+    "//src/ui/views:views",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("debug_probe") {
+  assert_no_deps = _harness_no_app_deps
+  sources = [
+    "browser/debug/probe.cc",
+    "browser/debug/probe.h",
+  ]
+  deps = [
+    ":gis_camera",
+    ":gis_present",
+    ":gis_scene",
+    ":content",
+    ":tool_session",
+    "//src/base:base",
+    ":capability",
+    "//src/gis/edit:edit",
+    "//src/render:rhi",
+    "//src/tool:tool",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [ "user32.lib" ]
+}
+
+test("content_capture_present_test") {
+  output_name = "content_capture_present_test"
+  sources = [
+    "browser/present/map2d/showcase/env.cc",
+    "browser/present/map2d/showcase/env_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/base:base" ]
+}
+
 source_set("gis_hwnd_gestures") {
   assert_no_deps = _content_no_shell_deps
   sources = [
@@ -397,6 +593,8 @@ source_set("gis_present") {
     "browser/present/map2d/map2d_presenter.h",
     "browser/present/map2d/profile/map2d_phase_profile.cc",
     "browser/present/map2d/profile/map2d_phase_profile.h",
+    "browser/present/map2d/gpu/damage/map2d_damage_rect.cc",
+    "browser/present/map2d/gpu/damage/map2d_damage_rect.h",
     "browser/present/map2d/gpu/present/map2d_gpu_present.cc",
     "browser/present/map2d/gpu/present/map2d_gpu_present.h",
     "browser/present/map2d/gpu/furniture/map2d_scale_bar_overlay.cc",
@@ -442,6 +640,8 @@ source_set("scene3d_present") {
     "browser/present/scene3d/frame/tileset/tileset_stream.h",
     "browser/present/scene3d/frame/overlay/scene3d_overlays.cc",
     "browser/present/scene3d/frame/overlay/scene3d_overlays.h",
+    "browser/present/scene3d/frame/prep/scene3d_prep_mailbox.cc",
+    "browser/present/scene3d/frame/prep/scene3d_prep_mailbox.h",
     "browser/present/scene3d/scenic/scenic_engine_host.cc",
     "browser/present/scene3d/scenic/scenic_engine_host.h",
     "browser/present/scene3d/scene3d_presenter.cc",

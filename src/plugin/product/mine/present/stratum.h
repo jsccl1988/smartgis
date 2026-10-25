@@ -12,10 +12,8 @@ class Scene3dPresenter;
 }
 
 namespace gis {
-namespace detail {
 struct StratumTin;
 struct BoreholeSet;
-}
 }
 
 namespace plugin {
@@ -25,8 +23,8 @@ class Scene3dSink;
 bool present_mine_stratum(content::GisDocument* doc,
                           Scene3dSink* sink,
                           content::Scene3dPresenter* scene3d,
-                          const gis::detail::StratumTin& tin,
-                          const gis::detail::BoreholeSet& holes,
+                          const gis::StratumTin& tin,
+                          const gis::BoreholeSet& holes,
                           std::string* err);
 
 }  // namespace plugin

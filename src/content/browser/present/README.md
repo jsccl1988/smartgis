@@ -98,6 +98,17 @@ Semantics only — **no** FrameSink / Mojo Viz clone. Product default is
 | CompositorFrame | vista Pass + published MapFrame / World inputs |
 | Viz Display Present | `graph::present` (1 CL) |
 
+## Dual-track ceiling (2026-10-25)
+
+Ceiling work beyond C/G/E is path-partitioned (living **§Present dual-track ceiling**):
+
+| Track | Goal | Tree |
+| --- | --- | --- |
+| T1 GPU damage | `PresentDamageReasons` → optional scissor (not a DamageTracker tree) | `map2d/` · `vista/pass/map` |
+| T2 Scene3d parallel | FrameJob mailbox; atm/terrain CPU prep∥ previous present | `scene3d/` · `vista/pass/world` |
+
+Diagram: [`content-present-dual-track.html`](../../../../docs/superpowers/diagrams/content-present-dual-track.html). Checklist: parallel plan Task 9.
+
 Living §: **§Content present ↔ Chromium mapping** · diagram §4 swimlanes in
 [`content-present-subdirectory-layers.html`](../../../../docs/superpowers/diagrams/content-present-subdirectory-layers.html#chromium-swimlanes).
 

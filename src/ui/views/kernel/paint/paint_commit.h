@@ -38,6 +38,11 @@ UI_EXPORT bool commit_view_tree(View* root,
                       ui::gfx::Color clear_color,
                       PaintCommit* out);
 
+// Debug STL is not EXE↔ui_views.dll ABI — allocate PaintCommit in the DLL when
+// the caller is SmartGIS.exe, views_bench.exe, or other non-views PEs.
+UI_EXPORT PaintCommit* paint_commit_create();
+UI_EXPORT void paint_commit_destroy(PaintCommit* frame);
+
 }  // namespace views
 }  // namespace ui
 

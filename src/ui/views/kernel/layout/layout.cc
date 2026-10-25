@@ -371,5 +371,14 @@ BoxLayout* install_box_layout(View* host, BoxLayout::Orientation orientation) {
   return raw;
 }
 
+void view_mount_fill_child(View* host, View* child) {
+  if (!host || !child) {
+    return;
+  }
+  host->remove_all_children();
+  install_fill_layout(host);
+  host->add_child(std::unique_ptr<View>(child));
+}
+
 }  // namespace views
 }  // namespace ui

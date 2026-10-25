@@ -55,6 +55,18 @@ Do **not** “helpfully” add sleeps or pumps into the timed loop.
 | `GPUSCENE_PREP_PARALLEL` | Prep parallel on/off |
 | `TRACE` | Chrome-trace / RenderTrace spans |
 
+## Visual fidelity + generic fixes (normative)
+
+`--atmosphere-showcase=legacy` is a **bench fixture**, not a specialization license.
+
+| Rule | Meaning |
+| --- | --- |
+| Preserve look | Same ocean / Gerstner / landish / DEM / lighting / clear; inspect parity vs pre-fix baseline |
+| Shared stack only | Fixes live in Scene3d / GpuScene / effect/scene / render paths that any document would take |
+| Forbidden | `if (showcase==legacy)`, world3d-/flycube-/named-DEM-only caches, fixture-only early-outs, quality downgrades for ms |
+
+If a “win” only applies under the locked atmosphere profile, **revert** and find a generic root cause.
+
 ## Fix heuristics
 
 | Symptom | Likely root |
@@ -64,6 +76,7 @@ Do **not** “helpfully” add sleeps or pumps into the timed loop.
 | High `record_ms` warm | Double Gerstner / record after prepare; animated ocean step cost |
 | Wall >> phase sum | Message pump / map2d paint / linger sleep in timed window |
 | Null RHI “fast” but GPU BMP fail | Do not claim green — visual gate required |
+| ms drop + inspect regress | Visual fidelity broken — not a valid done bar |
 
 ## vs matrix skill
 

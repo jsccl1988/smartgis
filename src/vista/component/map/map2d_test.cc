@@ -933,7 +933,8 @@ TEST_F(Map2dFrame, JetHillshadeUnderFill) {
   const vista::MapIR frame = layout.build(in, {land});
   EXPECT_TRUE(!frame.items.empty() && frame.items[0].kind == DrawKind::kRaster &&
              frame.items[0].blend == vista::DrawBlend::kOver) << "jet bake underlay first";
-  EXPECT_TRUE(count_kind(frame, DrawKind::kFill) == 1) << "jet bake keeps translucent area";
+  // Land cream is dropped when HSHD is present so jet wins map2d_china_dem.
+  EXPECT_TRUE(count_kind(frame, DrawKind::kFill) == 0) << "jet bake drops land cream fill";
   EXPECT_TRUE(!frame.items.empty() && frame.items[0].vertices.size() == 4 &&
              frame.items[0].vertices[0].y >
                  frame.items[0].vertices[2].y &&

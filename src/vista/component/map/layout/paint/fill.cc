@@ -481,8 +481,17 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
     apply_province_colors(fill_layers, &jobs);
   }
   if (!in.hillshade_tiles.empty()) {
+    // Jet/HSHD underlay is the land face (map2d_china_dem: cream max 0.045).
+    // Translucent cream over the bake reads as cream replacing jet — drop land
+    // area fills; keep water/admin/other fills (soft-cap only).
     for (FillJob& job : jobs) {
-      if (job.paint.fill_opacity > 0.55f) {
+      if (job.layer_ord >= fill_layers.size()) {
+        continue;
+      }
+      const gis::style::StyleLayer* layer = fill_layers[job.layer_ord];
+      if (layer && layer->source_layer == "land") {
+        job.paint.fill_opacity = 0.f;
+      } else if (job.paint.fill_opacity > 0.55f) {
         job.paint.fill_opacity = 0.55f;
       }
     }
@@ -490,6 +499,9 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
   FillTessOptions fill_opts;
   fill_opts.world_units_per_pixel = wupp;
   auto to_item = [fill_opts](const FillJob& job) -> std::optional<DrawItem> {
+    if (job.paint.fill_opacity <= 0.f) {
+      return std::nullopt;
+    }
     vista::TessMesh mesh;
     if (!vista::tessellate_geometry(job.geom, fill_opts, mesh) ||
         mesh.indices.empty()) {

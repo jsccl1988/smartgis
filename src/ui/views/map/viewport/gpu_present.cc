@@ -27,7 +27,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
-#include "ui/views/map/eagle_eye/eagle_eye_host.h"
+#include "ui/views/map/eagle_eye/host.h"
 #include "ui/views/map/frame/identity_hud.h"
 #include "ui/views/map/device/device_load.h"
 #include "ui/views/map/frame/embed_fill.h"
@@ -96,18 +96,14 @@ HWND DrawHost::present_hwnd() const {
 }
 
 HWND DrawHost::identity_hud_hwnd() const {
-  return (identity_badge_ && IsWindow(identity_badge_)) ? identity_badge_
-                                                       : nullptr;
+  return identity_popup_.is_alive() ? identity_popup_.hwnd() : nullptr;
 }
 
 void DrawHost::destroy_gpu_present_hwnd() {
   gpu_present_want_visible_.store(false, std::memory_order_release);
-  if (identity_badge_ && identity_badge_parent_ == gpu_present_hwnd_) {
-    if (IsWindow(identity_badge_)) {
-      DestroyWindow(identity_badge_);
-    }
-    identity_badge_ = nullptr;
-    identity_badge_parent_ = nullptr;
+  if (identity_popup_.is_alive() &&
+      identity_popup_.surface() == gpu_present_hwnd_) {
+    identity_popup_.destroy();
   }
   if (gpu_present_hwnd_ && IsWindow(gpu_present_hwnd_)) {
     DestroyWindow(gpu_present_hwnd_);
@@ -321,15 +317,15 @@ void DrawHost::set_gpu_present_visible(bool show) {
     const bool on_ui = ui_tid != 0 && ui_tid == GetCurrentThreadId();
     if (on_ui) {
       ShowWindow(gpu_present_hwnd_, SW_HIDE);
-      if (identity_badge_ && identity_badge_parent_ == gpu_present_hwnd_ &&
-          IsWindow(identity_badge_)) {
-        ShowWindow(identity_badge_, SW_HIDE);
+      if (identity_popup_.is_alive() &&
+          identity_popup_.surface() == gpu_present_hwnd_) {
+        ShowWindow(identity_popup_.hwnd(), SW_HIDE);
       }
     } else {
       async_show_present_hwnd(gpu_present_hwnd_, false);
-      if (identity_badge_ && identity_badge_parent_ == gpu_present_hwnd_ &&
-          IsWindow(identity_badge_)) {
-        async_show_present_hwnd(identity_badge_, false);
+      if (identity_popup_.is_alive() &&
+          identity_popup_.surface() == gpu_present_hwnd_) {
+        async_show_present_hwnd(identity_popup_.hwnd(), false);
       }
     }
     if (eagle_eye_) {

@@ -6,6 +6,7 @@
 #include "content/content_export.h"
 #include "content/browser/present/map2d/profile/map2d_phase_profile.h"
 #include "content/browser/present/map2d/gpu/furniture/map2d_scale_bar_overlay.h"
+#include "content/browser/present/map2d/gpu/damage/map2d_damage_rect.h"
 #include "content/browser/present/map2d/gpu/selection/map2d_selection_overlay.h"
 
 #include <atomic>
@@ -127,6 +128,17 @@ void Map2dGpuPresent::bind(const GisScene* scene, const ViewFrame* frame,
   invalidate_frame_cache();
 }
 
+void Map2dGpuPresent::note_device_lost() {
+  reset_map2d_pass(&map2d_pass_);
+  shell_overlay_.abandon_gpu();
+  last_present_ok_ = false;
+  last_present_drew_ = false;
+  last_shell_generation_ = 0;
+  last_had_shell_ = false;
+  last_selection_sig_ = 0;
+  last_selection_damage_rect_ = {};
+}
+
 void Map2dGpuPresent::invalidate_frame_cache() {
   // Drop Pass before cache_->invalidate(): a MapIR/Arena sizeof skew in the
   // leading Map2dFrameCache member can smash this unique_ptr during clear.
@@ -143,6 +155,7 @@ void Map2dGpuPresent::invalidate_frame_cache() {
   last_present_drew_ = false;
   last_shell_generation_ = 0;
   last_had_shell_ = false;
+  last_selection_damage_rect_ = {};
 }
 
 uint64_t Map2dGpuPresent::layout_build_count() const {
@@ -166,6 +179,10 @@ bool Map2dGpuPresent::present_frame(render::rhi::Device* device,
   if (!map2d_pass_) {
     map2d_pass_ = std::make_unique<vista::MapPass>();
   }
+  map2d_pass_->set_borrow_raster(
+      [this](uint32_t texture_key, const uint8_t** rgba, int* w, int* h) {
+        return cache_ && cache_->borrow_raster(texture_key, rgba, w, h);
+      });
 
   vista::WindowsGlyphRasterizer windows_rasterizer;
   // CameraKey Y is already +lat (ViewFrame::view_world_extent). MapIR verts
@@ -281,6 +298,17 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
         detail::map2d_selection_signature(scene_, flash_pulse_);
     const bool selection_dirty = selection_sig != last_selection_sig_;
 
+    uint32_t gpu_damage = 0;
+    if (selection_dirty) {
+      gpu_damage |= Map2dFrameCache::PresentDamageReasons::kSelection;
+    }
+    if (shell_affects_present && !shell_stable) {
+      gpu_damage |= Map2dFrameCache::PresentDamageReasons::kShellOverlay;
+    }
+    if (gpu_damage != 0) {
+      cache_->or_present_damage_reasons(gpu_damage);
+    }
+
     const bool reuse_action =
         action == Map2dFrameCache::PresentAction::kStaticReuse ||
         (fps_bench &&
@@ -293,6 +321,7 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       last_present_drew_ = false;
       g_skip.fetch_add(1, std::memory_order_relaxed);
       note_map2d_phase_gpu(0, 0);
+      note_map2d_phase_damage_scissor(0, 0);
       return true;
     }
 
@@ -383,6 +412,16 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     // Fresh pixel-space furniture every present (independent of label defer).
     detail::append_map2d_scale_bar(width_px, height_px, cam.min_x, cam.min_y,
                                    cam.max_x, cam.max_y, &frame_snap);
+    map2d_pass_->clear_encode_scissor();
+    note_map2d_phase_damage_scissor(0, 0);
+    DamageRect local_damage{};
+    if (try_local_damage_rect(cache_->last_damage_reasons(), scene_, frame_,
+                              cam, flash_pulse_, &last_selection_damage_rect_,
+                              &local_damage)) {
+      map2d_pass_->set_encode_scissor(local_damage.x, local_damage.y,
+                                      local_damage.w, local_damage.h);
+      note_map2d_phase_damage_scissor(local_damage.w, local_damage.h);
+    }
     size_t text_items = 0;
     for (const vista::DrawItem& item : frame_snap.items) {
       if (item.kind == vista::DrawKind::kText) {

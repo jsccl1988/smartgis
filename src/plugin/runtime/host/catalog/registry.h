@@ -69,6 +69,16 @@ class PLUGIN_HOST_EXPORT Registry {
   using PluginVisitFn = void (*)(const char* id, const char* name, int state,
                                  int kind, int trust, void* baton);
   void visit(PluginVisitFn fn, void* baton) const;
+  // EXE-safe detail for one plugin (C strings valid only during |fn|).
+  using PluginDetailFn = void (*)(const char* id, const char* name,
+                                  const char* version, const char* description,
+                                  int state, int handlers_loaded, void* baton);
+  bool visit_detail(std::string_view id, PluginDetailFn fn, void* baton) const;
+  // EXE-safe contribute tools. |kind| is command|processing|dialog|dock.
+  using ToolVisitFn = void (*)(const char* kind, const char* id,
+                               const char* title, void* baton);
+  void visit_tools(std::string_view plugin_id, ToolVisitFn fn,
+                   void* baton) const;
   // Same-module / DLL-internal iteration (contribute index, etc.).
   void for_each_record(void (*fn)(const PluginRecord& rec, void* baton),
                        void* baton) const;
@@ -78,6 +88,9 @@ class PLUGIN_HOST_EXPORT Registry {
                      size_t viewport_cap, char* scenario_out,
                      size_t scenario_cap);
   const std::string& last_error() const;
+  // EXE-safe: points at last_error_ (same-module buffer). Prefer over copying
+  // the std::string across the DLL boundary under Debug STL.
+  const char* last_error_cstr() const;
   bool register_builtin_hooks(std::string_view id,
                               bool (*start)(content::PluginHost*),
                               void (*stop)());

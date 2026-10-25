@@ -62,6 +62,19 @@ Warm past dual-speed settle (~200–350 ms pump) before timed samples — alread
 | `BAKE_BENCH` | `1` = `dem_raster_test` / `land_mask_test` write `captures/analysis/hillshade_bake/` |
 | `MAP_FPS_LOG` | Extra map FPS logging when wired |
 
+## Optimization constraints (normative)
+
+`china` / `1280×720` is the **locked bench fixture**. Product fixes must stay:
+
+| Do | Don’t |
+| --- | --- |
+| Shared Map2d / present / effect / render algorithms | `if (showcase == china)` / hard-coded mainland envelope |
+| Caches keyed by path / LOD / identity / tile / content hash | Fixture-only skip of hillshade, labels, or paint |
+| StaticReuse / upload / layout-churn fixes any map benefits from | Lower DEM shade quality or strip carto to fake ms |
+| Keep inspect hillshade + labels + style parity | Trade visual fidelity for phase budgets |
+
+If a patch only helps this showcase, reject it and pick a generic root cause.
+
 ## Fix heuristics
 
 | Symptom | Likely root |
@@ -98,7 +111,10 @@ Warm past dual-speed settle (~200–350 ms pump) before timed samples — alread
 | layout_builds_delta | | |
 
 ### Hot phase
-`gpu_upload_ms` — hypothesis: …
+`gpu_upload_ms` — hypothesis: …（通用路径；非 china 特化）
+
+### Visual
+inspect：hillshade + labels 与 baseline 一致（无故意降质）
 
 ### Next
 rebuild → re-bench → …

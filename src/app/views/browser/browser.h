@@ -165,6 +165,7 @@ class Browser : public content::GisContentsObserver {
   // BrowserUiDelegate* and AVs on the vtable (bug #10 catalog residual).
   void sync_catalog_from_scene();
   bool apply_atmosphere_fields(std::string_view spec);
+  bool check_m2_processing_panel(std::string* err);
   bool run_m2_harness_hooks(std::string* err);
   void select_view_tab(int index);
 
@@ -181,6 +182,9 @@ class Browser : public content::GisContentsObserver {
   void apply_nav_draft(const tool::Draft& draft, bool pan, double zoom_factor);
   void zoom_at_and_commit(int view_x, int view_y, double factor);
   void fit_map_extent();
+  // When paint_overlays is false, frame camera/status only — caller schedules
+  // the active map present (startup show_shell avoids waking every DrawHost).
+  void fit_map_extent(bool paint_overlays);
   void handle_draft(const tool::Draft& draft);
   void refresh_scale();
   // Apply China orbit extent + status/overlays on the UI thread only.

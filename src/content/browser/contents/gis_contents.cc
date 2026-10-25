@@ -23,12 +23,15 @@
 #include "tool/command/command.h"
 
 #include "base/core/log.h"
-#include "base/ipc/handle/handle.h"
-#include "base/ipc/invitation/invitation.h"
-#include "base/ipc/receiver/receiver.h"
+#include "common/ipc/broker/broker.h"
+#include "common/ipc/bulk/bulk.h"
+#include "common/ipc/handle/handle.h"
+#include "common/ipc/invitation/invitation.h"
+#include "common/ipc/receiver/receiver.h"
 #include "base/trace/event/process_trace.h"
 #include "content/app/process_type.h"
 #include "content/browser/child/child_process_host.h"
+#include "content/common/host_msg_registry.h"
 #include "content/common/ipc.h"
 
 #include <dxgi.h>
@@ -151,6 +154,19 @@ class WidgetHostViewImpl final : public WidgetHostView {
     latest_ = s;
   }
   void set_present_mode(PresentMode mode) { present_mode_ = mode; }
+  PresentMode present_mode() const { return present_mode_; }
+  void note_resize(int width_px, int height_px, float dpi) {
+    last_w_ = width_px > 0 ? width_px : last_w_;
+    last_h_ = height_px > 0 ? height_px : last_h_;
+    last_dpi_ = dpi > 0.f ? dpi : last_dpi_;
+  }
+  int last_w() const { return last_w_; }
+  int last_h() const { return last_h_; }
+  float last_dpi() const { return last_dpi_; }
+  void clear_latest_handle() {
+    std::lock_guard<std::mutex> lock(latest_mu_);
+    latest_ = SharedSurface{};
+  }
 
  private:
   class GisContentsImpl* session_;
@@ -159,6 +175,9 @@ class WidgetHostViewImpl final : public WidgetHostView {
   mutable std::mutex latest_mu_;
   SharedSurface latest_{};
   PresentMode present_mode_ = PresentMode::kSharedTexture;
+  int last_w_ = 0;
+  int last_h_ = 0;
+  float last_dpi_ = 96.f;
 };
 
 // Forwards GisDocument mutators and also drives the OOP host pipe + observer.
@@ -370,17 +389,21 @@ class GisContentsImpl final : public GisContents, public ContentsHostPipe {
                             const char* attach_name,
                             Pipe* pipe,
                             HANDLE* process);
+  // Relaunch --type=gpu after pipe death; re-Attach / Resize / Extent.
+  // Returns true when Hello succeeds and views are re-published.
+  bool try_restart_gpu();
+  void on_gpu_disconnected();
   void recv_loop();
   void renderer_recv_loop();
   void handle_frame(const FrameHeader& h,
                     const std::vector<uint8_t>& payload,
-                    std::vector<base::ipc::PlatformHandle> handles);
+                    std::vector<common::ipc::PlatformHandle> handles);
 
-  struct PipeListener final : base::ipc::MessageListener {
+  struct PipeListener final : common::ipc::MessageListener {
     GisContentsImpl* self = nullptr;
-    void on_message(const base::ipc::Frame& frame,
+    void on_message(const common::ipc::Frame& frame,
                     std::vector<uint8_t> payload,
-                    std::vector<base::ipc::PlatformHandle> handles) override {
+                    std::vector<common::ipc::PlatformHandle> handles) override {
       FrameHeader h = {};
       h.magic = frame.magic;
       h.version = frame.version;
@@ -392,12 +415,25 @@ class GisContentsImpl final : public GisContents, public ContentsHostPipe {
       h.payload_bytes = frame.payload_bytes;
       self->handle_frame(h, payload, std::move(handles));
     }
-    void on_disconnect() override {
-      if (self->observer_) {
-        self->observer_->OnRenderDied();
-      }
-    }
+    void on_disconnect() override { self->on_gpu_disconnected(); }
   };
+
+  struct ViewSnap {
+    uint32_t view_id = 0;
+    ViewKind kind = ViewKind::kMapEdit;
+    PresentMode mode = PresentMode::kSharedTexture;
+    void* parent_hwnd = nullptr;
+    int width_px = 0;
+    int height_px = 0;
+    float dpi = 96.f;
+    Extent2 extent = {};
+    bool has_extent = false;
+  };
+
+  void bind_broker() {
+    broker_.set_channel(&pipe_.channel());
+    broker_.set_client_process(process_);
+  }
 
   HANDLE job_ = nullptr;
   HANDLE process_ = nullptr;
@@ -405,14 +441,18 @@ class GisContentsImpl final : public GisContents, public ContentsHostPipe {
   Pipe pipe_;
   Pipe renderer_pipe_;
   PipeListener listener_{};
-  std::unique_ptr<base::ipc::Receiver> receiver_;
+  std::unique_ptr<common::ipc::Receiver> receiver_;
+  common::ipc::BrokerHost broker_;
   std::thread recv_thread_;
   std::thread renderer_thread_;
+  std::thread gpu_restart_thread_;
   std::atomic<bool> running_{false};
+  std::atomic<bool> restarting_gpu_{false};
   std::atomic<uint32_t> next_view_id_{1};
   GisContentsObserver* observer_ = nullptr;
   mutable std::mutex mu_;
   std::map<uint32_t, WidgetHostViewImpl*> views_;
+  std::map<uint32_t, ViewKind> view_kinds_;
   // Frames can arrive before AttachSurface inserts the HostView.
   std::map<uint32_t, SharedSurface> pending_surfaces_;
   std::map<uint32_t, Extent2> extents_;
@@ -443,6 +483,7 @@ void WidgetHostViewImpl::Create(const CreateParams& params,
 }
 
 void WidgetHostViewImpl::Resize(int width_px, int height_px, float dpi) {
+  note_resize(width_px, height_px, dpi);
   ResizeSurfaceBody body;
   body.w = static_cast<uint32_t>(width_px);
   body.h = static_cast<uint32_t>(height_px);
@@ -515,18 +556,18 @@ bool GisContentsImpl::launch_invited_child(const std::wstring& exe,
   if (!pipe || !process || !extra_args || !attach_name) {
     return false;
   }
-  base::ipc::OutgoingInvitation invitation;
-  base::ipc::Channel local = invitation.attach(attach_name);
+  common::ipc::OutgoingInvitation invitation;
+  common::ipc::Channel local = invitation.attach(attach_name);
   if (!local.is_open()) {
     return false;
   }
-  base::ipc::ChildLaunch launch;
+  common::ipc::ChildLaunch launch;
   launch.exe = exe;
   launch.extra_args = extra_args;
   launch.cwd = module_dir();
   launch.job = job_;
   PROCESS_INFORMATION pi = {};
-  if (!base::ipc::launch_with_invitation(&invitation, launch, &pi)) {
+  if (!common::ipc::launch_with_invitation(&invitation, launch, &pi)) {
     return false;
   }
   if (!pipe->adopt(std::move(local))) {
@@ -554,33 +595,33 @@ bool GisContentsImpl::StartRenderProcess() {
     frame_event_ = CreateEventW(nullptr, TRUE, FALSE, nullptr);
   }
 
-  // Job is opened before the pipe so a failed CreateProcess still leaves
-  // job_ for Shutdown, matching the previous inline launch.
+  // Job before CreateProcess so a failed launch still leaves job_ for Shutdown.
   job_ = ChildProcessHost::open_job();
 
-  const uint32_t pid = GetCurrentProcessId();
-  // Classic named-pipe GPU child. Invitation dual-launch is WIP and stalls
-  // FrameReady / crashes WinUI --self-test; keep pipe path until proven.
-  const std::wstring pipe_path = pipe_path_for_pid(pid);
-  if (!pipe_.create_server(pipe_path)) {
-    return false;
-  }
+  common::ipc::Channel local;
   HANDLE child = nullptr;
   const ChildProcessHost::Status status = ChildProcessHost::launch(
-      ProcessType::kGpu, pipe_name_for_pid(pid), job_,
-      [this] { return pipe_.wait_client(15000); }, &child);
-  if (status == ChildProcessHost::Status::kCreateFailed) {
+      ProcessType::kGpu, job_, "gpu", &local, &child);
+  if (status != ChildProcessHost::Status::kOk) {
     pipe_.close();
     return false;
   }
-  if (status != ChildProcessHost::Status::kOk) {
-    Shutdown();
+  if (!pipe_.adopt(std::move(local))) {
+    if (child) {
+      TerminateProcess(child, 1);
+      CloseHandle(child);
+    }
     return false;
   }
   process_ = child;
+  bind_broker();
 
   running_ = true;
-  recv_thread_ = std::thread(&GisContentsImpl::recv_loop, this);
+  hello_ok_ = 0;
+  listener_.self = this;
+  receiver_.reset();
+  receiver_ =
+      std::make_unique<common::ipc::Receiver>(&pipe_.channel(), &listener_);
 
   {
     BASE_TRACE_EVENT("HelloWait", "startup");
@@ -604,17 +645,22 @@ void GisContentsImpl::Shutdown() {
   oop_ = false;
   status_ = L"down";
   running_ = false;
+  restarting_gpu_ = false;
   pipe_.send_empty(HostMsg::kShutdown, 0);
   renderer_pipe_.send_empty(HostMsg::kShutdown, 0);
+  // Stop IO pumps before closing pipes (Receiver interrupts the channel).
+  receiver_.reset();
   pipe_.close();
   renderer_pipe_.close();
+  if (gpu_restart_thread_.joinable()) {
+    gpu_restart_thread_.join();
+  }
   if (recv_thread_.joinable()) {
     recv_thread_.join();
   }
   if (renderer_thread_.joinable()) {
     renderer_thread_.join();
   }
-  receiver_.reset();
   if (process_) {
     WaitForSingleObject(process_, 3000);
     CloseHandle(process_);
@@ -634,14 +680,196 @@ void GisContentsImpl::Shutdown() {
     delete kv.second;
   }
   views_.clear();
+  view_kinds_.clear();
+  pending_surfaces_.clear();
+  extents_.clear();
+  frame_gen_.clear();
   if (frame_event_) {
     CloseHandle(frame_event_);
     frame_event_ = nullptr;
   }
 }
 
+void GisContentsImpl::on_gpu_disconnected() {
+  if (!running_ || !oop_) {
+    return;
+  }
+  if (restarting_gpu_.exchange(true)) {
+    return;
+  }
+  LOGGING(LOG_WARNING, "gis_contents: GPU pipe disconnected; restarting");
+  // Do not reset Receiver on its own callback stack — restart off-thread.
+  if (gpu_restart_thread_.joinable()) {
+    gpu_restart_thread_.join();
+  }
+  gpu_restart_thread_ = std::thread([this]() {
+    const bool ok = try_restart_gpu();
+    restarting_gpu_ = false;
+    if (!ok) {
+      oop_ = false;
+      status_ = L"down";
+      running_ = false;
+      LOGGING(LOG_ERROR, "gis_contents: GPU restart failed");
+      if (observer_) {
+        observer_->OnRenderDied();
+      }
+    }
+  });
+}
+
+bool GisContentsImpl::try_restart_gpu() {
+  if (!running_) {
+    return false;
+  }
+  receiver_.reset();
+  pipe_.close();
+  if (process_) {
+    // Child may already be dead; do not block Shutdown-length waits here.
+    TerminateProcess(process_, 1);
+    WaitForSingleObject(process_, 1000);
+    CloseHandle(process_);
+    process_ = nullptr;
+  }
+
+  if (!running_) {
+    return false;
+  }
+  if (!job_) {
+    job_ = ChildProcessHost::open_job();
+  }
+  if (!frame_event_) {
+    frame_event_ = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+  }
+
+  common::ipc::Channel local;
+  HANDLE child = nullptr;
+  const ChildProcessHost::Status status = ChildProcessHost::launch(
+      ProcessType::kGpu, job_, "gpu", &local, &child);
+  if (status != ChildProcessHost::Status::kOk) {
+    return false;
+  }
+  if (!pipe_.adopt(std::move(local))) {
+    if (child) {
+      TerminateProcess(child, 1);
+      CloseHandle(child);
+    }
+    return false;
+  }
+  process_ = child;
+  bind_broker();
+  hello_ok_ = 0;
+  listener_.self = this;
+  receiver_ =
+      std::make_unique<common::ipc::Receiver>(&pipe_.channel(), &listener_);
+
+  {
+    const DWORD start = GetTickCount();
+    while (running_ && hello_ok_ == 0 && GetTickCount() - start < 15000) {
+      Sleep(20);
+    }
+  }
+  if (!running_ || hello_ok_ == 0) {
+    receiver_.reset();
+    pipe_.close();
+    if (process_) {
+      TerminateProcess(process_, 1);
+      CloseHandle(process_);
+      process_ = nullptr;
+    }
+    return false;
+  }
+
+  HelloBody ack;
+  ack.role = "shell";
+  if (!pipe_.send_msg(HostMsg::kHelloAck, 0, ack)) {
+    return false;
+  }
+
+  std::vector<ViewSnap> snaps;
+  {
+    std::lock_guard<std::mutex> lock(mu_);
+    pending_surfaces_.clear();
+    frame_gen_.clear();
+    for (auto& kv : views_) {
+      WidgetHostViewImpl* view = kv.second;
+      if (!view) {
+        continue;
+      }
+      view->clear_latest_handle();
+      ViewSnap snap;
+      snap.view_id = kv.first;
+      auto kind_it = view_kinds_.find(kv.first);
+      snap.kind = kind_it != view_kinds_.end() ? kind_it->second
+                                              : ViewKind::kMapEdit;
+      snap.mode = view->present_mode();
+      snap.parent_hwnd = view->NativeHwnd();
+      snap.width_px = view->last_w();
+      snap.height_px = view->last_h();
+      snap.dpi = view->last_dpi();
+      auto ext = extents_.find(kv.first);
+      if (ext != extents_.end()) {
+        snap.extent = ext->second;
+        snap.has_extent = true;
+      }
+      snaps.push_back(snap);
+    }
+  }
+
+  for (const ViewSnap& snap : snaps) {
+    OpenViewBody open;
+    open.kind = static_cast<uint32_t>(snap.kind);
+    pipe_.send_msg(HostMsg::kOpenView, snap.view_id, open);
+
+    AttachSurfaceBody attach;
+    attach.present_mode = static_cast<uint32_t>(snap.mode);
+    attach.visible = 1;
+    if (snap.parent_hwnd) {
+      fill_monitor_luid(static_cast<HWND>(snap.parent_hwnd),
+                        &attach.monitor_luid_low, &attach.monitor_luid_high);
+    }
+    pipe_.send_msg(HostMsg::kAttachSurface, snap.view_id, attach);
+
+    const int w = snap.width_px > 0 ? snap.width_px : 256;
+    const int h = snap.height_px > 0 ? snap.height_px : 256;
+    ResizeSurfaceBody resize;
+    resize.w = static_cast<uint32_t>(w);
+    resize.h = static_cast<uint32_t>(h);
+    resize.dpi = snap.dpi > 0.f ? snap.dpi : 96.f;
+    if (snap.parent_hwnd) {
+      fill_monitor_luid(static_cast<HWND>(snap.parent_hwnd),
+                        &resize.monitor_luid_low, &resize.monitor_luid_high);
+    }
+    pipe_.send_msg(HostMsg::kResizeSurface, snap.view_id, resize);
+
+    if (snap.has_extent) {
+      ExtentWire extent;
+      extent.xmin = snap.extent.xmin;
+      extent.ymin = snap.extent.ymin;
+      extent.xmax = snap.extent.xmax;
+      extent.ymax = snap.extent.ymax;
+      pipe_.send_msg(HostMsg::kSetExtent, snap.view_id, extent);
+    }
+  }
+
+  RenderBackendWire backend;
+  backend.kind = backend_kind_;
+  pipe_.send_msg(HostMsg::kSetRenderBackend, 0, backend);
+  // In-process ResetGpu path also refreshes every slot after device loss.
+  pipe_.send_empty(HostMsg::kResetGpu, 0);
+
+  status_ = L"oop";
+  oop_ = true;
+  LOGGING(LOG_INFO, "gis_contents: GPU restarted; reattached %zu view(s)",
+          snaps.size());
+  return true;
+}
+
 uint32_t GisContentsImpl::OpenView(ViewKind kind) {
   const uint32_t id = next_view_id_++;
+  {
+    std::lock_guard<std::mutex> lock(mu_);
+    view_kinds_[id] = kind;
+  }
   OpenViewBody body;
   body.kind = static_cast<uint32_t>(kind);
   pipe_.send_msg(HostMsg::kOpenView, id, body);
@@ -662,8 +890,10 @@ void GisContentsImpl::CloseView(uint32_t view_id) {
     delete it->second;
     views_.erase(it);
   }
+  view_kinds_.erase(view_id);
   pending_surfaces_.erase(view_id);
   frame_gen_.erase(view_id);
+  extents_.erase(view_id);
 }
 
 WidgetHostView* GisContentsImpl::AttachSurface(uint32_t view_id, PresentMode mode) {
@@ -860,12 +1090,10 @@ void GisContentsImpl::recv_loop() {
   while (running_) {
     FrameHeader h = {};
     std::vector<uint8_t> payload;
-    std::vector<base::ipc::PlatformHandle> handles;
+    std::vector<common::ipc::PlatformHandle> handles;
     if (!pipe_.recv(&h, &payload, &handles, 500)) {
       if (!running_ || !pipe_.is_open()) {
-        if (observer_) {
-          observer_->OnRenderDied();
-        }
+        on_gpu_disconnected();
         break;
       }
       continue;
@@ -878,7 +1106,7 @@ void GisContentsImpl::renderer_recv_loop() {
   while (running_) {
     FrameHeader h = {};
     std::vector<uint8_t> payload;
-    std::vector<base::ipc::PlatformHandle> handles;
+    std::vector<common::ipc::PlatformHandle> handles;
     if (!renderer_pipe_.recv(&h, &payload, &handles, 500)) {
       if (!running_ || !renderer_pipe_.is_open()) {
         break;
@@ -920,7 +1148,39 @@ void GisContentsImpl::renderer_recv_loop() {
 void GisContentsImpl::handle_frame(
     const FrameHeader& h,
     const std::vector<uint8_t>& payload,
-    std::vector<base::ipc::PlatformHandle> handles) {
+    std::vector<common::ipc::PlatformHandle> handles) {
+  common::ipc::Frame frame{};
+  frame.magic = h.magic;
+  frame.version = h.version;
+  frame.type = h.type;
+  frame.flags = h.flags;
+  frame.handle_count = h.handle_count;
+  frame.view_id = h.view_id;
+  frame.seq = h.seq;
+  frame.payload_bytes = h.payload_bytes;
+
+  if (broker_.try_handle(frame, payload, &handles)) {
+    return;
+  }
+
+  uint16_t bulk_type = 0;
+  std::vector<uint8_t> bulk_payload;
+  if (common::ipc::take_bulk_offer(frame, payload, &handles, &bulk_type,
+                                 &bulk_payload)) {
+    FrameHeader inner = h;
+    inner.type = bulk_type;
+    inner.payload_bytes = static_cast<uint32_t>(bulk_payload.size());
+    inner.handle_count = 0;
+    handle_frame(inner, bulk_payload, {});
+    return;
+  }
+
+  if (!is_known_host_msg(h.type)) {
+    LOGGING(LOG_WARNING, "gis_contents: unknown HostMsg type=%u view=%u",
+            static_cast<unsigned>(h.type),
+            static_cast<unsigned>(h.view_id));
+    return;
+  }
   const auto type = static_cast<HostMsg>(h.type);
   if (type == HostMsg::kHello) {
     hello_ok_ = 1;
@@ -982,8 +1242,14 @@ void GisContentsImpl::handle_frame(
       observer_->OnExtentChanged(h.view_id, e);
     }
   }
-  if (type == HostMsg::kRenderDied && observer_) {
-    observer_->OnRenderDied();
+  if (type == HostMsg::kRenderDied) {
+    // Soft device-lost: ask the live GPU child to rebuild surfaces.
+    // Hard death goes through on_disconnect → try_restart_gpu.
+    if (pipe_.is_open()) {
+      pipe_.send_empty(HostMsg::kResetGpu, 0);
+    } else {
+      on_gpu_disconnected();
+    }
   }
 }
 

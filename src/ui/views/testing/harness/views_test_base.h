@@ -28,6 +28,18 @@ void paint_offscreen(View* root, int width, int height);
 // |root| is the contents view with origin at 0,0).
 View* find_child_at(View* root, int x, int y);
 
+// views_bench / cross-PE: View trees must be allocated in ui_views.dll (Debug
+// STL). Opaque scene for BM_hover_commit.
+struct HoverCommitBenchScene;
+
+UI_EXPORT HoverCommitBenchScene* hover_commit_bench_scene_create();
+UI_EXPORT void hover_commit_bench_scene_destroy(HoverCommitBenchScene* scene);
+UI_EXPORT View* hover_commit_bench_scene_root(HoverCommitBenchScene* scene);
+UI_EXPORT void hover_commit_bench_scene_frame(HoverCommitBenchScene* scene,
+                                              int* width_px,
+                                              int* height_px,
+                                              Rect* dirty);
+
 }  // namespace views
 }  // namespace ui
 

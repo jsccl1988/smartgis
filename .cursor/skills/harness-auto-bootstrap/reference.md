@@ -53,6 +53,15 @@ Partial dumps do **not** claim the once-slot and do **not** overwrite the final 
 
 From living §Startup profile: `wWinMain`, `ParseLaunchOptions`, `ContentMain` / `BrowserMain`, `Browser.ctor` / `init` / `show`, `Session.init_tool_sessions`, `PluginShell.*`, `InitShell` (`Widget.init`, `BuildContents`, `SeedDocument` / `try_open_china` / `SeedDocument.ChinaBootstrap`, `BindPresenters`, `AttachViewports`, `MapEdit.FlyCubeAttach` / `FlyCube.Init`, `WireShell`), `ShowShell` / `WaitFirstMapPresent`, `HillshadeBake`, `LoadMarkup`.
 
+## Safety gates (same as SKILL Hard rules 3–4)
+
+| Gate | Fail means |
+| --- | --- |
+| Startup behavior unchanged | Seed / first map / init·show·present order / ready completeness differ from baseline |
+| No post-startup regression | Map edit, tools, plugins, layers, hillshade, markup, sessions, viewports, later presents weakened or broken |
+
+A `wall_ms` drop that trips either gate is **not** a win — revert.
+
 ## Not this skill
 
 | Want | Use |

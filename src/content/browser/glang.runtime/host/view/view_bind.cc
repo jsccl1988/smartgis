@@ -5,8 +5,8 @@
 #include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include "content/browser/glang.runtime/host/document/document.h"
-#include "content/browser/glang.runtime/host/view/host/capture_host.h"
-#include "content/browser/glang.runtime/host/view/probe.h"
+#include "content/browser/debug/capture/capture_host.h"
+#include "content/browser/debug/probe.h"
 #include "content/browser/glang.runtime/host/horizon/sema/expect.h"
 #include "content/browser/glang.runtime/host/scene/bind.h"
 #include "content/browser/glang.runtime/host/bind/slots.h"

@@ -9,6 +9,7 @@
 
 #include "content/browser/present/host/overlay/shell_overlay_effect.h"
 #include "content/browser/present/map2d/frame/cache/map2d_frame_cache.h"
+#include "content/browser/present/map2d/gpu/damage/map2d_damage_rect.h"
 #include "content/content_export.h"
 #include "ui/gfx/raster/shell_raster.h"
 
@@ -81,6 +82,10 @@ class Map2dGpuPresent {
     last_present_ok_ = false;
     last_present_drew_ = false;
   }
+  // Owned showcase / probe devices upload into MapPass then shutdown. Drop
+  // Pass + overlay GPU objects and the StaticReuse latch so the live HWND
+  // device can rebuild; keep MapIR / layout cache for FPS StaticReuse.
+  void note_device_lost();
   uint64_t layout_build_count() const;
   bool last_present_reused_layout() const;
 
@@ -103,6 +108,7 @@ class Map2dGpuPresent {
   bool last_had_shell_ = false;
   bool flash_pulse_ = false;
   uint64_t last_selection_sig_ = 0;
+  DamageRect last_selection_damage_rect_{};
 };
 
 }  // namespace content

@@ -67,6 +67,9 @@ struct PlacedMesh {
   // Text/icon quads are placed in lon/lat from the current view's pixel
   // mapping. Camera-only DrawCache reuse must not keep them across zooms.
   bool overlay = false;
+  // Scale-bar / north-arrow HUD — never latched into DrawCache; re-placed
+  // every record for the live camera.
+  bool screen_fixed = false;
 
   const std::vector<vista::Vertex>& vertex_list() const {
     return vertices_src ? *vertices_src : vertices;

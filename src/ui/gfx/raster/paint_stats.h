@@ -40,6 +40,11 @@ struct PaintCounters {
   std::uint64_t canvas_ctors = 0;
   std::uint64_t create_brush = 0;
   std::uint64_t measure_text = 0;
+  // U6: per-view DisplayList cache + paint batching signals.
+  std::uint64_t paint_cache_hit = 0;
+  std::uint64_t paint_cache_miss = 0;
+  std::uint64_t layouts_since_paint = 0;
+  std::uint64_t paint_lock_deferred = 0;
 };
 
 UI_EXPORT PaintCounters paint_counters();
@@ -67,6 +72,11 @@ UI_EXPORT void note_utf8_conversion();
 UI_EXPORT void note_canvas_ctor();
 UI_EXPORT void note_create_brush();
 UI_EXPORT void note_measure_text();
+UI_EXPORT void note_paint_cache_hit();
+UI_EXPORT void note_paint_cache_miss();
+UI_EXPORT void note_layout_since_paint();
+UI_EXPORT void reset_layouts_since_paint();
+UI_EXPORT void note_paint_lock_deferred();
 
 }  // namespace gfx
 }  // namespace ui

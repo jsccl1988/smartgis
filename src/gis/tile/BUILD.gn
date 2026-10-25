@@ -10,10 +10,14 @@ source_set("tile_sources") {
     "cache/tile_cache.h",
     "cache/tile_disk_cache.cc",
     "cache/tile_disk_cache.h",
+    "cache/tile_disk_cache_paths.cc",
+    "cache/tile_disk_cache_paths.h",
     "layer/provider_tile_layer.cc",
     "layer/provider_tile_layer.h",
     "layer/tile_map_layer.cc",
     "layer/tile_map_layer.h",
+    "protocol/lonlat_xyz.cc",
+    "protocol/lonlat_xyz.h",
     "protocol/mercator_math.cc",
     "protocol/mercator_math.h",
     "protocol/tile_image.h",
@@ -28,7 +32,10 @@ source_set("tile_sources") {
     "provider/style_source.h",
     "provider/tile_provider.cc",
     "provider/tile_provider.h",
+    "provider/xyz_source.cc",
+    "provider/xyz_source.h",
   ]
+  libs = [ "wininet.lib" ]
   include_dirs += [
     "//src",
     "//third_party/.install/include",
@@ -71,4 +78,19 @@ test("tile_test") {
     "//src/gis:gis",
     "//src/vista:vista",
   ]
+}
+
+test("lonlat_xyz_test") {
+  output_name = "lonlat_xyz_test"
+  sources = [ "protocol/lonlat_xyz_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":tile",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis:gis",
+  ]
+  # Legacy WINDOWS subsystem; CRT entry still calls gtest_main's main().
+  ldflags = [ "/ENTRY:mainCRTStartup" ]
 }

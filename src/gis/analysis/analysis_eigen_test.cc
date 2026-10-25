@@ -1,6 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include "gis/analysis/geometry/affine_construct.h"
 #include "gis/analysis/geometry/fit.h"
 #include "gis/analysis/raster/dem/dem_gradient.h"
 #include "gis/analysis/raster/filter/raster_convolve.h"
@@ -63,6 +64,66 @@ void test_fit_plane() {
   expect(fit.ok, "fit_plane ok");
   expect(nearly(std::fabs(fit.c), 1.0, 1e-6), "fit_plane normal ~ Z");
   expect(fit.rms < 1e-9, "fit_plane rms");
+}
+
+void test_similarity_align() {
+  // 90° CCW + scale 2 about origin: (1,0) -> (0,2).
+  const std::vector<double> src = {1, 0, 0, 1, 1, 1};
+  const std::vector<double> dst = {0, 2, -2, 0, 0, 2};
+  const auto fit = gis::detail::similarity_align_2d(src, dst);
+  expect(fit.ok, "similarity ok");
+  expect(nearly(fit.scale, 2.0, 1e-6), "similarity scale ~ 2");
+  expect(nearly(fit.m[0] * 1 + fit.m[1] * 0 + fit.m[2], 0.0, 1e-6),
+         "similarity maps (1,0)->(0,2) x");
+  expect(nearly(fit.m[3] * 1 + fit.m[4] * 0 + fit.m[5], 2.0, 1e-6),
+         "similarity maps (1,0)->(0,2) y");
+  expect(fit.rms < 1e-6, "similarity rms");
+}
+
+void test_rigid_align() {
+  const std::vector<double> src = {1, 0, 0, 0};
+  const std::vector<double> dst = {0, 1, -1, 0};
+  const auto fit = gis::detail::rigid_align_2d(src, dst);
+  expect(fit.ok, "rigid ok");
+  expect(nearly(fit.scale, 1.0, 1e-6), "rigid unit scale");
+  expect(fit.rms < 1e-6, "rigid rms");
+}
+
+void test_pca_axes() {
+  const std::vector<double> xy = {
+      -2, 0, -1, 0, 0, 0, 1, 0, 2, 0, 0, 0.1, 0, -0.1,
+  };
+  const auto pca = gis::detail::pca_axes_2d(xy);
+  expect(pca.ok, "pca ok");
+  expect(std::fabs(pca.major_dx) > 0.99, "pca major ~ X");
+  expect(pca.major_extent > 3.5, "pca major extent");
+  expect(pca.minor_extent < 0.5, "pca minor extent small");
+}
+
+void test_oriented_bbox() {
+  const std::vector<double> xy = {
+      0, 0, 4, 0, 4, 2, 0, 2,
+  };
+  auto box = gis::detail::oriented_bbox_from_points_2d(xy);
+  expect(box != nullptr && !box->IsEmpty(), "oriented bbox ok");
+  expect(wkbFlatten(box->getGeometryType()) == wkbPolygon, "oriented bbox polygon");
+}
+
+void test_affine_construct() {
+  OGRPoint pt(1.0, 2.0);
+  expect(gis::detail::affine_translate_2d(&pt, 3.0, -1.0), "translate ok");
+  expect(nearly(pt.getX(), 4.0, 1e-9) && nearly(pt.getY(), 1.0, 1e-9),
+         "translate coords");
+  OGRPoint pivot(0.0, 0.0);
+  expect(gis::detail::affine_rotate_2d(&pivot, 1.5707963267948966, 0.0, 0.0),
+         "rotate ok");
+  expect(nearly(pivot.getX(), 0.0, 1e-6) && nearly(pivot.getY(), 0.0, 1e-6),
+         "origin fixed under rotate");
+  OGRPoint p2(1.0, 0.0);
+  expect(gis::detail::affine_rotate_2d(&p2, 1.5707963267948966, 0.0, 0.0),
+         "rotate p2 ok");
+  expect(nearly(p2.getX(), 0.0, 1e-6) && nearly(p2.getY(), 1.0, 1e-6),
+         "rotate 90 CCW");
 }
 
 void test_affine_align() {
@@ -138,6 +199,11 @@ int main() {
   test_fit_line_ogr();
   test_fit_plane();
   test_affine_align();
+  test_similarity_align();
+  test_rigid_align();
+  test_pca_axes();
+  test_oriented_bbox();
+  test_affine_construct();
   test_dem_gradient_ramp();
   test_convolve_box3_constant();
   test_smooth_laplace_interior();

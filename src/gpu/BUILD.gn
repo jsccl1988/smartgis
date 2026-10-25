@@ -93,7 +93,7 @@ source_set("gpu_lib") {
   ]
   deps = [
     ":gpu_backend",
-    "//src/base/ipc:ipc",
+    "//src/common/ipc:ipc",
     "//src/content:content",
   ]
   public_configs = [ ":gpu_config" ]

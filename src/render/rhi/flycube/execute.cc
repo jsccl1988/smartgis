@@ -209,6 +209,13 @@ bool FlycubeDevice::execute_recorded(FlycubeCommandList* recorded) {
       }
 
       fc_list->BeginRenderPass(pass);
+      if (seg.scissor_enabled) {
+        fc_list->SetScissorRect(static_cast<uint32_t>(seg.scissor_x),
+                                static_cast<uint32_t>(seg.scissor_y),
+                                seg.scissor_w, seg.scissor_h);
+      } else {
+        fc_list->SetScissorRect(0, 0, width_, height_);
+      }
       if (can_draw) {
         replay_draws(fc_list.get(), seg, use_depth);
       }
@@ -310,6 +317,13 @@ bool FlycubeDevice::execute_to_imported(FlycubeCommandList* recorded) {
       }
 
       fc_list->BeginRenderPass(pass);
+      if (seg.scissor_enabled) {
+        fc_list->SetScissorRect(static_cast<uint32_t>(seg.scissor_x),
+                                static_cast<uint32_t>(seg.scissor_y),
+                                seg.scissor_w, seg.scissor_h);
+      } else {
+        fc_list->SetScissorRect(0, 0, width_, height_);
+      }
       if (can_draw) {
         replay_draws(fc_list.get(), seg, use_depth);
       }

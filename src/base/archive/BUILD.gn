@@ -2,7 +2,7 @@
 # All rights reserved.
 
 # Header-only BinarySink / archive() subset (mogu base/archive).
-# No Json/Text/Yaml sinks. Consumers: net/pack/pickle, base/ipc/codec.
+# No Json/Text/Yaml sinks. Consumers: net/pack/pickle, common/ipc/codec.
 
 source_set("archive") {
   sources = [ "archive.h" ]

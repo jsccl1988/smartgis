@@ -28,7 +28,9 @@ Diagram: `docs/superpowers/diagrams/dll-stl-trust.html`.
 - Prefer `COMPONENT_EXPORT(NAME)` + GN `IS_NAME_IMPL` for **new** modules; keep existing `*_EXPORT` when editing.
 - Treat export macros as **link visibility**, not public API.
 - On C boundaries: opaque handles, C buffers, or serialize; create/destroy on the owning side.
-- Run / respect `build/tools/check_dll_homogeneity.py` after product link.
+- Run / respect `build/tools/check_dll_homogeneity.py` after product link (stem rules + `SMARTGIS_BUILD_ID` marker).
+- When changing a shared in-image layout, bump the matching `#pragma detect_mismatch` token (`abi_guard.h` / type-local in the header) in the **same** change.
+- Call / keep `base::verify_product_dll_build_ids()` at product process start (after DLL search path setup).
 
 ## Don’t
 
@@ -37,3 +39,4 @@ Diagram: `docs/superpowers/diagrams/dll-stl-trust.html`.
 - Don’t enable `/MT` for product modules.
 - Don’t throw C++ exceptions across DLL or plugin boundaries.
 - Don’t invent a second CRT or a second STL for product DLLs.
+- Don’t use SEH / hot-path exception swallow as a substitute for build-id or detect_mismatch consistency.

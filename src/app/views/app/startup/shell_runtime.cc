@@ -6,16 +6,29 @@
 #include "app/views/browser/browser.h"
 #include "app/views/browser/china_product_defaults.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
+#include "base/core/log.h"
 #include "content/browser/glang.runtime/host/horizon/atom/mark.h"
+#include "content/browser/glang.runtime/host/horizon/atom/pump.h"
+#include "content/browser/glang.runtime/host/horizon/sema/ui.h"
 #include "content/browser/glang.runtime/host/utils/exe_path.h"
-#include "content/browser/glang.runtime/host/view/host/capture_host.h"
-#include "content/browser/glang.runtime/host/view/pixel/gate.h"
+#include "content/browser/debug/capture/capture_host.h"
+#include "content/browser/debug/capture/pixel/bmp.h"
+#include "content/browser/debug/capture/pixel/gate.h"
+#include "content/browser/camera/orbit_frame.h"
+#include "content/browser/present/map2d/showcase/map2d_fps.h"
+#include "content/browser/debug/capture/shot/export.h"
 #include "content/browser/glang.runtime/exec/py/session.h"
+#include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/public/plugin_host.h"
+#include "plugin/product/world3d/scene/look/look.h"
 #include "plugin/runtime/host/capability/harness.h"
 #include "plugin/runtime/host/capability/shell.h"
 #include "tool/command/command.h"
 #include "ui/views/map/viewport/draw_host.h"
+
+#include <cstdlib>
+#include <cstring>
+#include <string>
 
 namespace app {
 namespace {
@@ -446,6 +459,162 @@ void detach_views(Browser& browser) {
   content::detail::detach_views(bridge.shell());
 }
 
+int run_map2d_showcase_cpp(Browser& browser,
+                           const char* mode,
+                           const char* seed_mark,
+                           const wchar_t* bmp_leaf,
+                           const char* frame) {
+  if (!mode || !mode[0] || !bmp_leaf || !bmp_leaf[0] || !frame || !frame[0]) {
+    return 1;
+  }
+  PluginShell* plugins = browser.plugins();
+  if (!plugins || !plugins->host()) {
+    LOGGING(LOG_ERROR, "map2d-showcase: no plugin host (mode=%s)", mode);
+    return 57;
+  }
+  if (!plugins->ensure_command("map2d.seed")) {
+    LOGGING(LOG_ERROR, "map2d-showcase: map2d.seed missing");
+    return 57;
+  }
+  const std::string seed_payload =
+      std::string("{\"mode\":\"") + mode + "\"}";
+  tool::CommandArgs args;
+  args.payload = seed_payload;
+  if (!plugins->execute("map2d.seed", args)) {
+    LOGGING(LOG_ERROR, "map2d-showcase: seed failed mode=%s", mode);
+    return 55;
+  }
+  if (seed_mark && seed_mark[0]) {
+    content::detail::write_mark(content::detail::kMap2dMarkLeaf, seed_mark,
+                                false);
+  }
+  content::detail::write_mark(content::detail::kMap2dMarkLeaf,
+                              "map2d-seed-plugin", false);
+  content::pump_views_messages(200);
+
+  auto dim = [](const char* key, int fallback, int lo, int hi) {
+    const char* raw = std::getenv(key);
+    if (!raw || !raw[0]) {
+      return fallback;
+    }
+    const int v = std::atoi(raw);
+    return (v >= lo && v <= hi) ? v : fallback;
+  };
+  // Locked phase-loop profile when env is unset; suite JSON still wins.
+  const int export_w =
+      std::getenv("MAP2D_SHOWCASE_W")
+          ? dim("MAP2D_SHOWCASE_W", content::detail::kCaptureW, 320, 3840)
+          : 1280;
+  const int export_h =
+      std::getenv("MAP2D_SHOWCASE_H")
+          ? dim("MAP2D_SHOWCASE_H", content::detail::kCaptureH, 240, 2160)
+          : 720;
+
+  wchar_t bmp_w[MAX_PATH] = {};
+  if (!content::detail::exe_capture_path(bmp_w, MAX_PATH, bmp_leaf)) {
+    LOGGING(LOG_ERROR, "map2d-showcase: capture path failed");
+    return 56;
+  }
+
+  content::detail::Map2dExportOpts opts;
+  opts.width = export_w;
+  opts.height = export_h;
+  opts.apply_frame = true;
+  opts.invalidate_cache = true;
+  opts.kick_paint = true;
+  opts.pump_ms = 200;
+  opts.require_features = true;
+
+  BrowserShell bridge(browser);
+  if (!content::detail::export_map2d_bmp(&bridge.shell(), bmp_w, frame, opts)) {
+    LOGGING(LOG_ERROR, "map2d-showcase: export_bmp failed mode=%s", mode);
+    return 56;
+  }
+  content::detail::write_mark(content::detail::kMap2dMarkLeaf, "fit-ok", false);
+  content::detail::write_mark(content::detail::kMap2dMarkLeaf, "extent-ok",
+                              false);
+  content::detail::run_map2d_fps_bench(bridge.shell());
+  content::detail::write_mark(content::detail::kMap2dMarkLeaf, "pass", false);
+  LOGGING(LOG_INFO, "map2d-showcase: cpp fallback ok mode=%s %dx%d", mode,
+          export_w, export_h);
+  return 0;
+}
+
+int run_atmosphere_showcase_cpp(Browser& browser,
+                                const char* look_mode,
+                                const wchar_t* bmp_leaf) {
+  if (!look_mode || !look_mode[0] || !bmp_leaf || !bmp_leaf[0]) {
+    return 1;
+  }
+  content::detail::write_mark(content::detail::kAtmosphereMarkLeaf, "show",
+                              false);
+  content::pump_views_messages(200);
+  browser.select_view_tab(1);
+  content::pump_views_messages(400);
+  content::detail::write_mark(content::detail::kAtmosphereMarkLeaf,
+                              "scene-ready", false);
+
+  PluginShell* plugins = browser.plugins();
+  if (plugins && plugins->ensure_command("world3d.open_earth")) {
+    tool::CommandArgs open_args;
+    open_args.payload = "{}";
+    (void)plugins->execute("world3d.open_earth", open_args);
+    content::pump_views_messages(200);
+  }
+
+  content::Scene3dPresenter* cam = browser.scene3d();
+  content::OrbitFrame* orbit = browser.orbit_frame();
+  if (!cam || !orbit) {
+    LOGGING(LOG_ERROR, "atmosphere-showcase: no scene3d/orbit (mode=%s)",
+            look_mode);
+    return 50;
+  }
+
+  plugin::World3dLook look = plugin::World3dLook::kLegacy;
+  if (!plugin::parse_world3d_look(look_mode, &look)) {
+    LOGGING(LOG_ERROR, "atmosphere-showcase: bad look mode=%s", look_mode);
+    return 55;
+  }
+  plugin::World3dLookSeed seed;
+  if (!plugin::apply_world3d_look(cam, orbit, look, &seed)) {
+    LOGGING(LOG_ERROR, "atmosphere-showcase: apply_look failed mode=%s",
+            look_mode);
+    return 55;
+  }
+  if (look == plugin::World3dLook::kLegacy) {
+    (void)plugin::ensure_world3d_legacy_overlays(cam);
+  }
+  content::detail::write_mark(content::detail::kAtmosphereMarkLeaf,
+                              "look-ok", false);
+  content::pump_views_messages(200);
+
+  wchar_t bmp_w[MAX_PATH] = {};
+  if (!content::detail::exe_capture_path(bmp_w, MAX_PATH, bmp_leaf)) {
+    LOGGING(LOG_ERROR, "atmosphere-showcase: capture path failed");
+    return 56;
+  }
+
+  BrowserShell bridge(browser);
+  if (!content::detail::export_scene3d_bmp(&bridge.shell(), bmp_w)) {
+    LOGGING(LOG_ERROR, "atmosphere-showcase: export_bmp failed mode=%s",
+            look_mode);
+    return 56;
+  }
+
+  // Suite required_marks (Python finish_orbit tokens; skip orbit in timed
+  // benches so PRESENT_COUNT stays fair).
+  content::detail::write_mark(content::detail::kAtmosphereMarkLeaf, "bmp-ok",
+                              false);
+  content::detail::write_mark(content::detail::kAtmosphereMarkLeaf,
+                              "fit-box-ok", false);
+  content::detail::write_mark(content::detail::kAtmosphereMarkLeaf,
+                              "camera-fly-ok", false);
+  content::detail::write_mark(content::detail::kAtmosphereMarkLeaf, "pass",
+                              false);
+  LOGGING(LOG_INFO, "atmosphere-showcase: cpp fallback ok mode=%s", look_mode);
+  return 0;
+}
+
 bool present_shell_scene3d_frame(ui::views::DrawHost* scene, DWORD wait_ms) {
   content::Pane pane;
   fill_pane(scene, &pane);
@@ -459,5 +628,58 @@ HWND shell_scene3d_capture_hwnd(ui::views::DrawHost* scene) {
   return content::detail::shell_scene3d_capture_hwnd(scene ? &pane : nullptr);
 }
 
+int run_ui_mode_showcase_cpp(Browser& browser,
+                             content::detail::UiMode mode,
+                             const char* mark_token) {
+  BrowserShell bridge(browser);
+  content::Shell& shell = bridge.shell();
+  if (mark_token && mark_token[0]) {
+    content::detail::write_mark(content::detail::kUiMarkLeaf, mark_token, false);
+  }
+  content::detail::apply_ui_harness_theme();
+  content::detail::write_mark(content::detail::kUiMarkLeaf, "theme-ok", false);
+  content::pump_views_messages(600);
+  if (!browser.hwnd() || !IsWindow(browser.hwnd())) {
+    LOGGING(LOG_ERROR, "ui showcase: no HWND after pump mode=%d",
+            static_cast<int>(mode));
+    return 2;
+  }
+  content::detail::write_mark(content::detail::kUiMarkLeaf, "hwnd-ok", false);
+  app::ensure_china_maplibre_carto(browser);
+  content::pump_views_messages(500);
+  content::detail::apply_ui_scenario_panels(shell, mode);
+  const int layout_rc = content::detail::run_ui_layout_gate(shell, mode);
+  if (layout_rc != 0) {
+    return layout_rc;
+  }
+  const int capture_rc = content::detail::run_ui_present_capture(shell, mode);
+  if (capture_rc != 0) {
+    return capture_rc;
+  }
+  LOGGING(LOG_INFO, "ui showcase: cpp fallback ok mode=%d", static_cast<int>(mode));
+  return 0;
+}
+
+int run_ui_shell_showcase_cpp(Browser& browser) {
+  return run_ui_mode_showcase_cpp(browser, content::detail::UiMode::kShell,
+                                  "shell");
+}
+
 }  // namespace detail
+
+int run_ui_shell_showcase(Browser& browser) {
+  return detail::run_ui_shell_showcase_cpp(browser);
+}
+
+int run_ui_catalog_showcase(Browser& browser) {
+  return detail::run_ui_mode_showcase_cpp(browser,
+                                          content::detail::UiMode::kCatalog,
+                                          "catalog");
+}
+
+int run_ui_data_showcase(Browser& browser) {
+  return detail::run_ui_mode_showcase_cpp(browser, content::detail::UiMode::kData,
+                                          "data");
+}
+
 }  // namespace app

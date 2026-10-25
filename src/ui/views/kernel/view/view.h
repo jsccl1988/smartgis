@@ -5,9 +5,15 @@
 #define UI_VIEWS_KERNEL_VIEW_VIEW_H_
 
 #include "ui/ui_export.h"
+#include "base/core/abi_guard.h"
 #include <memory>
 #include <string_view>
 #include <vector>
+
+// Bump when View layout / vtable-sensitive members change (stale .obj → LNK2038).
+#if defined(_MSC_VER)
+#pragma detect_mismatch("smartgis_view_layout", "1")
+#endif
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -210,6 +216,11 @@ class UI_EXPORT View {
   ui::gfx::DisplayList commands_;
   PaintDelegate* paint_delegate_ = nullptr;
 };
+
+// Cross-DLL: allocate inside ui_views.dll (Debug STL is not EXE↔DLL ABI).
+UI_EXPORT std::unique_ptr<View> make_view();
+UI_EXPORT View* view_new();
+UI_EXPORT void view_adopt_child(View* parent, View* child);
 
 }  // namespace views
 }  // namespace ui

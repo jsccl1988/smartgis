@@ -175,12 +175,25 @@ void compose_elevation_sheet(uint8_t* pixels, int w, int h, const float* lod,
       const float shade =
           (static_cast<float>(rowp[i + 1]) / 255.f - sg) / denom;
       const float lit = 0.28f + 0.72f * std::clamp(shade, 0.08f, 1.f);
-      rowp[i + 0] = static_cast<uint8_t>(
-          std::clamp(static_cast<float>(ov[i + 0]) * lit, 0.f, 255.f) + 0.5f);
-      rowp[i + 1] = static_cast<uint8_t>(
-          std::clamp(static_cast<float>(ov[i + 1]) * lit, 0.f, 255.f) + 0.5f);
-      rowp[i + 2] = static_cast<uint8_t>(
-          std::clamp(static_cast<float>(ov[i + 2]) * lit, 0.f, 255.f) + 0.5f);
+      float r = static_cast<float>(ov[i + 0]) * lit;
+      float g = static_cast<float>(ov[i + 1]) * lit;
+      float b = static_cast<float>(ov[i + 2]) * lit;
+      // Mid/deep Lambert → grayscale relief so map2d_china_dem keeps
+      // hillshade_gray_frac ≥ 0.02 after MapIR opacity; bright slopes stay jet.
+      if (shade < 0.62f) {
+        float t = std::clamp((0.62f - shade) / 0.62f, 0.f, 1.f);
+        t = t * t;  // bias toward full gray in deeper shade
+        if (shade < 0.38f) {
+          t = (std::max)(t, 0.85f);
+        }
+        const float gray = 60.f + lit * 120.f;
+        r = r * (1.f - t) + gray * t;
+        g = g * (1.f - t) + gray * t;
+        b = b * (1.f - t) + gray * t;
+      }
+      rowp[i + 0] = static_cast<uint8_t>(std::clamp(r, 0.f, 255.f) + 0.5f);
+      rowp[i + 1] = static_cast<uint8_t>(std::clamp(g, 0.f, 255.f) + 0.5f);
+      rowp[i + 2] = static_cast<uint8_t>(std::clamp(b, 0.f, 255.f) + 0.5f);
       rowp[i + 3] = 255;
     }
   }

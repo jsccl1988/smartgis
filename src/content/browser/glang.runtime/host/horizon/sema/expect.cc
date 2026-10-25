@@ -5,7 +5,7 @@
 #include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include "content/browser/glang.runtime/host/horizon/atom/pump.h"
-#include "content/browser/glang.runtime/host/view/probe.h"
+#include "content/browser/debug/probe.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/document/gis_scene.h"
 #include "ui/gis/catalog/catalog_view.h"

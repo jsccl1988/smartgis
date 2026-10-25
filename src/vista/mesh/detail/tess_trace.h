@@ -38,28 +38,18 @@ struct TessTraceStats {
 
 TessTraceStats& tess_trace_stats();
 
-// RAII adder into one atomic CPU-us bucket when tracing is on.
+// Flush this thread's ScopedTessCpu TLS into the process atomics.
+void flush_tess_trace_tls();
+
+// RAII adder into one CPU-us bucket when tracing is on.
+// Accrues on TLS then flushes via flush_tess_trace_tls / clear_tessellate_tls_scratch
+// so parallel_for workers do not contend on atomics every polygon.
 struct ScopedTessCpu {
   std::atomic<int64_t>* bucket = nullptr;
   std::chrono::steady_clock::time_point begin{};
 
-  explicit ScopedTessCpu(std::atomic<int64_t>* b) {
-    if (!base::trace::tracing_enabled() || !b) {
-      return;
-    }
-    bucket = b;
-    begin = std::chrono::steady_clock::now();
-  }
-
-  ~ScopedTessCpu() {
-    if (!bucket) {
-      return;
-    }
-    const auto us = std::chrono::duration_cast<std::chrono::microseconds>(
-                        std::chrono::steady_clock::now() - begin)
-                        .count();
-    bucket->fetch_add(us, std::memory_order_relaxed);
-  }
+  explicit ScopedTessCpu(std::atomic<int64_t>* b);
+  ~ScopedTessCpu();
 
   ScopedTessCpu(const ScopedTessCpu&) = delete;
   ScopedTessCpu& operator=(const ScopedTessCpu&) = delete;

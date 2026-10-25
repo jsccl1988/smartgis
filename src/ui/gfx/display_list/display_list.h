@@ -29,6 +29,7 @@ class UI_EXPORT DisplayList {
   void clear() {
     cmds_.clear();
     text_.clear();
+    mark_spatial_dirty();
   }
   bool empty() const { return cmds_.empty(); }
   size_t cmd_count() const { return cmds_.size(); }
@@ -232,6 +233,18 @@ class UI_EXPORT DisplayList {
 
   std::vector<Cmd> cmds_;
   std::vector<std::wstring> text_;
+
+  // U7: coarse spatial index for partial append_from_clipped on large lists.
+  mutable bool spatial_dirty_ = true;
+  mutable std::size_t spatial_for_size_ = 0;
+  mutable int spatial_cell_ = 48;
+  mutable int spatial_cols_ = 0;
+  mutable int spatial_rows_ = 0;
+  mutable std::vector<std::vector<std::uint32_t>> spatial_cells_;
+  void mark_spatial_dirty() { spatial_dirty_ = true; }
+  void ensure_spatial_index() const;
+  void append_from_clipped_indexed(const DisplayList& other, int l, int t, int r,
+                                   int b);
 };
 
 }  // namespace gfx

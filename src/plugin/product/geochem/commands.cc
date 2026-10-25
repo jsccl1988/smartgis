@@ -13,10 +13,14 @@
 
 #include "base/core/log.h"
 #include "content/public/plugin_host.h"
-#include "gis/analysis/geochem/grade.h"
-#include "gis/analysis/geochem/idw.h"
-#include "gis/analysis/geochem/samples.h"
-#include "gis/analysis/geochem/stats.h"
+#include "gis/analysis/geochem/grade/grade.h"
+#include "gis/analysis/geochem/idw/idw.h"
+#include "gis/analysis/geochem/io/geotiff.h"
+#include "gis/analysis/geochem/load/csv_load.h"
+#include "gis/analysis/geochem/load/vector_load.h"
+#include "gis/analysis/geochem/model/sample.h"
+#include "gis/analysis/geochem/op/stats_op.h"
+#include "gis/analysis/geochem/stats/stats.h"
 #include "plugin/product/geochem/views/analyze_dialog.h"
 #include "plugin/product/geochem/present/present.h"
 #include "plugin/runtime/host/processing/args_json.h"
@@ -71,7 +75,7 @@ gis::detail::GeochemSampleSet load_samples(const rapidjson::Document& args,
   std::string vector_path;
   args_json_string(args, "vector", &vector_path);
   if (!vector_path.empty()) {
-    set = gis::detail::load_geochem_vector(vector_path, element);
+    set = gis::detail::load_vector(vector_path, element);
     if (!set.ok && err) {
       *err = set.error;
     }
@@ -89,7 +93,7 @@ gis::detail::GeochemSampleSet load_samples(const rapidjson::Document& args,
     set.error = "no_input";
     return set;
   }
-  set = gis::detail::load_geochem_csv(input);
+  set = gis::detail::load_csv(input);
   if (!set.ok && err) {
     *err = set.error;
   }
@@ -177,7 +181,7 @@ bool geochem_load_compute(std::string_view args_json) {
   commit.samples = set;
   commit.element = element;
   commit.legend =
-      gis::detail::build_geochem_grade_legend(set, element, 5);
+      gis::detail::build_grade_legend(set, element, 5);
   attach_cached_idw(&commit);
   if (!publish(nullptr, commit, "geochem.load")) {
     return false;
@@ -229,7 +233,7 @@ bool geochem_stats_compute(std::string_view args_json) {
   commit.samples = set;
   commit.element = element;
   commit.stats =
-      gis::detail::compute_geochem_stats(set, element, bins, k_sigma);
+      gis::detail::compute_stats(set, element, bins, k_sigma);
   commit.has_stats = commit.stats.ok;
   if (!commit.stats.ok) {
     set_operation_result(
@@ -241,18 +245,18 @@ bool geochem_stats_compute(std::string_view args_json) {
   std::string corr_b;
   if (args_json_string(args, "correlate", &corr_b) && !corr_b.empty()) {
     commit.correlation =
-        gis::detail::compute_geochem_correlation(set, element, corr_b);
+        gis::detail::compute_correlation(set, element, corr_b);
   }
   int classes = 5;
   args_json_int(args, "classes", &classes);
   commit.legend =
-      gis::detail::build_geochem_grade_legend(set, element, classes);
+      gis::detail::build_grade_legend(set, element, classes);
   // Keep prior IDW heat raster when stats republishes sample grades.
   attach_cached_idw(&commit);
 
   std::string stats_out;
   if (args_json_string(args, "output", &stats_out) && !stats_out.empty()) {
-    if (!gis::detail::run_geochem_stats_op(args_json)) {
+    if (!gis::detail::run_stats_op(args_json)) {
       // Still publish viz even if optional file write fails on path shape.
     }
   }
@@ -308,17 +312,17 @@ bool geochem_analyze_compute(std::string_view args_json) {
   commit.samples = set;
   commit.element = element;
   commit.stats =
-      gis::detail::compute_geochem_stats(set, element, bins, k_sigma);
+      gis::detail::compute_stats(set, element, bins, k_sigma);
   commit.has_stats = commit.stats.ok;
   std::string corr_b;
   if (args_json_string(args, "correlate", &corr_b) && !corr_b.empty()) {
     commit.correlation =
-        gis::detail::compute_geochem_correlation(set, element, corr_b);
+        gis::detail::compute_correlation(set, element, corr_b);
   }
   commit.legend =
-      gis::detail::build_geochem_grade_legend(set, element, classes);
+      gis::detail::build_grade_legend(set, element, classes);
   commit.idw =
-      gis::detail::run_geochem_idw(set, element, cells, power, threshold,
+      gis::detail::run_idw(set, element, cells, power, threshold,
                                   k_sigma);
   commit.has_idw = commit.idw.ok;
   if (!commit.idw.ok) {
@@ -335,7 +339,7 @@ bool geochem_analyze_compute(std::string_view args_json) {
   std::string mask_out;
   args_json_string(args, "mask_output", &mask_out);
   if (!output.empty()) {
-    (void)gis::detail::write_geochem_idw_geotiff(output, commit.idw, mask_out);
+    (void)gis::detail::write_idw_geotiff(output, commit.idw, mask_out);
   }
 
   if (!publish(nullptr, commit, "geochem.analyze")) {
@@ -402,7 +406,7 @@ bool geochem_style_apply_compute(std::string_view args_json) {
     args_json_int(args, "classes", &classes);
   }
   commit.legend =
-      gis::detail::build_geochem_grade_legend(g_last_samples, element, classes);
+      gis::detail::build_grade_legend(g_last_samples, element, classes);
   attach_cached_idw(&commit);
   if (!publish(nullptr, commit, "geochem.style_apply")) {
     return false;
@@ -427,7 +431,7 @@ bool g_tally_ok = false;
 
 int count_at_or_above(const gis::detail::GeochemSampleSet& set,
                       std::string_view element, double threshold) {
-  const int index = gis::detail::geochem_element_index(set, element);
+  const int index = gis::detail::element_index(set, element);
   if (index < 0) {
     return -1;
   }
@@ -503,7 +507,7 @@ bool geochem_threshold_tally_compute(std::string_view args_json) {
     return false;
   }
   const gis::detail::GeochemElementStats stats =
-      gis::detail::compute_geochem_stats(set, element, /*bins=*/10, k_sigma);
+      gis::detail::compute_stats(set, element, /*bins=*/10, k_sigma);
   if (!stats.ok) {
     set_operation_result(
         std::string("{\"error\":\"") +

@@ -4,12 +4,16 @@
 #include "gis/geo/ops/buffer.h"
 #include "gis/geo/ops/geometry_traits.h"
 #include "gis/geo/ops/indexed_tin.h"
+#include "gis/geo/ops/measure.h"
+#include "gis/geo/ops/predicate.h"
+#include "gis/geo/ops/shape.h"
 #include "gis/geo/ops/vector_traits.h"
 #include "gis/envelope.h"
 
 #include "ogr_geometry.h"
 
 #include <cstdio>
+#include <string>
 
 namespace {
 
@@ -77,6 +81,40 @@ int main() {
     expect(env.MaxX > 0.5 && env.MinX < -0.5, "buffer extent");
     delete buffered;
   }
+
+  expect(geo::is_valid(a), "square valid");
+  expect(geo::is_simple(a), "square simple");
+  OGRGeometry* pos = geo::point_on_surface(a);
+  expect(pos != nullptr && geo::covers(static_cast<const OGRGeometry&>(a), *pos),
+         "point_on_surface in poly");
+  delete pos;
+  OGRGeometry* mrr = geo::minimum_rotated_rectangle(a);
+  expect(mrr != nullptr && !mrr->IsEmpty(), "min rotated rect");
+  delete mrr;
+  OGRGeometry* uu = geo::unary_union(a);
+  expect(uu != nullptr && geo::is_valid(*uu), "unary_union valid");
+  delete uu;
+  OGRGeometry* dens = geo::densify(a, 0.5);
+  expect(dens != nullptr, "densify");
+  delete dens;
+  double haus = -1.0;
+  expect(geo::hausdorff_distance(a, b, &haus) && haus >= 0.0, "hausdorff");
+  const std::string de9im = geo::relate_de9im(a, b);
+  expect(de9im.size() == 9, "relate DE-9IM length");
+  OGRMultiPoint sites;
+  sites.addGeometryDirectly(new OGRPoint(0.0, 0.0));
+  sites.addGeometryDirectly(new OGRPoint(1.0, 0.0));
+  sites.addGeometryDirectly(new OGRPoint(0.0, 1.0));
+  sites.addGeometryDirectly(new OGRPoint(1.0, 1.0));
+  OGRGeometry* delaunay_mesh = geo::make_delaunay(sites);
+  expect(delaunay_mesh != nullptr && !delaunay_mesh->IsEmpty(), "make_delaunay");
+  delete delaunay_mesh;
+  OGRGeometry* vor = geo::voronoi(sites);
+  expect(vor != nullptr && !vor->IsEmpty(), "voronoi");
+  delete vor;
+  OGRGeometry* repaired = geo::make_valid(a);
+  expect(repaired != nullptr && geo::is_valid(*repaired), "make_valid square");
+  delete repaired;
 
   OGRPoint ta(0.0, 0.0, 1.0);
   OGRPoint tb(1.0, 0.0, 1.0);

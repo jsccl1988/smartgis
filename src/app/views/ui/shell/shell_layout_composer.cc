@@ -15,6 +15,8 @@
 
 #include "app/views/browser/browser.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
+#include "base/trace/event/process_trace.h"
+#include "ui/gis/catalog/catalog_view.h"
 #include "ui/gis/catalog/catalog_view.h"
 #include "ui/gis/debug/diagnostic_tools_panel.h"
 #include "ui/gis/inspect/attribute_table.h"
@@ -28,44 +30,28 @@
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/kernel/widget/widget.h"
 #include "ui/views/map/viewport/draw_host.h"
-#include "ui/views/markup/loader/markup_loader.h"
+#include "ui/gis/shell/main_app_markup.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 
 namespace app {
 namespace {
 
-// Must match show_shell re-pin (catalog 288 / inspector 320). A 360/280 seed
-// at build time makes FlyCube Init a stale client; post-show reseed then
-// Resize + second china present inside WaitFirstMapPresent.
+// Must match show_shell re-pin (catalog 288 / inspector 240). Wider Feature
+// docks eat the right 22% map band (ui_shell_dark inspector_not_huge).
 constexpr int kCatalogWDip = 288;
-constexpr int kInspectorWDip = 320;
+constexpr int kInspectorWDip = 240;
 
-void mount_fill(ui::views::View* host, std::unique_ptr<ui::views::View> child) {
-  if (!host || !child) {
-    return;
-  }
-  // Destroy markup children inside ui_views.dll — do not pull unique_ptr<View>
-  // into this EXE TU (Debug STL free of DLL-owned nodes poisons the heap).
-  host->remove_all_children();
-  ui::views::install_fill_layout(host);
-  host->add_child(std::move(child));
-}
-
-std::unique_ptr<ui::views::View> make_inspector_placeholder() {
-  auto page = std::make_unique<ui::views::View>();
+ui::views::View* make_inspector_placeholder() {
+  ui::views::View* page = ui::views::view_new();
   page->set_preferred_size({280, 180});
   return page;
 }
 
-std::unique_ptr<ui::views::CatalogView> make_catalog_page(const char* title) {
-  auto catalog = std::make_unique<ui::views::CatalogView>();
+ui::views::CatalogView* make_catalog_page(const char* title) {
+  ui::views::CatalogView* catalog = ui::views::CatalogView::create_raw();
   catalog->set_preferred_size({kCatalogWDip, 0});
   catalog->set_title(title ? title : "Catalog");
-  if (catalog->source_tabs()) {
-    catalog->source_tabs()->set_header_placement(
-        ui::views::TabStrip::HeaderPlacement::kTop);
-  }
   return catalog;
 }
 
@@ -104,18 +90,18 @@ void ShellLayoutComposer::inspector_tab_change_trampoline(void* baton,
   }
 }
 
-std::unique_ptr<ui::views::TabStrip> ShellLayoutComposer::make_catalog_mode_tabs() {
-  auto mode = std::make_unique<ui::views::TabStrip>();
+ui::views::TabStrip* ShellLayoutComposer::make_catalog_mode_tabs() {
+  ui::views::TabStrip* mode = ui::views::tab_strip_new();
   mode->set_preferred_size({kCatalogWDip, 0});
   mode->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
-  auto c2d = make_catalog_page("Catalog");
-  auto c3d = make_catalog_page("Catalog");
-  host_->catalog_2d_ = c2d.get();
-  host_->catalog_3d_ = c3d.get();
+  ui::views::CatalogView* c2d = make_catalog_page("Catalog");
+  ui::views::CatalogView* c3d = make_catalog_page("Catalog");
+  host_->catalog_2d_ = c2d;
+  host_->catalog_3d_ = c3d;
   host_->catalog_ = host_->catalog_2d_;
-  mode->add_tab("2D", std::move(c2d));
-  mode->add_tab("3D", std::move(c3d));
-  host_->catalog_mode_tabs_ = mode.get();
+  ui::views::tab_strip_adopt_tab(mode, "2D", c2d);
+  ui::views::tab_strip_adopt_tab(mode, "3D", c3d);
+  host_->catalog_mode_tabs_ = mode;
   return mode;
 }
 
@@ -132,141 +118,185 @@ bool ShellLayoutComposer::build_from_markup() {
   if (!host_) {
     return false;
   }
-  // Cross-DLL: construct MarkupRoot in this TU and fill via load_markup_into.
-  // Returning MarkupRoot by value from ui_views.dll (load_markup) NRVO-corrupts
-  // the EXE slot → heap 0xC0000374 on a later free (often AmboxView pugixml).
-  ui::views::MarkupRoot loaded;
-  if (!ui::views::load_markup_into("shell/main_app.ui.xml", {}, &loaded) ||
-      !loaded.ok() || !loaded.root) {
-    if (!loaded.error.empty()) {
-      std::fprintf(stderr, "shell: load_markup: %s\n", loaded.error.c_str());
+  ui::views::MainAppMarkupSession* session = nullptr;
+  {
+    BASE_TRACE_EVENT("BuildContents.MainMarkup", "startup");
+    session = ui::views::main_app_markup_load("shell/main_app.ui.xml");
+    if (!session || !ui::views::main_app_markup_ok(session)) {
+      if (session) {
+        std::fprintf(stderr, "shell: load_markup: %s\n",
+                     ui::views::main_app_markup_error(session));
+      }
+      ui::views::main_app_markup_release(session);
+      return false;
     }
+  }
+
+  ui::views::MainAppMarkupHosts hosts{};
+  if (!ui::views::main_app_markup_fill_hosts(session, &hosts)) {
+    std::fprintf(stderr, "shell: main_app.ui.xml missing required hosts\n");
+    ui::views::main_app_markup_release(session);
     return false;
   }
 
-  auto* menu_bar = loaded.ids.find_as<ui::views::MenuBar>("menu_bar");
-  auto* catalog_host = loaded.ids.find("catalog_host");
-  auto* map_tabs_host = loaded.ids.find("map_tabs_host");
-  auto* tool_bar_host = loaded.ids.find("tool_bar_host");
-  auto* inspector_host = loaded.ids.find("inspector_host");
-  auto* diagnostic_host = loaded.ids.find("diagnostic_host");
-  auto* status_host = loaded.ids.find("status_host");
-  auto* catalog_map = loaded.ids.find_as<ui::views::Splitter>("catalog_map");
-  auto* main_split = loaded.ids.find_as<ui::views::Splitter>("main_split");
-  auto* work = loaded.ids.find_as<ui::views::Splitter>("work");
-  if (!menu_bar || !catalog_host || !map_tabs_host || !tool_bar_host ||
-      !inspector_host || !diagnostic_host || !status_host || !catalog_map ||
-      !main_split || !work) {
-    std::fprintf(stderr, "shell: main_app.ui.xml missing required hosts\n");
-    return false;
-  }
+  ui::views::MenuBar* menu_bar = hosts.menu_bar;
+  ui::views::View* catalog_host = hosts.catalog_host;
+  ui::views::View* map_tabs_host = hosts.map_tabs_host;
+  ui::views::View* tool_bar_host = hosts.tool_bar_host;
+  ui::views::View* inspector_host = hosts.inspector_host;
+  ui::views::View* diagnostic_host = hosts.diagnostic_host;
+  ui::views::View* status_host = hosts.status_host;
+  ui::views::Splitter* catalog_map = hosts.catalog_map;
+  ui::views::Splitter* main_split = hosts.main_split;
+  ui::views::Splitter* work = hosts.work;
 
   host_->menu_bar_ = menu_bar;
   // rebuild_menus → MenuBar::refresh_preferred_size (non-zero width). Do not
   // pin {0, 32}: Yoga measure with width 0 collapses File/Edit/View/Layer
   // (CSS width:100% is rejected by the px parser).
-  host_->rebuild_menus();
+  {
+    BASE_TRACE_EVENT("BuildContents.RebuildMenus", "startup");
+    host_->rebuild_menus();
+  }
 
   // Dual Catalog: outer 2D|3D mirrors Map|3D; each page is a full CatalogView.
-  auto catalog_modes = make_catalog_mode_tabs();
-  catalog_host->set_preferred_size({kCatalogWDip, 0});
-  mount_fill(catalog_host, std::move(catalog_modes));
-  host_->wire_catalog();
+  {
+    BASE_TRACE_EVENT("BuildContents.Catalog", "startup");
+    ui::views::TabStrip* catalog_modes = make_catalog_mode_tabs();
+    catalog_host->set_preferred_size({kCatalogWDip, 0});
+    ui::views::view_mount_fill_child(catalog_host, catalog_modes);
+    host_->wire_catalog();
+  }
 
-  auto map_tabs = std::make_unique<ui::views::TabStrip>();
-  auto map_edit = ui::views::make_draw_host();
-  auto gis_scene = ui::views::make_draw_host();
-  host_->map_edit_ = map_edit.get();
-  host_->map_data_ = nullptr;
-  host_->map_scene_ = gis_scene.get();
-  host_->map_edit_->set_role(ui::views::DrawHost::Role::kMapEdit);
-  host_->map_scene_->set_role(ui::views::DrawHost::Role::kScene3d);
-  map_tabs->add_tab("Map", std::move(map_edit));
-  map_tabs->add_tab("3D", std::move(gis_scene));
-  map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
-  map_tabs->set_preferred_size({0, 0});
-  map_tabs->set_change_fn(&ShellLayoutComposer::map_tab_change_trampoline,
-                          host_);
-  host_->map_tabs_ = map_tabs.get();
-  map_tabs_host->set_preferred_size({0, 0});
-  mount_fill(map_tabs_host, std::move(map_tabs));
+  {
+    BASE_TRACE_EVENT("BuildContents.MapTabs", "startup");
+    ui::views::TabStrip* map_tabs = ui::views::tab_strip_new();
+    ui::views::DrawHost* map_edit = ui::views::draw_host_new();
+    ui::views::DrawHost* gis_scene = ui::views::draw_host_new();
+    host_->map_edit_ = map_edit;
+    host_->map_data_ = nullptr;
+    host_->map_scene_ = gis_scene;
+    host_->map_edit_->set_role(ui::views::DrawHost::Role::kMapEdit);
+    host_->map_scene_->set_role(ui::views::DrawHost::Role::kScene3d);
+    ui::views::tab_strip_adopt_tab(map_tabs, "Map", map_edit);
+    ui::views::tab_strip_adopt_tab(map_tabs, "3D", gis_scene);
+    map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
+    map_tabs->set_preferred_size({0, 0});
+    map_tabs->set_change_fn(&ShellLayoutComposer::map_tab_change_trampoline,
+                            host_);
+    host_->map_tabs_ = map_tabs;
+    map_tabs_host->set_preferred_size({0, 0});
+    ui::views::view_mount_fill_child(map_tabs_host, map_tabs);
+  }
 
   catalog_map->set_preferred_size({0, 0});
   host_->catalog_map_ = catalog_map;
 
-  auto tool_bar = std::make_unique<ui::views::AmboxView>();
-  tool_bar->set_orientation(ui::views::AmboxView::Orientation::kHorizontal);
-  // 48 DIP: glyph+label row must clear clip at 125–200% DPI.
-  // Width 0 lets Yoga shrink-wrap packed chips on the map stack.
-  // .tool_bar CSS height caps the band; do not copy a stretched host height.
-  tool_bar->set_preferred_size({0, 48});
-  host_->ambox_ = tool_bar.get();
-  host_->ambox_->set_command_handler_fn(&ambox_command_trampoline, host_);
-  tool_bar_host->set_preferred_size({0, 48});
-  mount_fill(tool_bar_host, std::move(tool_bar));
+  {
+    BASE_TRACE_EVENT("BuildContents.AmboxInspector", "startup");
+    {
+      BASE_TRACE_EVENT("BuildContents.AmboxCtor", "startup");
+      ui::views::AmboxView* tool_bar = ui::views::ambox_view_new();
+      tool_bar->set_orientation(ui::views::AmboxView::Orientation::kHorizontal);
+      // 48 DIP: glyph+label row must clear clip at 125–200% DPI.
+      // Width 0 lets Yoga shrink-wrap packed chips on the map stack.
+      // .tool_bar CSS height caps the band; do not copy a stretched host height.
+      tool_bar->set_preferred_size({0, 48});
+      host_->ambox_ = tool_bar;
+      host_->ambox_->set_command_handler_fn(&ambox_command_trampoline, host_);
+      tool_bar_host->set_preferred_size({0, 48});
+      ui::views::view_mount_fill_child(tool_bar_host, tool_bar);
 
-  auto side = std::make_unique<ui::views::TabStrip>();
-  // Idle Feature copy; 320 matches show_shell so attach Init is the shown width.
-  side->set_preferred_size({kInspectorWDip, 0});
-  auto ambox_page = std::make_unique<ui::views::AmboxView>();
-  ambox_page->set_preferred_size({kInspectorWDip, 0});
-  ambox_page->set_command_handler_fn(&ambox_command_trampoline, host_);
-  host_->side_ambox_ = ambox_page.get();
-  side->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
-  side->add_tab("Tools", std::move(ambox_page));
-  host_->feature_info_tab_ =
-      side->add_tab("Feature", make_inspector_placeholder());
-  side->add_tab("Attrs", make_inspector_placeholder());
-  host_->measure_tab_ = side->add_tab("Measure", make_inspector_placeholder());
-  host_->selection_tab_ =
-      side->add_tab("Selection", make_inspector_placeholder());
-  host_->layer_props_tab_ = side->add_tab("Layer", make_inspector_placeholder());
-  host_->legend_tab_ = side->add_tab("Legend", make_inspector_placeholder());
-  host_->spatial_analysis_tab_ =
-      side->add_tab("Analysis", make_inspector_placeholder());
-  host_->processing_tab_ =
-      side->add_tab("Processing", make_inspector_placeholder());
-  host_->playback_tab_ = side->add_tab("Play", make_inspector_placeholder());
-  host_->report_tab_ = side->add_tab("Report", make_inspector_placeholder());
-  host_->atmosphere_tab_ =
-      side->add_tab("Atmosphere", make_inspector_placeholder());
-  host_->plugins_tab_ = side->add_tab("Plugins", make_inspector_placeholder());
-  side->set_active(0);  // Tools. Identify switches to Feature.
-  host_->inspector_tabs_ = side.get();
-  inspector_host->set_preferred_size({kInspectorWDip, 0});
-  mount_fill(inspector_host, wrap_inspector(std::move(side)));
-  // After side_ambox_ is live — AmboxView ctor seeds Select/Edit; map bar keeps
-  // them, right dock is cleared to plugin groups only (visual_review #3).
-  host_->populate_ambox();
+      ui::views::TabStrip* side = ui::views::tab_strip_new();
+      // Idle Feature copy; 320 matches show_shell so attach Init is the shown
+      // width.
+      side->set_preferred_size({kInspectorWDip, 0});
+      ui::views::AmboxView* ambox_page = ui::views::ambox_view_new();
+      ambox_page->set_preferred_size({kInspectorWDip, 0});
+      ambox_page->set_command_handler_fn(&ambox_command_trampoline, host_);
+      host_->side_ambox_ = ambox_page;
+      side->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
+      ui::views::tab_strip_adopt_tab(side, "Tools", ambox_page);
+      host_->feature_info_tab_ =
+          ui::views::tab_strip_adopt_tab(side, "Feature",
+                                         make_inspector_placeholder());
+      ui::views::tab_strip_adopt_tab(side, "Attrs", make_inspector_placeholder());
+      host_->measure_tab_ =
+          ui::views::tab_strip_adopt_tab(side, "Measure",
+                                         make_inspector_placeholder());
+      host_->selection_tab_ =
+          ui::views::tab_strip_adopt_tab(side, "Selection",
+                                         make_inspector_placeholder());
+      host_->layer_props_tab_ =
+          ui::views::tab_strip_adopt_tab(side, "Layer",
+                                         make_inspector_placeholder());
+      host_->legend_tab_ =
+          ui::views::tab_strip_adopt_tab(side, "Legend",
+                                         make_inspector_placeholder());
+      host_->spatial_analysis_tab_ =
+          ui::views::tab_strip_adopt_tab(side, "Analysis",
+                                         make_inspector_placeholder());
+      host_->processing_tab_ =
+          ui::views::tab_strip_adopt_tab(side, "Processing",
+                                         make_inspector_placeholder());
+      host_->playback_tab_ =
+          ui::views::tab_strip_adopt_tab(side, "Play",
+                                         make_inspector_placeholder());
+      host_->report_tab_ =
+          ui::views::tab_strip_adopt_tab(side, "Report",
+                                         make_inspector_placeholder());
+      host_->atmosphere_tab_ =
+          ui::views::tab_strip_adopt_tab(side, "Atmosphere",
+                                         make_inspector_placeholder());
+      host_->plugins_tab_ =
+          ui::views::tab_strip_adopt_tab(side, "Plugins",
+                                         make_inspector_placeholder());
+      side->set_active(0);  // Tools. Identify switches to Feature.
+      host_->inspector_tabs_ = side;
+      inspector_host->set_preferred_size({kInspectorWDip, 0});
+      ui::views::view_mount_fill_child(inspector_host, wrap_inspector(side));
+    }
+    // After side_ambox_ is live — AmboxView ctor seeds Select/Edit; map bar
+    // keeps them, right dock is cleared to plugin groups only (visual_review
+    // #3).
+    {
+      BASE_TRACE_EVENT("BuildContents.PopulateAmbox", "startup");
+      host_->populate_ambox();
+    }
+  }
 
   work->set_preferred_size({0, 0});
   main_split->set_preferred_size({0, 0});
   // Flex map column absorbs growth; inspector stays preferred dock width.
   // .tool_bar height/max-height are 48 DIP (scaled). Do not drop the cap:
   // the shared Ambox markup is a 240 DIP dock and will reopen the black band.
-  if (ui::views::View* map_column = loaded.ids.find("map_column")) {
-    map_column->set_preferred_size({0, 0});
+  if (hosts.map_column) {
+    hosts.map_column->set_preferred_size({0, 0});
   }
 
-  auto diagnostic_tools = ui::views::make_diagnostic_tools_panel();
-  host_->diagnostic_tools_ = diagnostic_tools.get();
-  // Product shell shows Diagnostic Tools. Default Output — Trace gantt
-  // previously consumed the map work area on interact/scene/data captures.
-  host_->diagnostic_tools_->set_visible_tools(true);
-  host_->diagnostic_tools_->set_active_tab(0);
-  // Prefer panel DIP→px metrics; do not pin a smaller host that clips the
-  // Output/Console/Trace/Memory body under the toolbar.
   {
-    const int kDiagH =
-        host_->diagnostic_tools_->preferred_size().height > 0
-            ? host_->diagnostic_tools_->preferred_size().height
-            : 260;
-    host_->diagnostic_tools_->set_preferred_size({0, kDiagH});
-    diagnostic_host->set_preferred_size({0, kDiagH});
+    BASE_TRACE_EVENT("BuildContents.DiagnosticTools", "startup");
+    ui::views::DiagnosticToolsPanel* diagnostic_tools =
+        ui::views::diagnostic_tools_panel_new();
+    host_->diagnostic_tools_ = diagnostic_tools;
+    // Product shell shows Diagnostic Tools. Default Output — Trace gantt
+    // previously consumed the map work area on interact/scene/data captures.
+    host_->diagnostic_tools_->set_visible_tools(true);
+    host_->diagnostic_tools_->set_active_tab(0);
+    // Prefer panel DIP→px metrics; do not pin a smaller host that clips the
+    // Output/Console/Trace/Memory body under the toolbar.
+    {
+      const int kDiagH =
+          host_->diagnostic_tools_->preferred_size().height > 0
+              ? host_->diagnostic_tools_->preferred_size().height
+              : 260;
+      host_->diagnostic_tools_->set_preferred_size({0, kDiagH});
+      diagnostic_host->set_preferred_size({0, kDiagH});
+    }
+    ui::views::view_mount_fill_child(diagnostic_host, diagnostic_tools);
+    host_->wire_debug_console();
+    host_->attach_plugin_shell_ui();
   }
-  mount_fill(diagnostic_host, std::move(diagnostic_tools));
-  host_->wire_debug_console();
-  host_->attach_plugin_shell_ui();
   if (host_->inspector_host_) {
     // Plugins is the default dock page. Catalog fill is deferred until after
     // the shell is up (see schedule_deferred_plugin_panel).
@@ -275,148 +305,164 @@ bool ShellLayoutComposer::build_from_markup() {
         InspectorGroupBar::Group::kExtend, /*materialize=*/false);
   }
 
-  auto status = ui::views::make_status_bar();
-  host_->status_bar_ = status.get();
-  status_host->set_preferred_size({0, 32});
-  mount_fill(status_host, std::move(status));
-  if (host_->status_bar_) {
-    host_->status_bar_->set_message("Ready");
-    host_->status_bar_->set_scale_text("1:1000");
-    host_->status_bar_->set_crs_text("CRS");
-    host_->status_bar_->set_coord_text("XY");
-  }
+  {
+    BASE_TRACE_EVENT("BuildContents.StatusFrame", "startup");
+    {
+      BASE_TRACE_EVENT("BuildContents.StatusBar", "startup");
+      ui::views::StatusBar* status = ui::views::status_bar_new();
+      host_->status_bar_ = status;
+      status_host->set_preferred_size({0, 32});
+      ui::views::view_mount_fill_child(status_host, status);
+      if (host_->status_bar_) {
+        host_->status_bar_->set_message("Ready");
+        host_->status_bar_->set_scale_text("1:1000");
+        host_->status_bar_->set_crs_text("CRS");
+        host_->status_bar_->set_coord_text("XY");
+      }
+    }
 
-  // Prefer flex fill over designer CSS fixed canvas size.
-  loaded.root->set_preferred_size({0, 0});
+    ui::views::main_app_markup_set_root_preferred_size(session, 0, 0);
 
-  auto frame = ui::views::make_frame_view();
-  frame->set_title("SmartGIS Views");
-  frame->set_can_maximize(true);
-  frame->set_client(std::move(loaded.root));
-  host_->widget_.set_contents_view(std::move(frame));
-  // After attach, preferred sizes are already DPI-scaled. Re-pin with
-  // dip_to_px — raw DIP constants here crushed the Feature dock under HiDPI
-  // (visual_review: "Click the map to ide…").
-  const float scale = host_->widget_.device_scale_factor();
-  const int inspector_w = ui::views::dip_to_px(kInspectorWDip, scale);
-  // Reseed after preferred sizes settle so catalog is not locked at kMinPanePx
-  // from a create-time zero/tiny host.
-  catalog_map->reseed();
-  // Re-pin inspector dock width before work reseed so TabStrip layout measure
-  // cannot inflate the secondary pane past the product dock.
-  inspector_host->set_preferred_size({inspector_w, 0});
-  if (host_->inspector_tabs_) {
-    host_->inspector_tabs_->set_preferred_size({inspector_w, 0});
+    {
+      BASE_TRACE_EVENT("BuildContents.SetContents", "startup");
+      ui::views::FrameView* frame = ui::views::make_frame_view_raw();
+      frame->set_title("SmartGIS Views");
+      frame->set_can_maximize(true);
+      frame->adopt_client(ui::views::main_app_markup_take_root(session));
+      host_->widget_.adopt_contents_view(frame);
+    }
+    // After attach, preferred sizes are already DPI-scaled. Re-pin with
+    // dip_to_px — raw DIP constants here crushed the Feature dock under HiDPI
+    // (visual_review: "Click the map to ide…").
+    {
+      BASE_TRACE_EVENT("BuildContents.Reseed", "startup");
+      const float scale = host_->widget_.device_scale_factor();
+      const int inspector_w = ui::views::dip_to_px(kInspectorWDip, scale);
+      // Pin preferred sizes first, then one reseed cascade — a second
+      // main_split->reseed after diagnostic re-pin duplicated Yoga layout
+      // (~seconds on Debug cold BuildContents.StatusFrame).
+      inspector_host->set_preferred_size({inspector_w, 0});
+      if (host_->inspector_tabs_) {
+        host_->inspector_tabs_->set_preferred_size({inspector_w, 0});
+      }
+      if (host_->inspector_host_) {
+        host_->inspector_host_->set_group_bar_extent(
+            inspector_w, ui::views::dip_to_px(26, scale));
+      }
+      if (host_->diagnostic_tools_) {
+        const int kDiagH =
+            host_->diagnostic_tools_->preferred_size().height > 0
+                ? host_->diagnostic_tools_->preferred_size().height
+                : ui::views::dip_to_px(260, scale);
+        diagnostic_host->set_preferred_size({0, kDiagH});
+        host_->diagnostic_tools_->set_preferred_size({0, kDiagH});
+      }
+      // Reseed after preferred sizes settle so catalog is not locked at
+      // kMinPanePx from a create-time zero/tiny host.
+      catalog_map->reseed();
+      work->reseed();
+      main_split->reseed();
+    }
   }
-  if (host_->inspector_host_) {
-    host_->inspector_host_->set_group_bar_extent(
-        inspector_w, ui::views::dip_to_px(26, scale));
-  }
-  work->reseed();
-  main_split->reseed();
-  // Re-pin diagnostic dock after reseed — keep host+child aligned.
-  if (host_->diagnostic_tools_) {
-    const int kDiagH =
-        host_->diagnostic_tools_->preferred_size().height > 0
-            ? host_->diagnostic_tools_->preferred_size().height
-            : ui::views::dip_to_px(260, scale);
-    diagnostic_host->set_preferred_size({0, kDiagH});
-    host_->diagnostic_tools_->set_preferred_size({0, kDiagH});
-    main_split->reseed();
-  }
+  ui::views::main_app_markup_release(session);
   return true;
 }
 
 void ShellLayoutComposer::build_imperative() {
-  auto root = std::make_unique<ui::views::View>();
-  // root_box installed after children exist (see install_box_layout below).
+  ui::views::View* root = ui::views::view_new();
   ui::views::BoxLayout* root_box = nullptr;
 
-  auto menu = std::make_unique<ui::views::MenuBar>();
-  host_->menu_bar_ = menu.get();
+  ui::views::MenuBar* menu = ui::views::menu_bar_new();
+  host_->menu_bar_ = menu;
   host_->rebuild_menus();
 
-  auto catalog_modes = make_catalog_mode_tabs();
+  ui::views::TabStrip* catalog_modes = make_catalog_mode_tabs();
   host_->wire_catalog();
 
-  auto map_tabs = std::make_unique<ui::views::TabStrip>();
-  auto map_edit = ui::views::make_draw_host();
-  auto gis_scene = ui::views::make_draw_host();
-  host_->map_edit_ = map_edit.get();
+  ui::views::TabStrip* map_tabs = ui::views::tab_strip_new();
+  ui::views::DrawHost* map_edit = ui::views::draw_host_new();
+  ui::views::DrawHost* gis_scene = ui::views::draw_host_new();
+  host_->map_edit_ = map_edit;
   host_->map_data_ = nullptr;
-  host_->map_scene_ = gis_scene.get();
+  host_->map_scene_ = gis_scene;
   host_->map_edit_->set_role(ui::views::DrawHost::Role::kMapEdit);
   host_->map_scene_->set_role(ui::views::DrawHost::Role::kScene3d);
-  map_tabs->add_tab("Map", std::move(map_edit));
-  map_tabs->add_tab("3D", std::move(gis_scene));
+  ui::views::tab_strip_adopt_tab(map_tabs, "Map", map_edit);
+  ui::views::tab_strip_adopt_tab(map_tabs, "3D", gis_scene);
   map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   map_tabs->set_preferred_size({0, 0});
   map_tabs->set_change_fn(&ShellLayoutComposer::map_tab_change_trampoline,
                           host_);
-  host_->map_tabs_ = map_tabs.get();
+  host_->map_tabs_ = map_tabs;
 
-  auto tool_bar = std::make_unique<ui::views::AmboxView>();
+  ui::views::AmboxView* tool_bar = ui::views::ambox_view_new();
   tool_bar->set_orientation(ui::views::AmboxView::Orientation::kHorizontal);
   tool_bar->set_preferred_size({0, 48});
-  host_->ambox_ = tool_bar.get();
+  host_->ambox_ = tool_bar;
   host_->ambox_->set_command_handler_fn(&ambox_command_trampoline, host_);
 
-  auto catalog_map = std::make_unique<ui::views::Splitter>(
+  ui::views::Splitter* catalog_map = ui::views::splitter_new(
       ui::views::Splitter::Orientation::kHorizontal);
   catalog_map->set_preferred_size({0, 0});
-  catalog_map->add_child(std::move(catalog_modes));
-  catalog_map->add_child(std::move(map_tabs));
-  host_->catalog_map_ = catalog_map.get();
+  ui::views::view_adopt_child(catalog_map, catalog_modes);
+  ui::views::view_adopt_child(catalog_map, map_tabs);
+  host_->catalog_map_ = catalog_map;
 
-  auto map_column = std::make_unique<ui::views::View>();
+  ui::views::View* map_column = ui::views::view_new();
   ui::views::BoxLayout* map_column_box = ui::views::install_box_layout(
-      map_column.get(), ui::views::BoxLayout::Orientation::kVertical);
+      map_column, ui::views::BoxLayout::Orientation::kVertical);
   if (map_column_box) {
-    map_column_box->set_flex_for_view(catalog_map.get(), 1);
+    map_column_box->set_flex_for_view(catalog_map, 1);
   }
   map_column->set_preferred_size({0, 0});
-  map_column->add_child(std::move(tool_bar));
-  map_column->add_child(std::move(catalog_map));
+  ui::views::view_adopt_child(map_column, tool_bar);
+  ui::views::view_adopt_child(map_column, catalog_map);
 
-  auto side = std::make_unique<ui::views::TabStrip>();
+  ui::views::TabStrip* side = ui::views::tab_strip_new();
   side->set_preferred_size({kInspectorWDip, 0});
-  auto ambox_page = std::make_unique<ui::views::AmboxView>();
+  ui::views::AmboxView* ambox_page = ui::views::ambox_view_new();
   ambox_page->set_preferred_size({kInspectorWDip, 0});
   ambox_page->set_command_handler_fn(&ambox_command_trampoline, host_);
-  host_->side_ambox_ = ambox_page.get();
+  host_->side_ambox_ = ambox_page;
   side->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
-  side->add_tab("Tools", std::move(ambox_page));
+  ui::views::tab_strip_adopt_tab(side, "Tools", ambox_page);
   host_->feature_info_tab_ =
-      side->add_tab("Feature", make_inspector_placeholder());
-  side->add_tab("Attrs", make_inspector_placeholder());
-  host_->measure_tab_ = side->add_tab("Measure", make_inspector_placeholder());
+      ui::views::tab_strip_adopt_tab(side, "Feature", make_inspector_placeholder());
+  ui::views::tab_strip_adopt_tab(side, "Attrs", make_inspector_placeholder());
+  host_->measure_tab_ =
+      ui::views::tab_strip_adopt_tab(side, "Measure", make_inspector_placeholder());
   host_->selection_tab_ =
-      side->add_tab("Selection", make_inspector_placeholder());
-  host_->layer_props_tab_ = side->add_tab("Layer", make_inspector_placeholder());
-  host_->legend_tab_ = side->add_tab("Legend", make_inspector_placeholder());
-  // side_ambox_ ready — populate map bar + clear ctor Select/Edit on the dock.
+      ui::views::tab_strip_adopt_tab(side, "Selection", make_inspector_placeholder());
+  host_->layer_props_tab_ =
+      ui::views::tab_strip_adopt_tab(side, "Layer", make_inspector_placeholder());
+  host_->legend_tab_ =
+      ui::views::tab_strip_adopt_tab(side, "Legend", make_inspector_placeholder());
   host_->populate_ambox();
   host_->spatial_analysis_tab_ =
-      side->add_tab("Analysis", make_inspector_placeholder());
+      ui::views::tab_strip_adopt_tab(side, "Analysis", make_inspector_placeholder());
   host_->processing_tab_ =
-      side->add_tab("Processing", make_inspector_placeholder());
-  host_->playback_tab_ = side->add_tab("Play", make_inspector_placeholder());
-  host_->report_tab_ = side->add_tab("Report", make_inspector_placeholder());
+      ui::views::tab_strip_adopt_tab(side, "Processing", make_inspector_placeholder());
+  host_->playback_tab_ =
+      ui::views::tab_strip_adopt_tab(side, "Play", make_inspector_placeholder());
+  host_->report_tab_ =
+      ui::views::tab_strip_adopt_tab(side, "Report", make_inspector_placeholder());
   host_->atmosphere_tab_ =
-      side->add_tab("Atmosphere", make_inspector_placeholder());
-  host_->plugins_tab_ = side->add_tab("Plugins", make_inspector_placeholder());
-  side->set_active(0);  // Tools. Identify switches to Feature.
-  host_->inspector_tabs_ = side.get();
-  auto inspector_column = wrap_inspector(std::move(side));
+      ui::views::tab_strip_adopt_tab(side, "Atmosphere", make_inspector_placeholder());
+  host_->plugins_tab_ =
+      ui::views::tab_strip_adopt_tab(side, "Plugins", make_inspector_placeholder());
+  side->set_active(0);
+  host_->inspector_tabs_ = side;
+  ui::views::View* inspector_column = wrap_inspector(side);
 
-  auto work = std::make_unique<ui::views::Splitter>(
+  ui::views::Splitter* work = ui::views::splitter_new(
       ui::views::Splitter::Orientation::kHorizontal);
   work->set_preferred_size({0, 0});
-  work->add_child(std::move(map_column));
-  work->add_child(std::move(inspector_column));
+  ui::views::view_adopt_child(work, map_column);
+  ui::views::view_adopt_child(work, inspector_column);
 
-  auto diagnostic_tools = ui::views::make_diagnostic_tools_panel();
-  host_->diagnostic_tools_ = diagnostic_tools.get();
+  ui::views::DiagnosticToolsPanel* diagnostic_tools =
+      ui::views::diagnostic_tools_panel_new();
+  host_->diagnostic_tools_ = diagnostic_tools;
   host_->diagnostic_tools_->set_visible_tools(true);
   host_->diagnostic_tools_->set_active_tab(0);
   host_->wire_debug_console();
@@ -427,14 +473,14 @@ void ShellLayoutComposer::build_imperative() {
         InspectorGroupBar::Group::kExtend, /*materialize=*/false);
   }
 
-  auto main_split = std::make_unique<ui::views::Splitter>(
+  ui::views::Splitter* main_split = ui::views::splitter_new(
       ui::views::Splitter::Orientation::kVertical);
   main_split->set_preferred_size({0, 0});
-  main_split->add_child(std::move(work));
-  main_split->add_child(std::move(diagnostic_tools));
+  ui::views::view_adopt_child(main_split, work);
+  ui::views::view_adopt_child(main_split, diagnostic_tools);
 
-  auto status = ui::views::make_status_bar();
-  host_->status_bar_ = status.get();
+  ui::views::StatusBar* status = ui::views::status_bar_new();
+  host_->status_bar_ = status;
   if (host_->status_bar_) {
     host_->status_bar_->set_message("Ready");
     host_->status_bar_->set_scale_text("1:1000");
@@ -443,24 +489,24 @@ void ShellLayoutComposer::build_imperative() {
   }
 
   root_box = ui::views::install_box_layout(
-      root.get(), ui::views::BoxLayout::Orientation::kVertical);
+      root, ui::views::BoxLayout::Orientation::kVertical);
   if (root_box) {
-    root_box->set_flex_for_view(main_split.get(), 1);
+    root_box->set_flex_for_view(main_split, 1);
   }
-  root->add_child(std::move(menu));
-  root->add_child(std::move(main_split));
-  root->add_child(std::move(status));
+  ui::views::view_adopt_child(root, menu);
+  ui::views::view_adopt_child(root, main_split);
+  ui::views::view_adopt_child(root, status);
 
-  auto frame = ui::views::make_frame_view();
+  ui::views::FrameView* frame = ui::views::make_frame_view_raw();
   frame->set_title("SmartGIS Views");
   frame->set_can_maximize(true);
-  frame->set_client(std::move(root));
-  host_->widget_.set_contents_view(std::move(frame));
+  frame->adopt_client(root);
+  host_->widget_.adopt_contents_view(frame);
 }
 
-std::unique_ptr<ui::views::View> ShellLayoutComposer::wrap_inspector(
-    std::unique_ptr<ui::views::TabStrip> side) {
-  auto bar = std::make_unique<InspectorGroupBar>();
+ui::views::View* ShellLayoutComposer::wrap_inspector(
+    ui::views::TabStrip* side) {
+  auto* bar = new InspectorGroupBar();
   bar->set_preferred_size({kInspectorWDip, 26});
   bar->set_change([this](InspectorGroupBar::Group group) {
     if (host_->inspector_host_) {
@@ -468,19 +514,19 @@ std::unique_ptr<ui::views::View> ShellLayoutComposer::wrap_inspector(
     }
   });
   if (host_->inspector_host_) {
-    host_->inspector_host_->bind_group_bar(bar.get());
+    host_->inspector_host_->bind_group_bar(bar);
   }
   side->set_change_fn(&ShellLayoutComposer::inspector_tab_change_trampoline,
                       host_);
-  auto column = std::make_unique<ui::views::View>();
+  ui::views::View* column = ui::views::view_new();
   ui::views::BoxLayout* box = ui::views::install_box_layout(
-      column.get(), ui::views::BoxLayout::Orientation::kVertical);
+      column, ui::views::BoxLayout::Orientation::kVertical);
   if (box) {
-    box->set_flex_for_view(side.get(), 1);
+    box->set_flex_for_view(side, 1);
   }
   column->set_preferred_size({kInspectorWDip, 0});
-  column->add_child(std::move(bar));
-  column->add_child(std::move(side));
+  ui::views::view_adopt_child(column, bar);
+  ui::views::view_adopt_child(column, side);
   return column;
 }
 

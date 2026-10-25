@@ -86,6 +86,17 @@ class Map2dFrameCache {
     kStaticReuse,
   };
 
+  // T1.0 observational bits for present dual-track (see render-rhi §Present
+  // dual-track ceiling). Does not drive rebuild/reuse decisions until T1.1+.
+  struct PresentDamageReasons {
+    static constexpr uint32_t kNone = 0;
+    static constexpr uint32_t kCameraOnly = 1u << 0;
+    static constexpr uint32_t kContent = 1u << 1;
+    static constexpr uint32_t kSelection = 1u << 2;
+    static constexpr uint32_t kShellOverlay = 1u << 3;
+    static constexpr uint32_t kSizeZoom = 1u << 4;
+  };
+
   // Lock-free handles for Display present (no public mutex()/frame()).
   struct PresentSnapshot {
     std::shared_ptr<const vista::MapIR> frame;
@@ -131,6 +142,11 @@ class Map2dFrameCache {
   bool last_present_reused_layout() const {
     return last_present_reused_layout_.load(std::memory_order_acquire);
   }
+  uint32_t last_damage_reasons() const {
+    return last_damage_reasons_.load(std::memory_order_acquire);
+  }
+  // OR extra bits (e.g. selection/shell from gpu present) into last + phase.
+  void or_present_damage_reasons(uint32_t bits);
 
   // Host-baked DEM hillshade / heatmap density RGBA for textured rasters.
   // Soft-fails when the key is unknown or the bake is missing.
@@ -159,6 +175,7 @@ class Map2dFrameCache {
   bool drain_layout_jobs(bool wait_if_empty, PresentAction* drained_action);
   void publish_job(LayoutJob& job);
   void prefetch_hillshade();
+  void record_present_damage(uint32_t reasons);
 
   // Sync rebuild for ensure_full / cold wait path (not HWND).
   bool rebuild_layout(const CameraKey& cam, const ContentFingerprint& fp,
@@ -195,6 +212,7 @@ class Map2dFrameCache {
   // refresh layout/hillshade; interactive presents omit labels and DEM.
   bool pending_gesture_settle_ = false;
   std::atomic<bool> last_present_reused_layout_{false};
+  std::atomic<uint32_t> last_damage_reasons_{0};
   std::atomic<uint64_t> layout_build_count_{0};
   // Bumped on bind/invalidate/rebuild so in-flight Layout::build can see a
   // newer gen than layout_gen and the host can skip publish.

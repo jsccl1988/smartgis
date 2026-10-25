@@ -10,6 +10,7 @@
 
 #include "gis/edit/optimistic_store.h"
 #include "gis/edit/session.h"
+#include "gis/edit/topology_check.h"
 #include "gis/edit/undo_log.h"
 #include "gis/gis_export.h"
 
@@ -45,11 +46,22 @@ class GIS_EXPORT MemoryEditSession : public EditSession {
   CommitStatus last_status() const;
   const ConflictError* last_conflict() const;
 
+  void set_topology_validation_enabled(bool enabled);
+  bool topology_validation_enabled() const;
+  const TopologyValidationResult& last_topology_result() const;
+  TopologyLayerState* topology_layer_state();
+  const TopologyLayerState* topology_layer_state() const;
+  void set_topology_gap_tolerance(double map_units);
+
  private:
   std::shared_ptr<OptimisticLayerStore> store_;
   UndoLog log_;
+  TopologyLayerState topology_state_;
+  TopologyValidationResult last_topology_;
   CommitStatus last_status_ = CommitStatus::kOk;
   std::optional<ConflictError> last_conflict_;
+  bool topology_validation_enabled_ = true;
+  double topology_gap_tolerance_ = 1e-6;
 };
 
 }  // namespace gis

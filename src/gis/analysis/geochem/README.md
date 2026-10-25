@@ -5,17 +5,24 @@ All rights reserved.
 
 # `gis/analysis/geochem`
 
-Geochemical sample / anomaly kernels (no product plugin UI).
+Geochemical sample / anomaly kernels (no product plugin UI). Layered per
+analysis kernel convention (model → load/io → kernel → op).
 
-| Id | Role |
-| --- | --- |
-| `native.geochem_stats` | CSV → histogram, background/threshold, optional Pearson `r` |
-| `native.geochem_idw` | CSV → IDW Float32 full-extent heat surface (+ optional Byte anomaly mask) |
+| Layer | Path | Role |
+| --- | --- | --- |
+| model | `model/` | `GeochemSample` / `GeochemSampleSet`, `element_index`, `values_for_element` |
+| load | `load/` | CSV / OGR → sample set |
+| stats / idw / grade | `stats/` `idw/` `grade/` | Pure kernels (no JSON, no GeoTIFF write) |
+| io | `io/` | GeoTIFF write for IDW (+ optional anomaly mask) |
+| op | `op/` | `native.geochem_stats` / `native.geochem_idw` via `ops_args` |
+
+Catalog ids (unchanged): `native.geochem_stats`, `native.geochem_idw`.
 
 CSV columns (header required): `lon`/`lat` (or `x`/`y`) + optional `id` + numeric element columns.
 
-In-memory APIs: `load_geochem_csv`, `load_geochem_vector`, `compute_geochem_stats`,
-`run_geochem_idw`, `build_geochem_grade_legend`, `geochem_heat_score` under `gis::detail`.
+In-memory APIs under `gis::detail`: `load_csv`, `load_vector`, `compute_stats`,
+`run_idw`, `build_grade_legend`, `heat_score`, …
 
-Map2d viz (via `GeochemWriter`): graded sample circles over a padded-bbox IDW heat
-raster (`geochem_heat_raster`, style interpolate on numeric `heat` 0..100).
+Map2d viz (via product `GeochemWriter` / present): graded sample circles over a
+padded-bbox IDW heat raster (`geochem_heat_raster`, style interpolate on numeric
+`heat` 0..100).

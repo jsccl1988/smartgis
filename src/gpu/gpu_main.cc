@@ -15,8 +15,8 @@
 #endif
 #include <windows.h>
 
-#include "base/ipc/handle/handle.h"
-#include "base/ipc/invitation/invitation.h"
+#include "common/ipc/handle/handle.h"
+#include "common/ipc/invitation/invitation.h"
 #include "base/process/switches.h"
 #include "content/common/ipc.h"
 #include "gpu/compositor/composer/composer.h"
@@ -236,8 +236,8 @@ bool send_shared_surface(cd::Pipe* pipe,
       return false;
     }
   } else {
-    base::ipc::PlatformHandle attached =
-        base::ipc::PlatformHandle::borrow(local);
+    common::ipc::PlatformHandle attached =
+        common::ipc::PlatformHandle::borrow(local);
     if (!pipe->send_msg(content::HostMsg::kSharedHandle, view_id, w, &attached,
                         1)) {
       return false;
@@ -279,13 +279,13 @@ bool announce_and_paint(cd::Pipe* pipe, uint32_t view_id, SurfaceSlot* slot) {
 }
 
 int run_server(int argc, wchar_t** argv, const Args& args) {
-  base::ipc::PlatformChannel invited =
-      base::ipc::PlatformChannel::from_command_line(argc, argv);
+  common::ipc::PlatformChannel invited =
+      common::ipc::PlatformChannel::from_command_line(argc, argv);
   if (!invited.is_valid() &&
       (args.parent_pid == 0 || args.pipe_name.empty())) {
     std::fprintf(stderr,
-                 "gpu: --parent-pid and --pipe, or --ipc-channel-handle, "
-                 "are required\n");
+                 "gpu: --ipc-channel-handle= (product) or "
+                 "--parent-pid= + --pipe= (leftover) required\n");
     return 2;
   }
 
@@ -313,9 +313,9 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
 
   cd::Pipe pipe;
   if (invited.is_valid()) {
-    base::ipc::IncomingInvitation incoming =
-        base::ipc::IncomingInvitation::accept(std::move(invited));
-    base::ipc::Channel gpu = incoming.extract("gpu");
+    common::ipc::IncomingInvitation incoming =
+        common::ipc::IncomingInvitation::accept(std::move(invited));
+    common::ipc::Channel gpu = incoming.extract("gpu");
     if (!pipe.adopt(std::move(gpu))) {
       std::fprintf(stderr, "gpu: invitation extract failed\n");
       return 3;

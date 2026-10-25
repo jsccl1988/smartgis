@@ -124,6 +124,16 @@ void fill_scene3d_hud_frame(vista::HudFrame* frame, Scene3dGpuPresent* gpu,
 
 }  // namespace
 
+Scene3dGpuPresent::Scene3dGpuPresent() = default;
+
+Scene3dGpuPresent::~Scene3dGpuPresent() {
+  prep_mailbox_.invalidate();
+  if (prep_staging_) {
+    std::lock_guard<std::mutex> lock(prep_staging_->mu);
+    prep_staging_->blob.reset();
+  }
+}
+
 TilesetStreamSession* Scene3dGpuPresent::live_tileset_stream_locked() {
   TilesetStreamSession* stream = tileset_stream_.get();
   if (!stream) {
@@ -444,14 +454,16 @@ void Scene3dGpuPresent::abandon(AtmosphereSession* atmosphere) {
   gpu_scene_.abandon();
   hud_pass_.abandon_gpu();
   shell_overlay_.abandon_gpu();
+  prep_mailbox_.invalidate();
+  if (prep_staging_) {
+    std::lock_guard<std::mutex> staging_lock(prep_staging_->mu);
+    prep_staging_->blob.reset();
+  }
 }
 
-bool Scene3dGpuPresent::rebuild_local_mesh() {
-  // Caller must hold present_mu_ (present / paint).
-  BASE_TRACE_EVENT("mesh", "scene3d.mesh");
+bool Scene3dGpuPresent::needs_local_mesh_rebuild_locked() const {
   const Extent2 extent = world_extent();
   const float orbit_distance = distance();
-  // Warm / same-LOD: skip vector copies + vista rebuild entirely.
   if (dem_local_xyz_count_ > 0 && dem_local_idx_count_ > 0 &&
       dem_local_xyz_count_ <= local_xyz_.size() &&
       dem_local_idx_count_ <= local_idx_.size()) {
@@ -468,6 +480,99 @@ bool Scene3dGpuPresent::rebuild_local_mesh() {
                                              box_maxy)) {
       return false;
     }
+  }
+  return true;
+}
+
+void Scene3dGpuPresent::apply_async_prep_staging_locked(
+    uint64_t published_gen) {
+  if (published_gen == 0 || !prep_staging_) {
+    return;
+  }
+  std::shared_ptr<PrepStagingBlob> blob;
+  {
+    std::lock_guard<std::mutex> lock(prep_staging_->mu);
+    blob = std::move(prep_staging_->blob);
+    prep_staging_->blob.reset();
+  }
+  if (!blob || blob->gen != published_gen || blob->xyz.empty() ||
+      blob->world.node_count() == 0) {
+    return;
+  }
+  terrain_world_ = std::move(blob->world);
+  local_xyz_.swap(blob->xyz);
+  local_idx_.swap(blob->idx);
+  geo_frame_ = blob->geo;
+  terrain_lod_edge_ = blob->lod_edge;
+  dem_local_xyz_count_ = local_xyz_.size();
+  dem_local_idx_count_ = local_idx_.size();
+}
+
+void Scene3dGpuPresent::post_async_cold_prep_locked() {
+  // CPU-only remesh on executor; Display keeps prior mesh for this present.
+  // Atmosphere prepare_for_present (POD) stays on Display — residual T2.1.
+  // Worker captures shared hub + live_gen only (no Scene3dGpuPresent*).
+  const Extent2 extent = world_extent();
+  const float orbit_distance = distance();
+  const OrbitGeoFrame geo = geo_frame_;
+  const int lod = terrain_lod_edge_;
+  const GisScene* scene = scene_;
+  std::vector<float> seed_xyz;
+  std::vector<unsigned> seed_idx;
+  if (dem_local_xyz_count_ > 0 && dem_local_xyz_count_ <= local_xyz_.size()) {
+    seed_xyz.assign(
+        local_xyz_.begin(),
+        local_xyz_.begin() +
+            static_cast<std::ptrdiff_t>(dem_local_xyz_count_));
+  }
+  if (dem_local_idx_count_ > 0 && dem_local_idx_count_ <= local_idx_.size()) {
+    seed_idx.assign(
+        local_idx_.begin(),
+        local_idx_.begin() +
+            static_cast<std::ptrdiff_t>(dem_local_idx_count_));
+  }
+  auto hub = prep_staging_;
+  auto live_gen = prep_mailbox_.live_gen_atomic();
+  (void)prep_mailbox_.stage_async(
+      detail::Scene3dPrepAction::kColdRebuild,
+      [hub, live_gen, extent, orbit_distance, geo, lod, scene,
+       seed_xyz = std::move(seed_xyz),
+       seed_idx = std::move(seed_idx)](uint64_t prep_gen) mutable {
+        std::vector<float> xyz = std::move(seed_xyz);
+        std::vector<unsigned> idx = std::move(seed_idx);
+        vista::World staging_world;
+        OrbitGeoFrame staging_geo = geo;
+        int staging_lod = lod;
+        rebuild_terrain_mesh(&staging_world, scene, extent, orbit_distance,
+                             &xyz, &idx, &staging_geo, &staging_lod);
+        if (!live_gen ||
+            live_gen->load(std::memory_order_acquire) > prep_gen) {
+          return;
+        }
+        auto blob = std::make_shared<PrepStagingBlob>();
+        blob->gen = prep_gen;
+        blob->world = std::move(staging_world);
+        blob->xyz = std::move(xyz);
+        blob->idx = std::move(idx);
+        blob->geo = staging_geo;
+        blob->lod_edge = staging_lod;
+        if (!hub) {
+          return;
+        }
+        {
+          std::lock_guard<std::mutex> lock(hub->mu);
+          hub->blob = std::move(blob);
+        }
+      });
+}
+
+bool Scene3dGpuPresent::rebuild_local_mesh() {
+  // Caller must hold present_mu_ (present / paint).
+  BASE_TRACE_EVENT("mesh", "scene3d.mesh");
+  const Extent2 extent = world_extent();
+  const float orbit_distance = distance();
+  if (!needs_local_mesh_rebuild_locked()) {
+    return false;
   }
   // Build into fresh locals then swap  - same pattern as WorldPass::sync_from.
   // In-place push_back on member local_idx_ AVd in Debug STL _Orphan_all under
@@ -515,16 +620,41 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   }
   std::lock_guard<std::recursive_mutex> lock(present_mu_);
   remember_view_size(static_cast<int>(width_px), static_cast<int>(height_px));
+  int64_t prep_overlap_ms = 0;
+  detail::Scene3dPrepAction drained_prep =
+      detail::Scene3dPrepAction::kWarmReuse;
+  bool applied_async_prep = false;
+  if (prep_mailbox_.drain(/*wait_if_empty=*/false, &drained_prep,
+                          &prep_overlap_ms)) {
+    if (drained_prep == detail::Scene3dPrepAction::kColdRebuild) {
+      apply_async_prep_staging_locked(prep_mailbox_.published_gen());
+      applied_async_prep = true;
+    }
+  }
   // Globe path draws DEM on the UV sphere in AtmosphereFrame -- skip flat
   // terrain rebuild/sync. Rebuilding china_dem into WorldPass then swapping
   // Debug STL instances AVd under Null showcase (cdb: WorldPass::sync_from).
   const bool globe_on = atmosphere.globe_enabled();
-  bool dem_rebuilt = false;
+  bool dem_rebuilt = applied_async_prep;
+  bool defer_cold_prep_async = false;
   if (!globe_on) {
     base::ElapsedTimer mesh_timer;
-    dem_rebuilt = rebuild_local_mesh();
-    note_scene3d_phase_mesh(static_cast<int64_t>(
-        mesh_timer.elapsed_milliseconds() + 0.5));
+    const bool need_cold = needs_local_mesh_rebuild_locked();
+    const bool has_drawable =
+        dem_local_xyz_count_ > 0 && terrain_world_.node_count() > 0;
+    if (need_cold && !has_drawable) {
+      // First cold frame: sync remesh on Display (no prior mesh to draw).
+      dem_rebuilt = rebuild_local_mesh() || dem_rebuilt;
+      note_scene3d_phase_mesh(static_cast<int64_t>(
+          mesh_timer.elapsed_milliseconds() + 0.5));
+    } else if (need_cold && has_drawable) {
+      // T2.1: orbit with prior mesh; post CPU remesh after graph::present.
+      defer_cold_prep_async = true;
+      note_scene3d_phase_mesh(0);
+    } else {
+      note_scene3d_phase_mesh(static_cast<int64_t>(
+          mesh_timer.elapsed_milliseconds() + 0.5));
+    }
     // Contour suite / carto overrides land on china_dem tiles. Must run after
     // rebuild (seed hypsometric/map-drape) and before overlay_tin attach.
     apply_dem_drape_locked();
@@ -556,6 +686,11 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     dem_gpu_synced_after_ocean_ = false;
     dem_gpu_synced_after_sky_ = false;
     gpu_scene_.clear_solid_terrain_cache();
+    prep_mailbox_.invalidate();
+    if (prep_staging_) {
+      std::lock_guard<std::mutex> staging_lock(prep_staging_->mu);
+      prep_staging_->blob.reset();
+    }
   }
   // Cold ocean: defer WorldPass::sync_from until after ocean height alloc so
   // the first (and only) instance copy + meshes_dirty lands after FlyCube
@@ -708,6 +843,14 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     bg.background_opacity = 1.f;
     gpu_scene_.set_background_paint(bg);
     atmosphere.frame().set_clear_rgb(0.96f, 0.94f, 0.90f);
+  }
+  // T2.0 warm / sync cold: stage before Display POD prep. Deferred async cold
+  // stages after graph::present so L2 overlaps the next Display present.
+  if (!defer_cold_prep_async) {
+    const detail::Scene3dPrepAction staged_prep =
+        dem_rebuilt ? detail::Scene3dPrepAction::kColdRebuild
+                    : detail::Scene3dPrepAction::kWarmReuse;
+    (void)prep_mailbox_.stage(staged_prep);
   }
   // Atmosphere POD + cold ocean height before diagnostics / HUD so CPU prep
   // is not stranded behind AABB scans or GDI HUD raster, and GPU present is
@@ -1079,6 +1222,12 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   // graph::present owns execute + present. No second clock without a new
   // signature.
   note_scene3d_phase_present(0);
+  if (defer_cold_prep_async) {
+    post_async_cold_prep_locked();
+  } else {
+    (void)prep_mailbox_.drain(/*wait_if_empty=*/false, &drained_prep);
+  }
+  note_scene3d_phase_prep_overlap(prep_overlap_ms);
   return true;
 }
 

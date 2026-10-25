@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include "gis/analysis/ops/ir/ogr_geom.h"
@@ -19,23 +20,27 @@ class OGRGeometry;
 namespace gis {
 namespace detail {
 
-enum class IrKind { kNone, kGeometry, kNumber, kFlag };
+enum class IrKind { kNone, kGeometry, kNumber, kFlag, kText };
 
 // Inputs already decoded to OGR geometries and numbers.
 struct IrEnv {
   OGRGeometry* input = nullptr;
   OGRGeometry* other = nullptr;
   double number = 0;
+  double param_y = 0;
+  double origin_x = 0;
+  double origin_y = 0;
   int32_t src_epsg = 0;
   int32_t dst_epsg = 0;
 };
 
-// Geometry results are owned. Number and flag results leave geometry empty.
+// Geometry results are owned. Number / flag / text leave geometry empty.
 struct IrValue {
   IrKind kind = IrKind::kNone;
   OgrGeom geometry;
   double number = 0;
   bool flag = false;
+  std::string text;
 };
 
 // nullopt means the id is not a geometry IR node.

@@ -8,9 +8,11 @@
 #include <limits>
 #include <string>
 
-#include "gis/analysis/geochem/idw.h"
-#include "gis/analysis/geochem/samples.h"
-#include "gis/analysis/geochem/stats.h"
+#include "gis/analysis/geochem/idw/idw.h"
+#include "gis/analysis/geochem/io/geotiff.h"
+#include "gis/analysis/geochem/load/csv_load.h"
+#include "gis/analysis/geochem/model/sample.h"
+#include "gis/analysis/geochem/stats/stats.h"
 #include "third_party/gn/dll_search.h"
 
 namespace plugin {
@@ -63,17 +65,17 @@ bool geochem_contract(void*) {
 }
 
 bool geochem_compute(void*) {
-  fix().samples = gis::detail::load_geochem_csv(fix().csv);
+  fix().samples = gis::detail::load_csv(fix().csv);
   if (!fix().samples.ok || fix().samples.samples.size() != 6) {
     return false;
   }
   const auto stats =
-      gis::detail::compute_geochem_stats(fix().samples, "Cu", 4, 2.0);
+      gis::detail::compute_stats(fix().samples, "Cu", 4, 2.0);
   return stats.ok && stats.threshold > stats.mean * 0.5;
 }
 
 bool geochem_command(void*) {
-  const auto idw = gis::detail::run_geochem_idw(
+  const auto idw = gis::detail::run_idw(
       fix().samples, "Cu", 16, 2.0, std::numeric_limits<double>::quiet_NaN(),
       2.0);
   if (!idw.ok) {
@@ -82,7 +84,7 @@ bool geochem_command(void*) {
   fix().raster =
       (std::filesystem::temp_directory_path() / "geochem_gate.tif")
           .generic_string();
-  return gis::detail::write_geochem_idw_geotiff(fix().raster, idw, "");
+  return gis::detail::write_idw_geotiff(fix().raster, idw, "");
 }
 
 bool geochem_visual(void*) {

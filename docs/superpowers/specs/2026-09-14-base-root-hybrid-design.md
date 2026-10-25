@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-14  
-**Updated:** 2026-10-23 — §DLL / STL trust model（Chromium 式同构 + 边界分拣 + `is_component_build` + 门禁）。Prior 2026-10-05 — §Math 命名（guards / snake_case / Point2f / `base_math_simd`）。Prior same day — §Math 分层（scalar/linear/traits/geom/xform/simd）。Prior: 2026-10-03 memory / codecs / trace archived; PA-E + execution still open; 2026-10-01 §Math Eigen.
+**Updated:** 2026-10-25 — ipc 迁至 `src/common/ipc`（`common::ipc` / `//src/common/ipc:ipc`）。Prior 2026-10-23 — §DLL / STL trust model。Prior 2026-10-05 — §Math 命名 / 分层。Prior: 2026-10-03 memory / codecs / trace archived; PA-E + execution still open。
 **Goal:** 将遗留 `src/base/core`（`Smt*`）对照 mogu **全部**替换到 foundation 树；制图 style / `sys` / `net` 留在产品层；分期 strangler，阶段末不留旧名转发壳。  
 **Related:** [`../src-layout.md`](../src-layout.md)、[`../mogu-mapping.md`](../mogu-mapping.md)、[`../abi-rename-map.md`](../abi-rename-map.md)、[`2026-09-13-code-style-include-abi-cutover-design.md`](../archive/specs/2026-09-13-code-style-include-abi-cutover-design.md)、[`2026-09-13-base-archive-design.md`](../archive/specs/2026-09-13-base-archive-design.md)、[`2026-09-13-base-ipc-mojom-design.md`](../archive/specs/2026-09-13-base-ipc-mojom-design.md)、[`2026-09-14-dll-reorganization-design.md`](../archive/specs/2026-09-14-dll-reorganization-design.md)  
 **Plan (Cursor):** `base_root_hybrid_fd0c40fd.plan.md`（会话外；本仓以本 spec + `docs/superpowers` 为准）；**§Memory:** [`../archive/plans/2026-09-28-base-memory.md`](../archive/plans/2026-09-28-base-memory.md)；**§PA-E:** [`../plans/2026-09-28-partition-alloc-everywhere.md`](../plans/2026-09-28-partition-alloc-everywhere.md)；**§Execution:** [`../plans/2026-09-28-base-execution.md`](../plans/2026-09-28-base-execution.md)；**§DLL/STL:** [`../plans/2026-10-23-dll-stl-trust.md`](../plans/2026-10-23-dll-stl-trust.md)  
@@ -74,7 +74,8 @@ src/base/                 # //src/base:foundation + //src/base:base (base.dll)
   core/                   # foundation headers only (log/macros/export/debug/build_config)
   threading/ util/ files/ memory/ time/
   archive/                # //src/base/archive:archive
-  ipc/                    # //src/base/ipc:ipc
+src/common/
+  ipc/                    # //src/common/ipc:ipc (namespace common::ipc)
 # (no repo-root base/ or core/ — //:base and //:core forward in BUILD.gn)
 src/
   legacy/core/            # Smt leftovers → core_sources → base.dll
@@ -102,7 +103,7 @@ src/
 | `winservice` | **deleted**（无调用方；非 Views 产品路径） | Drop |
 | `matrix2d.h` | `algorithm` 或 `sdb` | 平移 |
 | `src/base/style` | `src/sdb/carto` | 搬家 |
-| archive / ipc | `src/base/archive`、`src/base/ipc` | 曾上移根 `base/`，现与 foundation 同回 `src/base` |
+| archive / ipc | `src/base/archive`、`src/common/ipc` | archive 与 foundation 同在 `src/base`；ipc 迁至 `src/common/ipc`（`common::ipc`） |
 
 ## Phases（历史；均已收口）
 
@@ -110,7 +111,7 @@ src/
 | --- | --- | --- |
 | **0** | 根 `base/` GN+README、include、DLL 命名文档、本 spec、`//core`→foundation | 当时 `//base:base` 可解析 |
 | 1–4 | core / threading / path / memory+time | 相关单测 / `src_all` |
-| 5 | archive/ipc 曾上移根 `base/` | 后经 amendment 迁入 `src/base` |
+| 5 | archive / ipc 曾上移根 `base/`；ipc 现为 `src/common/ipc` | 后经 amendment 迁入 `src/base` |
 | 6 | carto、xml、`dll_stem=platform`（后改为 `base`）、deferred leftovers | `build.bat` / `src_all` |
 | **amendment** | 真源 `base/` → `src/base/`；`:foundation`；根物理 `base/` 与 `core/` **删除**；`//:base` / `//:core` 转发 | foundation + `base_d.dll` + `ipc_test` |
 
@@ -331,6 +332,8 @@ Out of scope: glm; folding into `base.dll`; renaming leftover AABB fields; editi
 
 **Why not a new dated spec:** CRT / export / product DLL topology is owned by this living base row (plus plugin C-boundary on the Plugin host umbrella).
 
+**Updated:** 2026-10-24 — build consistency (detect_mismatch + SMARTGIS_BUILD_ID)
+
 **Diagram:** [`../diagrams/dll-stl-trust.html`](../diagrams/dll-stl-trust.html)  
 **Plan:** [`../plans/2026-10-23-dll-stl-trust.md`](../plans/2026-10-23-dll-stl-trust.md)  
 **Agent rule:** [`.cursor/rules/repo/dll-stl-trust.mdc`](../../../.cursor/rules/repo/dll-stl-trust.mdc)  
@@ -348,7 +351,19 @@ Out of scope: glm; folding into `base.dll`; renaming leftover AABB fields; editi
 | A-boundary export style | Near Chromium: class/`*_EXPORT` OK; C4251 accepted when same CRT |
 | B/C-boundary export style | Conservative: factory + vtable; new signatures prefer `string_view` / `span` / POD; no `std::string`/`vector` by value across C |
 | Exceptions | No `throw` across DLL / plugin boundaries; use error codes / status |
+| Build consistency | **A** (stale `.obj` in one image): MSVC `#pragma detect_mismatch` via `base/core/abi_guard.h` + type-local tokens (e.g. `smartgis_draw_host_layout`). **B** (exe/DLL from different builds): `SMARTGIS_BUILD_ID` from `//build:gen_build_id`, exported as `smartgis_module_build_id` on every product stem; `base::verify_product_dll_build_ids()` at process start; marker scan in `check_dll_homogeneity`. **No** SEH / hot-path “吞 AV” for ABI skew |
 | Deferred (P5) | Custom libc++ (`use_custom_libcxx`); shipping Release as mostly-static by default — keep `is_component_build=true` until a dedicated Release experiment |
+
+### Build consistency (2026-10-24)
+
+| Failure | Guard | When it fires |
+| --- | --- | --- |
+| Incremental half-rebuild (same DLL, mixed `.obj`) | `#pragma detect_mismatch` (`abi_guard.h`, `draw_host.h`, `view.h`, …) | **Link** — LNK2038 |
+| Mixed `_d` / bare stems | `check_dll_homogeneity` stem rules | **Artifact** (L2b) |
+| Product DLLs from another gen / copy-paste mix | `SMARTGIS_BUILD_ID` marker in each stem + `verify_product_dll_build_ids` | **Artifact** + **startup** (before UI) |
+| Half-link exe older than DLL | existing L2 PE mtime skew | **Artifact** |
+
+Bump policy: change a shared layout → bump the matching `detect_mismatch` token (and/or `SMARTGIS_LAYOUT_EPOCH`) in the **same** change as the header edit. Do not wrap cross-module calls in SEH to “tolerate” skew.
 
 ### Boundary classes
 

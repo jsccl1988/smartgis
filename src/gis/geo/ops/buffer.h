@@ -11,6 +11,12 @@ namespace geo {
 
 // OGR Buffer if GDAL was built with GEOS; otherwise geos_c (same install).
 // Caller owns the result.
+//
+// Style defaults (gap-pin P1-C2; not yet JSON-tunable on native.buffer):
+//   - quadsegs = 8 (GEOSBuffer_r / OGRGeometry::Buffer)
+//   - endcap / join = GEOS BufferOp defaults (round endcap, round join)
+// Exposing endcap/join/mitre via args_json is Deferred until a product caller
+// needs non-round styles.
 GIS_EXPORT OGRGeometry* buffer_via_geos_or_ogr(const OGRGeometry& geom,
                                                 double width);
 

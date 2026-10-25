@@ -5,8 +5,8 @@
 
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/public/gis_document.h"
-#include "gis/analysis/geology/borehole.h"
-#include "gis/analysis/geology/stratum_tin.h"
+#include "gis/analysis/geology/kernel/stratum_tin.h"
+#include "gis/analysis/geology/model/borehole.h"
 #include "plugin/runtime/host/present/gis_present.h"
 #include "plugin/runtime/host/capability/scene3d_sink.h"
 
@@ -214,7 +214,7 @@ void append_quad(OverlayMesh* mesh, float lon0, float lat0, float z0, float u0,
   append_tri(mesh, base, base + 2, base + 3);
 }
 
-bool build_mine_volume_mesh(const gis::detail::BoreholeSet& holes,
+bool build_mine_volume_mesh(const gis::BoreholeSet& holes,
                             OverlayMesh* mesh,
                             std::vector<uint8_t>* atlas, int tex_w, int tex_h) {
   struct HoleCol {
@@ -522,8 +522,8 @@ bool build_mine_volume_mesh(const gis::detail::BoreholeSet& holes,
 bool present_mine_stratum(content::GisDocument* doc,
                           Scene3dSink* sink,
                           content::Scene3dPresenter* scene3d,
-                         const gis::detail::StratumTin& tin,
-                         const gis::detail::BoreholeSet& holes,
+                         const gis::StratumTin& tin,
+                         const gis::BoreholeSet& holes,
                          std::string* err) {
   if (!doc) {
     if (err) {
@@ -555,7 +555,7 @@ bool present_mine_stratum(content::GisDocument* doc,
     }
   }
 
-  std::map<std::string, std::vector<const gis::detail::BoreholeContact*>> by_hole;
+  std::map<std::string, std::vector<const gis::BoreholeContact*>> by_hole;
   for (const auto& c : holes.contacts) {
     by_hole[c.hole_id].push_back(&c);
   }
@@ -572,8 +572,8 @@ bool present_mine_stratum(content::GisDocument* doc,
       continue;
     }
     std::sort(contacts.begin(), contacts.end(),
-              [](const gis::detail::BoreholeContact* a,
-                 const gis::detail::BoreholeContact* b) {
+              [](const gis::BoreholeContact* a,
+                 const gis::BoreholeContact* b) {
                 return a->z > b->z;
               });
     const double x = contacts.front()->x;

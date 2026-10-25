@@ -25,7 +25,7 @@ All rights reserved.
 
 ## 0. Shared substrate（真正的上限）
 
-**Status (2026-09-14):** Substrate in tree (`src/content`, `src/gpu`, repo-root `base/ipc`). Destination: one PE `out/SmartGIS.exe` relaunched via `content::ContentMain` and `--type=browser|renderer|gpu|utility` (no `SmartGisRender.exe` on the product path). Browser starts **renderer and standalone GPU** children always. **Chromium Mojo pin abandoned.** Product transport is Win32 named pipe + BinarySink payloads（`base/archive`，`base::`；C++ structs with `archive()`）；RPC/包络侧 `net::Pickle` 仍在 `src/net/pack/pickle.h`。Children still get `--pipe=` until a later invitation task; no Mojo invitation. Sections 1–3 below are unchanged design essays.
+**Status (2026-10-25):** Substrate in tree (`src/content`, `src/gpu`, `src/common/ipc`). Destination: one PE `out/SmartGIS.exe` relaunched via `content::ContentMain` and `--type=browser|renderer|gpu|utility` (no `SmartGisRender.exe` on the product path). **Chromium Mojo pin abandoned.** Product transport is Win32 named pipe + BinarySink（`base/archive`）+ **invitation**（`--ipc-channel-handle=` via `ChildProcessHost`）；`--pipe=` leftover-only. `ChannelProxy` / `Receiver` / `host_msg_registry` land for A0–A2. Product default remains in-process; OOP GPU uses invitation when `StartRenderProcess` runs. Sections 1–3 below are unchanged design essays.
 
 三种 chrome 的上限不在控件库，而在：**chrome 可拔插 + 地图渲染可崩溃可重启 + 现有 31 个 DLL 在 v1 不必改 ABI**。
 
@@ -115,7 +115,7 @@ flowchart LR
   MapW -.->|v1.5| Sde
 ```
 
-GPU paint internals (record quads → blend once → present): [`../../src/gpu/README.md`](../../src/gpu/README.md). **Diagram:** [`diagrams/render-accelerate-topology.html`](diagrams/render-accelerate-topology.html)（A×B 整合 · Topology B §4–§6）.
+GPU paint internals (record quads → blend once → present): [`../../src/gpu/README.md`](../../src/gpu/README.md). **Diagram:** [`diagrams/render-accelerate-topology.html`](diagrams/render-accelerate-topology.html)（A×B 整合 · Topology B §4–§6）. **Upgrade order (normative):** [`specs/2026-09-13-render-rhi-scene-design.md`](specs/2026-09-13-render-rhi-scene-design.md) §GPU multiprocess upgrade · [`diagrams/gpu-multiprocess-upgrade.html`](diagrams/gpu-multiprocess-upgrade.html)（A 硬化 → B 默认仅 GPU → 可选 renderer；拒绝近端 default 三进程）。
 
 父进程用 Job Object 管子进程：Browser 退出则杀子进程；**renderer 崩溃** → `RendererDied` → 重启 `--type=renderer`（GPU 可仍在）；**GPU 崩溃 / TDR** → 仅重启 `--type=gpu`，browser 丢弃旧 handle 并等待新 `FrameReady`。
 

@@ -4,12 +4,18 @@
 #include "gis/analysis/ops/ir/geometry_ir.h"
 
 #include "gis/analysis/ops/ir/ir_visit.h"
-#include "gis/analysis/ops/ir/ops_geos.h"
 #include "gis/geo/ops/buffer.h"
-#include "gis/geo/ops/geometry_traits.h"
-#include "gis/geo/proj/coordinate_transform.h"
+#include "gis/geo/ops/measure.h"
+#include "gis/geo/ops/predicate.h"
+#include "gis/geo/ops/set.h"
+#include "gis/geo/ops/shape.h"
+#include "gis/analysis/geometry/affine_construct.h"
+#include "gis/analysis/geometry/fit.h"
+#include "gis/geo/ops/transform.h"
 
 #include "ogr_geometry.h"
+
+#include <memory>
 
 #include <string>
 #include <tuple>
@@ -43,6 +49,13 @@ IrValue number_out(double number) {
   return value;
 }
 
+IrValue text_out(std::string text) {
+  IrValue value;
+  value.kind = IrKind::kText;
+  value.text = std::move(text);
+  return value;
+}
+
 struct BufferOp {
   static constexpr const char* id = "native.buffer";
   static IrValue apply(IrEnv& env) {
@@ -57,7 +70,7 @@ IrValue intersect_apply(IrEnv& env) {
   if (!env.input || !env.other) {
     return {};
   }
-  return geometry_out(geos_binary(*env.input, *env.other, GeosBinary::kIntersection));
+  return geometry_out(geo::intersection(*env.input, *env.other));
 }
 
 struct ClipOp {
@@ -76,7 +89,7 @@ struct CentroidOp {
     if (!env.input) {
       return {};
     }
-    return geometry_out(geos_centroid(*env.input));
+    return geometry_out(geo::centroid(*env.input));
   }
 };
 
@@ -86,7 +99,7 @@ struct EnvelopeOp {
     if (!env.input) {
       return {};
     }
-    return geometry_out(envelope_polygon(*env.input));
+    return geometry_out(geo::envelope_polygon(*env.input));
   }
 };
 
@@ -96,7 +109,7 @@ struct UnionOp {
     if (!env.input || !env.other) {
       return {};
     }
-    return geometry_out(geos_binary(*env.input, *env.other, GeosBinary::kUnion));
+    return geometry_out(geo::geom_union(*env.input, *env.other));
   }
 };
 
@@ -106,7 +119,7 @@ struct DifferenceOp {
     if (!env.input || !env.other) {
       return {};
     }
-    return geometry_out(geos_binary(*env.input, *env.other, GeosBinary::kDifference));
+    return geometry_out(geo::difference(*env.input, *env.other));
   }
 };
 
@@ -116,7 +129,7 @@ struct SymDifferenceOp {
     if (!env.input || !env.other) {
       return {};
     }
-    return geometry_out(geos_binary(*env.input, *env.other, GeosBinary::kSymDifference));
+    return geometry_out(geo::sym_difference(*env.input, *env.other));
   }
 };
 
@@ -127,7 +140,7 @@ struct SimplifyOp {
       return {};
     }
     const double tol = env.number > 0.0 ? env.number : 0.01;
-    return geometry_out(geos_simplify(*env.input, tol));
+    return geometry_out(geo::simplify(*env.input, tol));
   }
 };
 
@@ -137,7 +150,7 @@ struct ConvexHullOp {
     if (!env.input) {
       return {};
     }
-    return geometry_out(geos_convex_hull(*env.input));
+    return geometry_out(geo::convex_hull(*env.input));
   }
 };
 
@@ -147,140 +160,310 @@ struct BoundaryOp {
     if (!env.input) {
       return {};
     }
-    return geometry_out(geos_boundary(*env.input));
+    return geometry_out(geo::boundary(*env.input));
   }
 };
 
-enum class Predicate {
-  kIntersects,
-  kContains,
-  kWithin,
-  kDisjoint,
-  kEquals,
-  kTouches,
-  kCrosses,
-  kOverlaps,
-};
-
-// True when the two geometries intersect.
-struct IntersectsPred {
-  static constexpr Predicate id = Predicate::kIntersects;
-  static bool apply(const OGRGeometry& left, const OGRGeometry& right) {
-    return left.Intersects(&right) != 0;
-  }
-};
-
-// True when left contains right.
-struct ContainsPred {
-  static constexpr Predicate id = Predicate::kContains;
-  static bool apply(const OGRGeometry& left, const OGRGeometry& right) {
-    return left.Contains(&right) != 0;
-  }
-};
-
-// True when left is within right.
-struct WithinPred {
-  static constexpr Predicate id = Predicate::kWithin;
-  static bool apply(const OGRGeometry& left, const OGRGeometry& right) {
-    return left.Within(&right) != 0;
-  }
-};
-
-// True when the geometries share no points.
-struct DisjointPred {
-  static constexpr Predicate id = Predicate::kDisjoint;
-  static bool apply(const OGRGeometry& left, const OGRGeometry& right) {
-    return left.Disjoint(&right) != 0;
-  }
-};
-
-// True when the geometries are spatially equal.
-struct EqualsPred {
-  static constexpr Predicate id = Predicate::kEquals;
-  static bool apply(const OGRGeometry& left, const OGRGeometry& right) {
-    return left.Equals(&right) != 0;
-  }
-};
-
-// True when the geometries touch at a boundary only.
-struct TouchesPred {
-  static constexpr Predicate id = Predicate::kTouches;
-  static bool apply(const OGRGeometry& left, const OGRGeometry& right) {
-    return left.Touches(&right) != 0;
-  }
-};
-
-// True when the geometries cross.
-struct CrossesPred {
-  static constexpr Predicate id = Predicate::kCrosses;
-  static bool apply(const OGRGeometry& left, const OGRGeometry& right) {
-    return left.Crosses(&right) != 0;
-  }
-};
-
-// True when the geometries overlap.
-struct OverlapsPred {
-  static constexpr Predicate id = Predicate::kOverlaps;
-  static bool apply(const OGRGeometry& left, const OGRGeometry& right) {
-    return left.Overlaps(&right) != 0;
-  }
-};
-
-using PredicateFns = std::tuple<IntersectsPred,
-                                ContainsPred,
-                                WithinPred,
-                                DisjointPred,
-                                EqualsPred,
-                                TouchesPred,
-                                CrossesPred,
-                                OverlapsPred>;
-
-bool predicate_holds(Predicate op, const OGRGeometry& left, const OGRGeometry& right) {
-  if (left.IsEmpty() || right.IsEmpty()) {
-    return op == Predicate::kDisjoint;
-  }
-  const auto hit = visit_apply<PredicateFns>(op, left, right);
-  return hit ? *hit : false;
-}
-
-IrValue relate(Predicate op, IrEnv& env) {
+IrValue relate(geo::SpatialPredicate op, IrEnv& env) {
   if (!env.input || !env.other) {
     return {};
   }
-  return flag_out(predicate_holds(op, *env.input, *env.other));
+  return flag_out(geo::predicate_holds(op, *env.input, *env.other));
 }
 
 struct IntersectsOp {
   static constexpr const char* id = "native.intersects";
-  static IrValue apply(IrEnv& env) { return relate(Predicate::kIntersects, env); }
+  static IrValue apply(IrEnv& env) {
+    return relate(geo::SpatialPredicate::kIntersects, env);
+  }
 };
 struct ContainsOp {
   static constexpr const char* id = "native.contains";
-  static IrValue apply(IrEnv& env) { return relate(Predicate::kContains, env); }
+  static IrValue apply(IrEnv& env) {
+    return relate(geo::SpatialPredicate::kContains, env);
+  }
 };
 struct WithinOp {
   static constexpr const char* id = "native.within";
-  static IrValue apply(IrEnv& env) { return relate(Predicate::kWithin, env); }
+  static IrValue apply(IrEnv& env) {
+    return relate(geo::SpatialPredicate::kWithin, env);
+  }
 };
 struct DisjointOp {
   static constexpr const char* id = "native.disjoint";
-  static IrValue apply(IrEnv& env) { return relate(Predicate::kDisjoint, env); }
+  static IrValue apply(IrEnv& env) {
+    return relate(geo::SpatialPredicate::kDisjoint, env);
+  }
 };
 struct EqualsOp {
   static constexpr const char* id = "native.equals";
-  static IrValue apply(IrEnv& env) { return relate(Predicate::kEquals, env); }
+  static IrValue apply(IrEnv& env) {
+    return relate(geo::SpatialPredicate::kEquals, env);
+  }
 };
 struct TouchesOp {
   static constexpr const char* id = "native.touches";
-  static IrValue apply(IrEnv& env) { return relate(Predicate::kTouches, env); }
+  static IrValue apply(IrEnv& env) {
+    return relate(geo::SpatialPredicate::kTouches, env);
+  }
 };
 struct CrossesOp {
   static constexpr const char* id = "native.crosses";
-  static IrValue apply(IrEnv& env) { return relate(Predicate::kCrosses, env); }
+  static IrValue apply(IrEnv& env) {
+    return relate(geo::SpatialPredicate::kCrosses, env);
+  }
 };
 struct OverlapsOp {
   static constexpr const char* id = "native.overlaps";
-  static IrValue apply(IrEnv& env) { return relate(Predicate::kOverlaps, env); }
+  static IrValue apply(IrEnv& env) {
+    return relate(geo::SpatialPredicate::kOverlaps, env);
+  }
+};
+struct CoversOp {
+  static constexpr const char* id = "native.covers";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input || !env.other) {
+      return {};
+    }
+    return flag_out(geo::covers(*env.input, *env.other));
+  }
+};
+struct CoveredByOp {
+  static constexpr const char* id = "native.covered_by";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input || !env.other) {
+      return {};
+    }
+    return flag_out(geo::covered_by(*env.input, *env.other));
+  }
+};
+
+struct IsValidOp {
+  static constexpr const char* id = "native.is_valid";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    return flag_out(geo::is_valid(*env.input));
+  }
+};
+
+struct IsSimpleOp {
+  static constexpr const char* id = "native.is_simple";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    return flag_out(geo::is_simple(*env.input));
+  }
+};
+
+struct MakeValidOp {
+  static constexpr const char* id = "native.make_valid";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    return geometry_out(geo::make_valid(*env.input));
+  }
+};
+
+struct RelateOp {
+  static constexpr const char* id = "native.relate";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input || !env.other) {
+      return {};
+    }
+    std::string matrix = geo::relate_de9im(*env.input, *env.other);
+    if (matrix.empty()) {
+      return {};
+    }
+    return text_out(std::move(matrix));
+  }
+};
+
+struct PointOnSurfaceOp {
+  static constexpr const char* id = "native.point_on_surface";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    return geometry_out(geo::point_on_surface(*env.input));
+  }
+};
+
+struct DensifyOp {
+  static constexpr const char* id = "native.densify";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    const double tol = env.number > 0.0 ? env.number : 1.0;
+    return geometry_out(geo::densify(*env.input, tol));
+  }
+};
+
+struct OffsetCurveOp {
+  static constexpr const char* id = "native.offset_curve";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    return geometry_out(geo::offset_curve(*env.input, env.number));
+  }
+};
+
+struct ConcaveHullOp {
+  static constexpr const char* id = "native.concave_hull";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    const double ratio = env.number > 0.0 ? env.number : 0.0;
+    return geometry_out(geo::concave_hull(*env.input, ratio));
+  }
+};
+
+struct MinimumRotatedRectangleOp {
+  static constexpr const char* id = "native.minimum_rotated_rectangle";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    return geometry_out(geo::minimum_rotated_rectangle(*env.input));
+  }
+};
+
+struct MinimumBoundingCircleOp {
+  static constexpr const char* id = "native.minimum_bounding_circle";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    return geometry_out(geo::minimum_bounding_circle(*env.input));
+  }
+};
+
+struct UnaryUnionOp {
+  static constexpr const char* id = "native.unary_union";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    return geometry_out(geo::unary_union(*env.input));
+  }
+};
+
+struct LineMergeOp {
+  static constexpr const char* id = "native.line_merge";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    return geometry_out(geo::line_merge(*env.input));
+  }
+};
+
+struct NodeOp {
+  static constexpr const char* id = "native.node";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    return geometry_out(geo::node(*env.input));
+  }
+};
+
+struct PolygonizeOp {
+  static constexpr const char* id = "native.polygonize";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    return geometry_out(geo::polygonize(*env.input));
+  }
+};
+
+struct RemoveRepeatedPointsOp {
+  static constexpr const char* id = "native.remove_repeated_points";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    const double tol = env.number >= 0.0 ? env.number : 0.0;
+    return geometry_out(geo::remove_repeated_points(*env.input, tol));
+  }
+};
+
+struct SnapOp {
+  static constexpr const char* id = "native.snap";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input || !env.other) {
+      return {};
+    }
+    const double tol = env.number > 0.0 ? env.number : 0.001;
+    return geometry_out(geo::snap(*env.input, *env.other, tol));
+  }
+};
+
+struct DelaunayOp {
+  static constexpr const char* id = "native.delaunay";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    const double tol = env.number >= 0.0 ? env.number : 0.0;
+    return geometry_out(geo::make_delaunay(*env.input, tol));
+  }
+};
+
+struct VoronoiOp {
+  static constexpr const char* id = "native.voronoi";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    const double tol = env.number >= 0.0 ? env.number : 0.0;
+    return geometry_out(geo::voronoi(*env.input, tol));
+  }
+};
+
+struct HausdorffOp {
+  static constexpr const char* id = "native.hausdorff_distance";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input || !env.other) {
+      return {};
+    }
+    double dist = 0.0;
+    if (!geo::hausdorff_distance(*env.input, *env.other, &dist)) {
+      return {};
+    }
+    return number_out(dist);
+  }
+};
+
+struct FrechetOp {
+  static constexpr const char* id = "native.frechet_distance";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input || !env.other) {
+      return {};
+    }
+    double dist = 0.0;
+    if (!geo::frechet_distance(*env.input, *env.other, &dist)) {
+      return {};
+    }
+    return number_out(dist);
+  }
+};
+
+struct ShortestLineOp {
+  static constexpr const char* id = "native.shortest_line";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input || !env.other) {
+      return {};
+    }
+    return geometry_out(geo::shortest_line(*env.input, *env.other));
+  }
 };
 
 struct DistanceOp {
@@ -289,7 +472,7 @@ struct DistanceOp {
     if (!env.input || !env.other) {
       return {};
     }
-    return number_out(env.input->Distance(env.other));
+    return number_out(geo::distance(*env.input, *env.other));
   }
 };
 
@@ -299,17 +482,7 @@ struct AreaOp {
     if (!env.input) {
       return {};
     }
-    double measured = 0;
-    if (OGRSurface* surface = env.input->toSurface()) {
-      measured = surface->get_Area();
-    } else if (OGRGeometryCollection* collection = env.input->toGeometryCollection()) {
-      for (int i = 0; i < collection->getNumGeometries(); ++i) {
-        if (OGRSurface* part = collection->getGeometryRef(i)->toSurface()) {
-          measured += part->get_Area();
-        }
-      }
-    }
-    return number_out(measured);
+    return number_out(geo::area(*env.input));
   }
 };
 
@@ -319,20 +492,7 @@ struct LengthOp {
     if (!env.input) {
       return {};
     }
-    double measured = 0;
-    const OGRwkbGeometryType flat = wkbFlatten(env.input->getGeometryType());
-    if (flat == wkbLineString || flat == wkbLinearRing) {
-      measured = static_cast<OGRLineString*>(env.input)->get_Length();
-    } else if (OGRGeometryCollection* collection = env.input->toGeometryCollection()) {
-      for (int i = 0; i < collection->getNumGeometries(); ++i) {
-        OGRGeometry* part = collection->getGeometryRef(i);
-        const OGRwkbGeometryType part_flat = wkbFlatten(part->getGeometryType());
-        if (part_flat == wkbLineString || part_flat == wkbLinearRing) {
-          measured += static_cast<OGRLineString*>(part)->get_Length();
-        }
-      }
-    }
-    return number_out(measured);
+    return number_out(geo::length(*env.input));
   }
 };
 
@@ -342,72 +502,9 @@ struct IsEmptyOp {
     if (!env.input) {
       return {};
     }
-    return flag_out(env.input->IsEmpty());
+    return flag_out(geo::is_empty(*env.input));
   }
 };
-
-bool map_curve(OGRLineString* line, const geo::CoordinateTransform& transform, int dim) {
-  if (!line) {
-    return true;
-  }
-  for (int i = 0; i < line->getNumPoints(); ++i) {
-    double x = line->getX(i);
-    double y = line->getY(i);
-    const double z = dim >= 3 ? line->getZ(i) : 0.0;
-    if (!transform.transform_xy(x, y)) {
-      return false;
-    }
-    if (dim >= 3) {
-      line->setPoint(i, x, y, z);
-    } else {
-      line->setPoint(i, x, y);
-    }
-  }
-  return true;
-}
-
-bool transform_geometry(OGRGeometry* geom, const geo::CoordinateTransform& transform) {
-  if (!geom || geom->IsEmpty()) {
-    return geom != nullptr;
-  }
-  const int dim = geo::geometry_traits<OGRGeometry>::coordinate_dimension(*geom);
-  const OGRwkbGeometryType flat = wkbFlatten(geom->getGeometryType());
-  if (flat == wkbPoint) {
-    auto* point = static_cast<OGRPoint*>(geom);
-    double x = point->getX();
-    double y = point->getY();
-    if (!transform.transform_xy(x, y)) {
-      return false;
-    }
-    point->setX(x);
-    point->setY(y);
-    return true;
-  }
-  if (flat == wkbLineString || flat == wkbLinearRing) {
-    return map_curve(static_cast<OGRLineString*>(geom), transform, dim);
-  }
-  if (flat == wkbPolygon) {
-    auto* polygon = static_cast<OGRPolygon*>(geom);
-    if (!map_curve(polygon->getExteriorRing(), transform, dim)) {
-      return false;
-    }
-    for (int i = 0; i < polygon->getNumInteriorRings(); ++i) {
-      if (!map_curve(polygon->getInteriorRing(i), transform, dim)) {
-        return false;
-      }
-    }
-    return true;
-  }
-  if (OGRGeometryCollection* collection = geom->toGeometryCollection()) {
-    for (int i = 0; i < collection->getNumGeometries(); ++i) {
-      if (!transform_geometry(collection->getGeometryRef(i), transform)) {
-        return false;
-      }
-    }
-    return true;
-  }
-  return false;
-}
 
 struct TransformOp {
   static constexpr const char* id = "native.transform";
@@ -415,13 +512,67 @@ struct TransformOp {
     if (!env.input) {
       return {};
     }
-    const std::string src_crs = "EPSG:" + std::to_string(env.src_epsg);
-    const std::string dst_crs = "EPSG:" + std::to_string(env.dst_epsg);
-    const geo::CoordinateTransform xform(src_crs, dst_crs);
-    if (!xform.is_valid() || !transform_geometry(env.input, xform)) {
+    if (!geo::transform_inplace(env.input, env.src_epsg, env.dst_epsg)) {
       return {};
     }
     return flag_out(true);
+  }
+};
+
+struct TranslateOp {
+  static constexpr const char* id = "native.translate";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    std::unique_ptr<OGRGeometry> clone(env.input->clone());
+    if (!affine_translate_2d(clone.get(), env.number, env.param_y)) {
+      return {};
+    }
+    return geometry_out(clone.release());
+  }
+};
+
+struct RotateOp {
+  static constexpr const char* id = "native.rotate";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    std::unique_ptr<OGRGeometry> clone(env.input->clone());
+    if (!affine_rotate_2d(clone.get(), env.number, env.origin_x, env.origin_y)) {
+      return {};
+    }
+    return geometry_out(clone.release());
+  }
+};
+
+struct ScaleOp {
+  static constexpr const char* id = "native.scale";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    std::unique_ptr<OGRGeometry> clone(env.input->clone());
+    if (!affine_scale_2d(clone.get(), env.number, env.param_y, env.origin_x,
+                         env.origin_y)) {
+      return {};
+    }
+    return geometry_out(clone.release());
+  }
+};
+
+struct OrientedBboxOp {
+  static constexpr const char* id = "native.oriented_bbox";
+  static IrValue apply(IrEnv& env) {
+    if (!env.input) {
+      return {};
+    }
+    std::unique_ptr<OGRGeometry> box = oriented_bbox_from_ogr(*env.input);
+    if (!box || box->IsEmpty()) {
+      return {};
+    }
+    return geometry_out(box.release());
   }
 };
 
@@ -444,11 +595,38 @@ using GeometryOps = std::tuple<BufferOp,
                                TouchesOp,
                                CrossesOp,
                                OverlapsOp,
+                               CoversOp,
+                               CoveredByOp,
+                               IsValidOp,
+                               IsSimpleOp,
+                               MakeValidOp,
+                               RelateOp,
+                               PointOnSurfaceOp,
+                               DensifyOp,
+                               OffsetCurveOp,
+                               ConcaveHullOp,
+                               MinimumRotatedRectangleOp,
+                               MinimumBoundingCircleOp,
+                               UnaryUnionOp,
+                               LineMergeOp,
+                               NodeOp,
+                               PolygonizeOp,
+                               RemoveRepeatedPointsOp,
+                               SnapOp,
+                               DelaunayOp,
+                               VoronoiOp,
+                               HausdorffOp,
+                               FrechetOp,
+                               ShortestLineOp,
                                DistanceOp,
                                AreaOp,
                                LengthOp,
                                IsEmptyOp,
-                               TransformOp>;
+                               TransformOp,
+                               TranslateOp,
+                               RotateOp,
+                               ScaleOp,
+                               OrientedBboxOp>;
 
 }  // namespace
 

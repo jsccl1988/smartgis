@@ -20,9 +20,16 @@
 #endif
 #include <windows.h>
 
+#include "base/core/abi_guard.h"
 #include "base/time/frame_timer.h"
 #include "ui/gfx/raster/shell_raster.h"
+
+// Bump when DrawHost layout above display_mu_ changes (stale .obj → LNK2038).
+#if defined(_MSC_VER)
+#pragma detect_mismatch("smartgis_draw_host_layout", "1")
+#endif
 #include "ui/gfx/display/vblank_wait.h"
+#include "ui/views/kernel/overlay/layered_popup.h"
 #include "ui/views/map/input/touch_multitouch.h"
 #include "ui/views/kernel/view/view.h"
 
@@ -325,11 +332,8 @@ class UI_EXPORT DrawHost : public View {
   // WM_POINTER touch contacts 鈫?midpoint InputEvent (pointer_count >= 2).
   TouchMultitouchTracker touch_tracker_;
 
-  // On-client identity HUD (black bar + yellow engine/FPS). Child of the
-  // embed, or a layered popup owned by the GPU present present HWND (GDI children
-  // of WS_EX_NOREDIRECTIONBITMAP DXGI surfaces do not paint).
-  HWND identity_badge_ = nullptr;
-  HWND identity_badge_parent_ = nullptr;
+  // On-client identity HUD (black bar + yellow engine/FPS) via LayeredPopupHost.
+  LayeredPopupHost identity_popup_;
   wchar_t identity_hud_text_[220] = {};
   mutable std::mutex hud_fps_mu_;
   base::FrameTimer hud_fps_timer_;
@@ -384,6 +388,7 @@ class UI_EXPORT DrawHost : public View {
 // Cross-DLL: allocate inside ui_views.dll (EXE make_unique uses the wrong
 // Debug sizeof / STL member layout → shell_bgra_ clear AV on first HWND).
 UI_EXPORT std::unique_ptr<DrawHost> make_draw_host();
+UI_EXPORT DrawHost* draw_host_new();
 
 }  // namespace views
 }  // namespace ui

@@ -19,7 +19,7 @@ All rights reserved.
 | `BUILD.gn` | `legacy`ï¼MBCS + 2010 include æ ï¼ |
 | `smartgis.gni` | `product_shared_library` æ¨¡æ¿ |
 | `toolchain/` | win/linux/mac toolchains |
-| `tools/` | `cmake.gni` / `makefile.gni` / Python helpers; `check_out_artifacts.py` L0 writable + L1 ninja + L2 PE + L2b DLL homogeneity; `check_dll_homogeneity.py` (Debug `_d` vs Release stems) |
+| `tools/` | `cmake.gni` / `makefile.gni` / Python helpers; `check_out_artifacts.py` L0 writable + L1 ninja + L2 PE + L2b DLL homogeneity; `check_dll_homogeneity.py` (Debug `_d` vs Release stems + `SMARTGIS_BUILD_ID` marker); `gen_build_id.py` (`//build:gen_build_id`) |
 | `fetch_binaries.py` | æå `gn` / `ninja` å?`build/bin` |
 
 ## å¸¸ç¨æä½

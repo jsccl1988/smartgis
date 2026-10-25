@@ -55,7 +55,8 @@ void encode_draws(render::rhi::CommandList* list, const vista::View& view,
                   render::rhi::ColorLoadOp load_op, bool close_list,
                   render::rhi::Pipeline* solid,
                   render::rhi::Pipeline* textured,
-                  render::rhi::Pipeline* multiply) {
+                  render::rhi::Pipeline* multiply,
+                  const EncodeScissor* scissor) {
   if (!list) {
     return;
   }
@@ -87,6 +88,9 @@ void encode_draws(render::rhi::CommandList* list, const vista::View& view,
   list->begin_render_pass(desc);
   list->set_viewport(0.f, 0.f, static_cast<float>(view.width_px),
                      static_cast<float>(view.height_px), 0.f, 1.f);
+  if (scissor != nullptr && scissor->w > 0 && scissor->h > 0) {
+    list->set_scissor(scissor->x, scissor->y, scissor->w, scissor->h);
+  }
   list->set_depth_mode(render::rhi::DepthMode::kDisabled);
 
   // Painter order: DEM bake (basemap) → area fills (often translucent over

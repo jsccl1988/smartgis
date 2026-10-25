@@ -79,7 +79,10 @@ void MapPagesComposer::attach_viewports() {
     RECT rc = {};
     GetClientRect(pane->native_view(), &rc);
     if (rc.right > 0 && rc.bottom > 0) {
-      SendMessageW(pane->native_view(), WM_SIZE, SIZE_RESTORED,
+      // Post, do not Send: sync WM_SIZE re-enters handle_size which locks
+      // display_mu_ while the Display thread may hold the same mutex around
+      // mailbox wait / Init — cold start then hangs with HWND vis=False.
+      PostMessageW(pane->native_view(), WM_SIZE, SIZE_RESTORED,
                    MAKELPARAM(rc.right, rc.bottom));
     }
   });

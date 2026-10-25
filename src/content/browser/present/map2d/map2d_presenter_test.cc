@@ -14,6 +14,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -34,6 +35,29 @@ void expect(bool ok, const char* msg) {
     std::fprintf(stderr, "FAIL: %s\n", msg);
     ++g_fails;
   }
+}
+
+// Debug BMP dumps under <exe_dir>/log (out/Debug|Release/log). Never repo-root log/.
+std::string out_config_log_bmp(const char* leaf) {
+  char module[MAX_PATH] = {};
+  const DWORD n = GetModuleFileNameA(nullptr, module, MAX_PATH);
+  if (n > 0 && n < MAX_PATH) {
+    char* slash = std::strrchr(module, '\\');
+    if (!slash) {
+      slash = std::strrchr(module, '/');
+    }
+    if (slash) {
+      *slash = '\0';
+      char dir[MAX_PATH + 8] = {};
+      std::snprintf(dir, sizeof(dir), "%s\\log", module);
+      CreateDirectoryA(dir, nullptr);
+      char path[MAX_PATH + 64] = {};
+      std::snprintf(path, sizeof(path), "%s\\%s", dir, leaf);
+      return path;
+    }
+  }
+  CreateDirectoryA("out\\Debug\\log", nullptr);
+  return std::string("out\\Debug\\log\\") + leaf;
 }
 
 }  // namespace
@@ -310,7 +334,7 @@ int run_map2d_presenter_tests() {
   }
 
   // Debug auto-repro: camera framing + layer hide/show without UI.
-  // Writes BMPs under out/Debug/log and NDJSON via layout instrumentation.
+  // Writes BMPs under out/<config>/log (next to the test PE).
   {
     content::GisScene scene;
     scene.seed_default(/*allow_china_bootstrap=*/true);
@@ -322,8 +346,9 @@ int run_map2d_presenter_tests() {
     base::set_switch("map2d-no-hillshade", "0");
     base::set_switch("map2d-force-hillshade", "1");
     base::set_switch("map2d-export-reuse", "0");
-    CreateDirectoryA("log", nullptr);
-    auto dump_phase = [&](const char* tag, const char* bmp_rel) {
+    auto dump_phase = [&](const char* tag, const char* bmp_leaf) {
+      const std::string bmp_path = out_config_log_bmp(bmp_leaf);
+      const char* bmp_rel = bmp_path.c_str();
       const content::Extent2 view = frame.view_world_extent(1280, 720);
       // #region agent log
       if (FILE* f =
@@ -371,7 +396,7 @@ int run_map2d_presenter_tests() {
               ok ? 1 : 0, bmp_rel);
     };
 
-    dump_phase("layers_all_on", "log\\dbg_map2d_layers_on.bmp");
+    dump_phase("layers_all_on", "dbg_map2d_layers_on.bmp");
 
     // Hide every layer (bare ocean / hillshade-only path; force still on).
     std::vector<std::string> ids;
@@ -379,19 +404,19 @@ int run_map2d_presenter_tests() {
       ids.push_back(layer.id);
       expect(scene.set_layer_visible(layer.id, false), "hide layer");
     }
-    dump_phase("layers_all_off", "log\\dbg_map2d_layers_off.bmp");
+    dump_phase("layers_all_off", "dbg_map2d_layers_off.bmp");
 
     // Restore all layers.
     for (const auto& id : ids) {
       expect(scene.set_layer_visible(id, true), "show layer");
     }
-    dump_phase("layers_restore", "log\\dbg_map2d_layers_restore.bmp");
+    dump_phase("layers_restore", "dbg_map2d_layers_restore.bmp");
 
     // Programmatic camera: pan then re-frame china mainland.
     frame.apply_pan(120, -80);
-    dump_phase("cam_pan", "log\\dbg_map2d_cam_pan.bmp");
+    dump_phase("cam_pan", "dbg_map2d_cam_pan.bmp");
     frame.fit_extent(scene, 1280, 720);
-    dump_phase("cam_refit", "log\\dbg_map2d_cam_refit.bmp");
+    dump_phase("cam_refit", "dbg_map2d_cam_refit.bmp");
 
     // Isolation dumps exercise product land-gating: clear force so
     // can_attach_hillshade skips DEM when the land-surface layer is off.
@@ -403,17 +428,17 @@ int run_map2d_presenter_tests() {
                         layer.name == "land";
       expect(scene.set_layer_visible(layer.id, land), "land-only toggle");
     }
-    dump_phase("land_only", "log\\dbg_map2d_land_only.bmp");
+    dump_phase("land_only", "dbg_map2d_land_only.bmp");
     for (const auto& layer : scene.layers()) {
       const bool lines = layer.name == "lines" || layer.name == "line" ||
                          layer.name == "Lines";
       expect(scene.set_layer_visible(layer.id, lines), "lines-only toggle");
     }
-    dump_phase("lines_only", "log\\dbg_map2d_lines_only.bmp");
+    dump_phase("lines_only", "dbg_map2d_lines_only.bmp");
     for (const auto& id : ids) {
       expect(scene.set_layer_visible(id, true), "restore after isolate");
     }
-    dump_phase("layers_final", "log\\dbg_map2d_layers_final.bmp");
+    dump_phase("layers_final", "dbg_map2d_layers_final.bmp");
   }
 
   if (g_fails) {

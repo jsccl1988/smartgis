@@ -5,8 +5,8 @@
 
 #include <cstdio>
 #include <string>
-#include <vector>
 
+#include "common/ipc/invitation/invitation.h"
 #include "base/process/switches.h"
 
 namespace content {
@@ -51,49 +51,47 @@ HANDLE ChildProcessHost::open_job() {
 
 ChildProcessHost::Status ChildProcessHost::launch(
     ProcessType type,
-    const std::wstring& pipe_name,
     HANDLE job,
-    const std::function<bool()>& wait_client,
+    const char* attach_name,
+    common::ipc::Channel* channel,
     HANDLE* process) {
   if (process) {
     *process = nullptr;
   }
-  if (!process) {
+  if (!process || !channel || !attach_name || !attach_name[0]) {
     return Status::kCreateFailed;
   }
 
   const uint32_t pid = GetCurrentProcessId();
-  const std::wstring exe = this_exe_path();
-  std::wstring cmd = L"\"" + exe + L"\" --type=";
-  cmd += ProcessTypeSwitchValue(type);
   wchar_t pid_buf[32];
   swprintf_s(pid_buf, L"%u", pid);
-  cmd += L" --parent-pid=";
-  cmd += pid_buf;
-  cmd += L" --pipe=";
-  cmd += pipe_name;
-  cmd += L" --session=";
-  cmd += make_session_id();
-  base::append_switches_to_command_line(&cmd);
 
-  STARTUPINFOW si = {};
-  si.cb = sizeof(si);
-  PROCESS_INFORMATION pi = {};
-  std::vector<wchar_t> cmd_buf(cmd.begin(), cmd.end());
-  cmd_buf.push_back(L'\0');
-  if (!CreateProcessW(exe.c_str(), cmd_buf.data(), nullptr, nullptr, FALSE,
-                      CREATE_NO_WINDOW, nullptr, module_dir().c_str(), &si,
-                      &pi)) {
+  std::wstring extra = L"--type=";
+  extra += ProcessTypeSwitchValue(type);
+  extra += L" --parent-pid=";
+  extra += pid_buf;
+  extra += L" --session=";
+  extra += make_session_id();
+  base::append_switches_to_command_line(&extra);
+
+  common::ipc::OutgoingInvitation invitation;
+  common::ipc::Channel local = invitation.attach(attach_name);
+  if (!local.is_open()) {
     return Status::kCreateFailed;
   }
-  if (job) {
-    AssignProcessToJobObject(job, pi.hProcess);
+
+  common::ipc::ChildLaunch launch;
+  launch.exe = this_exe_path();
+  launch.extra_args = extra;
+  launch.cwd = module_dir();
+  launch.job = job;
+
+  PROCESS_INFORMATION pi = {};
+  if (!common::ipc::launch_with_invitation(&invitation, launch, &pi)) {
+    return Status::kCreateFailed;
   }
-  if (!wait_client || !wait_client()) {
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
-    return Status::kWaitFailed;
-  }
+
+  *channel = std::move(local);
   if (pi.hThread) {
     CloseHandle(pi.hThread);
   }

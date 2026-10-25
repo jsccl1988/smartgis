@@ -1,0 +1,212 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPU 多进程渲染升级 — A → B → 可选 renderer</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --phase-a: #2563a8; --phase-b: #b06a1a; --phase-c: #2f7d62;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 16px 20px 12px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 12px 14px 14px; margin-bottom: 12px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  button { appearance: none; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .legend { color: var(--muted); font-size: 0.82rem; }
+  .note { margin: 8px 0 0; font-size: 0.85rem; color: var(--muted); }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .pill { display: inline-block; font-size: 0.75rem; font-weight: 650; border-radius: 4px; padding: 1px 6px; margin-right: 4px; }
+  .pill-a { background: #e8f1fa; color: #2563a8; }
+  .pill-b { background: #f8efe4; color: #b06a1a; }
+  .pill-c { background: #e6f5ef; color: #2f7d62; }
+  .stage-dim { opacity: 0.35; }
+  .stage-hot { stroke: var(--accent); stroke-width: 2.5; }
+  .flow-pulse { stroke-dasharray: 6 4; animation: dash 0.9s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -20; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>GPU 多进程渲染升级</h1>
+    <p>
+      <span class="pill pill-a">Phase A 硬化</span>
+      <span class="pill pill-b">Phase B 默认 OOP GPU</span>
+      <span class="pill pill-c">Phase R 可选 renderer</span>
+      — 终局可画三进程；近端禁止默认三进程。
+    </p>
+    <p class="meta">
+      Living: <code>specs/2026-09-13-render-rhi-scene-design.md</code> §GPU multiprocess upgrade ·
+      Peer: <a href="render-accelerate-topology.html">A×B topology</a> ·
+      Shell: <code>ui-shell-multiprocess.md</code>
+    </p>
+  </header>
+
+  <section class="panel">
+    <h2>1. 分层与进程边界</h2>
+    <svg class="diagram" viewBox="0 0 1000 320" role="img" aria-label="三泳道：Browser chrome、Content/文档、GPU compose">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <!-- lanes -->
+      <rect x="20" y="20" width="960" height="84" rx="8" fill="#f3f0fa" stroke="#d8dee6"/>
+      <text x="36" y="48" fill="#6b5ea8" font-weight="700" font-size="13">Browser / chrome</text>
+      <text x="36" y="68" fill="#5a6a7e" font-size="11">Views shell · present SharedHandle / DIB only · 永不 final-blend</text>
+      <rect x="420" y="40" width="200" height="44" rx="6" fill="#fff" stroke="#c4b8e0" id="box-chrome"/>
+      <text x="520" y="66" text-anchor="middle" font-size="12" font-weight="650">Present-only</text>
+
+      <rect x="20" y="118" width="960" height="84" rx="8" fill="#eef4fb" stroke="#d8dee6"/>
+      <text x="36" y="146" fill="#2563a8" font-weight="700" font-size="13">Content / 文档·工具</text>
+      <text x="36" y="166" fill="#5a6a7e" font-size="11">A/B：同 browser 进程 · R：可选 <code>--type=renderer</code></text>
+      <rect x="300" y="138" width="220" height="44" rx="6" fill="#fff" stroke="#9bb8d9" id="box-doc"/>
+      <text x="410" y="164" text-anchor="middle" font-size="12" font-weight="650">GisContents / tools</text>
+      <rect x="560" y="138" width="200" height="44" rx="6" fill="#fff" stroke="#9bb8d9" id="box-submit"/>
+      <text x="660" y="164" text-anchor="middle" font-size="12" font-weight="650">Submit DrawRequest</text>
+
+      <rect x="20" y="216" width="960" height="84" rx="8" fill="#faf3ea" stroke="#d8dee6"/>
+      <text x="36" y="244" fill="#b06a1a" font-weight="700" font-size="13">GPU process（Topology B）</text>
+      <text x="36" y="264" fill="#5a6a7e" font-size="11"><code>src/gpu</code> · <code>draw_and_swap</code> · FrameComposer · OutputSurface</text>
+      <rect x="300" y="236" width="160" height="44" rx="6" fill="#fff" stroke="#d4b48a" id="box-hub"/>
+      <text x="380" y="262" text-anchor="middle" font-size="12" font-weight="650">GpuDeviceHub</text>
+      <rect x="490" y="236" width="160" height="44" rx="6" fill="#fff" stroke="#d4b48a" id="box-cf"/>
+      <text x="570" y="262" text-anchor="middle" font-size="12" font-weight="650">CompositorFrame</text>
+      <rect x="680" y="236" width="160" height="44" rx="6" fill="#fff" stroke="#d4b48a" id="box-os"/>
+      <text x="760" y="262" text-anchor="middle" font-size="12" font-weight="650">OutputSurface</text>
+
+      <path id="flow-submit" d="M660 182 L660 220" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arr)"/>
+      <path id="flow-present" d="M760 236 L760 120 L520 120 L520 84" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arr)"/>
+    </svg>
+    <p class="note">对照 Chromium：<code>GpuProcessHost</code> 语义 → 本仓 <code>ChildProcessHost</code> + <code>host_protocol</code>；不引入 Mojo Viz / FrameSink。</p>
+  </section>
+
+  <section class="panel">
+    <h2>2. 三阶段动画（谁在、谁可选）</h2>
+    <div class="controls">
+      <button type="button" class="primary" data-phase="a" id="btn-a">Phase A</button>
+      <button type="button" data-phase="b" id="btn-b">Phase B</button>
+      <button type="button" data-phase="r" id="btn-r">Phase R</button>
+      <span class="legend" id="phase-label">A：进程内 Topology A 为主；OOP GPU 可开关硬化</span>
+    </div>
+    <svg class="diagram" viewBox="0 0 1000 220" id="phase-svg" role="img" aria-label="阶段进程拓扑">
+      <rect class="pbox" data-role="browser" x="40" y="40" width="200" height="140" rx="10" fill="#f3f0fa" stroke="#c4b8e0"/>
+      <text x="140" y="70" text-anchor="middle" font-weight="700" font-size="13" fill="#6b5ea8">Browser</text>
+      <text class="psub" data-role="browser-sub" x="140" y="100" text-anchor="middle" font-size="11" fill="#5a6a7e">chrome + doc + present</text>
+      <text class="psub" data-role="browser-sub2" x="140" y="120" text-anchor="middle" font-size="11" fill="#5a6a7e">（A 默认）</text>
+
+      <rect class="pbox" data-role="renderer" x="400" y="40" width="200" height="140" rx="10" fill="#eef4fb" stroke="#9bb8d9"/>
+      <text x="500" y="70" text-anchor="middle" font-weight="700" font-size="13" fill="#2563a8">Renderer</text>
+      <text class="psub" data-role="renderer-sub" x="500" y="110" text-anchor="middle" font-size="11" fill="#5a6a7e">文档 / 工具 / hit</text>
+
+      <rect class="pbox" data-role="gpu" x="760" y="40" width="200" height="140" rx="10" fill="#faf3ea" stroke="#d4b48a"/>
+      <text x="860" y="70" text-anchor="middle" font-weight="700" font-size="13" fill="#b06a1a">GPU</text>
+      <text class="psub" data-role="gpu-sub" x="860" y="110" text-anchor="middle" font-size="11" fill="#5a6a7e">--type=gpu · compose</text>
+
+      <path class="plink" data-link="br" d="M240 110 L400 110" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arr2)"/>
+      <path class="plink" data-link="bg" d="M240 150 L760 150" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arr2)"/>
+      <path class="plink" data-link="rg" d="M600 110 L760 110" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arr2)"/>
+      <defs>
+        <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+    </svg>
+    <p class="note" id="phase-note">A 阶段：GPU/Renderer 框变淡表示非默认；实线仅概念能力。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 阶段门禁</h2>
+    <table class="map">
+      <thead>
+        <tr><th>阶段</th><th>产品默认</th><th>必须绿</th><th>禁止</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="pill pill-a">A</span> 硬化</td>
+          <td>Topology A 进程内</td>
+          <td>ChildProcessHost 统一；OOP GPU 开关路径；kill GPU 恢复；Task 8 桥（开关下）</td>
+          <td>默认三进程；Mojo Viz</td>
+        </tr>
+        <tr>
+          <td><span class="pill pill-b">B</span> 默认 GPU</td>
+          <td>Browser + <code>--type=gpu</code></td>
+          <td>首图预算可接受；chrome present-only；TDR 仅重启 GPU</td>
+          <td>文档强制进 renderer</td>
+        </tr>
+        <tr>
+          <td><span class="pill pill-c">R</span> 可选 renderer</td>
+          <td>仍可不拉 renderer</td>
+          <td>renderer 与 GPU 同 <code>host_protocol</code>；<code>OnRenderDied</code> 重启</td>
+          <td>未统一协议就默认 OOP renderer</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+(function () {
+  const labels = {
+    a: "A：进程内 Topology A 为主；OOP GPU 可开关硬化",
+    b: "B：产品默认 Browser + GPU；文档仍在 browser",
+    r: "R：可选 --type=renderer；永不强迫为产品默认，除非单独立项"
+  };
+  const notes = {
+    a: "A：仅 Browser 实线；GPU/Renderer 能力存在但非默认（淡）。",
+    b: "B：Browser ↔ GPU 活跃；Renderer 仍可选/淡。",
+    r: "R：三框均可拉起；Renderer 仍是开关，不是默认绑架。"
+  };
+  function setPhase(phase) {
+    document.querySelectorAll(".controls button").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-phase") === phase);
+      b.classList.toggle("primary", b.getAttribute("data-phase") === phase);
+    });
+    document.getElementById("phase-label").textContent = labels[phase];
+    document.getElementById("phase-note").textContent = notes[phase];
+    const dimRenderer = phase === "a" || phase === "b";
+    const dimGpu = phase === "a";
+    document.querySelector('[data-role="renderer"]').classList.toggle("stage-dim", dimRenderer);
+    document.querySelector('[data-role="gpu"]').classList.toggle("stage-dim", dimGpu);
+    document.querySelector('[data-link="br"]').classList.toggle("stage-dim", dimRenderer);
+    document.querySelector('[data-link="br"]').classList.toggle("flow-pulse", phase === "r");
+    document.querySelector('[data-link="rg"]').classList.toggle("stage-dim", dimRenderer);
+    document.querySelector('[data-link="rg"]').classList.toggle("flow-pulse", phase === "r");
+    document.querySelector('[data-link="bg"]').classList.toggle("stage-dim", dimGpu);
+    document.querySelector('[data-link="bg"]').classList.toggle("flow-pulse", phase === "b" || phase === "r");
+    document.querySelector('[data-role="browser"]').classList.add("stage-hot");
+    const browserSub = document.querySelector('[data-role="browser-sub"]');
+    if (phase === "a") browserSub.textContent = "chrome + doc + present";
+    else if (phase === "b") browserSub.textContent = "chrome + doc · present handle";
+    else browserSub.textContent = "chrome · present handle";
+  }
+  document.querySelectorAll(".controls button").forEach(function (b) {
+    b.addEventListener("click", function () { setPhase(b.getAttribute("data-phase")); });
+  });
+  setPhase("a");
+})();
+</script>
+</body>
+</html>

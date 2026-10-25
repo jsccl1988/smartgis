@@ -135,6 +135,7 @@ All rights reserved.
         <ul>
           <li><code>geo::buffer</code> → GEOS/OGR</li>
           <li><code>geo::delaunay</code>（GEOS XY）</li>
+          <li><code>geo::convex_hull_xy</code> / <code>polygon_area_xy</code>（<code>xy/</code>）</li>
           <li><code>geo::solve_laplace</code> / <code>solve_elliptic</code> / <code>compute_orthogonality</code></li>
           <li><code>geo::CoordinateTransform</code></li>
         </ul>
@@ -164,7 +165,7 @@ All rights reserved.
     <h2>2. 泳道依赖（边界）</h2>
     <div class="swim">
       <div class="swim-label">gis/geo</div>
-      <div class="swim-body"><strong>类型 + traits + 薄 ops/codec</strong> · 子树 <code>ops/</code> · <code>proj/</code> · <code>tin/</code> · <code>grid/</code> · 依赖 OGR / <code>base/math</code> · <em>不</em>依赖 UI、content、gpu</div>
+      <div class="swim-body"><strong>类型 + traits + 薄 ops/codec</strong> · 子树 <code>ops/</code> · <code>proj/</code> · <code>tin/</code> · <code>grid/</code> · <code>xy/</code> · 依赖 OGR / <code>base/math</code>（xy 无 OGR）· <em>不</em>依赖 UI、content、gpu</div>
     </div>
     <div class="swim">
       <div class="swim-label">gis/geo/tin · grid · proj</div>

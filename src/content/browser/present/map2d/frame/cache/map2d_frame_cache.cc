@@ -25,8 +25,20 @@
 #include "vista/component/map/ir.h"
 #include "vista/component/map/layout/policy/slice_key.h"
 
+#include <cstdlib>
+
 namespace content {
 namespace {
+
+bool env_flag_one(const char* key) {
+  const char* v = std::getenv(key);
+  return v && v[0] == '1' && v[1] == '\0';
+}
+
+bool force_hillshade_requested() {
+  return base::switch_is_one("map2d-force-hillshade") ||
+         env_flag_one("MAP2D_FORCE_HILLSHADE");
+}
 
 // Ephemeral SliceCache built from the published MapIR (C1: no layer_slices_).
 class PublishedSliceLookup final : public vista::SliceCache {
@@ -52,6 +64,34 @@ class PublishedSliceLookup final : public vista::SliceCache {
  private:
   std::unordered_map<uint64_t, std::vector<vista::DrawItem>> by_key_;
 };
+
+uint32_t map2d_damage_reasons_from_state(bool has_frame, bool fp_dirty,
+                                         bool zoom_dirty, bool pixels_dirty,
+                                         bool camera_changed) {
+  if (!has_frame) {
+    return Map2dFrameCache::PresentDamageReasons::kContent;
+  }
+  uint32_t reasons = Map2dFrameCache::PresentDamageReasons::kNone;
+  if (fp_dirty) {
+    reasons |= Map2dFrameCache::PresentDamageReasons::kContent;
+  }
+  if (zoom_dirty || pixels_dirty) {
+    reasons |= Map2dFrameCache::PresentDamageReasons::kSizeZoom;
+  }
+  if (camera_changed && !fp_dirty) {
+    reasons |= Map2dFrameCache::PresentDamageReasons::kCameraOnly;
+  }
+  return reasons;
+}
+
+uint32_t map2d_damage_reasons_for_action(Map2dFrameCache::PresentAction action,
+                                         uint32_t from_state) {
+  if (action == Map2dFrameCache::PresentAction::kInteractiveReuse &&
+      from_state == Map2dFrameCache::PresentDamageReasons::kNone) {
+    return Map2dFrameCache::PresentDamageReasons::kCameraOnly;
+  }
+  return from_state;
+}
 
 }  // namespace
 
@@ -211,6 +251,9 @@ bool Map2dFrameCache::load_raster(uint32_t texture_key,
 
 bool Map2dFrameCache::borrow_raster(uint32_t texture_key, const uint8_t** rgba,
                                     int* w, int* h) const {
+  // Keep the bake alive after mu_ drops. Upload reads the pointer after this
+  // returns; a later publish may replace hillshade_rgba_.
+  thread_local std::shared_ptr<const std::vector<uint8_t>> hold;
   std::lock_guard<std::mutex> lock(mu_);
   if (!rgba || !w || !h) {
     return false;
@@ -220,7 +263,8 @@ bool Map2dFrameCache::borrow_raster(uint32_t texture_key, const uint8_t** rgba,
         !hillshade_rgba_ || hillshade_rgba_->empty()) {
       return false;
     }
-    *rgba = hillshade_rgba_->data();
+    hold = hillshade_rgba_;
+    *rgba = hold->data();
     *w = hillshade_w_;
     *h = hillshade_h_;
     return *w > 0 && *h > 0;
@@ -229,7 +273,8 @@ bool Map2dFrameCache::borrow_raster(uint32_t texture_key, const uint8_t** rgba,
     if (!heatmap_rgba_ || heatmap_rgba_->empty()) {
       return false;
     }
-    *rgba = heatmap_rgba_->data();
+    hold = heatmap_rgba_;
+    *rgba = hold->data();
     *w = heatmap_w_;
     *h = heatmap_h_;
     return *w > 0 && *h > 0;
@@ -361,6 +406,8 @@ void Map2dFrameCache::publish_job(LayoutJob& job) {
       std::make_shared<vista::MapIR>(std::move(job.built.frame));
   if (!job.built.baked_rgba.empty() && job.built.baked_w > 0 &&
       job.built.baked_h > 0) {
+    // Keep bake alpha intact. MapPass upload owns one coverage scale for jet
+    // HSHD; pre-crushing here made land cream dominate map2d_china_dem.
     hillshade_rgba_ = std::make_shared<const std::vector<uint8_t>>(
         std::move(job.built.baked_rgba));
     hillshade_w_ = job.built.baked_w;
@@ -557,6 +604,20 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   return has_frame_cache_;
 }
 
+void Map2dFrameCache::record_present_damage(uint32_t reasons) {
+  last_damage_reasons_.store(reasons, std::memory_order_release);
+  note_map2d_phase_damage(reasons);
+}
+
+void Map2dFrameCache::or_present_damage_reasons(uint32_t bits) {
+  if (bits == 0) {
+    return;
+  }
+  const uint32_t merged =
+      last_damage_reasons_.fetch_or(bits, std::memory_order_acq_rel) | bits;
+  note_map2d_phase_damage(merged);
+}
+
 bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
                                           PresentAction* action) {
   if (!action) {
@@ -574,10 +635,13 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
     if (layout_rebuilt) {
       *action = drained;
       last_present_reused_layout_.store(false, std::memory_order_release);
+      record_present_damage(map2d_damage_reasons_for_action(
+          drained, PresentDamageReasons::kContent));
     } else {
       // Sync stage_frame already published; drain only clears the mailbox.
       *action = PresentAction::kStaticReuse;
       last_present_reused_layout_.store(true, std::memory_order_release);
+      record_present_damage(PresentDamageReasons::kNone);
     }
     pending_interactive_clock_refresh_ = false;
     return true;
@@ -623,6 +687,13 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
       *action = PresentAction::kStaticReuse;
       last_present_reused_layout_.store(true, std::memory_order_release);
       pending_interactive_clock_refresh_ = false;
+      record_present_damage(map2d_damage_reasons_for_action(
+          PresentAction::kStaticReuse,
+          map2d_damage_reasons_from_state(
+              has_frame, !has_frame || !(fp == cached_fp),
+              has_frame && cam.zoom_bucket != cached_cam.zoom_bucket,
+              has_frame && !cam.same_pixels(cached_cam),
+              has_frame && !cam.same_camera(cached_cam))));
       return true;
     }
     // Export holds the pin while building the first MapIR (often after
@@ -651,6 +722,13 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
       *action = PresentAction::kStaticReuse;
       last_present_reused_layout_.store(true, std::memory_order_release);
       pending_interactive_clock_refresh_ = false;
+      record_present_damage(map2d_damage_reasons_for_action(
+          PresentAction::kStaticReuse,
+          map2d_damage_reasons_from_state(
+              has_frame, !has_frame || !(fp == cached_fp),
+              has_frame && cam.zoom_bucket != cached_cam.zoom_bucket,
+              has_frame && !cam.same_pixels(cached_cam),
+              has_frame && !cam.same_camera(cached_cam))));
       return true;
     }
     // Pin cleared with or without a frame — fall through for HWND-sized dirty.
@@ -671,6 +749,12 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
   const bool camera_changed = has_frame && !cam.same_camera(cached_cam);
   const bool reuse_slices_on_rebuild =
       has_frame && !fp_dirty && !zoom_dirty;
+  const uint32_t damage_reasons = map2d_damage_reasons_from_state(
+      has_frame, fp_dirty, zoom_dirty, pixels_dirty, camera_changed);
+  const auto record_action_damage = [this](PresentAction act,
+                                           uint32_t state) {
+    record_present_damage(map2d_damage_reasons_for_action(act, state));
+  };
 
   // Timed FPS window only. Shell client pixels/zoom bucket are not the locked
   // showcase frame. Rebuilding would tessellate china for seconds and
@@ -680,6 +764,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
     *action = PresentAction::kStaticReuse;
     last_present_reused_layout_.store(true, std::memory_order_release);
     pending_interactive_clock_refresh_ = false;
+    record_action_damage(PresentAction::kStaticReuse, damage_reasons);
     return true;
   }
 
@@ -691,11 +776,13 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
       *action = PresentAction::kInteractiveReuse;
       last_present_reused_layout_.store(true, std::memory_order_release);
       pending_interactive_clock_refresh_ = true;
+      record_action_damage(PresentAction::kInteractiveReuse, damage_reasons);
       return true;
     }
     *action = PresentAction::kStaticReuse;
     last_present_reused_layout_.store(true, std::memory_order_release);
     pending_interactive_clock_refresh_ = false;
+    record_action_damage(PresentAction::kStaticReuse, damage_reasons);
     return true;
   }
 
@@ -717,10 +804,12 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
       if (layout_rebuilt) {
         *action = drained;
         last_present_reused_layout_.store(false, std::memory_order_release);
+        record_action_damage(drained, damage_reasons);
       } else {
         // Still presenting the published mesh while attach is staged.
         *action = PresentAction::kStaticReuse;
         last_present_reused_layout_.store(true, std::memory_order_release);
+        record_action_damage(PresentAction::kStaticReuse, damage_reasons);
       }
       pending_interactive_clock_refresh_ = false;
       return this->has_frame();
@@ -732,6 +821,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
         *action = PresentAction::kInteractiveReuse;
         last_present_reused_layout_.store(true, std::memory_order_release);
         pending_interactive_clock_refresh_ = false;
+        record_action_damage(PresentAction::kInteractiveReuse, damage_reasons);
         return true;
       }
       // In-skirt pan never deferred labels — mesh + glyphs still match the
@@ -765,6 +855,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
         *action = PresentAction::kStaticReuse;
         last_present_reused_layout_.store(true, std::memory_order_release);
         pending_interactive_clock_refresh_ = false;
+        record_action_damage(PresentAction::kStaticReuse, damage_reasons);
         return true;
       }
       settle_rebuild = true;
@@ -772,6 +863,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
       *action = PresentAction::kStaticReuse;
       last_present_reused_layout_.store(true, std::memory_order_release);
       pending_interactive_clock_refresh_ = false;
+      record_action_damage(PresentAction::kStaticReuse, damage_reasons);
       return true;
     }
   } else if ((camera_changed || zoom_dirty) && !content_dirty) {
@@ -798,6 +890,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
       *action = PresentAction::kInteractiveReuse;
       last_present_reused_layout_.store(true, std::memory_order_release);
       pending_interactive_clock_refresh_ = true;
+      record_action_damage(PresentAction::kInteractiveReuse, damage_reasons);
       return true;
     }
     bool entered_defer = false;
@@ -820,6 +913,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
     *action = PresentAction::kInteractiveReuse;
     last_present_reused_layout_.store(true, std::memory_order_release);
     pending_interactive_clock_refresh_ = true;
+    record_action_damage(PresentAction::kInteractiveReuse, damage_reasons);
     return true;
   }
 
@@ -841,6 +935,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
     *action = PresentAction::kRebuildFull;
     last_present_reused_layout_.store(false, std::memory_order_release);
     pending_interactive_clock_refresh_ = false;
+    record_action_damage(PresentAction::kRebuildFull, damage_reasons);
     return has_frame || this->has_frame();
   }
 
@@ -869,6 +964,11 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
     *action = staged;
     last_present_reused_layout_.store(false, std::memory_order_release);
     pending_interactive_clock_refresh_ = false;
+    uint32_t settle_reasons = damage_reasons;
+    if (zoom_rebuild) {
+      settle_reasons |= PresentDamageReasons::kSizeZoom;
+    }
+    record_action_damage(staged, settle_reasons);
     return this->has_frame();
   }
   return false;
@@ -913,6 +1013,13 @@ bool Map2dFrameCache::ensure_full(uint32_t width_px, uint32_t height_px,
     }
   } clear{this};
 
+  bool want_forced_dem = false;
+  {
+    std::lock_guard<std::mutex> lock(mu_);
+    want_forced_dem = force_hillshade_requested() && scene_ &&
+                      scene_->has_resolvable_dem();
+  }
+
   constexpr int kMaxAttempts = 8;
   for (int attempt = 0; attempt < kMaxAttempts; ++attempt) {
     const GisScene* scene = nullptr;
@@ -934,13 +1041,15 @@ bool Map2dFrameCache::ensure_full(uint32_t width_px, uint32_t height_px,
       // Cold china defers DEM on layout_build_count==0. export_bmp / MAPIR
       // dump must not treat that cream tess as a complete face — otherwise
       // bare DefaultChina equals H0 (no hillshade) vs gold blue DEM sheet.
+      const bool hs_ready = hillshade_ready_.load(std::memory_order_relaxed);
       need_hillshade_attach =
-          pending_hillshade_attach_ &&
-          !hillshade_ready_.load(std::memory_order_relaxed);
+          (pending_hillshade_attach_ || (want_forced_dem && !hs_ready)) &&
+          !hs_ready;
       const bool fp_or_cam_dirty = !has_frame_cache_ || !(fp == cached_fp_) ||
                                    !cam.same_camera(cached_cam_);
       const bool dirty = fp_or_cam_dirty || need_hillshade_attach;
-      if (!dirty && published_frame_) {
+      if (!dirty && published_frame_ &&
+          !(want_forced_dem && !hs_ready)) {
         last_present_reused_layout_.store(true, std::memory_order_release);
         if (snap_out) {
           *snap_out = *published_frame_;
@@ -958,9 +1067,10 @@ bool Map2dFrameCache::ensure_full(uint32_t width_px, uint32_t height_px,
     (void)rebuild_layout(cam, fp, reuse_slices, /*force_publish=*/true);
     {
       std::lock_guard<std::mutex> lock(mu_);
+      const bool hs_ready = hillshade_ready_.load(std::memory_order_relaxed);
       const bool still_pending_hs =
-          pending_hillshade_attach_ &&
-          !hillshade_ready_.load(std::memory_order_relaxed);
+          (pending_hillshade_attach_ || (want_forced_dem && !hs_ready)) &&
+          !hs_ready;
       if (has_frame_cache_ && published_frame_ && fp == cached_fp_ &&
           cam.same_camera(cached_cam_) && !still_pending_hs) {
         if (snap_out) {
@@ -973,6 +1083,13 @@ bool Map2dFrameCache::ensure_full(uint32_t width_px, uint32_t height_px,
       }
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1 + attempt));
+  }
+  // Forced DEM showcase must not accept a cream-only snap fallback.
+  if (want_forced_dem &&
+      !hillshade_ready_.load(std::memory_order_relaxed)) {
+    LOGGING(LOG_ERROR,
+            "map2d: ensure_full forced DEM but hillshade not ready");
+    return false;
   }
   PresentSnapshot snap;
   if (this->snap(&snap) && snap.frame) {

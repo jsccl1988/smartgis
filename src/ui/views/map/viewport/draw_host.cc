@@ -24,7 +24,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
-#include "ui/views/map/eagle_eye/eagle_eye_host.h"
+#include "ui/views/map/eagle_eye/host.h"
 #include "ui/views/map/frame/identity_hud.h"
 #include "ui/views/map/device/device_load.h"
 #include "ui/views/map/frame/embed_fill.h"
@@ -313,13 +313,7 @@ void DrawHost::detach() {
   stop_present_timer();
   release_backbuffer();
   touch_tracker_.clear();
-  if (identity_badge_) {
-    if (IsWindow(identity_badge_)) {
-      DestroyWindow(identity_badge_);
-    }
-    identity_badge_ = nullptr;
-    identity_badge_parent_ = nullptr;
-  }
+  identity_popup_.destroy();
   if (eagle_eye_) {
     eagle_eye_->destroy();
   }
@@ -614,6 +608,10 @@ bool DrawHost::try_oop_render() {
 
 std::unique_ptr<DrawHost> make_draw_host() {
   return std::make_unique<DrawHost>();
+}
+
+DrawHost* draw_host_new() {
+  return new DrawHost();
 }
 
 }  // namespace views

@@ -24,6 +24,25 @@ _CLIP = (
 )
 
 
+def expect_m2_processing_panel(sg, fail_rc=80):
+    """Processing panel lists >=10 ops including native.buffer and native.clip."""
+    sg.require_plugins()
+    check = getattr(sg, "check_m2_processing_panel", None)
+    if callable(check):
+        if not check():
+            raise SystemExit(fail_rc)
+    else:
+        import glang.plugin.gis.analysis as analysis
+
+        ops = analysis.ops()
+        if len(ops) < 10:
+            raise RuntimeError("m2: processing panel lists < 10 operators")
+        ids = {row["id"] for row in ops}
+        if "native.buffer" not in ids or "native.clip" not in ids:
+            raise RuntimeError("m2: native.buffer/clip missing from panel")
+    sg.mark("m2-panel-ok")
+
+
 def buffer_and_clip(
     sg, buffer_mark, clip_mark, buffer_fail_rc=81, clip_fail_rc=82, stem="smartgis_m2_hook"
 ):
@@ -64,6 +83,7 @@ def buffer_and_clip(
 
 
 def milestones(sg):
+    expect_m2_processing_panel(sg)
     buffer_and_clip(sg, "m2-buffer-ok", "m2-clip-ok")
     sg.mark("pass")
     sg.mark("detached")

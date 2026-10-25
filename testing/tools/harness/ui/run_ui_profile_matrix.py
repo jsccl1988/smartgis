@@ -334,13 +334,6 @@ def run_showcase(row_id: str, mode: str, surface: str, role: str) -> dict:
                 p.unlink()
             except OSError:
                 pass
-    env = _apply_env(
-        {
-                        "UI_FORENSICS": "1",
-            "UI_THEME": "dark",
-            "SMARTGIS_NO_ALWAYS_ON_DIAG": "1",
-        }
-    )
     # Same launch as loop_runner: empty argv (retired --ui-showcase is
     # stripped) + plugin.json startup.scenario=ui.<mode> AFTER product show.
     # Passing --plugin-showcase=ui.shell applies ContentMapView policy before
@@ -348,6 +341,7 @@ def run_showcase(row_id: str, mode: str, surface: str, role: str) -> dict:
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     from testing.tools.loop.contract import load_suite
+    from testing.tools.loop.drive.env import prepare_env
     from testing.tools.loop.drive.plugin import (
         apply_suite_plugin_startup,
         restore_product_plugin_startup,
@@ -355,6 +349,7 @@ def run_showcase(row_id: str, mode: str, surface: str, role: str) -> dict:
 
     suite = load_suite(f"ui.{mode}")
     apply_suite_plugin_startup(suite, VIEWS)
+    env = _apply_env(prepare_env(suite))
     cmd = [str(VIEWS)]
     t0 = time.perf_counter()
     _kill_showcase_procs()

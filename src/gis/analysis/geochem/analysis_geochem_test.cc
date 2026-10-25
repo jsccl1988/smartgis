@@ -1,33 +1,24 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "gis/analysis/geochem/grade.h"
-#include "gis/analysis/geochem/idw.h"
-#include "gis/analysis/geochem/samples.h"
-#include "gis/analysis/geochem/stats.h"
+#include "gis/analysis/geochem/grade/grade.h"
+#include "gis/analysis/geochem/idw/idw.h"
+#include "gis/analysis/geochem/load/csv_load.h"
+#include "gis/analysis/geochem/op/idw_op.h"
+#include "gis/analysis/geochem/op/stats_op.h"
+#include "gis/analysis/geochem/stats/stats.h"
 #include "gis/analysis/ops/runner/ops_runner.h"
 
+#include "gtest/gtest.h"
+
+#include <algorithm>
 #include <cmath>
-#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <limits>
 #include <string>
 
 namespace {
-
-int g_fails = 0;
-
-void expect(bool ok, const char* msg) {
-  if (!ok) {
-    std::fprintf(stderr, "FAIL: %s\n", msg);
-    ++g_fails;
-  }
-}
-
-bool nearly(double a, double b, double tol) {
-  return std::fabs(a - b) <= tol;
-}
 
 std::string write_temp_csv() {
   namespace fs = std::filesystem;
@@ -61,40 +52,39 @@ std::string escape_json_path(const std::string& p) {
   return out;
 }
 
-void test_load_stats_idw() {
+}  // namespace
+
+TEST(GeochemAnalysis, LoadStatsIdw) {
   const std::string csv = write_temp_csv();
-  const auto set = gis::detail::load_geochem_csv(csv);
-  expect(set.ok, "load_geochem_csv ok");
-  expect(set.samples.size() == 10, "10 samples");
-  expect(set.element_names.size() == 3, "3 elements");
+  const auto set = gis::detail::load_csv(csv);
+  ASSERT_TRUE(set.ok);
+  EXPECT_EQ(set.samples.size(), 10u);
+  EXPECT_EQ(set.element_names.size(), 3u);
 
-  const auto st = gis::detail::compute_geochem_stats(set, "Cu", 5, 2.0);
-  expect(st.ok, "stats ok");
-  expect(st.count == 10, "stats count");
-  expect(st.threshold > st.background, "threshold > background");
-  expect(st.histogram.size() == 5, "5 bins");
+  const auto st = gis::detail::compute_stats(set, "Cu", 5, 2.0);
+  ASSERT_TRUE(st.ok);
+  EXPECT_EQ(st.count, 10);
+  EXPECT_GT(st.threshold, st.background);
+  EXPECT_EQ(st.histogram.size(), 5u);
 
-  const auto corr =
-      gis::detail::compute_geochem_correlation(set, "Cu", "Au");
-  expect(corr.ok, "corr ok");
-  expect(corr.r > 0.9, "Cu-Au highly correlated");
+  const auto corr = gis::detail::compute_correlation(set, "Cu", "Au");
+  ASSERT_TRUE(corr.ok);
+  EXPECT_GT(corr.r, 0.9);
 
-  const auto legend =
-      gis::detail::build_geochem_grade_legend(set, "Cu", 5);
-  expect(legend.ok, "legend ok");
-  expect(legend.classes.size() == 5, "5 classes");
+  const auto legend = gis::detail::build_grade_legend(set, "Cu", 5);
+  ASSERT_TRUE(legend.ok);
+  EXPECT_EQ(legend.classes.size(), 5u);
 
-  const auto idw =
-      gis::detail::run_geochem_idw(set, "Cu", 32, 2.0,
-                                  std::numeric_limits<double>::quiet_NaN(),
-                                  2.0);
-  expect(idw.ok, "idw ok");
-  expect(idw.width > 0 && idw.height > 0, "idw size");
-  expect(!idw.values.empty(), "idw values");
-  expect(idw.values.size() ==
-             static_cast<size_t>(idw.width) * static_cast<size_t>(idw.height),
-         "full-extent raster");
-  expect(!idw.anomaly_mask.empty(), "anomaly mask");
+  const auto idw = gis::detail::run_idw(
+      set, "Cu", 32, 2.0, std::numeric_limits<double>::quiet_NaN(), 2.0);
+  ASSERT_TRUE(idw.ok);
+  EXPECT_GT(idw.width, 0);
+  EXPECT_GT(idw.height, 0);
+  EXPECT_FALSE(idw.values.empty());
+  EXPECT_EQ(idw.values.size(),
+            static_cast<size_t>(idw.width) * static_cast<size_t>(idw.height));
+  EXPECT_FALSE(idw.anomaly_mask.empty());
+
   double vmin = 0;
   double vmax = 0;
   bool range_set = false;
@@ -110,17 +100,17 @@ void test_load_stats_idw() {
       vmax = std::max(vmax, static_cast<double>(v));
     }
   }
-  expect(range_set && vmax >= vmin, "idw value range");
+  ASSERT_TRUE(range_set);
+  EXPECT_GE(vmax, vmin);
   const double mid = 0.5 * (vmin + vmax);
-  const double score = gis::detail::geochem_heat_score(mid, vmin, vmax);
-  expect(nearly(score, 50.0, 1.0), "mid heat ~50");
+  const double score = gis::detail::heat_score(mid, vmin, vmax);
+  EXPECT_NEAR(score, 50.0, 1.0);
   char heat_buf[32];
-  expect(gis::detail::format_geochem_heat(score, heat_buf, sizeof(heat_buf))[0] !=
-             '\0',
-         "format heat");
+  EXPECT_NE(gis::detail::format_heat(score, heat_buf, sizeof(heat_buf))[0],
+            '\0');
 }
 
-void test_ops_roundtrip() {
+TEST(GeochemAnalysis, OpsRoundtrip) {
   const std::string csv = write_temp_csv();
   namespace fs = std::filesystem;
   const fs::path stats_out =
@@ -133,28 +123,13 @@ void test_ops_roundtrip() {
       "\",\"element\":\"Cu\",\"bins\":5,\"k_sigma\":2,\"correlate\":\"Au\","
       "\"output\":\"" +
       escape_json_path(stats_out.string()) + "\"}";
-  expect(gis::detail::run_geochem_stats_op(stats_args), "stats op");
-  expect(gis::detail::run_builtin_op("native.geochem_stats", stats_args),
-         "catalog stats");
+  ASSERT_TRUE(gis::detail::run_stats_op(stats_args));
+  ASSERT_TRUE(gis::detail::run_builtin_op("native.geochem_stats", stats_args));
 
   const std::string idw_args =
       std::string("{\"input\":\"") + escape_json_path(csv) +
       "\",\"element\":\"Cu\",\"cells\":24,\"output\":\"" +
       escape_json_path(idw_out.string()) + "\"}";
-  expect(gis::detail::run_geochem_idw_op(idw_args), "idw op");
-  expect(gis::detail::run_builtin_op("native.geochem_idw", idw_args),
-         "catalog idw");
-}
-
-}  // namespace
-
-int main() {
-  test_load_stats_idw();
-  test_ops_roundtrip();
-  if (g_fails != 0) {
-    std::fprintf(stderr, "%d failure(s)\n", g_fails);
-    return 1;
-  }
-  std::printf("analysis_geochem_test OK\n");
-  return 0;
+  ASSERT_TRUE(gis::detail::run_idw_op(idw_args));
+  ASSERT_TRUE(gis::detail::run_builtin_op("native.geochem_idw", idw_args));
 }

@@ -43,6 +43,7 @@ struct PendingDraw {
   bool dem_raster = false;
   bool stroke = false;
   bool overlay = false;
+  bool screen_fixed = false;
   size_t bucket_index = 0;
   render::rhi::Texture* texture = nullptr;
   uint32_t first_index = 0;
@@ -138,6 +139,7 @@ void push_or_coalesce(std::vector<PendingDraw>* pending, PendingDraw draw) {
     PendingDraw& last = pending->back();
     if (last.textured == draw.textured && last.dem_raster == draw.dem_raster &&
         last.stroke == draw.stroke && last.overlay == draw.overlay &&
+        last.screen_fixed == draw.screen_fixed &&
         last.texture == draw.texture && last.bucket_index == draw.bucket_index &&
         last.blend == draw.blend && last.r == draw.r && last.g == draw.g &&
         last.b == draw.b && last.a == draw.a &&
@@ -251,6 +253,22 @@ std::vector<UploadedDraw> upload_draws(
         load_icon,
     std::vector<render::rhi::Buffer*>* buffers,
     std::vector<render::rhi::Texture*>* textures) {
+  return upload_draws(device, std::move(meshes), atlas, load_raster, load_icon,
+                      buffers, textures, {});
+}
+
+std::vector<UploadedDraw> upload_draws(
+    render::rhi::Device* device, std::vector<PlacedMesh> meshes,
+    const AtlasLayout& atlas,
+    const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
+                             int* w, int* h)>& load_raster,
+    const std::function<bool(const std::string& symbol_id,
+                             std::vector<uint8_t>* rgba, int* w, int* h)>&
+        load_icon,
+    std::vector<render::rhi::Buffer*>* buffers,
+    std::vector<render::rhi::Texture*>* textures,
+    const std::function<bool(uint32_t texture_key, const uint8_t** rgba, int* w,
+                             int* h)>& borrow_raster) {
   std::vector<UploadedDraw> draws;
   if (!device || !buffers || !textures) {
     return draws;
@@ -288,7 +306,26 @@ std::vector<UploadedDraw> upload_draws(
       return found->second;
     }
     render::rhi::Texture* texture = nullptr;
-    if (load_raster) {
+    constexpr uint32_t kHillshadeKey = 0x48534844u;
+    if (!multiply && borrow_raster) {
+      const uint8_t* borrowed = nullptr;
+      int bw = 0;
+      int bh = 0;
+      if (borrow_raster(key, &borrowed, &bw, &bh) && borrowed && bw > 0 &&
+          bh > 0) {
+        texture = upload_rgba_texture(device, borrowed, bw, bh, textures);
+        if (texture && key == kHillshadeKey) {
+          static int s_borrow_logs = 0;
+          if (s_borrow_logs < 2) {
+            LOGGING(LOG_INFO, "map2d: HSHD borrow upload %dx%d", bw, bh);
+            ++s_borrow_logs;
+          }
+        } else if (!texture && key == kHillshadeKey) {
+          LOGGING(LOG_ERROR, "map2d: HSHD borrow upload failed %dx%d", bw, bh);
+        }
+      }
+    }
+    if (!texture && load_raster) {
       std::vector<uint8_t> rgba;
       int w = 0;
       int h = 0;
@@ -299,7 +336,7 @@ std::vector<UploadedDraw> upload_draws(
           // Jet DEM ('HSHD'): bake layer opacity into land texel alpha.
           // Textured PS uses tex.a only (not tint.a) so ColorCB cannot zero
           // the sheet. Ocean pixels stay a=0 for the MapIR clear.
-          constexpr uint32_t kHillshadeKey = 0x48534844u;
+          // Publish already caps product sheets; skip a second scale.
           if (key == kHillshadeKey) {
             // TEMP: tiny solid-red texture (glyph-atlas scale). If land goes
             // red, the 1536x960 upload/sample path is at fault.
@@ -317,10 +354,10 @@ std::vector<UploadedDraw> upload_draws(
             } else {
               const size_t need =
                   static_cast<size_t>(w) * static_cast<size_t>(h) * 4u;
-              // Jet texels are a=255 on land. SrcAlpha would replace cream,
-              // water, and roads. Cap coverage so the ramp tints the fills.
-              // Ocean stays a=0.
-              constexpr float kHillshadeCover = 0.22f;
+              // Jet land face: land cream fills are dropped when HSHD is
+              // present (fill.cc). Keep near-opaque coverage so jet wins
+              // map2d_china_dem; ocean stays a=0. Layer opacity still applies.
+              constexpr float kHillshadeCover = 0.92f;
               const float op = (std::min)(clamp01(opacity), kHillshadeCover);
               if (rgba.size() >= need) {
                 const int scale = static_cast<int>(op * 255.f + 0.5f);
@@ -423,6 +460,7 @@ std::vector<UploadedDraw> upload_draws(
     bool dem_raster = false;
     bool stroke = false;
     bool overlay = false;
+    bool screen_fixed = false;
     bool uv = false;
     size_t bucket_index = 0;
     render::rhi::Texture* texture = nullptr;
@@ -449,6 +487,7 @@ std::vector<UploadedDraw> upload_draws(
     item.skip = false;
     item.stroke = mesh.stroke;
     item.overlay = mesh.overlay;
+    item.screen_fixed = mesh.screen_fixed;
     item.r = mesh.r;
     item.g = mesh.g;
     item.b = mesh.b;
@@ -554,6 +593,7 @@ std::vector<UploadedDraw> upload_draws(
     draw.dem_raster = item.dem_raster;
     draw.stroke = item.stroke;
     draw.overlay = item.overlay;
+    draw.screen_fixed = item.screen_fixed;
     draw.bucket_index = item.bucket_index;
     draw.texture = item.texture;
     draw.first_index = first_index;
@@ -600,6 +640,7 @@ std::vector<UploadedDraw> upload_draws(
     draw.dem_raster = p.dem_raster;
     draw.stroke = p.stroke;
     draw.overlay = p.overlay;
+    draw.screen_fixed = p.screen_fixed;
     draw.vertices = bucket.vb;
     draw.indices = bucket.ib;
     draw.index_count = p.index_count;

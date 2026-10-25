@@ -14,6 +14,7 @@
 #include <memory>
 #include <string>
 
+#include "app/views/app/startup/map2d_showcase_run.h"
 #include "app/views/app/startup/policy.h"
 #include "app/views/app/startup/scenario.h"
 #include "app/views/browser/browser.h"
@@ -293,6 +294,24 @@ int run_browser_main(const content::ContentMainParams&,
   if (const char* suite = base::switch_cstr("harness-suite");
       suite && suite[0]) {
     exit_after_scenario(browser, suite);
+  }
+  // Phase-loop / equal-profile bench: product face (china already seeded) then
+  // the same C++ showcase body as Debug's harness fallback — avoids empty-doc
+  // HARNESS_SUITE attach races while keeping FlyCube GPU StaticReuse honest.
+  if (const char* phase = base::switch_cstr("map2d-phase-bench");
+      phase && phase[0]) {
+    int rc = 1;
+    if (std::strcmp(phase, "1") == 0 || std::strcmp(phase, "china") == 0) {
+      rc = run_map2d_china_showcase(*browser);
+    } else if (std::strcmp(phase, "align") == 0) {
+      rc = run_map2d_align_showcase(*browser);
+    } else if (std::strcmp(phase, "orthogrid") == 0) {
+      rc = run_map2d_orthogrid_showcase(*browser);
+    } else {
+      std::fprintf(stderr, "map2d-phase-bench: unknown mode '%s'\n", phase);
+    }
+    std::fflush(stderr);
+    ::TerminateProcess(::GetCurrentProcess(), static_cast<UINT>(rc));
   }
   return browser->run_loop();
 }

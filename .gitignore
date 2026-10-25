@@ -2,6 +2,8 @@
 /out_*
 # Legacy repo-root crash dir (do not recreate). Canonical: out/crash/ (under /out).
 /crash/
+# Legacy repo-root log dir (do not recreate). Canonical: out/<config>/log/.
+/log/
 *.dmp
 *.mdmp
 /vendor

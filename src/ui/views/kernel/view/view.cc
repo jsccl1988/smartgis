@@ -338,8 +338,10 @@ void View::layout() {
 
 void View::ensure_commands_recorded() {
   if (!commands_dirty_ && commands_ready_) {
+    ui::gfx::note_paint_cache_hit();
     return;
   }
+  ui::gfx::note_paint_cache_miss();
   commands_.clear();
   // Null HDC: Canvas draw ops only append to the thread_local recorder.
   ui::gfx::Canvas recorder(nullptr, bounds_.width, bounds_.height);
@@ -595,6 +597,21 @@ void View::set_paint_delegate(PaintDelegate* delegate) {
 
 void View::paint_contents_for_painter(ui::gfx::Canvas* canvas) {
   paint_self(canvas);
+}
+
+std::unique_ptr<View> make_view() {
+  return std::make_unique<View>();
+}
+
+View* view_new() {
+  return new View();
+}
+
+void view_adopt_child(View* parent, View* child) {
+  if (!parent || !child) {
+    return;
+  }
+  parent->add_child(std::unique_ptr<View>(child));
 }
 
 }  // namespace views

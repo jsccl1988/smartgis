@@ -4,6 +4,7 @@
 #ifndef GIS_TILE_TILE_PROVIDER_H_
 #define GIS_TILE_TILE_PROVIDER_H_
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
@@ -40,13 +41,21 @@ class GIS_EXPORT TileProvider {
   size_t cache_size() const { return cache_.size(); }
   void clear_cache() { cache_.clear(); }
 
-  // Optional disk cache. Empty |dir| disables. Capacity is file count.
+  // Disk cache (enabled by default on open_xyz for production paths).
+  // Empty |dir| disables. Capacity is file count.
   void set_disk_cache_dir(const std::string& dir) { disk_.set_directory(dir); }
   void set_disk_cache_capacity(size_t capacity) {
     disk_.set_capacity(capacity);
   }
   const std::string& disk_cache_dir() const { return disk_.directory(); }
   void clear_disk_cache() { disk_.clear(); }
+  bool disk_cache_enabled() const { return disk_.is_enabled(); }
+  // Production MapLayer / registry paths call this after open_xyz.
+  void enable_production_disk_cache();
+
+  // Counters since open (memory hits are not counted).
+  uint64_t disk_cache_hits() const { return disk_cache_hits_; }
+  uint64_t http_tile_fetches() const { return http_tile_fetches_; }
 
   TileImage fetch_tile(const TileCoord& coord, int timeout_sec = 5);
   std::vector<TileImage> fetch_visible(const Viewport& viewport,
@@ -60,6 +69,8 @@ class GIS_EXPORT TileProvider {
   net::HttpClient http_;
   TileCache cache_;
   TileDiskCache disk_;
+  uint64_t disk_cache_hits_ = 0;
+  uint64_t http_tile_fetches_ = 0;
 };
 
 }  // namespace tile

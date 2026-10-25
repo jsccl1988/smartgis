@@ -7,6 +7,7 @@ All rights reserved.
 
 **Status:** active  
 **Date:** 2026-09-30  
+**Updated:** 2026-10-25 — §9 几何分析钉死（Processing 深度 / 拓扑交叉）。  
 **Scope:** 以 SmartGIS 产品愿景（桌面原生 C++、「走进去干活」的图）为锚，对照三家标杆的能力下限；把差距映射到现有 `docs/superpowers` 规格/计划与建议里程碑。  
 **非目标：** 不宣称要对齐三家全部产品线；不重新打开已锁定的拒绝项（Qt、Cesium Native 全家桶、第二套 GEOS、产品 Web GIS/mapd）。
 
@@ -64,12 +65,12 @@ M0–M4 验收口令均挂在 `SmartGIS.exe --self-test`；计划：`docs/superp
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 桌面壳 / 控件 | A | — | A | B（M0 自测口令绿；深度编辑仍弱）+ leftover | A | [ui-views-mfc-migration](specs/2026-09-27-views-desktop-shell-design.md) **active**；[ui-views-skia](ui-views-skia.md)；[shell-compile-gate](archive/specs/2026-09-19-shell-compile-gate-design.md) **active**；[M0 plan](plans/2026-09-20-m0-views-main-path.md) | **M0** |
 | 数据模型 / OGR | A | B | A | B（GDAL/SDBD 已定） | A | [ogr-db](specs/2026-09-13-gdal-layer-management-design.md)、[gdal-layer](specs/2026-09-13-gdal-layer-management-design.md)、[feature-maplayer](specs/2026-09-13-gdal-layer-management-design.md) **accepted** | M0–M1 |
-| 2D 瓦片底图 | A | A | A | **B**（XYZ/WMTS + cache；**MVT 本地 decode**；URL vector bind 仍开） | B→A | [tile-layer-provider](specs/2026-09-13-gdal-layer-management-design.md) **active**；gap pin [`plans/2026-09-30-map2d-gap-pin.md`](plans/2026-09-30-map2d-gap-pin.md) P0-1 done / P1-1 | **M1**+ |
+| 2D 瓦片底图 | A | A | A | **B**（XYZ/WMTS + **生产默认磁盘缓存**；**MVT 本地 decode**；URL vector bind 仍开） | B→A | [tile-layer-provider](specs/2026-09-13-gdal-layer-management-design.md) **active**；gap pin P0-1 / **P1-1 done** | **M1**+ |
 | 制图样式 / 符号 | A | B | A | **B**（casing+hillshade+heatmap/extrusion v1+mini expr landed；缺 SDF/完整 VM/GPU 密度） | B→A | [sdb-style](specs/2026-09-13-gdal-layer-management-design.md)；[render-rhi §Map2d richness](specs/2026-09-13-render-rhi-scene-design.md)；[`map2d-hillshade-line-casing`](plans/2026-09-30-map2d-hillshade-line-casing.md) 近收口；gap pin P1-2/P1-5/P2 | **M1**+ |
 | 注记 / 离线底图 | A | B | A | **C→B**（`m1-labels-ok` + along-line collision v1；**china 产品环 P0-2 已绿**；CJK 字体仍 P1-3） | B | [china-city-map-plpt](specs/2026-09-13-gdal-layer-management-design.md)；gap pin P1-3 | **M1**+ |
 | 布局打印 | A | — | A | **C**（Views `PrintPreviewDialog` 壳 + viewport BMP；**无**页布局/比例尺/图例引擎） | B | [plugin-host](specs/2026-09-13-plugin-host-design.md) print；gap pin P0-3 | M1 末 |
-| 编辑 / 捕捉 / 拓扑 | A | — | A | C（`EditSession`/`feature_edit` 有；**新栈无 snap/拓扑**）+ leftover | B→A | [tool-event-dispatch](specs/2026-09-13-tool-event-dispatch-design.md)；gap pin P0-4/P1-4 | **M0** / M4 |
-| Processing / 分析 | A | — | A | C–D（algorithm 核有，无工具箱） | B | [algorithm-layer-oss](specs/2026-09-13-algorithm-layer-oss-design.md) **accepted**；[plugin-host](specs/2026-09-13-plugin-host-design.md) Processing 契约 | **M2** |
+| 编辑 / 捕捉 / 拓扑 | A | — | A | **B**（snap + **叠盖/缝隙拓扑校验**挂 EditSession；高级规则集仍 P2-4） | B→A | [tool-event-dispatch](specs/2026-09-13-tool-event-dispatch-design.md)；gap pin P0-4 / **P1-4 done** | **M0** / M4 |
+| Processing / 分析 | A | — | A | **B**（M2 骨架 + P0 GEOS `native.*` + P1 图层 dissolve/join/erase + Eigen deepen；拓扑高级规则仍 P2-4） | B→A | [algorithm-layer-oss](specs/2026-09-13-algorithm-layer-oss-design.md) §9；[geometry gap-pin](plans/2026-10-25-geometry-analysis-gap-pin.md)；[plugin-host](specs/2026-09-13-plugin-host-design.md) Processing | **M2**+ |
 | RHI / 双场景 | — | A | A | **B**（`gis::World` + `vista::GpuScene` + `Scene3dGpuPresent`；SP4 主刀已绿；leftover `DemHeightField` / `Scene` octree 仍 Deferred） | A | [render-rhi-scene](specs/2026-09-13-render-rhi-scene-design.md) **accepted**；[legacy umbrella SP4](specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md)；[scene3d-world-gpuscene plan](plans/2026-09-19-scene3d-world-gpuscene.md)；[**map3d-gap-pin**](plans/2026-09-30-map3d-gap-pin.md) | **M3**+ |
 | 3D 模型 / Tiles | B | A | A | **B**（`TilesetStreamSession` + present pump/`GpuScene` cache；b3dm/glb 解码；M3 fixture + `scene3d_presenter_test` 绿；城市场规模 / i3dm·pnts → P1-C） | B→A | render-rhi-scene §model；`vista/assets/tileset`；[m3 plan](archive/plans/2026-09-27-m3-city-3d-stream.md)；[map3d-gap-pin](plans/2026-09-30-map3d-gap-pin.md) P0-B **done** | **M3**+ |
 | 地形 DEM | B | A | A | **B–C**（`DemRaster` + `seed_china_dem_into_world` + mesh；**无**高度场瓦片/clipmap） | B | [legacy umbrella DEM](specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md)；[map3d-gap-pin](plans/2026-09-30-map3d-gap-pin.md) P0-C | M3+ |
@@ -95,11 +96,11 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 | 单一主 UI | Views 与 MFC 双轨；`legacy_app` opt-in | 完成 MFC→Views parity 门禁；日常只编 `build.bat app` | M0 |
 | 工具迁到 Workspace | dispatch 已有；行为仍在 leftover | 执行 tool-behavior-migration + strangler，禁新功能进 `legacy/tool` | M0 |
 | Style 端到端 | **已抬升：** `ResolvedPaint` + casing/hillshade/heatmap/extrusion v1 + mini expr（`src/gis/style`）；仍缺算术族/SDF/GPU 密度 | 按 §8 P1-2 / P1-5 / P2 推进；勿重复做已落地的 P0 richness | M1+ |
-| 瓦片 / MVT | XYZ/WMTS + cache；**MVT 本地 decode 已落地**（`mvt.cc`）；Style vector URL bind 仍拒 | §8 P0-1 已关；P1-1 生产路径默认磁盘缓存 | M1+ |
+| 瓦片 / MVT | XYZ/WMTS + **生产默认磁盘缓存**；**MVT 本地 decode**；Style vector URL bind 仍拒 | §8 P0-1 / **P1-1 已关** | M1+ |
 | 注记 / china | `m1-labels-ok`；`collision.cc` along-line slots；**china loop P0-2 已绿** | §8 P1-3（字体/沿线产品化） | M1+ |
-| Processing 入口 | algorithm 有核；工具箱口令见 M2（已绿骨架） | 深度算子与可发现性继续挂 plugin-host Processing | M2 |
+| Processing 入口 | M2 骨架 + **§9 P0/P1 done-bar**（图层 dissolve/join/erase + catalog 可发现） | 维护 catalog；高级拓扑规则 → §8/§9 P2-4 | M2+ |
 | 打印布局 | **PrintComposer** 一页（地图+比例尺+图例）；`m1-layout-ok` | §8 P0-3 已关；多页见 P2-3 | M1 末 |
-| 捕捉 / 拓扑 | **vertex/edge snap** 已落地（`feature_edit`）；拓扑仍缺 | §8 P0-4 已关；P1-4 拓扑 | M0 / M4 |
+| 捕捉 / 拓扑 | snap + **`validate_topology` 叠盖/缝隙**（`topology_check_test`） | §8 P0-4 / **P1-4 已关**；P2-4 规则集后置 | M0 / M4 |
 
 ### 3.2 对标 Cesium（走进场景）
 
@@ -203,6 +204,7 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 - **差距钉死表：**
   - **Map2D：** **§8** + [`2026-09-30-map2d-gap-pin.md`](plans/2026-09-30-map2d-gap-pin.md) — Map3D 代理 **勿覆盖**。
   - **Map3D：** §3.2.1 + [`2026-09-30-map3d-gap-pin.md`](plans/2026-09-30-map3d-gap-pin.md) — Map2D 代理 **勿覆盖**。
+  - **几何分析：** **§9** + [`2026-10-25-geometry-analysis-gap-pin.md`](plans/2026-10-25-geometry-analysis-gap-pin.md) — 拓扑与 Map2D P1-4/P2-4 **同关**；勿在 plugin 内复制核。
 
 ---
 
@@ -222,10 +224,10 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 | P0-2 | **P0** | China 产品环未钉死 | **已关闭：** `testing/data` → GN `//testing/data:china_map_samples` 同步 `out/data/china_city.*` + `china_dem.tif`（PIN 对齐）；`py -3 testing/tools/loop_runner.py --suite map2d.china --no-build` exit 0；BMP `road_casing_frac`/`road_gold+casing` + `hillshade_soft_ok` | — | `map2d.china` loop exit 0；BMP casing / soft hillshade | gap-pin P0-2 |
 | P0-3 | **P0** | 无页布局出图 | **已关闭：** `PrintComposer`（地图+比例尺+图例）→ BMP；`PrintPreviewDialog` Save 走页布局；`print_composer_test` PASS；self-test `m1-layout-ok` | — | mark + 一页可读 | gap-pin P0-3 |
 | P0-4 | **P0** | 新栈无顶点/边捕捉 | **已关闭：** `feature_edit` `snap_to_features` / `snap_point`（vertex 优先 + edge 投影）；`move_selected_vertex` 吸附他要素；`feature_edit_test` | — | 命中误差 ≤ 容差 | gap-pin P0-4 |
-| P1-1 | **P1** | 栅格瓦片缓存未成产品默认 | `TileCache` / `TileDiskCache` 有实现；主路径未必默认开 | Views 打开 XYZ/WMTS 默认挂磁盘缓存 | 二次打开同 extent 无全量重拉（日志/计数可证 hit） | gdal-layer tile；gap-pin P1-1 |
+| P1-1 | **P1** | 栅格瓦片缓存未成产品默认 | **已关闭：** `make_map_layer` / `bind_raster` → `enable_production_disk_cache`；`disk_cache_hits`/`http_tile_fetches`；`tile_test` PASS（2026-10-25） | — | 二次打开同 extent hit 可证 | gdal-layer tile；gap-pin P1-1 |
 | P1-2 | **P1** | Style 表达式缺算术族 | **已关闭：** `+`/`-`/`*`/`/`/`to-number`；`style_test` data-driven `line-width` / `heatmap-weight` | — | `style_test` PASS | render-rhi §Mini expression；gap-pin P1-2 |
 | P1-3 | **P1** | 注记产品化（字体/沿线） | **已关闭：** `text-color` resolve；YaHei UI metrics；along-line + collision；`map2d_test` CJK text-color | — | unit 绿；CJK 产品路径可读 | china-city + render-rhi §Symbol；gap-pin P1-3 |
-| P1-4 | **P1** | 基础拓扑校验缺失 | EditSession 有；无叠盖/缝隙规则 | 叠盖/缝隙（或等价）挂会话；失败可查 | 自造叠盖 fixture → 校验失败 mark / FeatureInfo | tool + M4 编辑下限；gap-pin P1-4 |
+| P1-4 | **P1** | 基础拓扑校验缺失 | **已关闭：** `validate_topology` + `CommitStatus::kTopology` + `last_topology_result()`；`topology_check_test` PASS（2026-10-25） | — | 叠盖/缝隙 fixture → commit 失败可查 | tool + M4 编辑下限；gap-pin P1-4 |
 | P1-5 | **P1** | Heatmap/extrusion 仍 CPU 观感 | **已关闭（heatmap）：** density fill-buckets（GPU solid）；splat 可回退；extrusion 仍 v1 prism | — | `map2d_test` density fills；禁 mln | render-rhi §Heatmap；gap-pin P1-5 |
 | P2-1 | **P2** | 无 SDF 线/字形 | richness Non-goals | 自研 SDF atlas（不移植 mln） | 细线抗锯齿 + GPU text 抽样门禁 | render-rhi；gap-pin P2-1 |
 | P2-2 | **P2** | 非完整 expression VM | README「仍不做」列表 | `let`/`var`/feature-state/cubic-bezier 等 | 规格用例集绿；仍不链 Native | render-rhi §Mini expression；gap-pin P2-2 |
@@ -239,7 +241,24 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 | 制图样式 / 符号 | C→B | **B** | casing/hillshade/heatmap/extrusion/mini expr 已落地 |
 | 注记 / 离线底图 | C | **C→B** | collision + `m1-labels-ok`；china 产品环 P0-2 已绿（字体/注记产品化仍 P1-3） |
 | 布局打印 | D（新栈） | **B** | PrintComposer 一页（地图+比例尺+图例）+ `m1-layout-ok` |
-| 2D 瓦片底图 | B–C | **B** | 缓存有；**MVT 本地 decode 已落地**（URL vector bind 仍拒） |
-| 编辑 / 捕捉 / 拓扑 | C | **C→B** | vertex/edge snap 已落地；拓扑仍 P1-4 |
+| 2D 瓦片底图 | B–C | **B** | MVT decode + **P1-1 生产默认磁盘缓存**（URL vector bind 仍拒） |
+| 编辑 / 捕捉 / 拓扑 | C | **B** | snap + **P1-4 叠盖/缝隙拓扑**；高级规则仍 P2-4 |
 
-**最后更新：** 2026-09-30（§8 P0-1–P0-4 均关闭；china fixture + `map2d.china` loop 绿；§3.2.1 由 Map3D 代理维护）
+**最后更新：** 2026-10-25（§8 P1-1/P1-4 关闭；§9 G-P0/G-P1 + pin P0/P1/P2-1…3 关闭；P2-4 仍开）
+
+---
+
+## 9. 几何分析钉死清单（2026-10-25）
+
+对标 **PostGIS `ST_*` + QGIS Processing 矢量 + ArcGIS Pro Geoprocessing**（含图层 overlay 与拓扑）。  
+所有权锁在 [algorithm-layer-oss §9](specs/2026-09-13-algorithm-layer-oss-design.md)；执行 checkbox：[geometry-analysis-gap-pin](plans/2026-10-25-geometry-analysis-gap-pin.md)；图：[geometry-analysis-gap.html](diagrams/geometry-analysis-gap.html)。
+
+分期：**P0** = GEOS 零成本暴露（`geo::*` + catalog）；**P1** = 产品主路径（dissolve/join/Eigen/Processing）；**P2** = 拓扑（tool / EditSession，与 §8 P1-4/P2-4 同门禁）。
+
+| ID | 优先级 | 缺口 | 现状证据 | 建议动作 | 验收判据 | 挂靠 |
+| --- | --- | --- | --- | --- | --- | --- |
+| **G-P0** | **P0** | GEOS 能力未进 `native.*` | **已关闭（2026-10-25）：** `geo::{make_valid,densify,offset,voronoi,…}` + IR + catalog；`ops_test` / `analysis_wkt_ops_test` 绿 | — | pin P0 done-bar | algorithm §9 · gap-pin P0 |
+| **G-P1** | **P1** | 图层 dissolve / spatial join / overlay 弱；Eigen 仅三拟合 | **已关闭（2026-10-25）：** `analysis/layer`（含 identity/split_line/cut_polygon）+ Umeyama/PCA/`native.translate|rotate|scale`；Processing ← 单一 catalog；`analysis_layer_ops_test` / `analysis_eigen_test` 绿；buffer JSON endcap/join Deferred | — | pin P1 done-bar | plugin Processing · gap-pin P1 |
+| **G-P2** | **P2** | 拓扑校验 / 规则集 | **P2-1…P2-3 已关**（叠盖/缝隙 + `last_topology_result`）；**P2-4** 高级规则集仍开 | 与 §8 **P2-4** 同关高级集；勿建 `analysis/topology/` | P2-4 | tool-event · gap-pin P2 |
+
+刻意不追：第二 GEOS/CGAL、平行 Shapely、ArcGIS 规则引擎照搬、插件内几何核副本。

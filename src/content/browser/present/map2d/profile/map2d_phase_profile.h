@@ -19,6 +19,9 @@ struct Map2dPhaseSample {
   int64_t bmp_io_ms = 0;
   int64_t gpu_upload_ms = 0;
   int64_t gpu_present_ms = 0;
+  uint32_t damage_reasons = 0;
+  uint32_t damage_scissor_w = 0;
+  uint32_t damage_scissor_h = 0;
 };
 
 CONTENT_EXPORT Map2dPhaseSample map2d_last_phase_sample();
@@ -28,6 +31,9 @@ CONTENT_EXPORT void note_map2d_phase_layout(int64_t layout_ms,
                                            int64_t hillshade_ms);
 CONTENT_EXPORT void note_map2d_phase_bmp_io(int64_t bmp_io_ms);
 CONTENT_EXPORT void note_map2d_phase_gpu(int64_t upload_ms, int64_t present_ms);
+CONTENT_EXPORT void note_map2d_phase_damage(uint32_t damage_reasons);
+CONTENT_EXPORT void note_map2d_phase_damage_scissor(uint32_t width_px,
+                                                    uint32_t height_px);
 
 }  // namespace content
 

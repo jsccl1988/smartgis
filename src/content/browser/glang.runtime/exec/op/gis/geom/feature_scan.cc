@@ -5,7 +5,7 @@
 
 #include "content/browser/glang.runtime/exec/op/gis/geom/gis.h"
 
-#include "gis/analysis/ops/ir/ir_eval.h"
+#include "gis/analysis/ops/features/feature_ops.h"
 
 namespace content {
 namespace code {

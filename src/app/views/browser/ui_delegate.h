@@ -66,6 +66,7 @@ class BrowserUiDelegate {
   virtual ui::views::ProcessingPanel* processing_panel() const = 0;
   // Lazily create the Processing inspector page (operators list) if needed.
   virtual void ensure_processing_panel() = 0;
+  virtual void refresh_processing_panel_operators() = 0;
   virtual ui::views::AtmospherePanel* atmosphere_panel() const = 0;
   virtual ui::views::TabStrip* inspector_tabs() const = 0;
   virtual ui::views::DrawHost* draw_host() const = 0;

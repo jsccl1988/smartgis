@@ -53,6 +53,10 @@ const std::string& Registry::last_error() const {
   return last_error_;
 }
 
+const char* Registry::last_error_cstr() const {
+  return last_error_.c_str();
+}
+
 PluginRecord* Registry::find_mut(std::string_view id) {
   auto it = records_.find(std::string(id));
   return it == records_.end() ? nullptr : &it->second;
@@ -81,6 +85,45 @@ void Registry::visit(PluginVisitFn fn, void* baton) const {
     fn(rec.manifest.id.c_str(), rec.manifest.name.c_str(),
        static_cast<int>(rec.state), static_cast<int>(rec.manifest.kind),
        static_cast<int>(rec.trust), baton);
+  }
+}
+
+bool Registry::visit_detail(std::string_view id, PluginDetailFn fn,
+                            void* baton) const {
+  if (!fn || id.empty()) {
+    return false;
+  }
+  const PluginRecord* rec = find(id);
+  if (!rec) {
+    return false;
+  }
+  fn(rec->manifest.id.c_str(), rec->manifest.name.c_str(),
+     rec->manifest.version.c_str(), rec->manifest.description.c_str(),
+     static_cast<int>(rec->state), rec->handlers_loaded ? 1 : 0, baton);
+  return true;
+}
+
+void Registry::visit_tools(std::string_view plugin_id, ToolVisitFn fn,
+                           void* baton) const {
+  if (!fn || plugin_id.empty()) {
+    return;
+  }
+  const PluginRecord* rec = find(plugin_id);
+  if (!rec) {
+    return;
+  }
+  const ManifestContributes& c = rec->manifest.contributes;
+  for (const DialogContrib& item : c.dialogs) {
+    fn("dialog", item.id.c_str(), item.title.c_str(), baton);
+  }
+  for (const DockContrib& item : c.docks) {
+    fn("dock", item.id.c_str(), item.title.c_str(), baton);
+  }
+  for (const ProcessingContrib& item : c.processing) {
+    fn("processing", item.id.c_str(), item.title.c_str(), baton);
+  }
+  for (const CommandContrib& item : c.commands) {
+    fn("command", item.id.c_str(), item.title.c_str(), baton);
   }
 }
 
@@ -317,7 +360,9 @@ bool Registry::start_plugin(PluginRecord* rec, content::PluginHost* host) {
         rec->handlers_loaded = true;
         return true;
       }
-      last_error_ = "python not wired";
+      // Debug builds stub CPython (see build/python.gni); Release wires embed.
+      last_error_ =
+          "python not available in this build (Debug stubs CPython)";
       rec->state = PluginState::kError;
       rec->handlers_loaded = false;
       return false;

@@ -39,6 +39,7 @@ StyleSourceStatus SourceRegistry::bind_raster(const StyleSourceDesc& desc) {
   if (!open_provider_from_source(desc, provider.get())) {
     return StyleSourceStatus::kBadUrlTemplate;
   }
+  provider->enable_production_disk_cache();
   providers_[desc.id] = std::move(provider);
   return StyleSourceStatus::kOk;
 }

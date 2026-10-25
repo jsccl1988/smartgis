@@ -3,10 +3,11 @@ name: harness-auto-bootstrap
 description: >-
   Loop-profiles SmartGisViews cold start through first map present
   (startup_profile cat=startup spans) and drives targeted optimizations until
-  wall_ms is within 200ms. Use when the user invokes /harness-auto-bootstrap,
-  or says 启动到首地图, 启动->首地图渲染, startup_profile, WaitFirstMapPresent,
-  STARTUP_PROFILE, 冷启动 200ms, or asks to profile-then-optimize bootstrap
-  until first carto present.
+  wall_ms is within 200ms. Fixes must not change startup behavior or regress
+  post-startup product features. Use when the user invokes
+  /harness-auto-bootstrap, or says 启动到首地图, 启动->首地图渲染,
+  startup_profile, WaitFirstMapPresent, STARTUP_PROFILE, 冷启动 200ms, or asks
+  to profile-then-optimize bootstrap until first carto present.
 ---
 
 <!--
@@ -16,7 +17,7 @@ All rights reserved.
 
 # Harness auto bootstrap（启动 → 首地图）
 
-**loop profile 启动->首地图渲染，并针对性的优化直至降至200ms以内**
+**loop profile 启动->首地图渲染，并针对性的优化直至降至200ms以内。** 优化不得改变启动行为；不得影响启动完成后的后续全部功能。
 
 Closed loop: build → product cold launch with startup dump → parse hottest `cat=startup` span → CBM → one-hypothesis fix → rebuild → re-bench → until **done bar** / hard stop.
 
@@ -30,10 +31,12 @@ When this skill is invoked, attached (`@harness-auto-bootstrap` / `/harness-auto
 
 1. **Locked path:** product `SmartGIS.exe` with **no** `--*-showcase` / `--harness`. First map = **China carto on Map Edit** (sync seed + sync first present).
 2. **Fair wall:** metric is `[startup-profile] wall_ms` covering `wWinMain`/`BrowserMain` **including** `WaitFirstMapPresent`. Do **not** fake 200ms by omitting the wait, deferring China, skipping hillshade, forcing GDI overlay, or using `--ui-showcase=shell`.
-3. Prefer **`build.bat debug src/app/views:views`**. Compile lock stays **OFF**. Stay on **`master`**.
-4. CBM first (`user-codebase-memory-mcp`, project `smartgis`) before repo-wide Grep.
-5. Hypothesis first — one hot startup span per iteration; no shotgun edits.
-6. After dump, **stop the exe** (gentle `Stop-Process` / `taskkill` without `/F`, then `/F` only if still alive). Use a non-sandbox shell so the signal lands.
+3. **Startup behavior unchanged (non-negotiable):** Perf fixes must **not** change what startup does or when it becomes ready — same seed path, same first map (China carto), same init/show/present order, same completeness of shell/content bootstrap. Forbidden: skipping / deferring required init “for the profile”, changing default launch modes, moving mandatory work behind timers/flags that alter cold-start semantics, or “empty shell first then fill later” that changes observed startup.
+4. **No post-startup feature regression (non-negotiable):** Optimizations must **not** break or weaken anything after first present — map edit, tools, plugins, layers, hillshade, markup, sessions, viewports, Diagnostic Tools, subsequent presents. Prefer defer/lazy-load only when **behavior and capability after ready are identical**; never delete, stub, or permanently skip work that later features need. If a change speeds `wall_ms` but breaks a later path → **revert**, not a 200ms win.
+5. Prefer **`build.bat debug src/app/views:views`**. Compile lock stays **OFF**. Stay on **`master`**.
+6. CBM first (`user-codebase-memory-mcp`, project `smartgis`) before repo-wide Grep.
+7. Hypothesis first — one hot startup span per iteration; no shotgun edits.
+8. After dump, **stop the exe** (gentle `Stop-Process` / `taskkill` without `/F`, then `/F` only if still alive). Use a non-sandbox shell so the signal lands.
 
 ## Locked profile + budget (Debug)
 
@@ -152,12 +155,12 @@ Fill from the table (`offset_ms` / `dur_ms`; `wall_ms` is the gate):
 | `PluginShell.*` | defer LoadLibrary; do not scan plugins “for the profile” |
 | `Browser.ctor` / `init` / `Widget.init` | shell assembly; lazy inspectors |
 
-Non-goals: strip China/hillshade; leftover MFC `SmartGIS-Legacy.exe` as the product bar; map2d warm FPS (use `harness-auto-map2d-phase-loop`); scene3d first present (out of scope).
+Non-goals: strip China/hillshade; leftover MFC `SmartGIS-Legacy.exe` as the product bar; map2d warm FPS (use `harness-auto-map2d-phase-loop`); scene3d first present (out of scope); any “win” that changes startup semantics or regresses post-startup features.
 
 ### Step 5 — Loop
 
 1. State hypothesis (one sentence) tied to the hot span.
-2. Patch root cause.
+2. Patch root cause — check Hard rules **3–4** before landing (startup semantics + post-ready capabilities unchanged).
 3. Rebuild Views.
 4. Re-run the same locked-profile bench (delete old `startup_profile.txt` first).
 5. Update the before/after table.
@@ -170,11 +173,15 @@ Debug product cold start, sync China, sync first present:
 - `wall_ms` ≤ **200**
 - dump includes `WaitFirstMapPresent` that finished **before** the 15s cap
 - China carto still the first map (no demo-only seed)
+- Startup behavior unchanged vs pre-opt baseline (same seed / present / init completeness)
+- No known regression to post-startup product features from the landed fixes
 
 ### Hard stops
 
 - Same hot span unchanged **3+** iterations
 - First present timeout / blank map after a “perf” change
+- Startup behavior changed (deferred/skipped required init, different first map, altered ready semantics)
+- Post-startup feature broken or weakened by a bootstrap “opt”
 - Crash / AV / hang → `auto-diagnose-fix`, then return here
 
 ## Communication

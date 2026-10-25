@@ -78,6 +78,7 @@ void append_pixel_quad(vista::MapIR* ir, float x0, float y0, float x1, float y1,
   vista::DrawItem item;
   item.kind = vista::DrawKind::kLine;
   item.pixel_space = true;
+  item.screen_fixed = true;
   item.rgba = rgba;
   item.opacity = 1.f;
   item.vertices = {
@@ -101,6 +102,7 @@ void append_ascii_run(vista::MapIR* ir, float x, float y, const std::string& tex
     vista::DrawItem glyph;
     glyph.kind = vista::DrawKind::kText;
     glyph.pixel_space = true;
+    glyph.screen_fixed = true;
     glyph.codepoint = ch;
     glyph.text_size_px = size_px;
     glyph.font = vista::MapFont::kGothic;
@@ -120,6 +122,28 @@ void append_ascii_run(vista::MapIR* ir, float x, float y, const std::string& tex
     ir->items.push_back(std::move(glyph));
     pen += adv;
   }
+}
+
+void append_north_arrow(vista::MapIR* ir, uint32_t width_px) {
+  const float nx = static_cast<float>(width_px) * 0.5f;
+  const float ny = 16.f;
+  // Shaft (vertical).
+  append_pixel_quad(ir, nx - 1.f, ny + 6.f, nx + 1.f, ny + 18.f, kInkRgba);
+  // Arrow head (screen-fixed fill triangle, tip up / -y).
+  vista::DrawItem head;
+  head.kind = vista::DrawKind::kFill;
+  head.pixel_space = true;
+  head.screen_fixed = true;
+  head.rgba = kInkRgba;
+  head.opacity = 1.f;
+  head.vertices = {
+      {nx, ny, 0, 0, 0},
+      {nx - 7.f, ny + 10.f, 0, 0, 0},
+      {nx + 7.f, ny + 10.f, 0, 0, 0},
+  };
+  head.indices = {0, 1, 2};
+  ir->items.push_back(std::move(head));
+  append_ascii_run(ir, nx + 10.f, ny + 2.f, "N", kTextSizePx, kInkRgba);
 }
 
 }  // namespace
@@ -158,6 +182,8 @@ void append_map2d_scale_bar(uint32_t width_px, uint32_t height_px, double min_x,
                    kInkRgba);
   append_ascii_run(ir, x0, y0 + 8.f, ratio_label(denominator), kTextSizePx,
                    kInkRgba);
+
+  append_north_arrow(ir, width_px);
 }
 
 }  // namespace detail

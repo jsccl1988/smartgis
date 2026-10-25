@@ -555,5 +555,13 @@ std::string_view Splitter::paint_role() const {
   return "splitter";
 }
 
+std::unique_ptr<Splitter> make_splitter(Splitter::Orientation orientation) {
+  return std::make_unique<Splitter>(orientation);
+}
+
+Splitter* splitter_new(Splitter::Orientation orientation) {
+  return new Splitter(orientation);
+}
+
 }  // namespace views
 }  // namespace ui

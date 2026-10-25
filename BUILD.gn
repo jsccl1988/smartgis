@@ -41,7 +41,7 @@ group("benchmark_all") {
   ]
 }
 
-# SP5: endgame / shell tests only â€?no leftover paint / scene3d / MFC exe.
+# SP5: endgame / shell tests only ï¿½?no leftover paint / scene3d / MFC exe.
 group("test_shell") {
   testonly = true
   deps = [
@@ -68,7 +68,7 @@ group("test_shell") {
     "//src/render:rhi_test",
     "//src/render/testing:rhi_suite_test",
     "//src/gpu:render_backend_test",
-    "//src/base/ipc:ipc_test",
+    "//src/common/ipc:ipc_test",
     "//src/base/trace:trace_test",
     # Plugin pathway (Registry / PluginHost / processing ops).
     "//src/plugin:plugin_host_test",
@@ -126,7 +126,7 @@ group("te") {
 
 # mogu-aligned foundation under //src/base:foundation (source_set; not a DLL).
 # Product platform DLL is //src/base:base with dll_stem=base.
-# Compatibility: //:base â†?foundation (no physical repo-root base/ directory).
+# Compatibility: //:base ï¿½?foundation (no physical repo-root base/ directory).
 group("base") {
   public_deps = [ "//src/base:foundation" ]
 }
@@ -141,7 +141,7 @@ group("core_all") {
   public_deps = [ "//src:src_all" ]
 }
 
-# Product chrome alias â†?Views.
+# Product chrome alias ï¿½?Views.
 group("app") {
   deps = [ ":views" ]
 }

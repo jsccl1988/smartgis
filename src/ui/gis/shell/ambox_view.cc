@@ -385,7 +385,18 @@ AmboxView::AmboxView() {
 
   auto fill = std::make_unique<FillLayout>();
   set_layout_manager(std::move(fill));
-  loaded.root->set_preferred_size({180, 240});
+  // Markup installs Yoga on the scroll shell when it has a content child.
+  // Chip positions are owned by layout_vertical/horizontal — clear Yoga so it
+  // cannot overwrite ToolButton bounds with a 0-width measure.
+  if (scroll_) {
+    scroll_->set_layout_manager(nullptr);
+    scroll_->set_preferred_size({0, 0});
+  }
+  if (content_) {
+    content_->set_layout_manager(nullptr);
+    content_->set_preferred_size({0, 0});
+  }
+  loaded.root->set_preferred_size({0, 0});
   add_child(std::move(loaded.root));
   set_preferred_size({180, 240});
   populate_from_plugin_host(nullptr);
@@ -727,15 +738,30 @@ void AmboxView::layout_vertical(float scale) {
   const int btn_h = dip_to_px(28, scale);
   const int gap = chip_gap(scale);
 
-  if (content_) {
-    content_->set_preferred_size({b.width, measure_content_height(scale)});
+  // Chip geometry is owned here. Do not trust ScrollView/content bounds — an
+  // early 0x0 populate can leave the scroll shell stuck at width 0 while this
+  // host already has the inspector page size (Tools buttons never hit-test).
+  int host_w = std::max(0, b.width);
+  if (host_w <= 0 && parent()) {
+    host_w = std::max(0, parent()->bounds().width);
   }
-  if (scroll_) {
-    scroll_->layout();
+  const int host_h = std::max(0, b.height);
+  const int content_h = measure_content_height(scale);
+  if (scroll_ && host_w > 0 && host_h > 0) {
+    scroll_->set_bounds(b);
+  }
+  if (content_) {
+    content_->set_preferred_size({host_w, content_h});
+    // Place content from the host origin. Do not call scroll_->layout() here:
+    // ScrollView::apply_content_bounds rewrites content from the scroll box,
+    // and a stale 0x0 scroll shell would zero every chip width again.
+    content_->set_bounds({b.x, b.y, host_w, content_h});
   }
 
-  const Rect area = content_ ? content_->bounds() : b;
-  int y = area.y + p;
+  const int area_w = host_w;
+  const int area_x = b.x;
+  const int area_y = b.y;
+  int y = area_y + p;
   for (auto& block : blocks_) {
     if (!block) {
       continue;
@@ -743,18 +769,18 @@ void AmboxView::layout_vertical(float scale) {
     block->set_visible(true);
     const int h =
         header_h + (btn_h + gap) * static_cast<int>(block->button_count());
-    const int inner_w = area.width > p * 2 ? area.width - p * 2 : 0;
-    block->set_bounds({area.x + p, y, inner_w, h});
+    const int inner_w = area_w > p * 2 ? area_w - p * 2 : 0;
+    block->set_bounds({area_x + p, y, inner_w, h});
     if (View* header = block->header()) {
       header->set_visible(true);
-      header->set_bounds({area.x + p, y, inner_w, header_h});
+      header->set_bounds({area_x + p, y, inner_w, header_h});
     }
     int row_y = y + header_h;
-    const int btn_w = area.width > p * 4 ? area.width - p * 4 : 0;
+    const int btn_w = area_w > p * 4 ? area_w - p * 4 : 0;
     for (size_t i = 0; i < block->button_count(); ++i) {
       if (View* button = block->button_at(i)) {
         button->set_visible(true);
-        button->set_bounds({area.x + p * 2, row_y, btn_w, btn_h});
+        button->set_bounds({area_x + p * 2, row_y, btn_w, btn_h});
       }
       row_y += btn_h + gap;
     }
@@ -830,7 +856,20 @@ void AmboxView::layout_horizontal(float scale) {
 }
 
 void AmboxView::layout() {
+  const Rect& b = bounds();
+  // Position the scroll shell before View::layout walks children. FillLayout
+  // alone left vertical Tools at scroll 0x0 after an early 0-area rebuild.
+  if (scroll_ && b.width > 0 && b.height > 0) {
+    scroll_->set_bounds(b);
+  }
   View::layout();
+  if (scroll_ && b.width > 0 && b.height > 0) {
+    const Rect& sb = scroll_->bounds();
+    if (sb.width != b.width || sb.height != b.height || sb.x != b.x ||
+        sb.y != b.y) {
+      scroll_->set_bounds(b);
+    }
+  }
   const float scale = scale_factor();
   if (orientation_ == Orientation::kHorizontal) {
     layout_horizontal(scale);
@@ -846,6 +885,14 @@ void AmboxView::paint_self(ui::gfx::Canvas* canvas) {
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   const float scale = scale_factor();
+  // Repair vertical Tools chips that were measured at 0x0 and never reflowed.
+  if (orientation_ == Orientation::kVertical && b.width > 0 && b.height > 0 &&
+      !blocks_.empty() && blocks_[0] && blocks_[0]->button_count() > 0) {
+    View* chip = blocks_[0]->button_at(0);
+    if (chip && chip->bounds().width <= 0) {
+      layout_vertical(scale);
+    }
+  }
   if (orientation_ == Orientation::kHorizontal) {
     // Pack chip horizon to content width; leftover rail is not panel_bg
     // (that empty dark strip failed map_nav_toolbar / dark_chrome gates).
@@ -891,6 +938,14 @@ void AmboxView::paint_self(ui::gfx::Canvas* canvas) {
   } else {
     canvas->fill_rect(b.right() - hair, b.y, hair, b.height, t.panel_header);
   }
+}
+
+std::unique_ptr<AmboxView> make_ambox_view() {
+  return std::make_unique<AmboxView>();
+}
+
+AmboxView* ambox_view_new() {
+  return new AmboxView();
 }
 
 }  // namespace views

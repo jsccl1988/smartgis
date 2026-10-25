@@ -6,13 +6,19 @@ import("//testing/benchmark.gni")
 import("//testing/test.gni")
 
 # Compiled into //src/gis:gis (dll_stem = gis). :geo / :proj / :tin /
-# :grid are consumer labels. Lane split: ops (OGR wrap / envelope
+# :grid / :xy are consumer labels. Lane split: ops (OGR wrap / envelope
 # helpers), proj (CRS), tin (Delaunay), grid (structured elliptic on
-# NodeField*). XY lattice type is plugin OrthoLattice, not gis/geo.
+# NodeField*), xy (pure map-plane hull/area, no OGR). XY lattice type
+# is plugin OrthoLattice, not gis/geo.
 # Geometry headers in ops/ must not include proj/tin/grid implementations.
 
 source_set("geo_sources") {
-  sources = [ "ops/buffer.cc" ]
+  sources = [
+    "ops/buffer.cc",
+    "ops/geos_ops.cc",
+    "ops/measure.cc",
+    "ops/transform.cc",
+  ]
   configs += [ "//build:legacy" ]
   defines = [
     "_USRDLL",
@@ -73,6 +79,18 @@ source_set("grid_sources") {
   ]
 }
 
+# Pure XY computational geometry (convex hull / area). No OGR / GEOS.
+source_set("xy_sources") {
+  sources = [
+    "xy/xy.cc",
+    "xy/xy.h",
+  ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+}
+
 group("geo") {
   public_deps = [ "//src/gis:gis" ]
 }
@@ -86,6 +104,10 @@ group("tin") {
 }
 
 group("grid") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+group("xy") {
   public_deps = [ "//src/gis:gis" ]
 }
 
@@ -193,4 +215,17 @@ test("geo_grid_laplace_test") {
     "//third_party:gdal",
   ]
   data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+test("xy_test") {
+  output_name = "xy_test"
+  sources = [ "xy/xy_test.cc" ]
+  include_dirs += [
+    "//src/gis/geo",
+    "//src",
+  ]
+  deps = [
+    ":xy",
+    "//third_party:gtest",
+  ]
 }

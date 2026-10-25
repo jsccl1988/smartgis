@@ -75,7 +75,7 @@ All rights reserved.
   <header class="hero">
     <h1>DLL / STL 信任模型</h1>
     <p>仓内产品 DLL 同构（Chromium component 式）可传 STL；插件 / 脚本 / 第三方走扁平 ABI。Export 只服务链接，不等于公共 API。</p>
-    <p class="meta">规范：<code>specs/2026-09-14-base-root-hybrid-design.md</code> §DLL / STL trust · 门禁：<code>build/tools/check_dll_homogeneity.py</code></p>
+    <p class="meta">规范：<code>specs/2026-09-14-base-root-hybrid-design.md</code> §DLL / STL trust · 门禁：<code>build/tools/check_dll_homogeneity.py</code>（stem + <code>SMARTGIS_BUILD_ID</code>）· 链接：<code>detect_mismatch</code></p>
   </header>
 
   <section class="panel">
@@ -119,16 +119,44 @@ All rights reserved.
   <section class="panel">
     <h2>同构链路（动画）</h2>
     <div class="flow" id="flow">
-      <div class="stage" data-i="0"><strong>1</strong>同一 gn gen</div>
+      <div class="stage" data-i="0"><strong>1</strong>同一 gn gen + <code>BUILD_ID</code></div>
       <span class="arrow">→</span>
       <div class="stage" data-i="1"><strong>2</strong><code>/MD</code> 或 <code>/MDd</code></div>
       <span class="arrow">→</span>
-      <div class="stage" data-i="2"><strong>3</strong>产品 DLL 同配置 stem</div>
+      <div class="stage" data-i="2"><strong>3</strong>链接 <code>detect_mismatch</code></div>
       <span class="arrow">→</span>
-      <div class="stage" data-i="3"><strong>4</strong>A 边界可传 STL</div>
+      <div class="stage" data-i="3"><strong>4</strong>制品 stem + marker</div>
       <span class="arrow">→</span>
-      <div class="stage" data-i="4"><strong>5</strong>C/D 仍扁平 ABI</div>
+      <div class="stage" data-i="4"><strong>5</strong>启动 <code>verify_product_dll_build_ids</code></div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="5"><strong>6</strong>A 可传 STL · C/D 扁平</div>
     </div>
+  </section>
+
+  <section class="panel">
+    <h2>构建一致性（非 SEH）</h2>
+    <table class="map">
+      <thead>
+        <tr><th>风险</th><th>机制</th><th>时机</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>同 DLL 半旧 <code>.obj</code></td>
+          <td><code>#pragma detect_mismatch</code>（<code>abi_guard.h</code> / 类型 token）</td>
+          <td>链接 LNK2038</td>
+        </tr>
+        <tr>
+          <td>异源产品 DLL</td>
+          <td><code>SMARTGIS_BUILD_ID</code> + 启动校验 + 制品扫 marker</td>
+          <td>制品 / 进程启动</td>
+        </tr>
+        <tr>
+          <td>半链接 exe/DLL 时间戳</td>
+          <td>既有 L2 PE mtime skew</td>
+          <td>制品</td>
+        </tr>
+      </tbody>
+    </table>
   </section>
 
   <section class="panel">

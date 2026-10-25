@@ -3,6 +3,8 @@
 
 #include "gis/analysis/geometry/fit.h"
 
+#include "gis/geo/ops/shape.h"
+
 #include <cmath>
 #include <fstream>
 #include <memory>
@@ -321,6 +323,245 @@ AffineAlignResult affine_align_2d(const std::vector<double>& src_xy,
   return out;
 }
 
+namespace {
+
+void similarity_to_affine_matrix(double scale,
+                                double theta,
+                                double tx,
+                                double ty,
+                                double m[6]) {
+  const double c = std::cos(theta);
+  const double s = std::sin(theta);
+  m[0] = scale * c;
+  m[1] = -scale * s;
+  m[2] = tx;
+  m[3] = scale * s;
+  m[4] = scale * c;
+  m[5] = ty;
+}
+
+double align_rms(const std::vector<double>& src_xy,
+                 const std::vector<double>& dst_xy,
+                 const double m[6]) {
+  const size_t n = src_xy.size() / 2;
+  double sum_sq = 0.0;
+  for (size_t i = 0; i < n; ++i) {
+    const double x = src_xy[2 * i];
+    const double y = src_xy[2 * i + 1];
+    const double xp = m[0] * x + m[1] * y + m[2];
+    const double yp = m[3] * x + m[4] * y + m[5];
+    const double dx = xp - dst_xy[2 * i];
+    const double dy = yp - dst_xy[2 * i + 1];
+    sum_sq += dx * dx + dy * dy;
+  }
+  return std::sqrt(sum_sq / static_cast<double>(n));
+}
+
+SimilarityAlignResult umeyama_align_2d(const std::vector<double>& src_xy,
+                                       const std::vector<double>& dst_xy,
+                                       bool rigid) {
+  SimilarityAlignResult out;
+  const size_t n = src_xy.size() / 2;
+  if (src_xy.size() % 2 != 0 || dst_xy.size() != src_xy.size() || n < 2) {
+    out.error = "need_at_least_2_paired_points";
+    return out;
+  }
+  Eigen::MatrixXd src(static_cast<Eigen::Index>(n), 2);
+  Eigen::MatrixXd dst(static_cast<Eigen::Index>(n), 2);
+  for (size_t i = 0; i < n; ++i) {
+    src(static_cast<Eigen::Index>(i), 0) = src_xy[2 * i];
+    src(static_cast<Eigen::Index>(i), 1) = src_xy[2 * i + 1];
+    dst(static_cast<Eigen::Index>(i), 0) = dst_xy[2 * i];
+    dst(static_cast<Eigen::Index>(i), 1) = dst_xy[2 * i + 1];
+  }
+  const Eigen::RowVector2d mu_src = src.colwise().mean();
+  const Eigen::RowVector2d mu_dst = dst.colwise().mean();
+  const Eigen::MatrixXd src_c = src.rowwise() - mu_src;
+  const Eigen::MatrixXd dst_c = dst.rowwise() - mu_dst;
+  const Eigen::Matrix2d cov =
+      (src_c.transpose() * dst_c) / static_cast<double>(n);
+  Eigen::JacobiSVD<Eigen::Matrix2d> svd(
+      cov, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  Eigen::Matrix2d R = svd.matrixV() * svd.matrixU().transpose();
+  if (R.determinant() < 0.0) {
+    Eigen::Matrix2d v = svd.matrixV();
+    v.col(1) *= -1.0;
+    R = v * svd.matrixU().transpose();
+  }
+  const double var_src =
+      src_c.array().square().sum() / static_cast<double>(n);
+  if (var_src < 1e-24) {
+    out.error = "degenerate";
+    return out;
+  }
+  double scale = 1.0;
+  if (!rigid) {
+    scale = svd.singularValues().sum() / var_src;
+  }
+  const Eigen::Vector2d t =
+      mu_dst.transpose() - scale * R * mu_src.transpose();
+  out.scale = scale;
+  out.theta = std::atan2(R(1, 0), R(0, 0));
+  out.tx = t(0);
+  out.ty = t(1);
+  similarity_to_affine_matrix(scale, out.theta, out.tx, out.ty, out.m);
+  out.rms = align_rms(src_xy, dst_xy, out.m);
+  out.ok = true;
+  return out;
+}
+
+}  // namespace
+
+SimilarityAlignResult similarity_align_2d(const std::vector<double>& src_xy,
+                                            const std::vector<double>& dst_xy) {
+  return umeyama_align_2d(src_xy, dst_xy, false);
+}
+
+SimilarityAlignResult rigid_align_2d(const std::vector<double>& src_xy,
+                                     const std::vector<double>& dst_xy) {
+  return umeyama_align_2d(src_xy, dst_xy, true);
+}
+
+PcaAxesResult pca_axes_2d(const std::vector<double>& xy) {
+  PcaAxesResult out;
+  const size_t n = xy.size() / 2;
+  if (xy.size() % 2 != 0 || n < 2) {
+    out.error = "need_at_least_2_points";
+    return out;
+  }
+  Eigen::MatrixXd pts(static_cast<Eigen::Index>(n), 2);
+  for (size_t i = 0; i < n; ++i) {
+    pts(static_cast<Eigen::Index>(i), 0) = xy[2 * i];
+    pts(static_cast<Eigen::Index>(i), 1) = xy[2 * i + 1];
+  }
+  const Eigen::RowVector2d mean = pts.colwise().mean();
+  out.cx = mean(0);
+  out.cy = mean(1);
+  const Eigen::MatrixXd centered = pts.rowwise() - mean;
+  const Eigen::Matrix2d cov =
+      (centered.transpose() * centered) / static_cast<double>(n - 1);
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> es(cov);
+  if (es.info() != Eigen::Success) {
+    out.error = "eigen_failed";
+    return out;
+  }
+  Eigen::Vector2d evals = es.eigenvalues();
+  Eigen::Matrix2d evecs = es.eigenvectors();
+  int major_idx = 0;
+  if (evals(1) > evals(0)) {
+    major_idx = 1;
+  }
+  const int minor_idx = 1 - major_idx;
+  out.eigenvalue_major = evals(major_idx);
+  out.eigenvalue_minor = evals(minor_idx);
+  Eigen::Vector2d major = evecs.col(major_idx);
+  Eigen::Vector2d minor = evecs.col(minor_idx);
+  const double major_nrm = major.norm();
+  const double minor_nrm = minor.norm();
+  if (major_nrm < 1e-18 || minor_nrm < 1e-18) {
+    out.error = "degenerate";
+    return out;
+  }
+  out.major_dx = major(0) / major_nrm;
+  out.major_dy = major(1) / major_nrm;
+  out.minor_dx = minor(0) / minor_nrm;
+  out.minor_dy = minor(1) / minor_nrm;
+  double min_major = 0.0;
+  double max_major = 0.0;
+  double min_minor = 0.0;
+  double max_minor = 0.0;
+  for (size_t i = 0; i < n; ++i) {
+    const double vx = xy[2 * i] - out.cx;
+    const double vy = xy[2 * i + 1] - out.cy;
+    const double t_major = vx * out.major_dx + vy * out.major_dy;
+    const double t_minor = vx * out.minor_dx + vy * out.minor_dy;
+    if (i == 0 || t_major < min_major) {
+      min_major = t_major;
+    }
+    if (i == 0 || t_major > max_major) {
+      max_major = t_major;
+    }
+    if (i == 0 || t_minor < min_minor) {
+      min_minor = t_minor;
+    }
+    if (i == 0 || t_minor > max_minor) {
+      max_minor = t_minor;
+    }
+  }
+  out.major_extent = max_major - min_major;
+  out.minor_extent = max_minor - min_minor;
+  out.ok = true;
+  return out;
+}
+
+PcaAxesResult pca_axes_2d_from_ogr(const OGRGeometry& geom) {
+  std::vector<double> xy;
+  collect_points_2d(const_cast<OGRGeometry*>(&geom), &xy);
+  return pca_axes_2d(xy);
+}
+
+std::unique_ptr<OGRGeometry> oriented_bbox_from_points_2d(
+    const std::vector<double>& xy) {
+  const PcaAxesResult pca = pca_axes_2d(xy);
+  if (!pca.ok) {
+    return nullptr;
+  }
+  const size_t n = xy.size() / 2;
+  double min_major = 0.0;
+  double max_major = 0.0;
+  double min_minor = 0.0;
+  double max_minor = 0.0;
+  for (size_t i = 0; i < n; ++i) {
+    const double vx = xy[2 * i] - pca.cx;
+    const double vy = xy[2 * i + 1] - pca.cy;
+    const double t_major = vx * pca.major_dx + vy * pca.major_dy;
+    const double t_minor = vx * pca.minor_dx + vy * pca.minor_dy;
+    if (i == 0 || t_major < min_major) {
+      min_major = t_major;
+    }
+    if (i == 0 || t_major > max_major) {
+      max_major = t_major;
+    }
+    if (i == 0 || t_minor < min_minor) {
+      min_minor = t_minor;
+    }
+    if (i == 0 || t_minor > max_minor) {
+      max_minor = t_minor;
+    }
+  }
+  auto ring = std::make_unique<OGRLinearRing>();
+  auto corner = [&](double tm, double tn) {
+    const double x =
+        pca.cx + tm * pca.major_dx + tn * pca.minor_dx;
+    const double y =
+        pca.cy + tm * pca.major_dy + tn * pca.minor_dy;
+    ring->addPoint(x, y);
+  };
+  corner(min_major, min_minor);
+  corner(max_major, min_minor);
+  corner(max_major, max_minor);
+  corner(min_major, max_minor);
+  corner(min_major, min_minor);
+  auto poly = std::make_unique<OGRPolygon>();
+  poly->addRing(ring.release());
+  return poly;
+}
+
+std::unique_ptr<OGRGeometry> oriented_bbox_from_ogr(const OGRGeometry& geom) {
+  std::vector<double> xy;
+  collect_points_2d(const_cast<OGRGeometry*>(&geom), &xy);
+  if (xy.size() >= 4) {
+    if (auto pca_box = oriented_bbox_from_points_2d(xy)) {
+      return pca_box;
+    }
+  }
+  OGRGeometry* mrr = geo::minimum_rotated_rectangle(geom);
+  if (!mrr) {
+    return nullptr;
+  }
+  return std::unique_ptr<OGRGeometry>(mrr);
+}
+
 bool run_fit_line_op(std::string_view args_json) {
   rapidjson::Document args;
   if (!parse_args(args_json, &args)) {
@@ -437,6 +678,176 @@ bool run_affine_align_op(std::string_view args_json) {
   w.Double(fit.rms);
   w.EndObject();
   return write_text_file(output, buf.GetString());
+}
+
+bool run_similarity_align_op(std::string_view args_json) {
+  rapidjson::Document args;
+  if (!parse_args(args_json, &args)) {
+    return false;
+  }
+  std::string source;
+  std::string target;
+  std::string output;
+  if (!json_get_string(args, "source", &source) ||
+      !json_get_string(args, "target", &target) ||
+      !json_get_string(args, "output", &output)) {
+    return false;
+  }
+  auto src_g = load_first_geometry(source);
+  auto dst_g = load_first_geometry(target);
+  if (!src_g || !dst_g) {
+    return false;
+  }
+  std::vector<double> src_xy;
+  std::vector<double> dst_xy;
+  collect_points_2d(src_g.get(), &src_xy);
+  collect_points_2d(dst_g.get(), &dst_xy);
+  const SimilarityAlignResult fit = similarity_align_2d(src_xy, dst_xy);
+  if (!fit.ok) {
+    return false;
+  }
+  rapidjson::StringBuffer buf;
+  rapidjson::Writer<rapidjson::StringBuffer> w(buf);
+  w.StartObject();
+  w.Key("scale");
+  w.Double(fit.scale);
+  w.Key("theta");
+  w.Double(fit.theta);
+  w.Key("tx");
+  w.Double(fit.tx);
+  w.Key("ty");
+  w.Double(fit.ty);
+  w.Key("m");
+  w.StartArray();
+  for (double v : fit.m) {
+    w.Double(v);
+  }
+  w.EndArray();
+  w.Key("rms");
+  w.Double(fit.rms);
+  w.EndObject();
+  return write_text_file(output, buf.GetString());
+}
+
+bool run_rigid_align_op(std::string_view args_json) {
+  rapidjson::Document args;
+  if (!parse_args(args_json, &args)) {
+    return false;
+  }
+  std::string source;
+  std::string target;
+  std::string output;
+  if (!json_get_string(args, "source", &source) ||
+      !json_get_string(args, "target", &target) ||
+      !json_get_string(args, "output", &output)) {
+    return false;
+  }
+  auto src_g = load_first_geometry(source);
+  auto dst_g = load_first_geometry(target);
+  if (!src_g || !dst_g) {
+    return false;
+  }
+  std::vector<double> src_xy;
+  std::vector<double> dst_xy;
+  collect_points_2d(src_g.get(), &src_xy);
+  collect_points_2d(dst_g.get(), &dst_xy);
+  const SimilarityAlignResult fit = rigid_align_2d(src_xy, dst_xy);
+  if (!fit.ok) {
+    return false;
+  }
+  rapidjson::StringBuffer buf;
+  rapidjson::Writer<rapidjson::StringBuffer> w(buf);
+  w.StartObject();
+  w.Key("theta");
+  w.Double(fit.theta);
+  w.Key("tx");
+  w.Double(fit.tx);
+  w.Key("ty");
+  w.Double(fit.ty);
+  w.Key("m");
+  w.StartArray();
+  for (double v : fit.m) {
+    w.Double(v);
+  }
+  w.EndArray();
+  w.Key("rms");
+  w.Double(fit.rms);
+  w.EndObject();
+  return write_text_file(output, buf.GetString());
+}
+
+bool run_pca_axes_op(std::string_view args_json) {
+  rapidjson::Document args;
+  if (!parse_args(args_json, &args)) {
+    return false;
+  }
+  std::string input;
+  std::string output;
+  if (!json_get_string(args, "input", &input) ||
+      !json_get_string(args, "output", &output)) {
+    return false;
+  }
+  auto geom = load_first_geometry(input);
+  if (!geom) {
+    return false;
+  }
+  const PcaAxesResult pca = pca_axes_2d_from_ogr(*geom);
+  if (!pca.ok) {
+    return false;
+  }
+  rapidjson::StringBuffer buf;
+  rapidjson::Writer<rapidjson::StringBuffer> w(buf);
+  w.StartObject();
+  w.Key("cx");
+  w.Double(pca.cx);
+  w.Key("cy");
+  w.Double(pca.cy);
+  w.Key("major");
+  w.StartObject();
+  w.Key("dx");
+  w.Double(pca.major_dx);
+  w.Key("dy");
+  w.Double(pca.major_dy);
+  w.Key("extent");
+  w.Double(pca.major_extent);
+  w.Key("eigenvalue");
+  w.Double(pca.eigenvalue_major);
+  w.EndObject();
+  w.Key("minor");
+  w.StartObject();
+  w.Key("dx");
+  w.Double(pca.minor_dx);
+  w.Key("dy");
+  w.Double(pca.minor_dy);
+  w.Key("extent");
+  w.Double(pca.minor_extent);
+  w.Key("eigenvalue");
+  w.Double(pca.eigenvalue_minor);
+  w.EndObject();
+  w.EndObject();
+  return write_text_file(output, buf.GetString());
+}
+
+bool run_oriented_bbox_op(std::string_view args_json) {
+  rapidjson::Document args;
+  if (!parse_args(args_json, &args)) {
+    return false;
+  }
+  std::string input;
+  std::string output;
+  if (!json_get_string(args, "input", &input) ||
+      !json_get_string(args, "output", &output)) {
+    return false;
+  }
+  auto geom = load_first_geometry(input);
+  if (!geom) {
+    return false;
+  }
+  auto box = oriented_bbox_from_ogr(*geom);
+  if (!box || box->IsEmpty()) {
+    return false;
+  }
+  return write_geometry_geojson(output, box.get());
 }
 
 }  // namespace detail

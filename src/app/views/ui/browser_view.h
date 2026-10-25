@@ -117,6 +117,10 @@ class BrowserView : public BrowserUiDelegate {
     return processing_panel_;
   }
   void ensure_processing_panel() override;
+  void refresh_processing_panel_operators() override;
+  ui::views::SpatialAnalysisPanel* spatial_analysis_panel() const {
+    return spatial_analysis_panel_;
+  }
   ui::views::AtmospherePanel* atmosphere_panel() const override {
     return atmosphere_panel_;
   }

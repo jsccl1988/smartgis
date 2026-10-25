@@ -25,7 +25,8 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 | sdb / gis | `src/gis/{feature,map,edit,datasource/{session,provider,pipeline,ogr,sdbd,gdal},style/{document,eval,symbol},tile/{protocol,cache,provider,layer},geo/{ops,proj,tin,grid},stat,analysis}` + leftover `legacy/gis/{layer,feature,datasource,present/carto}` | GIS model flattened (no `gis/model/`, no one-file `layer/`/`crs/`); **`gis::Feature` geometry is `OGRwkbGeometryType`**; leftover catalog `FeatureType` (Anno/Grid/Tin/ChildImage) stays leftover. Style JSON + tiles under **`gis/style`** / **`gis/tile`** (no product `gis/carto/` grouping dir); **no product `gis/present`**. CPU MapFrame / World / GPU passes �?**`vista`**. gis �?vista. |
 | vista | `src/vista/{component/{map,world},pass/{map,world},assets,mesh,terrain,domain}` | CPU `MapIR` (`vista/component/map`) / `vista::World` + `Instance` (`vista/component/world`：`space/` · `instance/` · `terrain/` · `pointcloud/`) / CPU `vista::atmosphere` (`vista/component/world/atmosphere`) + GPU `MapPass` (`vista/pass/map`) / `WorldPass` (`vista/pass/world`) / `AtmosphereFrame` (`vista/pass/world/atmosphere`) in **`vista.dll`**. Leftover `legacy/gis/vista` adapters compile here (`VISTA_EXPORT`). **IR/Pass lanes:** [`specs/2026-09-13-render-rhi-scene-design.md`](specs/2026-09-13-render-rhi-scene-design.md) **§Vista IR/Pass lanes** · [`diagrams/vista-subdirectory-layers.html`](diagrams/vista-subdirectory-layers.html) · [`../../src/vista/README.md`](../../src/vista/README.md). No orphan `src/gis/vista/` / `src/effect/` trees. |
 | render | `src/render/{rhi,graph,programs,…}` | Endgame: unified 2D+3D RHI (Vista DX12/Vulkan) + frame graph. **No** `render/scene` �?`WorldPass` lives under `vista/pass/world` inside **vista.dll**. Scene math in `src/base/math`. Exploratory **Scenic** `src/scenic/{engine,render,scene3d}` / `scenic.dll` is **not** in `src_all` (`ninja scenic`). Frozen leftover `src/legacy/render` + opt-in copy internals `scenic_copy_all` are **not** in `src_all`. **Paint runs in `--type=gpu`**, not in browser. |
-| base | `src/base/`（foundation only�? `src/legacy/{core,sys}` | **`//src/base:foundation`**：mogu �?log/threading/files/�?+ `archive`/`ipc`�?*产品 DLL** **`dll_stem=base`**（leftovers+sys�?*不含** net / carto；XML �?`//third_party:pugixml`）。HTTP/RPC �?**`//src/net:net`**。style POD �?`legacy/gis/present/carto`（`gis` DLL）；`gis::Envelope` in `gis/envelope.h`�?|
+| base | `src/base/`（foundation only�? `src/legacy/{core,sys}` | **`//src/base:foundation`**：mogu �?log/threading/files/�?+ `archive` + `//src/common/ipc`�?*产品 DLL** **`dll_stem=base`**（leftovers+sys�?*不含** net / carto；XML �?`//third_party:pugixml`）。HTTP/RPC �?**`//src/net:net`**。style POD �?`legacy/gis/present/carto`（`gis` DLL）；`gis::Envelope` in `gis/envelope.h`�?|
+| common | `src/common/{ipc}` | Named-pipe IPC (`common::ipc`; `//src/common/ipc:ipc`). Distinct from `content/common`. |
 
 ## OSS GIS �?this tree
 
@@ -45,7 +46,7 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 ## DLL 粒度（as-built 2026-09-28�?
 | `dll_stem` | �?/ 吸收 | 默认 `src_all` / 宿主 |
 | --- | --- | --- |
-| **`base`** | leftovers + sys。foundation（`archive`/`ipc`）`:foundation` �?DLL。XML �?pugixml（非内嵌 TinyXML）。carto POD �?`gis` | yes |
+| **`base`** | leftovers + sys。foundation（`archive` + `//src/common/ipc`）`:foundation` �?DLL。XML �?pugixml（非内嵌 TinyXML）。carto POD �?`gis` | yes |
 | **`net`** | `src/net`（HTTP/RPC；从 base 抽出�?| yes |
 | `gis` | `src/gis/**`（model / datasource / style / tile / geo / analysis�?*不含** vista�?| yes |
 | `vista` | `src/vista/**` + leftover `legacy/gis/vista` adapters | yes |
@@ -66,7 +67,7 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 
 | Layer | Tree | Directory / product notes | In `src_all` |
 | --- | --- | --- | --- |
-| Foundation | `src/base/`（含 `archive`/`ipc`；core leftovers �?`legacy/core`�? `legacy/{core,sys}` | **`//src/base:foundation`**（static）�?*产品 DLL**：`dll_stem=base`（无 net；无 carto）。XML �?`//third_party:pugixml`（`legacy/xml` 目录已删�?| yes �?`base`；foundation �?deps 链入 |
+| Foundation | `src/base/`（含 `archive` + `//src/common/ipc`；core leftovers �?`legacy/core`�? `legacy/{core,sys}` | **`//src/base:foundation`**（static）�?*产品 DLL**：`dll_stem=base`（无 net；无 carto）。XML �?`//third_party:pugixml`（`legacy/xml` 目录已删�?| yes �?`base`；foundation �?deps 链入 |
 | Net | `src/net` | **`dll_stem=net`**（import-link�?| yes �?`net` |
 | Core data model | `src/gis/{feature,map,edit,style/{document,eval,symbol},tile}` | GIS 模型 + TileProvider / StyleDocument；leftover carto POD 仍在 `legacy/gis/present/carto`�?*一 DLL `gis`**；`gis::Envelope` 头在 `gis/envelope.h`（header-only）。CPU MapFrame / World �?**`src/vista`**（`vista.dll`）�?*方案�?* leftover catalog ABI �?`legacy/gis`；产�?`LayerType`/`VectorSchema` �?`gis/map/layer_kind.h`。Style 根上保留 leftover 钉死�?`paint_resolve.h`�?| yes �?`gis` |
 | Vista | `src/vista/{component/{map,world},pass/{map,world},assets,mesh,terrain,domain}` | CPU `MapIR` / `World` + `Instance` / `vista::atmosphere` + GPU `MapPass` / `WorldPass` / `AtmosphereFrame`；leftover `legacy/gis/vista` 编进�?DLL。gis �?vista。`assets` / `mesh` / `terrain` 不依�?`world`。Include `"vista/<module>/�?`。目录以 **§Vista IR/Pass lanes** 为准；`component/world` 顶层�?**§Vista world component layers** 为准�?| yes �?`vista` |

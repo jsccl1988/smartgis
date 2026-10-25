@@ -16,6 +16,14 @@
 namespace vista {
 namespace detail {
 
+// Optional viewport scissor in pixels (T1.1 local damage). Null = full pass.
+struct EncodeScissor {
+  int32_t x = 0;
+  int32_t y = 0;
+  uint32_t w = 0;
+  uint32_t h = 0;
+};
+
 // Binds |camera| when set; otherwise the ortho of |view|. |load_op| kClear
 // uses the frame background. |close_list| is false when a later pass still
 // records on this list. |solid| and |textured| are programs the pass created
@@ -28,7 +36,8 @@ void encode_draws(render::rhi::CommandList* list, const vista::View& view,
                   const render::rhi::CameraMatrices* camera,
                   render::rhi::ColorLoadOp load_op, bool close_list,
                   render::rhi::Pipeline* solid, render::rhi::Pipeline* textured,
-                  render::rhi::Pipeline* multiply);
+                  render::rhi::Pipeline* multiply,
+                  const EncodeScissor* scissor = nullptr);
 
 }  // namespace detail
 }  // namespace vista

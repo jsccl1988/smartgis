@@ -35,6 +35,7 @@ As-built 与 living 规格同树：[`superpowers/`](superpowers/README.md)（根
 | [`superpowers/mogu-mapping.md`](superpowers/mogu-mapping.md) | mogu → 本仓工程管理对照 |
 | [`superpowers/src-layout.md`](superpowers/src-layout.md) | `src/` 分层 + 2010→短名表；foundation 在 `src/base` |
 | [`../src/base/README.md`](../src/base/README.md) | foundation + 产品平台 DLL |
+| [`../src/common/README.md`](../src/common/README.md) | 跨进程 IPC（`common::ipc`） |
 | [`superpowers/abi-rename-map.md`](superpowers/abi-rename-map.md) | include / dll_stem / 导出宏 |
 | [`superpowers/ui-views-skia.md`](superpowers/ui-views-skia.md) | 桌面 UI 终局：Views + Skia |
 | [`superpowers/ui-testing.md`](superpowers/ui-testing.md) | GUI / Views 测试分层（L0–L4） |

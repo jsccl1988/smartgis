@@ -75,6 +75,7 @@ source_set("views_kernel") {
     "kernel/layout/view_traits.h",
     "kernel/paint/paint_commit.cc",
     "kernel/paint/paint_commit.h",
+    "testing/bench/views_bench_scenes.cc",
     "kernel/paint/painter.h",
     "kernel/paint/painter_registry.cc",
     "kernel/paint/painter_registry.h",
@@ -105,6 +106,8 @@ source_set("views_kernel") {
     "kernel/widget/widget_lifecycle.h",
     "kernel/widget/widget_window.cc",
     "kernel/widget/widget_window.h",
+    "kernel/overlay/layered_popup.cc",
+    "kernel/overlay/layered_popup.h",
   ]
   defines = _views_layer_defines
   public_deps = [
@@ -231,9 +234,15 @@ source_set("views_map") {
     "map/frame/embed_fill.h",
     "map/frame/identity_hud.cc",
     "map/frame/identity_hud.h",
-    "map/eagle_eye/eagle_eye_geom.h",
-    "map/eagle_eye/eagle_eye_host.cc",
-    "map/eagle_eye/eagle_eye_host.h",
+    "map/eagle_eye/geom.h",
+    "map/eagle_eye/host.cc",
+    "map/eagle_eye/host.h",
+    "map/eagle_eye/input.cc",
+    "map/eagle_eye/input.h",
+    "map/eagle_eye/paint.cc",
+    "map/eagle_eye/paint.h",
+    "map/eagle_eye/persist.cc",
+    "map/eagle_eye/persist.h",
     "map/device/device_load.cc",
     "map/device/device_load.h",
     "map/input/touch_multitouch.cc",
@@ -502,7 +511,7 @@ benchmark("views_bench") {
 test("eagle_eye_geom_test") {
   output_name = "eagle_eye_geom_test"
   use_gtest = false
-  sources = [ "map/eagle_eye/eagle_eye_geom_test.cc" ]
+  sources = [ "map/eagle_eye/geom_test.cc" ]
   deps = [ ":views" ]
 }
 

@@ -37,6 +37,14 @@ class UI_EXPORT CatalogView : public View {
   using CommandFn = void (*)(void* baton, const char* command_id);
 
   CatalogView();
+  ~CatalogView() override;
+
+  // Allocate in ui_views.dll (not EXE make_unique) — Debug CatalogView layout
+  // must match the constructing module's heap.
+  static std::unique_ptr<CatalogView> create();
+
+  // Cross-DLL raw factory (SmartGIS.exe → ui_views.dll).
+  static CatalogView* create_raw();
 
   void set_title(const char* title);
   void set_title(std::string title) { set_title(title.c_str()); }

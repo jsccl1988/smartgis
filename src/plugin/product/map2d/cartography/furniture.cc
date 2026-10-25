@@ -3,7 +3,7 @@
 
 #include "plugin/product/map2d/cartography/furniture.h"
 
-#include "content/browser/glang.runtime/host/tile/web_mercator.h"
+#include "gis/tile/protocol/lonlat_xyz.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/color/color.h"
 
@@ -34,10 +34,10 @@ double ground_meters(const MapViewBox& view) {
     return 0;
   }
   const double lat = std::clamp((view.south + view.north) * 0.5,
-                                -content::tile::k_max_mercator_lat,
-                                content::tile::k_max_mercator_lat);
+                                -gis::tile::k_max_mercator_lat,
+                                gis::tile::k_max_mercator_lat);
   const double lat_rad = lat * k_pi / 180.0;
-  return std::cos(lat_rad) * 2.0 * k_pi * content::tile::k_earth_radius_m *
+  return std::cos(lat_rad) * 2.0 * k_pi * gis::tile::k_earth_radius_m *
          (span / 360.0);
 }
 

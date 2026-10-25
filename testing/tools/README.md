@@ -57,6 +57,14 @@ testing/tools/
 - **`script` field:** relative to the suite directory first
   (`"browse.py"`), then relative to `harness/` (e.g.
   `"../ui.interact/ui.interact.py"` for a sibling reuse).
+- **Suite `.py` execution:** in-process CPython loads the file and calls
+  **`main()`** via `content::run_suite_script` → `glang.plugin` verbs
+  (`import glang.plugin as gp`). Return paths from helpers such as
+  `resolve_data(kind=..., leaf=...)`; do not use legacy `as_` slots or
+  `require_var`. Unknown verb names raise at the failing call; earlier
+  statements (e.g. `mark`) keep their effects. Debug builds use a stub
+  (`python_enabled` false when `is_debug`); Release needs a Python 3.12
+  prefix for real interpreter gates.
 
 ## Naming
 
@@ -118,7 +126,7 @@ UI chrome visual suites (BMP + `ui_shell_dark` gates; force `UI_THEME=dark`):
 
 These share `ui.interact.host.py` as PE entry (`script`) and select a
 gesture body via `gesture_script` → `UI_INTERACT_GESTURE_SCRIPT`. The body
-runs in-process through `smartgis.script`.
+runs in-process through `glang.plugin` (same `main()` entry as other suites).
 
 | Script | Suite role |
 | --- | --- |
@@ -134,7 +142,7 @@ Combo ops: `seq` / `repeat` / `chord` / `path` / `pan_burst` / `wheel_burst`.
 
 | File | Support |
 | --- | --- |
-| `*.py` | Harness scripts. ANTLR highlight remains for `src/gis/stat/StatExpr.g4` only. |
+| `*.py` | Harness suite scripts (`main()` + `glang.plugin`). ANTLR highlight remains for `src/gis/stat/StatExpr.g4` only. |
 
 ```bat
 py -3 testing\tools\loop_runner.py --suite browser.map2d.browse --no-build
@@ -152,4 +160,4 @@ py -3 testing\tools\loop_runner.py --suite browser.map2d.browse --no-build
 | `harness/_shared/case/engine/relabel_engine_bmps.py` | Title-strip annotator |
 | `harness/_shared/case/util/kill_showcase.py` | Shim ÃÂ¢ÃÂÃÂ `loop.kill` |
 
-**ÃÂ¦ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°:** 2026-10-19
+**最后更新:** 2026-10-25

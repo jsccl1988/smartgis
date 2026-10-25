@@ -1,0 +1,177 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#include "content/browser/present/map2d/showcase/map2d_fps.h"
+
+#include "content/browser/glang.runtime/host/horizon/atom/mark.h"
+#include "content/browser/debug/capture/capture_host.h"
+#include "content/browser/glang.runtime/host/bind/shell.h"
+#include "content/browser/glang.runtime/host/utils/exe_path.h"
+#include "content/browser/present/map2d/gpu/present/map2d_gpu_present.h"
+#include "content/browser/present/map2d/map2d_presenter.h"
+#include "content/browser/present/map2d/profile/map2d_phase_profile.h"
+#include "render/rhi/rhi.h"
+#include "vista/component/map/shade/bake.h"
+
+#include "base/core/log.h"
+#include "base/process/switches.h"
+
+#include <cstdio>
+#include <cstdlib>
+#include <windows.h>
+
+namespace content {
+namespace detail {
+
+void run_map2d_fps_bench(content::Shell& browser) {
+  const char* bench_env = base::switch_cstr("map2d-fps-bench-ms");
+  if (!bench_env) {
+    return;
+  }
+  const int bench_ms = std::atoi(bench_env);
+  content::Map2dPresenter* map2d = browser.map2d();
+  if (bench_ms <= 0 || !map2d) {
+    return;
+  }
+  write_mark(kMap2dMarkLeaf, "fps-bench", false);
+  content::Pane* pane = browser.draw_host();
+  float sum = 0.f;
+  float peak = 0.f;
+  int samples = 0;
+  const uint64_t builds0 = map2d->layout_build_count();
+  content::reset_map2d_gpu_present_profile();
+  // Latch before timers: shell client pixels/zoom are not the locked export
+  // frame; Map2dFrameCache must not rebuild layout for a size churn mid-bench.
+  base::set_switch("map2d-fps-bench-active", "1");
+  resume_present_timers(browser);
+  // Drive Map2dGpuPresent on the live HWND (native client size) so
+  // gpu_skip/full count StaticReuse on the product present path — not a
+  // fixture-sized owned device. Display BeginFrame alone often never entered
+  // present during the pump window (HUD moved; counters stayed 0).
+  render::rhi::Device* live_device = nullptr;
+  uint32_t live_w = 0;
+  uint32_t live_h = 0;
+  if (pane && pane->attach_mode() == content::Pane::AttachMode::kGpuPresent &&
+      pane->rhi_device()) {
+    live_device = static_cast<render::rhi::Device*>(pane->rhi_device());
+    if (HWND nv = pane->native_view(); nv && IsWindow(nv)) {
+      RECT rc = {};
+      GetClientRect(nv, &rc);
+      live_w = rc.right > 0 ? static_cast<uint32_t>(rc.right) : 0;
+      live_h = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 0;
+    }
+  }
+  if (pane) {
+    pane->invalidate_native();
+    if (live_device && live_w > 0 && live_h > 0) {
+      (void)map2d->present_gpu(live_device, live_w, live_h);
+    }
+    browser.pump(350);
+  }
+  const DWORD t0 = GetTickCount();
+  while (static_cast<int>(GetTickCount() - t0) < bench_ms) {
+    if (pane) {
+      pane->invalidate_native();
+      if (live_device && live_w > 0 && live_h > 0) {
+        (void)map2d->present_gpu(live_device, live_w, live_h);
+      }
+      const float fps = pane->hud_fps();
+      const int elapsed = static_cast<int>(GetTickCount() - t0);
+      if (fps > 0.f && elapsed >= 250) {
+        sum += fps;
+        if (fps > peak) {
+          peak = fps;
+        }
+        ++samples;
+      }
+    }
+    browser.pump(16);
+  }
+  const float mean = samples > 0 ? (sum / static_cast<float>(samples)) : 0.f;
+  const uint64_t builds_delta = map2d->layout_build_count() - builds0;
+  const content::Map2dGpuPresentProfile prof =
+      content::map2d_gpu_present_profile();
+  const uint64_t present_n = prof.skip + prof.full;
+  const float skip_pct =
+      present_n > 0
+          ? (100.f * static_cast<float>(prof.skip) / static_cast<float>(present_n))
+          : 0.f;
+  const vista::HillshadeBakeSample bake = vista::hillshade_last_bake_sample();
+  LOGGING(LOG_INFO,
+          "map2d-showcase: fps_bench ms=%d samples=%d mean=%.2f peak=%.2f "
+          "layout_builds_delta=%llu total=%llu gpu_skip=%llu gpu_full=%llu "
+          "skip_pct=%.1f act_r/i/s/st=%llu/%llu/%llu/%llu "
+          "bake_mem/disk/load/shade/store_ms=%lld/%lld/%lld/%lld/%lld "
+          "bake_hit_mem/disk=%d/%d bake_cuda=%d bake_wh=%dx%d",
+          bench_ms, samples, mean, peak,
+          static_cast<unsigned long long>(builds_delta),
+          static_cast<unsigned long long>(map2d->layout_build_count()),
+          static_cast<unsigned long long>(prof.skip),
+          static_cast<unsigned long long>(prof.full), skip_pct,
+          static_cast<unsigned long long>(prof.action_rebuild),
+          static_cast<unsigned long long>(prof.action_interactive),
+          static_cast<unsigned long long>(prof.action_settle),
+          static_cast<unsigned long long>(prof.action_static),
+          static_cast<long long>(bake.mem_ms),
+          static_cast<long long>(bake.disk_ms),
+          static_cast<long long>(bake.load_ms),
+          static_cast<long long>(bake.shade_ms),
+          static_cast<long long>(bake.store_ms), bake.mem_hit, bake.disk_hit,
+          bake.used_cuda, bake.width, bake.height);
+  const content::Map2dPhaseSample phase = content::map2d_last_phase_sample();
+  LOGGING(LOG_INFO,
+          "map2d-showcase: phase_fps layout_ms=%lld hillshade_ms=%lld "
+          "bmp_io_ms=%lld gpu_upload_ms=%lld gpu_present_ms=%lld",
+          static_cast<long long>(phase.layout_ms),
+          static_cast<long long>(phase.hillshade_ms),
+          static_cast<long long>(phase.bmp_io_ms),
+          static_cast<long long>(phase.gpu_upload_ms),
+          static_cast<long long>(phase.gpu_present_ms));
+  wchar_t bench_w[MAX_PATH] = {};
+  if (exe_capture_path(bench_w, MAX_PATH, L"map2d-fps-bench.txt")) {
+    FILE* bf = nullptr;
+    if (_wfopen_s(&bf, bench_w, L"w") == 0 && bf) {
+      std::fprintf(bf,
+                   "mean_fps=%.3f\npeak_fps=%.3f\nsamples=%d\n"
+                   "bench_ms=%d\nlayout_builds=%llu\n"
+                   "layout_builds_delta=%llu\n"
+                   "gpu_skip=%llu\ngpu_full=%llu\nskip_pct=%.1f\n"
+                   "action_rebuild=%llu\naction_interactive=%llu\n"
+                   "action_settle=%llu\naction_static=%llu\n"
+                   "bake_mem_ms=%lld\nbake_disk_ms=%lld\n"
+                   "bake_load_ms=%lld\nbake_shade_ms=%lld\n"
+                   "bake_store_ms=%lld\nbake_mem_hit=%d\n"
+                   "bake_disk_hit=%d\nbake_used_cuda=%d\n"
+                   "bake_w=%d\nbake_h=%d\nbake_max_edge=%d\n"
+                   "layout_ms=%lld\nhillshade_ms=%lld\nbmp_io_ms=%lld\n"
+                   "gpu_upload_ms=%lld\ngpu_present_ms=%lld\n",
+                   mean, peak, samples, bench_ms,
+                   static_cast<unsigned long long>(map2d->layout_build_count()),
+                   static_cast<unsigned long long>(builds_delta),
+                   static_cast<unsigned long long>(prof.skip),
+                   static_cast<unsigned long long>(prof.full), skip_pct,
+                   static_cast<unsigned long long>(prof.action_rebuild),
+                   static_cast<unsigned long long>(prof.action_interactive),
+                   static_cast<unsigned long long>(prof.action_settle),
+                   static_cast<unsigned long long>(prof.action_static),
+                   static_cast<long long>(bake.mem_ms),
+                   static_cast<long long>(bake.disk_ms),
+                   static_cast<long long>(bake.load_ms),
+                   static_cast<long long>(bake.shade_ms),
+                   static_cast<long long>(bake.store_ms), bake.mem_hit,
+                   bake.disk_hit, bake.used_cuda, bake.width, bake.height,
+                   bake.max_edge, static_cast<long long>(phase.layout_ms),
+                   static_cast<long long>(phase.hillshade_ms),
+                   static_cast<long long>(phase.bmp_io_ms),
+                   static_cast<long long>(phase.gpu_upload_ms),
+                   static_cast<long long>(phase.gpu_present_ms));
+      std::fclose(bf);
+    }
+  }
+  base::set_switch("map2d-fps-bench-active", "0");
+  stop_present_timers(browser);
+  write_mark(kMap2dMarkLeaf, "fps-bench-done", false);
+}
+
+}  // namespace detail
+}  // namespace content

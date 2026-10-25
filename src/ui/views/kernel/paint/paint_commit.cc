@@ -76,5 +76,13 @@ bool commit_view_tree(View* root,
   return true;
 }
 
+PaintCommit* paint_commit_create() {
+  return new PaintCommit();
+}
+
+void paint_commit_destroy(PaintCommit* frame) {
+  delete frame;
+}
+
 }  // namespace views
 }  // namespace ui

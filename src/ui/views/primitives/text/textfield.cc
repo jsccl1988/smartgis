@@ -6,6 +6,13 @@
 #include <algorithm>
 #include <cstring>
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <imm.h>
+#pragma comment(lib, "imm32.lib")
+
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
@@ -383,15 +390,43 @@ bool Textfield::on_ime_composition(std::wstring_view text, bool is_result) {
   }
   if (is_result) {
     composition_.clear();
+    // Resume caret blink after commit; keep it off during live composition so
+    // the 500ms invalidate_commands tick does not flash the IME candidate UI.
+    if (is_focused()) {
+      arm_caret_timer();
+    }
     if (!text.empty()) {
       insert_utf8(wide_to_utf8(std::wstring(text).c_str()));
     } else {
       invalidate_commands();
-  schedule_paint();
+      schedule_paint();
     }
     return true;
   }
   composition_.assign(text.begin(), text.end());
+  if (composition_.empty()) {
+    if (is_focused()) {
+      arm_caret_timer();
+    }
+  } else {
+    disarm_caret_timer();
+  }
+  // Anchor the system candidate / composition window at the caret so DXGI
+  // overlay SetWindowPos storms do not leave it jumping at (0,0).
+  if (Widget* w = widget(); w && w->hwnd()) {
+    HIMC imc = ImmGetContext(w->hwnd());
+    if (imc) {
+      const float scale = scale_for(this);
+      const int pad_x = dip_to_px(8, scale);
+      const Size ink = measure_text_utf8(utf8_prefix(text_, caret_), scale);
+      COMPOSITIONFORM form = {};
+      form.dwStyle = CFS_POINT;
+      form.ptCurrentPos.x = bounds().x + pad_x + ink.width;
+      form.ptCurrentPos.y = bounds().y + bounds().height;
+      ImmSetCompositionWindow(imc, &form);
+      ImmReleaseContext(w->hwnd(), imc);
+    }
+  }
   invalidate_commands();
   schedule_paint();
   return true;

@@ -98,6 +98,14 @@ class UI_EXPORT TabStrip : public View {
   void* change_baton_ = nullptr;
 };
 
+// Allocate in ui_views.dll (not EXE make_unique<TabStrip>).
+UI_EXPORT std::unique_ptr<TabStrip> make_tab_strip();
+UI_EXPORT TabStrip* tab_strip_new();
+// Adopts |page| inside ui_views.dll (do not std::move unique_ptr from EXE).
+UI_EXPORT int tab_strip_adopt_tab(TabStrip* strip,
+                                  const char* title,
+                                  View* page);
+
 }  // namespace views
 }  // namespace ui
 

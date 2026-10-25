@@ -9,8 +9,8 @@ Layers:
   L0 writable — exclusive open on existing closure PEs; list lock holders
   L1 ninja    — ``ninja -n`` on SmartGIS + import DLLs (or test_all)
   L2 pe       — PE import table vs ninja closure + DLL-newer-than-exe skew
-  L2b homo    — Debug/Release product stem homogeneity (see
-                check_dll_homogeneity.py; DLL / STL trust model)
+  L2b homo    — Debug/Release product stem homogeneity + SMARTGIS_BUILD_ID
+                marker scan (see check_dll_homogeneity.py; DLL / STL trust)
 
 Usage:
   python build/tools/check_out_artifacts.py --out Debug --mode writable

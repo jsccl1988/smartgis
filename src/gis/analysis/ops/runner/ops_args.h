@@ -20,6 +20,8 @@ bool op_arg_string(const rapidjson::Value& obj, const char* key, std::string* ou
 
 bool op_arg_double(const rapidjson::Value& obj, const char* key, double* out);
 
+bool op_arg_int(const rapidjson::Value& obj, const char* key, int* out);
+
 }  // namespace detail
 }  // namespace gis
 

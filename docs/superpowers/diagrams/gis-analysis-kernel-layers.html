@@ -1,0 +1,125 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>analysis 内核分层 — model / codec / kernel / op</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --model: #e8f0fa; --codec: #eaf6ef; --kernel: #f7f1e8; --op: #f3eaf6;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; font-weight: 650; }
+  .meta { margin: 0; color: var(--muted); font-size: 0.85rem; }
+  h2 { margin: 0 0 10px; font-size: 1rem; }
+  .lanes {
+    display: grid; gap: 8px;
+  }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+  }
+  .lane.model { background: var(--model); }
+  .lane.codec { background: var(--codec); }
+  .lane.kernel { background: var(--kernel); }
+  .lane.op { background: var(--op); }
+  .lane strong { display: block; margin-bottom: 4px; }
+  .flow {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin-top: 8px; font-size: 0.92rem;
+  }
+  .chip {
+    border: 1px solid var(--border); background: #fff; border-radius: 6px;
+    padding: 6px 10px;
+  }
+  .arrow { color: var(--muted); font-weight: 600; }
+  .note { color: var(--muted); font-size: 0.88rem; margin-top: 8px; }
+  ul { margin: 6px 0 0; padding-left: 1.2em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>analysis 内核分层</h1>
+    <p class="meta">样板：<code>src/gis/analysis/geochem/</code> · 约定可复用到其它 analysis 域 · catalog id / JSON 合同不变</p>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层（依赖只向下）</h2>
+    <div class="lanes">
+      <div class="lane op">
+        <strong>op — catalog 调度</strong>
+        <code>op/stats_op</code> · <code>op/idw_op</code> · 只用 <code>ops_args</code> 解析 JSON，组合 load + kernel + io
+      </div>
+      <div class="lane codec">
+        <strong>codec / io — 编解码</strong>
+        <code>load/csv_load</code> · <code>load/vector_load</code> · <code>io/geotiff</code>（GDAL 出入）
+      </div>
+      <div class="lane kernel">
+        <strong>kernel — 纯计算</strong>
+        <code>stats/</code> · <code>idw/</code> · <code>grade/</code>（无 rapidjson、无 GeoTIFF Driver）
+      </div>
+      <div class="lane model">
+        <strong>model — 纯数据</strong>
+        <code>model/sample</code>：<code>GeochemSample(Set)</code> · <code>element_index</code> · <code>values_for_element</code>
+      </div>
+    </div>
+    <p class="note">禁止：kernel → op；kernel → GDAL Driver 写出；op 内复制 JSON 解析（复用 <code>ops/runner/ops_args</code>）。</p>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（native.geochem_idw）</h2>
+    <div class="flow">
+      <span class="chip">JSON args</span>
+      <span class="arrow">→</span>
+      <span class="chip">op::run_idw_op</span>
+      <span class="arrow">→</span>
+      <span class="chip">load_csv</span>
+      <span class="arrow">→</span>
+      <span class="chip">run_idw</span>
+      <span class="arrow">→</span>
+      <span class="chip">write_idw_geotiff</span>
+    </div>
+    <div class="flow">
+      <span class="chip">plugin/product/geochem</span>
+      <span class="arrow">→</span>
+      <span class="chip">model + load + kernel（可直调，不经 JSON）</span>
+      <span class="arrow">→</span>
+      <span class="chip">present</span>
+    </div>
+    <p class="note"><code>ops_runner</code> 只 include <code>op/*</code>；产品包可组合内核，不必走 catalog。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 共享脚手架</h2>
+    <ul>
+      <li><code>ops/runner/ops_args</code>：<code>decode_op_args</code> / <code>op_arg_string</code> / <code>op_arg_double</code> / <code>op_arg_int</code></li>
+      <li>不新建第二套 op 注册表；catalog id 仍由 <code>ops_catalog</code> + <code>run_builtin_op</code> 分支调度</li>
+      <li>其它 analysis 域（geology / raster…）按需照抄目录形状，不强制一次迁完</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>

@@ -82,12 +82,34 @@ bool has_overlay_draws(const std::vector<UploadedDraw>& draws) {
 
 bool frame_has_overlay_items(const vista::MapIR& frame) {
   for (const vista::DrawItem& item : frame.items) {
-    if (item.kind == vista::DrawKind::kIcon ||
+    if (item.screen_fixed || item.kind == vista::DrawKind::kIcon ||
         item.kind == vista::DrawKind::kText) {
       return true;
     }
   }
   return false;
+}
+
+bool frame_has_screen_fixed_items(const vista::MapIR& frame) {
+  for (const vista::DrawItem& item : frame.items) {
+    if (item.screen_fixed) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::vector<UploadedDraw> without_screen_fixed(
+    const std::vector<UploadedDraw>& draws) {
+  std::vector<UploadedDraw> out;
+  out.reserve(draws.size());
+  for (const UploadedDraw& d : draws) {
+    if (d.screen_fixed) {
+      continue;
+    }
+    out.push_back(d);
+  }
+  return out;
 }
 
 uint64_t hash_items(const vista::MapIR& frame, bool overlay_slice) {
@@ -97,6 +119,10 @@ uint64_t hash_items(const vista::MapIR& frame, bool overlay_slice) {
     h *= 1099511628211ull;
   };
   for (const vista::DrawItem& item : frame.items) {
+    // screen_fixed HUD is never cached by hash — skip both slices.
+    if (item.screen_fixed) {
+      continue;
+    }
     const bool is_ov = item.kind == vista::DrawKind::kIcon ||
                        item.kind == vista::DrawKind::kText;
     if (is_ov != overlay_slice) {

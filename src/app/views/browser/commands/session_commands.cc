@@ -31,7 +31,7 @@ std::string m2_json_path(std::string path) {
 
 }  // namespace
 
-bool Browser::run_m2_harness_hooks(std::string* err) {
+bool Browser::check_m2_processing_panel(std::string* err) {
   auto fail = [&](const char* msg) {
     if (err) {
       *err = msg;
@@ -41,6 +41,7 @@ bool Browser::run_m2_harness_hooks(std::string* err) {
   ui::views::ProcessingPanel* panel = nullptr;
   if (ui_) {
     ui_->ensure_processing_panel();
+    ui_->refresh_processing_panel_operators();
     panel = ui_->processing_panel();
   }
   if (!panel || panel->operator_count() < 10) {
@@ -51,6 +52,22 @@ bool Browser::run_m2_harness_hooks(std::string* err) {
   }
   if (!this->plugins() || !this->plugins()->host()) {
     return fail("m2: plugin host missing");
+  }
+  if (err) {
+    err->clear();
+  }
+  return true;
+}
+
+bool Browser::run_m2_harness_hooks(std::string* err) {
+  auto fail = [&](const char* msg) {
+    if (err) {
+      *err = msg;
+    }
+    return false;
+  };
+  if (!check_m2_processing_panel(err)) {
+    return false;
   }
 
   // Self-test uses a tiny square fixture (not china_city): ProcessingPool

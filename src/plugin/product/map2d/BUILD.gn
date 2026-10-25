@@ -63,7 +63,7 @@ source_set("map2d_views") {
     ":print_composer",
     "//src/content:browser_session",
     "//src/content:content",
-    "//src/content/browser/glang.runtime:tile_grid",
+    "//src/gis:gis",
     "//src/plugin/product/world3d:world3d_views",
     "//src/plugin/runtime/host:host",
     "//src/plugin/runtime/widgets:widgets",
@@ -141,7 +141,7 @@ test("map2d_furniture_test") {
   include_dirs += [ "//src" ]
   deps = [
     ":map2d_views",
-    "//src/content/browser/glang.runtime:tile_grid",
+    "//src/gis:gis",
   ]
   ldflags = [ "/ENTRY:mainCRTStartup" ]
 }
@@ -151,7 +151,7 @@ test("map2d_coverage_test") {
   sources = [ "tests/coverage_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
-    "//src/content/browser/glang.runtime:tile_grid",
+    "//src/gis:gis",
     "//third_party:rapidjson",
   ]
   defines = [

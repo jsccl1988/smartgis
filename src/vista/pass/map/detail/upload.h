@@ -39,6 +39,8 @@ struct UploadedDraw {
   bool stroke = false;
   // Pixel-mapped text/icon — invalidate when the view extent changes.
   bool overlay = false;
+  // Screen-fixed HUD (never DrawCache-hashed); filtered by without_screen_fixed.
+  bool screen_fixed = false;
   render::rhi::Buffer* vertices = nullptr;
   render::rhi::Buffer* indices = nullptr;
   uint32_t index_count = 0;
@@ -75,6 +77,19 @@ std::vector<UploadedDraw> upload_draws(
         load_icon,
     std::vector<render::rhi::Buffer*>* buffers,
     std::vector<render::rhi::Texture*>* textures);
+
+std::vector<UploadedDraw> upload_draws(
+    render::rhi::Device* device, std::vector<PlacedMesh> meshes,
+    const AtlasLayout& atlas,
+    const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
+                             int* w, int* h)>& load_raster,
+    const std::function<bool(const std::string& symbol_id,
+                             std::vector<uint8_t>* rgba, int* w, int* h)>&
+        load_icon,
+    std::vector<render::rhi::Buffer*>* buffers,
+    std::vector<render::rhi::Texture*>* textures,
+    const std::function<bool(uint32_t texture_key, const uint8_t** rgba, int* w,
+                             int* h)>& borrow_raster);
 
 }  // namespace detail
 }  // namespace vista

@@ -20,6 +20,10 @@ Living ledger of **confirmed** crash/hang root causes. Newest cases first.
 
 | Fingerprint / symptom | Exception | Top symbol / module | Status | Case |
 | --- | --- | --- | --- | --- |
+| Cold start → `show_shell` / `catalog_map_->parent` freed (`cdcdcdcd`) | `c0000005` | `View::parent` / `ShellLifecycleComposer::show_shell` | fixed | [2026-10-25](#case-2026-10-25-shell-unique-ptr-cross-dll) |
+| `scene3d_presenter_test` → `StubCommandList::begin_render_pass` read `0x6` | `c0000005` | `CloudPass::record` / RHI vtable skew (`set_scissor`) | fixed | [2026-10-25](#case-2026-10-25-shell-unique-ptr-cross-dll) |
+| Plugins panel select → detail stuck / Run no-op (Debug) | (UI / heap) | `Registry::list` / `PluginCatalogView` / EXE↔`plugin_host` | fixed | [2026-10-24-b](#case-2026-10-24-plugin-catalog-list-dll) |
+| Cold start → `ensure_display_thread` hang; HWND `vis=False` | hang / `c000041d` | `display_mu_` offset / `handle_size` / `commit_shell_overlay` | fixed | [2026-10-24](#case-2026-10-24-drawhost-layout-skew-startup) |
 | Release `browser.harness` → `0xC0000409` / `e06d7363` during `find_fn` | `e06d7363` / abort | `register_fn` / `install_script_verbs` / `msvcp140!_Throw_Cpp_error` | fixed | [2026-10-23-b](#case-2026-10-23-find-fn-overlay-mutex-reentry) |
 | Cold start → `DrawHost::attach` → `enqueue_display_task` / deque `_Orphan_all` | `c0000005` | `std::exchange` / `deque::push_back` / `ui_views_d` | fixed | [2026-10-23](#case-2026-10-23-shell-stl-dll-cascade) |
 | Cold start → `mount_fill` / Yoga `~unordered_map` free | `HEAP_CORRUPTION` / `c0000005` | `YogaLayoutManager::~` ← `set_layout_manager` ← `mount_fill` | fixed | [2026-10-23](#case-2026-10-23-shell-stl-dll-cascade) |
@@ -49,6 +53,102 @@ Living ledger of **confirmed** crash/hang root causes. Newest cases first.
 ---
 
 ## Case log
+
+### Case: 2026-10-25 shell-unique-ptr-cross-dll
+
+- **Status:** fixed (2026-10-25: cdb catch 90s no second-chance; `scene3d_presenter_test` exit 0)
+- **Fingerprint:** `INVALID_POINTER_READ_*_View::parent` on `catalog_map_`; prior
+  `NULL_CLASS_PTR_READ_*_StubCommandList::begin_render_pass` when `vista_d`
+  ahead of `render_d`
+- **Symptom:** `SmartGIS.exe --harness` dies in `show_shell` after
+  `init_shell`; or scene3d AV in cloud pass begin_render_pass
+- **Evidence:** `out/crash/20261025-033506-catch.*` (dangling Splitter);
+  `out/crash/20261025-025638-analyze.log` (RHI vtable); verify catch
+  `20261025-035020` (timeout, no dump)
+- **Root cause:** (1) EXE `std::move(loaded->root)` / `unique_ptr<FrameView>`
+  into DLL `set_client` / `set_contents_view` — Debug STL not EXE↔`ui_views`
+  ABI → tree double-free, raw `catalog_map_` dangling. (2) `CommandList`
+  inserted virtual `set_scissor` before `begin_render_pass` without rebuilding
+  all consumers → vista called wrong slot.
+- **Fix:** Landed —
+  - `markup_root_take_root` + `FrameView::adopt_client` +
+    `Widget::adopt_contents_view` + `make_frame_view_raw`
+  - shell_layout markup/imperative use adopt path only
+  - `#pragma detect_mismatch("smartgis_rhi_command_list", "2026-10-25.scissor1")`
+  - force-rebuild stale `shell_ui` objs after BrowserView layout drift
+- **Guardrail:** Never `std::move` DLL-owned `unique_ptr` from SmartGIS.exe;
+  bump RHI detect_mismatch when CommandList virtual order changes; wipe
+  `shell_ui/*.obj` after BrowserView member inserts above raw View*
+- **False leads:** CatalogView `read_file` stringbuf free (manifestation of
+  earlier heap poison / skew); blaming `begin_load_pass` stack desc alone
+
+### Case: 2026-10-24 plugin-catalog-list-dll
+
+- **Status:** fixed (2026-10-24: live Agent — select
+  `smartgis.geochem` → `tools=6`, `run plugin=… tool=0`; done bar
+  `debug_agent_test` / `content_console_coverage_test` / pytest green)
+- **Fingerprint:** Plugins dock — row highlight without detail/commands;
+  Run appears inert; Debug may later die from heap churn
+- **Symptom:** Extend → Plugins: list shows `on`/`off` packs, but
+  "Select a plugin. Its commands open here." never updates; Enable/Run
+  cannot execute tools
+- **Evidence:** `:ui capture`
+  `out/Debug/captures/_scratch/plugin_ui_iter1.bmp` (stuck detail text);
+  live log `ui.plugin_catalog: select … tools=N` after fix;
+  prior case note that `plugin_catalog_view` still called `list()`
+- **Root cause:** EXE `PluginCatalogView` called
+  `Registry::list()` / copied `Manifest` / assigned `last_error()`
+  across EXE↔`plugin_host_d` — Debug STL not a DLL ABI (same class as
+  2026-10-21). Selection UI could paint while contribute walk /
+  detail fill corrupted or no-op'd
+- **Fix:** Landed —
+  - `Registry::visit_detail` / `visit_tools` / `last_error_cstr` (C strings)
+  - `plugin_catalog_view` uses `visit` / `visit_detail` / `visit_tools` only
+- **Guardrail:** SmartGIS.exe must not call `Registry::list()` or
+  assign `Manifest` / `last_error` `std::string` across the boundary
+- **False leads:** Blaming Ambox chip hit-test alone (toolbar chips were
+  a separate 0-width layout issue); map2d present AV noise during probe
+
+### Case: 2026-10-24 drawhost-layout-skew-startup
+
+- **Status:** fixed (2026-10-24: 4× native 40s ALIVE with `SmartGIS Views`
+  `vis=True` + map2d ~35–42 FPS; cdb catch 45s timeout past
+  `FirstShellPaint` / `map2d.present` / `rhi.present recovered`)
+- **Fingerprint:** hang — UI `ensure_display_thread` /
+  `handle_size` on `display_mu_`; later WER
+  `FATAL_USER_CALLBACK_EXCEPTION_c000041d_MSVCP140D.dll!mtx_do_lock` in
+  `commit_shell_overlay` (corrupted SRWLOCK from stale member offsets)
+- **Symptom:** `out/Debug/SmartGIS.exe` cold start: process alive but
+  shell/FlyCube HWND stay `vis=False`; or exits `0xC000041D` /
+  `0xC0000005` during show paint
+- **Evidence:** `out/crash/20261024-152401-hang.dmp` +
+  `20261024-152403-hang.log` (mutex wait in `ensure_display_thread`;
+  asm `add rax,440h` vs PDB `display_mu_` at `+0x458`); WER
+  `SmartGIS.exe*.21452.dmp` → `20261024-wer-21452.dmp` /
+  `20261024-155112-analyze.log`; verify
+  `20261024-155714-catch.log` (timeout, no dump)
+- **Root cause:** Incremental link left `views_map/*.obj` (esp.
+  `display.obj`, `shell_overlay.obj`) compiled against an older
+  `DrawHost` layout after `eagle_eye_` / GPU-present fields landed in
+  `draw_host.h`. Mailbox code locked `eagle_eye_` storage as
+  `display_mu_` (off by `0x18`) → permanent hang. Partial rebuild then
+  exposed `SendMessage(WM_SIZE)` ↔ Display `display_mu_` deadlock and
+  `commit_shell_overlay` locking a still-skewed mutex → `c000041d`.
+- **Fix:** Landed —
+  - Force-rebuild all `views_map` objs + relink `ui_views` / SmartGIS
+  - `ensure_display_thread`: start `std::thread` outside `display_mu_`
+  - `attach_viewports`: `PostMessage(WM_SIZE)` instead of `SendMessage`
+  - `handle_size`: `try_to_lock` for the no-op swapchain early-out
+  - Comment in `display.cc` warning on header/layout drift
+- **Guardrail:** After any `DrawHost` member insert above `display_mu_` /
+  `shell_mu_`, wipe `out/Debug/obj/src/ui/views/views_map/*.obj` (or
+  full `ui_views`) before shipping. Disasm
+  `ensure_display_thread` must `add …,458h` (or current PDB offset), not
+  an earlier field. Prefer Post over Send into DrawHost WndProcs that
+  take `display_mu_`.
+- **False leads:** Treating invisible HWND as
+  `Widget::show`/foreground-only (2026-10-22-b); blaming async Init alone
+  (`--sync-flycube-init=1` only masked timing while layout skew remained).
 
 ### Case: 2026-10-23-b find-fn-overlay-mutex-reentry
 
@@ -206,8 +306,8 @@ Living ledger of **confirmed** crash/hang root causes. Newest cases first.
   - EXE shell/ambox/startup_apply no longer call `list()` across the boundary
   - `rebuild_contribute_index` uses `for_each_record`
   - Removed `debug-778a24` agent instrumentation
-  - Note: `plugin_catalog_view` still uses `list()` / `last_error()` string
-    assign — fix before relying on Plugin Manager UI under Debug
+  - Follow-up (2026-10-24-b): `plugin_catalog_view` no longer uses
+    `list()` / `last_error` string assign — see that case
 - **Guardrail:** Any new `PLUGIN_HOST_EXPORT` that takes/returns
   `std::string` / `std::vector<…string…>` / `Manifest` by value or const-ref
   from SmartGIS.exe is suspect. Match `scan.h` “same-module only” notes.

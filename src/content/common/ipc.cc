@@ -85,12 +85,12 @@ bool Pipe::recv(FrameHeader* header,
 
 bool Pipe::recv(FrameHeader* header,
                std::vector<uint8_t>* payload,
-               std::vector<base::ipc::PlatformHandle>* handles,
+               std::vector<common::ipc::PlatformHandle>* handles,
                uint32_t timeout_ms) {
   if (!header || !payload) {
     return false;
   }
-  base::ipc::Frame f;
+  common::ipc::Frame f;
   if (!ch_.recv(&f, payload, handles, timeout_ms)) {
     return false;
   }

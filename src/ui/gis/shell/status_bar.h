@@ -63,6 +63,7 @@ class UI_EXPORT StatusBar : public View {
 
 // Cross-DLL: allocate inside ui_views.dll (see make_draw_host).
 UI_EXPORT std::unique_ptr<StatusBar> make_status_bar();
+UI_EXPORT StatusBar* status_bar_new();
 
 }  // namespace views
 }  // namespace ui

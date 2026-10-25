@@ -1,0 +1,161 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gis/analysis/network — LineNetwork 分层与求解流</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --lane-io: #e8f0fa; --lane-graph: #e9f5ef; --lane-solve: #f5f0e8;
+    --lane-op: #f3eef8; --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; font-weight: 650; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+  .lanes {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  }
+  @media (max-width: 860px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    min-height: 150px;
+  }
+  .lane h3 { margin: 0 0 8px; font-size: 0.82rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.1em; font-size: 0.8rem; color: var(--muted); }
+  .lane li { margin-bottom: 4px; }
+  .lane.io { background: var(--lane-io); }
+  .lane.graph { background: var(--lane-graph); }
+  .lane.solve { background: var(--lane-solve); }
+  .lane.op { background: var(--lane-op); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    font-size: 0.85rem;
+  }
+  .step {
+    border: 1px solid var(--border); background: var(--panel2);
+    border-radius: 6px; padding: 8px 10px; min-width: 120px;
+  }
+  .step strong { display: block; color: var(--accent); font-size: 0.75rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  .phases { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  @media (max-width: 700px) { .phases { grid-template-columns: 1fr; } }
+  .phase {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2); font-size: 0.82rem;
+  }
+  .phase b { color: var(--accent); }
+  .note { color: var(--muted); font-size: 0.82rem; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Network 分析：共享图 + 求解器</h1>
+    <p class="meta">OGR 线网 → <code>LineNetwork</code> → Dijkstra / 双向 / A* / 服务区 / APSP / 最大流 → <code>native.*</code></p>
+  </header>
+
+  <section class="panel">
+    <h2>分层（所有权）</h2>
+    <div class="lanes">
+      <div class="lane io">
+        <h3>I/O</h3>
+        <ul>
+          <li>路网 / 转向 / 障碍矢量</li>
+          <li>GeoJSON 路径 / 服务区 / OD / 流</li>
+          <li>不进 UI / RHI</li>
+        </ul>
+      </div>
+      <div class="lane graph">
+        <h3>LineNetwork</h3>
+        <ul>
+          <li>结点吸附</li>
+          <li>有向 + <code>oneway</code></li>
+          <li>代价 / 容量字段</li>
+          <li>转向禁行 · 障碍</li>
+        </ul>
+      </div>
+      <div class="lane solve">
+        <h3>求解器</h3>
+        <ul>
+          <li>Dijkstra（靠右折中）</li>
+          <li>双向 · A*</li>
+          <li>服务区 cutoff</li>
+          <li>多源 APSP · Edmonds–Karp</li>
+        </ul>
+      </div>
+      <div class="lane op">
+        <h3>Ops</h3>
+        <ul>
+          <li><code>native.cost_path</code></li>
+          <li><code>native.service_area</code></li>
+          <li><code>native.apsp</code></li>
+          <li><code>native.max_flow</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原理流</h2>
+    <div class="flow" id="flow">
+      <div class="step" data-i="0"><strong>1</strong>打开 OGR 线层</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="1"><strong>2</strong>建有向边 + 字段</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="2"><strong>3</strong>叠转向 / 障碍</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="3"><strong>4</strong>求解器扩展邻接</div>
+      <span class="arrow">→</span>
+      <div class="step" data-i="4"><strong>5</strong>写出 GeoJSON</div>
+    </div>
+    <p class="note">动画：高亮当前阶段。转向在扩展时过滤 <code>(prev,u,v)</code>；障碍结点/边不进入队列。</p>
+  </section>
+
+  <section class="panel">
+    <h2>三阶段</h2>
+    <div class="phases">
+      <div class="phase"><b>①</b> 图模型 C + 迁移 <code>cost_path</code></div>
+      <div class="phase"><b>②</b> 双向 / A* + 服务区</div>
+      <div class="phase"><b>③</b> APSP 子集 + 最大流</div>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var steps = document.querySelectorAll("#flow .step");
+  var i = 0;
+  function tick() {
+    steps.forEach(function (el, idx) {
+      el.style.outline = idx === i ? "2px solid #2563a8" : "none";
+      el.style.background = idx === i ? "#fff" : "";
+    });
+    i = (i + 1) % steps.length;
+  }
+  tick();
+  setInterval(tick, 1100);
+})();
+</script>
+</body>
+</html>

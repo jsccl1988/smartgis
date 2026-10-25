@@ -13,6 +13,7 @@ All rights reserved.
     --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
     --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
     --ui: #6b5ea8; --tk: #2563a8; --gfx: #2f7d62; --map: #b06a1a; --gpu: #8b3a3a;
+    --u6: #2563a8; --u7: #2f7d62; --u8: #b06a1a;
     --code: #243447; --code-bg: #eef2f6;
   }
   * { box-sizing: border-box; }
@@ -53,8 +54,8 @@ All rights reserved.
     <h1>UI Views shell — 分层与 compositor 流水线</h1>
     <p>Chromium 角色：UI Commit → compositor → raster → GPU present（无 Blink/cc）</p>
     <div class="meta">
-      Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Shell perf / compositor</a>
-      · Plan：<a href="../plans/2026-09-28-ui-compositor-thread.md">ui-compositor-thread</a>
+      Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Shell perf U6+ roadmap</a>
+      · Plan：<a href="../plans/2026-10-25-ui-shell-perf-u6-roadmap.md">ui-shell-perf-u6</a>
     </div>
     <div class="rel">相关图：
       <a href="./render-accelerate-topology.html">Render accelerate（A×B 整合）</a>
@@ -148,7 +149,38 @@ All rights reserved.
   </section>
 
   <section class="panel">
-    <h2>2. Compositor 流水线（节点 + 箭头）</h2>
+    <h2>2. U6–U8 优化车道（Strategy C，无 cc/viz）</h2>
+    <svg class="diagram" viewBox="0 0 1040 200" role="img" aria-label="U6 U7 U8 lanes">
+      <rect x="8" y="8" width="320" height="184" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="24" y="32" fill="var(--u6)">Lane A · U6</text>
+      <text class="box-sub" x="24" y="54">paint_lock · pending_dirty_ audit</text>
+      <text class="box-sub" x="24" y="74">PaintCache → commands_dirty_</text>
+      <text class="box-sub" x="24" y="94">Theme/DPI invalidate_commands</text>
+      <text class="box-sub" x="24" y="114">layouts_since_paint · cache counters</text>
+      <text class="box-sub" x="24" y="140">ui/views/kernel · paint_stats</text>
+
+      <rect x="360" y="8" width="320" height="184" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="376" y="32" fill="var(--u7)">Lane B · U7</text>
+      <text class="box-sub" x="376" y="54">DisplayList op spatial index</text>
+      <text class="box-sub" x="376" y="74">append_from_clipped partial replay</text>
+      <text class="box-sub" x="376" y="94">ShellCompositor raster_ms</text>
+      <text class="box-sub" x="376" y="114">可选离屏子 surface（动画面板）</text>
+      <text class="box-sub" x="376" y="134">map 仍 native_view 占位</text>
+      <text class="box-sub" x="376" y="160">ui/gfx/display_list</text>
+
+      <rect x="712" y="8" width="320" height="184" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="728" y="32" fill="var(--u8)">Lane C · U8</text>
+      <text class="box-sub" x="728" y="54">ui/gis catalog · inspect</text>
+      <text class="box-sub" x="728" y="74">Yoga markup layout drain</text>
+      <text class="box-sub" x="728" y="94">TableView 行带 dirty rect</text>
+      <text class="box-sub" x="728" y="114">equal-profile catalog/data</text>
+      <text class="box-sub" x="728" y="140">禁止拆 Catalog/Ambox 刷分</text>
+    </svg>
+    <p class="legend">顺序：U6 度量稳定 → U7 partial raster → U8 产品 chrome。度量见 harness-auto-ui-opt。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. Compositor 流水线（节点 + 箭头）</h2>
     <svg class="diagram" id="pipeSvg" viewBox="0 0 1040 150" role="img">
       <defs>
         <marker id="ahp" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/></marker>
@@ -195,7 +227,7 @@ All rights reserved.
   </section>
 
   <section class="panel">
-    <h2>Primitives 控件 — 组合缝与命中（2026-10-05）</h2>
+    <h2>4. Primitives 控件 — 组合缝与命中（2026-10-05）</h2>
     <p class="legend">控件实现按职责拆：<code>detail/</code> 共享 DPI/裁剪/点击；集合控件把命中与滚动合成出来，而不是在叶子上静默吞掉事件。</p>
     <svg class="diagram" viewBox="0 0 1040 220" role="img" aria-label="Primitives 命中与滚动合成">
       <rect x="8" y="8" width="250" height="204" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>

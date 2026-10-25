@@ -10,10 +10,10 @@
 #include "content/browser/glang.runtime/host/horizon/sema/ui.h"
 #include "content/browser/glang.runtime/host/scene/browse/dispatch.h"
 #include "content/browser/glang.runtime/host/scene/verbs.h"
-#include "content/browser/glang.runtime/host/view/browse/still.h"
-#include "content/browser/glang.runtime/host/view/browse/stress.h"
-#include "content/browser/glang.runtime/host/view/camera/camera_fly.h"
-#include "content/browser/glang.runtime/host/view/camera/fit_scene_box.h"
+#include "content/browser/debug/browse/still.h"
+#include "content/browser/debug/browse/stress.h"
+#include "content/browser/camera/camera_fly.h"
+#include "content/browser/camera/fit_scene_box.h"
 
 namespace content {
 namespace detail {

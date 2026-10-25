@@ -22,7 +22,8 @@ namespace plugin {
 PLUGIN_HOST_EXPORT double parse_field_double(const std::string& text,
                                              double fallback);
 
-// `--plugin-sample-dir` when set, else `../data/plugin`.
+// `--plugin-sample-dir` when set; else absolute `<exe>/../data/plugin` (or
+// `<exe>/data/plugin`) so OGR open does not depend on process CWD.
 PLUGIN_HOST_EXPORT std::string plugin_sample_dir();
 
 // Sets |field| text when empty (no-op if |field| is null).

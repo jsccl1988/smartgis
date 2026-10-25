@@ -15,6 +15,7 @@
 #include "app/views/app/cmdline/views_launch_options.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "base/core/log.h"
+#include "base/core/module_build_id.h"
 #include "base/process/switches.h"
 #include "base/trace/diag/diagnostic_bootstrap.h"
 #include "base/trace/diag/startup_profile.h"
@@ -28,6 +29,11 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
   // SetDllDirectory only replaces the cwd slot. Do not call
   // SetDefaultDllDirectories — that has remapped ucrtbased twice on this SDK.
   prepare_dll_search_path();
+  // Refuse mixed product DLLs from another gn gen / out tree (build_id gate).
+  // Not an SEH fence — fail before UI / GPU work.
+  if (!base::verify_product_dll_build_ids()) {
+    return 1;
+  }
   int argc = 0;
   wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
   // Before any GDALAllRegister: AutoLoadDrivers LoadLibrary's every DLL in

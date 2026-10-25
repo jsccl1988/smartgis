@@ -8,8 +8,8 @@
 #include <string>
 
 #include "content/browser/glang.runtime/host/bind/slots.h"
-#include "content/browser/glang.runtime/host/view/shot/export.h"
-#include "content/browser/glang.runtime/host/view/pixel/bmp.h"
+#include "content/browser/debug/capture/shot/export.h"
+#include "content/browser/debug/capture/pixel/bmp.h"
 #include "content/browser/glang.runtime/host/utils/charset.h"
 #include "content/browser/glang.runtime/host/utils/exe_path.h"
 

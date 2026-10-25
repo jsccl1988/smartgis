@@ -36,6 +36,11 @@
 namespace ui {
 namespace views {
 
+// NOTE: Any change to DrawHost members above display_mu_ (draw_host.h) MUST
+// rebuild this TU and bump smartgis_draw_host_layout in draw_host.h (LNK2038
+// detect_mismatch). A stale display.obj once locked eagle_eye_ storage as the
+// mutex (offset off by 0x18) and hung cold start in ensure_display_thread.
+
 using detail::CreateRenderDeviceFn;
 using detail::DeviceObj;
 using detail::clamp_scene3d_swapchain_size;
@@ -119,13 +124,27 @@ DrawHost::DisplayTask DrawHost::display_queue_pop_front() {
 }
 
 void DrawHost::ensure_display_thread() {
-  std::lock_guard<std::mutex> lock(display_mu_);
-  if (display_started_) {
+  // Do not construct std::thread while holding display_mu_: the mailbox
+  // immediately locks the same mutex, and a nested UI SendMessage(WM_SIZE)
+  // during attach can then deadlock against handle_size's lock_guard.
+  bool launch = false;
+  {
+    std::lock_guard<std::mutex> lock(display_mu_);
+    if (display_started_) {
+      return;
+    }
+    display_stop_ = false;
+    display_started_ = true;
+    launch = true;
+  }
+  if (!launch) {
     return;
   }
-  display_stop_ = false;
-  display_started_ = true;
-  display_thread_ = std::thread([this]() { display_thread_main(); });
+  std::thread worker([this]() { display_thread_main(); });
+  {
+    std::lock_guard<std::mutex> lock(display_mu_);
+    display_thread_ = std::move(worker);
+  }
 }
 
 void DrawHost::stop_display_thread() {

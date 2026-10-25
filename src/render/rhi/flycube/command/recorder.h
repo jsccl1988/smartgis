@@ -72,6 +72,11 @@ struct Dispatch {
 struct Pass {
   PassDesc desc;
   std::vector<Draw> draws;
+  bool scissor_enabled = false;
+  int32_t scissor_x = 0;
+  int32_t scissor_y = 0;
+  uint32_t scissor_w = 0;
+  uint32_t scissor_h = 0;
 };
 
 // Records draws and dispatches against GpuBuffer / GpuTexture.
@@ -88,6 +93,7 @@ class Recorder {
   bool has_dispatches() const { return !dispatches.empty(); }
 
   void begin_pass(const PassDesc& desc);
+  void set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height);
   void bind_camera(const float view[16], const float proj[16]);
   void set_pipeline(Pipeline* pipeline);
   void set_constants(uint32_t slot, const void* data, uint32_t byte_size);

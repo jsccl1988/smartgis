@@ -124,6 +124,21 @@ void MapPass::release_uploaded() {
 
 void MapPass::invalidate_uploaded() { release_uploaded(); }
 
+void MapPass::set_encode_scissor(int32_t x, int32_t y, uint32_t w,
+                                 uint32_t h) {
+  encode_scissor_set_ = w > 0 && h > 0;
+  encode_scissor_x_ = x;
+  encode_scissor_y_ = y;
+  encode_scissor_w_ = w;
+  encode_scissor_h_ = h;
+}
+
+void MapPass::clear_encode_scissor() {
+  encode_scissor_set_ = false;
+  encode_scissor_w_ = 0;
+  encode_scissor_h_ = 0;
+}
+
 bool MapPass::record(
     render::rhi::Device* device, render::rhi::CommandList* list,
     const vista::MapIR& frame, const vista::View& view,
@@ -162,6 +177,16 @@ bool MapPass::record(
   }
   device_ = device;
 
+  const detail::EncodeScissor* scissor_ptr = nullptr;
+  detail::EncodeScissor scissor{};
+  if (encode_scissor_set_ && encode_scissor_w_ > 0 && encode_scissor_h_ > 0) {
+    scissor.x = encode_scissor_x_;
+    scissor.y = encode_scissor_y_;
+    scissor.w = encode_scissor_w_;
+    scissor.h = encode_scissor_h_;
+    scissor_ptr = &scissor;
+  }
+
   detail::DrawCache* cache = draw_cache_.get();
   const uint64_t world_hash = detail::hash_items(frame, false);
   const uint64_t overlay_hash = detail::hash_items(frame, true);
@@ -188,7 +213,7 @@ bool MapPass::record(
     }
     detail::encode_draws(list, view, frame, cache->full_draws, camera, color_op,
                          /*close_list=*/true, solid_pipeline_,
-                         textured_pipeline_, multiply_pipeline_);
+                         textured_pipeline_, multiply_pipeline_, scissor_ptr);
     return true;
   }
   if (reuse_ok && world_items && !overlay_items) {
@@ -215,7 +240,7 @@ bool MapPass::record(
       }
       detail::encode_draws(list, view, frame, world, camera, color_op,
                            /*close_list=*/true, solid_pipeline_,
-                           textured_pipeline_, multiply_pipeline_);
+                           textured_pipeline_, multiply_pipeline_, scissor_ptr);
       return true;
     }
   }
@@ -256,7 +281,7 @@ bool MapPass::record(
     const bool close_list = world_items && overlay_items;
     detail::encode_draws(list, view, frame, merged, camera, load_op, close_list,
                          solid_pipeline_, textured_pipeline_,
-                         multiply_pipeline_);
+                         multiply_pipeline_, scissor_ptr);
     latch_cache_after_encode(cache, merged, view, world_items, overlay_items,
                              world_hash, overlay_hash);
     return true;
@@ -271,7 +296,8 @@ bool MapPass::record(
     const std::vector<detail::UploadedDraw> overlay_draws =
         detail::place_and_upload(device, frame, view, glyphs,
                                  /*world_items=*/false, /*overlay_items=*/true,
-                                 load_raster, load_icon, &buffers_, &textures_);
+                                 load_raster, load_icon, &buffers_, &textures_,
+                                 borrow_raster_);
     if (!ensure_pipelines()) {
       return false;
     }
@@ -280,7 +306,7 @@ bool MapPass::record(
     merged.insert(merged.end(), overlay_draws.begin(), overlay_draws.end());
     detail::encode_draws(list, view, frame, merged, camera, color_op,
                          /*close_list=*/true, solid_pipeline_,
-                         textured_pipeline_, multiply_pipeline_);
+                         textured_pipeline_, multiply_pipeline_, scissor_ptr);
     latch_cache_after_encode(cache, merged, view, /*world_items=*/true,
                              /*overlay_items=*/true, world_hash, overlay_hash);
     return true;
@@ -313,7 +339,7 @@ bool MapPass::record(
     const std::vector<detail::UploadedDraw> empty;
     detail::encode_draws(list, view, frame, empty, camera, load_op, close_list,
                          solid_pipeline_, textured_pipeline_,
-                         multiply_pipeline_);
+                         multiply_pipeline_, scissor_ptr);
     latch_cache_after_encode(cache, empty, view, world_items, overlay_items,
                              world_hash, overlay_hash);
     return true;
@@ -321,12 +347,13 @@ bool MapPass::record(
 
   const std::vector<detail::UploadedDraw> draws = detail::place_and_upload(
       device, frame, view, glyphs, world_items, overlay_items, load_raster,
-      load_icon, &buffers_, &textures_);
+      load_icon, &buffers_, &textures_, borrow_raster_);
   if (!ensure_pipelines()) {
     return false;
   }
   detail::encode_draws(list, view, frame, draws, camera, load_op, close_list,
-                       solid_pipeline_, textured_pipeline_, multiply_pipeline_);
+                       solid_pipeline_, textured_pipeline_, multiply_pipeline_,
+                       scissor_ptr);
   latch_cache_after_encode(cache, draws, view, world_items, overlay_items,
                            world_hash, overlay_hash);
   return true;

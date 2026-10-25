@@ -24,9 +24,30 @@ int dispatch_plugin_command(Browser& browser,
                             const char* command_id,
                             std::string_view payload = {});
 
+// Debug CPython stub for HARNESS_SUITE=ui.* (theme → panels → BMP).
+int run_ui_shell_showcase(Browser& browser);
+int run_ui_catalog_showcase(Browser& browser);
+int run_ui_data_showcase(Browser& browser);
+
 namespace detail {
 
 void detach_views(Browser& browser);
+
+// Debug CPython stub path: seed → export_bmp → fps_bench without suite .py.
+int run_map2d_showcase_cpp(Browser& browser,
+                           const char* mode,
+                           const char* seed_mark,
+                           const wchar_t* bmp_leaf,
+                           const char* frame);
+
+// Debug CPython stub for atmosphere / Scene3d suites: apply look → export_bmp
+// (timed present JSON when PRESENT_COUNT is set) → harness marks.
+int run_atmosphere_showcase_cpp(Browser& browser,
+                                const char* look_mode,
+                                const wchar_t* bmp_leaf);
+
+// Debug CPython stub for ui.shell: theme → panels → layout gate → present BMP.
+int run_ui_shell_showcase_cpp(Browser& browser);
 
 }  // namespace detail
 }  // namespace app

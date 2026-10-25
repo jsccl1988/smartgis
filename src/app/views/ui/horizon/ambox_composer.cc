@@ -111,8 +111,11 @@ void AmboxComposer::populate_ambox() {
     catalogs.push_back(&host_->browser_->edit_tool_session()->workspace()->catalog());
   }
   // Right dock Tools lists plugin AMBox groups. Plain argv=[] launch must
-  // populate them without opening Plugin Manager (visual_review #7). Still
-  // skip poison PluginShell pointers under parallel Debug freefill.
+  // populate them without opening Plugin Manager (visual_review #7) — that
+  // fill runs after WaitFirstMapPresent via finish_deferred_shell_wiring
+  // (ensure_builtins + populate_ambox). Do not LoadLibrary here: init_all
+  // dominated BuildContents.AmboxInspector on the cold-start profile.
+  // Workspace Select/Edit chips still populate from the edit catalog below.
   std::vector<ui::views::AmboxView::Group> plugin_groups;
   if (!fps_benching && host_->browser_->plugins()) {
     PluginShell* shell = host_->browser_->plugins();
@@ -121,7 +124,7 @@ void AmboxComposer::populate_ambox() {
     const bool poison = shell_addr < 0x10000u || lo24 == 0xcdcdcd00ull ||
                         lo24 == 0xdddddd00ull || lo24 == 0xcccccc00ull ||
                         lo24 == 0xfeeefeeeull || lo24 == 0xababab00ull;
-    if (!poison) {
+    if (!poison && shell->builtins_started()) {
       // Workspace/tool catalog on the map bar only when Plugin Manager asked
       // for a full refresh (host_->ambox_include_plugins_). Always fill side Tools.
       if (host_->ambox_include_plugins_) {
@@ -130,7 +133,6 @@ void AmboxComposer::populate_ambox() {
         }
       }
       if (shell->registry() && shell->host()) {
-        (void)shell->ensure_builtins();
         plugin_groups =
             enabled_plugin_groups(shell->registry(), shell->host());
       }
@@ -162,6 +164,12 @@ void AmboxComposer::populate_ambox() {
   if (host_->side_ambox_) {
     push_plugin_groups(host_->side_ambox_, plugin_groups);
     host_->side_ambox_->replace_groups_commit();
+    // Rebuild may have run while the dock page was still 0x0; force a layout
+    // once the Tools tab already has a real client box so chips hit-test.
+    const ui::views::Rect& sb = host_->side_ambox_->bounds();
+    if (sb.width > 0 && sb.height > 0) {
+      host_->side_ambox_->layout();
+    }
   }
 }
 

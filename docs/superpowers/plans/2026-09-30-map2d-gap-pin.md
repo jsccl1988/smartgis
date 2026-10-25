@@ -37,10 +37,10 @@ atmosphere (those stay on other plans).
 
 ## P1 — 制图深度与编辑下限
 
-- [ ] **P1-1 栅格瓦片生产缓存**：`TileDiskCache` + XYZ/WMTS 在 Views 主路径默认开启；离线二次打开无重复全量拉取（或可证明 hit rate）。
+- [x] **P1-1 栅格瓦片生产缓存**：`TileDiskCache` + XYZ/WMTS 经 `make_map_layer` / Style `bind_raster` 默认开启；`disk_cache_hits` / `http_tile_fetches` 可观测；`tile_test` 二次打开同 extent（2026-10-25）。
 - [x] **P1-2 Style 表达式算术族**：mini eval 增加 `+`/`*`/`-`/`/` + `to-number`；`style_test` 覆盖 data-driven `line-width` / `heatmap-weight`。
 - [x] **P1-3 注记产品化**：`text-color` → `ResolvedPaint`；CJK 走 `WindowsGlyphRasterizer`（YaHei UI 优先）；along-line collision 已有；不做 SDF（仍 P2）。
-- [ ] **P1-4 基础拓扑校验**：叠盖 / 缝隙（或等价）挂 EditSession；失败可查 FeatureInfo / mark。
+- [x] **P1-4 基础拓扑校验**：`validate_topology` 叠盖/缝隙挂 `MemoryEditSession`/`MapEditSession` commit；`CommitStatus::kTopology` + `last_topology_result()`；`topology_check_test` 绿（2026-10-25）。
 - [x] **P1-5 GPU heatmap / extrusion 观感**：heatmap density → fill-bucket quads（GPU solid）；splat 开关回退；extrusion 仍 v1 prism。
 
 ## P2 — 对标 MapLibre / Pro 的后置项

@@ -3,6 +3,36 @@
 
 import("//build/smartgis.gni")
 
+# Homogeneous SMARTGIS_BUILD_ID (DLL / STL trust § build consistency).
+# Written at gn gen time (single computation — no separate action/stamp race).
+# product_shared_library and hand-rolled product shared_library targets
+# depend on :gen_build_id so the include root is ordered; the header itself
+# is already on disk for cl /showIncludes.
+# exec_script cwd is root_build_dir; keep args.gn relative to that.
+_build_id = exec_script("//build/tools/gen_build_id.py",
+                        [
+                          "--out-h",
+                          rebase_path("$root_gen_dir/smartgis/build_id.h",
+                                      root_build_dir),
+                          "--out-txt",
+                          rebase_path("$root_out_dir/smartgis_build_id.txt",
+                                      root_build_dir),
+                          "--debug",
+                          "$is_debug",
+                          "--repo",
+                          rebase_path("//", root_build_dir),
+                          "--args-gn",
+                          "args.gn",
+                          "--print-id",
+                        ],
+                        "trim string")
+# Consume the id (GN forbids unused assignments). Do not write_file a stamp
+# under out/ — that dirties build.ninja.d and forces endless regen.
+assert(_build_id != "", "SMARTGIS_BUILD_ID empty")
+
+group("gen_build_id") {
+}
+
 # MBCS + forced compat for leftover product sources.
 # Product headers use #include "layer/module/file.h" via //src
 # (see docs/superpowers/abi-rename-map.md). BUILDCONFIG already puts //src before

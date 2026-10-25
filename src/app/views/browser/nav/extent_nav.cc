@@ -66,6 +66,10 @@ bool seh_nav_reset_or_commit(content::BrowserSession* session,
 // Extent fit / history / shared GisContents sync.
 
 void Browser::fit_map_extent() {
+  fit_map_extent(/*paint_overlays=*/true);
+}
+
+void Browser::fit_map_extent(bool paint_overlays) {
   // Frame the map pane. The horizon client includes catalog and chrome, so
   // using it zoomed China into the northwest corner of the 2D GPU surface.
   // draw_host() is out-of-line in browser.cc (same reason as hwnd()).
@@ -73,8 +77,11 @@ void Browser::fit_map_extent() {
   int h = 600;
   bool have_pane = false;
   if (ui::views::DrawHost* map = draw_host()) {
+    // Prefer a *visible* present HWND client. Before ShowWindow the FlyCube
+    // popup often exists with a stale/small client; using it framed china at
+    // the wrong pixel size and WaitFirstMapPresent rebuilt MapIR again.
     if (HWND present = map->present_hwnd()) {
-      if (IsWindow(present)) {
+      if (IsWindow(present) && IsWindowVisible(present)) {
         RECT pane = {};
         GetClientRect(present, &pane);
         if (pane.right > 32 && pane.bottom > 32) {
@@ -117,9 +124,11 @@ void Browser::fit_map_extent() {
     session_->frame_view_and_orbit_to_document(w, h);
     push_shared_extent();
   }
-  if (HWND horizon = hwnd()) {
-    if (IsWindow(horizon)) {
-      invalidate_map_overlays();
+  if (paint_overlays) {
+    if (HWND horizon = hwnd()) {
+      if (IsWindow(horizon)) {
+        invalidate_map_overlays();
+      }
     }
   }
   adopt_or_commit_extent();

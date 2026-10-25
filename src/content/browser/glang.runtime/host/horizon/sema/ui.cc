@@ -5,13 +5,13 @@
 #include "content/browser/glang.runtime/host/bind/shell.h"
 
 #include "content/browser/glang.runtime/host/horizon/atom/capture.h"
-#include "content/browser/glang.runtime/host/view/host/capture_host.h"
+#include "content/browser/debug/capture/capture_host.h"
 #include "content/browser/glang.runtime/host/horizon/atom/mark.h"
-#include "content/browser/glang.runtime/host/view/present/env.h"
+#include "content/browser/present/map2d/showcase/env.h"
 #include "content/browser/glang.runtime/host/horizon/sema/expect.h"
 #include "content/browser/glang.runtime/host/horizon/atom/pump.h"
-#include "content/browser/glang.runtime/host/view/present/map2d_fps.h"
-#include "content/browser/glang.runtime/host/view/shot/export.h"
+#include "content/browser/present/map2d/showcase/map2d_fps.h"
+#include "content/browser/debug/capture/shot/export.h"
 #include "content/browser/glang.runtime/host/utils/exe_path.h"
 #include "plugin/runtime/host/capability/shell.h"
 #include "ui/gis/catalog/catalog_view.h"
@@ -306,7 +306,9 @@ void dump_ui_paint_profile(const ModeSpec& spec,
       "\"hover_commit_ms\":%.3f,\"table_scroll_ms\":%.3f,"
       "\"overlay_commit_ms\":%.3f,"
       "\"begin_frame_to_present_ms\":%.3f,"
-      "\"begin_frame_to_shell_present_ms\":%.3f}\n",
+      "\"begin_frame_to_shell_present_ms\":%.3f,"
+      "\"paint_cache_hit\":%llu,\"paint_cache_miss\":%llu,"
+      "\"layouts_since_paint\":%llu,\"paint_lock_deferred\":%llu}\n",
       ui_mode_name(mode), static_cast<double>(hud_fps),
       static_cast<unsigned long long>(c.commit_count),
       static_cast<unsigned long long>(c.activate_count),
@@ -326,7 +328,11 @@ void dump_ui_paint_profile(const ModeSpec& spec,
       qpc_ticks_to_ms(c.table_scroll_qpc),
       qpc_ticks_to_ms(c.overlay_commit_qpc),
       qpc_ticks_to_ms(c.begin_frame_to_present_qpc),
-      qpc_ticks_to_ms(c.begin_frame_to_shell_present_qpc));
+      qpc_ticks_to_ms(c.begin_frame_to_shell_present_qpc),
+      static_cast<unsigned long long>(c.paint_cache_hit),
+      static_cast<unsigned long long>(c.paint_cache_miss),
+      static_cast<unsigned long long>(c.layouts_since_paint),
+      static_cast<unsigned long long>(c.paint_lock_deferred));
   std::fclose(pf);
 }
 

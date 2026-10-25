@@ -45,12 +45,19 @@ void FrameView::set_can_maximize(bool can) {
 }
 
 void FrameView::set_client(std::unique_ptr<View> client) {
+  adopt_client(client.release());
+}
+
+void FrameView::adopt_client(View* client) {
   rebuild_caption();
-  client_ = client.get();
+  if (!client) {
+    return;
+  }
+  client_ = client;
   if (auto* box = static_cast<BoxLayout*>(layout_manager())) {
     box->set_flex_for_view(client_, 1);
   }
-  add_child(std::move(client));
+  add_child(std::unique_ptr<View>(client));
 }
 
 void FrameView::rebuild_caption() {
@@ -185,7 +192,11 @@ std::string_view FrameView::paint_role() const {
 }
 
 std::unique_ptr<FrameView> make_frame_view() {
-  return std::make_unique<FrameView>();
+  return std::unique_ptr<FrameView>(make_frame_view_raw());
+}
+
+FrameView* make_frame_view_raw() {
+  return new FrameView();
 }
 
 }  // namespace views

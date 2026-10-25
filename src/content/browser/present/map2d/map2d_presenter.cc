@@ -154,6 +154,12 @@ void Map2dPresenter::note_surface_reset() {
   }
 }
 
+void Map2dPresenter::note_device_lost() {
+  if (!scenic_) {
+    gpu_.note_device_lost();
+  }
+}
+
 uint64_t Map2dPresenter::layout_build_count() const {
   return scenic_ ? scenic_present_count_ : cache_.layout_build_count();
 }

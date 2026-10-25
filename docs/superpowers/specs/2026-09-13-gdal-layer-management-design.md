@@ -7,8 +7,8 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-18 — § analysis ops：按编解码 / `ir/` / `runner/` 收子目录。 Prior same day — WKT 互转与 OGR 算法分层。Prior 2026-10-05 — `testing/data` pack split (`china/` vs `plugin/` vs `fixtures/`; GN still flattens `out/data/`). Prior 2026-10-04 — Nest `gis/style/{document,eval,symbol}`（根上留 leftover-stable `paint_resolve.h`；无转发头）。Prior same day — Hoist `gis/carto/{style,tile}` → `gis/style` + `gis/tile`（删空 `carto/`；不拆进 datasource/map；无转发头）。Prior same day — Nest `gis/tile/{protocol,cache,provider,layer}`（撤销同日 flatten；无转发头）。Prior same day — Tighten `src/gis` dirs: drop `layer/` `crs/`; datasource backends `ogr/` `sdbd/` `gdal/` as siblings of `provider/` (no `impl/`); flatten `stat/{detail,eval,value}`; leftover `Style` OGR blob I/O in `legacy/gis/present/carto/smt_style_ogr.*`. Prior same day — Flatten `gis/model/*` → `gis/{feature,map,edit,envelope.h}`；`edit/` 按职责拆 mutation / undo_log / command / memory / map session；leftover catalog `CatalogSource` / `FeatureAdapter`。Prior same day — Task 5: 产品 `gis::Map`；PascalCase Feature → leftover `FeatureAdapter`；`CatalogSource`/`*Info`/`leftover_layer_feature_type` → `legacy/gis/layer/layer.h`。`copy_envelope` 在 `gis/geo/ops/geometry_traits.h`。Prior same day — **§ gis/model product surface vs leftover + OGR Map/Layer/Feature**。Prior same day — CPU MapFrame / World 在 **`src/vista`**（`vista.dll`）。Prior 2026-10-03 — product Style/tile under `gis/{style,tile}`。  
-**Diagram:** [`../diagrams/analysis-ops-wkt.html`](../diagrams/analysis-ops-wkt.html)（analysis ops：WKT 边界 ↔ OGR 算法）· [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)（浅色 SVG：GIS 泳道 + LayerBatch→present 流水线；边界 `gis` ↛ `render/rhi`）· 瓦片子目录 [`../diagrams/gis-carto-tile.html`](../diagrams/gis-carto-tile.html) · vista 子目录收紧图 [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)（RHI umbrella §，非本文件新 spec）· **model 终局** [`../diagrams/gis-model-ogr-layers.html`](../diagrams/gis-model-ogr-layers.html)（产品 `Map`/`Layer`/`Feature` ↔ OGR；leftover ABI 迁出）  
+**Updated:** 2026-10-25 — § analysis/geology：model/io/kernel/op + `geo/xy` 下沉。 Prior same day — § analysis ops 加深。Prior 2026-10-18 — § analysis ops：按编解码 / `ir/` / `runner/` 收子目录。 Prior same day — WKT 互转与 OGR 算法分层。Prior 2026-10-05 — `testing/data` pack split (`china/` vs `plugin/` vs `fixtures/`; GN still flattens `out/data/`). Prior 2026-10-04 — Nest `gis/style/{document,eval,symbol}`（根上留 leftover-stable `paint_resolve.h`；无转发头）。Prior same day — Hoist `gis/carto/{style,tile}` → `gis/style` + `gis/tile`（删空 `carto/`；不拆进 datasource/map；无转发头）。Prior same day — Nest `gis/tile/{protocol,cache,provider,layer}`（撤销同日 flatten；无转发头）。Prior same day — Tighten `src/gis` dirs: drop `layer/` `crs/`; datasource backends `ogr/` `sdbd/` `gdal/` as siblings of `provider/` (no `impl/`); flatten `stat/{detail,eval,value}`; leftover `Style` OGR blob I/O in `legacy/gis/present/carto/smt_style_ogr.*`. Prior same day — Flatten `gis/model/*` → `gis/{feature,map,edit,envelope.h}`；`edit/` 按职责拆 mutation / undo_log / command / memory / map session；leftover catalog `CatalogSource` / `FeatureAdapter`。Prior same day — Task 5: 产品 `gis::Map`；PascalCase Feature → leftover `FeatureAdapter`；`CatalogSource`/`*Info`/`leftover_layer_feature_type` → `legacy/gis/layer/layer.h`。`copy_envelope` 在 `gis/geo/ops/geometry_traits.h`。Prior same day — **§ gis/model product surface vs leftover + OGR Map/Layer/Feature**。Prior same day — CPU MapFrame / World 在 **`src/vista`**（`vista.dll`）。Prior 2026-10-03 — product Style/tile under `gis/{style,tile}`。  
+**Diagram:** [`../diagrams/gis-analysis-geology.html`](../diagrams/gis-analysis-geology.html)（geology 四层）· [`../diagrams/analysis-ops-wkt.html`](../diagrams/analysis-ops-wkt.html)（analysis ops：WKT 边界 ↔ OGR 算法）· [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)（浅色 SVG：GIS 泳道 + LayerBatch→present 流水线；边界 `gis` ↛ `render/rhi`）· 瓦片子目录 [`../diagrams/gis-carto-tile.html`](../diagrams/gis-carto-tile.html) · vista 子目录收紧图 [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)（RHI umbrella §，非本文件新 spec）· **model 终局** [`../diagrams/gis-model-ogr-layers.html`](../diagrams/gis-model-ogr-layers.html)（产品 `Map`/`Layer`/`Feature` ↔ OGR；leftover ABI 迁出）· geo 主图 [`../diagrams/gis-geo-layers.html`](../diagrams/gis-geo-layers.html)（含 `xy/`）  
 **Plans:** Session+Provider [`../plans/2026-09-28-datasource-session-provider.md`](../plans/2026-09-28-datasource-session-provider.md)（含 **Task 5** leftover-ABI 迁出核对）· OGR DB [`../plans/2026-09-13-ogr-db-datasource.md`](../plans/2026-09-13-ogr-db-datasource.md) · sdbd [`../plans/2026-09-19-sdbd-wsl-client.md`](../plans/2026-09-19-sdbd-wsl-client.md)
 **Scope:** 图层的打开 / 创建 / 列举 / 编辑 / 查询 / 关闭一律走 GDAL Dataset / Layer（矢量）或 GDAL raster（栅格）。本文件管 `sdb` 数据源与图层，不管桌面 chrome。新树编排入口见文末 **§ DataSession / Provider facade**。
 
@@ -716,11 +716,37 @@ Do **not** mix plugin rasters into the china seed path.
 
 ---
 
-## § analysis ops：WKT 互转与 OGR 算法（2026-10-18）
+## § analysis ops：WKT 互转与 OGR 算法（2026-10-18；加深 2026-10-25）
 
-**Diagram:** [`../diagrams/analysis-ops-wkt.html`](../diagrams/analysis-ops-wkt.html)
+**Diagram:** [`../diagrams/analysis-ops-wkt.html`](../diagrams/analysis-ops-wkt.html)  
+**Deepen living:** [`2026-09-13-algorithm-layer-oss-design.md`](2026-09-13-algorithm-layer-oss-design.md) **§3.5**
 
-`ops/` 根上不再放实现。`wkt/` 与 `geojson/` 只负责文本和 `OGRGeometry` 的互转。`ir/` 收几何 IR（`geometry_ir`、要素扫描、`ops_geos`）和共用的 `ogr_geom.h`；每个 op 是一个带稳定 id 的节点，`eval_geometry_ir` 是唯一求值入口，算法只见 `OGRGeometry`。`runner/` 组合边界编解码和这次求值：文件算子先读 GeoJSON，再求值，再写 GeoJSON；`apply_op` 只取出几何结果。glang 适配器先检查 CRS、解析 WKT，再求值同一个节点，然后导出字符串。栅格、地质、化探、拟合、路径仍由各自模块执行，按 id 转发的代码放在 `runner/`。要素扫描在数据集打开之后才把空间过滤交给 WKT 层。`app::ir`、`content::gis_traits`、`apply_op` / `run_builtin_op` 签名不变，`src/content/public` 不动。
+浅分层（2026-10-18）仍成立：`ops/` 根无实现；`wkt/`·`geojson/` 只编解码；`eval_geometry_ir` 是几何求值入口；`apply_op` / `run_builtin_op` / `content/public` 签名不动。
+
+**2026-10-25 加深：** 几何 set/shape/predicate/measure/transform **功能体**迁入 `geo::`（删 `ops_geos`）；`ops/ir` 仅薄目录；要素扫描迁 `ops/features`；域内核改为各模块静态 `BuiltinOpEntry[]`，`runner` 只链接表。细节与依赖箭头见算法伞 §3.5。
+
+---
+
+## § analysis/geology：四层 + `geo/xy` 下沉（2026-10-25）
+
+**Diagram:** [`../diagrams/gis-analysis-geology.html`](../diagrams/gis-analysis-geology.html)  
+**As-built:** [`src/gis/analysis/geology/README.md`](../../../src/gis/analysis/geology/README.md) · [`src/gis/geo/xy/xy.h`](../../../src/gis/geo/xy/xy.h)
+
+破坏性整理（无转发头）：
+
+| 层 | 路径 | 职责 |
+| --- | --- | --- |
+| model | `geology/model/` | `BoreholeContact` / `BoreholeSet`（`gis::`） |
+| io | `geology/io/` | `load_boreholes_csv` |
+| kernel | `geology/kernel/` | `interpolate_stratum_tin` / `prism_volume_between`（只编排地层语义） |
+| op | `geology/op/` | `run_stratum_*_op` + 共用 JSON I/O |
+
+下沉到 `gis/geo`（`geo` ↛ `analysis`）：
+
+- TIN：继续 `geo::delaunay_triangles`
+- 凸包 / 面积：新 `geo::convex_hull_xy` / `polygon_area_xy` / `bbox_area_xy`（`geo/xy/`，无 OGR）
+
+Processing id 不变：`native.stratum_interpolate` / `native.stratum_prism_volume`。仓内调用方（含 `plugin/product/mine`）改 include 与 `gis::` 符号。测试：`analysis_geology_test`（gtest）、`xy_test`。
 
 ## Folded topics (2026-09-28 merge B)
 

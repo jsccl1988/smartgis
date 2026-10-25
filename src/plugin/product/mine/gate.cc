@@ -7,9 +7,10 @@
 #include <fstream>
 #include <string>
 
-#include "gis/analysis/geology/borehole.h"
-#include "gis/analysis/geology/prism_volume.h"
-#include "gis/analysis/geology/stratum_tin.h"
+#include "gis/analysis/geology/io/borehole_csv.h"
+#include "gis/analysis/geology/kernel/prism_volume.h"
+#include "gis/analysis/geology/kernel/stratum_tin.h"
+#include "gis/analysis/geology/op/stratum_ops.h"
 
 namespace plugin {
 namespace {
@@ -18,7 +19,7 @@ struct MineGateFix {
   std::string csv;
   std::string mesh;
   std::string volume;
-  gis::detail::BoreholeSet holes;
+  gis::BoreholeSet holes;
 };
 
 MineGateFix& fix() {
@@ -74,17 +75,17 @@ bool mine_contract(void*) {
 }
 
 bool mine_compute(void*) {
-  fix().holes = gis::detail::load_boreholes_csv(fix().csv);
+  fix().holes = gis::load_boreholes_csv(fix().csv);
   if (!fix().holes.ok || fix().holes.contacts.size() != 8) {
     return false;
   }
-  const gis::detail::StratumTin tin =
-      gis::detail::interpolate_stratum_tin(fix().holes, "clay");
+  const gis::StratumTin tin =
+      gis::interpolate_stratum_tin(fix().holes, "clay");
   if (!tin.ok || tin.xyz.size() < 9 || tin.indices.size() < 3) {
     return false;
   }
-  const gis::detail::PrismVolumeResult vol =
-      gis::detail::prism_volume_between(fix().holes, "clay", "sand");
+  const gis::PrismVolumeResult vol =
+      gis::prism_volume_between(fix().holes, "clay", "sand");
   return vol.ok && vol.volume > 0.0;
 }
 
@@ -99,8 +100,8 @@ bool mine_command(void*) {
       "\",\"top_stratum_id\":\"clay\",\"bottom_stratum_id\":\"sand\","
       "\"output\":\"" +
       fix().volume + "\"}";
-  return gis::detail::run_stratum_interpolate_op(interp.c_str()) &&
-         gis::detail::run_stratum_prism_volume_op(prism.c_str());
+  return gis::run_stratum_interpolate_op(interp.c_str()) &&
+         gis::run_stratum_prism_volume_op(prism.c_str());
 }
 
 bool mine_visual(void*) {

@@ -16,6 +16,8 @@ source_set("edit_sources") {
     "optimistic_store.cc",
     "optimistic_store.h",
     "session.h",
+    "topology_check.cc",
+    "topology_check.h",
     "undo_log.cc",
     "undo_log.h",
   ]
@@ -58,5 +60,20 @@ test("edit_conflict_test") {
   deps = [
     ":edit",
     "//src/base:core",
+  ]
+}
+
+test("topology_check_test") {
+  output_name = "topology_check_test"
+  sources = [ "topology_check_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  ldflags = [
+    "/ENTRY:mainCRTStartup",
+    "/SUBSYSTEM:CONSOLE,5.02",
+  ]
+  deps = [
+    ":edit",
+    "//third_party:gtest",
   ]
 }

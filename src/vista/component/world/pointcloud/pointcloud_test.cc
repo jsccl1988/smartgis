@@ -289,6 +289,29 @@ int main() {
   // set_pointcloud_points builds chunks.
   expect(!node->point_chunks.empty(), "node chunks");
 
+  // P1-A: synthetic ≥1M path — auto-thin (>500k) + chunk partition (no huge LAS file).
+  {
+    constexpr size_t k_mega_count = 1100000;
+    constexpr size_t k_lod_budget = 500000;
+    std::vector<float> mega_xyz(k_mega_count * 3);
+    for (size_t i = 0; i < k_mega_count; ++i) {
+      mega_xyz[i * 3] = static_cast<float>(i % 1024);
+      mega_xyz[i * 3 + 1] = static_cast<float>((i / 1024) % 1024);
+      mega_xyz[i * 3 + 2] = static_cast<float>(i % 17);
+    }
+    vista::World mega_world;
+    vista::Node* mega_node = mega_world.attach_pointcloud(
+        "mega", 0.f, 0.f, 0.f, 1024.f, 1024.f, 16.f);
+    expect(mega_node != nullptr, "mega attach");
+    expect(mega_world.set_pointcloud_points(mega_node->id, mega_xyz.data(),
+                                           k_mega_count, nullptr, 0),
+           "mega set");
+    const size_t stored = mega_node->point_positions.size() / 3;
+    expect(stored <= k_lod_budget, "mega auto-thin budget");
+    expect(stored > k_lod_budget / 2, "mega thinned not empty");
+    expect(!mega_node->point_chunks.empty(), "mega chunks");
+  }
+
   // Text dialect (leftover comma RGB).
   {
     std::ofstream t(txt_path);

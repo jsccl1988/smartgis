@@ -155,6 +155,10 @@ class UI_EXPORT AmboxView : public View {
   View* content_ = nullptr;
 };
 
+// Cross-DLL: allocate inside ui_views.dll (SmartGIS.exe must not make_unique).
+UI_EXPORT std::unique_ptr<AmboxView> make_ambox_view();
+UI_EXPORT AmboxView* ambox_view_new();
+
 }  // namespace views
 }  // namespace ui
 

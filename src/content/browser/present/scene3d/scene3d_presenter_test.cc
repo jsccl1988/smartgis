@@ -4,6 +4,7 @@
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/camera/gis_host_extent.h"
 #include "content/browser/document/gis_scene.h"
+#include "content/browser/present/scene3d/frame/prep/scene3d_prep_mailbox.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "vista/terrain/dem/dem_frame.h"
@@ -12,12 +13,15 @@
 #include "tool/draft/draft.h"
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
 #include <memory>
+#include <thread>
 #include <vector>
 #include "base/process/switches.h"
 
@@ -342,6 +346,37 @@ int main() {
                            render::rhi::Backend::kNull),
                        "Null") == 0,
            "Null display name");
+  }
+
+  // T2.1 prep mailbox: async stage overlaps Display drain without wait.
+  {
+    content::detail::Scene3dPrepMailbox mailbox;
+    std::atomic<bool> worker_ran{false};
+    (void)mailbox.stage_async(content::detail::Scene3dPrepAction::kColdRebuild,
+                              [&](uint64_t /*gen*/) {
+                                std::this_thread::sleep_for(
+                                    std::chrono::milliseconds(25));
+                                worker_ran.store(true,
+                                                 std::memory_order_release);
+                              });
+    for (int i = 0; i < 50; ++i) {
+      if (worker_ran.load(std::memory_order_acquire)) {
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    content::detail::Scene3dPrepAction action =
+        content::detail::Scene3dPrepAction::kWarmReuse;
+    int64_t overlap_ms = 0;
+    const bool drained =
+        mailbox.drain(/*wait_if_empty=*/false, &action, &overlap_ms);
+    expect(worker_ran.load(std::memory_order_acquire),
+           "prep mailbox async worker ran");
+    expect(drained, "prep mailbox async drain published");
+    expect(action == content::detail::Scene3dPrepAction::kColdRebuild,
+           "prep mailbox async action cold");
+    expect(overlap_ms >= 20, "prep mailbox prep_overlap_ms measured");
+    expect(mailbox.prep_build_count() == 1, "prep mailbox build count");
   }
 
   if (g_fails != 0) {

@@ -5,7 +5,7 @@ All rights reserved.
 
 # `src/gpu`
 
-**Diagram:** [`docs/superpowers/diagrams/render-accelerate-topology.html`](../../docs/superpowers/diagrams/render-accelerate-topology.html)（A×B 整合） · Living §GPU-process in [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md)
+**Diagram:** [`docs/superpowers/diagrams/render-accelerate-topology.html`](../../docs/superpowers/diagrams/render-accelerate-topology.html)（A×B 整合） · [`docs/superpowers/diagrams/gpu-multiprocess-upgrade.html`](../../docs/superpowers/diagrams/gpu-multiprocess-upgrade.html)（A→B→可选 renderer） · Living §GPU-process + §GPU multiprocess upgrade in [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md)
 
 `--type=gpu` payload. Shell talks only to `content/public`; this tree owns paint
 **and final compose**. MapLibre Native is **not** in this tree (pin removed;

@@ -11,12 +11,14 @@
 #include "content/public/types.h"
 
 // Named-pipe Host ABI 0.8: length-prefixed frames, pickle (BinarySink) bodies.
-// Invitation: --ipc-channel-handle=<inherited HANDLE>. --pipe= remains fallback.
-// Pipe: \\.\pipe\smartgis-host-<ui-pid>
+// Product bootstrap: invitation via --ipc-channel-handle=<inherited HANDLE>.
+// --pipe= remains leftover-only (SmartGisRender / draw_host), not the product path.
 namespace content {
 
 inline constexpr uint32_t kHostMagic = 0x31534947u;  // 'GIS1' LE
 inline constexpr uint16_t kHostProtocolVersion = 3;
+// Future: bump HelloBody + kHostProtocolCapsMin together for capability bits.
+inline constexpr uint16_t kHostProtocolCapsMin = 4;
 
 enum class HostMsg : uint16_t {
   kHello = 1,
@@ -51,6 +53,8 @@ enum class HostMsg : uint16_t {
   kShutdown = 30,
   // GPU paint path: 0 = Track B RHI, 1 = Track A MapLibre. No child restart.
   kSetRenderBackend = 31,
+  // Large pickle bodies may be offloaded via common::ipc::k_msg_data_pipe_offer
+  // (0xFF30) instead of this enum; see bulk/bulk.h.
 };
 
 enum class HostFlag : uint16_t {
@@ -123,6 +127,7 @@ struct FrameReadyWire {
 #pragma pack(pop)
 
 // Hello / HelloAck. role is "gpu", "renderer", or "shell".
+// Capability bits stay off the wire until protocol >= kHostProtocolCapsMin.
 struct HelloBody {
   uint32_t protocol = kHostProtocolVersion;
   std::string role;

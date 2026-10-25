@@ -89,10 +89,10 @@ out\Debug\codegen_ir_test.exe
 
 ## 阶段 3 — 套件执行 `main()`，再去掉 `as_`
 
-- [ ] `src/content/browser/glang.runtime/run_suite.cc` 的 `content::run_suite_script` 改为 `app::py::interpreter().exec_file`（加载文件、调用 `main()`）。`session/run_script.cc` 的 `try_run_suite_script` / `run_suite_script_rc` 仍是原来的返回码包装。
-- [ ] 失败是 Python 异常。未知动词在该调用抛出。此前语句的副作用保留（前缀 mark 可能已经写下）。这是相对 `check_suite` / `bind_method`「整文件在副作用之前失败」的行为变更，写进套件说明，不要假装语义没变。
-- [ ] 门禁仍是各 suite `suite.json` 的 `required_marks`，外加有 BMP 时 `score_id == ok`。前缀 mark 不齐仍然失败。
-- [ ] 然后改写 `testing/tools/harness/**/<id>.py`：返回值用变量，删掉 `as_`、`require_var`。样例是 `testing/tools/harness/browser/browser.input/browser.input.py` 的 `resolve_data(..., as_="china")`。路径规则不变：`testing/tools/harness/<family>/<id>/<id>.py`。
+- [x] `src/content/browser/glang.runtime/run_suite.cc` 的 `content::run_suite_script` 改为 `app::py::interpreter().exec_file`（加载文件、调用 `main()`）。`session/run_script.cc` 的 `try_run_suite_script` / `run_suite_script_rc` 仍是原来的返回码包装。
+- [x] 失败是 Python 异常。未知动词在该调用抛出。此前语句的副作用保留（前缀 mark 可能已经写下）。这是相对 `check_suite` / `bind_method`「整文件在副作用之前失败」的行为变更，写进套件说明，不要假装语义没变。（`testing/tools/README.md` Discovery / script paths §。）
+- [x] 门禁仍是各 suite `suite.json` 的 `required_marks`，外加有 BMP 时 `score_id == ok`。前缀 mark 不齐仍然失败。
+- [x] 然后改写 `testing/tools/harness/**/<id>.py`：返回值用变量，删掉 `as_`、`require_var`。样例是 `testing/tools/harness/browser/browser.input/browser.input.py` 的 `resolve_data(..., as_="china")`。路径规则不变：`testing/tools/harness/<family>/<id>/<id>.py`。（全树 suite `*.py` 已 `import glang.plugin` + `main()`；`_shared/steps` 用 `resolve_data(kind=..., leaf=...)` 返回值。）
 本段不要做：不要删 `language/front/`、`language/sema/`、`language/lower/`、`Op` 表；不要改 `PluginHost` 签名。
 
 ### 门禁

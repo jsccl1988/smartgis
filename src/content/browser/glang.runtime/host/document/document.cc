@@ -9,7 +9,7 @@
 #include <memory>
 #include <string>
 
-#include "content/browser/glang.runtime/host/view/probe.h"
+#include "content/browser/debug/probe.h"
 #include "content/browser/document/gis_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/session/browser_session.h"

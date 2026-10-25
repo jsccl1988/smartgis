@@ -15,9 +15,18 @@ MemoryEditSession::~MemoryEditSession() = default;
 
 bool MemoryEditSession::commit(const FeatureMutation& mutation) {
   last_conflict_.reset();
+  last_topology_ = TopologyValidationResult{};
   if (mutation.id.len == 0) {
     last_status_ = CommitStatus::kRejected;
     return false;
+  }
+  if (topology_validation_enabled_) {
+    last_topology_ =
+        validate_topology(topology_state_, mutation, topology_gap_tolerance_);
+    if (!last_topology_.ok()) {
+      last_status_ = CommitStatus::kTopology;
+      return false;
+    }
   }
   if (store_) {
     ConflictError conflict;
@@ -35,6 +44,7 @@ bool MemoryEditSession::commit(const FeatureMutation& mutation) {
     last_status_ = CommitStatus::kOk;
   }
   log_.record(mutation);
+  apply_topology_state(&topology_state_, mutation);
   return true;
 }
 
@@ -91,6 +101,31 @@ CommitStatus MemoryEditSession::last_status() const { return last_status_; }
 
 const ConflictError* MemoryEditSession::last_conflict() const {
   return last_conflict_ ? &*last_conflict_ : nullptr;
+}
+
+void MemoryEditSession::set_topology_validation_enabled(bool enabled) {
+  topology_validation_enabled_ = enabled;
+}
+
+bool MemoryEditSession::topology_validation_enabled() const {
+  return topology_validation_enabled_;
+}
+
+const TopologyValidationResult& MemoryEditSession::last_topology_result()
+    const {
+  return last_topology_;
+}
+
+TopologyLayerState* MemoryEditSession::topology_layer_state() {
+  return &topology_state_;
+}
+
+const TopologyLayerState* MemoryEditSession::topology_layer_state() const {
+  return &topology_state_;
+}
+
+void MemoryEditSession::set_topology_gap_tolerance(double map_units) {
+  topology_gap_tolerance_ = map_units;
 }
 
 }  // namespace gis

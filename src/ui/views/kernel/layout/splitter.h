@@ -97,6 +97,9 @@ class UI_EXPORT Splitter : public View {
   SplitterGrip* grip_ = nullptr;
 };
 
+UI_EXPORT std::unique_ptr<Splitter> make_splitter(Splitter::Orientation orientation);
+UI_EXPORT Splitter* splitter_new(Splitter::Orientation orientation);
+
 }  // namespace views
 }  // namespace ui
 

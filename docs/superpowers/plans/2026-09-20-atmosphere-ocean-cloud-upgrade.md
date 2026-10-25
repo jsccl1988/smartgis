@@ -110,6 +110,33 @@ All rights reserved.
 - [x] Phase 3.3：（可选）Sky / aerial LUT — **最小 analytical SkyPass + FogPass 已落地**（`kSolid`）；完整 LUT / `kSky` HLSL 仍 Deferred（见 `2026-09-27-sky-fog-terrain-lod.md`）  
 - [ ] Phase 3.4：总验收对照 §1.2 五条 — **map3d-gap-pin P1-B**；真源 [`../industry-gap-matrix.md`](../industry-gap-matrix.md) §3.2.1  
 
+**Phase 3.4 evidence (2026-10-25, Map3D lane — check sub-items only when evidence is real):**
+
+| §1.2 | Verdict | Evidence |
+| --- | --- | --- |
+| 1 场驱动可见 | **Pass (CPU)** | `field_store_test` / `field_ingest_test` / `environment_test`（§6.1）；`AtmosphereSession::load_atmosphere_fields` → `Environment::load_external_series`；`scrub_time_sec` / `clamp_time_to_field` |
+| 2 海面中档外观 | **Open (GPU visual)** | Null `present_gpu` + `prepare_ocean` 不崩（`scene3d_presenter_test`）；FFT/Fresnel/foam 路径在 `atmosphere_session.cc` + render 车道；**Vista 像素可读**需 `RUN_FLYCUBE_GPU=1` 或 `--atmosphere-showcase=ocean` BMP |
+| 3 时间轴语义 | **Pass** | `scene3d_presenter_test` `set_time_sec(12.5)`；`--atmosphere-fields=` 双时刻 ingest（Phase 1.2）；world3d AtmospherePanel scrub |
+| 4 风场叠图 | **Pass** | `Scene3dGpuPresent` → `hud_append_wind_arrows` + `FieldStore` @ `time_sec`；`scene3d_presenter_test` wind overlay + Null present |
+| 5 边界不破 | **Pass (arch)** | 大气走 `render::rhi` `PipelineId`；present 编排于 content/vista pass，产品 TU 不直 include Vista 设备 API（living spec §5） |
+
+**m3-atmosphere-ok:** `AtmosphereSession` self-test hook（demo on/off flags）— 非 §1.2 全像素验收。
+
+```bat
+build.bat debug scene3d_presenter_test
+out\Debug\scene3d_presenter_test.exe
+build.bat src/gis/scene/atmosphere:field_store_test
+build.bat src/gis/scene/atmosphere:field_ingest_test
+build.bat src/gis/scene/atmosphere:environment_test
+REM GPU optional:
+set RUN_FLYCUBE_GPU=1
+REM SmartGIS.exe --atmosphere-showcase=ocean  (see testing/tools/harness browser.world3d.full)
+```
+
+- [x] Phase 3.4.1 / 3.4.3 / 3.4.4 / 3.4.5（上表 Pass）  
+- [ ] Phase 3.4.2 GPU 海面可读（showcase / flycube 可选门禁）  
+- [ ] Phase 3.4 总勾（待 3.4.2 或显式接受 Null-only 验收）  
+
 
 ---
 
@@ -224,7 +251,7 @@ REM 例: build.bat src/app/views:scene3d_controller_test
 - [x] 3.1 风场可视化（Views CPU/GDI 矢量箭头；粒子 Deferred）  
 - [x] 3.2 Views 最小 UI（AtmospherePanel 时间 scrub + ocean/cloud/wind）  
 - [ ] 3.3（可选）天空 LUT  
-- [ ] 3.4 §1.2 总验收  
+- [ ] 3.4 §1.2 总验收（分项见 Phase 3 §3.4 evidence 表；2026-10-25：4/5 CPU+HUD Pass，GPU 海面视觉 Open）  
 
 ---
 

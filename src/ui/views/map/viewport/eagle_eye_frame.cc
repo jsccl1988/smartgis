@@ -4,7 +4,7 @@
 #include "ui/views/map/viewport/draw_host.h"
 
 #include "content/public/types.h"
-#include "ui/views/map/eagle_eye/eagle_eye_host.h"
+#include "ui/views/map/eagle_eye/host.h"
 
 namespace ui {
 namespace views {
@@ -75,9 +75,16 @@ void DrawHost::sync_eagle_eye() {
       IsWindowVisible(gpu_present_hwnd_)) {
     surface = gpu_present_hwnd_;
   }
-  if (!eye->visible() || !surface || !IsWindow(surface) ||
-      !IsWindowVisible(surface)) {
+  if (!eye->visible() || !surface || !IsWindow(surface)) {
     eye->destroy();
+    return;
+  }
+  // Mid-reveal the present HWND can be briefly invisible. Destroy/recreate
+  // there flashes the overview; hide and wait for the next sync instead.
+  if (!IsWindowVisible(surface)) {
+    if (HWND eye_hwnd = eye->hwnd(); eye_hwnd && IsWindow(eye_hwnd)) {
+      ShowWindow(eye_hwnd, SW_HIDE);
+    }
     return;
   }
   eye->sync_to_surface(surface);

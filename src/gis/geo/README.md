@@ -5,12 +5,13 @@ All rights reserved.
 
 # geo（`src/gis/geo`）
 
-几何核（编进 `gis.dll`）。本目录四块：
+几何核（编进 `gis.dll`）。本目录五块：
 
 1. **OGR 封装 + 几何体** — `ops/`（OGC 类型以 `OGRGeometry` 为唯一所有权。2D XY lattice 在插件 `OrthoLattice`；3D hex：`plugin/product/world3d/hexgrid` `HexLattice`）
 2. **坐标投影** — `proj/`（PROJ 9 CRS 变换；图层 CRS 走 `OGRSpatialReference`）
 3. **TIN 生成（OSS 包装）** — `tin/`（GEOS 2D Delaunay/CDT；写出调用方的 `OGRTriangulatedSurface*`）
 4. **结构化格网椭圆光滑 + 正交性** — `grid/`（2D 五点 Laplace / Thompson P=Q=0；3D 七点 Laplace；`geo::compute_orthogonality` 热力场）。与 `tin/` 并列，**不**并入 `delaunay.h`。XY 缓冲类型在插件 `OrthoLattice`。
+5. **纯 XY 计算几何** — `xy/`（`geo::convex_hull_xy` / `polygon_area_xy` / `bbox_area_xy`；无 OGR / GEOS；供 `analysis/geology` 等编排）
 
 没有产品内第二套虚几何树，也没有 `SmtGeometry` / `SmtTin` 别名。调用方 `#include "ogr_geometry.h"` 并写 OGR 类名。
 
@@ -30,7 +31,7 @@ Living：[`2026-09-13-algorithm-layer-oss-design.md`](../../../docs/superpowers/
 | Types · OGC | GDAL/OGR | 唯一几何所有权；TIN = `OGRTriangulatedSurface`；实例 dim 2\|3 |
 | Types · Mesh（计算缓冲） | plugin | `OrthoLattice` / `HexLattice`（world3d）；不在 `gis.dll` |
 | Traits | `geo::` | `geometry_traits` + `geometry_like` / `ogr_geometry_like` + `vector_traits` |
-| Ops | `geo::` | `buffer`（仅 OGR）；`geo::delaunay`（geos_c）；`geo::solve_laplace` / `solve_elliptic` / `compute_orthogonality`（结构化格网）；CRS `geo::CoordinateTransform` |
+| Ops | `geo::` | `buffer`（仅 OGR）；`geo::delaunay`（geos_c）；`geo::convex_hull_xy` / `polygon_area_xy`（`xy/`）；`geo::solve_laplace` / `solve_elliptic` / `compute_orthogonality`（结构化格网）；CRS `geo::CoordinateTransform` |
 | Codec | geo 薄 + datasource | `indexed_tin`；Feature/WKB 在 `ogr_feature_codec` |
 | Present | vista / content | `tessellate_*`（TIN 首选 OGR）→ layout；geo 不依赖 UI/RHI |
 
@@ -53,6 +54,7 @@ Living：[`2026-09-13-algorithm-layer-oss-design.md`](../../../docs/superpowers/
 | `ops/indexed_tin.h` / `vector_traits.h` / `buffer.h` | TIN write + `vector_traits` + `buffer()` |
 | `proj/coordinate_transform.h` | PROJ 9 RAII 封装；详见 [`proj/README.md`](proj/README.md) |
 | `tin/delaunay.h` | `geo::delaunay` / `delaunay_constrained`（`geos_c`）；详见 [`tin/README.md`](tin/README.md) |
+| `xy/xy.h` | `geo::convex_hull_xy` / `polygon_area_xy` / `bbox_area_xy`（纯 XY，无 OGR） |
 | `grid/laplace.h` | `geo::solve_laplace` / `geo::solve_elliptic`；详见 [`grid/README.md`](grid/README.md) |
 | `grid/orthogonality.h` | `geo::compute_orthogonality` / `sample_orthogonality_raster` |
 
@@ -64,6 +66,7 @@ Living：[`2026-09-13-algorithm-layer-oss-design.md`](../../../docs/superpowers/
 #include "gis/geo/ops/indexed_tin.h"
 #include "gis/geo/proj/coordinate_transform.h"
 #include "gis/geo/tin/delaunay.h"
+#include "gis/geo/xy/xy.h"
 #include "gis/geo/grid/laplace.h"
 #include "gis/geo/grid/orthogonality.h"
 

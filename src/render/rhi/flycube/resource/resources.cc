@@ -175,31 +175,39 @@ bool FlycubeDevice::upload_gpu_texture(GpuTexture* gpu, const void* data,
     region.texture_array_layer = 0;
     region.texture_offset = {};
     region.texture_extent = {.width = w, .height = h, .depth = 1};
-    // Manually pad rows into the upload heap. A mismatched src_row_pitch
-    // shears RGBA8 hillshade into horizontal gray bands on sample.
-    std::vector<uint8_t> staged(static_cast<size_t>(buffer_size), 0);
     const auto* src = static_cast<const uint8_t*>(data);
-    for (uint32_t y = 0; y < h; ++y) {
-      std::memcpy(staged.data() + static_cast<size_t>(y) * aligned_row,
-                  src + static_cast<size_t>(y) * src_row, src_row);
+    // When pitch already matches device alignment (common for W%64==0 HSHD /
+    // atlas widths), skip a full-frame staging memcpy into a second buffer.
+    if (src_row == aligned_row) {
+      upload->UpdateUploadBuffer(0, data, src_bytes);
+    } else {
+      // Manually pad rows into the upload heap. A mismatched src_row_pitch
+      // shears RGBA8 hillshade into horizontal gray bands on sample.
+      std::vector<uint8_t> staged(static_cast<size_t>(buffer_size), 0);
+      for (uint32_t y = 0; y < h; ++y) {
+        std::memcpy(staged.data() + static_cast<size_t>(y) * aligned_row,
+                    src + static_cast<size_t>(y) * src_row, src_row);
+      }
+      upload->UpdateUploadBuffer(0, staged.data(), buffer_size);
     }
-    upload->UpdateUploadBuffer(0, staged.data(), buffer_size);
     static int s_pad_logs = 0;
     if (s_pad_logs < 3) {
       LOGGING(LOG_INFO,
-              "rhi.flycube upload_gpu_texture padded %ux%u src_row=%zu "
+              "rhi.flycube upload_gpu_texture %s %ux%u src_row=%zu "
               "aligned_row=%llu px0=%02x%02x%02x%02x",
-              w, h, src_row, static_cast<unsigned long long>(aligned_row),
-              src[0], src[1], src[2], src[3]);
+              src_row == aligned_row ? "direct" : "padded", w, h, src_row,
+              static_cast<unsigned long long>(aligned_row), src[0], src[1],
+              src[2], src[3]);
       ++s_pad_logs;
     }
-    wait_for_idle();
+    // Fresh upload heap each call — skip pre-copy idle. Fence after execute
+    // so encode/draw cannot race the Copy on this queue.
     auto fc_list = fc_device_->CreateCommandList(::CommandListType::kGraphics);
     if (!fc_list) {
       return false;
     }
     fc_list->Reset();
-    // Re-uploads (china LOD remesh / sat_cloud refresh) leave the texture in
+    // Re-uploads (LOD remesh / sat_cloud refresh) leave the texture in
     // AllShaderResource — never assume COMMON or D3D12 device-removes.
     gpu->barrier_to(fc_list.get(), ResourceState::kCopyDest);
     fc_list->CopyBufferToTexture(upload, gpu->shared(), {region});

@@ -9,6 +9,8 @@
 #endif
 #include <windows.h>
 
+#include "ui/views/kernel/view/view.h"
+
 namespace app {
 
 class BrowserView;
@@ -41,6 +43,9 @@ class ShellLifecycleComposer {
                                                     LPARAM lparam,
                                                     UINT_PTR id,
                                                     DWORD_PTR data);
+  static void shell_will_close_trampoline(void* baton);
+  static void shell_published_trampoline(void* baton,
+                                         const ui::views::Rect& dirty);
 
   BrowserView* host_ = nullptr;
 };

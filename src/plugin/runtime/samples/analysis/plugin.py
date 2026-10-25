@@ -3,7 +3,7 @@
 
 """Sample kind=python analysis plugin: dialog + flood/path processing stubs."""
 
-import glang.plugin as smartgis
+import glang.plugin as gp
 
 
 PLUGIN_ID = "smartgis.sample_analysis"
@@ -11,14 +11,14 @@ DIALOG_ID = "sample.analysis.dlg"
 
 
 def start(host):
-    if smartgis is None:
+    if gp is None:
         raise RuntimeError("glang.plugin missing")
 
     def _open_dialog(_args):
         return bool(host.open_dialog(DIALOG_ID))
 
     def _dialog_factory():
-        smartgis.ui.show_message_box(
+        gp.ui.show_message_box(
             "info",
             "Sample Analysis stubs remain for education. "
             "Prefer builtin smartgis.traffic / smartgis.flood "

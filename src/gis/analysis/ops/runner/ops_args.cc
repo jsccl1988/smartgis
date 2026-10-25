@@ -38,5 +38,17 @@ bool op_arg_double(const rapidjson::Value& obj, const char* key, double* out) {
   return true;
 }
 
+bool op_arg_int(const rapidjson::Value& obj, const char* key, int* out) {
+  if (!out || !key || !obj.IsObject()) {
+    return false;
+  }
+  const auto it = obj.FindMember(key);
+  if (it == obj.MemberEnd() || !it->value.IsNumber()) {
+    return false;
+  }
+  *out = it->value.GetInt();
+  return true;
+}
+
 }  // namespace detail
 }  // namespace gis

@@ -25,7 +25,7 @@ All rights reserved.
   - **`out/.build.lock*`** / **`out/.build.waiters/`**, optional **`out/agent_wake_queue.md`** — multi-agent build / wake coordination
 - Logs: `out/Debug/build.log`, `out/Release/build.log`.
   - **Harness / loop artifacts** (marks, showcase BMP/PNG, `*_loop_report.json`): **`out/<config>/captures/<scenario>/`** — not the gen-root top level. Scenario dirs mirror `testing/tools/harness/<family>/` (`plugin/` for `--plugin-showcase`, `browser/` for map2d / atmosphere, plus `ui/`, `shell/`). Cross-cutting: **`captures/record/`** (HWND mp4 / `*_frames`), **`captures/analysis/<topic>/`** (playback BMP + `playback.json`), **`captures/_scratch/`** (one-shot `_diag*` / `_inspect*`). Agents may wipe old captures freely.
-- **Agent scratch** (redirected stdout/stderr, one-shot scripts, `.old` binaries): **`out/<config>/log/`** (text dumps) and **`out/scratch/`** (shared junk). Wipe freely; do not stash these at the gen-root root.
+- **Agent scratch** (redirected stdout/stderr, one-shot scripts, `.old` binaries, debug BMPs): **`out/<config>/log/`** (text dumps) and **`out/scratch/`** (shared junk). Wipe freely; do not stash these at the gen-root root. **Do not** use repo-root `log/` (legacy; merged into `out/<config>/log/`).
 - Resolve product/test binaries under **`out/Debug/`** (default for `te` / `harness` runners) or **`out/Release/`**.
 - Third-party CMake install prefix remains **`out/third_party`** (junction to `.install`). Do not invent a second install root.
 - Do not use `vs2008/SmartGIS.sln` as a build entry.

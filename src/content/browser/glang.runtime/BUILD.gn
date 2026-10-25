@@ -269,17 +269,16 @@ source_set("console") {
   include_dirs += [ "//src" ]
 }
 
+# Thin script verbs; XYZ math + fetch live in //src/gis/tile.
 source_set("tile_grid") {
   sources = [
     "host/tile/script.cc",
-    "host/tile/web_mercator.cc",
-    "host/tile/web_mercator.h",
-    "host/tile/xyz_source.cc",
-    "host/tile/xyz_source.h",
     "host/tile/verbs.h",
   ]
-  deps = [ "//src/base:base" ]
-  libs = [ "wininet.lib" ]
+  deps = [
+    "//src/base:base",
+    "//src/gis:gis",
+  ]
   include_dirs += [ "//src" ]
 }
 
@@ -392,42 +391,6 @@ source_set("backend") {
     "host/scene/browse/dispatch.h",
     "host/scene/verbs.cc",
     "host/scene/verbs.h",
-    "host/view/browse/still.cc",
-    "host/view/browse/still.h",
-    "host/view/browse/stress.cc",
-    "host/view/browse/stress.h",
-    "host/view/camera/camera_fly.cc",
-    "host/view/camera/camera_fly.h",
-    "host/view/camera/fit_scene_box.cc",
-    "host/view/camera/fit_scene_box.h",
-    "host/view/dib/gdi.cc",
-    "host/view/dib/gdi.h",
-    "host/view/dib/read.cc",
-    "host/view/dib/read.h",
-    "host/view/host/capture_host.cc",
-    "host/view/host/capture_host.h",
-    "host/view/pixel/bmp.cc",
-    "host/view/pixel/bmp.h",
-    "host/view/pixel/gate.cc",
-    "host/view/pixel/gate.h",
-    "host/view/present/env.cc",
-    "host/view/present/env.h",
-    "host/view/present/session.cc",
-    "host/view/present/session.h",
-    "host/view/present/map2d_fps.cc",
-    "host/view/present/map2d_fps.h",
-    "host/view/present/map2d_gpu.cc",
-    "host/view/present/map2d_gpu.h",
-    "host/view/present/warmup.cc",
-    "host/view/present/warmup.h",
-    "host/view/probe.cc",
-    "host/view/probe.h",
-    "host/view/shot/export.cc",
-    "host/view/shot/export.h",
-    "host/view/shot/paint.cc",
-    "host/view/shot/paint.h",
-    "host/view/shot/scene_capture.cc",
-    "host/view/shot/scene_capture.h",
     "host/view/view_bind.cc",
     "host/view/view_bind.h",
     "host/bind/pane.h",
@@ -450,13 +413,17 @@ source_set("backend") {
     "//src/content:capability",
     "//src/content:content",
     "//src/content:debug_agent",
+    "//src/content:debug_browse",
+    "//src/content:debug_capture",
+    "//src/content:debug_capture_host",
+    "//src/content:debug_probe",
     "//src/content:gis_scene",
+    "//src/content:harness_camera",
+    "//src/content:map2d_showcase",
     "//src/content:tool_session",
     "//src/gis:gis",
-    "//src/gpu:gpu_lib",
     "//src/net:net",
     "//src/plugin:host",
-    "//src/plugin/product/world3d:world3d_views",
     "//src/render:rhi",
     "//src/tool:tool",
     "//src/ui/gis:ui_gis",
@@ -576,16 +543,6 @@ source_set("session") {
   include_dirs += [ "//src" ]
 }
 
-test("capture_present_test") {
-  output_name = "capture_present_test"
-  sources = [
-    "host/view/present/env.cc",
-    "host/view/present/env_test.cc",
-  ]
-  include_dirs += [ "//src" ]
-  deps = [ "//src/base:base" ]
-}
-
 test("plugin_fn_test") {
   output_name = "plugin_fn_test"
   sources = [ "exec/py/plugin_fn_test.cc" ]
@@ -651,13 +608,13 @@ test("scene_gate_test") {
 
 test("tile_grid_test") {
   output_name = "tile_grid_test"
-  sources = [ "host/tile/web_mercator_test.cc" ]
+  sources = [ "host/tile/script_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
     ":tile_grid",
     "//src/base:base",
+    "//src/gis:gis",
   ]
-  libs = [ "wininet.lib" ]
   ldflags = [ "/ENTRY:mainCRTStartup" ]
 }
 

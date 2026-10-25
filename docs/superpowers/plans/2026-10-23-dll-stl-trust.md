@@ -5,7 +5,7 @@ All rights reserved.
 
 # DLL / STL trust model — checklist
 
-**Status:** landed (2026-10-23)  
+**Status:** landed (2026-10-23); build-consistency slice 2026-10-24  
 **Living spec:** [`../specs/2026-09-14-base-root-hybrid-design.md`](../specs/2026-09-14-base-root-hybrid-design.md) §DLL / STL trust model  
 **Diagram:** [`../diagrams/dll-stl-trust.html`](../diagrams/dll-stl-trust.html)  
 **Plugin C-boundary:** [`../specs/2026-09-13-plugin-host-design.md`](../specs/2026-09-13-plugin-host-design.md) §DLL / STL C-boundary
@@ -39,6 +39,15 @@ All rights reserved.
 - [x] GN `is_component_build` (default `true`)
 - [x] `COMPONENT_BUILD` define when true
 - [x] `product_shared_library` → static when false
+
+## P6 — Build consistency (2026-10-24)
+
+- [x] `base/core/abi_guard.h` + type-local `detect_mismatch` (`draw_host` / `view`)
+- [x] `//build:gen_build_id` → `SMARTGIS_BUILD_ID` + `out/<config>/smartgis_build_id.txt`
+- [x] `product_shared_library` injects `module_build_id.cc` (`smartgis_module_build_id`)
+- [x] `base::verify_product_dll_build_ids()` at Views `wWinMain`
+- [x] Homogeneity gate scans build_id marker in product stem DLLs
+- [x] Living § + diagram + agent rule updated (no SEH ABI “兜底”)
 
 ## P5 — Deferred (documented only)
 

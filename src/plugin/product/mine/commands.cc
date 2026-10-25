@@ -8,9 +8,10 @@
 #include <string_view>
 
 #include "content/public/plugin_host.h"
-#include "gis/analysis/geology/borehole.h"
-#include "gis/analysis/geology/prism_volume.h"
-#include "gis/analysis/geology/stratum_tin.h"
+#include "gis/analysis/geology/io/borehole_csv.h"
+#include "gis/analysis/geology/kernel/prism_volume.h"
+#include "gis/analysis/geology/kernel/stratum_tin.h"
+#include "gis/analysis/geology/op/stratum_ops.h"
 #include "plugin/product/mine/present/stratum.h"
 #include "plugin/product/mine/views/interpolate_dialog.h"
 #include "plugin/runtime/host/capability/capability.h"
@@ -30,14 +31,14 @@ namespace {
 
 constexpr const char* kPluginId = "smartgis.mine";
 
-gis::detail::BoreholeSet g_last_holes;
-gis::detail::StratumTin g_last_tin;
+gis::BoreholeSet g_last_holes;
+gis::StratumTin g_last_tin;
 std::string g_last_csv;
 
 
 bool publish_viz(content::PluginHost* host,
-                 const gis::detail::StratumTin& tin,
-                 const gis::detail::BoreholeSet& holes,
+                 const gis::StratumTin& tin,
+                 const gis::BoreholeSet& holes,
                  const char* op) {
   g_last_tin = tin;
   g_last_holes = holes;
@@ -81,7 +82,7 @@ bool mine_load_boreholes_compute(std::string_view args_json) {
       return false;
     }
   }
-  gis::detail::BoreholeSet holes = gis::detail::load_boreholes_csv(input);
+  gis::BoreholeSet holes = gis::load_boreholes_csv(input);
   if (!holes.ok) {
     set_operation_result(
         std::string("{\"error\":\"") +
@@ -92,7 +93,7 @@ bool mine_load_boreholes_compute(std::string_view args_json) {
   g_last_holes = holes;
   g_last_csv = input;
 
-  gis::detail::StratumTin empty_tin;
+  gis::StratumTin empty_tin;
   if (!publish_viz(nullptr, empty_tin, holes, "mine.load_boreholes")) {
     return false;
   }
@@ -107,7 +108,7 @@ bool mine_load_boreholes(content::PluginHost* host, std::string_view args_json) 
   return run_processing_phases(
       host, args_json, mine_load_boreholes_compute,
       [](content::PluginHost* h) {
-        gis::detail::StratumTin empty_tin;
+        gis::StratumTin empty_tin;
         return publish_viz(h, g_last_tin.ok ? g_last_tin : empty_tin,
                            g_last_holes, "mine.load_boreholes");
       });
@@ -131,7 +132,7 @@ bool mine_interpolate_stratum_compute(std::string_view args_json) {
   std::string output;
   args_json_string(args, "output", &output);
 
-  gis::detail::BoreholeSet holes = gis::detail::load_boreholes_csv(input);
+  gis::BoreholeSet holes = gis::load_boreholes_csv(input);
   if (!holes.ok) {
     set_operation_result(
         std::string("{\"error\":\"") +
@@ -142,8 +143,8 @@ bool mine_interpolate_stratum_compute(std::string_view args_json) {
   g_last_holes = holes;
   g_last_csv = input;
 
-  gis::detail::StratumTin tin =
-      gis::detail::interpolate_stratum_tin(holes, stratum_id);
+  gis::StratumTin tin =
+      gis::interpolate_stratum_tin(holes, stratum_id);
   if (!tin.ok) {
     set_operation_result(
         std::string("{\"error\":\"") +
@@ -154,7 +155,7 @@ bool mine_interpolate_stratum_compute(std::string_view args_json) {
 
   if (!output.empty()) {
     // Optional mesh JSON via kernel op (same args shape).
-    if (!gis::detail::run_stratum_interpolate_op(args_json)) {
+    if (!gis::run_stratum_interpolate_op(args_json)) {
       set_operation_result(
           "{\"error\":\"write_failed\",\"op\":\"mine.interpolate_stratum\"}");
       return false;
@@ -204,7 +205,7 @@ bool mine_prism_volume(content::PluginHost*, std::string_view args_json) {
   std::string output;
   args_json_string(args, "output", &output);
 
-  gis::detail::BoreholeSet holes = gis::detail::load_boreholes_csv(input);
+  gis::BoreholeSet holes = gis::load_boreholes_csv(input);
   if (!holes.ok) {
     set_operation_result(
         std::string("{\"error\":\"") +
@@ -215,8 +216,8 @@ bool mine_prism_volume(content::PluginHost*, std::string_view args_json) {
   g_last_holes = holes;
   g_last_csv = input;
 
-  const gis::detail::PrismVolumeResult vol =
-      gis::detail::prism_volume_between(holes, top_id, bottom_id);
+  const gis::PrismVolumeResult vol =
+      gis::prism_volume_between(holes, top_id, bottom_id);
   if (!vol.ok) {
     set_operation_result(
         std::string("{\"error\":\"") +
@@ -226,7 +227,7 @@ bool mine_prism_volume(content::PluginHost*, std::string_view args_json) {
   }
 
   if (!output.empty() &&
-      !gis::detail::run_stratum_prism_volume_op(args_json)) {
+      !gis::run_stratum_prism_volume_op(args_json)) {
     set_operation_result(
         "{\"error\":\"write_failed\",\"op\":\"mine.prism_volume\"}");
     return false;

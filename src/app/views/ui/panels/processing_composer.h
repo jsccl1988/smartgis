@@ -21,6 +21,8 @@ class ProcessingComposer {
   ProcessingComposer& operator=(const ProcessingComposer&) = delete;
 
   void wire_processing_panel();
+  // Rebuild Processing / SpatialAnalysis operator lists from builtins + host.
+  void refresh_processing_operators();
   void wire_result_playback_panel();
   void wire_report_panel();
   void attach_report_plugin_bridge();

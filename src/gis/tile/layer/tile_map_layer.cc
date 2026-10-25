@@ -9,6 +9,9 @@ namespace gis {
 namespace tile {
 
 MapLayer make_map_layer(std::shared_ptr<TileProvider> provider) {
+  if (provider && provider->is_open()) {
+    provider->enable_production_disk_cache();
+  }
   auto* layer = new ProviderTileLayer(std::move(provider));
   return MapLayer::from_tile(layer, true);
 }

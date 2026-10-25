@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/browser/glang.runtime/host/tile/web_mercator.h"
+#include "gis/tile/protocol/lonlat_xyz.h"
 
 #include <algorithm>
 #include <cmath>
@@ -83,11 +83,11 @@ BarOracle scale_bar(double west, double south, double east, double north,
   BarOracle bar;
   const double span = std::abs(east - west);
   const double lat = std::clamp((south + north) * 0.5,
-                                -content::tile::k_max_mercator_lat,
-                                content::tile::k_max_mercator_lat);
+                                -gis::tile::k_max_mercator_lat,
+                                gis::tile::k_max_mercator_lat);
   constexpr double k_pi = 3.14159265358979323846;
   bar.ground_width_m = std::cos(lat * k_pi / 180.0) * 2.0 * k_pi *
-                       content::tile::k_earth_radius_m * (span / 360.0);
+                       gis::tile::k_earth_radius_m * (span / 360.0);
   const double m_per_px = bar.ground_width_m / static_cast<double>(width_px);
   const double paper = 0.0254 / dpi;
   bar.scale_denominator = m_per_px / paper;
@@ -125,13 +125,13 @@ TEST(Map2dCoverage, WritesTileTableAndOpensSelectedOnce) {
   const auto out_dir = root / "table";
   std::filesystem::create_directories(out_dir, ec);
 
-  content::tile::LonLatBox box;
+  gis::tile::LonLatBox box;
   box.west = k_west;
   box.south = k_south;
   box.east = k_east;
   box.north = k_north;
   const auto tiles =
-      content::tile::tiles_for_extent(box, k_selected, k_width, 1 << 20);
+      gis::tile::tiles_for_extent(box, k_selected, k_width, 1 << 20);
   ASSERT_FALSE(tiles.empty());
   const BarOracle bar =
       scale_bar(k_west, k_south, k_east, k_north, k_width, 96.0);

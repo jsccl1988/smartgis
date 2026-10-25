@@ -13,10 +13,12 @@ config("foundation_config") {
 }
 
 # Header-only foundation aggregate (core/threading/util/files/memory/time +
-# archive/ipc). Not a product DLL — statically linked into consumers.
+# archive; ipc → src/common/ipc). Not a product DLL — statically linked into consumers.
 source_set("foundation") {
   sources = [
+    "core/abi_guard.h",
     "core/build_config.h",
+    "core/component_export.h",
     "core/debug.h",
     "core/export.h",
     "core/log.h",
@@ -44,7 +46,7 @@ source_set("foundation") {
     "//src/base/archive:archive",
     "//src/base/concurrency:concurrency",
     "//src/base/execution:execution",
-    "//src/base/ipc:ipc",
+    "//src/common/ipc:ipc",
     "//src/base/log:log",
     "//src/base/memory:memory",
     "//src/base/synchronization:synchronization",
@@ -79,6 +81,12 @@ source_set("process_switches_sources") {
 product_shared_library("base") {
   dll_stem = "base"
   defines = [ "BASE_EXPORTS" ]
+  # module_build_id.cc is injected by product_shared_library when
+  # is_component_build; static builds compile it here once.
+  sources = [
+    "core/module_build_id.h",
+    "core/product_build_id_check.cc",
+  ]
   deps = [
     ":allocation_tracker_state",
     ":foundation",
@@ -86,6 +94,11 @@ product_shared_library("base") {
     "//src/base/log:log_sources",
     "//src/base/trace:process_trace_sources",
   ]
+  if (!is_component_build) {
+    sources += [ "core/module_build_id.cc" ]
+    deps += [ "//build:gen_build_id" ]
+    include_dirs = [ "$root_gen_dir" ]
+  }
   public_deps = [
     ":process_switches_sources",
     "//src/base/archive:archive",

@@ -17,6 +17,7 @@
 #include "vista/component/map/layout.h"
 #include "vista/component/map/layout/policy/gen.h"
 #include "vista/component/map/layout/policy/tess_grain.h"
+#include "vista/mesh/detail/tess_trace.h"
 
 namespace vista {
 namespace detail {
@@ -63,6 +64,9 @@ void run_ordered_tess(const LayoutInput& in, size_t layer_count,
         if (take(jobs[i], &items[i])) {
           valid[i] = 1;
         }
+        // Push per-worker ScopedTessCpu TLS into process atomics (avoid
+        // fetch_add contention on every polygon under STARTUP_PROFILE).
+        vista::detail::flush_tess_trace_tls();
       },
       kParallelTessGrain);
   std::vector<std::vector<DrawItem>> by_layer(layer_count);

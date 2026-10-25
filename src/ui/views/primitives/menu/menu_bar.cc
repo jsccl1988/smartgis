@@ -239,5 +239,14 @@ void MenuBar::paint_self(ui::gfx::Canvas* canvas) {
 std::string_view MenuBar::paint_role() const {
   return "menu_bar";
 }
+
+std::unique_ptr<MenuBar> make_menu_bar() {
+  return std::make_unique<MenuBar>();
+}
+
+MenuBar* menu_bar_new() {
+  return new MenuBar();
+}
+
 }  // namespace views
 }  // namespace ui

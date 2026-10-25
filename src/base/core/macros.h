@@ -4,6 +4,7 @@
 #ifndef BASE_CORE_MACROS_H_
 #define BASE_CORE_MACROS_H_
 
+#include "base/core/abi_guard.h"
 #include "base/core/build_config.h"
 
 #include <cassert>

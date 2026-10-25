@@ -15,8 +15,14 @@
 #include "plugin/runtime/host/catalog/signature.h"
 #include "plugin/runtime/host/catalog/signature_test_key.h"
 #include "plugin/runtime/host/catalog/store.h"
+#include "plugin/runtime/widgets/dialog_fields.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
 #include "ui/views/kernel/view/view.h"
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #include "tool/command/command.h"
 #include "ui/views/dialogs/dialog.h"
 #include "ui/views/dialogs/file_picker.h"
@@ -731,6 +737,28 @@ int main() {
     auto again = std::make_unique<ui::views::View>();
     (void)plugin::present_dialog(L"Fallback", std::move(again));
     expect(capture.hits == 1, "cleared presenter is not called");
+  }
+  {
+    // IDE launches often leave CWD at the repo root. Bare "../data/plugin"
+    // then resolves outside the tree; plugin_sample_dir must use the exe dir.
+    namespace fs = std::filesystem;
+    wchar_t prev[MAX_PATH] = {};
+    const DWORD prev_n = GetCurrentDirectoryW(MAX_PATH, prev);
+    expect(prev_n > 0 && prev_n < MAX_PATH, "save cwd");
+    wchar_t temp_dir[MAX_PATH] = {};
+    const DWORD temp_n = GetTempPathW(MAX_PATH, temp_dir);
+    expect(temp_n > 0 && temp_n < MAX_PATH, "temp path");
+    expect(SetCurrentDirectoryW(temp_dir) != 0, "chdir temp");
+    const std::string sample = plugin::plugin_sample_dir();
+    const fs::path valley = fs::path(sample) / "flood_valley.geojson";
+    std::error_code ec;
+    expect(!sample.empty(), "plugin_sample_dir non-empty");
+    expect(fs::is_directory(sample, ec) && !ec, "plugin_sample_dir exists");
+    expect(fs::is_regular_file(valley, ec) && !ec,
+           "flood_valley.geojson under sample dir");
+    if (prev_n > 0) {
+      (void)SetCurrentDirectoryW(prev);
+    }
   }
   if (g_fails) {
     std::fprintf(stderr, "plugin_host_test: %d fail(s)\n", g_fails);

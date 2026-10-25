@@ -106,6 +106,7 @@ class UI_EXPORT DiagnosticToolsPanel : public View {
 
 UI_EXPORT std::unique_ptr<DiagnosticToolsPanel>
 make_diagnostic_tools_panel();
+UI_EXPORT DiagnosticToolsPanel* diagnostic_tools_panel_new();
 
 }  // namespace views
 }  // namespace ui

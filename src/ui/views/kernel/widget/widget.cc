@@ -44,17 +44,30 @@ std::uint64_t Widget::shell_generation() const {
 }
 
 void Widget::set_contents_view(std::unique_ptr<View> contents) {
+  adopt_contents_view(contents.release());
+}
+
+void Widget::adopt_contents_view(View* contents) {
   focused_ = nullptr;
   hovered_ = nullptr;
   pressed_ = nullptr;
-  contents_ = std::move(contents);
+  contents_.reset(contents);
   if (contents_) {
     // set_widget walks the tree and notifies each node for DPI != 1 so Label /
     // Button / MenuBar rebuild preferred sizes (do not also propagate here —
     // that would double-scale views that multiply preferred_size by ratio).
-    contents_->set_widget(this);
-    layout_contents();
-    contents_->realize_native_tree();
+    {
+      BASE_TRACE_EVENT("Widget.SetContents.SetWidget", "startup");
+      contents_->set_widget(this);
+    }
+    {
+      BASE_TRACE_EVENT("Widget.SetContents.Layout", "startup");
+      layout_contents();
+    }
+    {
+      BASE_TRACE_EVENT("Widget.SetContents.RealizeNative", "startup");
+      contents_->realize_native_tree();
+    }
   }
 }
 
@@ -71,6 +84,7 @@ void Widget::set_device_scale_factor(float scale_factor) {
       std::lround(scale_factor * static_cast<float>(kDefaultDpi)));
   if (contents_) {
     contents_->propagate_device_scale_factor_changed(old, device_scale_factor_);
+    invalidate_all_view_commands();
     layout_contents();
     schedule_paint();
   }
@@ -98,6 +112,7 @@ void Widget::on_dpi_changed(unsigned new_dpi, const RECT* suggested) {
   if (contents_ && old_scale > 0.f &&
       std::fabs(old_scale - new_scale) >= 0.0001f) {
     contents_->propagate_device_scale_factor_changed(old_scale, new_scale);
+    invalidate_all_view_commands();
   }
   layout_contents();
   schedule_paint();
@@ -119,6 +134,51 @@ void Widget::layout_contents() {
   } while (contents_->needs_layout() && ++passes < kMaxLayoutPasses);
   contents_->realize_native_tree();
   contents_->sync_native_tree();
+  ui::gfx::note_layout_since_paint();
+}
+
+void Widget::invalidate_all_view_commands() {
+  if (!contents_) {
+    return;
+  }
+  std::function<void(View*)> walk = [&](View* v) {
+    if (!v) {
+      return;
+    }
+    v->invalidate_commands();
+    for (size_t i = 0; i < v->child_count(); ++i) {
+      walk(v->child_at(i));
+    }
+  };
+  walk(contents_.get());
+}
+
+void Widget::begin_paint_update() {
+  ++paint_update_depth_;
+}
+
+void Widget::end_paint_update() {
+  if (paint_update_depth_ <= 0) {
+    return;
+  }
+  --paint_update_depth_;
+  if (paint_update_depth_ > 0 || !hwnd_ || !IsWindow(hwnd_)) {
+    return;
+  }
+  if (paint_update_deferred_full_) {
+    paint_update_deferred_full_ = false;
+    paint_update_deferred_dirty_ = {};
+    full_paint_pending_ = true;
+    pending_dirty_ = {};
+    InvalidateRect(hwnd_, nullptr, FALSE);
+    return;
+  }
+  if (paint_update_deferred_dirty_.width > 0 &&
+      paint_update_deferred_dirty_.height > 0) {
+    const Rect dirty = paint_update_deferred_dirty_;
+    paint_update_deferred_dirty_ = {};
+    schedule_paint_rect(dirty);
+  }
 }
 
 void Widget::ensure_compositor_started() {
@@ -214,6 +274,11 @@ bool Widget::has_pending_paint() const {
 }
 
 void Widget::schedule_paint() {
+  if (paint_update_depth_ > 0) {
+    ui::gfx::note_paint_lock_deferred();
+    paint_update_deferred_full_ = true;
+    return;
+  }
   full_paint_pending_ = true;
   pending_dirty_ = {};
   if (hwnd_ && IsWindow(hwnd_)) {
@@ -228,6 +293,14 @@ void Widget::schedule_paint_rect(const Rect& dirty) {
   if (dirty.width <= 0 || dirty.height <= 0) {
     return;
   }
+  if (paint_update_depth_ > 0) {
+    ui::gfx::note_paint_lock_deferred();
+    if (!full_paint_pending_ && !paint_update_deferred_full_) {
+      paint_update_deferred_dirty_ =
+          detail::union_dirty_rects(paint_update_deferred_dirty_, dirty);
+    }
+    return;
+  }
   if (!full_paint_pending_) {
     union_pending_dirty(dirty);
   }
@@ -236,18 +309,7 @@ void Widget::schedule_paint_rect(const Rect& dirty) {
 }
 
 void Widget::on_theme_changed() {
-  if (contents_) {
-    std::function<void(View*)> dirty = [&](View* v) {
-      if (!v) {
-        return;
-      }
-      v->invalidate_commands();
-      for (size_t i = 0; i < v->child_count(); ++i) {
-        dirty(v->child_at(i));
-      }
-    };
-    dirty(contents_.get());
-  }
+  invalidate_all_view_commands();
   schedule_paint();
 }
 
@@ -275,7 +337,10 @@ void Widget::on_shell_published_message(std::uint64_t generation) {
 }
 
 void Widget::maybe_notify_shell_published(std::uint64_t published_gen) {
-  if (!on_shell_published_ || !*on_shell_published_) {
+  const bool has_fn = on_shell_published_fn_ != nullptr;
+  const bool has_std =
+      on_shell_published_ && *on_shell_published_;
+  if (!has_fn && !has_std) {
     return;
   }
   if (published_gen == 0 || published_gen < awaiting_publish_gen_ ||
@@ -283,7 +348,11 @@ void Widget::maybe_notify_shell_published(std::uint64_t published_gen) {
     return;
   }
   last_shell_published_notified_ = published_gen;
-  (*on_shell_published_)(awaiting_publish_dirty_);
+  if (has_fn) {
+    on_shell_published_fn_(on_shell_published_baton_, awaiting_publish_dirty_);
+  } else {
+    (*on_shell_published_)(awaiting_publish_dirty_);
+  }
 }
 
 void Widget::on_paint() {
@@ -370,6 +439,7 @@ void Widget::on_paint() {
           last_begin_frame_qpc_ = now.QuadPart;
           ui::gfx::note_begin_frame_qpc(
               static_cast<std::uint64_t>(now.QuadPart));
+          ui::gfx::reset_layouts_since_paint();
         }
       }
     }

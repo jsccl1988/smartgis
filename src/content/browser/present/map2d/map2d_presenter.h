@@ -84,6 +84,8 @@ class Map2dPresenter {
   bool last_gpu_present_ok() const;
   bool last_gpu_present_drew() const;
   void note_surface_reset();
+  // After an owned RHI device that fed present_gpu is shut down.
+  void note_device_lost();
   uint64_t layout_build_count() const;
   bool last_present_reused_layout() const;
 

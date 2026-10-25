@@ -5,6 +5,8 @@
 
 #include <cctype>
 #include <cstdio>
+
+#include "gis/tile/cache/tile_disk_cache_paths.h"
 #include "gis/tile/protocol/wmts.h"
 
 namespace gis {
@@ -43,7 +45,19 @@ bool TileProvider::open_xyz(const std::string& url_template) {
   }
   url_template_ = url_template;
   cache_.clear();
+  disk_cache_hits_ = 0;
+  http_tile_fetches_ = 0;
   return true;
+}
+
+void TileProvider::enable_production_disk_cache() {
+  if (disk_.is_enabled()) {
+    return;
+  }
+  const std::string dir = disk_cache_dir_for_template(url_template_);
+  if (!dir.empty()) {
+    disk_.set_directory(dir);
+  }
 }
 
 bool TileProvider::open_wmts_template(const std::string& url_template) {
@@ -102,6 +116,7 @@ TileImage TileProvider::fetch_tile(const TileCoord& coord, int timeout_sec) {
     return image;
   }
   if (disk_.try_get(coord, &image)) {
+    ++disk_cache_hits_;
     cache_.put(image);
     return image;
   }
@@ -121,6 +136,7 @@ TileImage TileProvider::fetch_tile(const TileCoord& coord, int timeout_sec) {
                  res.error.empty() ? "empty body" : res.error.c_str());
     return image;
   }
+  ++http_tile_fetches_;
   image.bytes = std::move(res.body);
   cache_.put(image);
   disk_.put(image);

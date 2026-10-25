@@ -11,8 +11,9 @@
 namespace content {
 namespace detail {
 
-// Appends a bottom-left scale bar (pixel-space strokes + text) for the live
-// camera. Drawn every present so the bar stays visible during pan/zoom.
+// Appends screen-fixed furniture for the live camera: bottom-left scale bar
+// and top-center north arrow. Items are marked screen_fixed so MapPass
+// re-places them on pan (geo-label DrawCache reuse must not move the HUD).
 void append_map2d_scale_bar(uint32_t width_px, uint32_t height_px, double min_x,
                             double min_y, double max_x, double max_y,
                             vista::MapIR* ir);

@@ -27,7 +27,7 @@ inline bool operator==(const TileCoord& a, const TileCoord& b) {
   return a.z == b.z && a.x == b.x && a.y == b.y;
 }
 
-// In-process LRU of successful tile fetches. Disk cache is Phase 2+ later.
+// In-process LRU of successful tile fetches. See TileDiskCache for disk tier.
 class TileCache {
  public:
   explicit TileCache(size_t capacity = 256)

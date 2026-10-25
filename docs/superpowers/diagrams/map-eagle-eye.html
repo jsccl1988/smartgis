@@ -39,23 +39,23 @@ All rights reserved.
 <div class="wrap">
   <div class="hero">
     <h1>2D 鹰眼（Overview）</h1>
-    <p>M1：角上浮动 HWND + 范围框交互；主图仍只有一条 present。图：<code>map-eagle-eye.html</code></p>
+    <p>M1 + 重构：kernel <code>LayeredPopupHost</code> 共用 DXGI overlay sync；鹰眼拆 geom / persist / paint / input。图：<code>map-eagle-eye.html</code></p>
   </div>
 
   <div class="panel">
     <h2>分层</h2>
     <div class="lanes">
       <div class="lane ui">
-        <h3>UI · Views</h3>
-        <p><code>EagleEyeHost</code> 右下角小窗；View → Eagle Eye 开关；<code>eagle_eye_visible.txt</code> 记忆。</p>
+        <h3>UI · kernel overlay</h3>
+        <p><code>LayeredPopupHost</code>：child 或 layered popup；已请求几何 + 禁滥用 <code>SWP_SHOWWINDOW</code>。鹰眼与 identity HUD 共用。</p>
       </div>
       <div class="lane cpu">
-        <h3>Host · Browser</h3>
-        <p><code>push_shared_extent</code> 刷新 world/view；commit → <code>apply_view_world_extent</code> + navigation。</p>
+        <h3>UI · eagle_eye</h3>
+        <p><code>EagleEyeHost</code> 门面；<code>geom</code> / <code>paint</code> / <code>input</code> / <code>persist</code>；View 菜单开关。</p>
       </div>
       <div class="lane gpu">
         <h3>Present · 主图</h3>
-        <p>FlyCube / DXGI 仍是 SoT；鹰眼是独立 GDI/分层 popup，不跑第二套 map present（M1）。</p>
+        <p>FlyCube / DXGI 仍是 SoT；鹰眼不跑第二套 map present（M1）。</p>
       </div>
     </div>
   </div>
@@ -72,8 +72,9 @@ All rights reserved.
       <text x="380" y="80" text-anchor="middle" font-size="11" fill="#5a6a7e">同步鹰眼 view 框</text>
 
       <rect x="540" y="30" width="200" height="70" rx="8" fill="#fff" stroke="#d8dee6"/>
-      <text x="640" y="60" text-anchor="middle" font-size="13" fill="#1a2330">EagleEyeHost</text>
-      <text x="640" y="80" text-anchor="middle" font-size="11" fill="#5a6a7e">画简化底图 + 框</text>
+      <text x="640" y="55" text-anchor="middle" font-size="13" fill="#1a2330">LayeredPopupHost</text>
+      <text x="640" y="72" text-anchor="middle" font-size="11" fill="#5a6a7e">+ paint / input</text>
+      <text x="640" y="88" text-anchor="middle" font-size="11" fill="#5a6a7e">简化底图 + 框</text>
 
       <path d="M220 65 H280" fill="none" stroke="#2563a8" stroke-width="2" class="stage"/>
       <path d="M480 65 H540" fill="none" stroke="#2563a8" stroke-width="2" class="stage"/>

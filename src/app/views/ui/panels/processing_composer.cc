@@ -37,6 +37,7 @@
 #include "gis/style/style_types.h"
 #include "plugin/runtime/web/fake_report_browser.h"
 #include "plugin/runtime/web/webview2_report_browser.h"
+#include "plugin/runtime/host/catalog/registry.h"
 #include "plugin/runtime/processing/builtin_ops.h"
 #include "plugin/runtime/extension/runtime.h"
 #include "ui/gis/analysis/geoprocessing_history_panel.h"
@@ -50,6 +51,122 @@
 namespace app {
 
 namespace {
+
+struct ProcessingOpRow {
+  std::string id;
+  std::string title;
+  std::string category;
+};
+
+bool processing_op_seen(const std::vector<ProcessingOpRow>& ops,
+                        std::string_view id) {
+  for (const ProcessingOpRow& row : ops) {
+    if (row.id == id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void append_processing_op(std::vector<ProcessingOpRow>& ops, std::string id,
+                        std::string title, std::string category) {
+  if (id.empty() || processing_op_seen(ops, id)) {
+    return;
+  }
+  if (title.empty()) {
+    title = id;
+  }
+  if (category.empty()) {
+    category = "native";
+  }
+  ops.push_back({std::move(id), std::move(title), std::move(category)});
+}
+
+std::vector<ProcessingOpRow> collect_processing_operators(BrowserView* host) {
+  std::vector<ProcessingOpRow> ops;
+  for (const plugin::BuiltinOpDesc& d : plugin::builtin_op_catalog()) {
+    append_processing_op(ops, d.id, d.title, "native");
+  }
+  if (!host || !host->browser() || !host->browser()->plugins()) {
+    return ops;
+  }
+  PluginShell* shell = host->browser()->plugins();
+  (void)shell->ensure_builtins();
+  if (content::PluginHost* plugin_host = shell->host()) {
+    plugin_host->for_each_processing(
+        [&](std::string_view plugin_id, std::string_view processing_id,
+            std::string_view title) {
+          append_processing_op(
+              ops, std::string(processing_id),
+              title.empty() ? std::string(processing_id) : std::string(title),
+              std::string(plugin_id));
+        });
+  }
+  plugin::Registry* registry = shell->registry();
+  if (!registry) {
+    return ops;
+  }
+  struct ManifestCtx {
+    std::vector<ProcessingOpRow>* ops;
+    plugin::Registry* registry;
+  } ctx{&ops, registry};
+  registry->visit(
+      [](const char* plugin_id, const char* /*name*/, int state,
+         int /*kind*/, int /*trust*/, void* baton) {
+        auto* c = static_cast<ManifestCtx*>(baton);
+        if (!c || !c->registry || !plugin_id || !plugin_id[0]) {
+          return;
+        }
+        if (state != static_cast<int>(plugin::PluginState::kEnabled)) {
+          return;
+        }
+        struct ToolCtx {
+          std::vector<ProcessingOpRow>* ops;
+          std::string plugin_id;
+        } tool_ctx{c->ops, plugin_id};
+        c->registry->visit_tools(
+            plugin_id,
+            [](const char* kind, const char* id, const char* title,
+               void* inner) {
+              auto* tc = static_cast<ToolCtx*>(inner);
+              if (!tc || !tc->ops || !kind ||
+                  std::strcmp(kind, "processing") != 0 || !id || !id[0]) {
+                return;
+              }
+              append_processing_op(
+                  *tc->ops, id,
+                  (title && title[0]) ? std::string(title) : std::string(id),
+                  tc->plugin_id);
+            },
+            &tool_ctx);
+      },
+      &ctx);
+  return ops;
+}
+
+void apply_processing_operators(BrowserView* host,
+                                std::vector<ProcessingOpRow> rows) {
+  if (!host) {
+    return;
+  }
+  if (ui::views::ProcessingPanel* panel = host->processing_panel()) {
+    std::vector<ui::views::ProcessingPanel::Operator> proc_ops;
+    proc_ops.reserve(rows.size());
+    for (const ProcessingOpRow& row : rows) {
+      proc_ops.push_back({row.id, row.title});
+    }
+    panel->set_operators(std::move(proc_ops));
+  }
+  if (ui::views::SpatialAnalysisPanel* spatial =
+          host->spatial_analysis_panel()) {
+    std::vector<ui::views::SpatialAnalysisPanel::Operator> spatial_ops;
+    spatial_ops.reserve(rows.size());
+    for (const ProcessingOpRow& row : rows) {
+      spatial_ops.push_back({row.id, row.title, row.category});
+    }
+    spatial->set_operators(std::move(spatial_ops));
+  }
+}
 
 std::string m2_json_path(std::string path) {
   for (char& c : path) {
@@ -90,16 +207,15 @@ bool write_m2_clip_geojson(const std::filesystem::path& path, double min_x,
 // Wires processing / playback / report / spatial / Python GIS horizon.
 ProcessingComposer::ProcessingComposer(BrowserView* host) : host_(host) {}
 
+void ProcessingComposer::refresh_processing_operators() {
+  apply_processing_operators(host_, collect_processing_operators(host_));
+}
+
 void ProcessingComposer::wire_processing_panel() {
   if (!host_->processing_panel_) {
     return;
   }
-  std::vector<ui::views::ProcessingPanel::Operator> ops;
-  ops.reserve(plugin::builtin_op_catalog().size());
-  for (const plugin::BuiltinOpDesc& d : plugin::builtin_op_catalog()) {
-    ops.push_back({d.id, d.title});
-  }
-  host_->processing_panel_->set_operators(std::move(ops));
+  refresh_processing_operators();
   host_->processing_panel_->set_run_handler(
       [this](const std::string& id) { host_->run_processing_operator(id); });
 }
@@ -256,12 +372,7 @@ void ProcessingComposer::wire_spatial_analysis_panel() {
   if (!host_->spatial_analysis_panel_) {
     return;
   }
-  std::vector<ui::views::SpatialAnalysisPanel::Operator> ops;
-  ops.reserve(plugin::builtin_op_catalog().size());
-  for (const plugin::BuiltinOpDesc& d : plugin::builtin_op_catalog()) {
-    ops.push_back({d.id, d.title, "native"});
-  }
-  host_->spatial_analysis_panel_->set_operators(std::move(ops));
+  refresh_processing_operators();
   host_->spatial_analysis_panel_->set_params(
       {{"distance", "0.05", "buffer/simplify"},
        {"input", "(scene)", "path"},

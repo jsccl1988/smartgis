@@ -61,6 +61,8 @@ _scenic_product_assert_no_deps = [
 # Do not split them into a source_set (parent defines do not apply; vtable
 # / default virtuals become dllimport and the DLL fails to link).
 # Default C++23 configs — not product_shared_library / //build:legacy.
+# Still inject SMARTGIS_BUILD_ID (hand-rolled shared_library skips the
+# product_shared_library template hook).
 shared_library("scenic") {
   if (is_debug) {
     output_name = "scenic_d"
@@ -78,8 +80,13 @@ shared_library("scenic") {
     "engine/null_engine.cc",
     "engine/scene3d_engine.cc",
     "scenic_export.h",
+    "//src/base/core/module_build_id.cc",
   ]
-  include_dirs += [ "//src" ]
+  include_dirs += [
+    "//src",
+    "$root_gen_dir",
+  ]
+  deps = [ "//build:gen_build_id" ]
   libs = [
     "gdi32.lib",
     "user32.lib",

@@ -2,6 +2,7 @@
 // All rights reserved.
 
 #include "vista/assets/tileset/tileset.h"
+#include "vista/assets/model/model.h"
 
 #include <cstdio>
 #include <cstring>
@@ -114,6 +115,16 @@ int main() {
   vista::ensure_tileset_content(budget_visible, &budget_cache, resolve_stub,
                                 nullptr, 1);
   expect(budget_cache.entry_count() == 2, "budgeted second resolve");
+
+  // Decode matrix: unsupported tile wrappers fail closed (ensure → put_failed).
+  {
+    const unsigned char i3dm[] = {'i', '3', 'd', 'm', 0, 0, 0, 0};
+    vista::ModelAsset unsupported;
+    expect(!vista::decode_content("tile.i3dm", i3dm, sizeof(i3dm), unsupported),
+           "i3dm unsupported");
+    expect(!vista::decode_content("tile.pnts", i3dm, sizeof(i3dm), unsupported),
+           "pnts unsupported");
+  }
 
   if (g_fails) {
     std::fprintf(stderr, "tileset_test: %d failed\n", g_fails);

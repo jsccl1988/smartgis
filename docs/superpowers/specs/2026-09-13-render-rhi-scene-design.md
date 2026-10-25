@@ -7,8 +7,8 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-21 — **§Atmosphere look pack Design B**（交互档 GPU FFT / cover 纹理 / Bruneton-lite+fog；plan §9）。Prior 2026-10-18 — **§China stack gate**（DEM → ocean → fog → sky → cloud；图 [`china-stack-gates.html`](../diagrams/china-stack-gates.html)）。Prior same day — **§Map2d China design gates**（`map2d_china_dem` / `map2d_china_carto` / `map2d_align`；图 [`map2d-china-design-gate.html`](../diagrams/map2d-china-design-gate.html)）。Prior 2026-10-15 — **§Vista map pass layers**（`pass/map` detail 拆 `draw_cache` / `place_upload` / `keyed_slices`；图 [`vista-map-pass-layers.html`](../diagrams/vista-map-pass-layers.html)）。Prior 2026-10-13 — **§Content present ↔ Chromium mapping** deepened（Chromium RWHV→cc→CompositorFrame→Viz Display vs Topology A DrawHost→Presenter→FrameCache/PresentAction→Pass→`graph::present` 1CL；拒绝 FrameSink/Mojo Viz；优化只在 C/G/E；图 §4 泳道）。Prior 2026-10-10 — same § first lock + subdirectory diagram. Prior 2026-10-08 — **§Content present subdirectory layers**（`host/{blit,overlay,scenic,gdi}` · `map2d/frame/{cache,carto,batches,layout,tile}` · `map2d/gpu/{present,selection}` · `scene3d/frame/{orbit,terrain,tileset,overlay}` · `*/profile` · `scene3d/scenic`；软 `software/` 删除；图同）。Prior same day — **§Vista map component layers**（顶层五条：`carto` · `shade` · `place` · `mvt` · `layout`；collision 并入 carto；layout 套 policy/geom/paint/stage；图 [`vista-map-component-layers.html`](../diagrams/vista-map-component-layers.html)）。Prior same day — **§Vista map layout layers**（`layout/{policy,geom,paint,stage}/` 文件角色；图 [`vista-map-layout-layers.html`](../diagrams/vista-map-layout-layers.html)）。Prior same day �?**§Vista world space layers** · **§Vista world component layers**�?**Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；multiprocess [`../ui-shell-multiprocess.md`](../ui-shell-multiprocess.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)�? 
-**Diagrams:** **China stack gate** [`../diagrams/china-stack-gates.html`](../diagrams/china-stack-gates.html) · **World LOD terrain** [../diagrams/world-lod-terrain.html](../diagrams/world-lod-terrain.html) · **Vista scene octree** [`../diagrams/vista-scene-octree.html`](../diagrams/vista-scene-octree.html) · **Vista map/frame scenic-peer** [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html) · **DEM / hillshade bake** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html) · **Scene3d present** [`../diagrams/scene3d-present-layers.html`](../diagrams/scene3d-present-layers.html) · **content present subdirectory** [`../diagrams/content-present-subdirectory-layers.html`](../diagrams/content-present-subdirectory-layers.html) · **content present accelerate** [`../diagrams/content-present-accelerate.html`](../diagrams/content-present-accelerate.html) · **rhi2d frame-beat + map/layer/feature** [`../diagrams/rhi2d-paint-map-strategy.html`](../diagrams/rhi2d-paint-map-strategy.html) · **rhi3d public lanes** [`../diagrams/rhi3d-public-api-lanes.html`](../diagrams/rhi3d-public-api-lanes.html) · **Vista 子目录分�?* [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html) · **Scenic** [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · **RHI2D composition split** [`../diagrams/rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html) · **Map2d present** [`../diagrams/map2d-present-frame.html`](../diagrams/map2d-present-frame.html) · **A×B 规范�?* [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（含 **§8 Scene3d cold vs warm**�?· Views shell [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · GIS MapFrame [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)  
+**Updated:** 2026-10-25 — **§GPU multiprocess upgrade**（A 硬化 → B 默认仅 GPU → 可选 renderer；图 [`gpu-multiprocess-upgrade.html`](../diagrams/gpu-multiprocess-upgrade.html)；plan Task 9）。Same day — **§Present dual-track ceiling**（T1 GPU 脏区 scissor · T2 Scene3d FrameJob 并行；图 [`content-present-dual-track.html`](../diagrams/content-present-dual-track.html)）。Prior 2026-10-21 — **§Atmosphere look pack Design B**（交互档 GPU FFT / cover 纹理 / Bruneton-lite+fog；plan §9）。Prior 2026-10-18 — **§China stack gate**（DEM → ocean → fog → sky → cloud；图 [`china-stack-gates.html`](../diagrams/china-stack-gates.html)）。Prior same day — **§Map2d China design gates**（`map2d_china_dem` / `map2d_china_carto` / `map2d_align`；图 [`map2d-china-design-gate.html`](../diagrams/map2d-china-design-gate.html)）。Prior 2026-10-15 — **§Vista map pass layers**（`pass/map` detail 拆 `draw_cache` / `place_upload` / `keyed_slices`；图 [`vista-map-pass-layers.html`](../diagrams/vista-map-pass-layers.html)）。Prior 2026-10-13 — **§Content present ↔ Chromium mapping** deepened（Chromium RWHV→cc→CompositorFrame→Viz Display vs Topology A DrawHost→Presenter→FrameCache/PresentAction→Pass→`graph::present` 1CL；拒绝 FrameSink/Mojo Viz；优化只在 C/G/E；图 §4 泳道）。Prior 2026-10-10 — same § first lock + subdirectory diagram. Prior 2026-10-08 — **§Content present subdirectory layers**（`host/{blit,overlay,scenic,gdi}` · `map2d/frame/{cache,carto,batches,layout,tile}` · `map2d/gpu/{present,selection}` · `scene3d/frame/{orbit,terrain,tileset,overlay}` · `*/profile` · `scene3d/scenic`；软 `software/` 删除；图同）。Prior same day — **§Vista map component layers**（顶层五条：`carto` · `shade` · `place` · `mvt` · `layout`；collision 并入 carto；layout 套 policy/geom/paint/stage；图 [`vista-map-component-layers.html`](../diagrams/vista-map-component-layers.html)）。Prior same day — **§Vista map layout layers**（`layout/{policy,geom,paint,stage}/` 文件角色；图 [`vista-map-layout-layers.html`](../diagrams/vista-map-layout-layers.html)）。Prior same day �?**§Vista world space layers** · **§Vista world component layers**�?**Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；multiprocess [`../ui-shell-multiprocess.md`](../ui-shell-multiprocess.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)�? 
+**Diagrams:** **GPU multiprocess upgrade** [`../diagrams/gpu-multiprocess-upgrade.html`](../diagrams/gpu-multiprocess-upgrade.html) · **Present dual-track** [`../diagrams/content-present-dual-track.html`](../diagrams/content-present-dual-track.html) · **China stack gate** [`../diagrams/china-stack-gates.html`](../diagrams/china-stack-gates.html) · **World LOD terrain** [../diagrams/world-lod-terrain.html](../diagrams/world-lod-terrain.html) · **Vista scene octree** [`../diagrams/vista-scene-octree.html`](../diagrams/vista-scene-octree.html) · **Vista map/frame scenic-peer** [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html) · **DEM / hillshade bake** [`../diagrams/hillshade-bake-profile.html`](../diagrams/hillshade-bake-profile.html) · **Scene3d present** [`../diagrams/scene3d-present-layers.html`](../diagrams/scene3d-present-layers.html) · **content present subdirectory** [`../diagrams/content-present-subdirectory-layers.html`](../diagrams/content-present-subdirectory-layers.html) · **content present accelerate** [`../diagrams/content-present-accelerate.html`](../diagrams/content-present-accelerate.html) · **rhi2d frame-beat + map/layer/feature** [`../diagrams/rhi2d-paint-map-strategy.html`](../diagrams/rhi2d-paint-map-strategy.html) · **rhi3d public lanes** [`../diagrams/rhi3d-public-api-lanes.html`](../diagrams/rhi3d-public-api-lanes.html) · **Vista 子目录分�?* [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html) · **Scenic** [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · **RHI2D composition split** [`../diagrams/rhi2d-device-api.html`](../diagrams/rhi2d-device-api.html) · **Map2d present** [`../diagrams/map2d-present-frame.html`](../diagrams/map2d-present-frame.html) · **A×B 规范�?* [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（含 **§8 Scene3d cold vs warm**�?· Views shell [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · GIS MapFrame [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)  
 **Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · **gpu accelerate（§GPU-process 唯一 checklist�?* [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · **vista parallel** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md) · suite/bench [`../plans/2026-09-28-render-rhi-suite-bench.md`](../plans/2026-09-28-render-rhi-suite-bench.md) · **Map2d hillshade + line casing** [`../plans/2026-09-30-map2d-hillshade-line-casing.md`](../plans/2026-09-30-map2d-hillshade-line-casing.md) · **world3d pointcloud LAS** [`../plans/2026-09-30-world3d-pointcloud-las.md`](../plans/2026-09-30-world3d-pointcloud-las.md) · **D3D leftover capability** [`../plans/2026-09-29-d3d-leftover-capability.md`](../plans/2026-09-29-d3d-leftover-capability.md) · **GL leftover capability** [`../plans/2026-09-29-gl-leftover-capability.md`](../plans/2026-09-29-gl-leftover-capability.md) · GDI leftover worker [`../plans/2026-09-29-gdi-leftover-worker.md`](../plans/2026-09-29-gdi-leftover-worker.md) · GDI carto math [`../plans/2026-09-29-gdi-carto-base-math.md`](../plans/2026-09-29-gdi-carto-base-math.md) · GDI layout/compose [`../plans/2026-09-29-gdi-layout-device-compose.md`](../plans/2026-09-29-gdi-layout-device-compose.md) · GDI profile [`../plans/2026-09-29-gdi-leftover-profile.md`](../plans/2026-09-29-gdi-leftover-profile.md) · **GDI internal RHI** [`../plans/2026-09-29-gdi-internal-rhi-reshape.md`](../plans/2026-09-29-gdi-internal-rhi-reshape.md) · **Legacy Pipeline+Arena** [`../plans/2026-09-30-legacy-render-pipeline-arena.md`](../plans/2026-09-30-legacy-render-pipeline-arena.md) · **rhi2d Chromium-cc** [`../plans/2026-10-01-rhi2d-chromium-cc-compose.md`](../archive/plans/2026-10-01-rhi2d-chromium-cc-compose.md) · **rhi2d leftover tile-raster** [`../plans/2026-10-01-rhi2d-leftover-tile-raster.md`](../plans/2026-10-01-rhi2d-leftover-tile-raster.md) · **rhi3d leftover parallel frame** [`../plans/2026-10-01-rhi3d-parallel-frame.md`](../archive/plans/2026-10-01-rhi3d-parallel-frame.md) · **rhi3d Eigen frustum** [`../plans/2026-10-01-rhi3d-eigen-base-math.md`](../archive/plans/2026-10-01-rhi3d-eigen-base-math.md)�? 
 **Scope:** Living RHI + dual scene + in-process frame graph + GPU-process compose. Vista DX12/Vulkan. Logical world in `gis`/`sdb`; GPU cache in `render/scene`. Do **not** open new dated RHI/layout twins �?revise sections below.
 
@@ -589,13 +589,72 @@ src/legacy/render/rhi2d/impl/common/surface/ is map2d **compose + present**, not
 ### Acceptance
 
 - [x] Living § locks two topologies + IR + hub × N + non-goals
-- [x] Normative HTML diagram（A×B 整合 [`render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)�?- [ ] Task 8 bridge checkboxes green (Views multiproc L3 submit)
+- [x] Normative HTML diagram（A×B 整合 [`render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)）
+- [ ] Task 8 bridge checkboxes green (Views multiproc L3 submit)
 - [ ] Human multiprocess smoke: chrome present-only; kill GPU child recovers
 - [ ] Dual-adapter sticky fallback matches as-built README
 
 ---
 
-## §P0 3D capability（merged 2026-09-28�?
+## §GPU multiprocess upgrade（A → B → optional renderer · 2026-10-25）
+
+**Status:** active  
+**Updated:** 2026-10-25  
+**Decision:** 近端 **A 硬化 → B 默认（仅 GPU）→ 可选 renderer OOP（C 的子集，永不默认绑架）**。三进程可作为终局图，**禁止**把 browser+renderer+gpu 同时默认 OOP 作为第一步。  
+**Diagram (normative):** [`../diagrams/gpu-multiprocess-upgrade.html`](../diagrams/gpu-multiprocess-upgrade.html)  
+**Peers:** §GPU-process accelerate（Topology A×B IR）· [`../ui-shell-multiprocess.md`](../ui-shell-multiprocess.md) · Views [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) §Content process layers  
+**Checklist:** [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) **Task 9**（本 § 分期门禁；Task 8 仍管 A↔B L3 桥）  
+**Chromium precedent (semantics only):** `content/browser/gpu/GpuProcessHost` + `gpu/ipc/service`；本仓映射为 `ChildProcessHost` + `host_protocol` + `gpu::GpuMain`。**拒绝** Mojo Viz / FrameSink / 搬 `cc`。
+
+### Locked order
+
+| Phase | Product default | Process shape | Exit gate (must be green) |
+| --- | --- | --- | --- |
+| **A — harden** | Topology **A** in-process present | OOP `--type=gpu` **opt-in** (`ENABLE_OOP_RENDER` / equivalent) | `ChildProcessHost` launch already landed; remaining: kill-GPU recovers; Task 8 bridge **under the switch**; chrome never final-blends |
+| **B — default GPU** | Browser + **one** `--type=gpu` | Document / tools stay in **browser** process | First-map present budget acceptable; SharedHandle present-only; TDR / GPU death restarts **only** GPU; `--in-process-gpu` debug/CI only |
+| **R — optional renderer** | Still **not** required | Optional `--type=renderer` (C subset) | Renderer uses the **same** `host_protocol` as GPU (no invitation twin on product path); `OnRenderDied` restart; may ship a full release **after** B |
+
+**C (full default three-process) is not a near-term product default.** It may remain a long-horizon sketch only after R gates are green and a separate product decision flips the default.
+
+### Responsibility by phase
+
+| Concern | A | B | R |
+| --- | --- | --- | --- |
+| Final compose / present | In-process `graph::present` (A) or opt-in GPU `FrameComposer` | **Only** in `--type=gpu` | Same as B |
+| Map document / tools / hit-test | Browser | Browser | Renderer when OOP renderer on |
+| Shell chrome | Browser | Browser | Browser |
+| Crash isolation target | Opt-in GPU | Driver / GPU TDR | + plugin/tool faults in renderer |
+
+### Transport (locked)
+
+- Product control plane: `host_protocol` pickle messages (`content/common/host_protocol.h`) over **`common::ipc` invitation** (`--ipc-channel-handle=`). **No Mojo / ipcz.**
+- Phase A (as-built step 1): GPU launch via `ChildProcessHost` (invitation attach `"gpu"` + Job + `--parent-pid=`). `--pipe=` remains **leftover-only** (`SmartGisRender` / `draw_host`), not the product default.
+- Phase A→B: keep a **single** product transport; finish kill-GPU recovery and Task 8 under OOP switch before flipping B.
+- Phase R: product path may start `--type=renderer` only after renderer shares the **same** invitation + `host_protocol` surface as GPU (no second twin stack).
+- Do **not** run leftover `--pipe=` and invitation as dual product defaults.
+
+### Non-goals
+
+- No default browser+renderer+gpu OOP in the same release as A or as the first B flip without R gates.
+- No Chromium Mojo Viz / `FrameSink` / vendored `cc`.
+- No dual final-present on the same HWND (Topology A + B).
+- No utility/GDAL process in this § (still Views §Content process layers step 4 — not implemented).
+- No full Chromium sandbox; Job + recovery is enough.
+
+### Acceptance
+
+- [x] Living § locks A → B → R order and rejects near-term default-C
+- [x] Normative HTML [`gpu-multiprocess-upgrade.html`](../diagrams/gpu-multiprocess-upgrade.html)
+- [x] Phase A kill-GPU auto-relaunch (`GisContentsImpl::try_restart_gpu` + `gis_contents_gpu_restart_test`)
+- [x] Phase A IPC A3–A5: DataPipe bulk (`common/ipc/bulk`) · BrokerHost (`common/ipc/broker`) · diagram [`base-ipc-a0-a2.html`](../diagrams/base-ipc-a0-a2.html)
+- [ ] Phase A Task 8 bridge under OOP switch (Map2d/Scene3d submit)
+- [ ] Phase B default flip with measured first-map budget
+- [ ] Phase R optional path on unified protocol (still not product default unless separately decided)
+
+---
+
+## §P0 3D capability（merged 2026-09-28）
+
 Lit solid path, style�?D albedo, CPU frustum, GPU smoke �?checklist in [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md). Pipeline entry is via §Generic pipeline (`Pipeline*` + constants), not `PipelineId::{kOcean,kCloud}`. Archive: [`../archive/specs/2026-09-20-rhi-3d-capability-p0-design.md`](../archive/specs/2026-09-20-rhi-3d-capability-p0-design.md).
 
 ---
@@ -680,9 +739,9 @@ present/
 **Status:** accepted  
 **Diagram:** [`../diagrams/content-present-subdirectory-layers.html`](../diagrams/content-present-subdirectory-layers.html)（**§4 Chromium↔SmartGIS 泳道**）· accelerate [`../diagrams/content-present-accelerate.html`](../diagrams/content-present-accelerate.html)  
 **Code:** `src/content/browser/present/**` · [`../../../src/content/browser/present/README.md`](../../../src/content/browser/present/README.md)  
-**Related:** §Content present subdirectory layers · §Map2d present · **§content present accelerate** (C / G / E) · §GPU-process accelerate  
+**Related:** §Content present subdirectory layers · §Map2d present · **§content present accelerate** (C / G / E) · **§Present dual-track ceiling** (T1/T2) · §GPU-process accelerate  
 **Precedent:** Chromium Browser / cc / Viz responsibility split (semantics only — **no** Mojo Viz / FrameSink clone)  
-**Checklist truth:** parallel plan Task 7 checkboxes are **hints**; C0 / G0 / E1 land status follows **code + §content present accelerate**, not a false `[x]`.
+**Checklist truth:** parallel plan Task 7 checkboxes are **hints**; C0 / G0 / E1 land status follows **code + §content present accelerate**, not a false `[x]`. Ceiling follow-on: plan **Task 9**.
 
 Lock the Chromium → SmartGIS present mapping so readers know **which layer owns which Chromium job**, and so performance work stays on Cache / Execution / GPU compose rather than inventing a second Viz stack.
 
@@ -2222,10 +2281,151 @@ L3  Display: wait only if published gen stale AND no previous image
 - **§Vista / Scene3d equal-profile**: ms budgets
 - **§vista parallel**: L0–L3 machine; this § is the **present-tree** cache+compose adoption
 - **§GPU-process**: B remap only
+- **Ceiling follow-on:** **§Present dual-track ceiling** (T1 GPU damage · T2 Scene3d FrameJob)
 
 ---
 
-## §Point cloud GPU draw�?026-09-30�?
+## §Present dual-track ceiling（T1 GPU 脏区 · T2 Scene3d 并行 · 2026-10-25）
+
+**Status:** accepted  
+**Updated:** 2026-10-25  
+**Diagram:** [`../diagrams/content-present-dual-track.html`](../diagrams/content-present-dual-track.html)  
+**Code (path partition):** T1 `src/content/browser/present/map2d/**` · `src/vista/pass/map/**` · `src/render/graph/**`（damage 入参）· T2 `src/content/browser/present/scene3d/**` · `src/vista/pass/world/**` · atmosphere  
+**Precedent:** Chromium `cc::DamageTracker` / `PrepareToDraw`（semantics）· leftover rhi3d FrameJob（semantics only）  
+**Checklist:** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) **Task 9**  
+**Budgets:** unchanged — §Vista Map2d / §src_render Scene3d equal-profile；本 § 只加 phase 探针与门闩  
+**Related:** §content present accelerate (C/G/E base) · §Content present ↔ Chromium mapping · §GPU-process accelerate（**out of scope**）
+
+### Why
+
+C/G/E（§content present accelerate）已吃掉 warm StaticReuse 与 Interactive 不 `invalidate_uploaded`。剩余上限分两路：
+
+| 上限 | Chromium / leftover 对标 | 产品落点 |
+| --- | --- | --- |
+| GPU 填充 / 带宽（局部脏） | `DamageTracker` + scissor，**不是** FrameSink | T1：reason → 可选 viewport scissor → 1 CL |
+| Scene3d 墙钟 / 主线程卡顿 | rhi3d off-HWND FrameJob + prep∥ | T2：mailbox CPU prep 与上一帧 GPU 重叠 |
+
+两路 **并行实现、路径分区**；共享 Display 独占 Device + `graph::present` 1 CL。
+
+### Shared contract（两轨强制）
+
+1. Topology **A** only（本 §）。不双合成 A+B；不引入 `FrameSink` / `SurfaceId` / Mojo Viz。
+2. Display 独占 `rhi::Device`；worker **永不**碰 Device / HWND / HDC。
+3. 唯一池：`base::execution`。禁止同 tick `async`+`get`；HWND 永不 `wait_first_published`。
+4. 不改 `content/public`；不复活 C1 `layer_slices_`。
+5. Shell overlay / chrome 像素 **不**并入 MapIR；`ShellOverlayEffect` 仍同 CL 额外 effect。
+6. Equal-profile 预算数字 **不**在本 § 改写。
+
+### T1 — GPU 脏区（Map2d damage / scissor）
+
+**Chromium map（语义 only）：**
+
+| Chromium | SmartGIS T1 |
+| --- | --- |
+| `DamageReason` / contributing content | `PresentDamageReasons` bitset（见下） |
+| `CanDraw` / no visible damage → skip draw | reason empty + last present ok → `kStaticReuse`（已有） |
+| `DamageTracker` root rect → scissor | **可选** `DamageRect`（px）→ Pass encode / RHI scissor；**不做** layer 树 RECT 合并 |
+| Full viewport when pan | Camera-only pan：**全脏 encode** 但 **不** re-upload（G0）；scissor 默认关，仅非 Camera 局部脏开启 |
+
+**`PresentDamageReasons`（locked bits）：**
+
+| Bit | When | PresentAction / GPU |
+| --- | --- | --- |
+| `kNone` | shell + content + camera 均稳 | `kStaticReuse`；跳过 `graph::present` |
+| `kCameraOnly` | extent/scale 变，fingerprint 不变 | `kInteractiveReuse`；`kReuseIfCached`；**全幅** encode（GIS pan） |
+| `kContent` | fingerprint / style / layer 变 | settle 或 `kRebuildFull`；G1 incremental when hash 允许 |
+| `kSelection` | selection / flash sig | 可局部 scissor（selection AABB ∪ 上一 AABB） |
+| `kShellOverlay` | shell generation 变 | 同 CL overlay；map underlay 可 StaticReuse |
+| `kSizeZoom` | pixels 或 zoom_bucket 变 | `kRebuildFull` / settle；**强制全脏**；关 scissor |
+
+**DamageRect 规则：**
+
+- 默认 `nullopt` = full viewport（与今日行为一致）。
+- 仅当 reasons ⊆ `{kSelection, kShellOverlay}`（无 `kCameraOnly` / `kContent` / `kSizeZoom`）时才计算非空 rect。
+- Union 上一帧同 kind 的 rect（selection 移动时覆盖旧区）。
+- Pass `record` / encode 可读 rect 设 RHI scissor；upload 策略仍由 `UploadPolicy` 决定，**不**因 scissor 跳过 VB 正确性。
+- **禁止** 引入 Chromium 式 per-layer `DamageTracker` 树或 leftover GDI dirty RECT 合成。
+
+**Phases T1：**
+
+| Phase | Deliverable |
+| --- | --- |
+| **T1.0** | `PresentDamageReasons` + `prepare_for_present` 填 bit；phase 探针 `damage_reasons`；行为与今日 PresentAction 等价 |
+| **T1.1** | Selection / shell-only：非空 `DamageRect` → MapPass encode scissor |
+| **T1.2** | （可选）`graph::present` / swapchain partial present 仅当后端支持；失败则回退全幅 |
+
+### T2 — Scene3d 并行（FrameJob prep∥）
+
+**Leftover / Chromium map（语义 only）：**
+
+| Leftover rhi3d / cc | SmartGIS T2 |
+| --- | --- |
+| Off-HWND FrameJob | L1 `stage_scene3d_frame(gen)` mailbox；UI 不 join |
+| Prep×N then serial draw | atmosphere POD + terrain remesh CPU on executor；Display drain + 1 CL record |
+| Warm skip | `rebuild_count==0` 且 gen 匹配 → 跳过 `prepare_gpu` / remesh（as-built 诚实化） |
+| Impl thread | Display = sole GPU；**不是** worker GL context |
+
+**Beat（normative）：**
+
+```
+L0  stage Scene3dFrameRequest (gen++) · never join
+L1  if warm Static-equivalent (meshes_dirty false, atm stable) → L3 camera/orbit only
+    else post Pipeline: atm_pod ∥ terrain_cpu ∥ (opt) frustum prep
+L2  workers: prepare_for_present POD / remesh / bake — no Device
+L3  Display: drain published inputs → WorldPass / AtmosphereFrame record → graph::present
+    overlap: L2(t) runs while L3(t-1) presents
+```
+
+**Gates：**
+
+- `GPUSCENE_PREP_PARALLEL` / `SCENE3D_FRUSTUM_CULL` 诚实门不变；默认 prep 并行仍 off 直到 frustum honesty。
+- Ocean / sky `prepare_gpu` **仅** Display；warm 跳过（as-built 注释已要求，T2 用 gen 闩死）。
+- Atmosphere `prepare_for_present` 保持 POD-only；不得把 FFT/SRV alloc 塞进 worker。
+
+**Phases T2：**
+
+| Phase | Deliverable |
+| --- | --- |
+| **T2.0** | Scene3d mailbox `stage` / `drain` 与 Map2d 同形；phase 探针 `prep_overlap_ms` |
+| **T2.1** | atmosphere POD + terrain CPU remesh 投递 executor；与上一帧 present 重叠 |
+| **T2.2** | warm path：`rebuild_count=0` 时跳过 prepare_gpu + remesh；orbit-only encode |
+| **T2.3** | frustum `prep_cull_parallel` 仅在 honesty 门后 opt-in |
+
+### Parallelism / ownership
+
+| | T1 | T2 |
+| --- | --- | --- |
+| Owner dirs | `present/map2d` · `vista/pass/map` · `render/graph` damage args | `present/scene3d` · `vista/pass/world` · atmosphere |
+| May edit | Map2dFrameCache · MapPass scissor · PresentDamage | Scene3dGpuPresent · AtmosphereSession schedule · WorldPass prep mailbox |
+| Must not edit | Scene3d FrameJob · atmosphere worker Device | Map2d DrawCache policy · damage RECT 树 |
+| Implement | 可与 T2 **并行**（路径不重叠） | 可与 T1 并行 |
+
+### Acceptance
+
+- T1.0：china warm / pan 时钟与视觉相对今日 **无回归**；`damage_reasons` 探针可读。
+- T1.1：selection-only 帧 `scissor_rejected_px` 或等价探针显示非全幅；视觉 selection/flash 正确。
+- T2.0–T2.1：cold present 墙钟下降或 `prep_overlap_ms>0`；无 Device-from-worker assert。
+- T2.2：warm orbit `rebuild_count=0`；atmosphere 视觉门禁不变。
+- `VISTA_LAYOUT_PARALLEL=0` / frustum prep default-off 仍正确。
+
+### Non-goals
+
+- Vendor Chromium `cc` / Viz；`DamageTracker` 层树；FrameSink。
+- Topology B CF emit（仍仅 `--type=gpu` §GPU-process）。
+- 复活 C1；soft HDC present；worker `rhi::Device`。
+- 改 equal-profile 预算数字或 `content/public`。
+- 单帧 multi-CL / cross-adapter mosaic。
+
+### Relation
+
+- Builds on **§content present accelerate**（不替换 C/G/E；抬 ceiling）。
+- Mapping semantics：**§Content present ↔ Chromium mapping**.
+- Scene3d budgets：**§src_render Scene3d equal-profile** · atmosphere China stack gates.
+- Checklist only on parallel plan **Task 9**（不新开 dated plan）。
+
+---
+
+## §Point cloud GPU draw（2026-09-30）
 **Status:** active  
 **Updated:** 2026-09-30  
 **Plugin side:** [`2026-09-13-plugin-host-design.md`](2026-09-13-plugin-host-design.md) §world3d pointcloud LAS  

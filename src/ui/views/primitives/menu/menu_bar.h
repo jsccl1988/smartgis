@@ -68,6 +68,9 @@ class UI_EXPORT MenuBar : public View {
   int last_opened_menu_ = -1;
 };
 
+UI_EXPORT std::unique_ptr<MenuBar> make_menu_bar();
+UI_EXPORT MenuBar* menu_bar_new();
+
 }  // namespace views
 }  // namespace ui
 

@@ -4,7 +4,8 @@
 #include "content/browser/glang.runtime/host/tile/verbs.h"
 
 #include "base/core/log.h"
-#include "content/browser/glang.runtime/host/tile/xyz_source.h"
+#include "gis/tile/protocol/lonlat_xyz.h"
+#include "gis/tile/provider/xyz_source.h"
 
 #include <charconv>
 #include <cstdio>
@@ -16,8 +17,8 @@ namespace content {
 namespace tile {
 namespace {
 
-XyzSource& script_source() {
-  static XyzSource source;
+gis::tile::XyzSource& script_source() {
+  static gis::tile::XyzSource source;
   return source;
 }
 
@@ -64,7 +65,7 @@ void set_error(std::string* error, const char* why) {
   LOGGING(LOG_ERROR, "tile verb: %s", why ? why : "failed");
 }
 
-std::string format_box(const LonLatBox& box) {
+std::string format_box(const gis::tile::LonLatBox& box) {
   char buf[160];
   std::snprintf(buf, sizeof(buf), "%.10g,%.10g,%.10g,%.10g", box.west, box.south,
                 box.east, box.north);
@@ -95,7 +96,7 @@ bool try_script(const content::code::ScriptCall& call, std::string* result,
       set_error(error, "tile_xyz needs lon lat z");
       return true;
     }
-    const TileIndex tile = lonlat_to_tile(lon, lat, z);
+    const gis::tile::TileIndex tile = gis::tile::lonlat_to_tile(lon, lat, z);
     if (result) {
       *result = std::to_string(tile.z) + "," + std::to_string(tile.x) + "," +
                 std::to_string(tile.y);
@@ -115,7 +116,7 @@ bool try_script(const content::code::ScriptCall& call, std::string* result,
       return true;
     }
     if (result) {
-      *result = format_box(tile_lonlat_bbox(z, x, y));
+      *result = format_box(gis::tile::tile_lonlat_bbox(z, x, y));
     }
     return true;
   }
@@ -129,7 +130,7 @@ bool try_script(const content::code::ScriptCall& call, std::string* result,
       return true;
     }
     if (result) {
-      *result = std::to_string(resolution_m_per_px(z, lat, 256));
+      *result = std::to_string(gis::tile::resolution_m_per_px(z, lat, 256));
     }
     return true;
   }
@@ -147,7 +148,7 @@ bool try_script(const content::code::ScriptCall& call, std::string* result,
       return true;
     }
     if (result) {
-      *result = format_xyz_url(*tmpl, z, x, y);
+      *result = gis::tile::format_xyz_url(*tmpl, z, x, y);
     }
     return true;
   }

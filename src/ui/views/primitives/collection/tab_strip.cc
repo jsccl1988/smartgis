@@ -341,6 +341,12 @@ void TabStrip::apply_page_visibility() {
     }
     page->set_bounds(page_bounds);
     page->set_visible(i == active_);
+    // Active page must reflow even when set_bounds was a no-op (same rect) or
+    // skipped eager layout under an ancestor LayoutScope. Ambox Tools chips
+    // otherwise stay at width 0 from an earlier 0x0 populate_ambox rebuild.
+    if (i == active_ && page_bounds.width > 0 && page_bounds.height > 0) {
+      page->layout();
+    }
   }
 }
 
@@ -513,6 +519,21 @@ void TabStrip::paint_self(ui::gfx::Canvas* canvas) {
 
 std::string_view TabStrip::paint_role() const {
   return "tab_strip";
+}
+
+std::unique_ptr<TabStrip> make_tab_strip() {
+  return std::make_unique<TabStrip>();
+}
+
+TabStrip* tab_strip_new() {
+  return new TabStrip();
+}
+
+int tab_strip_adopt_tab(TabStrip* strip, const char* title, View* page) {
+  if (!strip || !page) {
+    return -1;
+  }
+  return strip->add_tab(title, std::unique_ptr<View>(page));
 }
 
 }  // namespace views

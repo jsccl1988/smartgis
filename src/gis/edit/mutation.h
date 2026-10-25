@@ -18,6 +18,7 @@ enum class CommitStatus {
   kOk = 0,
   kRejected = 1,
   kConflict = 2,
+  kTopology = 3,
 };
 
 // Filled when CommitStatus::kConflict — client held a stale version token.

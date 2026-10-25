@@ -68,7 +68,10 @@ class UI_EXPORT Widget {
   Widget& operator=(const Widget&) = delete;
 
   bool init(const InitParams& params);
+  // Same-module only — SmartGIS.exe must use adopt_contents_view.
   void set_contents_view(std::unique_ptr<View> contents);
+  // Cross-DLL: take ownership of |contents| inside ui_views.dll.
+  void adopt_contents_view(View* contents);
   View* contents_view() const { return contents_.get(); }
   FrameKind frame_kind() const { return frame_kind_; }
   HWND hwnd() const { return hwnd_; }
@@ -105,6 +108,8 @@ class UI_EXPORT Widget {
   // drop FlyCube / map HWND userdata while the process heap is still intact.
   using WillClose = std::function<void()>;
   void set_will_close(WillClose fn);
+  using WillCloseFn = void (*)(void* baton);
+  void set_will_close_fn(WillCloseFn fn, void* baton);
 
   // UI thread: after a shell generation is published and BitBlt'd (may be a
   // wake paint after async raster). |dirty| is the client rect rastered for
@@ -114,6 +119,8 @@ class UI_EXPORT Widget {
   // Cleared automatically in fire_will_close before host teardown.
   using OnShellPublished = std::function<void(const Rect& dirty)>;
   void set_on_shell_published(OnShellPublished fn);
+  using OnShellPublishedFn = void (*)(void* baton, const Rect& dirty);
+  void set_on_shell_published_fn(OnShellPublishedFn fn, void* baton);
 
   void layout_contents();
   // Pump the UI queue until a *new* compositor generation is published
@@ -125,6 +132,10 @@ class UI_EXPORT Widget {
   // hover / local control updates so mouse-move does not dirty the whole HWND.
   void schedule_paint();
   void schedule_paint_rect(const Rect& dirty);
+
+  // U6: batch tree mutations — defer InvalidateRect until end_paint_update().
+  void begin_paint_update();
+  void end_paint_update();
 
   View* focused_view() const { return focused_; }
   View* hovered_view() const { return hovered_; }
@@ -139,6 +150,7 @@ class UI_EXPORT Widget {
  private:
   friend class WidgetThemeWatch;
   void on_theme_changed();
+  void invalidate_all_view_commands();
   static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,
                                    LPARAM lparam);
   static Widget* from_hwnd(HWND hwnd);
@@ -181,7 +193,11 @@ class UI_EXPORT Widget {
   bool dismiss_on_deactivate_ = false;
   // Heap-allocated so Widget stays small on the stack (RTC / teardown safety).
   std::unique_ptr<WillClose> will_close_;
+  WillCloseFn will_close_fn_ = nullptr;
+  void* will_close_baton_ = nullptr;
   std::unique_ptr<OnShellPublished> on_shell_published_;
+  OnShellPublishedFn on_shell_published_fn_ = nullptr;
+  void* on_shell_published_baton_ = nullptr;
   float device_scale_factor_ = 1.f;
   unsigned dpi_ = kDefaultDpi;
   // Accumulated until the next Commit (prefer schedule_paint_rect).
@@ -199,6 +215,9 @@ class UI_EXPORT Widget {
   // Heap-owned so Widget stays layout-stable across the DLL boundary
   // (no ThemeObserver base; hwnd()/scale stay at fixed offsets for inlines).
   std::unique_ptr<ThemeObserver> theme_watch_;
+  int paint_update_depth_ = 0;
+  Rect paint_update_deferred_dirty_{};
+  bool paint_update_deferred_full_ = false;
 };
 
 }  // namespace views

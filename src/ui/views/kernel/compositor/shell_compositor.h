@@ -30,6 +30,8 @@ inline constexpr UINT kShellPublishedMessage = WM_APP + 0x5343;  // 'SC'
 
 // Process-local shell compositor: UI thread Commits into pending; one worker
 // Activates, rasters DisplayList into a back DIB, and publishes a generation.
+// U7 (optional): animated chrome may later use a narrow off-screen sub-surface
+// API here — map viewport stays native_view; no cc/viz property trees.
 // WM_PAINT only BitBlts the published front buffer (never waits on the worker).
 // After publish the worker may PostMessage kShellPublishedMessage to a
 // registered HWND (wake only — no BeginPaint / DestroyWindow).
@@ -148,6 +150,13 @@ class UI_EXPORT ShellCompositor {
   HFONT font_ = nullptr;
   int font_px_ = 0;
 };
+
+// Debug STL: ShellCompositor / PaintCommit live on ui_views.dll heap when the
+// caller is SmartGIS.exe, views_bench.exe, or other non-views PEs.
+UI_EXPORT ShellCompositor* shell_compositor_create();
+UI_EXPORT void shell_compositor_destroy(ShellCompositor* compositor);
+UI_EXPORT void shell_compositor_commit_frame(ShellCompositor* compositor,
+                                             PaintCommit* frame);
 
 }  // namespace views
 }  // namespace ui

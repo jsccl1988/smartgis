@@ -89,6 +89,9 @@ has_cuda = cuda_home != ""
 # When is_component_build (default): shared_library + _USRDLL (DLL).
 # When false: static_library into the exe; COMPONENT_BUILD unset → export
 # macros no-op. See docs/superpowers §DLL / STL trust model.
+#
+# Component DLLs also compile module_build_id.cc so every product stem
+# exports smartgis_module_build_id (startup + artifact build-id gate).
 template("product_shared_library") {
   if (is_component_build) {
     shared_library(target_name) {
@@ -101,6 +104,18 @@ template("product_shared_library") {
         defines = []
       }
       defines += [ "_USRDLL" ]
+      if (!defined(sources)) {
+        sources = []
+      }
+      sources += [ "//src/base/core/module_build_id.cc" ]
+      if (!defined(deps)) {
+        deps = []
+      }
+      deps += [ "//build:gen_build_id" ]
+      if (!defined(include_dirs)) {
+        include_dirs = []
+      }
+      include_dirs += [ "$root_gen_dir" ]
       if (defined(invoker.dll_stem)) {
         if (is_debug) {
           output_name = invoker.dll_stem + "_d"

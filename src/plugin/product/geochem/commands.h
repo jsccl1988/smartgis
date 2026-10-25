@@ -6,10 +6,10 @@
 
 #include <string>
 
-#include "gis/analysis/geochem/grade.h"
-#include "gis/analysis/geochem/idw.h"
-#include "gis/analysis/geochem/samples.h"
-#include "gis/analysis/geochem/stats.h"
+#include "gis/analysis/geochem/grade/grade.h"
+#include "gis/analysis/geochem/idw/idw.h"
+#include "gis/analysis/geochem/model/sample.h"
+#include "gis/analysis/geochem/stats/stats.h"
 
 namespace content {
 class PluginHost;

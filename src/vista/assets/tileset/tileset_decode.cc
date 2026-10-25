@@ -248,6 +248,7 @@ bool decode_gltf_bytes(const char* uri, const void* data, size_t size,
   }
   const auto* bytes = static_cast<const unsigned char*>(data);
   const std::string name = ascii_lower(uri);
+  // Explicit unsupported 3D Tiles wrappers — caller must put_failed (see tileset/README.md).
   if (ends_with(name, ".i3dm") || ends_with(name, ".pnts") ||
       ends_with(name, ".cmpt")) {
     return false;

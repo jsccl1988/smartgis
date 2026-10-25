@@ -31,14 +31,14 @@ All rights reserved.
 
 ## P1 — product depth
 
-- [ ] **P1-A 点云生产路径：** shell/plugin open LAS/LAZ ≥1M with chunk cull + LOD thin stable; document PDAL optional (`has_pdal`) vs in-tree LAS. Plan: [`2026-09-30-world3d-pointcloud-las.md`](2026-09-30-world3d-pointcloud-las.md). Spec: plugin-host §world3d.  
-  **Accept:** `pointcloud_test` + plugin showcase / interact loads sample; >500k auto-thin; GpuScene draws non-empty `kPointCloud`.
+- [x] **P1-A 点云生产路径：** shell/plugin open LAS/LAZ ≥1M with chunk cull + LOD thin stable; document PDAL optional (`has_pdal`) vs in-tree LAS. Plan: [`2026-09-30-world3d-pointcloud-las.md`](2026-09-30-world3d-pointcloud-las.md). Spec: plugin-host §world3d.  
+  **Accept:** `pointcloud_test` + plugin showcase / interact loads sample; >500k auto-thin; GpuScene draws non-empty `kPointCloud`. **Status (2026-10-25):** synthetic 1.1M in `pointcloud_test`; README in-tree vs PDAL; chunk AABB cull via `WorldPass` per-chunk mesh.
 - [ ] **P1-B 大气总验收：** close atmosphere upgrade Phase 3.4 against §1.2 five criteria (field scrub, ocean mid-tier, timeline, wind overlay, RHI boundary). Plan: [`2026-09-20-atmosphere-ocean-cloud-upgrade.md`](2026-09-20-atmosphere-ocean-cloud-upgrade.md). Spec: render-rhi-scene Atmosphere.  
-  **Accept:** `--atmosphere-showcase` (or self-test) documents pass/fail per criterion; `m3-atmosphere-ok` remains green.
+  **Accept:** `--atmosphere-showcase` (or self-test) documents pass/fail per criterion; `m3-atmosphere-ok` remains green. **Status (2026-10-25):** §1.2 分项证据已写入 atmosphere plan Phase 3.4；**未勾完** — 判据 2 GPU 可读海面仍依赖可选 `RUN_FLYCUBE_GPU=1` / showcase BMP。
 - [x] **P1-D Views Scene3D legacy look（2026-09-30）：** opt-in `Scene3dLookPreset::kLegacyStereo` — default face stays atmosphere; `--atmosphere-showcase=legacy` applies black clear + ocean sea + hypsometric China DEM + place-name overlays; content marks `look-legacy` / `labels-ok` / `coast-doc-*`; visual gate suite `atmosphere.legacy` reuses `legacy_scene3d_china` score. Spec: render-rhi-scene §Scene3d legacy look.  
   **Accept:** `views_launch_options_test` parses `legacy`; GPU showcase writes `atmosphere-showcase-legacy.bmp` with landish/black-clear gate; marks include `look-legacy` + `labels-ok`.
-- [ ] **P1-C Tiles 内容面：** i3dm / pnts (or honest skip) + clearer geometricError/SSE product defaults beyond `select_tiles_limited` truncate. Spec: render-rhi-scene §model.  
-  **Accept:** decode matrix table in module README; unsupported formats `put_failed` without retry storm.
+- [x] **P1-C Tiles 内容面：** i3dm / pnts (or honest skip) + clearer geometricError/SSE product defaults beyond `select_tiles_limited` truncate. Spec: render-rhi-scene §model.  
+  **Accept:** decode matrix table in module README; unsupported formats `put_failed` without retry storm. **Status (2026-10-25):** [`src/vista/assets/tileset/README.md`](../../../src/vista/assets/tileset/README.md) + `tileset_test` i3dm/pnts decode fail; product SSE/tile/ensure 默认 documented（`TilesetStreamSession`）。
 
 ## P2 — later
 

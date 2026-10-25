@@ -4,74 +4,22 @@
 #include "gis/analysis/ops/runner/ops_runner.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
-#include "gis/analysis/geochem/idw.h"
-#include "gis/analysis/geochem/stats.h"
-#include "gis/analysis/geology/prism_volume.h"
-#include "gis/analysis/geology/stratum_tin.h"
-#include "gis/analysis/geometry/fit.h"
-#include "gis/analysis/network/cost_path.h"
 #include "gis/analysis/ops/geojson/geojson_codec.h"
 #include "gis/analysis/ops/ir/geometry_ir.h"
+#include "gis/analysis/ops/runner/op_table.h"
 #include "gis/analysis/ops/runner/ops_args.h"
-#include "gis/analysis/raster/dem/dem_gradient.h"
-#include "gis/analysis/raster/dem/flood_fill.h"
-#include "gis/analysis/raster/dem/storm_surge.h"
-#include "gis/analysis/raster/dem/storm_surge_stats.h"
-#include "gis/analysis/raster/filter/raster_convolve.h"
-#include "gis/analysis/raster/filter/raster_smooth.h"
 
 #include "ogr_geometry.h"
 
 namespace gis {
 namespace detail {
+namespace {
 
-bool run_builtin_op(std::string_view processing_id, std::string_view args_json) {
-  if (processing_id == "native.cost_path") {
-    return run_cost_path_op(args_json);
-  }
-  if (processing_id == "native.flood_fill") {
-    return run_flood_fill_op(args_json);
-  }
-  if (processing_id == "native.storm_surge") {
-    return run_storm_surge_op(args_json);
-  }
-  if (processing_id == "native.storm_surge_stats") {
-    return run_storm_surge_stats_op(args_json);
-  }
-  if (processing_id == "native.fit_line") {
-    return run_fit_line_op(args_json);
-  }
-  if (processing_id == "native.fit_plane") {
-    return run_fit_plane_op(args_json);
-  }
-  if (processing_id == "native.affine_align") {
-    return run_affine_align_op(args_json);
-  }
-  if (processing_id == "native.dem_gradient") {
-    return run_dem_gradient_op(args_json);
-  }
-  if (processing_id == "native.raster_convolve") {
-    return run_raster_convolve_op(args_json);
-  }
-  if (processing_id == "native.raster_smooth") {
-    return run_raster_smooth_op(args_json);
-  }
-  if (processing_id == "native.stratum_interpolate") {
-    return run_stratum_interpolate_op(args_json);
-  }
-  if (processing_id == "native.stratum_prism_volume") {
-    return run_stratum_prism_volume_op(args_json);
-  }
-  if (processing_id == "native.geochem_stats") {
-    return run_geochem_stats_op(args_json);
-  }
-  if (processing_id == "native.geochem_idw") {
-    return run_geochem_idw_op(args_json);
-  }
-
+bool run_geometry_file_op(std::string_view processing_id, std::string_view args_json) {
   rapidjson::Document args;
   if (!decode_op_args(args_json, &args)) {
     return false;
@@ -86,6 +34,27 @@ bool run_builtin_op(std::string_view processing_id, std::string_view args_json) 
   if (!(distance > 0.0) &&
       (processing_id == "native.buffer" || processing_id == "native.simplify")) {
     distance = 0.01;
+  }
+
+  double dx = 0.0;
+  double dy = 0.0;
+  double angle = 0.0;
+  double scale_x = 1.0;
+  double scale_y = 1.0;
+  double origin_x = 0.0;
+  double origin_y = 0.0;
+  (void)op_arg_double(args, "dx", &dx);
+  (void)op_arg_double(args, "dy", &dy);
+  (void)op_arg_double(args, "angle", &angle);
+  (void)op_arg_double(args, "scale_x", &scale_x);
+  (void)op_arg_double(args, "scale_y", &scale_y);
+  (void)op_arg_double(args, "origin_x", &origin_x);
+  (void)op_arg_double(args, "origin_y", &origin_y);
+  if (scale_x == 0.0) {
+    scale_x = 1.0;
+  }
+  if (scale_y == 0.0) {
+    scale_y = 1.0;
   }
 
   auto geom = geometry_from_geojson(input);
@@ -108,11 +77,54 @@ bool run_builtin_op(std::string_view processing_id, std::string_view args_json) 
     return false;
   }
 
-  auto result = apply_op(processing_id, geom.get(), clip.get(), distance);
-  if (!result || result->IsEmpty()) {
+  IrEnv env;
+  env.input = geom.get();
+  env.other = clip.get();
+  env.number = distance;
+  env.param_y = dy;
+  env.origin_x = origin_x;
+  env.origin_y = origin_y;
+  if (processing_id == "native.translate") {
+    env.number = dx;
+    env.param_y = dy;
+  } else if (processing_id == "native.rotate") {
+    env.number = angle;
+  } else if (processing_id == "native.scale") {
+    env.number = scale_x;
+    env.param_y = scale_y;
+  }
+
+  std::optional<IrValue> hit = eval_geometry_ir(processing_id, env);
+  if (!hit) {
+    auto result = apply_op(processing_id, geom.get(), clip.get(), distance);
+    if (!result || result->IsEmpty()) {
+      return false;
+    }
+    return geometry_to_geojson(output, result.get());
+  }
+  if (hit->kind == IrKind::kGeometry && hit->geometry) {
+    if (hit->geometry->IsEmpty()) {
+      return false;
+    }
+    return geometry_to_geojson(output, hit->geometry.get());
+  }
+  if (hit->kind == IrKind::kFlag) {
+    return hit->flag;
+  }
+  return false;
+}
+
+}  // namespace
+
+bool run_builtin_op(std::string_view processing_id, std::string_view args_json) {
+  const BuiltinOpEntry* entry = find_builtin_op(processing_id);
+  if (!entry) {
     return false;
   }
-  return geometry_to_geojson(output, result.get());
+  if (entry->run) {
+    return entry->run(args_json);
+  }
+  return run_geometry_file_op(processing_id, args_json);
 }
 
 std::unique_ptr<OGRGeometry> apply_op(std::string_view id,

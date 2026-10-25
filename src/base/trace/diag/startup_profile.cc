@@ -218,7 +218,8 @@ std::string make_partial_path(const char* tag) {
   return base + ".partial-" + clean + ".txt";
 }
 
-void dump_startup_profile_impl(const char* path, bool claim_final) {
+void dump_startup_profile_impl(const char* path, bool claim_final,
+                               bool is_partial) {
   const char* out_path = path;
   if (!out_path || !out_path[0]) {
     out_path = default_dump_path();
@@ -232,12 +233,31 @@ void dump_startup_profile_impl(const char* path, bool claim_final) {
     return;
   }
 
+  // Partial mid-startup dumps used to LOGGING every span + full chrome JSON;
+  // that alone cost multi-second wall on Debug cold start and polluted the
+  // 启动→首地图 gate. Keep a compact stderr line + text table file only.
+  if (is_partial) {
+    double wall = 0;
+    if (!spans.empty()) {
+      wall = spans.back().offset_ms + spans.back().dur_ms;
+    }
+    std::fprintf(stderr,
+                 "[startup-profile] partial phases=%zu wall_ms≈%.1f path=%s\n",
+                 spans.size(), wall, out_path ? out_path : "(stderr)");
+    std::fflush(stderr);
+    write_text_file(out_path, spans);
+    return;
+  }
+
   write_table(stderr, spans);
   std::fflush(stderr);
-  for (const auto& s : spans) {
-    LOGGING(LOG_INFO, "startup-profile: +%.1fms dur=%.1fms %s", s.offset_ms,
-            s.dur_ms, s.name.c_str());
-  }
+  // One summary LOGGING line — per-span LOGGING was O(n) disk I/O on the
+  // critical path after Browser.show.
+  LOGGING(LOG_INFO, "startup-profile: phases=%zu wall_ms≈%.1f dumped=%s",
+          spans.size(),
+          spans.empty() ? 0.0
+                        : (spans.back().offset_ms + spans.back().dur_ms),
+          out_path ? out_path : "(stderr)");
 
   write_text_file(out_path, spans);
   write_chrome_json(out_path);
@@ -274,7 +294,7 @@ bool startup_profile_wanted() {
 }
 
 void dump_startup_profile(const char* path) {
-  dump_startup_profile_impl(path, /*claim_final=*/false);
+  dump_startup_profile_impl(path, /*claim_final=*/false, /*is_partial=*/false);
 }
 
 void dump_startup_profile_partial(const char* tag) {
@@ -283,11 +303,13 @@ void dump_startup_profile_partial(const char* tag) {
   }
   const std::string path = make_partial_path(tag);
   if (path.empty()) {
-    // No file target — still print stderr table for hang diagnosis.
-    dump_startup_profile_impl(nullptr, /*claim_final=*/false);
+    // No file target — still print compact stderr for hang diagnosis.
+    dump_startup_profile_impl(nullptr, /*claim_final=*/false,
+                              /*is_partial=*/true);
     return;
   }
-  dump_startup_profile_impl(path.c_str(), /*claim_final=*/false);
+  dump_startup_profile_impl(path.c_str(), /*claim_final=*/false,
+                            /*is_partial=*/true);
 }
 
 void maybe_dump_startup_profile() {
@@ -301,7 +323,7 @@ void maybe_dump_startup_profile() {
   }
   const char* path = base::switch_cstr("startup-profile-dump");
   dump_startup_profile_impl(path && path[0] ? path : nullptr,
-                            /*claim_final=*/true);
+                            /*claim_final=*/true, /*is_partial=*/false);
 }
 
 }  // namespace trace

@@ -128,6 +128,18 @@ class VISTA_EXPORT MapPass {
   };
   void set_upload_policy(UploadPolicy policy) { upload_policy_ = policy; }
 
+  // T1.1 local damage: narrow MapPass encode to this viewport rect (pixels).
+  void set_encode_scissor(int32_t x, int32_t y, uint32_t w, uint32_t h);
+  void clear_encode_scissor();
+
+  // Zero-copy raster view for GPU upload. Valid through the upload call.
+  void set_borrow_raster(
+      std::function<bool(uint32_t texture_key, const uint8_t** rgba, int* w,
+                         int* h)>
+          borrow) {
+    borrow_raster_ = std::move(borrow);
+  }
+
  private:
   // Drop GPU ids without destroy_*. Callers may tear down Device first.
   void abandon();
@@ -145,6 +157,12 @@ class VISTA_EXPORT MapPass {
   // forward-declares MapPass (unique_ptr delete needs a complete type).
   std::unique_ptr<detail::DrawCache> draw_cache_;
   UploadPolicy upload_policy_ = UploadPolicy::kReuseIfCached;
+  std::function<bool(uint32_t, const uint8_t**, int*, int*)> borrow_raster_;
+  bool encode_scissor_set_ = false;
+  int32_t encode_scissor_x_ = 0;
+  int32_t encode_scissor_y_ = 0;
+  uint32_t encode_scissor_w_ = 0;
+  uint32_t encode_scissor_h_ = 0;
 };
 
 }  // namespace vista

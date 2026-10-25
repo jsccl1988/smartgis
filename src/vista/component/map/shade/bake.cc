@@ -29,7 +29,7 @@ namespace {
 
 int hillshade_max_edge_for_zoom(double zoom) {
   // Overview / china framing: downsample DEM before shade.
-  // china_dem defaults are 1536Ã—960; keep the national frame near that grid.
+  // china_dem defaults are 1536¡Á960; keep the national frame near that grid.
   // Slightly denser LOD + present bilinear cuts jet/isoline staircases.
   if (zoom < 4.5) {
     return 768;
@@ -156,8 +156,8 @@ struct DiskHeader {
 std::string disk_cache_path(const std::string& dem_path,
                             const vista::HillshadeParams& params) {
   char suffix[96];
-  // v2: map2d jet bake drops isoline stamps (see compose_elevation_sheet).
-  std::snprintf(suffix, sizeof(suffix), ".hs2_%d_%.0f_r%d.bin", params.max_edge,
+  // v5: deeper shadow gray band for map2d_china_dem hillshade_gray_frac.
+  std::snprintf(suffix, sizeof(suffix), ".hs5_%d_%.0f_r%d.bin", params.max_edge,
                 params.illumination_direction_deg, params.color_ramp);
   return dem_path + suffix;
 }

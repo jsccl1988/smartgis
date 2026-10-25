@@ -4,8 +4,8 @@
 #include "plugin/product/map2d/pyramid/pyramid.h"
 
 #include "base/core/log.h"
-#include "content/browser/glang.runtime/host/tile/web_mercator.h"
-#include "content/browser/glang.runtime/host/tile/xyz_source.h"
+#include "gis/tile/protocol/lonlat_xyz.h"
+#include "gis/tile/provider/xyz_source.h"
 #include "content/public/gis_contents.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
@@ -30,7 +30,7 @@ namespace {
 struct Session {
   std::mutex mu;
   content::PluginHost* host = nullptr;
-  content::tile::XyzSource source;
+  gis::tile::XyzSource source;
   MapViewBox extent;
   bool has_extent = false;
   int stamp = 0;
@@ -213,16 +213,16 @@ void paint_cells(ui::gfx::Canvas* canvas, const MapViewBox& view) {
   if (!canvas) {
     return;
   }
-  content::tile::LonLatBox box;
+  gis::tile::LonLatBox box;
   box.west = view.west;
   box.south = view.south;
   box.east = view.east;
   box.north = view.north;
-  const std::vector<content::tile::TileIndex> tiles =
-      content::tile::tiles_for_extent(box, -1, view.width_px, 32);
-  for (const content::tile::TileIndex& tile : tiles) {
-    const content::tile::LonLatBox geo =
-        content::tile::tile_lonlat_bbox(tile.z, tile.x, tile.y);
+  const std::vector<gis::tile::TileIndex> tiles =
+      gis::tile::tiles_for_extent(box, -1, view.width_px, 32);
+  for (const gis::tile::TileIndex& tile : tiles) {
+    const gis::tile::LonLatBox geo =
+        gis::tile::tile_lonlat_bbox(tile.z, tile.x, tile.y);
     const PixelPoint nw = project(view, geo.west, geo.north);
     const PixelPoint se = project(view, geo.east, geo.south);
     const int x = std::min(nw.x, se.x);
@@ -260,9 +260,9 @@ void paint_into(HDC hdc, int width_px, int height_px, bool color_key) {
   view.height_px = height_px;
   if (!live_extent(&view)) {
     view.west = -180;
-    view.south = -content::tile::k_max_mercator_lat;
+    view.south = -gis::tile::k_max_mercator_lat;
     view.east = 180;
-    view.north = content::tile::k_max_mercator_lat;
+    view.north = gis::tile::k_max_mercator_lat;
   }
   bool pyramid_open = false;
   FurnitureOptions furniture;
@@ -389,13 +389,13 @@ void sync_overlay(HWND map, int width_px, int height_px) {
 }
 
 void prefetch(const MapViewBox& view) {
-  content::tile::LonLatBox box;
+  gis::tile::LonLatBox box;
   box.west = view.west;
   box.south = view.south;
   box.east = view.east;
   box.north = view.north;
-  const std::vector<content::tile::TileIndex> tiles =
-      content::tile::tiles_for_extent(box, -1, view.width_px > 0 ? view.width_px : 1024,
+  const std::vector<gis::tile::TileIndex> tiles =
+      gis::tile::tiles_for_extent(box, -1, view.width_px > 0 ? view.width_px : 1024,
                                      8);
   std::string tmpl;
   {
@@ -404,11 +404,11 @@ void prefetch(const MapViewBox& view) {
   }
   const bool file_tmpl = tmpl.find("file:") == 0 || tmpl.find(":\\") != std::string::npos ||
                          (tmpl.size() > 2 && tmpl[1] == ':');
-  if (!file_tmpl && !content::tile::network_available()) {
+  if (!file_tmpl && !gis::tile::network_available()) {
     LOGGING(LOG_INFO, "map2d pyramid prefetch skipped: offline");
     return;
   }
-  for (const content::tile::TileIndex& tile : tiles) {
+  for (const gis::tile::TileIndex& tile : tiles) {
     std::string body;
     std::string error;
     if (!session().source.get(tile.z, tile.x, tile.y, &body, &error)) {

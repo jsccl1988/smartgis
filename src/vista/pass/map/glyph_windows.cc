@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <unordered_map>
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -56,7 +57,24 @@ int encode_utf16(uint32_t codepoint, wchar_t out[3]) {
 }
 
 // GB/T 20257: 居民地/道路用等线，水系用左斜宋。YaHei is only a fallback.
-std::unique_ptr<Gdiplus::Font> make_font(float text_size_px, uint8_t face) {
+// Thread-local Font reuse: china pack_atlas used to construct a new Font
+// (trying 4–5 faces) per unique glyph — a large MapPass.record cost.
+const Gdiplus::Font* make_font(float text_size_px, uint8_t face) {
+  if (!(text_size_px > 0.f)) {
+    return nullptr;
+  }
+  const uint32_t size_q =
+      static_cast<uint32_t>(std::lround(text_size_px * 64.f));
+  if (size_q == 0) {
+    return nullptr;
+  }
+  const uint64_t key = (static_cast<uint64_t>(size_q) << 8) | face;
+  thread_local std::unordered_map<uint64_t, std::unique_ptr<Gdiplus::Font>>
+      cache;
+  const auto found = cache.find(key);
+  if (found != cache.end()) {
+    return found->second.get();
+  }
   struct Candidate {
     const wchar_t* name;
     Gdiplus::FontStyle style;
@@ -98,11 +116,14 @@ std::unique_ptr<Gdiplus::Font> make_font(float text_size_px, uint8_t face) {
     list = song_oblique;
     count = 4;
   }
+  const float size_px = static_cast<float>(size_q) / 64.f;
   for (int i = 0; i < count; ++i) {
     auto font = std::make_unique<Gdiplus::Font>(
-        list[i].name, text_size_px, list[i].style, Gdiplus::UnitPixel);
+        list[i].name, size_px, list[i].style, Gdiplus::UnitPixel);
     if (font->GetLastStatus() == Gdiplus::Ok && font->IsAvailable()) {
-      return font;
+      const Gdiplus::Font* raw = font.get();
+      cache.emplace(key, std::move(font));
+      return raw;
     }
   }
   return nullptr;
@@ -158,7 +179,7 @@ float WindowsGlyphRasterizer::advance_px(uint32_t codepoint, float text_size_px,
   if (n <= 0) {
     return 0.f;
   }
-  std::unique_ptr<Gdiplus::Font> font = make_font(text_size_px, font_face);
+  const Gdiplus::Font* font = make_font(text_size_px, font_face);
   if (!font) {
     return 0.f;
   }
@@ -189,7 +210,7 @@ bool WindowsGlyphRasterizer::rasterize(uint32_t codepoint, float text_size_px,
   if (n <= 0) {
     return false;
   }
-  std::unique_ptr<Gdiplus::Font> font = make_font(text_size_px, font_face);
+  const Gdiplus::Font* font = make_font(text_size_px, font_face);
   if (!font) {
     return false;
   }
@@ -220,8 +241,11 @@ bool WindowsGlyphRasterizer::rasterize(uint32_t codepoint, float text_size_px,
   graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAlias);
   graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
   Gdiplus::SolidBrush brush(Gdiplus::Color(255, 255, 255, 255));
-  if (graphics.DrawString(chars, n, font.get(),
-                          Gdiplus::PointF(-left, -top), &brush) !=
+  // Prefer the StringFormat overload — some GDI+ SDK layouts reject the
+  // 5-arg PointF form under /std:c++23preview.
+  Gdiplus::StringFormat format;
+  const Gdiplus::PointF origin(-left, -top);
+  if (graphics.DrawString(chars, n, font, origin, &format, &brush) !=
       Gdiplus::Ok) {
     return false;
   }
