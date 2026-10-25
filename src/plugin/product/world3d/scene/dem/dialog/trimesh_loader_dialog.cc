@@ -174,7 +174,7 @@ void TrimeshLoaderDialog::update_preview() {
   }
   preview_->clear_rows();
 
-  std::ifstream fin(vertex_path_->text());
+  std::ifstream fin(textfield_utf8(vertex_path_));
   if (!fin.is_open()) {
     return;
   }
@@ -239,17 +239,16 @@ std::string TrimeshLoaderDialog::build_json() const {
   rapidjson::StringBuffer buf;
   rapidjson::Writer<rapidjson::StringBuffer> w(buf);
   w.StartObject();
-  const std::string vertex =
-      vertex_path_ ? vertex_path_->text() : std::string();
+  const std::string vertex = textfield_utf8(vertex_path_);
   w.Key("vertex_path");
   w.String(vertex.c_str(), static_cast<rapidjson::SizeType>(vertex.size()));
   const std::string sep = separator_name();
   w.Key("separator");
   w.String(sep.c_str(), static_cast<rapidjson::SizeType>(sep.size()));
   w.Key("head_skip");
-  w.Int(parse_int(head_skip_ ? head_skip_->text() : "", 1));
+  w.Int(parse_int(textfield_utf8(head_skip_), 1));
   w.Key("line_skip");
-  w.Int(parse_int(line_skip_ ? line_skip_->text() : "", 4));
+  w.Int(parse_int(textfield_utf8(line_skip_), 4));
   w.Key("col_x");
   w.Int(ix);
   w.Key("col_y");
@@ -257,15 +256,14 @@ std::string TrimeshLoaderDialog::build_json() const {
   w.Key("col_z");
   w.Int(iz);
   w.Key("x_scale");
-  w.Double(parse_float(x_scale_ ? x_scale_->text() : "", 0.05f));
+  w.Double(parse_float(textfield_utf8(x_scale_), 0.05f));
   w.Key("y_scale");
-  w.Double(parse_float(y_scale_ ? y_scale_->text() : "", 0.05f));
+  w.Double(parse_float(textfield_utf8(y_scale_), 0.05f));
   w.Key("z_scale");
-  w.Double(parse_float(z_scale_ ? z_scale_->text() : "", 0.05f));
+  w.Double(parse_float(textfield_utf8(z_scale_), 0.05f));
   w.Key("use_texture");
   w.Bool(use_texture_ && use_texture_->is_checked());
-  const std::string texture =
-      texture_path_ ? texture_path_->text() : std::string();
+  const std::string texture = textfield_utf8(texture_path_);
   w.Key("texture_path");
   w.String(texture.c_str(), static_cast<rapidjson::SizeType>(texture.size()));
   w.Key("gen_2d_trimesh");

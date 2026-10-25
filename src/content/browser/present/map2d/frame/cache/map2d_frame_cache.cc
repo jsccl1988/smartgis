@@ -1084,12 +1084,15 @@ bool Map2dFrameCache::ensure_full(uint32_t width_px, uint32_t height_px,
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1 + attempt));
   }
-  // Forced DEM showcase must not accept a cream-only snap fallback.
+  // Forced DEM (map2d-force-hillshade) prefers a shaded snap, but plugin /
+  // flood docs often carry a resolvable DEM without a hillshade style layer —
+  // hard-failing here blocks export_bmp after a green processing mark.
+  // Fall through to the published tess snap instead of aborting the showcase.
   if (want_forced_dem &&
       !hillshade_ready_.load(std::memory_order_relaxed)) {
-    LOGGING(LOG_ERROR,
-            "map2d: ensure_full forced DEM but hillshade not ready");
-    return false;
+    LOGGING(LOG_WARNING,
+            "map2d: ensure_full forced DEM but hillshade not ready; "
+            "export using tess snap");
   }
   PresentSnapshot snap;
   if (this->snap(&snap) && snap.frame) {

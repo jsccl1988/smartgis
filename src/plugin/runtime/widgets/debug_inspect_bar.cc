@@ -8,6 +8,7 @@
 
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
+#include "plugin/runtime/widgets/owned_dialog.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/primitives/button/button.h"
@@ -30,7 +31,7 @@ void show_inspect(content::PluginHost* host, const char* panel) {
 
 ui::views::Button* make_tool_button(const char* title,
                                     std::function<void()> on_click) {
-  auto* btn = new ui::views::Button(title);
+  auto* btn = make_plugin_view<ui::views::Button>(title);
   btn->set_click(std::move(on_click));
   return btn;
 }
@@ -45,7 +46,8 @@ DebugInspectBar::DebugInspectBar(content::PluginHost* host) {
     box->set_between_child_spacing(8);
   }
 
-  ui::views::view_adopt_child(this, new ui::views::Label("Tools:"));
+  ui::views::view_adopt_child(this,
+                              make_plugin_view<ui::views::Label>("Tools:"));
   ui::views::view_adopt_child(
       this, make_tool_button("Debug", [host]() { show_debug(host, 1); }));
   ui::views::view_adopt_child(

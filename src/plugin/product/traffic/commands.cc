@@ -213,7 +213,7 @@ bool register_traffic(content::PluginHost* host) {
             present_dialog(
                 L"最佳路径分析",
                 wrap_with_present_surface(
-                    host, std::make_unique<ShortestPathDialog>(host)));
+                    host, make_plugin_view_unique<ShortestPathDialog>(host)));
           })) {
     return false;
   }
@@ -222,7 +222,7 @@ bool register_traffic(content::PluginHost* host) {
           [](content::PluginHost*) {
             present_dialog(
                 L"关于",
-                std::make_unique<AboutDialog>(
+                make_plugin_view_unique<AboutDialog>(
                     "Traffic\nUrban least-cost path (native.cost_path)"));
           })) {
     return false;

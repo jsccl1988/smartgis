@@ -287,7 +287,7 @@ bool register_mine(content::PluginHost* host) {
             present_dialog(
                 L"地层TIN插值",
                 wrap_with_present_surface(
-                    host, std::make_unique<InterpolateDialog>(host)));
+                    host, make_plugin_view_unique<InterpolateDialog>(host)));
           })) {
     return false;
   }
@@ -296,7 +296,7 @@ bool register_mine(content::PluginHost* host) {
           [](content::PluginHost*) {
             present_dialog(
                 L"关于",
-                std::make_unique<AboutDialog>(
+                make_plugin_view_unique<AboutDialog>(
                     "Mine\nBorehole CSV → stratum TIN + prism volume"));
           })) {
     return false;

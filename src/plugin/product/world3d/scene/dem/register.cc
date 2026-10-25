@@ -256,7 +256,7 @@ bool register_world3d_dem(content::PluginHost* host) {
             present_dialog(
                 L"离散点生成DEM",
                 wrap_with_present_surface(
-                    host, std::make_unique<TrimeshLoaderDialog>(host)));
+                    host, make_plugin_view_unique<TrimeshLoaderDialog>(host)));
           })) {
     return false;
   }
@@ -266,7 +266,8 @@ bool register_world3d_dem(content::PluginHost* host) {
             present_dialog(
                 L"高度图生成DEM",
                 wrap_with_present_surface(
-                    host, std::make_unique<HeightmapLoaderDialog>(host)));
+                    host,
+                    make_plugin_view_unique<HeightmapLoaderDialog>(host)));
           })) {
     return false;
   }
@@ -274,8 +275,9 @@ bool register_world3d_dem(content::PluginHost* host) {
           kWorld3dPluginId, {"world3d.about", "关于"},
           [](content::PluginHost*) {
             present_dialog(
-                L"关于", std::make_unique<AboutDialog>(
-                             "DEM Creater\nSmartGIS builtin plugin"));
+                L"关于",
+                make_plugin_view_unique<AboutDialog>(
+                    "DEM Creater\nSmartGIS builtin plugin"));
           })) {
     return false;
   }

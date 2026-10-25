@@ -5,16 +5,18 @@
 
 #include <memory>
 
+#include "plugin/runtime/widgets/owned_dialog.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/text/label.h"
 
 namespace plugin {
 
 AboutDialog::AboutDialog(std::string text) {
-  auto label = std::make_unique<ui::views::Label>(std::move(text));
-  auto ok = std::make_unique<ui::views::Button>("OK");
-  add_child(std::move(label));
-  add_child(std::move(ok));
+  // Label/Button allocated in plugin_host; AboutDialog itself may be new'd by
+  // a product plugin — children need matching external destroyers.
+  ui::views::view_adopt_child(
+      this, make_plugin_view<ui::views::Label>(std::move(text)));
+  ui::views::view_adopt_child(this, make_plugin_view<ui::views::Button>("OK"));
   set_preferred_size({320, 160});
 }
 

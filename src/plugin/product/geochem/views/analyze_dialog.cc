@@ -105,32 +105,34 @@ std::string AnalyzeDialog::build_analyze_json() const {
   rapidjson::StringBuffer buf;
   rapidjson::Writer<rapidjson::StringBuffer> w(buf);
   w.StartObject();
-  const std::string vector =
-      vector_path_ ? vector_path_->text() : std::string();
+  const std::string vector = textfield_utf8(vector_path_);
+  const std::string input = textfield_utf8(input_path_);
+  const std::string element = textfield_utf8(element_);
+  const std::string correlate = textfield_utf8(correlate_);
+  const std::string output = textfield_utf8(output_path_);
+  const std::string threshold = textfield_utf8(threshold_);
   if (!vector.empty()) {
     w.Key("vector");
     w.String(vector.c_str());
   } else {
     w.Key("input");
-    w.String(input_path_ ? input_path_->text().c_str() : "");
+    w.String(input.c_str());
   }
   w.Key("element");
-  w.String(element_ ? element_->text().c_str() : "Cu");
-  if (correlate_ && !correlate_->text().empty()) {
+  w.String(element.empty() ? "Cu" : element.c_str());
+  if (!correlate.empty()) {
     w.Key("correlate");
-    w.String(correlate_->text().c_str());
+    w.String(correlate.c_str());
   }
   w.Key("output");
-  w.String(output_path_ ? output_path_->text().c_str() : "");
+  w.String(output.c_str());
   w.Key("cells");
-  w.Int(static_cast<int>(
-      parse_field_double(cells_ ? cells_->text() : "", 64.0)));
+  w.Int(static_cast<int>(parse_textfield_double(cells_, 64.0)));
   w.Key("classes");
-  w.Int(static_cast<int>(
-      parse_field_double(classes_ ? classes_->text() : "", 5.0)));
-  if (threshold_ && !threshold_->text().empty()) {
+  w.Int(static_cast<int>(parse_textfield_double(classes_, 5.0)));
+  if (!threshold.empty()) {
     w.Key("threshold");
-    w.Double(parse_field_double(threshold_->text(), 0.0));
+    w.Double(parse_field_double(threshold, 0.0));
   }
   w.EndObject();
   return buf.GetString();
@@ -140,24 +142,25 @@ std::string AnalyzeDialog::build_stats_json() const {
   rapidjson::StringBuffer buf;
   rapidjson::Writer<rapidjson::StringBuffer> w(buf);
   w.StartObject();
-  const std::string vector =
-      vector_path_ ? vector_path_->text() : std::string();
+  const std::string vector = textfield_utf8(vector_path_);
+  const std::string input = textfield_utf8(input_path_);
+  const std::string element = textfield_utf8(element_);
+  const std::string correlate = textfield_utf8(correlate_);
   if (!vector.empty()) {
     w.Key("vector");
     w.String(vector.c_str());
   } else {
     w.Key("input");
-    w.String(input_path_ ? input_path_->text().c_str() : "");
+    w.String(input.c_str());
   }
   w.Key("element");
-  w.String(element_ ? element_->text().c_str() : "Cu");
-  if (correlate_ && !correlate_->text().empty()) {
+  w.String(element.empty() ? "Cu" : element.c_str());
+  if (!correlate.empty()) {
     w.Key("correlate");
-    w.String(correlate_->text().c_str());
+    w.String(correlate.c_str());
   }
   w.Key("classes");
-  w.Int(static_cast<int>(
-      parse_field_double(classes_ ? classes_->text() : "", 5.0)));
+  w.Int(static_cast<int>(parse_textfield_double(classes_, 5.0)));
   w.EndObject();
   return buf.GetString();
 }

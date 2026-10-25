@@ -8,6 +8,7 @@
 #include <cstring>
 #include <format>
 #include <memory>
+#include <new>
 #include <utility>
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -965,15 +966,22 @@ void DebugConsolePanel::on_filter_changed() {
 }
 
 void DebugConsolePanel::reload_from_sink() {
-  const auto tail = base::log_sink().snapshot_tail(400);
-  lines_.clear();
-  lines_.reserve(tail.size());
-  for (const auto& e : tail) {
-    LogLine line;
-    line.level = e.level;
-    line.timestamp = e.timestamp;
-    line.message = e.message;
-    lines_.push_back(std::move(line));
+  // Harness cold-starts can leave a bloated/corrupt sink; never let a
+  // bad_alloc during snapshot abort DiagnosticToolsPanel construction
+  // (STATUS_STACK_BUFFER_OVERRUN / uncaught C++ EH).
+  try {
+    const auto tail = base::log_sink().snapshot_tail(400);
+    lines_.clear();
+    lines_.reserve(tail.size());
+    for (const auto& e : tail) {
+      LogLine line;
+      line.level = e.level;
+      line.timestamp = e.timestamp;
+      line.message = e.message;
+      lines_.push_back(std::move(line));
+    }
+  } catch (const std::bad_alloc&) {
+    lines_.clear();
   }
   rebuild_visible_indices();
   sync_list_size(true);

@@ -23,6 +23,13 @@ class UI_EXPORT Textfield : public View {
 
   void set_text(std::string text);
   const std::string& text() const;
+  // Cross-DLL safe for plugin packs (Debug STL is not ABI with ui_views).
+  // Prefer these over text()/set_text(std::string) at the plugin edge.
+  bool utf8_empty() const;
+  size_t utf8_size() const;
+  // Writes up to |dst_cap-1| bytes plus NUL. Returns bytes written (excl. NUL).
+  size_t copy_utf8(char* dst, size_t dst_cap) const;
+  void set_text_utf8(const char* data, size_t len);
   // Shown in muted ink when |text| is empty (does not affect text()).
   void set_placeholder(std::string placeholder);
   // When true, paints a danger border (validation feedback).

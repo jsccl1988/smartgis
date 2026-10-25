@@ -10,8 +10,9 @@
 #include "plugin/product/world3d/scene/detail/host.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/capability/contribute.h"
-#include "tool/command/command.h"
+#include "plugin/runtime/widgets/owned_dialog.h"
 #include "plugin/runtime/widgets/present_surface_picker.h"
+#include "tool/command/command.h"
 #include "ui/gis/shell/atmosphere_panel.h"
 
 namespace plugin {
@@ -91,8 +92,10 @@ bool contribute_atmosphere_panel(content::PluginHost* host) {
                                           "right"};
   if (!host->contribute_dock(
           kWorld3dPluginId, dock, [host](content::PluginHost*) {
-            auto panel = std::make_unique<ui::views::AtmospherePanel>();
-            wire_atmosphere_panel(panel.get(), host);
+            auto panel =
+                make_plugin_view_unique<ui::views::AtmospherePanel>();
+            wire_atmosphere_panel(
+                static_cast<ui::views::AtmospherePanel*>(panel.get()), host);
             auto wrapped = wrap_with_present_surface(host, std::move(panel));
             if (ShellUiSink* ui = shell_ui(host)) {
               (void)ui->mount_inspector("world3d.atmosphere", "Atmosphere",

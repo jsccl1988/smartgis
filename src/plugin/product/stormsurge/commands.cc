@@ -549,7 +549,8 @@ bool register_stormsurge(content::PluginHost* host) {
             present_dialog(
                 L"风暴潮淹没分析",
                 wrap_with_present_surface(
-                    host, std::make_unique<StormSurgeRunDialog>(host)));
+                    host,
+                    make_plugin_view_unique<StormSurgeRunDialog>(host)));
           })) {
     return false;
   }
@@ -558,7 +559,7 @@ bool register_stormsurge(content::PluginHost* host) {
           [](content::PluginHost*) {
             present_dialog(
                 L"关于",
-                std::make_unique<AboutDialog>(
+                make_plugin_view_unique<AboutDialog>(
                     "StormSurge\nDEM+coast+tide inundation "
                     "(native.storm_surge)\n"
                     "P2 stats: native.storm_surge_stats / "

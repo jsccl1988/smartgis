@@ -11,6 +11,7 @@
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/widgets/owned_dialog.h"
 #include "plugin/runtime/widgets/present_surface_picker.h"
+#include "ui/views/kernel/view/view.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/dialogs/message_box.h"
@@ -38,7 +39,7 @@ bool export_composed_page(const std::string& path) {
 
 PrintPreviewDialog::PrintPreviewDialog(content::PluginHost* host) {
   (void)host;
-  auto save = std::make_unique<ui::views::Button>("Save");
+  auto* save = make_plugin_view<ui::views::Button>("Save");
   save->set_click([this] {
     const ui::views::FilePickerResult picked =
         ui::views::pick_save_file(kImageFilter);
@@ -55,7 +56,7 @@ PrintPreviewDialog::PrintPreviewDialog(content::PluginHost* host) {
     }
     set_operation_result("{\"ok\":true,\"op\":\"print.save\",\"layout\":true}");
   });
-  add_child(std::move(save));
+  ui::views::view_adopt_child(this, save);
 
   set_preferred_size({360, 120});
 }
@@ -66,7 +67,7 @@ void open_print_preview_dialog(content::PluginHost* host) {
   }
   present_dialog(L"地图打印",
                  wrap_with_present_surface(
-                     host, std::make_unique<PrintPreviewDialog>(host)));
+                     host, make_plugin_view_unique<PrintPreviewDialog>(host)));
 }
 
 }  // namespace plugin

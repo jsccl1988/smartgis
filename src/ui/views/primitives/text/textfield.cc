@@ -163,6 +163,35 @@ const std::string& Textfield::text() const {
   return text_;
 }
 
+bool Textfield::utf8_empty() const {
+  return text_.empty();
+}
+
+size_t Textfield::utf8_size() const {
+  return text_.size();
+}
+
+size_t Textfield::copy_utf8(char* dst, size_t dst_cap) const {
+  if (!dst || dst_cap == 0) {
+    return 0;
+  }
+  const size_t n =
+      text_.size() < (dst_cap - 1) ? text_.size() : (dst_cap - 1);
+  if (n != 0) {
+    std::memcpy(dst, text_.data(), n);
+  }
+  dst[n] = '\0';
+  return n;
+}
+
+void Textfield::set_text_utf8(const char* data, size_t len) {
+  if (!data) {
+    data = "";
+    len = 0;
+  }
+  set_text(std::string(data, len));
+}
+
 void Textfield::set_placeholder(std::string placeholder) {
   if (placeholder_ == placeholder) {
     return;

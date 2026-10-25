@@ -9,7 +9,6 @@
 #include "base/process/switches.h"
 #include "content/browser/glang.runtime/host/utils/exe_path.h"
 #include "ui/views/markup/loader/markup_loader.h"
-#include "ui/views/primitives/text/textfield.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -56,13 +55,13 @@ std::string resolve_sample_dir_under_exe() {
 
 }  // namespace
 
-double parse_field_double(const std::string& text, double fallback) {
-  if (text.empty()) {
+double parse_field_double_c(const char* text, double fallback) {
+  if (!text || !text[0]) {
     return fallback;
   }
   char* end = nullptr;
-  const double v = std::strtod(text.c_str(), &end);
-  return end != text.c_str() ? v : fallback;
+  const double v = std::strtod(text, &end);
+  return end != text ? v : fallback;
 }
 
 std::string plugin_sample_dir() {
@@ -75,13 +74,6 @@ std::string plugin_sample_dir() {
     return under_exe;
   }
   return "../data/plugin";
-}
-
-void set_textfield_if_empty(ui::views::Textfield* field,
-                            const std::string& value) {
-  if (field && field->text().empty()) {
-    field->set_text(value);
-  }
 }
 
 ui::views::MarkupRoot* load_dialog_markup(std::string_view path_or_name) {

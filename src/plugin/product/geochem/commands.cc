@@ -586,7 +586,7 @@ bool register_geochem(content::PluginHost* host) {
             present_dialog(
                 L"地球化学分析",
                 wrap_with_present_surface(
-                    host, std::make_unique<AnalyzeDialog>(host)));
+                    host, make_plugin_view_unique<AnalyzeDialog>(host)));
           })) {
     return false;
   }
@@ -595,7 +595,7 @@ bool register_geochem(content::PluginHost* host) {
           [](content::PluginHost*) {
             present_dialog(
                 L"关于",
-                std::make_unique<AboutDialog>(
+                make_plugin_view_unique<AboutDialog>(
                     "Geochem\nSample grades + IDW heat raster "
                     "(native.geochem_stats / native.geochem_idw)"));
           })) {

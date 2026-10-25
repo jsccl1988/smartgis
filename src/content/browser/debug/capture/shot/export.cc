@@ -411,10 +411,13 @@ bool export_map2d_bmp(content::Shell* b,
   }
   if (opts.apply_frame &&
       !resolve_export_frame(*b, frame.empty() ? "document_extent" : frame)) {
+    LOGGING(LOG_ERROR, "map2d-export: resolve_export_frame failed frame=%s",
+            frame.c_str());
     return false;
   }
   content::GisScene* doc = b->document();
   if (opts.require_features && (!doc || doc->feature_count() == 0)) {
+    LOGGING(LOG_ERROR, "map2d-export: require_features with empty document");
     return false;
   }
   map2d->bind(doc, b->view_frame());

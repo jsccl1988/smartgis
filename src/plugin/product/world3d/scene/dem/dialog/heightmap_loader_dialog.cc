@@ -130,27 +130,25 @@ std::string HeightmapLoaderDialog::build_json() const {
   rapidjson::StringBuffer buf;
   rapidjson::Writer<rapidjson::StringBuffer> w(buf);
   w.StartObject();
-  const std::string heightmap =
-      heightmap_path_ ? heightmap_path_->text() : std::string();
+  const std::string heightmap = textfield_utf8(heightmap_path_);
   w.Key("heightmap_path");
   w.String(heightmap.c_str(),
            static_cast<rapidjson::SizeType>(heightmap.size()));
   w.Key("x_scale");
-  w.Double(parse_float(x_scale_ ? x_scale_->text() : "", 1.f));
+  w.Double(parse_float(textfield_utf8(x_scale_), 1.f));
   w.Key("y_scale");
-  w.Double(parse_float(y_scale_ ? y_scale_->text() : "", 1.f));
+  w.Double(parse_float(textfield_utf8(y_scale_), 1.f));
   w.Key("z_scale");
-  w.Double(parse_float(z_scale_ ? z_scale_->text() : "", 0.1f));
+  w.Double(parse_float(textfield_utf8(z_scale_), 0.1f));
   w.Key("x_start");
-  w.Double(parse_float(x_start_ ? x_start_->text() : "", 0.f));
+  w.Double(parse_float(textfield_utf8(x_start_), 0.f));
   w.Key("y_start");
-  w.Double(parse_float(y_start_ ? y_start_->text() : "", 0.f));
+  w.Double(parse_float(textfield_utf8(y_start_), 0.f));
   w.Key("z_start");
-  w.Double(parse_float(z_start_ ? z_start_->text() : "", 0.f));
+  w.Double(parse_float(textfield_utf8(z_start_), 0.f));
   w.Key("use_texture");
   w.Bool(use_texture_ && use_texture_->is_checked());
-  const std::string texture =
-      texture_path_ ? texture_path_->text() : std::string();
+  const std::string texture = textfield_utf8(texture_path_);
   w.Key("texture_path");
   w.String(texture.c_str(), static_cast<rapidjson::SizeType>(texture.size()));
   w.Key("color_type");

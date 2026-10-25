@@ -70,8 +70,9 @@ ShortestPathDialog::ShortestPathDialog(content::PluginHost* host)
   set_textfield_if_empty(end_x_, "116.45");
   set_textfield_if_empty(end_y_, "39.95");
 
-  if (host_ && network_path_ && !network_path_->text().empty()) {
-    host_->present_dataset("smartgis.traffic", network_path_->text(), 0);
+  const std::string network = textfield_utf8(network_path_);
+  if (host_ && !network.empty()) {
+    host_->present_dataset("smartgis.traffic", network, 0);
   }
 }
 
@@ -98,25 +99,27 @@ std::string ShortestPathDialog::build_json() const {
   rapidjson::StringBuffer buf;
   rapidjson::Writer<rapidjson::StringBuffer> w(buf);
   w.StartObject();
+  const std::string network = textfield_utf8(network_path_);
+  const std::string output = textfield_utf8(output_path_);
+  const std::string weight = textfield_utf8(weight_field_);
   w.Key("network");
-  w.String(network_path_ ? network_path_->text().c_str() : "");
+  w.String(network.c_str());
   w.Key("output");
-  w.String(output_path_ ? output_path_->text().c_str() : "");
+  w.String(output.c_str());
   w.Key("start_x");
-  w.Double(parse_field_double(start_x_ ? start_x_->text() : "", 0.0));
+  w.Double(parse_textfield_double(start_x_, 0.0));
   w.Key("start_y");
-  w.Double(parse_field_double(start_y_ ? start_y_->text() : "", 0.0));
+  w.Double(parse_textfield_double(start_y_, 0.0));
   w.Key("end_x");
-  w.Double(parse_field_double(end_x_ ? end_x_->text() : "", 1.0));
+  w.Double(parse_textfield_double(end_x_, 1.0));
   w.Key("end_y");
-  w.Double(parse_field_double(end_y_ ? end_y_->text() : "", 1.0));
-  if (weight_field_ && !weight_field_->text().empty()) {
+  w.Double(parse_textfield_double(end_y_, 1.0));
+  if (!weight.empty()) {
     w.Key("weight_field");
-    w.String(weight_field_->text().c_str());
+    w.String(weight.c_str());
   }
   w.Key("frames");
-  w.Int(static_cast<int>(
-      parse_field_double(frames_ ? frames_->text() : "", 24.0)));
+  w.Int(static_cast<int>(parse_textfield_double(frames_, 24.0)));
   w.EndObject();
   return buf.GetString();
 }

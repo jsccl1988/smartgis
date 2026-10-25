@@ -12,7 +12,7 @@
 
 // Bump when View layout / vtable-sensitive members change (stale .obj → LNK2038).
 #if defined(_MSC_VER)
-#pragma detect_mismatch("smartgis_view_layout", "1")
+#pragma detect_mismatch("smartgis_view_layout", "2")
 #endif
 
 #ifndef NOMINMAX
@@ -155,6 +155,15 @@ class UI_EXPORT View {
   void realize_native_tree();
   void sync_native_bounds();
   void sync_native_tree();
+
+  // Cross-DLL ownership: register a destroyer compiled in the allocating
+  // module. Stored in a ui_views side table (not a View member) so the View
+  // object layout stays stable across PE/DLL rebuild skew.
+  using ExternalDestroyFn = void (*)(View*);
+  void set_external_destroy(ExternalDestroyFn fn);
+
+  // Deletes |v| via its external destroyer when registered, else `delete v`.
+  static void destroy(View* v);
 
  protected:
   // create_native_view / paint_self must keep historical vtable offsets —

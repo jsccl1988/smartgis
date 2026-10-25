@@ -20,6 +20,8 @@ Living ledger of **confirmed** crash/hang root causes. Newest cases first.
 
 | Fingerprint / symptom | Exception | Top symbol / module | Status | Case |
 | --- | --- | --- | --- | --- |
+| Plugins select → Python `MessageBoxW` / Agent `ui.click` reenter → abort | `c0000409` | `mount_body` auto `execute_tool` / `show_message_box` | fixed | [2026-10-25-d](#case-2026-10-25-plugin-select-messagebox-reenter) |
+| Plugin form replace → `remove_all_children` / `_CrtIsValidHeapPointer` | `c0000374` | `View::~` / `accept_presented` / flood↔`ui_views` | fixed | [2026-10-25-c](#case-2026-10-25-plugin-view-external-destroy) |
 | Plugins panel click → flood InundateDialog ctor / load_css | `c0000374` | `InundateDialog` / `MarkupRoot`+CSS / flood↔`ui_views` | fixed | [2026-10-25-b](#case-2026-10-25-plugin-click-markuproot-dll) |
 | Cold start → `show_shell` / `catalog_map_->parent` freed (`cdcdcdcd`) | `c0000005` | `View::parent` / `ShellLifecycleComposer::show_shell` | fixed | [2026-10-25](#case-2026-10-25-shell-unique-ptr-cross-dll) |
 | `scene3d_presenter_test` → `StubCommandList::begin_render_pass` read `0x6` | `c0000005` | `CloudPass::record` / RHI vtable skew (`set_scissor`) | fixed | [2026-10-25](#case-2026-10-25-shell-unique-ptr-cross-dll) |
@@ -54,6 +56,62 @@ Living ledger of **confirmed** crash/hang root causes. Newest cases first.
 ---
 
 ## Case log
+
+### Case: 2026-10-25 plugin-select-messagebox-reenter
+
+- **Status:** fixed (2026-10-25: `mount_body` no longer auto-executes
+  `kCommand` on select / `show_tool`)
+- **Fingerprint:** `FAIL_FAST_FATAL_APP_EXIT_c0000409_ucrtbase.dll!abort`
+  while `MessageBoxW` nested under Agent `ui.click`
+- **Symptom:** Release `SmartGIS` + DebugAgent: `:ui panel plugins` then
+  select / filter comparison packs (`flood_levels`, …) or rapid tool
+  Run → process dies (`CrashDumps\SmartGIS.exe.28224.dmp`,
+  `…17304.dmp`)
+- **Evidence:** `out/crash/20261025-133154-analyze.log` —
+  `on_plugin_click` → `show_tool` → `mount_body` → `execute_tool` →
+  Python → `ui_show_message_box` → `MessageBoxW`; Agent click reenters
+  `shell_wheel_subclass_proc`
+- **Root cause:** `PluginCatalogView::mount_body` auto-ran primary
+  `kCommand` tools on select (unlike processing, which already refused
+  auto-fire). About/info commands show modal MessageBox; Agent kept
+  injecting clicks into the nested modal loop → abort
+- **Fix:** drop auto-`execute_tool` for `kCommand` in `mount_body`;
+  select only mounts Run card / dialog/dock bodies; Run owns execution
+- **Guardrail:** select path must not call modal MessageBox hosts;
+  Agent ui.click + modal Win32 boxes are incompatible
+- **False leads:** filter “wrong plugin id” alone (secondary); present
+  FAIL after flood script (transient extent/layout)
+
+### Case: 2026-10-25 plugin-view-external-destroy
+
+- **Status:** fixed (2026-10-25: Plugins → `:tool` walk + flood↔print
+  form replace survives; process alive after full dialog suite)
+- **Fingerprint:** `HEAP_CORRUPTION` / `_CrtIsValidHeapPointer` during
+  `CatalogContentPanel::accept_presented` → `View::remove_all_children`
+  while presenting print preview over flood (or any plugin) body
+- **Symptom:** Open plugin dialog then another dialog that replaces the
+  form → process death. Earlier related: `InundateDialog::build_json`
+  UTF-8 `std::string` cross-DLL AV on Run (fixed via Textfield UTF-8
+  copy APIs in the same agent loop)
+- **Evidence:** `out/crash/20261025-112339*` (prior catch); verify
+  `out/Debug/log/plugin_walk*.txt` — all product `:tool` dialogs `ok`,
+  including flood→print.preview replace; capture
+  `out/Debug/captures/_scratch/plugin_walk_done.bmp`
+- **Root cause:** Plugin DLLs `new` View subclasses; shell
+  `remove_all_children` / `~View` freed them with `ui_views` `delete`.
+  First attempt stored `ExternalDestroyFn` as a View member and broke
+  cold-start ABI (`View::destroy` jumped to garbage) until rebuild;
+  member layout was rejected
+- **Fix:** `View::destroy` + side-table `set_external_destroy` in
+  `ui_views` (no View size change); `make_plugin_view` /
+  `make_plugin_view_unique` in `owned_dialog.h`; wire product
+  `present_dialog` / wrap chrome / picker children
+- **Guardrail:** Never add fields to `View` for cross-DLL hooks without
+  a side table; plugin-allocated Views must register destroyers in the
+  allocating TU; rebuild product PE set when `view.h` changes
+- **False leads:** build_id mismatch exit (relink product DLLs);
+  `:tool world3d.trimesh_loader` “fail” — command id is
+  `world3d.load_trimesh`
 
 ### Case: 2026-10-25 plugin-click-markuproot-dll
 

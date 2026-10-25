@@ -8,6 +8,7 @@
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/catalog/resource_roots.h"
 #include "plugin/runtime/widgets/dialog_fields.h"
+#include "plugin/runtime/widgets/owned_dialog.h"
 #include "plugin/runtime/widgets/present_surface_picker.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
@@ -66,7 +67,7 @@ InundateDialog::InundateDialog(content::PluginHost* host) : host_(host) {
 
   ui::views::BoxLayout* box = ui::views::install_box_layout(
       this, ui::views::BoxLayout::Orientation::kVertical);
-  auto* picker = new PresentSurfacePicker(host_);
+  auto* picker = make_plugin_view<PresentSurfacePicker>(host_);
   picker->set_on_surface_change([this](int) { present_sample(); });
   if (box) {
     box->set_flex_for_view(body, 1);
@@ -109,29 +110,30 @@ std::string InundateDialog::build_json() const {
   rapidjson::StringBuffer buf;
   rapidjson::Writer<rapidjson::StringBuffer> w(buf);
   w.StartObject();
+  const std::string dem = textfield_utf8(dem_path_);
+  const std::string output = textfield_utf8(output_path_);
+  const std::string depth = textfield_utf8(water_depth_);
+  const std::string frames_dir = textfield_utf8(frames_dir_);
   w.Key("dem");
-  w.String(dem_path_ ? dem_path_->text().c_str() : "");
+  w.String(dem.c_str());
   w.Key("output");
-  w.String(output_path_ ? output_path_->text().c_str() : "");
+  w.String(output.c_str());
   w.Key("seed_x");
-  w.Double(parse_field_double(seed_x_ ? seed_x_->text() : "", 0.0));
+  w.Double(parse_textfield_double(seed_x_, 0.0));
   w.Key("seed_y");
-  w.Double(parse_field_double(seed_y_ ? seed_y_->text() : "", 0.0));
-  const std::string depth =
-      water_depth_ ? water_depth_->text() : std::string();
+  w.Double(parse_textfield_double(seed_y_, 0.0));
   if (!depth.empty()) {
     w.Key("water_depth");
     w.Double(parse_field_double(depth, 0.0));
   } else {
     w.Key("water_level");
-    w.Double(parse_field_double(water_level_ ? water_level_->text() : "", 100.0));
+    w.Double(parse_textfield_double(water_level_, 100.0));
   }
   w.Key("frames");
-  w.Int(static_cast<int>(
-      parse_field_double(frames_ ? frames_->text() : "", 12.0)));
-  if (frames_dir_ && !frames_dir_->text().empty()) {
+  w.Int(static_cast<int>(parse_textfield_double(frames_, 12.0)));
+  if (!frames_dir.empty()) {
     w.Key("frames_dir");
-    w.String(frames_dir_->text().c_str());
+    w.String(frames_dir.c_str());
   }
   w.EndObject();
   return buf.GetString();

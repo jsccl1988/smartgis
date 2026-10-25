@@ -9,6 +9,7 @@
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/capability.h"
 #include "plugin/runtime/host/capability/contribute.h"
+#include "plugin/runtime/widgets/owned_dialog.h"
 #include "plugin/runtime/widgets/present_surface_picker.h"
 #include "tool/command/command.h"
 #include "ui/gis/shell/map_furniture_panel.h"
@@ -60,8 +61,10 @@ bool contribute_map_furniture_panel(content::PluginHost* host) {
   const content::DockContribution dock = {kDockId, "Map furniture", "right"};
   if (!host->contribute_dock(
           kPluginId, dock, [host](content::PluginHost*) {
-            auto panel = std::make_unique<ui::views::MapFurniturePanel>();
-            wire_map_furniture_panel(panel.get(), host);
+            auto panel =
+                make_plugin_view_unique<ui::views::MapFurniturePanel>();
+            wire_map_furniture_panel(
+                static_cast<ui::views::MapFurniturePanel*>(panel.get()), host);
             auto wrapped = wrap_with_present_surface(host, std::move(panel));
             if (ShellUiSink* ui = shell_ui(host)) {
               (void)ui->mount_inspector(kDockId, "Map furniture",

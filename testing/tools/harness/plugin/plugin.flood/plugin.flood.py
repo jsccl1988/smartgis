@@ -35,7 +35,9 @@ def main():
     gp.invalidate_map2d()
     gp.pump(ms=200)
     gp.mark("extent-ok")
-    gp.export_bmp(leaf="plugin-showcase-flood.bmp", frame="flood_wuhan")
+    # Prefer document_extent after fit_extent: flood mask is a raster layer and
+    # the live doc extent is already framed; named flood_wuhan is optional.
+    gp.export_bmp(leaf="plugin-showcase-flood.bmp", frame="document_extent")
     gp.mark("bmp-ok")
     gp.mark("playback-ok")
     gp.mark("pass")

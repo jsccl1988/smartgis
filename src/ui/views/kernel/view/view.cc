@@ -6,6 +6,8 @@
 #include <string_view>
 
 #include <cmath>
+#include <mutex>
+#include <unordered_map>
 
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
@@ -18,6 +20,9 @@
 namespace ui {
 namespace views {
 namespace {
+
+std::mutex g_external_destroy_mu;
+std::unordered_map<View*, View::ExternalDestroyFn> g_external_destroy;
 
 bool clip_misses(ui::gfx::Canvas* canvas, const Rect& bounds) {
   if (!canvas || !canvas->hdc() || bounds.width <= 0 || bounds.height <= 0) {
@@ -39,11 +44,46 @@ bool clip_misses(ui::gfx::Canvas* canvas, const Rect& bounds) {
 
 View::View() = default;
 
+void View::set_external_destroy(ExternalDestroyFn fn) {
+  std::lock_guard<std::mutex> lock(g_external_destroy_mu);
+  if (fn) {
+    g_external_destroy[this] = fn;
+  } else {
+    g_external_destroy.erase(this);
+  }
+}
+
+void View::destroy(View* v) {
+  if (!v) {
+    return;
+  }
+  ExternalDestroyFn fn = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(g_external_destroy_mu);
+    auto it = g_external_destroy.find(v);
+    if (it != g_external_destroy.end()) {
+      fn = it->second;
+      g_external_destroy.erase(it);
+    }
+  }
+  if (fn) {
+    fn(v);
+    return;
+  }
+  delete v;
+}
+
 View::~View() {
+  // Drop any side-table registration (destroy() already erases before fn).
+  {
+    std::lock_guard<std::mutex> lock(g_external_destroy_mu);
+    g_external_destroy.erase(this);
+  }
   // Drop children before the rest of View members. Subclasses that wire child
   // callbacks capturing `this` should still clear those callbacks in their own
   // destructor before their std::function members run.
-  children_.clear();
+  // Use destroy() so plugin-allocated children free on their own heap.
+  remove_all_children();
   if (widget_) {
     widget_->clear_view_refs(this);
   }
@@ -81,7 +121,17 @@ std::unique_ptr<View> View::remove_child(View* child) {
 }
 
 void View::remove_all_children() {
-  children_.clear();
+  while (!children_.empty()) {
+    std::unique_ptr<View> child = std::move(children_.back());
+    children_.pop_back();
+    if (!child) {
+      continue;
+    }
+    child->parent_ = nullptr;
+    child->set_widget(nullptr);
+    View* raw = child.release();
+    destroy(raw);
+  }
 }
 
 View* View::child_at(size_t i) const {

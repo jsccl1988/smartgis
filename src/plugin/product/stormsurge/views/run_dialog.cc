@@ -79,8 +79,8 @@ StormSurgeRunDialog::StormSurgeRunDialog(content::PluginHost* host)
   set_textfield_if_empty(impact_path_, base + "/stormsurge_impact_sample.geojson");
 
   if (host_) {
-    host_->present_dataset("smartgis.stormsurge",
-                           coast_path_ ? coast_path_->text() : "", 1);
+    host_->present_dataset("smartgis.stormsurge", textfield_utf8(coast_path_),
+                           1);
   }
 }
 
@@ -117,40 +117,47 @@ std::string StormSurgeRunDialog::build_json() const {
   rapidjson::StringBuffer buf;
   rapidjson::Writer<rapidjson::StringBuffer> w(buf);
   w.StartObject();
+  const std::string dem = textfield_utf8(dem_path_);
+  const std::string coast = textfield_utf8(coast_path_);
+  const std::string tide = textfield_utf8(tide_path_);
+  const std::string output = textfield_utf8(output_path_);
+  const std::string depth = textfield_utf8(depth_path_);
+  const std::string stats = textfield_utf8(stats_path_);
+  const std::string impact = textfield_utf8(impact_path_);
+  const std::string frames_dir = textfield_utf8(frames_dir_);
   w.Key("dem");
-  w.String(dem_path_ ? dem_path_->text().c_str() : "");
+  w.String(dem.c_str());
   w.Key("coast");
-  w.String(coast_path_ ? coast_path_->text().c_str() : "");
-  if (tide_path_ && !tide_path_->text().empty()) {
+  w.String(coast.c_str());
+  if (!tide.empty()) {
     w.Key("tide");
-    w.String(tide_path_->text().c_str());
+    w.String(tide.c_str());
   }
   w.Key("output");
-  w.String(output_path_ ? output_path_->text().c_str() : "");
-  if (depth_path_ && !depth_path_->text().empty()) {
+  w.String(output.c_str());
+  if (!depth.empty()) {
     w.Key("depth_output");
-    w.String(depth_path_->text().c_str());
+    w.String(depth.c_str());
   }
-  if (stats_path_ && !stats_path_->text().empty()) {
+  if (!stats.empty()) {
     w.Key("stats_output");
-    w.String(stats_path_->text().c_str());
+    w.String(stats.c_str());
   }
-  if (impact_path_ && !impact_path_->text().empty()) {
+  if (!impact.empty()) {
     w.Key("impact");
-    w.String(impact_path_->text().c_str());
+    w.String(impact.c_str());
   }
   w.Key("seed_x");
-  w.Double(parse_field_double(seed_x_ ? seed_x_->text() : "", 0.0));
+  w.Double(parse_textfield_double(seed_x_, 0.0));
   w.Key("seed_y");
-  w.Double(parse_field_double(seed_y_ ? seed_y_->text() : "", 0.0));
+  w.Double(parse_textfield_double(seed_y_, 0.0));
   w.Key("tide_level");
-  w.Double(parse_field_double(tide_level_ ? tide_level_->text() : "", 36.0));
+  w.Double(parse_textfield_double(tide_level_, 36.0));
   w.Key("frames");
-  w.Int(static_cast<int>(
-      parse_field_double(frames_ ? frames_->text() : "", 12.0)));
-  if (frames_dir_ && !frames_dir_->text().empty()) {
+  w.Int(static_cast<int>(parse_textfield_double(frames_, 12.0)));
+  if (!frames_dir.empty()) {
     w.Key("frames_dir");
-    w.String(frames_dir_->text().c_str());
+    w.String(frames_dir.c_str());
   }
   w.EndObject();
   return buf.GetString();
@@ -160,8 +167,7 @@ void StormSurgeRunDialog::on_ok() {
   if (!host_) {
     return;
   }
-  const std::string coast =
-      coast_path_ ? coast_path_->text() : std::string();
+  const std::string coast = textfield_utf8(coast_path_);
   if (!coast.empty()) {
     rapidjson::StringBuffer buf;
     rapidjson::Writer<rapidjson::StringBuffer> w(buf);

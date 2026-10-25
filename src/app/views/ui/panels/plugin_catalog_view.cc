@@ -1023,7 +1023,9 @@ void PluginCatalogView::mount_body() {
              processing_registered(tool.id)) {
     // Parameter card + Run; do not auto-fire processing with "{}".
   } else if (tool.kind == ToolKind::kCommand) {
-    opened = execute_tool(selected_plugin_id_, tool);
+    // Select / show_tool only mounts a Run card. Auto-executing commands here
+    // popped Python MessageBoxW on about/info tools; nested modal loops then
+    // re-entered Agent ui.click and abort()ed (c0000409, dump SmartGIS 28224).
   }
   if (presented_) {
     return;

@@ -95,12 +95,15 @@ std::string InterpolateDialog::build_interpolate_json() const {
   rapidjson::StringBuffer buf;
   rapidjson::Writer<rapidjson::StringBuffer> w(buf);
   w.StartObject();
+  const std::string csv = textfield_utf8(csv_path_);
+  const std::string stratum = textfield_utf8(stratum_id_);
+  const std::string output = textfield_utf8(output_path_);
   w.Key("input");
-  w.String(csv_path_ ? csv_path_->text().c_str() : "");
+  w.String(csv.c_str());
   w.Key("stratum_id");
-  w.String(stratum_id_ ? stratum_id_->text().c_str() : "clay");
+  w.String(stratum.empty() ? "clay" : stratum.c_str());
   w.Key("output");
-  w.String(output_path_ ? output_path_->text().c_str() : "");
+  w.String(output.c_str());
   w.EndObject();
   return buf.GetString();
 }
@@ -109,14 +112,18 @@ std::string InterpolateDialog::build_prism_json() const {
   rapidjson::StringBuffer buf;
   rapidjson::Writer<rapidjson::StringBuffer> w(buf);
   w.StartObject();
+  const std::string csv = textfield_utf8(csv_path_);
+  const std::string top = textfield_utf8(top_stratum_);
+  const std::string bottom = textfield_utf8(bottom_stratum_);
+  const std::string output = textfield_utf8(output_path_);
   w.Key("input");
-  w.String(csv_path_ ? csv_path_->text().c_str() : "");
+  w.String(csv.c_str());
   w.Key("top_stratum_id");
-  w.String(top_stratum_ ? top_stratum_->text().c_str() : "clay");
+  w.String(top.empty() ? "clay" : top.c_str());
   w.Key("bottom_stratum_id");
-  w.String(bottom_stratum_ ? bottom_stratum_->text().c_str() : "sand");
-  if (output_path_ && !output_path_->text().empty()) {
-    const std::string vol_out = output_path_->text() + ".volume.json";
+  w.String(bottom.empty() ? "sand" : bottom.c_str());
+  if (!output.empty()) {
+    const std::string vol_out = output + ".volume.json";
     w.Key("output");
     w.String(vol_out.c_str());
   }
