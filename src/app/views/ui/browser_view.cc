@@ -17,6 +17,8 @@
 #include <windows.h>
 
 #include "app/views/browser/browser.h"
+#include "app/views/browser/plugin/shell/plugin_shell.h"
+#include "app/views/ui/panels/plugin_catalog_view.h"
 #include "app/views/ui/horizon/ambox_composer.h"
 #include "app/views/ui/horizon/catalog_composer.h"
 #include "app/views/ui/horizon/inspector_host_composer.h"
@@ -195,6 +197,18 @@ std::string BrowserView::open_named_panel(const std::string& panel) {
   }
   return "unknown panel (plugins|processing|measure|selection|legend|layer|"
          "atmosphere)";
+}
+
+std::string BrowserView::plugin_catalog_sweep_for_agent() {
+  on_plugins();
+  if (!plugin_catalog_) {
+    return "no plugin catalog";
+  }
+  if (browser_ && browser_->plugins()) {
+    (void)browser_->plugins()->ensure_builtins();
+    plugin_catalog_->refresh();
+  }
+  return plugin_catalog_->sweep_all_for_agent();
 }
 
 void BrowserView::ensure_processing_panel() {

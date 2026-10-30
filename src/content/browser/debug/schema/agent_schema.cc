@@ -41,6 +41,7 @@ constexpr const char* kConsolePrefixes[] = {
     ":sdbd sql ",
     ":py ",
     ":run ",
+    ":plugin sweep",
 };
 
 }  // namespace
@@ -56,7 +57,7 @@ std::string agent_help_text() {
          "  :script <path.py>  :record on|off|poll|clear\n"
          "  :gis test|bench  :rhi test|bench\n"
          "  :sdbd capabilities|sql <text>\n"
-         "  :py <code>  :run <path.py>\n"
+         "  :py <code>  :run <path.py>  :plugin sweep\n"
          "rpc: ping log.* cmd.exec py.* ui.* script.run record.* sdbd.* "
          "diag.pack rpc.methods rpc.confirm\n"
          "dangerous ops need :confirm or SG_DEBUG_ALLOW=1 (debug builds auto)\n"

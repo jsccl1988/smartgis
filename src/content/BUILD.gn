@@ -224,6 +224,8 @@ source_set("debug_agent") {
     "browser/debug/cmd/agent_log.h",
     "browser/debug/cmd/agent_gis_cmd.cc",
     "browser/debug/cmd/agent_gis_cmd.h",
+    "browser/debug/cmd/agent_plugin_cmd.cc",
+    "browser/debug/cmd/agent_plugin_cmd.h",
     "browser/debug/cmd/agent_py.cc",
     "browser/debug/cmd/agent_py.h",
     "browser/debug/cmd/agent_record.cc",

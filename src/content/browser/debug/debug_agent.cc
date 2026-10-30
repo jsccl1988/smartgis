@@ -36,6 +36,7 @@
 #include "content/browser/debug/cmd/agent_harness.h"
 #include "content/browser/debug/cmd/agent_log.h"
 #include "content/browser/debug/cmd/agent_gis_cmd.h"
+#include "content/browser/debug/cmd/agent_plugin_cmd.h"
 #include "content/browser/debug/cmd/agent_py.h"
 #include "content/browser/debug/cmd/agent_record.h"
 #include "content/browser/debug/cmd/agent_sdbd.h"
@@ -661,6 +662,9 @@ std::string DebugAgent::exec_line(const std::string& line_in) {
       return ret(std::move(output));
     }
     if (detail::exec_gis_command(line, host, &output)) {
+      return ret(std::move(output));
+    }
+    if (detail::exec_plugin_command(line, host, &output)) {
       return ret(std::move(output));
     }
     if (detail::exec_ui_command(line, host, &output)) {

@@ -53,6 +53,9 @@ class PluginCatalogView : public ui::views::View {
 
   void refresh();
 
+  // DebugAgent :plugin sweep — select each row, enable, run primary tool/scenario.
+  std::string sweep_all_for_agent();
+
  private:
   enum class ToolKind { kCommand, kProcessing, kDialog, kDock };
 

@@ -112,6 +112,9 @@ struct ConsoleMap {
     host.ui_open_panel = [](const std::string& panel) {
       return std::string("opened:") + panel;
     };
+    host.plugin_sweep = [] {
+      return std::string("sweep ok=0 fail=0 rows=0");
+    };
     agent->set_host(std::move(host));
   }
 };
@@ -172,6 +175,8 @@ void expect_ui_local(content::DebugAgent* agent) {
   expect(agent->exec_line(":ui overlay") == "unavailable", ":ui overlay");
   expect(agent->exec_line(":ui panel plugins") == "opened:plugins",
          ":ui panel plugins");
+  expect(agent->exec_line(":plugin sweep").find("sweep ok=") != std::string::npos,
+         ":plugin sweep");
 }
 
 // Soft note only — never hard-fail; daemon / Python may be absent offline.

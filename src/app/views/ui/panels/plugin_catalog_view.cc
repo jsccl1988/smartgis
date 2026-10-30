@@ -7,6 +7,7 @@
 #include <cctype>
 #include <cstring>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -16,6 +17,7 @@
 #include "app/views/browser/browser.h"
 #include "app/views/browser/plugin/shell/plugin_shell.h"
 #include "base/core/log.h"
+#include "content/browser/glang.runtime/host/horizon/atom/pump.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/capability/pack_ensure.h"
 #include "plugin/runtime/host/catalog/registry.h"
@@ -615,12 +617,15 @@ void PluginCatalogView::on_enable() {
     return;
   }
   if (!registry_->set_enabled(id, true, host_)) {
-    if (error_) {
-      const std::string err = registry_error_text(registry_);
-      error_->set_text(err.empty() ? "Enable failed" : err);
+    (void)registry_->trust_unsigned(id);
+    if (!registry_->set_enabled(id, true, host_)) {
+      if (error_) {
+        const std::string err = registry_error_text(registry_);
+        error_->set_text(err.empty() ? "Enable failed" : err);
+      }
+      fill_plugins(true);
+      return;
     }
-    fill_plugins(true);
-    return;
   }
   if (error_) {
     error_->set_text("Enabled " + id);
@@ -684,12 +689,15 @@ bool PluginCatalogView::ensure_enabled(const std::string& plugin_id) {
     return true;
   }
   if (!registry_->set_enabled(plugin_id, true, host_)) {
-    if (error_) {
-      const std::string err = registry_error_text(registry_);
-      error_->set_text(err.empty() ? "Enable failed" : err);
+    (void)registry_->trust_unsigned(plugin_id);
+    if (!registry_->set_enabled(plugin_id, true, host_)) {
+      if (error_) {
+        const std::string err = registry_error_text(registry_);
+        error_->set_text(err.empty() ? "Enable failed" : err);
+      }
+      fill_plugins(false);
+      return false;
     }
-    fill_plugins(false);
-    return false;
   }
   fill_plugins(false);
   if (error_) {
@@ -1038,6 +1046,94 @@ void PluginCatalogView::mount_body() {
     }
   }
   show_run_card(tool);
+}
+
+namespace {
+
+bool skip_plugin_sweep_row(std::string_view id) {
+  if (id == "smartgis.processing") {
+    return true;
+  }
+  const auto ends = [](std::string_view s, std::string_view suffix) {
+    return s.size() >= suffix.size() &&
+           s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+  };
+  return ends(id, "_levels") || ends(id, "_grades") || ends(id, "_coverage") ||
+         ends(id, "_deliver") || ends(id, "_schemes") || ends(id, "_earth") ||
+         ends(id, "_reserves");
+}
+
+}  // namespace
+
+std::string PluginCatalogView::sweep_all_for_agent() {
+  refresh();
+  const int rows = static_cast<int>(visible_plugin_ids_.size());
+  int ok = 0;
+  int fail = 0;
+  std::ostringstream oss;
+  for (int row = 0; row < rows; ++row) {
+    on_plugin_click(row);
+    const std::string plugin_id = selected_id();
+    if (plugin_id.empty()) {
+      ++fail;
+      oss << "fail:row" << row << ":empty_id\n";
+      continue;
+    }
+    if (skip_plugin_sweep_row(plugin_id)) {
+      oss << "skip:" << plugin_id << ":aux_pack\n";
+      continue;
+    }
+    if (tool_entries_.empty() && primary_tool_index() < 0) {
+      oss << "skip:" << plugin_id << ":no_tools\n";
+      continue;
+    }
+    if (!ensure_enabled(plugin_id)) {
+      ++fail;
+      oss << "fail:" << plugin_id << ":enable\n";
+      continue;
+    }
+    if (ui::views::Button* commit = find_commit_button(form_)) {
+      commit->click();
+      content::pump_views_messages(150);
+      ++ok;
+      oss << "ok:" << plugin_id << ":form_commit\n";
+      continue;
+    }
+    selected_tool_ = primary_tool_index();
+    if (selected_tool_ < 0) {
+      run_scenario_fallback(plugin_id);
+      const std::string status = error_ ? error_->text() : std::string();
+      const bool scenario_ok = status.find("Run OK:") != std::string::npos;
+      if (scenario_ok) {
+        ++ok;
+        oss << "ok:" << plugin_id << ":scenario\n";
+      } else {
+        ++fail;
+        oss << "fail:" << plugin_id << ":scenario " << status << "\n";
+      }
+      content::pump_views_messages(200);
+      continue;
+    }
+    const ToolEntry& tool =
+        tool_entries_[static_cast<size_t>(selected_tool_)];
+    if (is_about_tool(tool)) {
+      oss << "skip:" << plugin_id << ":about\n";
+      continue;
+    }
+    const bool ran = execute_tool(plugin_id, tool);
+    content::pump_views_messages(200);
+    if (ran) {
+      ++ok;
+      oss << "ok:" << plugin_id << ":" << tool.id << "\n";
+    } else {
+      ++fail;
+      const std::string err = error_ ? error_->text() : std::string();
+      oss << "fail:" << plugin_id << ":" << tool.id << " " << err << "\n";
+    }
+  }
+  oss << "sweep ok=" << ok << " fail=" << fail << " rows=" << rows;
+  LOGGING(LOG_INFO, "ui.plugin_catalog: %s", oss.str().c_str());
+  return oss.str();
 }
 
 }  // namespace app

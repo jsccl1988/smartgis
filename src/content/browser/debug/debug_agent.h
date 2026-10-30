@@ -33,6 +33,8 @@ struct DebugAgentHost {
   std::function<std::string(const std::string& path)> ui_capture_shell;
   // Open a named shell panel (plugins / processing / measure / …).
   std::function<std::string(const std::string& panel)> ui_open_panel;
+  // Run PluginCatalogView sweep (enable + primary tool per listed plugin).
+  std::function<std::string()> plugin_sweep;
   // Prefer in-process CPython when set; else OOP spawn fallback.
   std::function<std::string(const std::string& code)> py_eval;
   // Run Interact DSL / capability script (path UTF-8). Thin wrap only.

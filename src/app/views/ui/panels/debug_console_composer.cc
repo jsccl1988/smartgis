@@ -343,6 +343,9 @@ void DebugConsoleComposer::bind_debug_agent_host() {
   host.ui_open_panel = [this](const std::string& panel) {
     return open_panel_for_agent(panel);
   };
+  host.plugin_sweep = [this]() {
+    return invoke_on_ui([this] { return host_->plugin_catalog_sweep_for_agent(); });
+  };
   host.py_eval = [this](const std::string& code) {
     return invoke_on_ui([&] {
     if (!host_->browser_) {

@@ -204,6 +204,7 @@ class BrowserView : public BrowserUiDelegate {
   void on_processing();
   // Open a named right-dock / tools panel (DebugAgent :ui panel). UI thread only.
   std::string open_named_panel(const std::string& panel);
+  std::string plugin_catalog_sweep_for_agent();
 
   // Marshaled via WM_APP+0x4F50 (agent thread → shell HWND subclass).
   struct OpenPanelUiRequest {
